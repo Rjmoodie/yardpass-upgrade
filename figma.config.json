@@ -1,0 +1,48 @@
+{
+  "codeConnect": {
+    "include": ["src/components/**/*.tsx"],
+    "exclude": ["**/*.stories.tsx", "**/*.test.tsx"],
+    "parser": "react",
+    "docs": {
+      "storybookUrl": "https://YOUR_USERNAME.github.io/yardpass-figma"
+    }
+  },
+  "components": [
+    {
+      "figmaNode": "https://figma.com/file/FILE_ID",
+      "source": "./src/components/AuthScreen.tsx",
+      "component": "AuthScreen",
+      "variant": {},
+      "props": {
+        "onAuth": {
+          "type": "function",
+          "description": "Callback function called when authentication is successful"
+        }
+      },
+      "example": "<AuthScreen onAuth={(phone, name) => console.log('Authenticated:', phone, name)} />",
+      "docs": "https://YOUR_USERNAME.github.io/yardpass-figma/?path=/docs/components-authscreen--docs"
+    },
+    {
+      "figmaNode": "https://figma.com/file/FILE_ID",
+      "source": "./src/components/figma/ImageWithFallback.tsx", 
+      "component": "ImageWithFallback",
+      "variant": {},
+      "props": {
+        "src": {
+          "type": "string",
+          "description": "Image source URL"
+        },
+        "alt": {
+          "type": "string", 
+          "description": "Alt text for accessibility"
+        },
+        "className": {
+          "type": "string",
+          "description": "Additional CSS classes"
+        }
+      },
+      "example": "<ImageWithFallback src='image-url.jpg' alt='Description' className='w-full h-auto' />",
+      "docs": "https://YOUR_USERNAME.github.io/yardpass-figma/?path=/docs/components-imagewithfallback--docs"
+    }
+  ]
+}
