@@ -1,6 +1,6 @@
 import { Home, Plus, BarChart3, User, Calendar } from 'lucide-react';
 
-type Screen = 'feed' | 'create-event' | 'dashboard' | 'profile' | 'create-post';
+type Screen = 'auth' | 'feed' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post';
 type UserRole = 'attendee' | 'organizer';
 
 interface NavigationProps {
