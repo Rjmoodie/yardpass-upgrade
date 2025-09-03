@@ -48,23 +48,39 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
   const fetchPosts = async () => {
     try {
       setLoading(true);
+      console.log('Fetching posts with params:', { eventId, userId });
       
-      const params = new URLSearchParams();
-      if (eventId) params.append('event_id', eventId);
-      if (userId) params.append('user_id', userId);
-      params.append('limit', '20');
+      const url = new URL('https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/posts-list');
+      if (eventId) url.searchParams.append('event_id', eventId);
+      if (userId) url.searchParams.append('user_id', userId);
+      url.searchParams.append('limit', '20');
       
-      const { data, error } = await supabase.functions.invoke('posts-list', {
-        body: { params: params.toString() }
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY'}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Posts fetch result:', result);
       
-      setPosts(data?.data || []);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      setPosts(result.data || []);
 
       // Fetch user's likes if authenticated
-      if (user && data?.data?.length > 0) {
-        const postIds = data.data.map((p: EventPost) => p.id);
+      if (user && result.data?.length > 0) {
+        const postIds = result.data.map((p: EventPost) => p.id);
         const { data: reactions } = await supabase
           .from('event_reactions')
           .select('post_id')

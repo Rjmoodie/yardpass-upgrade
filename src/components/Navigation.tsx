@@ -8,7 +8,7 @@ import { OrganizerMenu } from './OrganizerMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
-type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
 type UserRole = 'attendee' | 'organizer';
 
 interface NavigationProps {
@@ -139,6 +139,12 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
       id: 'profile' as Screen,
       icon: User,
       label: 'Profile',
+      show: true
+    },
+    {
+      id: 'posts-test' as Screen,
+      icon: Plus,
+      label: 'Posts',
       show: true
     }
   ].filter(item => item.show);

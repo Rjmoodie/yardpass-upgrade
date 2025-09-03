@@ -13,6 +13,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Posts-list function called with URL:', req.url);
+    
     // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -29,6 +31,8 @@ serve(async (req) => {
     const user_id = url.searchParams.get('user_id');
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const offset = parseInt(url.searchParams.get('offset') || '0');
+
+    console.log('Query params:', { event_id, user_id, limit, offset });
 
     let query = supabaseClient
       .from('event_posts')
@@ -51,21 +55,8 @@ serve(async (req) => {
         events:event_id (
           title,
           owner_context_type,
-          owner_context_id
-        ),
-        event_reactions (
-          kind,
-          user_id
-        ),
-        event_comments (
-          id,
-          text,
-          created_at,
-          author_user_id,
-          user_profiles:author_user_id (
-            display_name,
-            photo_url
-          )
+          owner_context_id,
+          visibility
         )
       `)
       .order('created_at', { ascending: false })
@@ -89,25 +80,54 @@ serve(async (req) => {
       });
     }
 
-    // Transform the data to include computed fields
-    const transformedPosts = posts?.map(post => ({
-      ...post,
-      like_count: post.event_reactions?.filter(r => r.kind === 'like').length || 0,
-      comment_count: post.event_comments?.length || 0,
-      is_organizer: post.events && (
-        (post.events.owner_context_type === 'individual' && post.events.owner_context_id === post.author_user_id) ||
-        (post.events.owner_context_type === 'organization')
-      ),
-      badge_label: post.ticket_tiers?.badge_label || (
-        post.events && post.events.owner_context_type === 'individual' && post.events.owner_context_id === post.author_user_id 
-          ? 'HOST' 
-          : post.events && post.events.owner_context_type === 'organization' 
-            ? 'CREW' 
-            : null
-      )
-    })) || [];
+    console.log(`Fetched ${posts?.length || 0} posts`);
 
-    return new Response(JSON.stringify({ data: transformedPosts }), {
+    // Get reaction counts and comments for each post
+    if (posts && posts.length > 0) {
+      const postIds = posts.map(p => p.id);
+      
+      // Get reaction counts
+      const { data: reactions } = await supabaseClient
+        .from('event_reactions')
+        .select('post_id, kind')
+        .in('post_id', postIds);
+
+      // Get comment counts  
+      const { data: comments } = await supabaseClient
+        .from('event_comments')
+        .select('post_id')
+        .in('post_id', postIds);
+
+      // Transform the data to include computed fields
+      const transformedPosts = posts.map(post => {
+        const postReactions = reactions?.filter(r => r.post_id === post.id) || [];
+        const postComments = comments?.filter(c => c.post_id === post.id) || [];
+        
+        return {
+          ...post,
+          like_count: postReactions.filter(r => r.kind === 'like').length,
+          comment_count: postComments.length,
+          is_organizer: post.events && (
+            (post.events.owner_context_type === 'individual' && post.events.owner_context_id === post.author_user_id) ||
+            (post.events.owner_context_type === 'organization')
+          ),
+          badge_label: post.ticket_tiers?.badge_label || (
+            post.events && post.events.owner_context_type === 'individual' && post.events.owner_context_id === post.author_user_id 
+              ? 'HOST' 
+              : post.events && post.events.owner_context_type === 'organization' 
+                ? 'CREW' 
+                : null
+          )
+        };
+      });
+
+      return new Response(JSON.stringify({ data: transformedPosts }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ data: [] }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

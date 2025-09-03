@@ -111,6 +111,7 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
     }
 
     setLoading(true);
+    console.log('Creating post with data:', { selectedEventId, content, mediaFiles });
 
     try {
       // Upload media files if any
@@ -119,11 +120,15 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
         
+        console.log('Uploading file:', fileName);
         const { error: uploadError } = await supabase.storage
           .from('event-media')
           .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw uploadError;
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from('event-media')
@@ -134,9 +139,11 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
 
       // Find the ticket tier for this event
       const userTicket = userTickets.find(t => t.event_id === selectedEventId);
+      console.log('Found user ticket:', userTicket);
 
       // Create the post
-      const { error } = await supabase.functions.invoke('posts-create', {
+      console.log('Calling posts-create function...');
+      const { data: result, error } = await supabase.functions.invoke('posts-create', {
         body: {
           event_id: selectedEventId,
           text: content,
@@ -145,6 +152,7 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
         },
       });
 
+      console.log('Posts-create result:', result, 'Error:', error);
       if (error) throw error;
 
       toast({
@@ -161,11 +169,20 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
       onClose();
     } catch (error: any) {
       console.error('Error creating post:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create post",
-        variant: "destructive",
-      });
+      
+      if (error.message?.includes('requiresTicket')) {
+        toast({
+          title: "Ticket Required",
+          description: "You need a ticket to post to this event",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create post",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }

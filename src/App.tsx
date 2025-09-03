@@ -18,9 +18,10 @@ import TermsOfService from '@/pages/TermsOfService';
 import RefundPolicy from '@/pages/RefundPolicy';
 import TicketsPage from '@/components/TicketsPage';
 import TicketSuccessPage from '@/components/TicketSuccessPage';
+import { PostsTestPage } from '@/components/PostsTestPage';
 import { ScannerPage } from '@/components/ScannerPage';
 
-type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
 type UserRole = 'attendee' | 'organizer';
 
 interface Event {
@@ -241,6 +242,8 @@ function AppContent() {
         />
       )}
       
+      {currentScreen === 'posts-test' && <PostsTestPage />}
+      
       {currentScreen === 'ticket-success' && (
         <TicketSuccessPage onBack={() => setCurrentScreen('feed')} />
       )}
@@ -250,7 +253,7 @@ function AppContent() {
         <Navigation 
           currentScreen={currentScreen}
           userRole={userRole}
-          onNavigate={setCurrentScreen}
+          onNavigate={(screen: Screen) => setCurrentScreen(screen)}
         />
       )}
       
