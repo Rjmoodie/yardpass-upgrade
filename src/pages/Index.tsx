@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+import { EventTicketModal } from '@/components/EventTicketModal';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
-import { ShareModal } from '@/components/ShareModal';
 import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users } from 'lucide-react';
+import { ShareModal } from '@/components/ShareModal';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { toast } from '@/hooks/use-toast';
 
@@ -149,6 +150,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAttendeeModal, setShowAttendeeModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showTicketModal, setShowTicketModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { withRequireAuth } = useRequireAuth();
 
@@ -259,10 +261,10 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
 
   const handleGetTickets = () => {
     withRequireAuth(() => {
-      onEventSelect(currentEvent);
+      setShowTicketModal(true);
       toast({
         title: "Get Tickets",
-        description: "Redirecting to ticket purchase...",
+        description: "Opening ticket purchase modal...",
       });
     });
   };
@@ -313,10 +315,10 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
           <Button
             size="sm"
             variant="secondary"
-            onClick={withRequireAuth(onCreatePost)}
+            onClick={withRequireAuth(() => onCreatePost())}
             className="bg-white/20 text-white border-white/30 hover:bg-white/30"
           >
-            + Post
+            + Create Event
           </Button>
         </div>
       </div>
@@ -528,6 +530,28 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
         attendeeCount={currentEvent.attendeeCount}
         attendees={[]}
       />
+
+      {/* Event Ticket Modal */}
+      <EventTicketModal
+        event={currentEvent ? {
+          id: currentEvent.id,
+          title: currentEvent.title,
+          start_at: new Date(currentEvent.date).toISOString(),
+          venue: currentEvent.location,
+          address: currentEvent.location,
+          description: currentEvent.description
+        } : null}
+        isOpen={showTicketModal}
+        onClose={() => setShowTicketModal(false)}
+        onSuccess={() => {
+          setShowTicketModal(false);
+          toast({
+            title: "Redirecting to Checkout",
+            description: "Opening Stripe checkout in a new tab..."
+          });
+        }}
+      />
+      
 
       <ShareModal
         isOpen={showShareModal}

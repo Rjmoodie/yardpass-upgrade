@@ -17,9 +17,10 @@ import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
 import RefundPolicy from '@/pages/RefundPolicy';
 import TicketsPage from '@/components/TicketsPage';
+import TicketSuccessPage from '@/components/TicketSuccessPage';
 import ScannerPage from '@/components/ScannerPage';
 
-type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success';
 type UserRole = 'attendee' | 'organizer';
 
 interface Event {
@@ -243,8 +244,12 @@ function AppContent() {
         />
       )}
       
+      {currentScreen === 'ticket-success' && (
+        <TicketSuccessPage onBack={() => setCurrentScreen('feed')} />
+      )}
+      
       {/* Navigation - Only show for main screens */}
-      {!['event-detail', 'event-management'].includes(currentScreen) && (
+      {!['event-detail', 'event-management', 'ticket-success'].includes(currentScreen) && (
         <Navigation 
           currentScreen={currentScreen}
           userRole={userRole}

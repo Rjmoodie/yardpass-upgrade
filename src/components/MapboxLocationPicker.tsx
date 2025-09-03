@@ -17,42 +17,16 @@ interface MapboxLocationPickerProps {
   className?: string;
 }
 
+// Mapbox API configuration
+const MAPBOX_TOKEN = 'pk.eyJ1IjoiaG90cm9kMjUiLCJhIjoiY21lZm9sODBoMHdnaDJycHg5dmQyaGV3YSJ9.RoCyY_SXikylZK2sD35oMQ';
+const MAPBOX_GEOCODING_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
+
 export function MapboxLocationPicker({ value, onChange, className }: MapboxLocationPickerProps) {
   const [searchQuery, setSearchQuery] = useState(value?.address || '');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceTimeout = useRef<NodeJS.Timeout>();
-
-  // For now, we'll use a simple geocoding approach
-  // In a production app, you'd integrate with Mapbox Geocoding API
-  const mockGeocoding = async (query: string) => {
-    // Mock data for demonstration
-    const mockResults = [
-      {
-        place_name: `${query}, New York, NY, USA`,
-        center: [-74.006, 40.7128],
-        context: [
-          { id: 'place', text: 'New York' },
-          { id: 'region', text: 'New York' },
-          { id: 'country', text: 'United States' }
-        ]
-      },
-      {
-        place_name: `${query}, Los Angeles, CA, USA`,
-        center: [-118.2437, 34.0522],
-        context: [
-          { id: 'place', text: 'Los Angeles' },
-          { id: 'region', text: 'California' },
-          { id: 'country', text: 'United States' }
-        ]
-      }
-    ];
-    
-    return mockResults.filter(result => 
-      result.place_name.toLowerCase().includes(query.toLowerCase())
-    );
-  };
 
   const searchLocations = async (query: string) => {
     if (!query.trim() || query.length < 3) {
@@ -63,12 +37,21 @@ export function MapboxLocationPicker({ value, onChange, className }: MapboxLocat
 
     setLoading(true);
     try {
-      const results = await mockGeocoding(query);
-      setSuggestions(results);
+      const response = await fetch(
+        `${MAPBOX_GEOCODING_URL}/${encodeURIComponent(query)}.json?access_token=${MAPBOX_TOKEN}&limit=5&types=place,postcode,locality,neighborhood,address`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Geocoding request failed');
+      }
+      
+      const data = await response.json();
+      setSuggestions(data.features || []);
       setShowSuggestions(true);
     } catch (error) {
       console.error('Geocoding error:', error);
       setSuggestions([]);
+      setShowSuggestions(false);
     } finally {
       setLoading(false);
     }
@@ -89,10 +72,12 @@ export function MapboxLocationPicker({ value, onChange, className }: MapboxLocat
   };
 
   const handleLocationSelect = (result: any) => {
+    // Extract location information from Mapbox response
     const location: Location = {
       address: result.place_name,
-      city: result.context.find((c: any) => c.id === 'place')?.text || '',
-      country: result.context.find((c: any) => c.id === 'country')?.text || '',
+      city: result.context?.find((c: any) => c.id.includes('place'))?.text || 
+            result.context?.find((c: any) => c.id.includes('locality'))?.text || '',
+      country: result.context?.find((c: any) => c.id.includes('country'))?.text || '',
       lat: result.center[1],
       lng: result.center[0]
     };
@@ -105,24 +90,53 @@ export function MapboxLocationPicker({ value, onChange, className }: MapboxLocat
 
   const handleUseCurrentLocation = () => {
     if ('geolocation' in navigator) {
+      setLoading(true);
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
           
-          // In a real app, you'd reverse geocode these coordinates
-          const mockLocation: Location = {
-            address: `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
-            city: 'Current City',
-            country: 'Current Country',
-            lat: latitude,
-            lng: longitude
-          };
-          
-          setSearchQuery(mockLocation.address);
-          onChange(mockLocation);
+          try {
+            // Reverse geocode the coordinates
+            const response = await fetch(
+              `${MAPBOX_GEOCODING_URL}/${longitude},${latitude}.json?access_token=${MAPBOX_TOKEN}&types=address,poi`
+            );
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.features && data.features.length > 0) {
+                handleLocationSelect(data.features[0]);
+              } else {
+                // Fallback if reverse geocoding fails
+                const fallbackLocation: Location = {
+                  address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+                  city: 'Current Location',
+                  country: '',
+                  lat: latitude,
+                  lng: longitude
+                };
+                setSearchQuery(fallbackLocation.address);
+                onChange(fallbackLocation);
+              }
+            }
+          } catch (error) {
+            console.error('Reverse geocoding error:', error);
+            // Fallback to coordinates only
+            const fallbackLocation: Location = {
+              address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+              city: 'Current Location',
+              country: '',
+              lat: latitude,
+              lng: longitude
+            };
+            setSearchQuery(fallbackLocation.address);
+            onChange(fallbackLocation);
+          } finally {
+            setLoading(false);
+          }
         },
         (error) => {
           console.error('Geolocation error:', error);
+          setLoading(false);
         }
       );
     }
