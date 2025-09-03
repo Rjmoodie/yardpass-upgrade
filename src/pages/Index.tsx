@@ -536,7 +536,15 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
         event={currentEvent ? {
           id: currentEvent.id,
           title: currentEvent.title,
-          start_at: new Date(currentEvent.date).toISOString(),
+          start_at: (() => {
+            // Try to parse the date string, fallback to a future date if invalid
+            const parsedDate = new Date(currentEvent.date);
+            if (isNaN(parsedDate.getTime())) {
+              // If date string can't be parsed, use a default future date
+              return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days from now
+            }
+            return parsedDate.toISOString();
+          })(),
           venue: currentEvent.location,
           address: currentEvent.location,
           description: currentEvent.description
