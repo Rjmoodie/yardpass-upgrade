@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import AuthModal from './AuthModal';
 
-type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success';
 type UserRole = 'attendee' | 'organizer';
 
 interface NavigationProps {
