@@ -222,11 +222,11 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
 
   const getResultColor = (result: string) => {
     switch (result) {
-      case 'valid': return 'bg-green-500';
-      case 'duplicate': return 'bg-yellow-500';
-      case 'expired': return 'bg-orange-500';
-      case 'wrong_event': case 'refunded': case 'void': case 'invalid': return 'bg-red-500';
-      default: return 'bg-gray-500';
+      case 'valid': return 'bg-green-600';
+      case 'duplicate': return 'bg-yellow-600';
+      case 'expired': return 'bg-orange-600';
+      case 'wrong_event': case 'refunded': case 'void': case 'invalid': return 'bg-destructive';
+      default: return 'bg-muted';
     }
   };
 
@@ -256,10 +256,10 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-center text-red-600">Access Denied</CardTitle>
+            <CardTitle className="text-center text-destructive">Access Denied</CardTitle>
           </CardHeader>
           <CardContent className="text-center space-y-4">
-            <Ban className="h-16 w-16 text-red-500 mx-auto" />
+            <Ban className="h-16 w-16 text-destructive mx-auto" />
             <p className="text-muted-foreground">
               You don't have permission to scan tickets for this event.
             </p>
@@ -393,7 +393,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{invalidScans}</div>
+                <div className="text-2xl font-bold text-destructive">{invalidScans}</div>
                 <p className="text-xs text-muted-foreground">Invalid</p>
               </div>
             </CardContent>
