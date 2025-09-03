@@ -133,9 +133,9 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
       show: userRole === 'organizer'
     },
     {
-      id: 'create-post' as Screen,
+      id: 'posts-test' as Screen,
       icon: Plus,
-      label: 'Post',
+      label: 'Posts',
       show: userRole === 'attendee'
     },
     {
@@ -157,12 +157,6 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
       label: 'Profile',
       show: true
     },
-    {
-      id: 'posts-test' as Screen,
-      icon: Plus,
-      label: 'Posts',
-      show: true
-    }
   ].filter(item => item.show);
 
   return (
