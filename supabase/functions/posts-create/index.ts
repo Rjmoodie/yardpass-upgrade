@@ -20,6 +20,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Posts-create function called with body:', await req.clone().text());
+    
     // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -33,7 +35,10 @@ serve(async (req) => {
 
     // Get the current user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    console.log('User auth result:', { user: user?.id, error: userError });
+    
     if (userError || !user) {
+      console.log('Authentication failed');
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -41,28 +46,39 @@ serve(async (req) => {
     }
 
     const { event_id, text, media_urls, ticket_tier_id }: CreatePostRequest = await req.json();
+    console.log('Request data:', { event_id, text, media_urls, ticket_tier_id });
 
     // Validate that user can post to this event
     // Check if user has a ticket for this event OR is an event manager
-    const { data: tickets } = await supabaseClient
+    console.log('Checking user tickets...');
+    const { data: tickets, error: ticketsError } = await supabaseClient
       .from('tickets')
       .select('id, tier_id')
       .eq('event_id', event_id)
       .eq('owner_user_id', user.id)
       .in('status', ['issued', 'transferred', 'redeemed']);
 
-    const { data: eventData } = await supabaseClient
+    console.log('User tickets:', tickets, 'Error:', ticketsError);
+
+    console.log('Checking event data...');
+    const { data: eventData, error: eventError } = await supabaseClient
       .from('events')
       .select('id, owner_context_type, owner_context_id')
       .eq('id', event_id)
       .single();
 
+    console.log('Event data:', eventData, 'Error:', eventError);
+
     // Check if user is event manager
     let canPost = false;
+    console.log('Checking if user can post...');
+    
     if (eventData) {
       if (eventData.owner_context_type === 'individual' && eventData.owner_context_id === user.id) {
+        console.log('User is individual event owner');
         canPost = true;
       } else if (eventData.owner_context_type === 'organization') {
+        console.log('Checking org membership...');
         // Check org membership
         const { data: membership } = await supabaseClient
           .from('org_memberships')
@@ -70,17 +86,23 @@ serve(async (req) => {
           .eq('org_id', eventData.owner_context_id)
           .eq('user_id', user.id)
           .single();
-        
+        console.log('Org membership:', membership);
         if (membership && ['editor', 'admin', 'owner'].includes(membership.role)) {
+          console.log('User has org permissions');
           canPost = true;
         }
       }
+    } else {
+      console.log('No event data found for event_id:', event_id);
     }
 
     // Check if user has tickets
     if (!canPost && tickets && tickets.length > 0) {
+      console.log('User has tickets, can post');
       canPost = true;
     }
+
+    console.log('Final canPost decision:', canPost);
 
     if (!canPost) {
       return new Response(JSON.stringify({ 

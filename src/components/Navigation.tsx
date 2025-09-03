@@ -48,21 +48,30 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
 
     try {
       // Check if user has any tickets
+      console.log('Checking user tickets for posting eligibility...');
       const { data: tickets, error } = await supabase
         .from('tickets')
         .select('id, event_id')
         .eq('owner_user_id', user.id)
         .in('status', ['issued', 'transferred', 'redeemed']);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching tickets:', error);
+        throw error;
+      }
+
+      console.log('User tickets:', tickets);
 
       // Check if user is an organizer (has events or org memberships)
+      console.log('Checking if user is organizer...');
       const { data: ownedEvents } = await supabase
         .from('events')
         .select('id')
         .eq('owner_context_type', 'individual')
         .eq('owner_context_id', user.id)
         .limit(1);
+
+      console.log('Owned events:', ownedEvents);
 
       const { data: orgMemberships } = await supabase
         .from('org_memberships')
@@ -71,13 +80,20 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
         .in('role', ['editor', 'admin', 'owner'])
         .limit(1);
 
+      console.log('Org memberships:', orgMemberships);
+
       const isOrganizer = (ownedEvents && ownedEvents.length > 0) || (orgMemberships && orgMemberships.length > 0);
 
+      console.log('Posting eligibility check:', { isOrganizer, hasTickets: tickets && tickets.length > 0 });
+
       if (isOrganizer) {
+        console.log('Opening organizer menu');
         setOrganizerMenuOpen(true);
       } else if (tickets && tickets.length > 0) {
+        console.log('Opening post creator');
         setPostCreatorOpen(true);
       } else {
+        console.log('Opening purchase gate');
         setPurchaseGateOpen(true);
       }
     } catch (error) {

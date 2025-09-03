@@ -53,6 +53,7 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
     if (!user) return;
 
     try {
+      console.log('Fetching user tickets for user:', user.id);
       const { data, error } = await supabase
         .from('tickets')
         .select(`
@@ -72,13 +73,21 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
         .eq('owner_user_id', user.id)
         .in('status', ['issued', 'transferred', 'redeemed']);
 
-      if (error) throw error;
+      console.log('User tickets query result:', { data, error });
+
+      if (error) {
+        console.error('Error fetching tickets:', error);
+        throw error;
+      }
+      
       setUserTickets(data || []);
 
       // Auto-select if only one ticket or preselected event
       if (preselectedEventId) {
+        console.log('Auto-selecting preselected event:', preselectedEventId);
         setSelectedEventId(preselectedEventId);
       } else if (data && data.length === 1) {
+        console.log('Auto-selecting single event:', data[0].event_id);
         setSelectedEventId(data[0].event_id);
       }
     } catch (error) {
