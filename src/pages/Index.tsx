@@ -155,7 +155,9 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   const currentEvent = events[currentIndex];
 
   const handleLike = (eventId: string) => {
+    console.log('handleLike called with:', eventId);
     withRequireAuth(() => {
+      console.log('Like function executing inside withRequireAuth');
       setEvents(prev => prev.map(event => 
         event.id === eventId 
           ? { 
@@ -165,10 +167,15 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             }
           : event
       ));
+      toast({
+        title: "Like Updated",
+        description: "Event like status changed",
+      });
     });
   };
 
   const handleShare = (event: Event) => {
+    console.log('handleShare called');
     setShowShareModal(true);
   };
 
@@ -192,21 +199,35 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   };
 
   const handleCategoryClick = (category: string) => {
+    console.log('handleCategoryClick called with:', category);
     if (onCategorySelect) {
       onCategorySelect(category);
       toast({
         title: "Category Filter",
         description: `Browsing ${category} events...`,
       });
+    } else {
+      console.log('onCategorySelect not provided');
+      toast({
+        title: "Category Filter",
+        description: `${category} category selected`,
+      });
     }
   };
 
   const handleOrganizerClick = (organizerId: string, organizerName: string) => {
+    console.log('handleOrganizerClick called with:', organizerId, organizerName);
     if (onOrganizerSelect) {
       onOrganizerSelect(organizerId, organizerName);
       toast({
         title: "Organizer Profile",
         description: `Viewing ${organizerName}'s profile...`,
+      });
+    } else {
+      console.log('onOrganizerSelect not provided');
+      toast({
+        title: "Organizer Profile",
+        description: `${organizerName} profile selected`,
       });
     }
   };

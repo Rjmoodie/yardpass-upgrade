@@ -91,6 +91,16 @@ function AppContent() {
         <Index 
           onEventSelect={handleEventSelect}
           onCreatePost={() => setCurrentScreen('create-post')}
+          onCategorySelect={(category) => {
+            console.log('Category selected:', category);
+            // For now, just show search page with category filter
+            setCurrentScreen('search');
+          }}
+          onOrganizerSelect={(organizerId, organizerName) => {
+            console.log('Organizer selected:', organizerId, organizerName);
+            // For now, just show search page
+            setCurrentScreen('search');
+          }}
         />
       )}
 
