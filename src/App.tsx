@@ -16,8 +16,10 @@ import OrganizationDashboard from '@/components/OrganizationDashboard';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
 import RefundPolicy from '@/pages/RefundPolicy';
+import TicketsPage from '@/components/TicketsPage';
+import ScannerPage from '@/components/ScannerPage';
 
-type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner';
 type UserRole = 'attendee' | 'organizer';
 
 interface Event {
@@ -207,6 +209,28 @@ function AppContent() {
 
       {currentScreen === 'refund-policy' && (
         <RefundPolicy onBack={() => setCurrentScreen('feed')} />
+      )}
+
+      {currentScreen === 'tickets' && user && (
+        <TicketsPage
+          user={{
+            id: user.id,
+            name: user.user_metadata?.full_name || 'User',
+            role: userRole
+          }}
+          onBack={() => setCurrentScreen('feed')}
+        />
+      )}
+
+      {currentScreen === 'scanner' && user && (
+        <ScannerPage
+          user={{
+            id: user.id,
+            name: user.user_metadata?.full_name || 'User',
+            role: userRole
+          }}
+          onBack={() => setCurrentScreen('feed')}
+        />
       )}
       
       {/* Navigation - Only show for main screens */}

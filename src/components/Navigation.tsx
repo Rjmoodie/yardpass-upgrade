@@ -1,6 +1,6 @@
-import { Home, Plus, BarChart3, User, Search } from 'lucide-react';
+import { Home, Plus, BarChart3, User, Search, Ticket, ScanLine } from 'lucide-react';
 
-type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner';
 type UserRole = 'attendee' | 'organizer';
 
 interface NavigationProps {
@@ -34,6 +34,13 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
       icon: Plus,
       label: 'Post',
       show: userRole === 'attendee'
+    },
+    {
+      // Ticket button for attendees, Scan button for organizers
+      id: userRole === 'organizer' ? 'scanner' as Screen : 'tickets' as Screen,
+      icon: userRole === 'organizer' ? ScanLine : Ticket,
+      label: userRole === 'organizer' ? 'Scan' : 'Tickets',
+      show: true
     },
     {
       id: 'dashboard' as Screen,

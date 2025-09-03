@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Card, CardContent } from '@/components/ui/card';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
-import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar } from 'lucide-react';
+import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, UserCheck, Users } from 'lucide-react';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 interface Event {
@@ -21,6 +22,17 @@ interface Event {
   likes: number;
   shares: number;
   isLiked?: boolean;
+  posts?: EventPost[];
+}
+
+interface EventPost {
+  id: string;
+  authorName: string;
+  authorBadge: string;
+  isOrganizer?: boolean;
+  content: string;
+  timestamp: string;
+  likes: number;
 }
 
 interface TicketTier {
@@ -37,7 +49,7 @@ interface IndexProps {
   onCreatePost: () => void;
 }
 
-// Mock event data matching figma design
+// Mock event data with posts and badges per YardPass specs
 const mockEvents: Event[] = [
   {
     id: '1',
@@ -56,7 +68,26 @@ const mockEvents: Event[] = [
     attendeeCount: 1243,
     likes: 892,
     shares: 156,
-    isLiked: false
+    isLiked: false,
+    posts: [
+      {
+        id: '1',
+        authorName: 'Sarah Chen',
+        authorBadge: 'VIP',
+        content: 'Just got my VIP tickets! Can\'t wait for the weekend 🎵',
+        timestamp: '2h ago',
+        likes: 15
+      },
+      {
+        id: '2',
+        authorName: 'LiveNation Events',
+        authorBadge: 'ORGANIZER',
+        isOrganizer: true,
+        content: 'Excited to announce headliner performances this weekend! 🎤',
+        timestamp: '3h ago',
+        likes: 87
+      }
+    ]
   },
   {
     id: '2',
@@ -75,7 +106,17 @@ const mockEvents: Event[] = [
     attendeeCount: 567,
     likes: 445,
     shares: 89,
-    isLiked: true
+    isLiked: true,
+    posts: [
+      {
+        id: '3',
+        authorName: 'Mike Rodriguez',
+        authorBadge: 'FOODIE',
+        content: 'The authentic tacos here are incredible! 🌮',
+        timestamp: '1h ago',
+        likes: 23
+      }
+    ]
   },
   {
     id: '3',
@@ -86,7 +127,7 @@ const mockEvents: Event[] = [
     category: 'Art & Culture',
     date: 'September 2, 2024',
     location: 'SoHo Art District',
-    coverImage: 'https://images.unsplash.com/photo-1713779490284-a81ff6a8ffae?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhcnQlMjBnYWxsZXJ5JTIwZXhoaWJpdGlvbnxlbnwxfHx8fDE3NTY3NjI4ODd8MA&ixlib=rb-4.1.0&q=80&w=1080',
+    coverImage: 'https://images.unsplash.com/photo-1713779490284-a81ff6a8ffae?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhcnQlMjBnYWxsZXJ5JTIwZXhoaWJpdGlvbnxlbnwxfHx8fDE3NTY3NjI4ODd8MA&ixlib=rb-4.0&q=80&w=1080',
     ticketTiers: [
       { id: '5', name: 'Standard', price: 35, badge: 'STD', available: 156, total: 200 },
       { id: '6', name: 'Premium', price: 85, badge: 'PREM', available: 23, total: 50 }
@@ -94,7 +135,8 @@ const mockEvents: Event[] = [
     attendeeCount: 298,
     likes: 234,
     shares: 67,
-    isLiked: false
+    isLiked: false,
+    posts: []
   }
 ];
 
@@ -209,6 +251,10 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
                   </AvatarFallback>
                 </Avatar>
                 <span>@{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}</span>
+                <Badge variant="secondary" className="text-xs">
+                  <Crown className="w-3 h-3 mr-1" />
+                  ORGANIZER
+                </Badge>
               </div>
               <div className="flex items-center gap-4 text-sm text-gray-300 mb-3">
                 <div className="flex items-center gap-1">
@@ -219,11 +265,60 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
                   <MapPin className="w-4 h-4" />
                   {currentEvent.location}
                 </div>
+                <div className="flex items-center gap-1">
+                  <Users className="w-4 h-4" />
+                  {currentEvent.attendeeCount}
+                </div>
               </div>
               <p className="text-sm text-gray-300 line-clamp-2 max-w-xs">
                 {currentEvent.description}
               </p>
             </div>
+
+            {/* Event Posts */}
+            {currentEvent.posts && currentEvent.posts.length > 0 && (
+              <div className="space-y-2 max-w-xs">
+                <div className="flex items-center gap-1 text-xs text-gray-400">
+                  <MessageCircle className="w-3 h-3" />
+                  <span>Latest posts</span>
+                </div>
+                {currentEvent.posts.slice(0, 2).map((post) => (
+                  <Card key={post.id} className="bg-black/30 border-white/20">
+                    <CardContent className="p-3">
+                      <div className="flex items-start gap-2">
+                        <Avatar className="w-5 h-5">
+                          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                            {post.authorName.split(' ').map(n => n[0]).join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1 mb-1">
+                            <span className="text-xs font-medium text-white">{post.authorName}</span>
+                            <Badge variant="outline" className="text-xs border-white/30 text-white">
+                              {post.authorBadge}
+                            </Badge>
+                            {post.isOrganizer && (
+                              <Badge variant="secondary" className="text-xs">
+                                <UserCheck className="w-2 h-2 mr-1" />
+                                MGR
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-white/90 mb-1 line-clamp-2">{post.content}</p>
+                          <div className="flex items-center gap-2 text-xs text-white/70">
+                            <span>{post.timestamp}</span>
+                            <div className="flex items-center gap-1">
+                              <Heart className="w-3 h-3" />
+                              <span>{post.likes}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
             <div className="flex gap-2">
               <Button 
