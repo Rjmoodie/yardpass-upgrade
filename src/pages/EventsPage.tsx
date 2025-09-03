@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, MapPin, Users, Heart, MessageCircle, Share2 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 interface Event {
   id: string;
@@ -23,6 +24,7 @@ interface Event {
 
 export default function EventsPage() {
   const { user } = useAuth();
+  const { withRequireAuth, AuthModal } = useRequireAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -73,6 +75,7 @@ export default function EventsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <AuthModal />
       {/* Hero Section */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
@@ -91,7 +94,16 @@ export default function EventsPage() {
           <p className="text-muted-foreground mb-6">
             Be the first to create an event in your community
           </p>
-          <Button>Create Event</Button>
+          <Button 
+            onClick={withRequireAuth(() => {
+              console.log('Navigate to create event');
+            }, {
+              title: "Sign in to create events",
+              description: "Create an account to start organizing events"
+            })}
+          >
+            Create Event
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -105,8 +117,12 @@ export default function EventsPage() {
 }
 
 function EventCard({ event }: { event: Event }) {
+  const { withRequireAuth, AuthModal } = useRequireAuth();
+  
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+    <>
+      <AuthModal />
+      <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       {/* Event Image */}
       <div className="relative h-48 bg-muted overflow-hidden">
         {event.cover_image_url ? (
@@ -150,21 +166,40 @@ function EventCard({ event }: { event: Event }) {
         {/* Actions */}
         <div className="flex items-center justify-between pt-4">
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={withRequireAuth(() => {
+                console.log('Like event');
+              }, { 
+                title: "Sign in to like events",
+                description: "Create an account to save your favorite events"
+              })}
+            >
               <Heart className="w-4 h-4 mr-1" />
               <span className="text-xs">12</span>
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={withRequireAuth(() => {
+                console.log('Comment on event');
+              }, {
+                title: "Sign in to comment",
+                description: "Join the conversation about this event"
+              })}
+            >
               <MessageCircle className="w-4 h-4 mr-1" />
               <span className="text-xs">5</span>
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => console.log('Share event')}>
               <Share2 className="w-4 h-4" />
             </Button>
           </div>
           <Button size="sm">View Event</Button>
         </div>
       </CardContent>
-    </Card>
+      </Card>
+    </>
   );
 }
