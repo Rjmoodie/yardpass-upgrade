@@ -2,10 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Card, CardContent } from '@/components/ui/card';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
-import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, UserCheck, Users } from 'lucide-react';
+import { AttendeeListModal } from '@/components/AttendeeListModal';
+import { ShareModal } from '@/components/ShareModal';
+import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users } from 'lucide-react';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { toast } from 'sonner';
 
 interface Event {
   id: string;
@@ -47,6 +49,8 @@ interface TicketTier {
 interface IndexProps {
   onEventSelect: (event: Event) => void;
   onCreatePost: () => void;
+  onCategorySelect?: (category: string) => void;
+  onOrganizerSelect?: (organizerId: string, organizerName: string) => void;
 }
 
 // Mock event data with posts and badges per YardPass specs
@@ -140,9 +144,11 @@ const mockEvents: Event[] = [
   }
 ];
 
-const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
+const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelect }: IndexProps) => {
   const [events, setEvents] = useState(mockEvents);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showAttendeeModal, setShowAttendeeModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { withRequireAuth } = useRequireAuth();
 
@@ -163,11 +169,45 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
   };
 
   const handleShare = (event: Event) => {
-    navigator.share?.({
-      title: event.title,
-      text: event.description,
-      url: `https://yardpass.com/events/${event.id}`
+    setShowShareModal(true);
+  };
+
+  const handleComment = () => {
+    withRequireAuth(() => {
+      onEventSelect(currentEvent);
+      toast.success('Opening event comments...');
     });
+  };
+
+  const handleMoreOptions = () => {
+    withRequireAuth(() => {
+      toast.info('More options coming soon...');
+    });
+  };
+
+  const handleCategoryClick = (category: string) => {
+    onCategorySelect?.(category);
+    toast.success(`Browsing ${category} events...`);
+  };
+
+  const handleOrganizerClick = (organizerId: string, organizerName: string) => {
+    onOrganizerSelect?.(organizerId, organizerName);
+    toast.success(`Viewing ${organizerName} profile...`);
+  };
+
+  const handleLocationClick = (location: string) => {
+    toast.success(`Viewing events near ${location}...`);
+  };
+
+  const handleTicketTierClick = (tierName: string) => {
+    withRequireAuth(() => {
+      onEventSelect(currentEvent);
+      toast.success(`Viewing ${tierName} ticket details...`);
+    });
+  };
+
+  const handleEventTitleClick = () => {
+    onEventSelect(currentEvent);
   };
 
   const handleScroll = (direction: 'up' | 'down') => {
@@ -234,23 +274,41 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
           {/* Event Details */}
           <div className="flex-1 mr-4 space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="secondary" className="bg-primary text-primary-foreground">
+              <Badge 
+                variant="secondary" 
+                className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90 transition-colors"
+                onClick={() => handleCategoryClick(currentEvent.category)}
+              >
                 {currentEvent.category}
               </Badge>
-              <Badge variant="outline" className="border-white/30 text-white">
+              <Badge 
+                variant="outline" 
+                className="border-white/30 text-white cursor-pointer hover:bg-white/10 transition-colors"
+                onClick={() => setShowAttendeeModal(true)}
+              >
                 {currentEvent.attendeeCount} attending
               </Badge>
             </div>
 
             <div>
-              <h2 className="text-2xl font-bold mb-2 max-w-xs">{currentEvent.title}</h2>
+              <h2 
+                className="text-2xl font-bold mb-2 max-w-xs cursor-pointer hover:text-primary-foreground/90 transition-colors"
+                onClick={handleEventTitleClick}
+              >
+                {currentEvent.title}
+              </h2>
               <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
                 <Avatar className="w-6 h-6">
                   <AvatarFallback className="text-xs bg-white/20 text-white">
                     {currentEvent.organizer.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <span>@{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}</span>
+                <span 
+                  className="cursor-pointer hover:text-white transition-colors"
+                  onClick={() => handleOrganizerClick(currentEvent.organizerId, currentEvent.organizer)}
+                >
+                  @{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}
+                </span>
                 <Badge variant="secondary" className="text-xs">
                   <Crown className="w-3 h-3 mr-1" />
                   ORGANIZER
@@ -261,11 +319,17 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
                   <Calendar className="w-4 h-4" />
                   {currentEvent.date}
                 </div>
-                <div className="flex items-center gap-1">
+                <div 
+                  className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors"
+                  onClick={() => handleLocationClick(currentEvent.location)}
+                >
                   <MapPin className="w-4 h-4" />
                   {currentEvent.location}
                 </div>
-                <div className="flex items-center gap-1">
+                <div 
+                  className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors"
+                  onClick={() => setShowAttendeeModal(true)}
+                >
                   <Users className="w-4 h-4" />
                   {currentEvent.attendeeCount}
                 </div>
@@ -274,51 +338,6 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
                 {currentEvent.description}
               </p>
             </div>
-
-            {/* Event Posts */}
-            {currentEvent.posts && currentEvent.posts.length > 0 && (
-              <div className="space-y-2 max-w-xs">
-                <div className="flex items-center gap-1 text-xs text-gray-400">
-                  <MessageCircle className="w-3 h-3" />
-                  <span>Latest posts</span>
-                </div>
-                {currentEvent.posts.slice(0, 2).map((post) => (
-                  <Card key={post.id} className="bg-black/30 border-white/20">
-                    <CardContent className="p-3">
-                      <div className="flex items-start gap-2">
-                        <Avatar className="w-5 h-5">
-                          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                            {post.authorName.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1 mb-1">
-                            <span className="text-xs font-medium text-white">{post.authorName}</span>
-                            <Badge variant="outline" className="text-xs border-white/30 text-white">
-                              {post.authorBadge}
-                            </Badge>
-                            {post.isOrganizer && (
-                              <Badge variant="secondary" className="text-xs">
-                                <UserCheck className="w-2 h-2 mr-1" />
-                                MGR
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-white/90 mb-1 line-clamp-2">{post.content}</p>
-                          <div className="flex items-center gap-2 text-xs text-white/70">
-                            <span>{post.timestamp}</span>
-                            <div className="flex items-center gap-1">
-                              <Heart className="w-3 h-3" />
-                              <span>{post.likes}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
 
             <div className="flex gap-2">
               <Button 
@@ -360,17 +379,14 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
             </button>
 
             <button 
-              onClick={withRequireAuth(() => {
-                // Navigate to event detail with comments focus
-                onEventSelect(currentEvent);
-              })}
+              onClick={handleComment}
               className="flex flex-col items-center gap-1 transition-transform active:scale-95"
             >
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
                 <MessageCircle className="w-6 h-6 text-white" />
               </div>
               <span className="text-xs font-medium">
-                {currentEvent.posts?.reduce((total, post) => total + (post.likes || 0), 0) || 0}
+                {currentEvent.posts?.length || 0}
               </span>
             </button>
 
@@ -385,10 +401,7 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
             </button>
 
             <button 
-              onClick={withRequireAuth(() => {
-                // Show more options menu
-                console.log('More options for', currentEvent.id);
-              })}
+              onClick={handleMoreOptions}
               className="transition-transform active:scale-95"
             >
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
@@ -432,6 +445,23 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
             }
           }
         }}
+      />
+
+      {/* Modals */}
+      <AttendeeListModal
+        isOpen={showAttendeeModal}
+        onClose={() => setShowAttendeeModal(false)}
+        eventTitle={currentEvent.title}
+        attendeeCount={currentEvent.attendeeCount}
+        attendees={[]}
+      />
+
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        eventTitle={currentEvent.title}
+        eventId={currentEvent.id}
+        eventDescription={currentEvent.description}
       />
     </div>
   );
