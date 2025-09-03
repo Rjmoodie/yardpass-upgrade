@@ -8,9 +8,11 @@ import EventCreator from '@/components/EventCreator';
 import OrganizerDashboard from '@/components/OrganizerDashboard';
 import UserProfile from '@/components/UserProfile';
 import PostCreator from '@/components/PostCreator';
+import SearchPage from '@/components/SearchPage';
+import EventManagement from '@/components/EventManagement';
 import Navigation from '@/components/Navigation';
 
-type Screen = 'feed' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management';
 type UserRole = 'attendee' | 'organizer';
 
 interface Event {
@@ -83,6 +85,13 @@ function AppContent() {
           onCreatePost={() => setCurrentScreen('create-post')}
         />
       )}
+
+      {currentScreen === 'search' && (
+        <SearchPage 
+          onBack={() => setCurrentScreen('feed')}
+          onEventSelect={handleEventSelect}
+        />
+      )}
       
       {currentScreen === 'create-event' && user && (
         <EventCreator 
@@ -92,7 +101,10 @@ function AppContent() {
             role: userRole
           }}
           onBack={() => setCurrentScreen(userRole === 'organizer' ? 'dashboard' : 'feed')}
-          onCreate={handleBackToFeed}
+          onCreate={() => {
+            // After creating event, go to event management
+            setCurrentScreen('event-management');
+          }}
         />
       )}
       
@@ -107,6 +119,13 @@ function AppContent() {
           onBack={handleBackToFeed}
         />
       )}
+
+      {currentScreen === 'event-management' && selectedEvent && user && (
+        <EventManagement 
+          event={selectedEvent}
+          onBack={() => setCurrentScreen('dashboard')}
+        />
+      )}
       
       {currentScreen === 'dashboard' && user && (
         <OrganizerDashboard 
@@ -116,7 +135,10 @@ function AppContent() {
             role: userRole
           }}
           onCreateEvent={() => setCurrentScreen('create-event')}
-          onEventSelect={handleEventSelect}
+          onEventSelect={(event) => {
+            setSelectedEvent(event);
+            setCurrentScreen('event-management');
+          }}
         />
       )}
       
@@ -147,7 +169,7 @@ function AppContent() {
       )}
       
       {/* Navigation - Only show for main screens */}
-      {currentScreen !== 'event-detail' && (
+      {!['event-detail', 'event-management'].includes(currentScreen) && (
         <Navigation 
           currentScreen={currentScreen}
           userRole={userRole}

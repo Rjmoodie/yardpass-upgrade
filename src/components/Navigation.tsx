@@ -1,6 +1,6 @@
-import { Home, Plus, BarChart3, User } from 'lucide-react';
+import { Home, Plus, BarChart3, User, Search } from 'lucide-react';
 
-type Screen = 'feed' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management';
 type UserRole = 'attendee' | 'organizer';
 
 interface NavigationProps {
@@ -15,6 +15,12 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
       id: 'feed' as Screen,
       icon: Home,
       label: 'Feed',
+      show: true
+    },
+    {
+      id: 'search' as Screen,
+      icon: Search,
+      label: 'Search',
       show: true
     },
     {

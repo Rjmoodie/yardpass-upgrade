@@ -228,7 +228,7 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
             <div className="flex gap-2">
               <Button 
                 size="sm" 
-                onClick={() => onEventSelect(currentEvent)}
+                onClick={withRequireAuth(() => onEventSelect(currentEvent))}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Get Tickets

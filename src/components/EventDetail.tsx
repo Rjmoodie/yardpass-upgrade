@@ -293,7 +293,11 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
 
                   <Dialog open={showPurchaseModal} onOpenChange={setShowPurchaseModal}>
                     <DialogTrigger asChild>
-                      <Button className="w-full" onClick={handlePurchase}>
+                      <Button 
+                        className="w-full" 
+                        onClick={handlePurchase}
+                        disabled={!user}
+                      >
                         {user ? 'Purchase Tickets' : 'Sign in to Purchase'}
                       </Button>
                     </DialogTrigger>
