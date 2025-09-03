@@ -1,295 +1,451 @@
-import { useState } from 'react';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Input } from './ui/input';
-import { Avatar, AvatarFallback } from './ui/avatar';
-import { 
-  ArrowLeft,
-  ScanLine,
-  Search,
-  CheckCircle,
-  XCircle,
-  Users,
-  Clock,
-  AlertCircle
-} from 'lucide-react';
-
-interface User {
-  id: string;
-  name: string;
-  role: 'attendee' | 'organizer';
-}
+import React, { useState, useEffect, useRef } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Camera, Keyboard, CheckCircle, XCircle, AlertTriangle, Clock, Ban, QrCode } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface ScannerPageProps {
-  user: User;
+  eventId: string;
   onBack: () => void;
 }
 
-// Mock scanning data
-const mockScanResults = [
-  {
-    id: '1',
-    ticketCode: 'VIP-SMF2024-001',
-    attendeeName: 'John Smith',
-    eventTitle: 'Summer Music Festival 2024',
-    tierName: 'VIP Experience',
-    badge: 'VIP',
-    scanTime: new Date().toISOString(),
-    status: 'valid',
-    checkInTime: null
-  },
-  {
-    id: '2',
-    ticketCode: 'GA-SMF2024-456',
-    attendeeName: 'Sarah Johnson',
-    eventTitle: 'Summer Music Festival 2024',
-    tierName: 'General Admission',
-    badge: 'GA',
-    scanTime: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
-    status: 'already_checked_in',
-    checkInTime: new Date(Date.now() - 300000).toISOString()
-  }
-];
+interface ScanResult {
+  id: string;
+  success: boolean;
+  result: 'valid' | 'duplicate' | 'expired' | 'invalid' | 'wrong_event' | 'refunded' | 'void';
+  ticket?: {
+    id: string;
+    tier_name: string;
+    attendee_name: string;
+    badge_label?: string;
+  };
+  message: string;
+  timestamp: string;
+}
 
-export function ScannerPage({ user, onBack }: ScannerPageProps) {
+interface AuthorizeResponse {
+  allowed: boolean;
+  role: 'owner' | 'editor' | 'scanner' | 'none';
+}
+
+export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [scanMode, setScanMode] = useState<'manual' | 'camera'>('manual');
   const [manualCode, setManualCode] = useState('');
-  const [scanHistory, setScanHistory] = useState(mockScanResults);
+  const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const [userRole, setUserRole] = useState<string>('none');
+  const [event, setEvent] = useState<any>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  const handleManualScan = () => {
-    if (!manualCode.trim()) return;
-    
+  useEffect(() => {
+    checkAuthorization();
+    fetchEvent();
+    return () => {
+      stopCamera();
+    };
+  }, [eventId]);
+
+  const checkAuthorization = async () => {
+    if (!user) {
+      setAuthorized(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('scanner-authorize', {
+        body: { event_id: eventId }
+      });
+
+      if (error) {
+        console.error('Authorization error:', error);
+        setAuthorized(false);
+        return;
+      }
+
+      const response: AuthorizeResponse = data;
+      setAuthorized(response.allowed);
+      setUserRole(response.role);
+    } catch (error) {
+      console.error('Error checking authorization:', error);
+      setAuthorized(false);
+    }
+  };
+
+  const fetchEvent = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, title, start_at, end_at')
+        .eq('id', eventId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching event:', error);
+        return;
+      }
+
+      setEvent(data);
+    } catch (error) {
+      console.error('Error fetching event:', error);
+    }
+  };
+
+  const handleManualScan = async () => {
+    if (!manualCode.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a ticket code",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    await validateTicket(manualCode.trim());
+    setManualCode('');
+  };
+
+  const validateTicket = async (qrToken: string) => {
     setScanning(true);
     
-    // Mock scan processing
-    setTimeout(() => {
-      const newScan = {
+    try {
+      const { data, error } = await supabase.functions.invoke('scanner-validate', {
+        body: { 
+          event_id: eventId,
+          qr_token: qrToken
+        }
+      });
+
+      if (error) {
+        console.error('Validation error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to validate ticket",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const result: ScanResult = {
         id: Date.now().toString(),
-        ticketCode: manualCode,
-        attendeeName: 'Unknown Attendee',
-        eventTitle: 'Current Event',
-        tierName: 'Unknown Tier',
-        badge: 'TBD',
-        scanTime: new Date().toISOString(),
-        status: Math.random() > 0.3 ? 'valid' : 'invalid',
-        checkInTime: null
+        ...data,
+        timestamp: new Date().toISOString()
       };
-      
-      setScanHistory([newScan, ...scanHistory]);
-      setManualCode('');
+
+      setScanHistory(prev => [result, ...prev.slice(0, 49)]); // Keep last 50 scans
+
+      // Show toast with result
+      const isSuccess = result.success;
+      toast({
+        title: isSuccess ? "✅ Valid Ticket" : getResultIcon(result.result) + " " + getResultTitle(result.result),
+        description: result.message,
+        variant: isSuccess ? "default" : "destructive"
+      });
+
+    } catch (error) {
+      console.error('Error validating ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to validate ticket",
+        variant: "destructive"
+      });
+    } finally {
       setScanning(false);
-    }, 1500);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'valid':
-        return 'text-green-600';
-      case 'invalid':
-        return 'text-red-600';
-      case 'already_checked_in':
-        return 'text-yellow-600';
-      default:
-        return 'text-muted-foreground';
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'valid':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'invalid':
-        return <XCircle className="w-5 h-5 text-red-600" />;
-      case 'already_checked_in':
-        return <AlertCircle className="w-5 h-5 text-yellow-600" />;
-      default:
-        return <Clock className="w-5 h-5 text-muted-foreground" />;
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+      }
+    } catch (error) {
+      console.error('Error starting camera:', error);
+      toast({
+        title: "Camera Error",
+        description: "Unable to access camera. Please check permissions.",
+        variant: "destructive"
+      });
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'valid':
-        return 'Valid - Check In Successful';
-      case 'invalid':
-        return 'Invalid Ticket';
-      case 'already_checked_in':
-        return 'Already Checked In';
-      default:
-        return 'Processing...';
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
   };
+
+  const handleModeChange = (mode: 'manual' | 'camera') => {
+    setScanMode(mode);
+    if (mode === 'camera') {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+  };
+
+  const getResultIcon = (result: string) => {
+    switch (result) {
+      case 'valid': return '✅';
+      case 'duplicate': return '⚠️';
+      case 'expired': return '⏳';
+      case 'wrong_event': return '⛔';
+      case 'refunded': case 'void': return '❌';
+      default: return '❌';
+    }
+  };
+
+  const getResultTitle = (result: string) => {
+    switch (result) {
+      case 'valid': return 'Valid';
+      case 'duplicate': return 'Already Scanned';
+      case 'expired': return 'Expired';
+      case 'wrong_event': return 'Wrong Event';
+      case 'refunded': return 'Refunded';
+      case 'void': return 'Void';
+      default: return 'Invalid';
+    }
+  };
+
+  const getResultColor = (result: string) => {
+    switch (result) {
+      case 'valid': return 'bg-green-500';
+      case 'duplicate': return 'bg-yellow-500';
+      case 'expired': return 'bg-orange-500';
+      case 'wrong_event': case 'refunded': case 'void': case 'invalid': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  // Calculate stats
+  const totalScans = scanHistory.length;
+  const validScans = scanHistory.filter(s => s.result === 'valid').length;
+  const duplicateScans = scanHistory.filter(s => s.result === 'duplicate').length;
+  const invalidScans = totalScans - validScans - duplicateScans;
+
+  if (authorized === null) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Checking authorization...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!authorized) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center text-red-600">Access Denied</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <Ban className="h-16 w-16 text-red-500 mx-auto" />
+            <p className="text-muted-foreground">
+              You don't have permission to scan tickets for this event.
+            </p>
+            <Button onClick={onBack} variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="h-full bg-background flex flex-col">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="border-b bg-card p-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="p-2 rounded-full hover:bg-muted transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex-1">
-            <h1>Event Scanner</h1>
-            <p className="text-sm text-muted-foreground">
-              Scan tickets for event check-in
-            </p>
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button onClick={onBack} variant="ghost" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <div>
+                <h1 className="text-xl font-semibold">Ticket Scanner</h1>
+                {event && (
+                  <p className="text-sm text-muted-foreground">{event.title}</p>
+                )}
+              </div>
+            </div>
+            <Badge variant="secondary">
+              {userRole === 'owner' ? 'Organizer' : userRole === 'editor' ? 'Editor' : 'Scanner'}
+            </Badge>
           </div>
-          <Badge variant="secondary" className="text-xs">
-            <Users className="w-3 h-3 mr-1" />
-            Scanner Mode
-          </Badge>
         </div>
       </div>
 
-      {/* Scanner Interface */}
-      <div className="p-4 space-y-4">
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        {/* Scanner Interface */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ScanLine className="w-5 h-5" />
-              Ticket Scanner
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Scanner Mode Toggle */}
-            <div className="flex gap-2">
-              <Button
-                variant={scanMode === 'manual' ? 'default' : 'outline'}
-                onClick={() => setScanMode('manual')}
-                className="flex-1"
-              >
-                Manual Entry
-              </Button>
-              <Button
-                variant={scanMode === 'camera' ? 'default' : 'outline'}
-                onClick={() => setScanMode('camera')}
-                className="flex-1"
-              >
-                Camera Scan
-              </Button>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <QrCode className="h-5 w-5" />
+                Scan Tickets
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant={scanMode === 'manual' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleModeChange('manual')}
+                >
+                  <Keyboard className="h-4 w-4 mr-2" />
+                  Manual
+                </Button>
+                <Button
+                  variant={scanMode === 'camera' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleModeChange('camera')}
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  Camera
+                </Button>
+              </div>
             </div>
-
-            {scanMode === 'manual' && (
-              <div className="space-y-3">
+          </CardHeader>
+          <CardContent>
+            {scanMode === 'manual' ? (
+              <div className="space-y-4">
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Enter ticket code..."
+                    placeholder="Enter ticket code manually"
                     value={manualCode}
                     onChange={(e) => setManualCode(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleManualScan()}
-                    className="flex-1"
+                    disabled={scanning}
                   />
-                  <Button onClick={handleManualScan} disabled={scanning || !manualCode.trim()}>
-                    {scanning ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                    ) : (
-                      <Search className="w-4 h-4" />
-                    )}
+                  <Button 
+                    onClick={handleManualScan} 
+                    disabled={scanning || !manualCode.trim()}
+                  >
+                    {scanning ? 'Validating...' : 'Scan'}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Type or scan the ticket code to check attendee in
-                </p>
               </div>
-            )}
-
-            {scanMode === 'camera' && (
-              <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <ScanLine className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Camera scanner would appear here
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Point camera at QR code to scan
-                  </p>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-black rounded-lg aspect-video flex items-center justify-center">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover rounded-lg"
+                  />
                 </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  Point your camera at a QR code to scan
+                </p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Statistics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {scanHistory.filter(s => s.status === 'valid').length}
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">{totalScans}</div>
+                <p className="text-xs text-muted-foreground">Total Scans</p>
               </div>
-              <div className="text-xs text-muted-foreground">Valid Scans</div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-yellow-600">
-                {scanHistory.filter(s => s.status === 'already_checked_in').length}
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">{validScans}</div>
+                <p className="text-xs text-muted-foreground">Valid</p>
               </div>
-              <div className="text-xs text-muted-foreground">Duplicates</div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-red-600">
-                {scanHistory.filter(s => s.status === 'invalid').length}
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-yellow-600">{duplicateScans}</div>
+                <p className="text-xs text-muted-foreground">Duplicates</p>
               </div>
-              <div className="text-xs text-muted-foreground">Invalid</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">{invalidScans}</div>
+                <p className="text-xs text-muted-foreground">Invalid</p>
+              </div>
             </CardContent>
           </Card>
         </div>
-      </div>
 
-      {/* Scan History */}
-      <div className="flex-1 overflow-auto">
-        <Card className="m-4">
+        {/* Scan History */}
+        <Card>
           <CardHeader>
             <CardTitle>Recent Scans</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {scanHistory.map((scan) => (
-                <div key={scan.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                  <div className="flex-shrink-0">
-                    {getStatusIcon(scan.status)}
+            {scanHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <QrCode className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No scans yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {scanHistory.slice(0, 10).map((scan) => (
+                  <div key={scan.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${getResultColor(scan.result)}`} />
+                      <div>
+                        <p className="font-medium">
+                          {scan.ticket ? scan.ticket.attendee_name : 'Unknown'}
+                        </p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>{scan.message}</span>
+                          {scan.ticket?.badge_label && (
+                            <Badge variant="outline" className="text-xs">
+                              {scan.ticket.badge_label}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">
+                        {getResultIcon(scan.result)} {getResultTitle(scan.result)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(scan.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
                   </div>
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback className="text-xs">
-                      {scan.attendeeName.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{scan.attendeeName}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {scan.badge}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      <span className={getStatusColor(scan.status)}>
-                        {getStatusText(scan.status)}
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(scan.scanTime).toLocaleTimeString()}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                      {scan.ticketCode}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-
-export default ScannerPage;

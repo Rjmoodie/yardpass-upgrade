@@ -18,7 +18,7 @@ import TermsOfService from '@/pages/TermsOfService';
 import RefundPolicy from '@/pages/RefundPolicy';
 import TicketsPage from '@/components/TicketsPage';
 import TicketSuccessPage from '@/components/TicketSuccessPage';
-import ScannerPage from '@/components/ScannerPage';
+import { ScannerPage } from '@/components/ScannerPage';
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success';
 type UserRole = 'attendee' | 'organizer';
@@ -54,6 +54,7 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('feed');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
+  const [screenData, setScreenData] = useState<any>(null);
 
   const userRole: UserRole = profile?.role || 'attendee';
 
@@ -235,11 +236,7 @@ function AppContent() {
 
       {currentScreen === 'scanner' && user && (
         <ScannerPage
-          user={{
-            id: user.id,
-            name: profile?.display_name || 'User',
-            role: userRole
-          }}
+          eventId={screenData?.eventId || ''}
           onBack={() => setCurrentScreen('feed')}
         />
       )}

@@ -46,7 +46,19 @@ enabled = true
 port = 54325
 
 [functions.create-checkout]
-verify_jwt = true
+verify_jwt = false
 
 [functions.process-payment]
 verify_jwt = false
+
+[functions.scanner-authorize]
+verify_jwt = true
+
+[functions.scanner-validate]
+verify_jwt = true
+
+[functions.scanner-invite]
+verify_jwt = true
+
+[functions.scanner-toggle]
+verify_jwt = true

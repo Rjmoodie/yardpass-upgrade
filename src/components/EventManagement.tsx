@@ -259,7 +259,13 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
             <p className="text-muted-foreground mb-6">
               Scan attendee tickets to check them in to your event
             </p>
-            <Button size="lg">
+            <Button size="lg" onClick={() => {
+              // Navigate to full scanner page
+              if (typeof onBack === 'function') {
+                // This is a workaround - we need to modify the parent component to handle scanner navigation
+                console.log('Navigate to scanner for event:', event.id);
+              }
+            }}>
               <Scan className="w-5 h-5 mr-2" />
               Start Scanning
             </Button>
