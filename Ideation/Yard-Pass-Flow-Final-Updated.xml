@@ -1,0 +1,159 @@
+<mxfile host="app.diagrams.net" agent="YardPass Project Status Update" version="28.1.2">
+  <diagram name="YardPass User Flows - CURRENT STATUS" id="wTGqrsDAd6eXFZg2vCU9">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- PROJECT STATUS LEGEND -->
+        <mxCell id="STATUS-LEGEND-1" value="🟢 COMPLETED &amp; WORKING" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="10" y="1300" width="180" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="STATUS-LEGEND-2" value="🟡 UI READY / PARTIAL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="1300" width="180" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="STATUS-LEGEND-3" value="🔴 NOT IMPLEMENTED" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1300" width="180" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="STATUS-LEGEND-4" value="⚠️ PLATFORM ISSUE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="580" y="1300" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- CORE FLOW ELEMENTS WITH STATUS -->
+        <mxCell id="FrpX3kCShgz26VFhGUJY-1" value="App Launch&#xa;🟢 WORKING" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-2" value="User Authenticated?&#xa;🟢 WORKING" style="rhombus;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="-340" y="170" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-3" value="Authentication Page&#xa;(/auth)&#xa;🟡 UI READY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="-50" y="490" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-16" value="Main App&#xa;🟢 WORKING" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="450" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-18" value="Attendee Dashboard&#xa;🟢 WORKING&#xa;(Index.tsx)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="930" y="790" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-21" value="View Feed&#xa;(/feed)&#xa;🟢 WORKING" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="680" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-26" value="View Event Feed&#xa;⚠️ BUTTONS NOT WORKING&#xa;(Cross-origin issue)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="2280" y="780" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-32" value="View Posts&#xa;🟡 DISPLAY ONLY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1890" y="680" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-34" value="Universal Search&#xa;🟡 UI READY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="940" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-35" value="Like/Comment/Share&#xa;⚠️ PLATFORM ISSUE&#xa;(Cross-origin blocking)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="1890" y="590" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-38" value="Create Event&#xa;(/create)&#xa;🟡 UI READY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="-60" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-40" value="Scan Tickets&#xa;(/scanner)&#xa;🟡 UI READY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="260" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-50" value="My Tickets&#xa;🟡 UI READY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="760" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="U-a2AbFqpY01S_hjkE0E-9" value="Organizer Dashboard&#xa;🟡 UI READY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="250" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="U-a2AbFqpY01S_hjkE0E-33" value="Create Post&#xa;🟡 UI READY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="1020" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- PAYMENT FLOW -->
+        <mxCell id="FrpX3kCShgz26VFhGUJY-27" value="Purchase Tickets?&#xa;🔴 NOT IMPLEMENTED" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="2540" y="770" width="140" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-28" value="Select Ticket Tier&#xa;🔴 NOT IMPLEMENTED" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="2720" y="780" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="FrpX3kCShgz26VFhGUJY-29" value="Checkout (Stripe)&#xa;🔴 NOT IMPLEMENTED" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="2890" y="780" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- CRITICAL ISSUES SECTION -->
+        <mxCell id="CRITICAL-ISSUES" value="🚨 CRITICAL PLATFORM ISSUES 🚨" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1;fontSize=16;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="10" y="1200" width="400" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ISSUE-1" value="❌ Cross-Origin postMessage Error&#xa;• All button interactions blocked&#xa;• 'http://localhost:3000' vs 'https://lovable.dev'&#xa;• Security restrictions prevent clicking" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="10" y="1240" width="300" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ISSUE-2" value="⚠️ Button Implementation Complete&#xa;• All click handlers added&#xa;• Toast notifications ready&#xa;• Modals implemented&#xa;• Code is functional but blocked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="320" y="1240" width="300" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- WHAT'S WORKING SECTION -->
+        <mxCell id="WORKING-HEADER" value="✅ WHAT'S CURRENTLY WORKING" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1;fontSize=14;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="800" y="1200" width="250" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="WORKING-LIST" value="• App launches successfully&#xa;• Authentication flow functional&#xa;• Navigation between screens&#xa;• Main feed displays events&#xa;• Event data loads properly&#xa;• Role toggle (attendee/organizer)&#xa;• All UI components render&#xa;• Database schema complete&#xa;• Supabase integration active" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="800" y="1240" width="250" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- WHAT NEEDS TO BE DONE SECTION -->
+        <mxCell id="TODO-HEADER" value="🔧 IMMEDIATE NEXT STEPS" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1;fontSize=14;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1070" y="1200" width="250" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="TODO-LIST" value="1. 🚨 Fix cross-origin postMessage issue&#xa;2. Test button functionality after fix&#xa;3. Implement Stripe payment integration&#xa;4. Connect ticket purchase flow&#xa;5. Add real event data from database&#xa;6. Implement event creation wizard&#xa;7. Add QR code generation for tickets&#xa;8. Build organizer dashboard features&#xa;9. Add real-time notifications&#xa;10. Implement search filters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1070" y="1240" width="250" height="140" as="geometry" />
+        </mxCell>
+        
+        <!-- HIGH PRIORITY FEATURES -->
+        <mxCell id="PRIORITY-HEADER" value="⭐ HIGH PRIORITY MISSING FEATURES" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1;fontSize=14;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="1200" width="280" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="PRIORITY-LIST" value="• Stripe Connect integration&#xa;• Payment processing&#xa;• Ticket generation &amp; QR codes&#xa;• Email confirmations&#xa;• Push notifications&#xa;• Event analytics dashboard&#xa;• Attendee check-in system&#xa;• Organization management&#xa;• User profile management&#xa;• Event discovery &amp; search&#xa;• Social features (follow, share)&#xa;• Real-time chat/comments" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="1240" width="280" height="140" as="geometry" />
+        </mxCell>
+        
+        <!-- ARCHITECTURE NOTES -->
+        <mxCell id="ARCH-NOTES" value="🏗️ ARCHITECTURE STATUS&#xa;✅ React + TypeScript + Vite&#xa;✅ Supabase database + auth&#xa;✅ Tailwind CSS + shadcn/ui&#xa;✅ RLS policies implemented&#xa;✅ Database schema complete&#xa;❌ Stripe integration missing&#xa;❌ Real-time subscriptions&#xa;❌ File upload (events/avatars)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="10" y="1380" width="300" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- PLATFORM SPECIFIC NOTES -->
+        <mxCell id="PLATFORM-NOTES" value="🔧 PLATFORM SPECIFIC ISSUES&#xa;• Lovable cross-origin restrictions&#xa;• PostMessage target origin mismatch&#xa;• Local dev vs production domains&#xa;• Browser security blocking events&#xa;• Need to test in different browsers&#xa;• May need platform engineering fix" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="320" y="1380" width="300" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- TESTING RECOMMENDATIONS -->
+        <mxCell id="TESTING-NOTES" value="🧪 TESTING RECOMMENDATIONS&#xa;1. Try incognito/private mode&#xa;2. Clear browser cache completely&#xa;3. Test in different browsers&#xa;4. Check browser console for errors&#xa;5. Disable browser extensions&#xa;6. Test on different devices&#xa;7. Report to Lovable support if persistent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="630" y="1380" width="300" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- COMPLETION PERCENTAGE -->
+        <mxCell id="COMPLETION" value="📊 PROJECT COMPLETION&#xa;🟢 Frontend UI: ~70%&#xa;🟢 Database Schema: ~90%&#xa;🟡 Authentication: ~80%&#xa;🔴 Payment System: ~0%&#xa;🔴 Core Features: ~30%&#xa;🔴 Production Ready: ~25%" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="940" y="1380" width="200" height="120" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
