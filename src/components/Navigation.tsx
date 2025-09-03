@@ -22,6 +22,7 @@ import {
   X
 } from 'lucide-react';
 
+// YardPass Navigation Component
 export default function Navigation() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
