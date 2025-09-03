@@ -66,9 +66,15 @@ function AppContent() {
     setSelectedEvent(null);
   };
 
-  const handleRoleToggle = () => {
-    // Mock role toggle functionality
-    console.log('Role toggle clicked');
+  const handleRoleToggle = async () => {
+    if (!user) return;
+    
+    // TODO: Implement actual role update in user_profiles table
+    const newRole = userRole === 'attendee' ? 'organizer' : 'attendee';
+    console.log('Role toggle clicked - changing to:', newRole);
+    
+    // For now, this is just a mock - in real implementation, update the user profile
+    // and refresh the auth state
   };
 
   if (loading) {
@@ -111,16 +117,15 @@ function AppContent() {
         />
       )}
       
-      {currentScreen === 'create-event' && user && (
+      {currentScreen === 'create-event' && (
         <EventCreator 
-          user={{
+          user={user ? {
             id: user.id,
-            name: user.user_metadata?.full_name || 'User',
+            name: user.user_metadata?.display_name || user.user_metadata?.full_name || 'User',
             role: userRole
-          }}
+          } : null}
           onBack={() => setCurrentScreen(userRole === 'organizer' ? 'dashboard' : 'feed')}
           onCreate={() => {
-            // After creating event, go to event management
             setCurrentScreen('event-management');
           }}
         />
@@ -174,13 +179,13 @@ function AppContent() {
         />
       )}
       
-      {currentScreen === 'create-post' && user && (
+      {currentScreen === 'create-post' && (
         <PostCreator 
-          user={{
+          user={user ? {
             id: user.id,
-            name: user.user_metadata?.full_name || 'User',
+            name: user.user_metadata?.display_name || user.user_metadata?.full_name || 'User',
             role: userRole
-          }}
+          } : null}
           onBack={() => setCurrentScreen('feed')}
           onPost={handleBackToFeed}
         />

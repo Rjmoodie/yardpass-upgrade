@@ -1,4 +1,7 @@
 import { Home, Plus, BarChart3, User, Search, Ticket, ScanLine } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useState } from 'react';
+import AuthModal from './AuthModal';
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner';
 type UserRole = 'attendee' | 'organizer';
@@ -10,6 +13,30 @@ interface NavigationProps {
 }
 
 export default function Navigation({ currentScreen, userRole, onNavigate }: NavigationProps) {
+  const { user } = useAuth();
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<Screen | null>(null);
+
+  const requiresAuth = (screen: Screen) => {
+    return ['create-event', 'create-post', 'dashboard', 'profile', 'tickets', 'scanner'].includes(screen);
+  };
+
+  const handleNavigation = (screen: Screen) => {
+    if (requiresAuth(screen) && !user) {
+      setPendingNavigation(screen);
+      setAuthModalOpen(true);
+    } else {
+      onNavigate(screen);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    setAuthModalOpen(false);
+    if (pendingNavigation) {
+      onNavigate(pendingNavigation);
+      setPendingNavigation(null);
+    }
+  };
   const navItems = [
     {
       id: 'feed' as Screen,
@@ -65,7 +92,7 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
         return (
           <button
             key={item.id}
-            onClick={() => onNavigate(item.id)}
+            onClick={() => handleNavigation(item.id)}
             className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
               isActive 
                 ? 'text-primary bg-primary/10' 
@@ -77,6 +104,17 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
           </button>
         );
       })}
+      
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => {
+          setAuthModalOpen(false);
+          setPendingNavigation(null);
+        }}
+        onSuccess={handleAuthSuccess}
+        title="Sign in to continue"
+        description="You need to be signed in to access this feature"
+      />
     </div>
   );
 }

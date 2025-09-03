@@ -15,7 +15,7 @@ interface User {
 }
 
 interface EventCreatorProps {
-  user: User;
+  user: User | null;
   onBack: () => void;
   onCreate: () => void;
 }
@@ -34,6 +34,18 @@ const categories = [
 ];
 
 export function EventCreator({ user, onBack, onCreate }: EventCreatorProps) {
+  // Redirect if not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20 p-4">
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-4">Authentication Required</h2>
+          <p className="text-muted-foreground mb-4">You need to be signed in to create events.</p>
+          <Button onClick={onBack}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     title: '',

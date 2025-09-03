@@ -14,7 +14,7 @@ interface User {
 }
 
 interface PostCreatorProps {
-  user: User;
+  user: User | null;
   onBack: () => void;
   onPost: () => void;
 }
@@ -45,6 +45,18 @@ const mockOrganizers = [
 ];
 
 export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
+  // Redirect if not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20 p-4">
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-4">Authentication Required</h2>
+          <p className="text-muted-foreground mb-4">You need to be signed in to create posts.</p>
+          <Button onClick={onBack}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
   const [content, setContent] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<string>('');
   const [selectedOrganizers, setSelectedOrganizers] = useState<string[]>([]);
