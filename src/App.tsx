@@ -49,12 +49,12 @@ interface TicketTier {
 }
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading, updateRole } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('feed');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
 
-  const userRole: UserRole = user?.user_metadata?.role || 'attendee';
+  const userRole: UserRole = profile?.role || 'attendee';
 
   const handleEventSelect = (event: Event) => {
     setSelectedEvent(event);
@@ -67,14 +67,16 @@ function AppContent() {
   };
 
   const handleRoleToggle = async () => {
-    if (!user) return;
+    if (!user || !profile) return;
     
-    // TODO: Implement actual role update in user_profiles table
     const newRole = userRole === 'attendee' ? 'organizer' : 'attendee';
-    console.log('Role toggle clicked - changing to:', newRole);
+    const { error } = await updateRole(newRole);
     
-    // For now, this is just a mock - in real implementation, update the user profile
-    // and refresh the auth state
+    if (error) {
+      console.error('Failed to update role:', error);
+    } else {
+      console.log('Role updated successfully to:', newRole);
+    }
   };
 
   if (loading) {
@@ -121,7 +123,7 @@ function AppContent() {
         <EventCreator 
           user={user ? {
             id: user.id,
-            name: user.user_metadata?.display_name || user.user_metadata?.full_name || 'User',
+            name: profile?.display_name || 'User',
             role: userRole
           } : null}
           onBack={() => setCurrentScreen(userRole === 'organizer' ? 'dashboard' : 'feed')}
@@ -136,7 +138,7 @@ function AppContent() {
           event={selectedEvent}
           user={user ? {
             id: user.id,
-            name: user.user_metadata?.full_name || 'User',
+            name: profile?.display_name || 'User',
             role: userRole
           } : null}
           onBack={handleBackToFeed}
@@ -154,7 +156,7 @@ function AppContent() {
         <OrganizerDashboard 
           user={{
             id: user.id,
-            name: user.user_metadata?.full_name || 'User',
+            name: profile?.display_name || 'User',
             role: userRole
           }}
           onCreateEvent={() => setCurrentScreen('create-event')}
@@ -169,10 +171,10 @@ function AppContent() {
         <UserProfile 
           user={{
             id: user.id,
-            name: user.user_metadata?.full_name || 'User',
-            phone: user.phone || '',
+            name: profile?.display_name || 'User',
+            phone: profile?.phone || '',
             role: userRole,
-            isVerified: true
+            isVerified: profile?.verification_status !== 'basic'
           }}
           onRoleToggle={handleRoleToggle}
           onBack={() => setCurrentScreen('feed')}
@@ -183,7 +185,7 @@ function AppContent() {
         <PostCreator 
           user={user ? {
             id: user.id,
-            name: user.user_metadata?.display_name || user.user_metadata?.full_name || 'User',
+            name: profile?.display_name || 'User',
             role: userRole
           } : null}
           onBack={() => setCurrentScreen('feed')}
@@ -205,7 +207,7 @@ function AppContent() {
         <OrganizationDashboard
           user={{
             id: user.id,
-            name: user.user_metadata?.full_name || 'User',
+            name: profile?.display_name || 'User',
             role: userRole
           }}
           organizationId={selectedOrganizationId}
@@ -230,7 +232,7 @@ function AppContent() {
         <TicketsPage
           user={{
             id: user.id,
-            name: user.user_metadata?.full_name || 'User',
+            name: profile?.display_name || 'User',
             role: userRole
           }}
           onBack={() => setCurrentScreen('feed')}
@@ -241,7 +243,7 @@ function AppContent() {
         <ScannerPage
           user={{
             id: user.id,
-            name: user.user_metadata?.full_name || 'User',
+            name: profile?.display_name || 'User',
             role: userRole
           }}
           onBack={() => setCurrentScreen('feed')}

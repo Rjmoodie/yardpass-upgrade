@@ -2,8 +2,19 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+interface UserProfile {
+  user_id: string;
+  display_name: string;
+  phone?: string;
+  role: 'attendee' | 'organizer';
+  verification_status: 'basic' | 'verified' | 'pro';
+  created_at: string;
+  photo_url?: string;
+}
+
 interface AuthContextType {
   user: User | null;
+  profile: UserProfile | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -12,14 +23,36 @@ interface AuthContextType {
   signUp: (email: string, password: string, displayName: string, phone?: string) => Promise<{ error: any }>;
   signUpWithPhone: (phone: string, displayName: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  updateRole: (role: 'attendee' | 'organizer') => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = React.useState<User | null>(null);
+  const [profile, setProfile] = React.useState<UserProfile | null>(null);
   const [session, setSession] = React.useState<Session | null>(null);
   const [loading, setLoading] = React.useState(true);
+
+  const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+    
+    // Type cast the data to ensure role is properly typed
+    return {
+      ...data,
+      role: data.role as 'attendee' | 'organizer',
+      verification_status: data.verification_status as 'basic' | 'verified' | 'pro'
+    };
+  };
 
   React.useEffect(() => {
     // Set up auth state listener
@@ -28,19 +61,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Create user profile if new user signs up
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (session?.user) {
+          // Fetch user profile to get role and other info
           setTimeout(async () => {
-            const { error } = await supabase
-              .from('user_profiles')
-              .insert({
-                user_id: session.user.id,
-                display_name: session.user.user_metadata?.display_name || session.user.email || 'User',
-                phone: session.user.user_metadata?.phone || null,
-                role: 'attendee'
-              });
-            if (error) console.error('Error creating profile:', error);
+            const userProfile = await fetchUserProfile(session.user.id);
+            setProfile(userProfile);
           }, 0);
+        } else {
+          setProfile(null);
         }
         
         setLoading(false);
@@ -51,6 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchUserProfile(session.user.id).then(setProfile);
+      }
+      
       setLoading(false);
     });
 
@@ -110,13 +143,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const updateRole = async (role: 'attendee' | 'organizer') => {
+    if (!user) return { error: 'No user logged in' };
+    
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ role })
+      .eq('user_id', user.id);
+    
+    if (!error && profile) {
+      setProfile({ ...profile, role });
+    }
+    
+    return { error };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
+    setProfile(null);
   };
 
   return (
     <AuthContext.Provider value={{
       user,
+      profile,
       session,
       loading,
       signIn,
@@ -125,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signUpWithPhone,
       signOut,
+      updateRole,
     }}>
       {children}
     </AuthContext.Provider>
