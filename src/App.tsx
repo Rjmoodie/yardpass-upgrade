@@ -1,146 +1,113 @@
-import { useState } from 'react';
-import { AuthScreen } from './components/AuthScreen';
-import { MainFeed } from './components/MainFeed';
-import { EventCreator } from './components/EventCreator';
-import { EventDetail } from './components/EventDetail';
-import { OrganizerDashboard } from './components/OrganizerDashboard';
-import { UserProfile } from './components/UserProfile';
-import { PostCreator } from './components/PostCreator';
-import { Navigation } from './components/Navigation';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { Toaster } from '@/components/ui/toaster';
+import Navigation from '@/components/Navigation';
+import AuthPage from '@/pages/AuthPage';
+import EventsPage from '@/pages/EventsPage';
 
-type Screen = 'auth' | 'feed' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post';
-type UserRole = 'attendee' | 'organizer';
-
-interface User {
-  id: string;
-  phone: string;
-  name: string;
-  role: UserRole;
-  isVerified: boolean;
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  return user ? <>{children}</> : <Navigate to="/auth" replace />;
 }
 
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  organizer: string;
-  organizerId: string;
-  category: string;
-  date: string;
-  location: string;
-  coverImage: string;
-  videoUrl: string;
-  ticketTiers: TicketTier[];
-  attendeeCount: number;
-  likes: number;
-  shares: number;
-}
+function AppContent() {
+  const { user, loading } = useAuth();
 
-interface TicketTier {
-  id: string;
-  name: string;
-  price: number;
-  badge: string;
-  available: number;
-  total: number;
-}
-
-export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('auth');
-  const [user, setUser] = useState<User | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-
-  // Mock authentication
-  const handleAuth = (phone: string, name: string) => {
-    const newUser: User = {
-      id: '1',
-      phone,
-      name,
-      role: 'attendee',
-      isVerified: true
-    };
-    setUser(newUser);
-    setCurrentScreen('feed');
-  };
-
-  const handleRoleToggle = () => {
-    if (user) {
-      setUser({
-        ...user,
-        role: user.role === 'attendee' ? 'organizer' : 'attendee'
-      });
-    }
-  };
-
-  const handleEventSelect = (event: Event) => {
-    setSelectedEvent(event);
-    setCurrentScreen('event-detail');
-  };
-
-  const handleBackToFeed = () => {
-    setCurrentScreen('feed');
-    setSelectedEvent(null);
-  };
-
-  if (!user) {
-    return <AuthScreen onAuth={handleAuth} />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-xl">YP</span>
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col">
-      {currentScreen === 'feed' && (
-        <MainFeed 
-          user={user}
-          onEventSelect={handleEventSelect}
-          onCreatePost={() => setCurrentScreen('create-post')}
+    <div className="min-h-screen bg-background">
+      {user && <Navigation />}
+      <Routes>
+        <Route 
+          path="/auth" 
+          element={user ? <Navigate to="/" replace /> : <AuthPage />} 
         />
-      )}
-      
-      {currentScreen === 'create-event' && (
-        <EventCreator 
-          user={user}
-          onBack={() => setCurrentScreen(user.role === 'organizer' ? 'dashboard' : 'feed')}
-          onCreate={handleBackToFeed}
+        <Route 
+          path="/" 
+          element={
+            <ProtectedRoute>
+              <EventsPage />
+            </ProtectedRoute>
+          } 
         />
-      )}
-      
-      {currentScreen === 'event-detail' && selectedEvent && (
-        <EventDetail 
-          event={selectedEvent}
-          user={user}
-          onBack={handleBackToFeed}
+        <Route 
+          path="/my-events" 
+          element={
+            <ProtectedRoute>
+              <div className="container mx-auto px-4 py-8">
+                <h1 className="text-2xl font-bold">My Events</h1>
+                <p className="text-muted-foreground">Coming soon...</p>
+              </div>
+            </ProtectedRoute>
+          } 
         />
-      )}
-      
-      {currentScreen === 'dashboard' && (
-        <OrganizerDashboard 
-          user={user}
-          onCreateEvent={() => setCurrentScreen('create-event')}
-          onEventSelect={handleEventSelect}
+        <Route 
+          path="/create-event" 
+          element={
+            <ProtectedRoute>
+              <div className="container mx-auto px-4 py-8">
+                <h1 className="text-2xl font-bold">Create Event</h1>
+                <p className="text-muted-foreground">Coming soon...</p>
+              </div>
+            </ProtectedRoute>
+          } 
         />
-      )}
-      
-      {currentScreen === 'profile' && (
-        <UserProfile 
-          user={user}
-          onRoleToggle={handleRoleToggle}
-          onBack={() => setCurrentScreen('feed')}
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <div className="container mx-auto px-4 py-8">
+                <h1 className="text-2xl font-bold">Profile</h1>
+                <p className="text-muted-foreground">Coming soon...</p>
+              </div>
+            </ProtectedRoute>
+          } 
         />
-      )}
-      
-      {currentScreen === 'create-post' && (
-        <PostCreator 
-          user={user}
-          onBack={() => setCurrentScreen('feed')}
-          onPost={handleBackToFeed}
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <div className="container mx-auto px-4 py-8">
+                <h1 className="text-2xl font-bold">Dashboard</h1>
+                <p className="text-muted-foreground">Coming soon...</p>
+              </div>
+            </ProtectedRoute>
+          } 
         />
-      )}
-      
-      <Navigation 
-        currentScreen={currentScreen}
-        userRole={user.role}
-        onNavigate={setCurrentScreen}
-      />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <Toaster />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </AuthProvider>
   );
 }

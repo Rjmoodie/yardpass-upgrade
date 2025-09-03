@@ -47,13 +47,6 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "cultural_guides_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: true
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["event_id"]
-          },
         ]
       }
       event_comments: {
@@ -79,13 +72,6 @@ export type Database = {
           text?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "event_comments_author_user_id_fkey"
-            columns: ["author_user_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
-          },
           {
             foreignKeyName: "event_comments_post_id_fkey"
             columns: ["post_id"]
@@ -128,25 +114,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "event_posts_author_user_id_fkey"
-            columns: ["author_user_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
-          },
-          {
             foreignKeyName: "event_posts_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_posts_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "event_posts_ticket_tier_id_fkey"
@@ -183,13 +155,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_posts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_reactions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -266,15 +231,7 @@ export type Database = {
           venue?: string | null
           visibility?: Database["public"]["Enums"]["event_visibility"] | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "events_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
-          },
-        ]
+        Relationships: []
       }
       kv_store_d42c04e8: {
         Row: {
@@ -396,20 +353,6 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "orders_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
-          },
         ]
       }
       org_memberships: {
@@ -438,13 +381,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "org_memberships_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -482,15 +418,7 @@ export type Database = {
             | Database["public"]["Enums"]["verification_status"]
             | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "organizations_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
-          },
-        ]
+        Relationships: []
       }
       payout_accounts: {
         Row: {
@@ -551,13 +479,6 @@ export type Database = {
           reason?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "refunds_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
-          },
           {
             foreignKeyName: "refunds_order_id_fkey"
             columns: ["order_id"]
@@ -621,13 +542,6 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "ticket_tiers_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["event_id"]
-          },
         ]
       }
       tickets: {
@@ -676,25 +590,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tickets_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["event_id"]
-          },
-          {
             foreignKeyName: "tickets_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tickets_owner_user_id_fkey"
-            columns: ["owner_user_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "tickets_tier_id_fkey"
@@ -739,61 +639,20 @@ export type Database = {
             | Database["public"]["Enums"]["verification_status"]
             | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_profiles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
-      user_can_post_event_v: {
-        Row: {
-          can_post: boolean | null
-          event_id: string | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
-      user_event_badge_v: {
-        Row: {
-          badge_label: string | null
-          event_id: string | null
-          user_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tickets_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tickets_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "tickets_owner_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_can_post_event_v"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       can_current_user_post: {
         Args: { p_event_id: string }
         Returns: boolean
+      }
+      get_user_event_badge: {
+        Args: { p_event_id: string; p_user_id: string }
+        Returns: string
       }
       is_event_individual_owner: {
         Args: { p_event_id: string }
