@@ -7,7 +7,7 @@ import { AttendeeListModal } from '@/components/AttendeeListModal';
 import { ShareModal } from '@/components/ShareModal';
 import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users } from 'lucide-react';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 
 interface Event {
   id: string;
@@ -175,39 +175,91 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   const handleComment = () => {
     withRequireAuth(() => {
       onEventSelect(currentEvent);
-      toast.success('Opening event comments...');
+      toast({
+        title: "Opening Comments",
+        description: "Loading event comments and discussions...",
+      });
     });
   };
 
   const handleMoreOptions = () => {
     withRequireAuth(() => {
-      toast.info('More options coming soon...');
+      toast({
+        title: "More Options",
+        description: "Additional options menu coming soon...",
+      });
     });
   };
 
   const handleCategoryClick = (category: string) => {
-    onCategorySelect?.(category);
-    toast.success(`Browsing ${category} events...`);
+    if (onCategorySelect) {
+      onCategorySelect(category);
+      toast({
+        title: "Category Filter",
+        description: `Browsing ${category} events...`,
+      });
+    }
   };
 
   const handleOrganizerClick = (organizerId: string, organizerName: string) => {
-    onOrganizerSelect?.(organizerId, organizerName);
-    toast.success(`Viewing ${organizerName} profile...`);
+    if (onOrganizerSelect) {
+      onOrganizerSelect(organizerId, organizerName);
+      toast({
+        title: "Organizer Profile",
+        description: `Viewing ${organizerName}'s profile...`,
+      });
+    }
   };
 
   const handleLocationClick = (location: string) => {
-    toast.success(`Viewing events near ${location}...`);
+    toast({
+      title: "Location Events",
+      description: `Finding events near ${location}...`,
+    });
   };
 
   const handleTicketTierClick = (tierName: string) => {
     withRequireAuth(() => {
       onEventSelect(currentEvent);
-      toast.success(`Viewing ${tierName} ticket details...`);
+      toast({
+        title: "Ticket Details",
+        description: `Viewing ${tierName} ticket information...`,
+      });
     });
   };
 
   const handleEventTitleClick = () => {
     onEventSelect(currentEvent);
+    toast({
+      title: "Event Details",
+      description: "Loading full event information...",
+    });
+  };
+
+  const handleGetTickets = () => {
+    withRequireAuth(() => {
+      onEventSelect(currentEvent);
+      toast({
+        title: "Get Tickets",
+        description: "Redirecting to ticket purchase...",
+      });
+    });
+  };
+
+  const handleEventDetails = () => {
+    onEventSelect(currentEvent);
+    toast({
+      title: "Event Details",
+      description: "Loading detailed event information...",
+    });
+  };
+
+  const handleAttendeeClick = () => {
+    setShowAttendeeModal(true);
+    toast({
+      title: "Attendee List",
+      description: "Loading event attendees...",
+    });
   };
 
   const handleScroll = (direction: 'up' | 'down') => {
@@ -284,7 +336,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               <Badge 
                 variant="outline" 
                 className="border-white/30 text-white cursor-pointer hover:bg-white/10 transition-colors"
-                onClick={() => setShowAttendeeModal(true)}
+                onClick={handleAttendeeClick}
               >
                 {currentEvent.attendeeCount} attending
               </Badge>
@@ -342,7 +394,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             <div className="flex gap-2">
               <Button 
                 size="sm" 
-                onClick={withRequireAuth(() => onEventSelect(currentEvent))}
+                onClick={handleGetTickets}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Get Tickets
@@ -350,7 +402,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               <Button 
                 size="sm" 
                 variant="outline"
-                onClick={() => onEventSelect(currentEvent)}
+                onClick={handleEventDetails}
                 className="border-white/30 text-white bg-white/10 hover:bg-white/20"
               >
                 Details
