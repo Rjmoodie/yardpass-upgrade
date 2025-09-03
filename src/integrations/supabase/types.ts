@@ -163,6 +163,7 @@ export type Database = {
           address: string | null
           category: string | null
           city: string | null
+          completed_at: string | null
           country: string | null
           cover_image_url: string | null
           created_at: string | null
@@ -187,6 +188,7 @@ export type Database = {
           address?: string | null
           category?: string | null
           city?: string | null
+          completed_at?: string | null
           country?: string | null
           cover_image_url?: string | null
           created_at?: string | null
@@ -211,6 +213,7 @@ export type Database = {
           address?: string | null
           category?: string | null
           city?: string | null
+          completed_at?: string | null
           country?: string | null
           cover_image_url?: string | null
           created_at?: string | null
@@ -649,6 +652,32 @@ export type Database = {
       can_current_user_post: {
         Args: { p_event_id: string }
         Returns: boolean
+      }
+      get_org_analytics: {
+        Args: { p_org_id: string }
+        Returns: {
+          completed_events: number
+          total_attendees: number
+          total_events: number
+          total_revenue: number
+        }[]
+      }
+      get_user_analytics: {
+        Args: { p_user_id: string }
+        Returns: {
+          completed_events: number
+          total_attendees: number
+          total_events: number
+          total_revenue: number
+        }[]
+      }
+      get_user_earned_badges: {
+        Args: { p_user_id: string }
+        Returns: {
+          badge_name: string
+          description: string
+          event_count: number
+        }[]
       }
       get_user_event_badge: {
         Args: { p_event_id: string; p_user_id: string }
