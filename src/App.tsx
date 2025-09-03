@@ -1,34 +1,72 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useState } from 'react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
+import AuthModal from '@/components/AuthModal';
+import Index from '@/pages/Index';
+import { EventDetail } from '@/components/EventDetail';
+import { EventCreator } from '@/components/EventCreator';
+import { OrganizerDashboard } from '@/components/OrganizerDashboard';
+import { UserProfile } from '@/components/UserProfile';
+import { PostCreator } from '@/components/PostCreator';
 import Navigation from '@/components/Navigation';
-import AuthPage from '@/pages/AuthPage';
-import EventsPage from '@/pages/EventsPage';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-  
-  return user ? <>{children}</> : <Navigate to="/auth" replace />;
+type Screen = 'feed' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post';
+type UserRole = 'attendee' | 'organizer';
+
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  organizer: string;
+  organizerId: string;
+  category: string;
+  date: string;
+  location: string;
+  coverImage: string;
+  videoUrl: string;
+  ticketTiers: TicketTier[];
+  attendeeCount: number;
+  likes: number;
+  shares: number;
+}
+
+interface TicketTier {
+  id: string;
+  name: string;
+  price: number;
+  badge: string;
+  available: number;
+  total: number;
 }
 
 function AppContent() {
   const { user, loading } = useAuth();
+  const [currentScreen, setCurrentScreen] = useState<Screen>('feed');
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+
+  const userRole: UserRole = user?.user_metadata?.role || 'attendee';
+
+  const handleEventSelect = (event: Event) => {
+    setSelectedEvent(event);
+    setCurrentScreen('event-detail');
+  };
+
+  const handleBackToFeed = () => {
+    setCurrentScreen('feed');
+    setSelectedEvent(null);
+  };
+
+  const handleRoleToggle = () => {
+    // Mock role toggle functionality
+    console.log('Role toggle clicked');
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="text-center">
           <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-xl">YP</span>
+            <span className="text-white font-bold text-xl">🎪</span>
           </div>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
         </div>
@@ -37,60 +75,90 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      <Routes>
-        <Route 
-          path="/auth" 
-          element={user ? <Navigate to="/" replace /> : <AuthPage />} 
+    <div className="h-screen bg-background flex flex-col">
+      {/* Main Content */}
+      {currentScreen === 'feed' && (
+        <Index 
+          onEventSelect={handleEventSelect}
+          onCreatePost={() => setCurrentScreen('create-post')}
         />
-        <Route path="/" element={<EventsPage />} />
-        <Route 
-          path="/my-events" 
-          element={
-            <ProtectedRoute>
-              <div className="container mx-auto px-4 py-8">
-                <h1 className="text-2xl font-bold">My Events</h1>
-                <p className="text-muted-foreground">Coming soon...</p>
-              </div>
-            </ProtectedRoute>
-          } 
+      )}
+      
+      {currentScreen === 'create-event' && user && (
+        <EventCreator 
+          user={{
+            id: user.id,
+            name: user.user_metadata?.full_name || 'User',
+            role: userRole
+          }}
+          onBack={() => setCurrentScreen(userRole === 'organizer' ? 'dashboard' : 'feed')}
+          onCreate={handleBackToFeed}
         />
-        <Route 
-          path="/create-event" 
-          element={
-            <ProtectedRoute>
-              <div className="container mx-auto px-4 py-8">
-                <h1 className="text-2xl font-bold">Create Event</h1>
-                <p className="text-muted-foreground">Coming soon...</p>
-              </div>
-            </ProtectedRoute>
-          } 
+      )}
+      
+      {currentScreen === 'event-detail' && selectedEvent && (
+        <EventDetail 
+          event={selectedEvent}
+          user={user ? {
+            id: user.id,
+            name: user.user_metadata?.full_name || 'User',
+            role: userRole
+          } : null}
+          onBack={handleBackToFeed}
         />
-        <Route 
-          path="/profile" 
-          element={
-            <ProtectedRoute>
-              <div className="container mx-auto px-4 py-8">
-                <h1 className="text-2xl font-bold">Profile</h1>
-                <p className="text-muted-foreground">Coming soon...</p>
-              </div>
-            </ProtectedRoute>
-          } 
+      )}
+      
+      {currentScreen === 'dashboard' && user && (
+        <OrganizerDashboard 
+          user={{
+            id: user.id,
+            name: user.user_metadata?.full_name || 'User',
+            role: userRole
+          }}
+          onCreateEvent={() => setCurrentScreen('create-event')}
+          onEventSelect={handleEventSelect}
         />
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              <div className="container mx-auto px-4 py-8">
-                <h1 className="text-2xl font-bold">Dashboard</h1>
-                <p className="text-muted-foreground">Coming soon...</p>
-              </div>
-            </ProtectedRoute>
-          } 
+      )}
+      
+      {currentScreen === 'profile' && user && (
+        <UserProfile 
+          user={{
+            id: user.id,
+            name: user.user_metadata?.full_name || 'User',
+            phone: user.phone || '',
+            role: userRole,
+            isVerified: true
+          }}
+          onRoleToggle={handleRoleToggle}
+          onBack={() => setCurrentScreen('feed')}
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      )}
+      
+      {currentScreen === 'create-post' && user && (
+        <PostCreator 
+          user={{
+            id: user.id,
+            name: user.user_metadata?.full_name || 'User',
+            role: userRole
+          }}
+          onBack={() => setCurrentScreen('feed')}
+          onPost={handleBackToFeed}
+        />
+      )}
+      
+      {/* Navigation - Only show for main screens */}
+      {currentScreen !== 'event-detail' && (
+        <Navigation 
+          currentScreen={currentScreen}
+          userRole={userRole}
+          onNavigate={setCurrentScreen}
+        />
+      )}
+      
+      {/* Auth Modal */}
+      <AuthModal isOpen={false} onClose={() => {}} />
+      
+      {/* Toast notifications */}
       <Toaster />
     </div>
   );
@@ -99,9 +167,7 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <AppContent />
     </AuthProvider>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar } from 'lucide-react';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 
@@ -29,6 +30,11 @@ interface TicketTier {
   badge: string;
   available: number;
   total: number;
+}
+
+interface IndexProps {
+  onEventSelect: (event: Event) => void;
+  onCreatePost: () => void;
 }
 
 // Mock event data matching figma design
@@ -92,7 +98,7 @@ const mockEvents: Event[] = [
   }
 ];
 
-const Index = () => {
+const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
   const [events, setEvents] = useState(mockEvents);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -152,7 +158,7 @@ const Index = () => {
           <Button
             size="sm"
             variant="secondary"
-            onClick={withRequireAuth(() => console.log('Create post'))}
+            onClick={withRequireAuth(onCreatePost)}
             className="bg-white/20 text-white border-white/30 hover:bg-white/30"
           >
             + Post
@@ -168,13 +174,10 @@ const Index = () => {
       >
         {events.map((event, index) => (
           <div key={event.id} className="h-full w-full absolute" style={{ top: `${index * 100}%` }}>
-            <img
+            <ImageWithFallback
               src={event.coverImage}
               alt={event.title}
               className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODgiIGhlaWdodD0iODgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgc3Ryb2tlPSIjMDAwIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBvcGFjaXR5PSIuMyIgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIzLjciPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjU2IiBoZWlnaHQ9IjU2IiByeD0iNiIvPjxwYXRoIGQ9Im0xNiA1OCAxNi0xOCAzMiAzMiIvPjxjaXJjbGUgY3g9IjUzIiBjeT0iMzUiIHI9IjciLz48L3N2Zz4=';
-              }}
             />
             
             {/* Gradient Overlay */}
@@ -225,7 +228,7 @@ const Index = () => {
             <div className="flex gap-2">
               <Button 
                 size="sm" 
-                onClick={withRequireAuth(() => console.log('Get tickets for', currentEvent.id))}
+                onClick={() => onEventSelect(currentEvent)}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Get Tickets
@@ -233,7 +236,7 @@ const Index = () => {
               <Button 
                 size="sm" 
                 variant="outline"
-                onClick={() => console.log('View details for', currentEvent.id)}
+                onClick={() => onEventSelect(currentEvent)}
                 className="border-white/30 text-white bg-white/10 hover:bg-white/20"
               >
                 Details
