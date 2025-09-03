@@ -62,3 +62,9 @@ verify_jwt = true
 
 [functions.scanner-toggle]
 verify_jwt = true
+
+[functions.posts-create]
+verify_jwt = true
+
+[functions.posts-list]
+verify_jwt = false

@@ -2,6 +2,11 @@ import { Home, Plus, BarChart3, User, Search, Ticket, ScanLine } from 'lucide-re
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import AuthModal from './AuthModal';
+import { PostCreatorModal } from './PostCreatorModal';
+import { PurchaseGateModal } from './PurchaseGateModal';
+import { OrganizerMenu } from './OrganizerMenu';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success';
 type UserRole = 'attendee' | 'organizer';
@@ -13,9 +18,12 @@ interface NavigationProps {
 }
 
 export default function Navigation({ currentScreen, userRole, onNavigate }: NavigationProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<Screen | null>(null);
+  const [postCreatorOpen, setPostCreatorOpen] = useState(false);
+  const [purchaseGateOpen, setPurchaseGateOpen] = useState(false);
+  const [organizerMenuOpen, setOrganizerMenuOpen] = useState(false);
 
   const requiresAuth = (screen: Screen) => {
     return ['create-event', 'create-post', 'dashboard', 'profile', 'tickets', 'scanner'].includes(screen);
@@ -25,8 +33,60 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
     if (requiresAuth(screen) && !user) {
       setPendingNavigation(screen);
       setAuthModalOpen(true);
+    } else if (screen === 'create-post') {
+      handleCreatePost();
     } else {
       onNavigate(screen);
+    }
+  };
+
+  const handleCreatePost = async () => {
+    if (!user) {
+      setAuthModalOpen(true);
+      return;
+    }
+
+    try {
+      // Check if user has any tickets
+      const { data: tickets, error } = await supabase
+        .from('tickets')
+        .select('id, event_id')
+        .eq('owner_user_id', user.id)
+        .in('status', ['issued', 'transferred', 'redeemed']);
+
+      if (error) throw error;
+
+      // Check if user is an organizer (has events or org memberships)
+      const { data: ownedEvents } = await supabase
+        .from('events')
+        .select('id')
+        .eq('owner_context_type', 'individual')
+        .eq('owner_context_id', user.id)
+        .limit(1);
+
+      const { data: orgMemberships } = await supabase
+        .from('org_memberships')
+        .select('id')
+        .eq('user_id', user.id)
+        .in('role', ['editor', 'admin', 'owner'])
+        .limit(1);
+
+      const isOrganizer = (ownedEvents && ownedEvents.length > 0) || (orgMemberships && orgMemberships.length > 0);
+
+      if (isOrganizer) {
+        setOrganizerMenuOpen(true);
+      } else if (tickets && tickets.length > 0) {
+        setPostCreatorOpen(true);
+      } else {
+        setPurchaseGateOpen(true);
+      }
+    } catch (error) {
+      console.error('Error checking user eligibility:', error);
+      toast({
+        title: "Error",
+        description: "Failed to check posting eligibility",
+        variant: "destructive",
+      });
     }
   };
 
@@ -114,6 +174,39 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
         onSuccess={handleAuthSuccess}
         title="Sign in to continue"
         description="You need to be signed in to access this feature"
+      />
+      
+      <PostCreatorModal
+        isOpen={postCreatorOpen}
+        onClose={() => setPostCreatorOpen(false)}
+        onSuccess={() => {
+          toast({
+            title: "Success",
+            description: "Your post has been created!",
+          });
+        }}
+      />
+      
+      <PurchaseGateModal
+        isOpen={purchaseGateOpen}
+        onClose={() => setPurchaseGateOpen(false)}
+        onDiscoverEvents={() => {
+          setPurchaseGateOpen(false);
+          onNavigate('search');
+        }}
+      />
+      
+      <OrganizerMenu
+        isOpen={organizerMenuOpen}
+        onClose={() => setOrganizerMenuOpen(false)}
+        onPostAsCrew={() => {
+          setOrganizerMenuOpen(false);
+          setPostCreatorOpen(true);
+        }}
+        onRecreateEvent={() => {
+          setOrganizerMenuOpen(false);
+          onNavigate('create-event');
+        }}
       />
     </div>
   );

@@ -5,10 +5,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
-import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users } from 'lucide-react';
+import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users, Plus } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { toast } from '@/hooks/use-toast';
+import { EventFeed } from '@/components/EventFeed';
+import { PostCreatorModal } from '@/components/PostCreatorModal';
 
 interface Event {
   id: string;
@@ -151,6 +153,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   const [showAttendeeModal, setShowAttendeeModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
+  const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { withRequireAuth } = useRequireAuth();
 
@@ -466,6 +469,16 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             </button>
 
             <button
+              onClick={withRequireAuth(() => setPostCreatorOpen(true))}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95"
+            >
+              <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200">
+                <Plus className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-xs font-medium">Post</span>
+            </button>
+
+            <button
               onClick={() => handleShare(currentEvent)}
               className="flex flex-col items-center gap-1 transition-transform active:scale-95"
             >
@@ -567,6 +580,19 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
         eventTitle={currentEvent.title}
         eventId={currentEvent.id}
         eventDescription={currentEvent.description}
+      />
+
+      <PostCreatorModal
+        isOpen={postCreatorOpen}
+        onClose={() => setPostCreatorOpen(false)}
+        preselectedEventId={currentEvent?.id}
+        onSuccess={() => {
+          setPostCreatorOpen(false);
+          toast({
+            title: "Success",
+            description: "Your post has been created!",
+          });
+        }}
       />
     </div>
   );
