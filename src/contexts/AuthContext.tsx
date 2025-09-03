@@ -7,7 +7,9 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInWithPhone: (phone: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, displayName: string, phone?: string) => Promise<{ error: any }>;
+  signUpWithPhone: (phone: string, password: string, displayName: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -62,6 +64,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const signInWithPhone = async (phone: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      phone,
+      password,
+    });
+    return { error };
+  };
+
   const signUp = async (email: string, password: string, displayName: string, phone?: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
@@ -79,6 +89,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const signUpWithPhone = async (phone: string, password: string, displayName: string) => {
+    const { error } = await supabase.auth.signUp({
+      phone,
+      password,
+      options: {
+        data: {
+          display_name: displayName,
+        }
+      }
+    });
+    return { error };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -89,7 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       loading,
       signIn,
+      signInWithPhone,
       signUp,
+      signUpWithPhone,
       signOut,
     }}>
       {children}
