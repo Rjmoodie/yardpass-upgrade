@@ -21,7 +21,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (
@@ -38,20 +38,10 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      {user && <Navigation />}
+      <Navigation />
       <Routes>
-        <Route 
-          path="/auth" 
-          element={user ? <Navigate to="/" replace /> : <AuthPage />} 
-        />
-        <Route 
-          path="/" 
-          element={
-            <ProtectedRoute>
-              <EventsPage />
-            </ProtectedRoute>
-          } 
-        />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/" element={<EventsPage />} />
         <Route 
           path="/my-events" 
           element={

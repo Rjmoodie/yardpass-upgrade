@@ -33,11 +33,16 @@ export default function Navigation() {
     navigate('/auth');
   };
 
-  const navItems = [
+  const publicNavItems = [
     { label: 'Events', icon: Home, href: '/' },
+  ];
+
+  const authenticatedNavItems = [
     { label: 'My Events', icon: Calendar, href: '/my-events' },
     { label: 'Create Event', icon: Plus, href: '/create-event' },
   ];
+
+  const displayNavItems = user ? [...publicNavItems, ...authenticatedNavItems] : publicNavItems;
 
   return (
     <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
@@ -55,7 +60,7 @@ export default function Navigation() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-6">
-            {navItems.map((item) => (
+            {displayNavItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
@@ -137,7 +142,7 @@ export default function Navigation() {
         {isMobileMenuOpen && (
           <div className="md:hidden border-t py-4">
             <div className="flex flex-col space-y-3">
-              {navItems.map((item) => (
+              {displayNavItems.map((item) => (
                 <Link
                   key={item.href}
                   to={item.href}
