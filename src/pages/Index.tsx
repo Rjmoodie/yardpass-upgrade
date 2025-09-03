@@ -340,41 +340,60 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col items-center gap-6 text-white">
+          <div className="flex flex-col items-center gap-4 text-white">
             <button
-              onClick={() => handleLike(currentEvent.id)}
-              className="flex flex-col items-center gap-1"
+              onClick={withRequireAuth(() => handleLike(currentEvent.id))}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95"
             >
-              <div className={`p-3 rounded-full ${currentEvent.isLiked ? 'bg-red-500' : 'bg-white/20'} transition-colors`}>
+              <div className={`p-3 rounded-full transition-all duration-200 ${
+                currentEvent.isLiked 
+                  ? 'bg-red-500 shadow-lg shadow-red-500/30' 
+                  : 'bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20'
+              }`}>
                 <Heart 
-                  className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white' : ''}`} 
+                  className={`w-6 h-6 transition-colors ${
+                    currentEvent.isLiked ? 'fill-white text-white' : 'text-white'
+                  }`} 
                 />
               </div>
-              <span className="text-xs">{currentEvent.likes}</span>
+              <span className="text-xs font-medium">{currentEvent.likes}</span>
             </button>
 
             <button 
-              onClick={withRequireAuth(() => console.log('Comment on', currentEvent.id))}
-              className="flex flex-col items-center gap-1"
+              onClick={withRequireAuth(() => {
+                // Navigate to event detail with comments focus
+                onEventSelect(currentEvent);
+              })}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95"
             >
-              <div className="p-3 rounded-full bg-white/20">
-                <MessageCircle className="w-6 h-6" />
+              <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
+                <MessageCircle className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs">42</span>
+              <span className="text-xs font-medium">
+                {currentEvent.posts?.reduce((total, post) => total + (post.likes || 0), 0) || 0}
+              </span>
             </button>
 
             <button
               onClick={() => handleShare(currentEvent)}
-              className="flex flex-col items-center gap-1"
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95"
             >
-              <div className="p-3 rounded-full bg-white/20">
-                <Share className="w-6 h-6" />
+              <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
+                <Share className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs">{currentEvent.shares}</span>
+              <span className="text-xs font-medium">{currentEvent.shares}</span>
             </button>
 
-            <button className="p-3 rounded-full bg-white/20">
-              <MoreVertical className="w-6 h-6" />
+            <button 
+              onClick={withRequireAuth(() => {
+                // Show more options menu
+                console.log('More options for', currentEvent.id);
+              })}
+              className="transition-transform active:scale-95"
+            >
+              <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
+                <MoreVertical className="w-6 h-6 text-white" />
+              </div>
             </button>
           </div>
         </div>
