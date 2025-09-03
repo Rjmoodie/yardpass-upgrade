@@ -11,8 +11,13 @@ import PostCreator from '@/components/PostCreator';
 import SearchPage from '@/components/SearchPage';
 import EventManagement from '@/components/EventManagement';
 import Navigation from '@/components/Navigation';
+import OrganizationCreator from '@/components/OrganizationCreator';
+import OrganizationDashboard from '@/components/OrganizationDashboard';
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
+import TermsOfService from '@/pages/TermsOfService';
+import RefundPolicy from '@/pages/RefundPolicy';
 
-type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy';
 type UserRole = 'attendee' | 'organizer';
 
 interface Event {
@@ -45,6 +50,7 @@ function AppContent() {
   const { user, loading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('feed');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
 
   const userRole: UserRole = user?.user_metadata?.role || 'attendee';
 
@@ -166,6 +172,41 @@ function AppContent() {
           onBack={() => setCurrentScreen('feed')}
           onPost={handleBackToFeed}
         />
+      )}
+
+      {currentScreen === 'create-organization' && user && (
+        <OrganizationCreator
+          onBack={() => setCurrentScreen('profile')}
+          onSuccess={(orgId) => {
+            setSelectedOrganizationId(orgId);
+            setCurrentScreen('organization-dashboard');
+          }}
+        />
+      )}
+
+      {currentScreen === 'organization-dashboard' && user && selectedOrganizationId && (
+        <OrganizationDashboard
+          user={{
+            id: user.id,
+            name: user.user_metadata?.full_name || 'User',
+            role: userRole
+          }}
+          organizationId={selectedOrganizationId}
+          onBack={() => setCurrentScreen('profile')}
+          onCreateEvent={() => setCurrentScreen('create-event')}
+        />
+      )}
+
+      {currentScreen === 'privacy-policy' && (
+        <PrivacyPolicy onBack={() => setCurrentScreen('feed')} />
+      )}
+
+      {currentScreen === 'terms-of-service' && (
+        <TermsOfService onBack={() => setCurrentScreen('feed')} />
+      )}
+
+      {currentScreen === 'refund-policy' && (
+        <RefundPolicy onBack={() => setCurrentScreen('feed')} />
       )}
       
       {/* Navigation - Only show for main screens */}

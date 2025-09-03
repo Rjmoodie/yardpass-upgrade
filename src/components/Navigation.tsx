@@ -1,6 +1,6 @@
 import { Home, Plus, BarChart3, User, Search } from 'lucide-react';
 
-type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy';
 type UserRole = 'attendee' | 'organizer';
 
 interface NavigationProps {
