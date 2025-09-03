@@ -54,19 +54,9 @@ interface TicketTier {
   total: number;
 }
 
-// Protected route wrapper component
+// Protected route wrapper component - only redirects if user tries to access without auth
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      // Store the attempted route to redirect back after login
-      const redirectTo = location.pathname + location.search;
-      navigate('/auth', { state: { redirectTo } });
-    }
-  }, [user, loading, navigate, location]);
 
   if (loading) {
     return (
@@ -82,7 +72,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return null; // Will redirect to auth
+    // Instead of redirecting, show auth modal/page inline
+    return <AuthPage />;
   }
 
   return <>{children}</>;
@@ -97,14 +88,6 @@ function AppContent() {
   const [screenData, setScreenData] = useState<any>(null);
 
   const userRole: UserRole = profile?.role || 'attendee';
-
-  // Handle redirect after auth
-  useEffect(() => {
-    if (user && location.pathname === '/auth') {
-      const redirectTo = location.state?.redirectTo || '/';
-      navigate(redirectTo, { replace: true });
-    }
-  }, [user, location, navigate]);
 
   const handleEventSelect = (event: Event) => {
     setSelectedEvent(event);
@@ -354,20 +337,9 @@ function AppContent() {
        location.pathname !== '/ticket-success' &&
        location.pathname !== '/auth' && (
         <Navigation 
-          currentScreen={location.pathname as Screen}
+          currentScreen={location.pathname}
           userRole={userRole}
-          onNavigate={(screen: Screen) => {
-            if (screen === 'feed') navigate('/');
-            else if (screen === 'search') navigate('/search');
-            else if (screen === 'create-event') navigate('/create-event');
-            else if (screen === 'dashboard') navigate('/dashboard');
-            else if (screen === 'profile') navigate('/profile');
-            else if (screen === 'create-post') navigate('/create-post');
-            else if (screen === 'tickets') navigate('/tickets');
-            else if (screen === 'scanner') navigate('/scanner');
-            else if (screen === 'posts-test') navigate('/posts-test');
-            else navigate('/' + screen);
-          }}
+          onNavigate={() => {}} // Navigation component now handles routing internally
         />
       )}
       

@@ -8,6 +8,7 @@ import { AttendeeListModal } from '@/components/AttendeeListModal';
 import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users, Plus } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useAuthRedirect } from '@/hooks/useAuthRedirect';
 import { toast } from '@/hooks/use-toast';
 import { EventFeed } from '@/components/EventFeed';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
@@ -156,6 +157,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { withRequireAuth } = useRequireAuth();
+  const { requireAuth } = useAuthRedirect();
 
   const currentEvent = events[currentIndex];
 
@@ -245,13 +247,13 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   };
 
   const handleTicketTierClick = (tierName: string) => {
-    withRequireAuth(() => {
+    requireAuth(() => {
       onEventSelect(currentEvent);
       toast({
         title: "Ticket Details",
         description: `Viewing ${tierName} ticket information...`,
       });
-    });
+    }, "Please sign in to view ticket details");
   };
 
   const handleEventTitleClick = () => {
@@ -263,13 +265,13 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   };
 
   const handleGetTickets = () => {
-    withRequireAuth(() => {
+    requireAuth(() => {
       setShowTicketModal(true);
       toast({
         title: "Get Tickets",
         description: "Opening ticket purchase modal...",
       });
-    });
+    }, "Please sign in to purchase tickets");
   };
 
   const handleEventDetails = () => {
@@ -318,7 +320,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
           <Button
             size="sm"
             variant="secondary"
-            onClick={withRequireAuth(() => onCreatePost())}
+            onClick={() => requireAuth(() => onCreatePost(), "Please sign in to create content")}
             className="bg-white/20 text-white border-white/30 hover:bg-white/30"
           >
             + Create Event
@@ -439,7 +441,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
           {/* Action Buttons */}
           <div className="flex flex-col items-center gap-4 text-white">
             <button
-              onClick={withRequireAuth(() => handleLike(currentEvent.id))}
+              onClick={() => requireAuth(() => handleLike(currentEvent.id), "Please sign in to like events")}
               className="flex flex-col items-center gap-1 transition-transform active:scale-95"
             >
               <div className={`p-3 rounded-full transition-all duration-200 ${
@@ -469,7 +471,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             </button>
 
             <button
-              onClick={withRequireAuth(() => setPostCreatorOpen(true))}
+              onClick={() => requireAuth(() => setPostCreatorOpen(true), "Please sign in to create posts")}
               className="flex flex-col items-center gap-1 transition-transform active:scale-95"
             >
               <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200">

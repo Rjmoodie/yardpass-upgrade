@@ -19,9 +19,9 @@ export default function AuthPage() {
   const location = useLocation();
   const { toast } = useToast();
 
-  // Redirect if already logged in
+  // Only redirect if already logged in AND we're on the direct /auth route
   useEffect(() => {
-    if (user) {
+    if (user && location.pathname === '/auth' && !location.state?.fromProtectedRoute) {
       const redirectTo = location.state?.redirectTo || '/';
       navigate(redirectTo, { replace: true });
     }
