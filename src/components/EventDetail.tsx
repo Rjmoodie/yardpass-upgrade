@@ -41,7 +41,7 @@ interface TicketTier {
 
 interface EventDetailProps {
   event: Event;
-  user: User;
+  user: User | null;
   onBack: () => void;
 }
 
@@ -294,7 +294,7 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
                   <Dialog open={showPurchaseModal} onOpenChange={setShowPurchaseModal}>
                     <DialogTrigger asChild>
                       <Button className="w-full" onClick={handlePurchase}>
-                        Purchase Tickets
+                        {user ? 'Purchase Tickets' : 'Sign in to Purchase'}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -368,3 +368,5 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
     </div>
   );
 }
+
+export default EventDetail;

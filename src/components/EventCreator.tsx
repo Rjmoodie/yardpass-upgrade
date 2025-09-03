@@ -404,3 +404,5 @@ export function EventCreator({ user, onBack, onCreate }: EventCreatorProps) {
     </div>
   );
 }
+
+export default EventCreator;

@@ -327,3 +327,5 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
     </div>
   );
 }
+
+export default UserProfile;

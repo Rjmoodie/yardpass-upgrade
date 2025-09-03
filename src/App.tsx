@@ -3,11 +3,11 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
 import AuthModal from '@/components/AuthModal';
 import Index from '@/pages/Index';
-import { EventDetail } from '@/components/EventDetail';
-import { EventCreator } from '@/components/EventCreator';
-import { OrganizerDashboard } from '@/components/OrganizerDashboard';
-import { UserProfile } from '@/components/UserProfile';
-import { PostCreator } from '@/components/PostCreator';
+import EventDetail from '@/components/EventDetail';
+import EventCreator from '@/components/EventCreator';
+import OrganizerDashboard from '@/components/OrganizerDashboard';
+import UserProfile from '@/components/UserProfile';
+import PostCreator from '@/components/PostCreator';
 import Navigation from '@/components/Navigation';
 
 type Screen = 'feed' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post';

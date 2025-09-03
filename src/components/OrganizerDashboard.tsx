@@ -344,3 +344,5 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
     </div>
   );
 }
+
+export default OrganizerDashboard;

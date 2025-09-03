@@ -314,3 +314,5 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
     </div>
   );
 }
+
+export default PostCreator;
