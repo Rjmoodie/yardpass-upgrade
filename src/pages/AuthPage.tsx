@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,9 +14,18 @@ export default function AuthPage() {
   const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('phone');
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [phoneForOtp, setPhoneForOtp] = useState('');
-  const { signIn, signInWithPhone, verifyPhoneOtp, signUp, signUpWithPhone } = useAuth();
+  const { user, signIn, signInWithPhone, verifyPhoneOtp, signUp, signUpWithPhone } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      const redirectTo = location.state?.redirectTo || '/';
+      navigate(redirectTo, { replace: true });
+    }
+  }, [user, navigate, location]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -59,7 +68,8 @@ export default function AuthPage() {
           title: "Welcome back!",
           description: "You've successfully signed in.",
         });
-        navigate('/');
+        const redirectTo = location.state?.redirectTo || '/';
+        navigate(redirectTo, { replace: true });
       }
     } else {
       // Email authentication
@@ -78,7 +88,8 @@ export default function AuthPage() {
           title: "Welcome back!",
           description: "You've successfully signed in.",
         });
-        navigate('/');
+        const redirectTo = location.state?.redirectTo || '/';
+        navigate(redirectTo, { replace: true });
       }
     }
     
@@ -127,7 +138,8 @@ export default function AuthPage() {
           title: "Welcome to YardPass!",
           description: "Your account has been created successfully.",
         });
-        navigate('/');
+        const redirectTo = location.state?.redirectTo || '/';
+        navigate(redirectTo, { replace: true });
       }
     } else {
       // Email authentication
@@ -147,7 +159,8 @@ export default function AuthPage() {
           title: "Welcome to YardPass!",
           description: "Please check your email to verify your account.",
         });
-        navigate('/');
+        const redirectTo = location.state?.redirectTo || '/';
+        navigate(redirectTo, { replace: true });
       }
     }
     

@@ -1,6 +1,7 @@
 import { Home, Plus, BarChart3, User, Search, Ticket, ScanLine } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AuthModal from './AuthModal';
 import { PostCreatorModal } from './PostCreatorModal';
 import { PurchaseGateModal } from './PurchaseGateModal';
@@ -12,31 +13,33 @@ type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' 
 type UserRole = 'attendee' | 'organizer';
 
 interface NavigationProps {
-  currentScreen: Screen;
+  currentScreen: string;
   userRole: UserRole;
   onNavigate: (screen: Screen) => void;
 }
 
-export default function Navigation({ currentScreen, userRole, onNavigate }: NavigationProps) {
+export default function Navigation({ userRole }: NavigationProps) {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<Screen | null>(null);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [purchaseGateOpen, setPurchaseGateOpen] = useState(false);
   const [organizerMenuOpen, setOrganizerMenuOpen] = useState(false);
 
-  const requiresAuth = (screen: Screen) => {
-    return ['create-event', 'create-post', 'dashboard', 'profile', 'tickets', 'scanner'].includes(screen);
+  const requiresAuth = (path: string) => {
+    return ['/create-event', '/create-post', '/dashboard', '/profile', '/tickets', '/scanner'].includes(path);
   };
 
-  const handleNavigation = (screen: Screen) => {
-    if (requiresAuth(screen) && !user) {
+  const handleNavigation = (path: string, screen: Screen) => {
+    if (requiresAuth(path) && !user) {
       setPendingNavigation(screen);
       setAuthModalOpen(true);
     } else if (screen === 'create-post') {
       handleCreatePost();
     } else {
-      onNavigate(screen);
+      navigate(path);
     }
   };
 
@@ -109,31 +112,44 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
   const handleAuthSuccess = () => {
     setAuthModalOpen(false);
     if (pendingNavigation) {
-      onNavigate(pendingNavigation);
+      const pathMap: { [key in Screen]?: string } = {
+        'create-event': '/create-event',
+        'create-post': '/create-post',
+        'dashboard': '/dashboard',
+        'profile': '/profile',
+        'tickets': '/tickets',
+        'scanner': '/scanner'
+      };
+      const path = pathMap[pendingNavigation];
+      if (path) navigate(path);
       setPendingNavigation(null);
     }
   };
   const navItems = [
     {
       id: 'feed' as Screen,
+      path: '/',
       icon: Home,
       label: 'Feed',
       show: true
     },
     {
       id: 'search' as Screen,
+      path: '/search',
       icon: Search,
       label: 'Search',
       show: true
     },
     {
       id: 'create-event' as Screen,
+      path: '/create-event',
       icon: Plus,
       label: 'Create',
       show: userRole === 'organizer'
     },
     {
       id: 'posts-test' as Screen,
+      path: '/posts-test',
       icon: Plus,
       label: 'Posts',
       show: userRole === 'attendee'
@@ -141,18 +157,21 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
     {
       // Ticket button for attendees, Scan button for organizers
       id: userRole === 'organizer' ? 'scanner' as Screen : 'tickets' as Screen,
+      path: userRole === 'organizer' ? '/scanner' : '/tickets',
       icon: userRole === 'organizer' ? ScanLine : Ticket,
       label: userRole === 'organizer' ? 'Scan' : 'Tickets',
       show: true
     },
     {
       id: 'dashboard' as Screen,
+      path: '/dashboard',
       icon: BarChart3,
       label: 'Dashboard',
       show: userRole === 'organizer'
     },
     {
       id: 'profile' as Screen,
+      path: '/profile',
       icon: User,
       label: 'Profile',
       show: true
@@ -163,12 +182,12 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
     <div className="bg-card border-t border-border px-4 py-2 flex items-center justify-around">
       {navItems.map((item) => {
         const Icon = item.icon;
-        const isActive = currentScreen === item.id;
+        const isActive = location.pathname === item.path;
         
         return (
           <button
             key={item.id}
-            onClick={() => handleNavigation(item.id)}
+            onClick={() => handleNavigation(item.path, item.id)}
             className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
               isActive 
                 ? 'text-primary bg-primary/10' 
@@ -208,7 +227,7 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
         onClose={() => setPurchaseGateOpen(false)}
         onDiscoverEvents={() => {
           setPurchaseGateOpen(false);
-          onNavigate('search');
+          navigate('/search');
         }}
       />
       
@@ -221,7 +240,7 @@ export default function Navigation({ currentScreen, userRole, onNavigate }: Navi
         }}
         onRecreateEvent={() => {
           setOrganizerMenuOpen(false);
-          onNavigate('create-event');
+          navigate('/create-event');
         }}
       />
     </div>

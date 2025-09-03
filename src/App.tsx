@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
 import AuthModal from '@/components/AuthModal';
+import AuthPage from '@/pages/AuthPage';
 import Index from '@/pages/Index';
 import EventDetail from '@/components/EventDetail';
 import { CreateEventFlow } from '@/components/CreateEventFlow';
@@ -19,7 +21,9 @@ import RefundPolicy from '@/pages/RefundPolicy';
 import TicketsPage from '@/components/TicketsPage';
 import TicketSuccessPage from '@/components/TicketSuccessPage';
 import { PostsTestPage } from '@/components/PostsTestPage';
+import { PostsDebugPage } from '@/components/PostsDebugPage';
 import { ScannerPage } from '@/components/ScannerPage';
+import NotFound from '@/pages/NotFound';
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
 type UserRole = 'attendee' | 'organizer';
@@ -50,22 +54,65 @@ interface TicketTier {
   total: number;
 }
 
+// Protected route wrapper component
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      // Store the attempted route to redirect back after login
+      const redirectTo = location.pathname + location.search;
+      navigate('/auth', { state: { redirectTo } });
+    }
+  }, [user, loading, navigate, location]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-xl">🎪</span>
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect to auth
+  }
+
+  return <>{children}</>;
+}
+
 function AppContent() {
   const { user, profile, loading, updateRole } = useAuth();
-  const [currentScreen, setCurrentScreen] = useState<Screen>('feed');
+  const navigate = useNavigate();
+  const location = useLocation();
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [screenData, setScreenData] = useState<any>(null);
 
   const userRole: UserRole = profile?.role || 'attendee';
 
+  // Handle redirect after auth
+  useEffect(() => {
+    if (user && location.pathname === '/auth') {
+      const redirectTo = location.state?.redirectTo || '/';
+      navigate(redirectTo, { replace: true });
+    }
+  }, [user, location, navigate]);
+
   const handleEventSelect = (event: Event) => {
     setSelectedEvent(event);
-    setCurrentScreen('event-detail');
+    navigate('/event/' + event.id);
   };
 
   const handleBackToFeed = () => {
-    setCurrentScreen('feed');
+    navigate('/');
     setSelectedEvent(null);
   };
 
@@ -97,168 +144,232 @@ function AppContent() {
 
   return (
     <div className="h-screen bg-background flex flex-col">
-      {/* Main Content */}
-      {currentScreen === 'feed' && (
-        <Index 
-          onEventSelect={handleEventSelect}
-          onCreatePost={() => setCurrentScreen('create-post')}
-          onCategorySelect={(category) => {
-            console.log('Category selected:', category);
-            // For now, just show search page with category filter
-            setCurrentScreen('search');
-          }}
-          onOrganizerSelect={(organizerId, organizerName) => {
-            console.log('Organizer selected:', organizerId, organizerName);
-            // For now, just show search page
-            setCurrentScreen('search');
-          }}
+      <Routes>
+        {/* Public Routes */}
+        <Route 
+          path="/" 
+          element={
+            <Index 
+              onEventSelect={handleEventSelect}
+              onCreatePost={() => navigate('/create-post')}
+              onCategorySelect={(category) => navigate('/search?category=' + encodeURIComponent(category))}
+              onOrganizerSelect={(organizerId, organizerName) => navigate('/search?organizer=' + organizerId)}
+            />
+          } 
         />
-      )}
+        <Route 
+          path="/search" 
+          element={
+            <SearchPage 
+              onBack={() => navigate('/')}
+              onEventSelect={handleEventSelect}
+            />
+          } 
+        />
+        <Route 
+          path="/event/:id" 
+          element={
+            selectedEvent ? (
+              <EventDetail 
+                event={selectedEvent}
+                user={user ? {
+                  id: user.id,
+                  name: profile?.display_name || 'User',
+                  role: userRole
+                } : null}
+                onBack={handleBackToFeed}
+              />
+            ) : (
+              <div>Event not found</div>
+            )
+          } 
+        />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy onBack={() => navigate('/')} />} />
+        <Route path="/terms-of-service" element={<TermsOfService onBack={() => navigate('/')} />} />
+        <Route path="/refund-policy" element={<RefundPolicy onBack={() => navigate('/')} />} />
+        <Route path="/posts-debug" element={<PostsDebugPage />} />
 
-      {currentScreen === 'search' && (
-        <SearchPage 
-          onBack={() => setCurrentScreen('feed')}
-          onEventSelect={handleEventSelect}
+        {/* Protected Routes */}
+        <Route 
+          path="/create-event" 
+          element={
+            <ProtectedRoute>
+              <CreateEventFlow
+                onBack={() => navigate(userRole === 'organizer' ? '/dashboard' : '/')}
+                onCreate={() => navigate('/')}
+              />
+            </ProtectedRoute>
+          } 
         />
-      )}
-      
-      {currentScreen === 'create-event' && (
-        <CreateEventFlow
-          onBack={() => setCurrentScreen(userRole === 'organizer' ? 'dashboard' : 'feed')}
-          onCreate={() => setCurrentScreen('feed')}
+        <Route 
+          path="/create-post" 
+          element={
+            <ProtectedRoute>
+              <PostCreator 
+                user={{
+                  id: user!.id,
+                  name: profile?.display_name || 'User',
+                  role: userRole
+                }}
+                onBack={() => navigate('/')}
+                onPost={() => navigate('/')}
+              />
+            </ProtectedRoute>
+          } 
         />
-      )}
-      
-      {currentScreen === 'event-detail' && selectedEvent && (
-        <EventDetail 
-          event={selectedEvent}
-          user={user ? {
-            id: user.id,
-            name: profile?.display_name || 'User',
-            role: userRole
-          } : null}
-          onBack={handleBackToFeed}
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <OrganizerDashboard 
+                user={{
+                  id: user!.id,
+                  name: profile?.display_name || 'User',
+                  role: userRole
+                }}
+                onCreateEvent={() => navigate('/create-event')}
+                onEventSelect={(event) => {
+                  setSelectedEvent(event);
+                  navigate('/event-management/' + event.id);
+                }}
+              />
+            </ProtectedRoute>
+          } 
         />
-      )}
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <UserProfile 
+                user={{
+                  id: user!.id,
+                  name: profile?.display_name || 'User',
+                  phone: profile?.phone || '',
+                  role: userRole,
+                  isVerified: profile?.verification_status !== 'basic'
+                }}
+                onRoleToggle={handleRoleToggle}
+                onBack={() => navigate('/')}
+              />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/tickets" 
+          element={
+            <ProtectedRoute>
+              <TicketsPage
+                user={{
+                  id: user!.id,
+                  name: profile?.display_name || 'User',
+                  role: userRole
+                }}
+                onBack={() => navigate('/')}
+              />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/scanner" 
+          element={
+            <ProtectedRoute>
+              <ScannerPage
+                eventId={screenData?.eventId || ''}
+                onBack={() => navigate('/')}
+              />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/event-management/:id" 
+          element={
+            <ProtectedRoute>
+              {selectedEvent ? (
+                <EventManagement 
+                  event={selectedEvent}
+                  onBack={() => navigate('/dashboard')}
+                />
+              ) : (
+                <div>Event not found</div>
+              )}
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/create-organization" 
+          element={
+            <ProtectedRoute>
+              <OrganizationCreator
+                onBack={() => navigate('/profile')}
+                onSuccess={(orgId) => {
+                  setSelectedOrganizationId(orgId);
+                  navigate('/organization-dashboard/' + orgId);
+                }}
+              />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/organization-dashboard/:id" 
+          element={
+            <ProtectedRoute>
+              <OrganizationDashboard
+                user={{
+                  id: user!.id,
+                  name: profile?.display_name || 'User',
+                  role: userRole
+                }}
+                organizationId={selectedOrganizationId || ''}
+                onBack={() => navigate('/profile')}
+                onCreateEvent={() => navigate('/create-event')}
+              />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/posts-test" 
+          element={
+            <ProtectedRoute>
+              <PostsTestPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/ticket-success" 
+          element={
+            <ProtectedRoute>
+              <TicketSuccessPage onBack={() => navigate('/')} />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
 
-      {currentScreen === 'event-management' && selectedEvent && user && (
-        <EventManagement 
-          event={selectedEvent}
-          onBack={() => setCurrentScreen('dashboard')}
-        />
-      )}
-      
-      {currentScreen === 'dashboard' && user && (
-        <OrganizerDashboard 
-          user={{
-            id: user.id,
-            name: profile?.display_name || 'User',
-            role: userRole
-          }}
-          onCreateEvent={() => setCurrentScreen('create-event')}
-          onEventSelect={(event) => {
-            setSelectedEvent(event);
-            setCurrentScreen('event-management');
-          }}
-        />
-      )}
-      
-      {currentScreen === 'profile' && user && (
-        <UserProfile 
-          user={{
-            id: user.id,
-            name: profile?.display_name || 'User',
-            phone: profile?.phone || '',
-            role: userRole,
-            isVerified: profile?.verification_status !== 'basic'
-          }}
-          onRoleToggle={handleRoleToggle}
-          onBack={() => setCurrentScreen('feed')}
-        />
-      )}
-      
-      {currentScreen === 'create-post' && (
-        <PostCreator 
-          user={user ? {
-            id: user.id,
-            name: profile?.display_name || 'User',
-            role: userRole
-          } : null}
-          onBack={() => setCurrentScreen('feed')}
-          onPost={handleBackToFeed}
-        />
-      )}
-
-      {currentScreen === 'create-organization' && user && (
-        <OrganizationCreator
-          onBack={() => setCurrentScreen('profile')}
-          onSuccess={(orgId) => {
-            setSelectedOrganizationId(orgId);
-            setCurrentScreen('organization-dashboard');
-          }}
-        />
-      )}
-
-      {currentScreen === 'organization-dashboard' && user && selectedOrganizationId && (
-        <OrganizationDashboard
-          user={{
-            id: user.id,
-            name: profile?.display_name || 'User',
-            role: userRole
-          }}
-          organizationId={selectedOrganizationId}
-          onBack={() => setCurrentScreen('profile')}
-          onCreateEvent={() => setCurrentScreen('create-event')}
-        />
-      )}
-
-      {currentScreen === 'privacy-policy' && (
-        <PrivacyPolicy onBack={() => setCurrentScreen('feed')} />
-      )}
-
-      {currentScreen === 'terms-of-service' && (
-        <TermsOfService onBack={() => setCurrentScreen('feed')} />
-      )}
-
-      {currentScreen === 'refund-policy' && (
-        <RefundPolicy onBack={() => setCurrentScreen('feed')} />
-      )}
-
-      {currentScreen === 'tickets' && user && (
-        <TicketsPage
-          user={{
-            id: user.id,
-            name: profile?.display_name || 'User',
-            role: userRole
-          }}
-          onBack={() => setCurrentScreen('feed')}
-        />
-      )}
-
-      {currentScreen === 'scanner' && user && (
-        <ScannerPage
-          eventId={screenData?.eventId || ''}
-          onBack={() => setCurrentScreen('feed')}
-        />
-      )}
-      
-      {currentScreen === 'posts-test' && <PostsTestPage />}
-      
-      {currentScreen === 'ticket-success' && (
-        <TicketSuccessPage onBack={() => setCurrentScreen('feed')} />
-      )}
-      
-      {/* Navigation - Only show for main screens */}
-      {!['event-detail', 'event-management', 'ticket-success'].includes(currentScreen) && (
+      {/* Navigation - Show on most routes except specific ones */}
+      {!location.pathname.startsWith('/event/') && 
+       !location.pathname.startsWith('/event-management/') && 
+       location.pathname !== '/ticket-success' &&
+       location.pathname !== '/auth' && (
         <Navigation 
-          currentScreen={currentScreen}
+          currentScreen={location.pathname as Screen}
           userRole={userRole}
-          onNavigate={(screen: Screen) => setCurrentScreen(screen)}
+          onNavigate={(screen: Screen) => {
+            if (screen === 'feed') navigate('/');
+            else if (screen === 'search') navigate('/search');
+            else if (screen === 'create-event') navigate('/create-event');
+            else if (screen === 'dashboard') navigate('/dashboard');
+            else if (screen === 'profile') navigate('/profile');
+            else if (screen === 'create-post') navigate('/create-post');
+            else if (screen === 'tickets') navigate('/tickets');
+            else if (screen === 'scanner') navigate('/scanner');
+            else if (screen === 'posts-test') navigate('/posts-test');
+            else navigate('/' + screen);
+          }}
         />
       )}
-      
-      {/* Auth Modal */}
-      <AuthModal isOpen={false} onClose={() => {}} />
       
       {/* Toast notifications */}
       <Toaster />
