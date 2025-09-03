@@ -72,11 +72,26 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    // Instead of redirecting, show auth modal/page inline
+    // Show auth page instead of the protected content
     return <AuthPage />;
   }
 
   return <>{children}</>;
+}
+
+// Helper component to safely render user-dependent content
+function UserDependentRoute({ 
+  children 
+}: { 
+  children: (user: NonNullable<ReturnType<typeof useAuth>['user']>, profile: ReturnType<typeof useAuth>['profile']) => React.ReactNode 
+}) {
+  const { user, profile } = useAuth();
+  
+  if (!user) {
+    return <AuthPage />;
+  }
+  
+  return <>{children(user, profile)}</>;
 }
 
 function AppContent() {
@@ -178,10 +193,14 @@ function AppContent() {
           path="/create-event" 
           element={
             <ProtectedRoute>
-              <CreateEventFlow
-                onBack={() => navigate(userRole === 'organizer' ? '/dashboard' : '/')}
-                onCreate={() => navigate('/')}
-              />
+              <UserDependentRoute>
+                {(user, profile) => (
+                  <CreateEventFlow
+                    onBack={() => navigate((profile?.role as UserRole) === 'organizer' ? '/dashboard' : '/')}
+                    onCreate={() => navigate('/')}
+                  />
+                )}
+              </UserDependentRoute>
             </ProtectedRoute>
           } 
         />
@@ -189,15 +208,19 @@ function AppContent() {
           path="/create-post" 
           element={
             <ProtectedRoute>
-              <PostCreator 
-                user={{
-                  id: user!.id,
-                  name: profile?.display_name || 'User',
-                  role: userRole
-                }}
-                onBack={() => navigate('/')}
-                onPost={() => navigate('/')}
-              />
+              <UserDependentRoute>
+                {(user, profile) => (
+                  <PostCreator 
+                    user={{
+                      id: user.id,
+                      name: profile?.display_name || 'User',
+                      role: (profile?.role as UserRole) || 'attendee'
+                    }}
+                    onBack={() => navigate('/')}
+                    onPost={() => navigate('/')}
+                  />
+                )}
+              </UserDependentRoute>
             </ProtectedRoute>
           } 
         />
@@ -205,18 +228,22 @@ function AppContent() {
           path="/dashboard" 
           element={
             <ProtectedRoute>
-              <OrganizerDashboard 
-                user={{
-                  id: user!.id,
-                  name: profile?.display_name || 'User',
-                  role: userRole
-                }}
-                onCreateEvent={() => navigate('/create-event')}
-                onEventSelect={(event) => {
-                  setSelectedEvent(event);
-                  navigate('/event-management/' + event.id);
-                }}
-              />
+              <UserDependentRoute>
+                {(user, profile) => (
+                  <OrganizerDashboard 
+                    user={{
+                      id: user.id,
+                      name: profile?.display_name || 'User',
+                      role: (profile?.role as UserRole) || 'attendee'
+                    }}
+                    onCreateEvent={() => navigate('/create-event')}
+                    onEventSelect={(event) => {
+                      setSelectedEvent(event);
+                      navigate('/event-management/' + event.id);
+                    }}
+                  />
+                )}
+              </UserDependentRoute>
             </ProtectedRoute>
           } 
         />
@@ -224,17 +251,21 @@ function AppContent() {
           path="/profile" 
           element={
             <ProtectedRoute>
-              <UserProfile 
-                user={{
-                  id: user!.id,
-                  name: profile?.display_name || 'User',
-                  phone: profile?.phone || '',
-                  role: userRole,
-                  isVerified: profile?.verification_status !== 'basic'
-                }}
-                onRoleToggle={handleRoleToggle}
-                onBack={() => navigate('/')}
-              />
+              <UserDependentRoute>
+                {(user, profile) => (
+                  <UserProfile 
+                    user={{
+                      id: user.id,
+                      name: profile?.display_name || 'User',
+                      phone: profile?.phone || '',
+                      role: (profile?.role as UserRole) || 'attendee',
+                      isVerified: profile?.verification_status !== 'basic'
+                    }}
+                    onRoleToggle={handleRoleToggle}
+                    onBack={() => navigate('/')}
+                  />
+                )}
+              </UserDependentRoute>
             </ProtectedRoute>
           } 
         />
@@ -242,14 +273,18 @@ function AppContent() {
           path="/tickets" 
           element={
             <ProtectedRoute>
-              <TicketsPage
-                user={{
-                  id: user!.id,
-                  name: profile?.display_name || 'User',
-                  role: userRole
-                }}
-                onBack={() => navigate('/')}
-              />
+              <UserDependentRoute>
+                {(user, profile) => (
+                  <TicketsPage
+                    user={{
+                      id: user.id,
+                      name: profile?.display_name || 'User',
+                      role: (profile?.role as UserRole) || 'attendee'
+                    }}
+                    onBack={() => navigate('/')}
+                  />
+                )}
+              </UserDependentRoute>
             </ProtectedRoute>
           } 
         />
@@ -297,16 +332,20 @@ function AppContent() {
           path="/organization-dashboard/:id" 
           element={
             <ProtectedRoute>
-              <OrganizationDashboard
-                user={{
-                  id: user!.id,
-                  name: profile?.display_name || 'User',
-                  role: userRole
-                }}
-                organizationId={selectedOrganizationId || ''}
-                onBack={() => navigate('/profile')}
-                onCreateEvent={() => navigate('/create-event')}
-              />
+              <UserDependentRoute>
+                {(user, profile) => (
+                  <OrganizationDashboard
+                    user={{
+                      id: user.id,
+                      name: profile?.display_name || 'User',
+                      role: (profile?.role as UserRole) || 'attendee'
+                    }}
+                    organizationId={selectedOrganizationId || ''}
+                    onBack={() => navigate('/profile')}
+                    onCreateEvent={() => navigate('/create-event')}
+                  />
+                )}
+              </UserDependentRoute>
             </ProtectedRoute>
           } 
         />
