@@ -7,9 +7,10 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signInWithPhone: (phone: string, password: string) => Promise<{ error: any }>;
+  signInWithPhone: (phone: string) => Promise<{ error: any }>;
+  verifyPhoneOtp: (phone: string, token: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, displayName: string, phone?: string) => Promise<{ error: any }>;
-  signUpWithPhone: (phone: string, password: string, displayName: string) => Promise<{ error: any }>;
+  signUpWithPhone: (phone: string, displayName: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -64,10 +65,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const signInWithPhone = async (phone: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+  const signInWithPhone = async (phone: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
       phone,
-      password,
+    });
+    return { error };
+  };
+
+  const verifyPhoneOtp = async (phone: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: 'sms'
     });
     return { error };
   };
@@ -89,10 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const signUpWithPhone = async (phone: string, password: string, displayName: string) => {
-    const { error } = await supabase.auth.signUp({
+  const signUpWithPhone = async (phone: string, displayName: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
       phone,
-      password,
       options: {
         data: {
           display_name: displayName,
@@ -113,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signIn,
       signInWithPhone,
+      verifyPhoneOtp,
       signUp,
       signUpWithPhone,
       signOut,
