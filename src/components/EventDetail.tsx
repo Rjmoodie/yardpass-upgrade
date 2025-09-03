@@ -208,41 +208,47 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
 
           <TabsContent value="tickets" className="p-4 space-y-4">
             <div className="space-y-3">
-              {event.ticketTiers.map((tier) => (
-                <Card 
-                  key={tier.id} 
-                  className={`cursor-pointer transition-all ${
-                    selectedTier?.id === tier.id 
-                      ? 'ring-2 ring-primary border-primary' 
-                      : 'hover:shadow-md'
-                  }`}
-                  onClick={() => setSelectedTier(tier)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm">{tier.name}</h3>
-                          <Badge variant="outline" className="text-xs">{tier.badge}</Badge>
+              {event.ticketTiers && event.ticketTiers.length > 0 ? (
+                event.ticketTiers.map((tier) => (
+                  <Card 
+                    key={tier.id} 
+                    className={`cursor-pointer transition-all ${
+                      selectedTier?.id === tier.id 
+                        ? 'ring-2 ring-primary border-primary' 
+                        : 'hover:shadow-md'
+                    }`}
+                    onClick={() => setSelectedTier(tier)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm">{tier.name}</h3>
+                            <Badge variant="outline" className="text-xs">{tier.badge}</Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {tier.available} of {tier.total} available
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {tier.available} of {tier.total} available
+                        <div className="text-right">
+                          <div className="text-lg">${tier.price}</div>
+                          <div className="text-xs text-muted-foreground">per ticket</div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-lg">${tier.price}</div>
-                        <div className="text-xs text-muted-foreground">per ticket</div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all" 
+                          style={{ width: `${(tier.available / tier.total) * 100}%` }}
+                        />
                       </div>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-primary h-2 rounded-full transition-all" 
-                        style={{ width: `${(tier.available / tier.total) * 100}%` }}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No tickets available for this event.</p>
+                </div>
+              )}
             </div>
 
             {selectedTier && (

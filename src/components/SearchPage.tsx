@@ -23,39 +23,60 @@ const mockSearchResults = [
     title: 'Summer Music Festival 2024',
     description: 'Three days of incredible music with top artists',
     organizer: 'LiveNation Events',
+    organizerId: '101',
     category: 'Music',
     date: 'July 15-17, 2024',
     location: 'Central Park, NYC',
     coverImage: 'https://images.unsplash.com/photo-1681149341674-45fd772fd463?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080',
+    ticketTiers: [
+      { id: '1', name: 'General Admission', price: 89, badge: 'GA', available: 45, total: 1000 },
+      { id: '2', name: 'VIP Experience', price: 199, badge: 'VIP', available: 12, total: 100 }
+    ],
     attendeeCount: 1243,
     priceFrom: 89,
-    rating: 4.8
+    rating: 4.8,
+    likes: 892,
+    shares: 156
   },
   {
     id: '2',
     title: 'Street Food Fiesta',
     description: 'Taste authentic flavors from around the world',
     organizer: 'Foodie Adventures',
+    organizerId: '102',
     category: 'Food & Drink',
     date: 'August 8, 2024',
     location: 'Brooklyn Bridge Park',
     coverImage: 'https://images.unsplash.com/photo-1551883709-2516220df0bc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080',
+    ticketTiers: [
+      { id: '3', name: 'Entry Pass', price: 25, badge: 'ENTRY', available: 234, total: 500 },
+      { id: '4', name: 'Foodie Pass', price: 75, badge: 'FOODIE', available: 18, total: 50 }
+    ],
     attendeeCount: 567,
     priceFrom: 25,
-    rating: 4.6
+    rating: 4.6,
+    likes: 445,
+    shares: 89
   },
   {
     id: '3',
     title: 'Contemporary Art Showcase',
     description: 'Discover emerging artists and groundbreaking installations',
     organizer: 'Modern Gallery NYC',
+    organizerId: '103',
     category: 'Art & Culture',
     date: 'September 2, 2024',
     location: 'SoHo Art District',
     coverImage: 'https://images.unsplash.com/photo-1713779490284-a81ff6a8ffae?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhcnQlMjBnYWxsZXJ5JTIwZXhoaWJpdGlvbnxlbnwxfHx8fDE3NTY3NjI4ODd8MA&ixlib=rb-4.1.0&q=80&w=1080',
+    ticketTiers: [
+      { id: '5', name: 'Standard', price: 35, badge: 'STD', available: 156, total: 200 },
+      { id: '6', name: 'Premium', price: 85, badge: 'PREM', available: 23, total: 50 }
+    ],
     attendeeCount: 298,
     priceFrom: 35,
-    rating: 4.9
+    rating: 4.9,
+    likes: 234,
+    shares: 67
   }
 ];
 
