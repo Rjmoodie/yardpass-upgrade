@@ -4,7 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import AuthModal from '@/components/AuthModal';
 import Index from '@/pages/Index';
 import EventDetail from '@/components/EventDetail';
-import EventCreator from '@/components/EventCreator';
+import { CreateEventFlow } from '@/components/CreateEventFlow';
 import OrganizerDashboard from '@/components/OrganizerDashboard';
 import UserProfile from '@/components/UserProfile';
 import PostCreator from '@/components/PostCreator';
@@ -120,16 +120,9 @@ function AppContent() {
       )}
       
       {currentScreen === 'create-event' && (
-        <EventCreator 
-          user={user ? {
-            id: user.id,
-            name: profile?.display_name || 'User',
-            role: userRole
-          } : null}
+        <CreateEventFlow
           onBack={() => setCurrentScreen(userRole === 'organizer' ? 'dashboard' : 'feed')}
-          onCreate={() => {
-            setCurrentScreen('event-management');
-          }}
+          onCreate={() => setCurrentScreen('feed')}
         />
       )}
       
