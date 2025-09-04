@@ -4,7 +4,8 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { Heart, MessageCircle, Share, Play, Pause, MoreVertical, MapPin, Calendar, Plus } from 'lucide-react';
+import { FeedFilter } from './FeedFilter';
+import { Heart, MessageCircle, Share, Play, Pause, MoreVertical, MapPin, Calendar, Plus, Filter, Search } from 'lucide-react';
 import { routes } from '@/lib/routes';
 import { openMaps } from '@/lib/maps';
 import { capture } from '@/lib/analytics';
@@ -133,6 +134,7 @@ export function MainFeed({
   const [events, setEvents] = useState(mockEvents);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const currentEvent = events[currentIndex];
@@ -209,20 +211,44 @@ export function MainFeed({
 
   return (
     <div className="flex-1 relative overflow-hidden bg-background">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/60 to-transparent p-4">
-        <div className="flex items-center justify-between text-white">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🎪</span>
-            <span className="font-bold text-lg tracking-wide">YardPass</span>
+      {/* TikTok Style Header */}
+      <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+        {/* Top Navigation Tabs */}
+        <div className="flex items-center justify-center pt-12 pb-2">
+          <div className="flex items-center gap-6 text-white">
+            <button className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+              LIVE
+            </button>
+            <button className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+              Following
+            </button>
+            <button className="text-sm font-semibold opacity-100 border-b-2 border-white pb-1">
+              For You
+            </button>
+            <button className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+              Events
+            </button>
           </div>
+        </div>
+        
+        {/* Action Header */}
+        <div className="flex items-center justify-between px-4 pb-3">
           <Button
             size="sm"
-            variant="glass"
-            onClick={() => onCreatePost?.()}
-            className="font-semibold"
+            variant="ghost"
+            onClick={() => setShowFilter(true)}
+            className="text-white hover:bg-white/10 gap-2"
           >
-            + Post
+            <Filter className="w-4 h-4" />
+            Filter
+          </Button>
+          
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-white hover:bg-white/10"
+          >
+            <Search className="w-5 h-5" />
           </Button>
         </div>
       </div>
@@ -247,141 +273,160 @@ export function MainFeed({
         ))}
       </div>
 
-      {/* Event Info Overlay */}
-      <div className="absolute bottom-20 left-0 right-0 p-4 text-white">
-        <div className="flex justify-between items-end">
-          {/* Event Details */}
-          <div className="flex-1 mr-4 space-y-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <button onClick={() => handleCategoryClick(currentEvent.category, currentEvent.id)}>
-                <Badge variant="secondary" className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90">
-                  {currentEvent.category}
-                </Badge>
-              </button>
-              <button onClick={() => handleAttendeesClick(currentEvent)}>
-                <Badge variant="outline" className="border-white/30 text-white cursor-pointer hover:bg-white/10">
-                  {currentEvent.attendeeCount} attending
-                </Badge>
-              </button>
-            </div>
-
-            <div>
+      {/* TikTok Style Bottom Content */}
+      <div className="absolute bottom-20 left-0 right-0">
+        <div className="flex items-end justify-between px-4">
+          {/* Left Content - Event Info */}
+          <div className="flex-1 max-w-[75%] space-y-3">
+            {/* Main Text Content */}
+            <div className="space-y-2">
               <button 
                 onClick={() => {
                   capture('feed_click', { target: 'title', event_id: currentEvent.id });
                   onEventClick?.(currentEvent.id);
                 }}
-                className="text-left hover:opacity-80 transition-opacity"
+                className="text-left block"
               >
-                <h2 className="mb-2 max-w-xs">{currentEvent.title}</h2>
+                <h2 className="text-white text-lg font-bold leading-tight mb-1">
+                  {currentEvent.title}
+                </h2>
               </button>
-              <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
-                <Avatar className="w-6 h-6">
-                  <AvatarFallback className="text-xs bg-white/20 text-white">
-                    {currentEvent.organizer.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                <button 
-                  onClick={() => handleOrganizerClick(currentEvent)}
-                  className="hover:text-white transition-colors"
-                >
-                  @{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}
-                </button>
-              </div>
-              <div className="flex items-center gap-4 text-sm text-gray-300 mb-3">
-                <button 
-                  onClick={() => {
-                    capture('feed_click', { target: 'date', event_id: currentEvent.id });
-                    onEventClick?.(currentEvent.id);
-                  }}
-                  className="flex items-center gap-1 hover:text-white transition-colors"
-                >
-                  <Calendar className="w-4 h-4" />
-                  {currentEvent.date}
-                </button>
-                <button 
-                  onClick={() => handleLocationClick(currentEvent)}
-                  onAuxClick={() => handleLocationClick(currentEvent, true)}
-                  className="flex items-center gap-1 hover:text-white transition-colors"
-                  aria-label="View event location"
-                >
-                  <MapPin className="w-4 h-4" />
-                  {currentEvent.location}
-                </button>
-              </div>
-              <p className="text-sm text-gray-300 line-clamp-2 max-w-xs">
+              
+              <p className="text-white text-sm leading-relaxed break-words">
                 {currentEvent.description}
+                <br />
+                <span className="text-accent font-semibold">
+                  #{currentEvent.category.replace(/\s+/g, '')} #Events
+                </span>
               </p>
             </div>
 
-            <div className="flex gap-3">
+            {/* Organizer Info */}
+            <div className="flex items-center gap-2">
+              <Avatar className="w-8 h-8 border-2 border-white/20">
+                <AvatarFallback className="text-xs bg-white/20 text-white">
+                  {currentEvent.organizer.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <button 
+                onClick={() => handleOrganizerClick(currentEvent)}
+                className="text-white font-semibold text-sm hover:opacity-80 transition-opacity"
+              >
+                @{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}
+              </button>
+              <span className="text-white/70 text-sm">•</span>
+              <button 
+                onClick={() => handleAttendeesClick(currentEvent)}
+                className="text-white/90 text-sm hover:text-white transition-colors"
+              >
+                {currentEvent.attendeeCount} attending
+              </button>
+            </div>
+
+            {/* Event Details */}
+            <div className="flex items-center gap-4 text-sm">
+              <button 
+                onClick={() => {
+                  capture('feed_click', { target: 'date', event_id: currentEvent.id });
+                  onEventClick?.(currentEvent.id);
+                }}
+                className="flex items-center gap-1 text-white/90 hover:text-white transition-colors"
+              >
+                <Calendar className="w-4 h-4" />
+                {currentEvent.date}
+              </button>
+              <button 
+                onClick={() => handleLocationClick(currentEvent)}
+                className="flex items-center gap-1 text-white/90 hover:text-white transition-colors"
+              >
+                <MapPin className="w-4 h-4" />
+                {currentEvent.location}
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-2">
               <Button 
                 size="sm" 
                 onClick={() => handleGetTickets(currentEvent)}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg font-semibold px-6"
+                className="bg-accent hover:bg-accent-600 text-white font-bold px-6 py-2 rounded-xl shadow-lg"
               >
                 Get Tickets
               </Button>
               <Button 
                 size="sm" 
-                variant="glass"
+                variant="outline"
                 onClick={() => handleDetails(currentEvent)}
-                className="font-semibold px-6"
+                className="border-white/30 text-white hover:bg-white/10 font-semibold px-6 py-2 rounded-xl"
               >
                 Details
               </Button>
             </div>
           </div>
 
-          {/* Action Buttons - TikTok Style */}
-          <div className="flex flex-col items-center gap-4 text-white">
+          {/* Right Actions - TikTok Style */}
+          <div className="flex flex-col items-center gap-6 pb-4">
+            {/* Like Button */}
             <button
               onClick={() => handleLike(currentEvent.id)}
-              className="flex flex-col items-center gap-2 group"
-              aria-label={currentEvent.isLiked ? 'Unlike event' : 'Like event'}
+              className="flex flex-col items-center group"
             >
-              <div className={`action-button ${currentEvent.isLiked ? 'bg-red-500/90 border-red-400/50' : ''}`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm transition-all ${
+                currentEvent.isLiked 
+                  ? 'bg-red-500/90 border border-red-400/50' 
+                  : 'bg-black/30 border border-white/20 hover:bg-black/50'
+              }`}>
                 <Heart 
-                  className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white text-white' : 'text-white'}`} 
+                  className={`w-6 h-6 ${
+                    currentEvent.isLiked ? 'fill-white text-white' : 'text-white'
+                  }`} 
                 />
               </div>
-              <span className="text-xs font-semibold">{currentEvent.likes}</span>
+              <span className="text-white text-xs font-semibold mt-1">
+                {currentEvent.likes > 999 ? `${(currentEvent.likes/1000).toFixed(1)}K` : currentEvent.likes}
+              </span>
             </button>
 
+            {/* Comment Button */}
             <button 
               onClick={() => {
                 capture('feed_click', { target: 'comment', event_id: currentEvent.id });
                 onEventClick?.(currentEvent.id);
               }}
-              className="flex flex-col items-center gap-2 group"
-              aria-label="View comments"
+              className="flex flex-col items-center group"
             >
-              <div className="action-button">
+              <div className="w-12 h-12 rounded-full bg-black/30 border border-white/20 hover:bg-black/50 flex items-center justify-center backdrop-blur-sm transition-all">
                 <MessageCircle className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs font-semibold">42</span>
+              <span className="text-white text-xs font-semibold mt-1">7.8K</span>
             </button>
 
+            {/* Share Button */}
             <button
               onClick={() => handleShare(currentEvent)}
-              className="flex flex-col items-center gap-2 group"
-              aria-label="Share event"
+              className="flex flex-col items-center group"
             >
-              <div className="action-button">
+              <div className="w-12 h-12 rounded-full bg-black/30 border border-white/20 hover:bg-black/50 flex items-center justify-center backdrop-blur-sm transition-all">
                 <Share className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs font-semibold">{currentEvent.shares}</span>
+              <span className="text-white text-xs font-semibold mt-1">
+                {currentEvent.shares > 999 ? `${(currentEvent.shares/1000).toFixed(1)}K` : currentEvent.shares}
+              </span>
             </button>
 
+            {/* Creator Profile Pic */}
             <button 
               onClick={() => onCreatePost?.(currentEvent.id)}
-              className="flex flex-col items-center gap-2 group"
-              aria-label="Create post"
+              className="relative"
             >
-              <div className="action-button-primary">
-                <Plus className="w-6 h-6 text-white" />
+              <Avatar className="w-12 h-12 border-2 border-white">
+                <AvatarFallback className="bg-accent text-white font-bold">
+                  {currentEvent.organizer.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-accent rounded-full flex items-center justify-center border-2 border-white">
+                <Plus className="w-3 h-3 text-white" />
               </div>
-              <span className="text-xs font-semibold">Post</span>
             </button>
           </div>
         </div>
@@ -419,6 +464,16 @@ export function MainFeed({
               handleScroll('up');
             }
           }
+        }}
+      />
+
+      {/* Filter Modal */}
+      <FeedFilter
+        isOpen={showFilter}
+        onToggle={() => setShowFilter(false)}
+        onFilterChange={(filters) => {
+          console.log('Filters applied:', filters);
+          // TODO: Apply filters to events
         }}
       />
     </div>
