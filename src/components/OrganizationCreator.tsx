@@ -32,8 +32,8 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
     
     setLoading(true);
     try {
-      // Use a transaction to create both organization and membership
-      const { data, error } = await supabase.rpc('create_organization_with_membership', {
+      // Use the new RPC function to create organization and membership atomically
+      const { data: orgId, error } = await supabase.rpc('create_organization_with_membership', {
         p_name: formData.name,
         p_handle: formData.handle,
         p_logo_url: formData.logoUrl || null,
@@ -47,7 +47,7 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
         description: "Your organization has been created successfully!"
       });
 
-      onSuccess(data);
+      onSuccess(orgId);
     } catch (error: any) {
       toast({
         title: "Error",

@@ -733,6 +733,15 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: boolean
       }
+      create_organization_with_membership: {
+        Args: {
+          p_creator_id?: string
+          p_handle: string
+          p_logo_url?: string
+          p_name: string
+        }
+        Returns: string
+      }
       get_event_kpis_daily: {
         Args: { p_event_ids: string[]; p_from_date: string; p_to_date: string }
         Returns: {
