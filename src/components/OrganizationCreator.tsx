@@ -49,9 +49,16 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
 
       onSuccess(orgId);
     } catch (error: any) {
+      let errorMessage = error.message;
+      
+      // Handle specific constraint violations
+      if (error.message?.includes('organizations_handle_key')) {
+        errorMessage = `The handle "@${formData.handle}" is already taken. Please choose a different one.`;
+      }
+      
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
