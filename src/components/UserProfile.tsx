@@ -130,20 +130,23 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
           {/* Role Toggle */}
           <Card className="max-w-sm mx-auto">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-left">
-                  <div className="text-sm">Organizer Mode</div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="text-left flex-1">
+                  <div className="text-sm font-medium">Organizer Mode</div>
                   <div className="text-xs text-muted-foreground">
                     {user.role === 'organizer' ? 'Create and manage events' : 'Switch to organize events'}
                   </div>
                 </div>
-                <Switch
-                  checked={user.role === 'organizer'}
-                  onCheckedChange={(checked) => {
-                    console.log('Switch clicked, checked:', checked, 'current role:', user.role);
-                    onRoleToggle();
-                  }}
-                />
+                <div className="flex-shrink-0">
+                  <Switch
+                    checked={user.role === 'organizer'}
+                    onCheckedChange={(checked) => {
+                      console.log('Switch clicked, checked:', checked, 'current role:', user.role);
+                      onRoleToggle();
+                    }}
+                    className="data-[state=checked]:bg-green-600"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
