@@ -219,8 +219,15 @@ function AppContent() {
 
   return (
     <AnalyticsWrapper>
-      <div className="h-screen bg-background flex flex-col">
-      <Routes>
+      <div className="h-screen bg-background flex flex-col relative overflow-hidden">
+        {/* Subtle Background Pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/20 via-transparent to-accent/20" />
+          <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
+        </div>
+        
+        <Routes>
         {/* Public Routes */}
         <Route 
           path="/" 

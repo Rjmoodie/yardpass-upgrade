@@ -386,18 +386,18 @@ export function MainFeed({
             {/* Like Button */}
             <button
               onClick={() => handleLike(currentEvent.id)}
-              className="action-button group"
+              className="action-button action-button-like group"
             >
               <Heart 
-                className={`w-6 h-6 transition-all duration-300 ${
+                className={`w-7 h-7 transition-all duration-300 ${
                   currentEvent.isLiked 
                     ? 'fill-red-500 text-red-500 scale-110' 
                     : 'text-white group-hover:scale-110'
                 }`} 
                 strokeWidth={1.5}
               />
-              <span className="absolute -bottom-6 text-white text-xs font-semibold">
-                {currentEvent.likes > 999 ? `${(currentEvent.likes/1000).toFixed(1)}M` : `${currentEvent.likes}`}
+              <span className="absolute -bottom-8 text-white text-sm font-semibold">
+                {currentEvent.likes > 999 ? `${(currentEvent.likes/1000).toFixed(1)}K` : `${currentEvent.likes}`}
               </span>
             </button>
 
@@ -407,13 +407,13 @@ export function MainFeed({
                 capture('feed_click', { target: 'comment', event_id: currentEvent.id });
                 onEventClick?.(currentEvent.id);
               }}
-              className="action-button group"
+              className="action-button action-button-comment group"
             >
               <MessageCircle 
-                className="w-6 h-6 text-white group-hover:scale-110 transition-all duration-300" 
+                className="w-7 h-7 text-white group-hover:scale-110 transition-all duration-300" 
                 strokeWidth={1.5}
               />
-              <span className="absolute -bottom-6 text-white text-xs font-semibold">7.8K</span>
+              <span className="absolute -bottom-8 text-white text-sm font-semibold">7.8K</span>
             </button>
 
             {/* Bookmark Button */}
@@ -421,25 +421,25 @@ export function MainFeed({
               onClick={() => {
                 capture('feed_click', { target: 'bookmark', event_id: currentEvent.id });
               }}
-              className="action-button group"
+              className="action-button action-button-bookmark group"
             >
               <Bookmark 
-                className="w-6 h-6 text-white group-hover:scale-110 transition-all duration-300" 
+                className="w-7 h-7 text-white group-hover:scale-110 transition-all duration-300" 
                 strokeWidth={1.5}
               />
-              <span className="absolute -bottom-6 text-white text-xs font-semibold">70K</span>
+              <span className="absolute -bottom-8 text-white text-sm font-semibold">70K</span>
             </button>
 
             {/* Share Button */}
             <button
               onClick={() => handleShare(currentEvent)}
-              className="action-button group"
+              className="action-button action-button-share group"
             >
               <Share 
-                className="w-6 h-6 text-white group-hover:scale-110 transition-all duration-300" 
+                className="w-7 h-7 text-white group-hover:scale-110 transition-all duration-300" 
                 strokeWidth={1.5}
               />
-              <span className="absolute -bottom-6 text-white text-xs font-semibold">
+              <span className="absolute -bottom-8 text-white text-sm font-semibold">
                 {currentEvent.shares > 999 ? `${(currentEvent.shares/1000).toFixed(1)}K` : currentEvent.shares}
               </span>
             </button>
@@ -447,17 +447,17 @@ export function MainFeed({
             {/* Creator Profile Pic */}
             <button 
               onClick={() => onCreatePost?.(currentEvent.id)}
-              className="relative mt-4 group"
+              className="relative mt-6 group"
             >
-              <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/30 backdrop-blur-sm bg-white/10 group-hover:border-primary/50 transition-all duration-300">
+              <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white/30 backdrop-blur-sm bg-white/10 group-hover:border-primary/50 transition-all duration-300">
                 <Avatar className="w-full h-full">
-                  <AvatarFallback className="brand-gradient text-white font-bold text-lg">
+                  <AvatarFallback className="brand-gradient text-white font-bold text-xl">
                     {currentEvent.organizer.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
               </div>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 brand-gradient rounded-full flex items-center justify-center border-2 border-white shadow-lg">
-                <Plus className="w-3 h-3 text-white" strokeWidth={2.5} />
+              <div className="absolute -bottom-1 -right-1 w-7 h-7 brand-gradient rounded-full flex items-center justify-center border-2 border-white shadow-lg">
+                <Plus className="w-4 h-4 text-white" strokeWidth={2.5} />
               </div>
             </button>
           </div>

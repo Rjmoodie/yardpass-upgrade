@@ -21,6 +21,8 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         glass: "rounded-full glass-effect text-white hover:bg-white/20 shadow-lg backdrop-blur-lg border border-white/20",
         pill: "pill-button hover:pill-button-active",
+        tiktok: "rounded-full bg-gradient-to-r from-primary to-accent text-white font-bold shadow-xl hover:shadow-2xl transform hover:-translate-y-2 hover:scale-105 transition-all duration-300",
+        tiktokSecondary: "rounded-full bg-white/15 text-white border border-white/30 backdrop-blur-md shadow-lg hover:bg-white/25 hover:border-white/40 transform hover:-translate-y-1 hover:scale-105 transition-all duration-300",
       },
       size: {
         default: "h-12 px-6 py-3",
@@ -28,6 +30,7 @@ const buttonVariants = cva(
         lg: "h-14 px-8 py-4",
         icon: "h-12 w-12",
         pill: "h-10 px-5 py-2",
+        tiktok: "h-14 px-8 py-4 text-base",
       },
     },
     defaultVariants: {
