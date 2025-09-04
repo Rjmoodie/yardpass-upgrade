@@ -309,7 +309,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   }, [currentIndex]);
 
   return (
-    <div className="h-screen relative overflow-hidden bg-black">
+    <div className="h-screen relative overflow-hidden bg-black" style={{ position: 'relative', touchAction: 'pan-y' }}>
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/50 to-transparent p-4">
         <div className="flex items-center justify-between text-white">
@@ -444,11 +444,16 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Like button clicked');
+                console.log('Like button clicked - DEBUG TEST');
+                alert('Like button working!'); // Temporary debug alert
                 requireAuth(() => handleLike(currentEvent.id), "Please sign in to like events");
               }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px] p-2"
-              style={{ touchAction: 'manipulation' }}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
+              style={{ 
+                touchAction: 'manipulation',
+                pointerEvents: 'auto',
+                backgroundColor: 'rgba(255, 0, 0, 0.3)' // Temporary debug background
+              }}
             >
               <div className={`p-3 rounded-full transition-all duration-200 ${
                 currentEvent.isLiked 
@@ -545,22 +550,32 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
         ))}
       </div>
 
-      {/* Swipe Navigation (Mobile) */}
+      {/* Swipe Navigation (Mobile) - Lower z-index than buttons */}
       <div 
         className="absolute inset-0 z-10"
+        style={{ 
+          pointerEvents: 'auto',
+          touchAction: 'pan-y',
+          // Exclude the action buttons area on the right
+          clipPath: 'polygon(0% 0%, 85% 0%, 85% 100%, 0% 100%)'
+        }}
         onTouchStart={(e) => {
           const touch = e.touches[0];
           e.currentTarget.dataset.startY = touch.clientY.toString();
+          console.log('Touch start detected on swipe area');
         }}
         onTouchEnd={(e) => {
           const startY = parseInt(e.currentTarget.dataset.startY || '0');
           const endY = e.changedTouches[0].clientY;
           const diff = startY - endY;
 
+          console.log('Touch end detected, diff:', diff);
           if (Math.abs(diff) > 50) {
             if (diff > 0) {
+              console.log('Swiping down');
               handleScroll('down');
             } else {
+              console.log('Swiping up');
               handleScroll('up');
             }
           }
