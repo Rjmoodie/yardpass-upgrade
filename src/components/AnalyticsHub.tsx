@@ -309,26 +309,184 @@ const AnalyticsHub: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="videos">
+        <TabsContent value="videos" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Plays</CardTitle>
+                <PlayIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">12,847</div>
+                <p className="text-xs text-muted-foreground">+18% from last month</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg Watch Time</CardTitle>
+                <PlayIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">4:32</div>
+                <p className="text-xs text-muted-foreground">+12% from last month</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+                <PlayIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">67.8%</div>
+                <p className="text-xs text-muted-foreground">+5.2% from last month</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">CTR to Tickets</CardTitle>
+                <TicketIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">3.4%</div>
+                <p className="text-xs text-muted-foreground">+0.8% from last month</p>
+              </CardContent>
+            </Card>
+          </div>
+
           <Card>
             <CardHeader>
-              <CardTitle>Video Analytics</CardTitle>
+              <CardTitle>Top Performing Videos</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">Video performance analytics coming soon...</p>
+              <div className="space-y-4">
+                {[
+                  { title: "Event Preview: Summer Festival", plays: 3420, ctr: 4.2 },
+                  { title: "Artist Spotlight: Main Act", plays: 2890, ctr: 3.8 },
+                  { title: "Behind the Scenes Setup", plays: 1960, ctr: 2.1 },
+                  { title: "Venue Tour & Amenities", plays: 1420, ctr: 5.1 },
+                ].map((video, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="text-sm font-medium text-muted-foreground">#{index + 1}</div>
+                      <div>
+                        <p className="font-medium">{video.title}</p>
+                        <p className="text-sm text-muted-foreground">{video.plays.toLocaleString()} plays</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{video.ctr}% CTR</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="audience">
-          <Card>
-            <CardHeader>
-              <CardTitle>Audience & Growth</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Audience insights coming soon...</p>
-            </CardContent>
-          </Card>
+        <TabsContent value="audience" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Event Views</CardTitle>
+                <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">1,250</div>
+                <p className="text-xs text-muted-foreground">Funnel start</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ticket CTAs</CardTitle>
+                <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">387</div>
+                <p className="text-xs text-muted-foreground">31.0% conversion</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Checkouts Started</CardTitle>
+                <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">156</div>
+                <p className="text-xs text-muted-foreground">40.3% conversion</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Purchases</CardTitle>
+                <DollarSignIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">89</div>
+                <p className="text-xs text-muted-foreground">57.1% conversion</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Acquisition Channels</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[
+                    { channel: 'Direct', visitors: 542, conversions: 38, rate: 7.0 },
+                    { channel: 'Social Share', visitors: 298, conversions: 22, rate: 7.4 },
+                    { channel: 'QR Code', visitors: 189, conversions: 15, rate: 7.9 },
+                    { channel: 'Organic Search', visitors: 221, conversions: 14, rate: 6.3 },
+                  ].map((channel, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{channel.channel}</p>
+                        <p className="text-sm text-muted-foreground">{channel.visitors} visitors</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{channel.conversions} sales</p>
+                        <p className="text-sm text-muted-foreground">{channel.rate}% conv.</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Device Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[
+                    { device: 'Mobile', sessions: 892, rate: 6.8 },
+                    { device: 'Desktop', sessions: 298, rate: 8.1 },
+                    { device: 'Tablet', sessions: 60, rate: 5.2 },
+                  ].map((device, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{device.device}</p>
+                        <p className="text-sm text-muted-foreground">{device.sessions} sessions</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{device.rate}%</p>
+                        <p className="text-sm text-muted-foreground">conv. rate</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
