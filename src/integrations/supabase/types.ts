@@ -863,6 +863,13 @@ export type Database = {
         Args: { p_event_id: string; p_user_id: string }
         Returns: string
       }
+      get_user_organizations: {
+        Args: { user_uuid: string }
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
       is_current_user_org_admin: {
         Args: { p_org_id: string }
         Returns: boolean
