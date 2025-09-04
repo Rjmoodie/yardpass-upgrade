@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { updateMetaTags } from '@/utils/meta';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,18 @@ interface UserTicket {
 
 export default function UserProfilePage() {
   const { username } = useParams<{ username: string }>();
+
+  // Update meta tags for user profile
+  useEffect(() => {
+    if (username) {
+      updateMetaTags({
+        title: `${username} on YardPass`,
+        description: `Check out ${username}'s profile on YardPass`,
+        url: `https://yardpass.com/u/${username}`,
+        type: 'article'
+      });
+    }
+  }, [username]);
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [tickets, setTickets] = useState<UserTicket[]>([]);

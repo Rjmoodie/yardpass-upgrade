@@ -17,7 +17,11 @@ export function buildShareUrl(target: ShareTarget, extra?: { ref?: string; utm?:
     ...(extra?.utm || {})
   });
   
-  return `${base}?${params.toString()}`;
+  const url = `${base}?${params.toString()}`;
+  if (import.meta.env.DEV) {
+    console.log('[ShareLinks] buildShareUrl output:', url);
+  }
+  return url;
 }
 
 export function getShareTitle(target: ShareTarget): string {

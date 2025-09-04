@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { updateMetaTags, defaultMeta } from '@/utils/meta';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
@@ -270,6 +271,11 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
       setCurrentIndex(currentIndex - 1);
     }
   };
+
+  // Set default meta tags for homepage
+  useEffect(() => {
+    updateMetaTags(defaultMeta);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

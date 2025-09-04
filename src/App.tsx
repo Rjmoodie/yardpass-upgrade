@@ -145,6 +145,9 @@ function AppContent() {
 
   useEffect(() => {
     const onShareModalOpen = (e: CustomEvent<SharePayload>) => {
+      if (import.meta.env.DEV) {
+        console.log('[Share] Modal opened with payload:', e.detail);
+      }
       setSharePayload(e.detail);
     };
     

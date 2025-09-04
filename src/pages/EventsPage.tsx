@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { updateMetaTags } from '@/utils/meta';
 import { supabase } from '@/integrations/supabase/client';
 import { EventDetail } from '@/components/EventDetail';
 import { EventFeed } from '@/components/EventFeed';
@@ -47,6 +48,18 @@ interface TicketTier {
 
 export default function EventsPage() {
   const { slug } = useParams<{ slug: string }>();
+
+  // Update meta tags for event
+  useEffect(() => {
+    if (slug) {
+      updateMetaTags({
+        title: `Event: ${slug} on YardPass`,
+        description: `Join this amazing event on YardPass`,
+        url: `https://yardpass.com/events/${slug}`,
+        type: 'article'
+      });
+    }
+  }, [slug]);
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
