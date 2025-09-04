@@ -692,6 +692,7 @@ export type Database = {
           phone: string | null
           photo_url: string | null
           role: string | null
+          updated_at: string | null
           user_id: string
           verification_status:
             | Database["public"]["Enums"]["verification_status"]
@@ -703,6 +704,7 @@ export type Database = {
           phone?: string | null
           photo_url?: string | null
           role?: string | null
+          updated_at?: string | null
           user_id: string
           verification_status?:
             | Database["public"]["Enums"]["verification_status"]
@@ -714,6 +716,7 @@ export type Database = {
           phone?: string | null
           photo_url?: string | null
           role?: string | null
+          updated_at?: string | null
           user_id?: string
           verification_status?:
             | Database["public"]["Enums"]["verification_status"]
