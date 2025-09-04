@@ -439,10 +439,16 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col items-center gap-4 text-white">
+          <div className="flex flex-col items-center gap-4 text-white relative z-20">
             <button
-              onClick={() => requireAuth(() => handleLike(currentEvent.id), "Please sign in to like events")}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Like button clicked');
+                requireAuth(() => handleLike(currentEvent.id), "Please sign in to like events");
+              }}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px] p-2"
+              style={{ touchAction: 'manipulation' }}
             >
               <div className={`p-3 rounded-full transition-all duration-200 ${
                 currentEvent.isLiked 
@@ -459,8 +465,14 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             </button>
 
             <button 
-              onClick={handleComment}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Comment button clicked');
+                handleComment();
+              }}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px] p-2"
+              style={{ touchAction: 'manipulation' }}
             >
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
                 <MessageCircle className="w-6 h-6 text-white" />
@@ -471,8 +483,14 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             </button>
 
             <button
-              onClick={() => requireAuth(() => setPostCreatorOpen(true), "Please sign in to create posts")}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Post button clicked');
+                requireAuth(() => setPostCreatorOpen(true), "Please sign in to create posts");
+              }}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px] p-2"
+              style={{ touchAction: 'manipulation' }}
             >
               <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200">
                 <Plus className="w-6 h-6 text-white" />
@@ -481,8 +499,14 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             </button>
 
             <button
-              onClick={() => handleShare(currentEvent)}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Share button clicked');
+                handleShare(currentEvent);
+              }}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px] p-2"
+              style={{ touchAction: 'manipulation' }}
             >
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
                 <Share className="w-6 h-6 text-white" />
@@ -491,8 +515,14 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             </button>
 
             <button 
-              onClick={handleMoreOptions}
-              className="transition-transform active:scale-95"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('More options button clicked');
+                handleMoreOptions();
+              }}
+              className="transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px]"
+              style={{ touchAction: 'manipulation' }}
             >
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
                 <MoreVertical className="w-6 h-6 text-white" />
