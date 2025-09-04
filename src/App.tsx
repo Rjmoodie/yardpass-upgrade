@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
+import { toast } from '@/hooks/use-toast';
 import AuthModal from '@/components/AuthModal';
 import AuthPage from '@/pages/AuthPage';
 import Index from '@/pages/Index';
@@ -118,15 +119,29 @@ function AppContent() {
   };
 
   const handleRoleToggle = async () => {
-    if (!user || !profile) return;
+    console.log('handleRoleToggle called', { user: !!user, profile: !!profile, currentRole: userRole });
+    if (!user || !profile) {
+      console.error('Missing user or profile:', { user: !!user, profile: !!profile });
+      return;
+    }
     
     const newRole = userRole === 'attendee' ? 'organizer' : 'attendee';
+    console.log('Updating role from', userRole, 'to', newRole);
     const { error } = await updateRole(newRole);
     
     if (error) {
       console.error('Failed to update role:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update role",
+        variant: "destructive",
+      });
     } else {
       console.log('Role updated successfully to:', newRole);
+      toast({
+        title: "Role Updated",
+        description: `You are now ${newRole === 'organizer' ? 'an organizer' : 'an attendee'}`,
+      });
     }
   };
 

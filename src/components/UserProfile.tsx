@@ -139,7 +139,10 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                 </div>
                 <Switch
                   checked={user.role === 'organizer'}
-                  onCheckedChange={onRoleToggle}
+                  onCheckedChange={(checked) => {
+                    console.log('Switch clicked, checked:', checked, 'current role:', user.role);
+                    onRoleToggle();
+                  }}
                 />
               </div>
             </CardContent>
