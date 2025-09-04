@@ -355,22 +355,28 @@ const AnalyticsHub: React.FC = () => {
 
   const fetchOrganizations = async () => {
     try {
-      const { data } = await supabase
-        .from('org_memberships')
-        .select('organizations!inner(id, name)')
-        .eq('user_id', user?.id);
+      const { data, error } = await supabase.rpc('get_user_organizations', {
+        user_uuid: user?.id
+      });
+      
+      if (error) {
+        console.error('Error fetching organizations:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch organizations",
+          variant: "destructive"
+        });
+        return;
+      }
 
-      const orgs = data?.map(m => ({
-        id: m.organizations.id,
-        name: m.organizations.name
-      })) || [];
-
-      setOrganizations(orgs);
-      if (orgs.length > 0) {
-        setSelectedOrg(orgs[0].id);
+      if (data && data.length > 0) {
+        setOrganizations(data);
+        if (!selectedOrg) {
+          setSelectedOrg(data[0].id);
+        }
       }
     } catch (error) {
-      console.error('Error fetching organizations:', error);
+      console.error('Error in fetchOrganizations:', error);
       toast({
         title: "Error",
         description: "Failed to fetch organizations",
