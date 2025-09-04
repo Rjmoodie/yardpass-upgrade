@@ -137,7 +137,7 @@ function AppContent() {
 
   const handleEventSelect = (event: Event) => {
     setSelectedEvent(event);
-    navigate('/event/' + event.id);
+    navigate('/events/' + event.id);
   };
 
   const handleBackToFeed = () => {
