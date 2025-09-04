@@ -51,18 +51,31 @@ serve(async (req) => {
     }
 
     // Check if user has access to this org
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from('org_memberships')
       .select('role')
       .eq('org_id', orgId)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    console.log('Checking membership for org:', orgId, 'user:', user.id);
+    console.log('Membership result:', membership, 'Error:', membershipError);
 
     if (!membership) {
-      return new Response(JSON.stringify({ error: 'Access denied' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 403,
-      });
+      console.log('No membership found, checking if user is organization creator');
+      // Also check if user is the organization creator
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('created_by')
+        .eq('id', orgId)
+        .single();
+      
+      if (org?.created_by !== user.id) {
+        return new Response(JSON.stringify({ error: 'Access denied' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 403,
+        });
+      }
     }
 
     // Get org events for filtering
@@ -111,7 +124,7 @@ serve(async (req) => {
     // Get refund data
     const { data: refundsData } = await supabase
       .from('refunds')
-      .select('amount_cents, orders!inner(event_id)')
+      .select('amount_cents, orders!fk_orders_event_id!inner(event_id)')
       .in('orders.event_id', eventIds)
       .gte('created_at', defaultFromDate)
       .lte('created_at', defaultToDate);

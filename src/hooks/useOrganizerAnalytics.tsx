@@ -86,11 +86,11 @@ export function useOrganizerAnalytics() {
           start_at,
           end_at,
           completed_at,
-          orders(
+          orders!fk_orders_event_id(
             id,
             total_cents,
             status,
-            order_items(quantity)
+            order_items!fk_order_items_order_id(quantity)
           ),
           tickets(
             id,
