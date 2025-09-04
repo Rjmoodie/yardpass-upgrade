@@ -29,7 +29,7 @@ import AnalyticsHub from '@/components/AnalyticsHub';
 import EventAnalytics from '@/components/EventAnalytics';
 import { AnalyticsWrapper } from '@/components/AnalyticsWrapper';
 import NotFound from '@/pages/NotFound';
-import { ScanLine } from 'lucide-react';
+import { Scan } from 'lucide-react';
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
 type UserRole = 'attendee' | 'organizer';
@@ -69,7 +69,7 @@ function ScannerRouteComponent() {
     return (
       <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
         <div className="text-center">
-          <ScanLine className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+          <Scan className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-xl font-semibold mb-2">Invalid Event ID</h2>
           <p className="text-muted-foreground mb-4">
             Please access the scanner from a valid event
@@ -345,7 +345,7 @@ function AppContent() {
             <ProtectedRoute>
               <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
                 <div className="text-center">
-                  <ScanLine className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <Scan className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
                   <h2 className="text-xl font-semibold mb-2">No Event Selected</h2>
                   <p className="text-muted-foreground mb-4">
                     Access the scanner from an event management page
