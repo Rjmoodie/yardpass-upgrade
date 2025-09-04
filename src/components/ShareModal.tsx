@@ -1,8 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { Share, Copy, Facebook, Twitter, MessageCircle } from 'lucide-react';
+import { useShare } from '@/hooks/useShare';
+import { copyToClipboard, shareContent } from '@/utils/platform';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -13,31 +15,35 @@ interface ShareModalProps {
 }
 
 export const ShareModal = ({ isOpen, onClose, eventTitle, eventId, eventDescription }: ShareModalProps) => {
-  const eventUrl = `https://yardpass.com/events/${eventId}`;
+  const { shareEvent, copyLink, isSharing } = useShare();
+  const eventUrl = `${window.location.origin}/event/${eventId}`;
   
   const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(eventUrl);
-      toast.success('Link copied to clipboard!');
-    } catch (error) {
-      toast.error('Failed to copy link');
-    }
+    await copyLink(eventUrl, "Event link copied!");
   };
 
   const handleNativeShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: eventTitle,
-          text: eventDescription,
-          url: eventUrl
+    try {
+      const success = await shareContent({
+        title: eventTitle,
+        text: eventDescription,
+        url: eventUrl
+      });
+      
+      if (success) {
+        toast({
+          title: "Shared successfully!",
+          description: "Event has been shared",
         });
-      } catch (error) {
-        // User cancelled or error occurred
       }
-    } else {
-      handleCopyLink();
+    } catch (error) {
+      console.error('Share failed:', error);
+      await handleCopyLink(); // Fallback to copy
     }
+  };
+
+  const handleShareEvent = async () => {
+    await shareEvent(eventId, eventTitle);
   };
 
   const handleSocialShare = (platform: string) => {
@@ -92,12 +98,13 @@ export const ShareModal = ({ isOpen, onClose, eventTitle, eventId, eventDescript
             <p className="text-sm font-medium">Share via</p>
             <div className="grid grid-cols-2 gap-2">
               <Button 
-                onClick={handleNativeShare}
+                onClick={handleShareEvent}
                 variant="outline" 
                 className="justify-start gap-2"
+                disabled={isSharing}
               >
                 <Share className="w-4 h-4" />
-                Native Share
+                Share Event
               </Button>
               
               <Button 

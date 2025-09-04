@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { MapPin, Search } from 'lucide-react';
+import { MapPin, Search, ExternalLink } from 'lucide-react';
+import { openMap } from '@/utils/platform';
 
 interface Location {
   address: string;
@@ -207,17 +208,28 @@ export function MapboxLocationPicker({ value, onChange, className }: MapboxLocat
       {/* Selected Location Display */}
       {value && (
         <div className="mt-3 p-3 bg-muted rounded-md">
-          <div className="flex items-start gap-2">
-            <MapPin className="w-4 h-4 text-primary mt-0.5" />
-            <div className="text-sm">
-              <p className="font-medium">{value.address}</p>
-              <p className="text-muted-foreground">
-                {value.city}, {value.country}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Coordinates: {value.lat.toFixed(4)}, {value.lng.toFixed(4)}
-              </p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <MapPin className="w-4 h-4 text-primary mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium">{value.address}</p>
+                <p className="text-muted-foreground">
+                  {value.city}, {value.country}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Coordinates: {value.lat.toFixed(4)}, {value.lng.toFixed(4)}
+                </p>
+              </div>
             </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => openMap(value.address)}
+              className="text-xs p-1"
+            >
+              <ExternalLink className="w-3 h-3" />
+            </Button>
           </div>
         </div>
       )}

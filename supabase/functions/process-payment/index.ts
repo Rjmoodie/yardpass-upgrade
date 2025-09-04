@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
 
 interface ProcessPaymentRequest {
   sessionId: string;
@@ -22,9 +18,8 @@ const generateQRCode = (ticketId: string): string => {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     logStep("Function started");
@@ -65,12 +60,9 @@ serve(async (req) => {
     // Skip if already processed
     if (order.status === 'paid') {
       logStep("Order already processed");
-      return new Response(JSON.stringify({ 
+      return createResponse({ 
         success: true, 
         message: "Order already processed" 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
       });
     }
 
@@ -141,7 +133,7 @@ serve(async (req) => {
       logStep("Could not fetch event details", { error: eventError.message });
     }
 
-    return new Response(JSON.stringify({
+    return createResponse({
       success: true,
       order: {
         id: order.id,
@@ -149,16 +141,10 @@ serve(async (req) => {
         tickets_count: tickets.length,
         total_amount: order.total_cents / 100
       }
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in process-payment", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return createErrorResponse(errorMessage);
   }
 });
