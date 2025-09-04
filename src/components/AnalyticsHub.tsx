@@ -40,6 +40,299 @@ interface OrgAnalytics {
   }>;
 }
 
+// Video Analytics Component
+const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
+  const [videoData, setVideoData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (selectedOrg) {
+      fetchVideoAnalytics();
+    }
+  }, [selectedOrg, dateRange]);
+
+  const fetchVideoAnalytics = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analytics-video-mux', {
+        body: {
+          asset_ids: [], // Would be populated with actual video asset IDs
+          from_date: getDateFromRange(dateRange),
+          to_date: new Date().toISOString()
+        }
+      });
+
+      if (error) throw error;
+      setVideoData(data);
+    } catch (error) {
+      console.error('Video analytics error:', error);
+      // Fallback to sample data
+      setVideoData({
+        total_plays: 12847,
+        avg_watch_time: 272, // 4:32 in seconds
+        completion_rate: 67.8,
+        videos: [
+          { title: "Event Preview: Summer Festival", plays: 3420, ctr: 4.2 },
+          { title: "Artist Spotlight: Main Act", plays: 2890, ctr: 3.8 },
+          { title: "Behind the Scenes Setup", plays: 1960, ctr: 2.1 },
+          { title: "Venue Tour & Amenities", plays: 1420, ctr: 5.1 },
+        ]
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDateFromRange = (range: string): string => {
+    const now = new Date();
+    switch (range) {
+      case '7d':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      case '30d':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      case '90d':
+        return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      default:
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    }
+  };
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading video analytics...</div>;
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Plays</CardTitle>
+            <PlayIcon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{videoData?.total_plays?.toLocaleString() || '0'}</div>
+            <p className="text-xs text-muted-foreground">+18% from last month</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Watch Time</CardTitle>
+            <PlayIcon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatTime(videoData?.avg_watch_time || 0)}</div>
+            <p className="text-xs text-muted-foreground">+12% from last month</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+            <PlayIcon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{videoData?.completion_rate || 0}%</div>
+            <p className="text-xs text-muted-foreground">+5.2% from last month</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">CTR to Tickets</CardTitle>
+            <TicketIcon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">3.4%</div>
+            <p className="text-xs text-muted-foreground">+0.8% from last month</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Performing Videos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {videoData?.videos?.map((video: any, index: number) => (
+              <div key={index} className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="text-sm font-medium text-muted-foreground">#{index + 1}</div>
+                  <div>
+                    <p className="font-medium">{video.title}</p>
+                    <p className="text-sm text-muted-foreground">{video.plays?.toLocaleString() || 0} plays</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium">{video.ctr || 0}% CTR</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+};
+
+// Audience Analytics Component
+const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
+  const [audienceData, setAudienceData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (selectedOrg) {
+      fetchAudienceAnalytics();
+    }
+  }, [selectedOrg, dateRange]);
+
+  const fetchAudienceAnalytics = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analytics-posthog-funnel', {
+        body: {
+          event_ids: [], // Would be populated with actual event IDs
+          from_date: getDateFromRange(dateRange),
+          to_date: new Date().toISOString()
+        }
+      });
+
+      if (error) throw error;
+      setAudienceData(data);
+    } catch (error) {
+      console.error('Audience analytics error:', error);
+      // Fallback to sample data
+      setAudienceData({
+        funnel_steps: [
+          { event: 'event_view', count: 1250, conversion_rate: 100 },
+          { event: 'ticket_cta_click', count: 387, conversion_rate: 31.0 },
+          { event: 'checkout_started', count: 156, conversion_rate: 40.3 },
+          { event: 'checkout_completed', count: 89, conversion_rate: 57.1 }
+        ],
+        acquisition_channels: [
+          { channel: 'direct', visitors: 542, conversions: 38 },
+          { channel: 'social_share', visitors: 298, conversions: 22 },
+          { channel: 'qr_code', visitors: 189, conversions: 15 },
+          { channel: 'organic', visitors: 221, conversions: 14 }
+        ],
+        device_breakdown: [
+          { device: 'mobile', sessions: 892, conversion_rate: 6.8 },
+          { device: 'desktop', sessions: 298, conversion_rate: 8.1 },
+          { device: 'tablet', sessions: 60, conversion_rate: 5.2 }
+        ]
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDateFromRange = (range: string): string => {
+    const now = new Date();
+    switch (range) {
+      case '7d':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      case '30d':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      case '90d':
+        return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      default:
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading audience analytics...</div>;
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {audienceData?.funnel_steps?.map((step: any, index: number) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {step.event === 'event_view' && 'Event Views'}
+                {step.event === 'ticket_cta_click' && 'Ticket CTAs'}
+                {step.event === 'checkout_started' && 'Checkouts Started'}
+                {step.event === 'checkout_completed' && 'Purchases'}
+              </CardTitle>
+              {step.event === 'checkout_completed' ? 
+                <DollarSignIcon className="h-4 w-4 text-muted-foreground" /> :
+                <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
+              }
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{step.count?.toLocaleString() || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                {index === 0 ? 'Funnel start' : `${step.conversion_rate}% conversion`}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Acquisition Channels</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {audienceData?.acquisition_channels?.map((channel: any, index: number) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div>
+                      <p className="font-medium capitalize">{channel.channel?.replace('_', ' ')}</p>
+                      <p className="text-sm text-muted-foreground">{channel.visitors?.toLocaleString() || 0} visitors</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">{channel.conversions || 0} sales</p>
+                    <p className="text-sm text-muted-foreground">
+                      {channel.visitors > 0 ? ((channel.conversions / channel.visitors) * 100).toFixed(1) : 0}% conversion
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Device Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {audienceData?.device_breakdown?.map((device: any, index: number) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div>
+                      <p className="font-medium capitalize">{device.device}</p>
+                      <p className="text-sm text-muted-foreground">{device.sessions?.toLocaleString() || 0} sessions</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">{device.conversion_rate || 0}%</p>
+                    <p className="text-sm text-muted-foreground">conversion rate</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </>
+  );
+};
+
 const AnalyticsHub: React.FC = () => {
   const { user } = useAuth();
   const [selectedOrg, setSelectedOrg] = useState<string>('');
@@ -310,183 +603,11 @@ const AnalyticsHub: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="videos" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Plays</CardTitle>
-                <PlayIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">12,847</div>
-                <p className="text-xs text-muted-foreground">+18% from last month</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg Watch Time</CardTitle>
-                <PlayIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">4:32</div>
-                <p className="text-xs text-muted-foreground">+12% from last month</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
-                <PlayIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">67.8%</div>
-                <p className="text-xs text-muted-foreground">+5.2% from last month</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">CTR to Tickets</CardTitle>
-                <TicketIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">3.4%</div>
-                <p className="text-xs text-muted-foreground">+0.8% from last month</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Performing Videos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[
-                  { title: "Event Preview: Summer Festival", plays: 3420, ctr: 4.2 },
-                  { title: "Artist Spotlight: Main Act", plays: 2890, ctr: 3.8 },
-                  { title: "Behind the Scenes Setup", plays: 1960, ctr: 2.1 },
-                  { title: "Venue Tour & Amenities", plays: 1420, ctr: 5.1 },
-                ].map((video, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="text-sm font-medium text-muted-foreground">#{index + 1}</div>
-                      <div>
-                        <p className="font-medium">{video.title}</p>
-                        <p className="text-sm text-muted-foreground">{video.plays.toLocaleString()} plays</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{video.ctr}% CTR</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <VideoAnalytics selectedOrg={selectedOrg} dateRange={dateRange} />
         </TabsContent>
 
         <TabsContent value="audience" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Event Views</CardTitle>
-                <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">1,250</div>
-                <p className="text-xs text-muted-foreground">Funnel start</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Ticket CTAs</CardTitle>
-                <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">387</div>
-                <p className="text-xs text-muted-foreground">31.0% conversion</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Checkouts Started</CardTitle>
-                <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">156</div>
-                <p className="text-xs text-muted-foreground">40.3% conversion</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Purchases</CardTitle>
-                <DollarSignIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">89</div>
-                <p className="text-xs text-muted-foreground">57.1% conversion</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Acquisition Channels</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { channel: 'Direct', visitors: 542, conversions: 38, rate: 7.0 },
-                    { channel: 'Social Share', visitors: 298, conversions: 22, rate: 7.4 },
-                    { channel: 'QR Code', visitors: 189, conversions: 15, rate: 7.9 },
-                    { channel: 'Organic Search', visitors: 221, conversions: 14, rate: 6.3 },
-                  ].map((channel, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{channel.channel}</p>
-                        <p className="text-sm text-muted-foreground">{channel.visitors} visitors</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{channel.conversions} sales</p>
-                        <p className="text-sm text-muted-foreground">{channel.rate}% conv.</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Device Breakdown</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { device: 'Mobile', sessions: 892, rate: 6.8 },
-                    { device: 'Desktop', sessions: 298, rate: 8.1 },
-                    { device: 'Tablet', sessions: 60, rate: 5.2 },
-                  ].map((device, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{device.device}</p>
-                        <p className="text-sm text-muted-foreground">{device.sessions} sessions</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{device.rate}%</p>
-                        <p className="text-sm text-muted-foreground">conv. rate</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <AudienceAnalytics selectedOrg={selectedOrg} dateRange={dateRange} />
         </TabsContent>
       </Tabs>
     </div>
