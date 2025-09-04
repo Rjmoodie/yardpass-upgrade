@@ -8,7 +8,7 @@
   --font-size: 14px;
   
   /* Mango Sand Theme - Light Mode */
-  --background: hsl(60, 9%, 97%);
+  --background: hsl(60, 9%, 98%);
   --foreground: hsl(216, 20%, 8%);
   --card: hsl(0, 0%, 100%);
   --card-foreground: hsl(216, 20%, 8%);
@@ -16,18 +16,18 @@
   --popover-foreground: hsl(216, 20%, 8%);
   --primary: hsl(11, 89%, 58%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(210, 11%, 96%);
-  --secondary-foreground: hsl(215, 16%, 32%);
-  --muted: hsl(210, 11%, 96%);
-  --muted-foreground: hsl(215, 16%, 47%);
-  --accent: hsl(19, 100%, 90%);
-  --accent-foreground: hsl(11, 89%, 58%);
+  --secondary: hsl(210, 11%, 95%);
+  --secondary-foreground: hsl(215, 16%, 25%);
+  --muted: hsl(210, 11%, 94%);
+  --muted-foreground: hsl(215, 16%, 40%);
+  --accent: hsl(19, 100%, 88%);
+  --accent-foreground: hsl(11, 89%, 48%);
   --destructive: hsl(0, 72%, 51%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(210, 11%, 90%);
+  --border: hsl(210, 11%, 85%);
   --input: transparent;
-  --input-background: hsl(210, 11%, 96%);
-  --switch-background: hsl(210, 11%, 80%);
+  --input-background: hsl(210, 11%, 93%);
+  --switch-background: hsl(210, 11%, 75%);
   --ring: hsl(11, 89%, 58%);
   
   /* Support colors */
@@ -60,26 +60,26 @@
 }
 
 .dark {
-  /* Mango Sand Theme - Dark Mode (Higher Contrast) */
-  --background: hsl(218, 23%, 7%);
-  --foreground: hsl(0, 0%, 100%);
-  --card: hsl(215, 20%, 14%);
-  --card-foreground: hsl(0, 0%, 100%);
-  --popover: hsl(215, 20%, 14%);
-  --popover-foreground: hsl(0, 0%, 100%);
+  /* Mango Sand Theme - Dark Mode (Enhanced Visibility) */
+  --background: hsl(218, 25%, 9%);
+  --foreground: hsl(0, 0%, 98%);
+  --card: hsl(215, 20%, 16%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --popover: hsl(215, 20%, 16%);
+  --popover-foreground: hsl(0, 0%, 98%);
   --primary: hsl(11, 89%, 58%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(215, 25%, 20%);
-  --secondary-foreground: hsl(210, 20%, 85%);
-  --muted: hsl(215, 25%, 18%);
-  --muted-foreground: hsl(215, 15%, 75%);
-  --accent: hsl(19, 100%, 90%);
-  --accent-foreground: hsl(11, 89%, 58%);
-  --destructive: hsl(0, 72%, 51%);
+  --secondary: hsl(215, 25%, 22%);
+  --secondary-foreground: hsl(210, 20%, 90%);
+  --muted: hsl(215, 25%, 20%);
+  --muted-foreground: hsl(215, 15%, 80%);
+  --accent: hsl(19, 100%, 85%);
+  --accent-foreground: hsl(11, 89%, 45%);
+  --destructive: hsl(0, 72%, 55%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(215, 25%, 25%);
-  --input: hsl(215, 25%, 18%);
-  --input-background: hsl(215, 25%, 18%);
+  --border: hsl(215, 25%, 28%);
+  --input: hsl(215, 25%, 20%);
+  --input-background: hsl(215, 25%, 20%);
   --ring: hsl(11, 89%, 58%);
   
   /* Support colors */
