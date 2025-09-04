@@ -16,6 +16,11 @@ const postHogOptions = {
 
 const postHogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY || 'phc_PLACEHOLDER_KEY';
 
+// Initialize theme on app start
+const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+const initialTheme = savedTheme || 'dark';
+document.documentElement.setAttribute('data-theme', initialTheme);
+
 createRoot(document.getElementById("root")!).render(
   <BrowserRouter>
     <PostHogProvider 

@@ -204,7 +204,7 @@ function AppContent() {
 
   return (
     <AnalyticsWrapper>
-      <div className="h-screen bg-background flex flex-col">
+      <div className="h-screen bg-bg flex flex-col">
       <Routes>
         {/* Public Routes */}
         <Route 
