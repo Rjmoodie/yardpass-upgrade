@@ -18,7 +18,14 @@ serve(async (req) => {
     );
 
     // Get user from auth header
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+
     const token = authHeader.replace('Bearer ', '');
     const { data: { user } } = await supabase.auth.getUser(token);
 
@@ -29,10 +36,12 @@ serve(async (req) => {
       });
     }
 
-    const url = new URL(req.url);
-    const orgId = url.searchParams.get('org_id');
-    const fromDate = url.searchParams.get('from') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const toDate = url.searchParams.get('to') || new Date().toISOString();
+    // Get parameters from request body for POST requests
+    const { org_id: orgId, from: fromDate, to: toDate } = await req.json();
+
+    // Set default date range if not provided
+    const defaultFromDate = fromDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const defaultToDate = toDate || new Date().toISOString();
 
     if (!orgId) {
       return new Response(JSON.stringify({ error: 'org_id required' }), {
@@ -90,8 +99,8 @@ serve(async (req) => {
     // Get KPIs using database function
     const { data: kpisData } = await supabase.rpc('get_event_kpis_daily', {
       p_event_ids: eventIds,
-      p_from_date: fromDate.split('T')[0],
-      p_to_date: toDate.split('T')[0]
+      p_from_date: defaultFromDate.split('T')[0],
+      p_to_date: defaultToDate.split('T')[0]
     });
 
     // Calculate aggregated KPIs
@@ -104,8 +113,8 @@ serve(async (req) => {
       .from('refunds')
       .select('amount_cents, orders!inner(event_id)')
       .in('orders.event_id', eventIds)
-      .gte('created_at', fromDate)
-      .lte('created_at', toDate);
+      .gte('created_at', defaultFromDate)
+      .lte('created_at', defaultToDate);
 
     const totalRefunds = refundsData?.reduce((sum, refund) => sum + refund.amount_cents, 0) || 0;
     const refundRate = totalRevenue > 0 ? (totalRefunds / totalRevenue) * 100 : 0;
@@ -113,8 +122,8 @@ serve(async (req) => {
     // Get scan data for no-show rate
     const { data: scanData } = await supabase.rpc('get_event_scans_daily', {
       p_event_ids: eventIds,
-      p_from_date: fromDate.split('T')[0],
-      p_to_date: toDate.split('T')[0]
+      p_from_date: defaultFromDate.split('T')[0],
+      p_to_date: defaultToDate.split('T')[0]
     });
 
     const totalScans = scanData?.reduce((sum, row) => sum + row.scans, 0) || 0;
@@ -126,8 +135,8 @@ serve(async (req) => {
       .select('user_id')
       .in('event_id', eventIds)
       .eq('status', 'paid')
-      .gte('created_at', fromDate)
-      .lte('created_at', toDate);
+      .gte('created_at', defaultFromDate)
+      .lte('created_at', defaultToDate);
 
     const uniqueBuyerIds = new Set(buyersData?.map(o => o.user_id) || []);
     const uniqueBuyers = uniqueBuyerIds.size;
@@ -137,13 +146,13 @@ serve(async (req) => {
       .from('event_posts')
       .select('id')
       .in('event_id', eventIds)
-      .gte('created_at', fromDate)
-      .lte('created_at', toDate);
+      .gte('created_at', defaultFromDate)
+      .lte('created_at', defaultToDate);
 
     const { data: engagementData } = await supabase.rpc('get_post_engagement_daily', {
       p_event_ids: eventIds,
-      p_from_date: fromDate.split('T')[0],
-      p_to_date: toDate.split('T')[0]
+      p_from_date: defaultFromDate.split('T')[0],
+      p_to_date: defaultToDate.split('T')[0]
     });
 
     const totalEngagements = engagementData?.reduce((sum, row) => 

@@ -18,7 +18,14 @@ serve(async (req) => {
     );
 
     // Get user from auth header
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+
     const token = authHeader.replace('Bearer ', '');
     const { data: { user } } = await supabase.auth.getUser(token);
 
@@ -29,10 +36,12 @@ serve(async (req) => {
       });
     }
 
-    const url = new URL(req.url);
-    const eventId = url.searchParams.get('event_id');
-    const fromDate = url.searchParams.get('from') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const toDate = url.searchParams.get('to') || new Date().toISOString();
+    // Get parameters from request body for POST requests
+    const { event_id: eventId, from: fromDate, to: toDate } = await req.json();
+
+    // Set default date range if not provided
+    const defaultFromDate = fromDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const defaultToDate = toDate || new Date().toISOString();
 
     if (!eventId) {
       return new Response(JSON.stringify({ error: 'event_id required' }), {
@@ -82,8 +91,8 @@ serve(async (req) => {
     // Get event KPIs using database function
     const { data: kpisData } = await supabase.rpc('get_event_kpis_daily', {
       p_event_ids: [eventId],
-      p_from_date: fromDate.split('T')[0],
-      p_to_date: toDate.split('T')[0]
+      p_from_date: defaultFromDate.split('T')[0],
+      p_to_date: defaultToDate.split('T')[0]
     });
 
     const totalRevenue = kpisData?.reduce((sum, row) => sum + row.gmv_cents, 0) || 0;
@@ -121,8 +130,8 @@ serve(async (req) => {
     // Get scan data using database function
     const { data: scanData } = await supabase.rpc('get_event_scans_daily', {
       p_event_ids: [eventId],
-      p_from_date: fromDate.split('T')[0],
-      p_to_date: toDate.split('T')[0]
+      p_from_date: defaultFromDate.split('T')[0],
+      p_to_date: defaultToDate.split('T')[0]
     });
 
     const totalScans = scanData?.reduce((sum, row) => sum + row.scans, 0) || 0;
@@ -133,13 +142,13 @@ serve(async (req) => {
       .from('event_posts')
       .select('id')
       .eq('event_id', eventId)
-      .gte('created_at', fromDate)
-      .lte('created_at', toDate);
+      .gte('created_at', defaultFromDate)
+      .lte('created_at', defaultToDate);
 
     const { data: engagementData } = await supabase.rpc('get_post_engagement_daily', {
       p_event_ids: [eventId],
-      p_from_date: fromDate.split('T')[0],
-      p_to_date: toDate.split('T')[0]
+      p_from_date: defaultFromDate.split('T')[0],
+      p_to_date: defaultToDate.split('T')[0]
     });
 
     const totalEngagements = engagementData?.reduce((sum, row) => 
