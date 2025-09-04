@@ -60,26 +60,26 @@
 }
 
 .dark {
-  /* Mango Sand Theme - Dark Mode (Default) */
+  /* Mango Sand Theme - Dark Mode (Higher Contrast) */
   --background: hsl(218, 23%, 7%);
   --foreground: hsl(0, 0%, 100%);
-  --card: hsl(215, 20%, 9%);
+  --card: hsl(215, 20%, 14%);
   --card-foreground: hsl(0, 0%, 100%);
-  --popover: hsl(215, 20%, 9%);
+  --popover: hsl(215, 20%, 14%);
   --popover-foreground: hsl(0, 0%, 100%);
   --primary: hsl(11, 89%, 58%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(215, 25%, 15%);
-  --secondary-foreground: hsl(210, 20%, 73%);
-  --muted: hsl(215, 25%, 15%);
-  --muted-foreground: hsl(215, 15%, 58%);
+  --secondary: hsl(215, 25%, 20%);
+  --secondary-foreground: hsl(210, 20%, 85%);
+  --muted: hsl(215, 25%, 18%);
+  --muted-foreground: hsl(215, 15%, 75%);
   --accent: hsl(19, 100%, 90%);
   --accent-foreground: hsl(11, 89%, 58%);
   --destructive: hsl(0, 72%, 51%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(215, 25%, 18%);
-  --input: hsl(215, 25%, 15%);
-  --input-background: hsl(215, 25%, 15%);
+  --border: hsl(215, 25%, 25%);
+  --input: hsl(215, 25%, 18%);
+  --input-background: hsl(215, 25%, 18%);
   --ring: hsl(11, 89%, 58%);
   
   /* Support colors */
@@ -88,17 +88,17 @@
   --info: hsl(217, 91%, 60%);
   
   /* Elevation & effects */
-  --shadow-card: 0 6px 24px hsl(0, 0%, 0%, 0.3);
-  --shadow-rail: 0 8px 24px hsl(0, 0%, 0%, 0.4);
+  --shadow-card: 0 6px 24px hsl(0, 0%, 0%, 0.5);
+  --shadow-rail: 0 8px 24px hsl(0, 0%, 0%, 0.6);
   
   /* Sidebar dark */
   --sidebar: hsl(215, 25%, 12%);
   --sidebar-foreground: hsl(0, 0%, 100%);
   --sidebar-primary: hsl(11, 89%, 58%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(215, 25%, 15%);
-  --sidebar-accent-foreground: hsl(210, 20%, 73%);
-  --sidebar-border: hsl(215, 25%, 18%);
+  --sidebar-accent: hsl(215, 25%, 18%);
+  --sidebar-accent-foreground: hsl(210, 20%, 85%);
+  --sidebar-border: hsl(215, 25%, 25%);
   --sidebar-ring: hsl(11, 89%, 58%);
 }
 
