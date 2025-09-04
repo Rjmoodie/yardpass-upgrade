@@ -161,20 +161,30 @@ function AppContent() {
     
     const newRole = userRole === 'attendee' ? 'organizer' : 'attendee';
     console.log('Updating role from', userRole, 'to', newRole);
-    const { error } = await updateRole(newRole);
     
-    if (error) {
-      console.error('Failed to update role:', error);
+    try {
+      const { error } = await updateRole(newRole);
+      
+      if (error) {
+        console.error('Failed to update role:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update role: " + (error.message || 'Unknown error'),
+          variant: "destructive",
+        });
+      } else {
+        console.log('Role updated successfully to:', newRole);
+        toast({
+          title: "Role Updated",
+          description: `You are now ${newRole === 'organizer' ? 'an organizer' : 'an attendee'}`,
+        });
+      }
+    } catch (err) {
+      console.error('Exception during role update:', err);
       toast({
         title: "Error",
-        description: "Failed to update role",
+        description: "An unexpected error occurred",
         variant: "destructive",
-      });
-    } else {
-      console.log('Role updated successfully to:', newRole);
-      toast({
-        title: "Role Updated",
-        description: `You are now ${newRole === 'organizer' ? 'an organizer' : 'an attendee'}`,
       });
     }
   };

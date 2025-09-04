@@ -144,15 +144,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateRole = async (role: 'attendee' | 'organizer') => {
-    if (!user) return { error: 'No user logged in' };
+    if (!user) {
+      console.error('updateRole: No user logged in');
+      return { error: 'No user logged in' };
+    }
     
-    const { error } = await supabase
+    console.log('updateRole: Updating role to:', role, 'for user:', user.id);
+    
+    const { data, error } = await supabase
       .from('user_profiles')
       .update({ role })
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .select();
+    
+    console.log('updateRole result:', { data, error });
     
     if (!error && profile) {
+      console.log('updateRole: Setting new profile with role:', role);
       setProfile({ ...profile, role });
+    } else if (error) {
+      console.error('updateRole: Database error:', error);
     }
     
     return { error };
