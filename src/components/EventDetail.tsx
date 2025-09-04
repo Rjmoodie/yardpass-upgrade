@@ -120,7 +120,20 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
           >
             <Heart className={`w-5 h-5 ${isLiked ? 'fill-white' : ''}`} />
           </button>
-          <button className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors">
+          <button 
+            onClick={() => {
+              import('@/lib/share').then(({ sharePayload }) => {
+                import('@/lib/shareLinks').then(({ buildShareUrl, getShareTitle, getShareText }) => {
+                  sharePayload({
+                    title: getShareTitle({ type: 'event', slug: event.id, title: event.title }),
+                    text: getShareText({ type: 'event', slug: event.id, title: event.title, city: event.location, date: event.date }),
+                    url: buildShareUrl({ type: 'event', slug: event.id, title: event.title })
+                  });
+                });
+              });
+            }}
+            className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+          >
             <Share className="w-5 h-5" />
           </button>
           <button className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors">

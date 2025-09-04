@@ -16,7 +16,8 @@ import {
   Plus,
   MoreVertical,
   Mail,
-  Trash2
+  Trash2,
+  Share
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -221,10 +222,29 @@ export function OrganizationDashboard({ user, organizationId, onBack, onCreateEv
               {teamMembers.length} team member{teamMembers.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <Button onClick={onCreateEvent}>
-            <Plus className="w-4 h-4 mr-1" />
-            Create Event
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                import('@/lib/share').then(({ sharePayload }) => {
+                  import('@/lib/shareLinks').then(({ buildShareUrl, getShareTitle, getShareText }) => {
+                    sharePayload({
+                      title: getShareTitle({ type: 'org', slug: organization.handle, name: organization.name }),
+                      text: getShareText({ type: 'org', slug: organization.handle, name: organization.name }),
+                      url: buildShareUrl({ type: 'org', slug: organization.handle, name: organization.name })
+                    });
+                  });
+                });
+              }}
+            >
+              <Share className="w-4 h-4" />
+            </Button>
+            <Button onClick={onCreateEvent}>
+              <Plus className="w-4 h-4 mr-1" />
+              Create Event
+            </Button>
+          </div>
         </div>
       </div>
 

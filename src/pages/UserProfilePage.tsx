@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, MapPin, Calendar, Users, Crown, Ticket } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Users, Crown, Ticket, Share } from 'lucide-react';
 import { EventFeed } from '@/components/EventFeed';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
@@ -232,6 +232,24 @@ export default function UserProfilePage() {
               </div>
             </div>
           </div>
+          
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => {
+              import('@/lib/share').then(({ sharePayload }) => {
+                import('@/lib/shareLinks').then(({ buildShareUrl, getShareTitle, getShareText }) => {
+                  sharePayload({
+                    title: getShareTitle({ type: 'user', handle: username || profile.user_id, name: profile.display_name }),
+                    text: getShareText({ type: 'user', handle: username || profile.user_id, name: profile.display_name }),
+                    url: buildShareUrl({ type: 'user', handle: username || profile.user_id, name: profile.display_name })
+                  });
+                });
+              });
+            }}
+          >
+            <Share className="w-4 h-4" />
+          </Button>
         </div>
 
         {/* Stats */}

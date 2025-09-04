@@ -15,7 +15,8 @@ import {
   MapPin,
   Users,
   Star,
-  Edit
+  Edit,
+  Share
 } from 'lucide-react';
 
 interface User {
@@ -96,9 +97,28 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
           <div className="flex-1">
             <h1>Profile</h1>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setIsEditing(!isEditing)}>
-            {isEditing ? 'Done' : <Edit className="w-4 h-4" />}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                import('@/lib/share').then(({ sharePayload }) => {
+                  import('@/lib/shareLinks').then(({ buildShareUrl, getShareTitle, getShareText }) => {
+                    sharePayload({
+                      title: getShareTitle({ type: 'user', handle: user.id, name: user.name }),
+                      text: getShareText({ type: 'user', handle: user.id, name: user.name }),
+                      url: buildShareUrl({ type: 'user', handle: user.id, name: user.name })
+                    });
+                  });
+                });
+              }}
+            >
+              <Share className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsEditing(!isEditing)}>
+              {isEditing ? 'Done' : <Edit className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
       </div>
 
