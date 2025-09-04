@@ -87,13 +87,12 @@ serve(async (req) => {
       });
     }
 
-    // Get KPIs from materialized views
-    const { data: kpisData } = await supabase
-      .from('event_kpis_daily')
-      .select('*')
-      .in('event_id', eventIds)
-      .gte('d', fromDate.split('T')[0])
-      .lte('d', toDate.split('T')[0]);
+    // Get KPIs using database function
+    const { data: kpisData } = await supabase.rpc('get_event_kpis_daily', {
+      p_event_ids: eventIds,
+      p_from_date: fromDate.split('T')[0],
+      p_to_date: toDate.split('T')[0]
+    });
 
     // Calculate aggregated KPIs
     const totalRevenue = kpisData?.reduce((sum, row) => sum + row.gmv_cents, 0) || 0;
@@ -112,12 +111,11 @@ serve(async (req) => {
     const refundRate = totalRevenue > 0 ? (totalRefunds / totalRevenue) * 100 : 0;
 
     // Get scan data for no-show rate
-    const { data: scanData } = await supabase
-      .from('event_scans_daily')
-      .select('*')
-      .in('event_id', eventIds)
-      .gte('d', fromDate.split('T')[0])
-      .lte('d', toDate.split('T')[0]);
+    const { data: scanData } = await supabase.rpc('get_event_scans_daily', {
+      p_event_ids: eventIds,
+      p_from_date: fromDate.split('T')[0],
+      p_to_date: toDate.split('T')[0]
+    });
 
     const totalScans = scanData?.reduce((sum, row) => sum + row.scans, 0) || 0;
     const noShowRate = totalTickets > 0 ? ((totalTickets - totalScans) / totalTickets) * 100 : 0;
@@ -142,12 +140,11 @@ serve(async (req) => {
       .gte('created_at', fromDate)
       .lte('created_at', toDate);
 
-    const { data: engagementData } = await supabase
-      .from('post_engagement_daily')
-      .select('*')
-      .in('event_id', eventIds)
-      .gte('d', fromDate.split('T')[0])
-      .lte('d', toDate.split('T')[0]);
+    const { data: engagementData } = await supabase.rpc('get_post_engagement_daily', {
+      p_event_ids: eventIds,
+      p_from_date: fromDate.split('T')[0],
+      p_to_date: toDate.split('T')[0]
+    });
 
     const totalEngagements = engagementData?.reduce((sum, row) => 
       sum + row.likes + row.comments + row.shares, 0) || 0;

@@ -79,13 +79,6 @@ export type Database = {
             referencedRelation: "event_posts"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "event_comments_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "post_engagement_daily"
-            referencedColumns: ["post_id"]
-          },
         ]
       }
       event_posts: {
@@ -162,13 +155,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_posts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_reactions_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "post_engagement_daily"
-            referencedColumns: ["post_id"]
           },
         ]
       }
@@ -737,66 +723,32 @@ export type Database = {
       }
     }
     Views: {
-      event_kpis_daily: {
-        Row: {
-          d: string | null
-          event_id: string | null
-          fees_cents: number | null
-          gmv_cents: number | null
-          orders: number | null
-          units: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "orders_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      event_scans_daily: {
-        Row: {
-          d: string | null
-          dupes: number | null
-          event_id: string | null
-          scans: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "scan_logs_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      post_engagement_daily: {
-        Row: {
-          comments: number | null
-          d: string | null
-          event_id: string | null
-          likes: number | null
-          post_id: string | null
-          shares: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_posts_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       can_current_user_post: {
         Args: { p_event_id: string }
         Returns: boolean
+      }
+      get_event_kpis_daily: {
+        Args: { p_event_ids: string[]; p_from_date: string; p_to_date: string }
+        Returns: {
+          d: string
+          event_id: string
+          fees_cents: number
+          gmv_cents: number
+          orders: number
+          units: number
+        }[]
+      }
+      get_event_scans_daily: {
+        Args: { p_event_ids: string[]; p_from_date: string; p_to_date: string }
+        Returns: {
+          d: string
+          dupes: number
+          event_id: string
+          scans: number
+        }[]
       }
       get_org_analytics: {
         Args: { p_org_id: string }
@@ -805,6 +757,17 @@ export type Database = {
           total_attendees: number
           total_events: number
           total_revenue: number
+        }[]
+      }
+      get_post_engagement_daily: {
+        Args: { p_event_ids: string[]; p_from_date: string; p_to_date: string }
+        Returns: {
+          comments: number
+          d: string
+          event_id: string
+          likes: number
+          post_id: string
+          shares: number
         }[]
       }
       get_user_analytics: {

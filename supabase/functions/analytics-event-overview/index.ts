@@ -79,14 +79,12 @@ serve(async (req) => {
       });
     }
 
-    // Get event KPIs
-    const { data: kpisData } = await supabase
-      .from('event_kpis_daily')
-      .select('*')
-      .eq('event_id', eventId)
-      .gte('d', fromDate.split('T')[0])
-      .lte('d', toDate.split('T')[0])
-      .order('d');
+    // Get event KPIs using database function
+    const { data: kpisData } = await supabase.rpc('get_event_kpis_daily', {
+      p_event_ids: [eventId],
+      p_from_date: fromDate.split('T')[0],
+      p_to_date: toDate.split('T')[0]
+    });
 
     const totalRevenue = kpisData?.reduce((sum, row) => sum + row.gmv_cents, 0) || 0;
     const totalFees = kpisData?.reduce((sum, row) => sum + row.fees_cents, 0) || 0;
@@ -120,13 +118,12 @@ serve(async (req) => {
       };
     }) || [];
 
-    // Get scan data
-    const { data: scanData } = await supabase
-      .from('event_scans_daily')
-      .select('*')
-      .eq('event_id', eventId)
-      .gte('d', fromDate.split('T')[0])
-      .lte('d', toDate.split('T')[0]);
+    // Get scan data using database function
+    const { data: scanData } = await supabase.rpc('get_event_scans_daily', {
+      p_event_ids: [eventId],
+      p_from_date: fromDate.split('T')[0],
+      p_to_date: toDate.split('T')[0]
+    });
 
     const totalScans = scanData?.reduce((sum, row) => sum + row.scans, 0) || 0;
     const checkinRate = totalTickets > 0 ? (totalScans / totalTickets) * 100 : 0;
@@ -139,12 +136,11 @@ serve(async (req) => {
       .gte('created_at', fromDate)
       .lte('created_at', toDate);
 
-    const { data: engagementData } = await supabase
-      .from('post_engagement_daily')
-      .select('*')
-      .eq('event_id', eventId)
-      .gte('d', fromDate.split('T')[0])
-      .lte('d', toDate.split('T')[0]);
+    const { data: engagementData } = await supabase.rpc('get_post_engagement_daily', {
+      p_event_ids: [eventId],
+      p_from_date: fromDate.split('T')[0],
+      p_to_date: toDate.split('T')[0]
+    });
 
     const totalEngagements = engagementData?.reduce((sum, row) => 
       sum + row.likes + row.comments + row.shares, 0) || 0;
