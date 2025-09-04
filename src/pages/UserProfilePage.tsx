@@ -100,7 +100,7 @@ export default function UserProfilePage() {
         .from('tickets')
         .select(`
           *,
-          events:event_id (
+          events!fk_tickets_event_id (
             id,
             title,
             start_at,
@@ -109,7 +109,7 @@ export default function UserProfilePage() {
             cover_image_url,
             category
           ),
-          ticket_tiers:tier_id (
+          ticket_tiers!fk_tickets_tier_id (
             name,
             badge_label
           )

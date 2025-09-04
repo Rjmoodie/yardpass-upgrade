@@ -60,12 +60,12 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
           id,
           event_id,
           tier_id,
-          events:event_id (
+          events!fk_tickets_event_id (
             id,
             title,
             cover_image_url
           ),
-          ticket_tiers:tier_id (
+          ticket_tiers!fk_tickets_tier_id (
             badge_label,
             name
           )

@@ -43,7 +43,7 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
       const { data, error } = await supabase
         .from('org_memberships')
         .select(`
-          organizations (
+          organizations!fk_org_memberships_org_id (
             id,
             name,
             handle,

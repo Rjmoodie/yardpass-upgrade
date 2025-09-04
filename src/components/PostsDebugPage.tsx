@@ -55,13 +55,13 @@ export function PostsDebugPage() {
           event_id,
           tier_id,
           status,
-          events:event_id (
+          events!fk_tickets_event_id (
             id,
             title,
             owner_context_type,
             owner_context_id
           ),
-          ticket_tiers:tier_id (
+          ticket_tiers!fk_tickets_tier_id (
             badge_label,
             name,
             price_cents
