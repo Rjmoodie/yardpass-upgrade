@@ -138,14 +138,23 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                   </div>
                 </div>
                 <div className="flex-shrink-0">
-                  <Switch
-                    checked={user.role === 'organizer'}
-                    onCheckedChange={(checked) => {
-                      console.log('Switch clicked, checked:', checked, 'current role:', user.role);
+                  <button
+                    onClick={() => {
+                      console.log('Toggle button clicked, current role:', user.role);
                       onRoleToggle();
                     }}
-                    className="data-[state=checked]:bg-green-600"
-                  />
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                      user.role === 'organizer' 
+                        ? 'bg-primary' 
+                        : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        user.role === 'organizer' ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
             </CardContent>
