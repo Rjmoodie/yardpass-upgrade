@@ -356,15 +356,29 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             <div className="flex items-center gap-2 flex-wrap">
               <Badge 
                 variant="secondary" 
-                className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90 transition-colors"
-                onClick={() => handleCategoryClick(currentEvent.category)}
+                className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90 transition-colors z-30 relative"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Category badge clicked - DEBUG TEST');
+                  alert('Category badge working!');
+                  handleCategoryClick(currentEvent.category);
+                }}
+                style={{ pointerEvents: 'auto' }}
               >
                 {currentEvent.category}
               </Badge>
               <Badge 
                 variant="outline" 
-                className="border-white/30 text-white cursor-pointer hover:bg-white/10 transition-colors"
-                onClick={handleAttendeeClick}
+                className="border-white/30 text-white cursor-pointer hover:bg-white/10 transition-colors z-30 relative"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Attendee badge clicked - DEBUG TEST');
+                  alert('Attendee badge working!');
+                  handleAttendeeClick();
+                }}
+                style={{ pointerEvents: 'auto' }}
               >
                 {currentEvent.attendeeCount} attending
               </Badge>
@@ -372,8 +386,15 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
 
             <div>
               <h2 
-                className="text-2xl font-bold mb-2 max-w-xs cursor-pointer hover:text-primary-foreground/90 transition-colors"
-                onClick={handleEventTitleClick}
+                className="text-2xl font-bold mb-2 max-w-xs cursor-pointer hover:text-primary-foreground/90 transition-colors z-30 relative"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Event title clicked - DEBUG TEST');
+                  alert('Event title working!');
+                  handleEventTitleClick();
+                }}
+                style={{ pointerEvents: 'auto' }}
               >
                 {currentEvent.title}
               </h2>
@@ -384,8 +405,15 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                   </AvatarFallback>
                 </Avatar>
                 <span 
-                  className="cursor-pointer hover:text-white transition-colors"
-                  onClick={() => handleOrganizerClick(currentEvent.organizerId, currentEvent.organizer)}
+                  className="cursor-pointer hover:text-white transition-colors z-30 relative"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Organizer handle clicked - DEBUG TEST');
+                    alert('Organizer handle working!');
+                    handleOrganizerClick(currentEvent.organizerId, currentEvent.organizer);
+                  }}
+                  style={{ pointerEvents: 'auto', backgroundColor: 'rgba(255, 0, 255, 0.3)' }}
                 >
                   @{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}
                 </span>
@@ -422,16 +450,30 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             <div className="flex gap-2">
               <Button 
                 size="sm" 
-                onClick={handleGetTickets}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Get Tickets button clicked - DEBUG TEST');
+                  alert('Get Tickets button working!');
+                  handleGetTickets();
+                }}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 z-30 relative"
+                style={{ pointerEvents: 'auto' }}
               >
                 Get Tickets
               </Button>
               <Button 
                 size="sm" 
                 variant="outline"
-                onClick={handleEventDetails}
-                className="border-white/30 text-white bg-white/10 hover:bg-white/20"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Details button clicked - DEBUG TEST');
+                  alert('Details button working!');
+                  handleEventDetails();
+                }}
+                className="border-white/30 text-white bg-white/10 hover:bg-white/20 z-30 relative"
+                style={{ pointerEvents: 'auto' }}
               >
                 Details
               </Button>
@@ -473,11 +515,16 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Comment button clicked');
+                console.log('Comment button clicked - DEBUG TEST');
+                alert('Comment button working!');
                 handleComment();
               }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px] p-2"
-              style={{ touchAction: 'manipulation' }}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
+              style={{ 
+                touchAction: 'manipulation',
+                pointerEvents: 'auto',
+                backgroundColor: 'rgba(0, 255, 0, 0.3)' // Green debug background
+              }}
             >
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
                 <MessageCircle className="w-6 h-6 text-white" />
@@ -491,11 +538,16 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Post button clicked');
+                console.log('Post button clicked - DEBUG TEST');
+                alert('Post button working!');
                 requireAuth(() => setPostCreatorOpen(true), "Please sign in to create posts");
               }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px] p-2"
-              style={{ touchAction: 'manipulation' }}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
+              style={{ 
+                touchAction: 'manipulation',
+                pointerEvents: 'auto',
+                backgroundColor: 'rgba(0, 0, 255, 0.3)' // Blue debug background
+              }}
             >
               <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200">
                 <Plus className="w-6 h-6 text-white" />
@@ -507,11 +559,16 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Share button clicked');
+                console.log('Share button clicked - DEBUG TEST');
+                alert('Share button working!');
                 handleShare(currentEvent);
               }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px] p-2"
-              style={{ touchAction: 'manipulation' }}
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
+              style={{ 
+                touchAction: 'manipulation',
+                pointerEvents: 'auto',
+                backgroundColor: 'rgba(255, 255, 0, 0.3)' // Yellow debug background
+              }}
             >
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
                 <Share className="w-6 h-6 text-white" />
