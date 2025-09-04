@@ -651,13 +651,6 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
       />
       
 
-      <ShareModal
-        isOpen={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        eventTitle={currentEvent.title}
-        eventId={currentEvent.id}
-        eventDescription={currentEvent.description}
-      />
 
         <PostCreatorModal
           isOpen={postCreatorOpen}

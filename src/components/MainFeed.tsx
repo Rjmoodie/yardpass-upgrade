@@ -9,7 +9,8 @@ import { Heart, MessageCircle, Share, Play, Pause, MoreVertical, MapPin, Calenda
 import { routes } from '@/lib/routes';
 import { openMaps } from '@/lib/maps';
 import { capture } from '@/lib/analytics';
-import { useShare } from '@/hooks/useShare';
+import { sharePayload } from '@/lib/share';
+import { buildShareUrl, getShareTitle, getShareText } from '@/lib/shareLinks';
 
 interface User {
   id: string;
@@ -130,7 +131,6 @@ export function MainFeed({
   onAttendees
 }: MainFeedProps) {
   const navigate = useNavigate();
-  const { shareEvent } = useShare();
   const [events, setEvents] = useState(mockEvents);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -154,7 +154,23 @@ export function MainFeed({
 
   const handleShare = (event: Event) => {
     capture('feed_click', { target: 'share', event_id: event.id });
-    onShareEvent?.(event.id, event.title, event.description);
+    
+    const shareUrl = buildShareUrl(
+      { 
+        type: 'event', 
+        slug: event.id, 
+        title: event.title,
+        date: event.date,
+        city: event.location
+      },
+      { ref: 'feed' }
+    );
+
+    sharePayload({
+      title: getShareTitle({ type: 'event', slug: event.id, title: event.title }),
+      text: getShareText({ type: 'event', slug: event.id, title: event.title, date: event.date, city: event.location }),
+      url: shareUrl
+    });
   };
 
   const handleOrganizerClick = (event: Event) => {

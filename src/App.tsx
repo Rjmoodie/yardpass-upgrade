@@ -31,6 +31,8 @@ import { AnalyticsWrapper } from '@/components/AnalyticsWrapper';
 import NotFound from '@/pages/NotFound';
 import EventsPage from '@/pages/EventsPage';
 import UserProfilePage from '@/pages/UserProfilePage';
+import { ShareModal } from '@/components/ShareModal';
+import { SharePayload } from '@/lib/share';
 import { Scan } from 'lucide-react';
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
@@ -139,6 +141,16 @@ function AppContent() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [screenData, setScreenData] = useState<any>(null);
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+
+  useEffect(() => {
+    const onShareModalOpen = (e: CustomEvent<SharePayload>) => {
+      setSharePayload(e.detail);
+    };
+    
+    window.addEventListener('open-share-modal', onShareModalOpen as EventListener);
+    return () => window.removeEventListener('open-share-modal', onShareModalOpen as EventListener);
+  }, []);
 
   const userRole: UserRole = profile?.role || 'attendee';
 
@@ -497,6 +509,13 @@ function AppContent() {
       
       {/* Toast notifications */}
       <Toaster />
+      
+      {/* Share Modal */}
+      <ShareModal 
+        isOpen={!!sharePayload} 
+        onClose={() => setSharePayload(null)} 
+        payload={sharePayload} 
+      />
       </div>
     </AnalyticsWrapper>
   );

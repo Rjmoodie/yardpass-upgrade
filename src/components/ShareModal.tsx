@@ -2,70 +2,92 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
-import { Share, Copy, Facebook, Twitter, MessageCircle } from 'lucide-react';
-import { useShare } from '@/hooks/useShare';
-import { copyToClipboard, shareContent } from '@/utils/platform';
+import { Share, Copy, MessageCircle, Smartphone, MoreHorizontal } from 'lucide-react';
+import { copyToClipboard } from '@/utils/platform';
+import { capture } from '@/lib/analytics';
+import { SharePayload } from '@/lib/share';
 
 interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
-  eventTitle: string;
-  eventId: string;
-  eventDescription: string;
+  payload: SharePayload | null;
 }
 
-export const ShareModal = ({ isOpen, onClose, eventTitle, eventId, eventDescription }: ShareModalProps) => {
-  const { shareEvent, copyLink, isSharing } = useShare();
-  const eventUrl = `${window.location.origin}/event/${eventId}`;
-  
-  const handleCopyLink = async () => {
-    await copyLink(eventUrl, "Event link copied!");
-  };
+export const ShareModal = ({ isOpen, onClose, payload }: ShareModalProps) => {
+  if (!payload) return null;
 
-  const handleNativeShare = async () => {
+  const handleCopyLink = async () => {
     try {
-      const success = await shareContent({
-        title: eventTitle,
-        text: eventDescription,
-        url: eventUrl
-      });
-      
+      const success = await copyToClipboard(payload.url);
       if (success) {
         toast({
-          title: "Shared successfully!",
-          description: "Event has been shared",
+          title: "Link copied! 👍",
+          description: "Link copied to clipboard",
+        });
+        capture('share_completed', { channel: 'copy', ...payload } as Record<string, unknown>);
+      } else {
+        toast({
+          title: "Copy failed",
+          description: "Unable to copy link",
+          variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Share failed:', error);
-      await handleCopyLink(); // Fallback to copy
+      console.error('Copy error:', error);
+      toast({
+        title: "Copy failed",
+        description: "Unable to copy link",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleShareEvent = async () => {
-    await shareEvent(eventId, eventTitle);
+  const handleWebShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share(payload);
+        capture('share_completed', { channel: 'web_api_retry', ...payload } as Record<string, unknown>);
+        onClose();
+      } else {
+        await handleCopyLink();
+      }
+    } catch (error) {
+      console.log('Web share retry failed:', error);
+      await handleCopyLink();
+    }
   };
 
   const handleSocialShare = (platform: string) => {
-    const encodedUrl = encodeURIComponent(eventUrl);
-    const encodedTitle = encodeURIComponent(eventTitle);
+    const encodedUrl = encodeURIComponent(payload.url);
+    const encodedText = encodeURIComponent(`${payload.text || ''} ${payload.url}`.trim());
+    const encodedTitle = encodeURIComponent(payload.title);
     
     let shareUrl = '';
     
     switch (platform) {
-      case 'twitter':
-        shareUrl = `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`;
-        break;
-      case 'facebook':
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
-        break;
       case 'whatsapp':
-        shareUrl = `https://wa.me/?text=${encodedTitle}%20${encodedUrl}`;
+        shareUrl = `https://wa.me/?text=${encodedText}`;
+        break;
+      case 'sms':
+        shareUrl = `sms:?&body=${encodedText}`;
+        break;
+      case 'messenger':
+        // Try app first, fallback to web
+        shareUrl = `fb-messenger://share?link=${encodedUrl}`;
+        setTimeout(() => {
+          window.location.href = `https://www.messenger.com/new?message=${encodedText}`;
+        }, 1000);
         break;
     }
     
     if (shareUrl) {
-      window.open(shareUrl, '_blank', 'width=600,height=400');
+      try {
+        window.location.href = shareUrl;
+        capture('share_completed', { channel: platform, ...payload } as Record<string, unknown>);
+      } catch (error) {
+        console.error(`${platform} share failed:`, error);
+        handleCopyLink();
+      }
     }
   };
 
@@ -75,16 +97,16 @@ export const ShareModal = ({ isOpen, onClose, eventTitle, eventId, eventDescript
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share className="w-5 h-5" />
-            Share Event
+            Share
           </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
           <div>
-            <p className="font-medium mb-2">{eventTitle}</p>
+            <p className="font-medium mb-2 line-clamp-2">{payload.title}</p>
             <div className="flex gap-2">
               <Input 
-                value={eventUrl} 
+                value={payload.url} 
                 readOnly 
                 className="text-sm"
               />
@@ -94,35 +116,16 @@ export const ShareModal = ({ isOpen, onClose, eventTitle, eventId, eventDescript
             </div>
           </div>
           
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p className="text-sm font-medium">Share via</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <Button 
-                onClick={handleShareEvent}
-                variant="outline" 
-                className="justify-start gap-2"
-                disabled={isSharing}
-              >
-                <Share className="w-4 h-4" />
-                Share Event
-              </Button>
-              
-              <Button 
-                onClick={() => handleSocialShare('twitter')}
+                onClick={handleCopyLink}
                 variant="outline" 
                 className="justify-start gap-2"
               >
-                <Twitter className="w-4 h-4" />
-                Twitter
-              </Button>
-              
-              <Button 
-                onClick={() => handleSocialShare('facebook')}
-                variant="outline" 
-                className="justify-start gap-2"
-              >
-                <Facebook className="w-4 h-4" />
-                Facebook
+                <Copy className="w-4 h-4" />
+                Copy Link
               </Button>
               
               <Button 
@@ -132,6 +135,24 @@ export const ShareModal = ({ isOpen, onClose, eventTitle, eventId, eventDescript
               >
                 <MessageCircle className="w-4 h-4" />
                 WhatsApp
+              </Button>
+              
+              <Button 
+                onClick={() => handleSocialShare('sms')}
+                variant="outline" 
+                className="justify-start gap-2"
+              >
+                <Smartphone className="w-4 h-4" />
+                Messages
+              </Button>
+              
+              <Button 
+                onClick={handleWebShare}
+                variant="outline" 
+                className="justify-start gap-2"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+                Share via...
               </Button>
             </div>
           </div>
