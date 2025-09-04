@@ -480,12 +480,20 @@ const AnalyticsHub: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="events">Events</TabsTrigger>
-          <TabsTrigger value="videos">Videos</TabsTrigger>
-          <TabsTrigger value="audience">Audience</TabsTrigger>
+      <Tabs defaultValue="overview" className="space-y-8">
+        <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50 rounded-xl">
+          <TabsTrigger value="overview" className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="events" className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">
+            Events
+          </TabsTrigger>
+          <TabsTrigger value="videos" className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">
+            Videos
+          </TabsTrigger>
+          <TabsTrigger value="audience" className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">
+            Audience
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
