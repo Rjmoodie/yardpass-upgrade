@@ -79,6 +79,13 @@ export type Database = {
             referencedRelation: "event_posts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "post_engagement_daily"
+            referencedColumns: ["post_id"]
+          },
         ]
       }
       event_posts: {
@@ -155,6 +162,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_posts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "post_engagement_daily"
+            referencedColumns: ["post_id"]
           },
         ]
       }
@@ -723,7 +737,61 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      event_kpis_daily: {
+        Row: {
+          d: string | null
+          event_id: string | null
+          fees_cents: number | null
+          gmv_cents: number | null
+          orders: number | null
+          units: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_scans_daily: {
+        Row: {
+          d: string | null
+          dupes: number | null
+          event_id: string | null
+          scans: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_logs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_engagement_daily: {
+        Row: {
+          comments: number | null
+          d: string | null
+          event_id: string | null
+          likes: number | null
+          post_id: string | null
+          shares: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_posts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_current_user_post: {
@@ -775,6 +843,10 @@ export type Database = {
       is_org_role: {
         Args: { p_org_id: string; p_roles: string[] }
         Returns: boolean
+      }
+      refresh_analytics_views: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
     }
     Enums: {

@@ -23,6 +23,8 @@ import TicketSuccessPage from '@/components/TicketSuccessPage';
 import { PostsTestPage } from '@/components/PostsTestPage';
 import { PostsDebugPage } from '@/components/PostsDebugPage';
 import { ScannerPage } from '@/components/ScannerPage';
+import AnalyticsHub from '@/components/AnalyticsHub';
+import EventAnalytics from '@/components/EventAnalytics';
 import NotFound from '@/pages/NotFound';
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
@@ -362,6 +364,22 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <TicketSuccessPage onBack={() => navigate('/')} />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/analytics" 
+          element={
+            <ProtectedRoute>
+              <AnalyticsHub />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/analytics/event/:eventId" 
+          element={
+            <ProtectedRoute>
+              <EventAnalytics />
             </ProtectedRoute>
           } 
         />

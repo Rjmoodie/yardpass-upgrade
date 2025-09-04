@@ -1,4 +1,4 @@
-import { Home, Plus, BarChart3, User, Search, Ticket, ScanLine } from 'lucide-react';
+import { Home, Plus, BarChart3, User, Search, Ticket, ScanLine, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -9,7 +9,7 @@ import { OrganizerMenu } from './OrganizerMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
-type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test' | 'analytics';
 type UserRole = 'attendee' | 'organizer';
 
 interface NavigationProps {
@@ -29,7 +29,7 @@ export default function Navigation({ userRole }: NavigationProps) {
   const [organizerMenuOpen, setOrganizerMenuOpen] = useState(false);
 
   const requiresAuth = (path: string) => {
-    return ['/create-event', '/create-post', '/dashboard', '/profile', '/tickets', '/scanner'].includes(path);
+    return ['/create-event', '/create-post', '/dashboard', '/profile', '/tickets', '/scanner', '/analytics'].includes(path);
   };
 
   const handleNavigation = (path: string, screen: Screen) => {
@@ -118,7 +118,8 @@ export default function Navigation({ userRole }: NavigationProps) {
         'dashboard': '/dashboard',
         'profile': '/profile',
         'tickets': '/tickets',
-        'scanner': '/scanner'
+        'scanner': '/scanner',
+        'analytics': '/analytics'
       };
       const path = pathMap[pendingNavigation];
       if (path) navigate(path);
@@ -167,6 +168,13 @@ export default function Navigation({ userRole }: NavigationProps) {
       path: '/dashboard',
       icon: BarChart3,
       label: 'Dashboard',
+      show: userRole === 'organizer'
+    },
+    {
+      id: 'analytics' as Screen,
+      path: '/analytics',
+      icon: TrendingUp,
+      label: 'Analytics',
       show: userRole === 'organizer'
     },
     {
