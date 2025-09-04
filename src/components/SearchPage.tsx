@@ -175,23 +175,27 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
             <Card 
               key={event.id} 
               className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => {
-                console.log('SearchPage: Event clicked', event);
-                onEventSelect(event);
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onEventSelect) {
+                  onEventSelect(event);
+                }
               }}
             >
-              <div className="flex">
+              <div className="flex" style={{ pointerEvents: 'none' }}>
                 <ImageWithFallback
                   src={event.coverImage}
                   alt={event.title}
                   className="w-32 h-24 object-cover"
+                  style={{ pointerEvents: 'none' }}
                 />
-                <div className="flex-1 p-4">
+                <div className="flex-1 p-4" style={{ pointerEvents: 'none' }}>
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="text-sm font-medium">{event.title}</h3>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs" style={{ pointerEvents: 'none' }}>
                           {event.category}
                         </Badge>
                       </div>

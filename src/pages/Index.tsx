@@ -330,8 +330,6 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Category badge clicked - DEBUG TEST');
-                  alert('Category badge working!');
                   handleCategoryClick(currentEvent.category);
                 }}
                 style={{ pointerEvents: 'auto' }}
@@ -344,8 +342,6 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Attendee badge clicked - DEBUG TEST');
-                  alert('Attendee badge working!');
                   handleAttendeeClick();
                 }}
                 style={{ pointerEvents: 'auto' }}
@@ -360,8 +356,6 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Event title clicked - DEBUG TEST');
-                  alert('Event title working!');
                   handleEventTitleClick();
                 }}
                 style={{ pointerEvents: 'auto' }}
@@ -379,11 +373,9 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Organizer handle clicked - DEBUG TEST');
-                    alert('Organizer handle working!');
                     handleOrganizerClick(currentEvent.organizerId, currentEvent.organizer);
                   }}
-                  style={{ pointerEvents: 'auto', backgroundColor: 'rgba(255, 0, 255, 0.3)' }}
+                  style={{ pointerEvents: 'auto' }}
                 >
                   @{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}
                 </span>
@@ -423,8 +415,6 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Get Tickets button clicked - DEBUG TEST');
-                  alert('Get Tickets button working!');
                   handleGetTickets();
                 }}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 z-30 relative"
@@ -438,8 +428,6 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Details button clicked - DEBUG TEST');
-                  alert('Details button working!');
                   handleEventDetails();
                 }}
                 className="border-white/30 text-white bg-white/10 hover:bg-white/20 z-30 relative"
@@ -456,15 +444,13 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Like button clicked - DEBUG TEST');
-                alert('Like button working!'); // Temporary debug alert
                 handleLike(currentEvent.id);
               }}
               className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
               style={{ 
                 touchAction: 'manipulation',
                 pointerEvents: 'auto',
-                backgroundColor: 'rgba(255, 0, 0, 0.3)' // Temporary debug background
+                backgroundColor: 'transparent'
               }}
             >
               <div className={`p-3 rounded-full transition-all duration-200 ${
@@ -485,15 +471,13 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Comment button clicked - DEBUG TEST');
-                alert('Comment button working!');
                 handleComment();
               }}
               className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
               style={{ 
                 touchAction: 'manipulation',
                 pointerEvents: 'auto',
-                backgroundColor: 'rgba(0, 255, 0, 0.3)' // Green debug background
+                backgroundColor: 'transparent'
               }}
             >
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
@@ -508,15 +492,13 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Post button clicked - DEBUG TEST');
-                alert('Post button working!');
                 requireAuth(() => setPostCreatorOpen(true), "Please sign in to create posts");
               }}
               className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
               style={{ 
                 touchAction: 'manipulation',
                 pointerEvents: 'auto',
-                backgroundColor: 'rgba(0, 0, 255, 0.3)' // Blue debug background
+                backgroundColor: 'transparent'
               }}
             >
               <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200">
@@ -529,15 +511,13 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Share button clicked - DEBUG TEST');
-                alert('Share button working!');
                 handleShare(currentEvent);
               }}
               className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
               style={{ 
                 touchAction: 'manipulation',
                 pointerEvents: 'auto',
-                backgroundColor: 'rgba(255, 255, 0, 0.3)' // Yellow debug background
+                backgroundColor: 'transparent'
               }}
             >
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
