@@ -1,4 +1,4 @@
-import { Home, Plus, BarChart3, User, Search, Ticket, ScanLine, TrendingUp } from 'lucide-react';
+import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -159,7 +159,7 @@ export default function Navigation({ userRole }: NavigationProps) {
       // Ticket button for attendees, Scan button for organizers
       id: userRole === 'organizer' ? 'scanner' as Screen : 'tickets' as Screen,
       path: userRole === 'organizer' ? '/scanner' : '/tickets',
-      icon: userRole === 'organizer' ? ScanLine : Ticket,
+      icon: userRole === 'organizer' ? Scan : Ticket,
       label: userRole === 'organizer' ? 'Scan' : 'Tickets',
       show: true
     },
