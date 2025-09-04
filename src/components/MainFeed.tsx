@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { FeedFilter } from './FeedFilter';
-import { Heart, MessageCircle, Share, Play, Pause, MoreVertical, MapPin, Calendar, Plus, Filter, Search } from 'lucide-react';
+import { Heart, MessageCircle, Share, Play, Pause, MoreVertical, MapPin, Calendar, Plus, Filter, Search, Bookmark } from 'lucide-react';
 import { routes } from '@/lib/routes';
 import { openMaps } from '@/lib/maps';
 import { capture } from '@/lib/analytics';
@@ -364,26 +364,25 @@ export function MainFeed({
             </div>
           </div>
 
-          {/* Right Actions - TikTok Style */}
-          <div className="flex flex-col items-center gap-6 pb-4">
+          {/* Right Actions - Clean TikTok Style */}
+          <div className="flex flex-col items-center gap-5 pb-4">
             {/* Like Button */}
             <button
               onClick={() => handleLike(currentEvent.id)}
               className="flex flex-col items-center group"
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm transition-all ${
-                currentEvent.isLiked 
-                  ? 'bg-red-500/90 border border-red-400/50' 
-                  : 'bg-black/30 border border-white/20 hover:bg-black/50'
-              }`}>
+              <div className="w-12 h-12 flex items-center justify-center">
                 <Heart 
-                  className={`w-6 h-6 ${
-                    currentEvent.isLiked ? 'fill-white text-white' : 'text-white'
+                  className={`w-8 h-8 transition-all ${
+                    currentEvent.isLiked 
+                      ? 'fill-red-500 text-red-500 scale-110' 
+                      : 'text-white hover:scale-110'
                   }`} 
+                  strokeWidth={1.5}
                 />
               </div>
-              <span className="text-white text-xs font-semibold mt-1">
-                {currentEvent.likes > 999 ? `${(currentEvent.likes/1000).toFixed(1)}K` : currentEvent.likes}
+              <span className="text-white text-xs font-semibold -mt-1">
+                {currentEvent.likes > 999 ? `${(currentEvent.likes/1000).toFixed(1)}M` : `${currentEvent.likes}`}
               </span>
             </button>
 
@@ -395,10 +394,30 @@ export function MainFeed({
               }}
               className="flex flex-col items-center group"
             >
-              <div className="w-12 h-12 rounded-full bg-black/30 border border-white/20 hover:bg-black/50 flex items-center justify-center backdrop-blur-sm transition-all">
-                <MessageCircle className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 flex items-center justify-center">
+                <MessageCircle 
+                  className="w-8 h-8 text-white hover:scale-110 transition-all" 
+                  strokeWidth={1.5}
+                />
               </div>
-              <span className="text-white text-xs font-semibold mt-1">7.8K</span>
+              <span className="text-white text-xs font-semibold -mt-1">7,871</span>
+            </button>
+
+            {/* Bookmark Button */}
+            <button
+              onClick={() => {
+                capture('feed_click', { target: 'bookmark', event_id: currentEvent.id });
+                // TODO: Handle bookmark
+              }}
+              className="flex flex-col items-center group"
+            >
+              <div className="w-12 h-12 flex items-center justify-center">
+                <Bookmark 
+                  className="w-8 h-8 text-white hover:scale-110 transition-all" 
+                  strokeWidth={1.5}
+                />
+              </div>
+              <span className="text-white text-xs font-semibold -mt-1">70.2K</span>
             </button>
 
             {/* Share Button */}
@@ -406,10 +425,13 @@ export function MainFeed({
               onClick={() => handleShare(currentEvent)}
               className="flex flex-col items-center group"
             >
-              <div className="w-12 h-12 rounded-full bg-black/30 border border-white/20 hover:bg-black/50 flex items-center justify-center backdrop-blur-sm transition-all">
-                <Share className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 flex items-center justify-center">
+                <Share 
+                  className="w-8 h-8 text-white hover:scale-110 transition-all" 
+                  strokeWidth={1.5}
+                />
               </div>
-              <span className="text-white text-xs font-semibold mt-1">
+              <span className="text-white text-xs font-semibold -mt-1">
                 {currentEvent.shares > 999 ? `${(currentEvent.shares/1000).toFixed(1)}K` : currentEvent.shares}
               </span>
             </button>
@@ -417,15 +439,15 @@ export function MainFeed({
             {/* Creator Profile Pic */}
             <button 
               onClick={() => onCreatePost?.(currentEvent.id)}
-              className="relative"
+              className="relative mt-2"
             >
               <Avatar className="w-12 h-12 border-2 border-white">
                 <AvatarFallback className="bg-accent text-white font-bold">
                   {currentEvent.organizer.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-accent rounded-full flex items-center justify-center border-2 border-white">
-                <Plus className="w-3 h-3 text-white" />
+              <div className="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-accent rounded-full flex items-center justify-center border-2 border-white">
+                <Plus className="w-3 h-3 text-white" strokeWidth={2} />
               </div>
             </button>
           </div>
