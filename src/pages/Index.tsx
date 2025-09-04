@@ -8,8 +8,7 @@ import { EventTicketModal } from '@/components/EventTicketModal';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
 import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users, Plus } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
-import { useRequireAuth } from '@/hooks/useRequireAuth';
-import { useAuthRedirect } from '@/hooks/useAuthRedirect';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { toast } from '@/hooks/use-toast';
 import { EventFeed } from '@/components/EventFeed';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
@@ -161,32 +160,28 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { withRequireAuth } = useRequireAuth();
-  const { requireAuth } = useAuthRedirect();
+  const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
   const { shareEvent } = useShare();
 
   const currentEvent = events[currentIndex];
 
-  const handleLike = (eventId: string) => {
-    console.log('handleLike called with:', eventId);
-    withRequireAuth(() => {
-      console.log('Like function executing inside withRequireAuth');
-      setEvents(prev => prev.map(event => 
-        event.id === eventId 
-          ? { 
-              ...event, 
-              isLiked: !event.isLiked, 
-              likes: event.isLiked ? event.likes - 1 : event.likes + 1 
-            }
-          : event
-      ));
-      toast({
-        title: "Like Updated",
-        description: "Event like status changed",
-      });
+  const handleLike = withAuth((eventId: string) => {
+    console.log('Like function executing');
+    setEvents(prev => prev.map(event => 
+      event.id === eventId 
+        ? { 
+            ...event, 
+            isLiked: !event.isLiked, 
+            likes: event.isLiked ? event.likes - 1 : event.likes + 1 
+          }
+        : event
+    ));
+    toast({
+      title: "Like Updated",
+      description: "Event like status changed",
     });
-  };
+  }, "Please sign in to like events");
 
   const handleShare = (event: Event) => {
     console.log('handleShare called');
@@ -194,21 +189,17 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
     shareEvent(event.id, event.title);
   };
 
-  const handleComment = () => {
-    withRequireAuth(() => {
-      capture('comment_click', { event_id: currentEvent.id });
-      navigate(routes.event(currentEvent.id));
-    });
-  };
+  const handleComment = withAuth(() => {
+    capture('comment_click', { event_id: currentEvent.id });
+    navigate(routes.event(currentEvent.id));
+  }, "Please sign in to comment on events");
 
-  const handleMoreOptions = () => {
-    withRequireAuth(() => {
-      toast({
-        title: "More Options",
-        description: "Additional options menu coming soon...",
-      });
+  const handleMoreOptions = withAuth(() => {
+    toast({
+      title: "More Options",
+      description: "Additional options menu coming soon...",
     });
-  };
+  }, "Please sign in to access more options");
 
   const handleCategoryClick = (category: string) => {
     console.log('handleCategoryClick called with:', category);
@@ -467,7 +458,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 e.stopPropagation();
                 console.log('Like button clicked - DEBUG TEST');
                 alert('Like button working!'); // Temporary debug alert
-                requireAuth(() => handleLike(currentEvent.id), "Please sign in to like events");
+                handleLike(currentEvent.id);
               }}
               className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
               style={{ 

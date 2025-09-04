@@ -94,30 +94,8 @@ function ScannerRouteComponent() {
   );
 }
 
-// Protected route wrapper component - only redirects if user tries to access without auth
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-xl">🎪</span>
-          </div>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    // Show auth page instead of the protected content
-    return <AuthPage />;
-  }
-
-  return <>{children}</>;
-}
+// Import the new auth guard
+import { AuthGuard } from '@/components/AuthGuard';
 
 // Helper component to safely render user-dependent content
 function UserDependentRoute({ 
@@ -295,7 +273,7 @@ function AppContent() {
         <Route 
           path="/create-event" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <UserDependentRoute>
                 {(user, profile) => (
                   <CreateEventFlow
@@ -304,13 +282,13 @@ function AppContent() {
                   />
                 )}
               </UserDependentRoute>
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/create-post" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <UserDependentRoute>
                 {(user, profile) => (
                   <PostCreator 
@@ -324,13 +302,13 @@ function AppContent() {
                   />
                 )}
               </UserDependentRoute>
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/dashboard" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <UserDependentRoute>
                 {(user, profile) => (
                   <OrganizerDashboard 
@@ -347,13 +325,13 @@ function AppContent() {
                   />
                 )}
               </UserDependentRoute>
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/profile" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <UserDependentRoute>
                 {(user, profile) => (
                   <UserProfile 
@@ -369,13 +347,13 @@ function AppContent() {
                   />
                 )}
               </UserDependentRoute>
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/tickets" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <UserDependentRoute>
                 {(user, profile) => (
                   <TicketsPage
@@ -388,13 +366,13 @@ function AppContent() {
                   />
                 )}
               </UserDependentRoute>
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/scanner" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
                 <div className="text-center">
                   <Scan className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
@@ -407,21 +385,21 @@ function AppContent() {
                   </Button>
                 </div>
               </div>
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/scanner/:eventId" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <ScannerRouteComponent />
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/event-management/:id" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               {selectedEvent ? (
                 <EventManagement 
                   event={selectedEvent}
@@ -430,13 +408,13 @@ function AppContent() {
               ) : (
                 <div>Event not found</div>
               )}
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/create-organization" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <OrganizationCreator
                 onBack={() => navigate('/profile')}
                 onSuccess={(orgId) => {
@@ -444,13 +422,13 @@ function AppContent() {
                   navigate('/organization-dashboard/' + orgId);
                 }}
               />
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/organization-dashboard/:id" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <UserDependentRoute>
                 {(user, profile) => (
                   <OrganizationDashboard
@@ -465,39 +443,39 @@ function AppContent() {
                   />
                 )}
               </UserDependentRoute>
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/posts-test" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <PostsTestPage />
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/ticket-success" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <TicketSuccessPage onBack={() => navigate('/')} />
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/analytics" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <AnalyticsHub />
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         <Route 
           path="/analytics/event/:eventId" 
           element={
-            <ProtectedRoute>
+            <AuthGuard>
               <EventAnalytics />
-            </ProtectedRoute>
+            </AuthGuard>
           } 
         />
         

@@ -1,14 +1,17 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 
-export function useAuthRedirect() {
-  const { user } = useAuth();
+export function useAuthGuard() {
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
 
   const requireAuth = (action: () => void, message?: string) => {
+    if (loading) {
+      return false;
+    }
+
     if (!user) {
       // Store current location for redirect after auth
       const redirectTo = location.pathname + location.search;
@@ -19,22 +22,36 @@ export function useAuthRedirect() {
         } 
       });
       
-      toast({
-        title: "Authentication Required",
-        description: message || "Please sign in to continue",
-        variant: "destructive",
-      });
+      if (message) {
+        toast({
+          title: "Authentication Required",
+          description: message,
+          variant: "destructive",
+        });
+      }
       return false;
     }
+    
     action();
     return true;
   };
 
-  const isAuthenticated = !!user;
+  const withAuth = <T extends any[]>(
+    action: (...args: T) => void,
+    message?: string
+  ) => {
+    return (...args: T) => {
+      requireAuth(() => action(...args), message);
+    };
+  };
+
+  const isAuthenticated = !!user && !loading;
 
   return {
     requireAuth,
+    withAuth,
     isAuthenticated,
-    user
+    user,
+    loading
   };
 }
