@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import AuthModal from '@/components/AuthModal';
 import AuthPage from '@/pages/AuthPage';
@@ -28,6 +29,7 @@ import AnalyticsHub from '@/components/AnalyticsHub';
 import EventAnalytics from '@/components/EventAnalytics';
 import { AnalyticsWrapper } from '@/components/AnalyticsWrapper';
 import NotFound from '@/pages/NotFound';
+import { ScanLine } from 'lucide-react';
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
 type UserRole = 'attendee' | 'organizer';
@@ -56,6 +58,36 @@ interface TicketTier {
   badge: string;
   available: number;
   total: number;
+}
+
+// Scanner route component
+function ScannerRouteComponent() {
+  const { eventId } = useParams<{ eventId: string }>();
+  const navigate = useNavigate();
+  
+  if (!eventId) {
+    return (
+      <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="text-center">
+          <ScanLine className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+          <h2 className="text-xl font-semibold mb-2">Invalid Event ID</h2>
+          <p className="text-muted-foreground mb-4">
+            Please access the scanner from a valid event
+          </p>
+          <Button onClick={() => navigate('/dashboard')}>
+            Go to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ScannerPage
+      eventId={eventId}
+      onBack={() => navigate('/dashboard')}
+    />
+  );
 }
 
 // Protected route wrapper component - only redirects if user tries to access without auth
@@ -311,10 +343,26 @@ function AppContent() {
           path="/scanner" 
           element={
             <ProtectedRoute>
-              <ScannerPage
-                eventId={screenData?.eventId || ''}
-                onBack={() => navigate('/')}
-              />
+              <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
+                <div className="text-center">
+                  <ScanLine className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <h2 className="text-xl font-semibold mb-2">No Event Selected</h2>
+                  <p className="text-muted-foreground mb-4">
+                    Access the scanner from an event management page
+                  </p>
+                  <Button onClick={() => navigate('/dashboard')}>
+                    Go to Dashboard
+                  </Button>
+                </div>
+              </div>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/scanner/:eventId" 
+          element={
+            <ProtectedRoute>
+              <ScannerRouteComponent />
             </ProtectedRoute>
           } 
         />

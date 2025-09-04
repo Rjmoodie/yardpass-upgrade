@@ -36,6 +36,8 @@ export function useStripeConnect() {
       setLoading(true);
       setError(null);
 
+      console.log('Fetching payout account for user:', user.id);
+
       const { data, error: fetchError } = await supabase
         .from('payout_accounts')
         .select('*')
@@ -43,8 +45,12 @@ export function useStripeConnect() {
         .eq('context_id', user.id)
         .maybeSingle();
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Payout account fetch error:', fetchError);
+        throw fetchError;
+      }
 
+      console.log('Payout account data:', data);
       setAccount(data);
     } catch (err) {
       console.error('Error fetching payout account:', err);
@@ -60,6 +66,8 @@ export function useStripeConnect() {
     try {
       setLoading(true);
       
+      console.log('Creating Stripe Connect account for user:', user.id);
+      
       const { data, error } = await supabase.functions.invoke('create-stripe-connect', {
         body: {
           context_type: 'individual',
@@ -69,7 +77,12 @@ export function useStripeConnect() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Stripe Connect creation error:', error);
+        throw error;
+      }
+
+      console.log('Stripe Connect response:', data);
 
       if (data?.account_link_url) {
         // Redirect to Stripe onboarding
@@ -102,6 +115,8 @@ export function useStripeConnect() {
     try {
       setLoading(true);
       
+      console.log('Opening Stripe portal for account:', account.stripe_connect_id);
+      
       const { data, error } = await supabase.functions.invoke('stripe-connect-portal', {
         body: {
           account_id: account.stripe_connect_id,
@@ -109,7 +124,12 @@ export function useStripeConnect() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Stripe portal error:', error);
+        throw error;
+      }
+
+      console.log('Stripe portal response:', data);
 
       if (data?.url) {
         window.open(data.url, '_blank');
@@ -128,6 +148,7 @@ export function useStripeConnect() {
   };
 
   const refreshAccount = () => {
+    console.log('Refreshing payout account...');
     fetchPayoutAccount();
   };
 

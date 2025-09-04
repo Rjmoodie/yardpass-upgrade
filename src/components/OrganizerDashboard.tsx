@@ -159,7 +159,7 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
                 <CardContent>
                   <div className="text-2xl">{totalEvents}</div>
                   <p className="text-xs text-muted-foreground">
-                    {completedEvents} completed
+                    {completedEvents} completed, {totalEvents - completedEvents} active
                   </p>
                 </CardContent>
               </Card>
@@ -181,8 +181,8 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
             {/* Recent Events */}
             <Card>
               <CardHeader>
-                <CardTitle>Recent Events</CardTitle>
-                <CardDescription>Your latest event activity</CardDescription>
+                <CardTitle>Your Events</CardTitle>
+                <CardDescription>Manage and track your event performance</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -203,16 +203,20 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
                 ) : error ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>Failed to load events</p>
-                    <Button variant="outline" size="sm" onClick={refreshAnalytics} className="mt-2">
-                      Retry
+                    <h3 className="text-lg font-medium mb-2">No events yet</h3>
+                    <p className="mb-4">Create your first event to start building your audience</p>
+                    <Button onClick={onCreateEvent}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Your First Event
                     </Button>
                   </div>
-                ) : eventAnalytics.length === 0 ? (
+                ) : eventAnalytics.length === 0 && !loading ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No events yet</p>
-                    <Button onClick={onCreateEvent} className="mt-2">
+                    <h3 className="text-lg font-medium mb-2">No events yet</h3>
+                    <p className="mb-4">Create your first event to start building your audience</p>
+                    <Button onClick={onCreateEvent}>
+                      <Plus className="w-4 h-4 mr-2" />
                       Create Your First Event
                     </Button>
                   </div>

@@ -59,7 +59,15 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       return;
     }
 
+    // Check if eventId is valid before making the request
+    if (!eventId || eventId.trim() === '') {
+      console.error('No event ID provided');
+      setAuthorized(false);
+      return;
+    }
+
     try {
+      console.log('Checking authorization for event:', eventId);
       const { data, error } = await supabase.functions.invoke('scanner-authorize', {
         body: { event_id: eventId }
       });
