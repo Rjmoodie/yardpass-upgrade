@@ -29,6 +29,8 @@ import AnalyticsHub from '@/components/AnalyticsHub';
 import EventAnalytics from '@/components/EventAnalytics';
 import { AnalyticsWrapper } from '@/components/AnalyticsWrapper';
 import NotFound from '@/pages/NotFound';
+import EventsPage from '@/pages/EventsPage';
+import UserProfilePage from '@/pages/UserProfilePage';
 import { Scan } from 'lucide-react';
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
@@ -213,6 +215,24 @@ function AppContent() {
               onBack={() => navigate('/')}
               onEventSelect={handleEventSelect}
             />
+          } 
+        />
+        <Route 
+          path="/events/:slug" 
+          element={<EventsPage />} 
+        />
+        <Route 
+          path="/u/:username" 
+          element={<UserProfilePage />} 
+        />
+        <Route 
+          path="/org/:id" 
+          element={
+            <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
+              <h1 className="text-2xl font-bold mb-2">Organization Profile</h1>
+              <p className="text-muted-foreground mb-4">Organization profiles coming soon!</p>
+              <Button onClick={() => navigate('/')}>Return Home</Button>
+            </div>
           } 
         />
         <Route 
