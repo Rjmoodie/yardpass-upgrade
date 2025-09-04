@@ -7,41 +7,51 @@
 :root {
   --font-size: 14px;
   
-  /* Mango Sand Theme - Light Mode */
-  --background: hsl(60, 9%, 98%);
-  --foreground: hsl(216, 20%, 8%);
+  /* YardPass Brand Theme - Light Mode */
+  --background: hsl(45, 25%, 97%);
+  --foreground: hsl(0, 0%, 10%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(216, 20%, 8%);
+  --card-foreground: hsl(0, 0%, 10%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(216, 20%, 8%);
-  --primary: hsl(11, 89%, 58%);
+  --popover-foreground: hsl(0, 0%, 10%);
+  --primary: hsl(32, 100%, 64%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(210, 11%, 95%);
-  --secondary-foreground: hsl(215, 16%, 25%);
-  --muted: hsl(210, 11%, 94%);
-  --muted-foreground: hsl(215, 16%, 40%);
-  --accent: hsl(19, 100%, 88%);
-  --accent-foreground: hsl(11, 89%, 48%);
+  --secondary: hsl(45, 20%, 95%);
+  --secondary-foreground: hsl(0, 0%, 20%);
+  --muted: hsl(45, 15%, 94%);
+  --muted-foreground: hsl(0, 0%, 42%);
+  --accent: hsl(45, 85%, 65%);
+  --accent-foreground: hsl(0, 0%, 10%);
   --destructive: hsl(0, 72%, 51%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(210, 11%, 85%);
+  --border: hsl(45, 20%, 88%);
   --input: transparent;
-  --input-background: hsl(210, 11%, 93%);
-  --switch-background: hsl(210, 11%, 75%);
-  --ring: hsl(11, 89%, 58%);
+  --input-background: hsl(45, 30%, 96%);
+  --switch-background: hsl(45, 20%, 85%);
+  --ring: hsl(32, 100%, 64%);
   
-  /* Support colors */
-  --success: hsl(142, 71%, 45%);
-  --warning: hsl(38, 92%, 50%);
-  --info: hsl(217, 91%, 60%);
+  /* YardPass Brand Colors */
+  --brand-golden: hsl(45, 85%, 65%);
+  --brand-charcoal: hsl(0, 0%, 10%);
+  --brand-off-white: hsl(0, 0%, 98%);
+  --brand-amber: hsl(32, 100%, 64%);
+  --brand-emerald: hsl(142, 71%, 45%);
+  --brand-soft-red: hsl(0, 72%, 55%);
+  
+  /* Gradients */
+  --gradient-golden: linear-gradient(135deg, hsl(45, 85%, 65%), hsl(32, 100%, 64%));
+  --gradient-charcoal: linear-gradient(135deg, hsl(0, 0%, 10%), hsl(0, 0%, 20%));
+  --gradient-glass: linear-gradient(135deg, hsla(0, 0%, 100%, 0.1), hsla(0, 0%, 100%, 0.05));
+  --gradient-fade: linear-gradient(180deg, transparent 0%, hsla(0, 0%, 0%, 0.8) 100%);
   
   /* Elevation & effects */
-  --shadow-card: 0 6px 24px hsl(216, 20%, 8%, 0.08);
-  --shadow-rail: 0 8px 24px hsl(216, 20%, 8%, 0.12);
-  --backdrop-blur: blur(12px);
+  --shadow-card: 0 8px 32px hsla(0, 0%, 0%, 0.08);
+  --shadow-elevated: 0 16px 48px hsla(0, 0%, 0%, 0.12);
+  --shadow-glow: 0 0 40px hsla(32, 100%, 64%, 0.4);
+  --backdrop-blur: blur(16px);
   
   /* Radius */
-  --radius: 12px;
+  --radius: 16px;
   --radius-pill: 9999px;
   
   /* Typography */
@@ -49,57 +59,67 @@
   --font-weight-normal: 500;
   
   /* Sidebar */
-  --sidebar: hsl(60, 9%, 97%);
-  --sidebar-foreground: hsl(216, 20%, 8%);
-  --sidebar-primary: hsl(11, 89%, 58%);
+  --sidebar: hsl(45, 25%, 97%);
+  --sidebar-foreground: hsl(0, 0%, 10%);
+  --sidebar-primary: hsl(32, 100%, 64%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(210, 11%, 96%);
-  --sidebar-accent-foreground: hsl(215, 16%, 32%);
-  --sidebar-border: hsl(210, 11%, 90%);
-  --sidebar-ring: hsl(11, 89%, 58%);
+  --sidebar-accent: hsl(45, 20%, 96%);
+  --sidebar-accent-foreground: hsl(0, 0%, 20%);
+  --sidebar-border: hsl(45, 20%, 90%);
+  --sidebar-ring: hsl(32, 100%, 64%);
 }
 
 .dark {
-  /* Mango Sand Theme - Dark Mode (Enhanced Visibility) */
-  --background: hsl(218, 25%, 9%);
+  /* YardPass Brand Theme - Dark Mode */
+  --background: hsl(0, 0%, 8%);
   --foreground: hsl(0, 0%, 98%);
-  --card: hsl(215, 20%, 16%);
+  --card: hsl(0, 0%, 12%);
   --card-foreground: hsl(0, 0%, 98%);
-  --popover: hsl(215, 20%, 16%);
+  --popover: hsl(0, 0%, 12%);
   --popover-foreground: hsl(0, 0%, 98%);
-  --primary: hsl(11, 89%, 58%);
+  --primary: hsl(32, 100%, 64%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(215, 25%, 22%);
-  --secondary-foreground: hsl(210, 20%, 90%);
-  --muted: hsl(215, 25%, 20%);
-  --muted-foreground: hsl(215, 15%, 80%);
-  --accent: hsl(19, 100%, 85%);
-  --accent-foreground: hsl(11, 89%, 45%);
+  --secondary: hsl(0, 0%, 18%);
+  --secondary-foreground: hsl(0, 0%, 90%);
+  --muted: hsl(0, 0%, 16%);
+  --muted-foreground: hsl(0, 0%, 70%);
+  --accent: hsl(45, 85%, 65%);
+  --accent-foreground: hsl(0, 0%, 10%);
   --destructive: hsl(0, 72%, 55%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(215, 25%, 28%);
-  --input: hsl(215, 25%, 20%);
-  --input-background: hsl(215, 25%, 20%);
-  --ring: hsl(11, 89%, 58%);
+  --border: hsl(0, 0%, 22%);
+  --input: hsl(0, 0%, 16%);
+  --input-background: hsl(0, 0%, 16%);
+  --ring: hsl(32, 100%, 64%);
   
-  /* Support colors */
-  --success: hsl(142, 71%, 45%);
-  --warning: hsl(38, 92%, 50%);
-  --info: hsl(217, 91%, 60%);
+  /* YardPass Brand Colors - Dark Variants */
+  --brand-golden: hsl(45, 85%, 65%);
+  --brand-charcoal: hsl(0, 0%, 8%);
+  --brand-off-white: hsl(0, 0%, 98%);
+  --brand-amber: hsl(32, 100%, 64%);
+  --brand-emerald: hsl(142, 71%, 45%);
+  --brand-soft-red: hsl(0, 72%, 55%);
   
-  /* Elevation & effects */
-  --shadow-card: 0 6px 24px hsl(0, 0%, 0%, 0.5);
-  --shadow-rail: 0 8px 24px hsl(0, 0%, 0%, 0.6);
+  /* Gradients - Dark Mode */
+  --gradient-golden: linear-gradient(135deg, hsl(45, 85%, 65%), hsl(32, 100%, 64%));
+  --gradient-charcoal: linear-gradient(135deg, hsl(0, 0%, 8%), hsl(0, 0%, 15%));
+  --gradient-glass: linear-gradient(135deg, hsla(0, 0%, 100%, 0.08), hsla(0, 0%, 100%, 0.04));
+  --gradient-fade: linear-gradient(180deg, transparent 0%, hsla(0, 0%, 0%, 0.9) 100%);
+  
+  /* Elevation & effects - Dark Mode */
+  --shadow-card: 0 8px 32px hsla(0, 0%, 0%, 0.6);
+  --shadow-elevated: 0 16px 48px hsla(0, 0%, 0%, 0.8);
+  --shadow-glow: 0 0 40px hsla(32, 100%, 64%, 0.3);
   
   /* Sidebar dark */
-  --sidebar: hsl(215, 25%, 12%);
+  --sidebar: hsl(0, 0%, 6%);
   --sidebar-foreground: hsl(0, 0%, 100%);
-  --sidebar-primary: hsl(11, 89%, 58%);
+  --sidebar-primary: hsl(32, 100%, 64%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(215, 25%, 18%);
-  --sidebar-accent-foreground: hsl(210, 20%, 85%);
-  --sidebar-border: hsl(215, 25%, 25%);
-  --sidebar-ring: hsl(11, 89%, 58%);
+  --sidebar-accent: hsl(0, 0%, 12%);
+  --sidebar-accent-foreground: hsl(0, 0%, 85%);
+  --sidebar-border: hsl(0, 0%, 20%);
+  --sidebar-ring: hsl(32, 100%, 64%);
 }
 
 @theme inline {
@@ -219,7 +239,7 @@ html {
   font-size: var(--font-size);
 }
 
-/* TikTok-inspired animations and effects */
+/* YardPass Premium UI Effects & Animations */
 @layer utilities {
   .tiktok-scroll {
     scroll-snap-type: y mandatory;
@@ -230,26 +250,100 @@ html {
     scroll-snap-align: start;
   }
   
+  /* Frosted Glass Effects */
   .glass-effect {
-    @apply bg-black/20 backdrop-blur-md border border-white/10;
+    background: var(--gradient-glass);
+    backdrop-filter: var(--backdrop-blur);
+    border: 1px solid hsla(0, 0%, 100%, 0.15);
   }
   
+  .glass-nav {
+    background: hsla(0, 0%, 100%, 0.08);
+    backdrop-filter: var(--backdrop-blur);
+    border-top: 1px solid hsla(0, 0%, 100%, 0.1);
+    box-shadow: 0 -8px 32px hsla(0, 0%, 0%, 0.1);
+  }
+  
+  /* Premium Action Buttons */
   .action-button {
-    @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200;
+    @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300;
     @apply hover:scale-110 active:scale-95;
-    @apply bg-white/10 backdrop-blur-sm border border-white/20;
+    background: hsla(0, 0%, 100%, 0.08);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsla(0, 0%, 100%, 0.15);
+    box-shadow: 0 4px 16px hsla(0, 0%, 0%, 0.2);
+  }
+  
+  .action-button:hover {
+    background: hsla(32, 100%, 64%, 0.2);
+    border-color: hsla(32, 100%, 64%, 0.3);
+    box-shadow: var(--shadow-glow);
   }
   
   .action-button-primary {
-    @apply action-button bg-primary/80 border-primary/30;
+    background: var(--gradient-golden);
+    border: 1px solid hsla(32, 100%, 64%, 0.4);
+    box-shadow: var(--shadow-glow);
   }
   
+  /* Navigation & UI */
   .floating-nav {
-    @apply bg-card/80 backdrop-blur-lg border-t border-border/50;
+    background: hsla(0, 0%, 100%, 0.08);
+    backdrop-filter: var(--backdrop-blur);
+    border-top: 1px solid hsla(0, 0%, 100%, 0.1);
+    box-shadow: 0 -8px 32px hsla(0, 0%, 0%, 0.15);
+  }
+  
+  .brand-gradient {
+    background: var(--gradient-golden);
+  }
+  
+  .charcoal-gradient {
+    background: var(--gradient-charcoal);
+  }
+  
+  .glass-card {
+    background: var(--gradient-glass);
+    backdrop-filter: var(--backdrop-blur);
+    border: 1px solid hsla(0, 0%, 100%, 0.1);
     box-shadow: var(--shadow-card);
   }
   
+  .premium-button {
+    @apply rounded-full px-6 py-3 font-semibold transition-all duration-300;
+    background: var(--gradient-golden);
+    color: white;
+    border: none;
+    box-shadow: var(--shadow-elevated);
+  }
+  
+  .premium-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow), var(--shadow-elevated);
+  }
+  
+  .pill-button {
+    @apply rounded-full px-4 py-2 text-sm font-medium transition-all duration-200;
+    @apply border border-white/20 backdrop-blur-sm;
+  }
+  
+  .pill-button-active {
+    background: var(--gradient-golden);
+    border-color: hsla(32, 100%, 64%, 0.4);
+    color: white;
+    box-shadow: var(--shadow-glow);
+  }
+  
   .feed-gradient {
-    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 100%);
+    background: var(--gradient-fade);
+  }
+  
+  /* Animations */
+  .golden-glow {
+    box-shadow: 0 0 20px hsla(32, 100%, 64%, 0.4);
+  }
+  
+  .scale-hover {
+    @apply transition-transform duration-200 hover:scale-105;
   }
 }

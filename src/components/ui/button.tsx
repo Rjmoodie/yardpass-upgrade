@@ -5,26 +5,29 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-95",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-semibold ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-95",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transform hover:-translate-y-0.5",
+        default: "rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105",
+        premium: "rounded-full brand-gradient text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105 golden-glow",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-md hover:shadow-lg transform hover:-translate-y-0.5",
+          "rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-lg hover:shadow-xl transform hover:-translate-y-1",
         outline:
-          "border-2 border-border bg-card hover:bg-accent hover:text-accent-foreground shadow-md hover:shadow-lg transform hover:-translate-y-0.5",
+          "rounded-full border-2 border-primary/20 bg-transparent text-primary hover:bg-primary/10 backdrop-blur-sm shadow-lg hover:shadow-xl transform hover:-translate-y-1",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-md hover:shadow-lg transform hover:-translate-y-0.5",
-        ghost: "hover:bg-accent hover:text-accent-foreground rounded-lg",
+          "rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-lg hover:shadow-xl transform hover:-translate-y-1",
+        ghost: "rounded-full hover:bg-accent/50 hover:text-accent-foreground backdrop-blur-sm",
         link: "text-primary underline-offset-4 hover:underline",
-        glass: "bg-white/10 text-white border border-white/20 backdrop-blur-sm hover:bg-white/20 shadow-lg",
+        glass: "rounded-full glass-effect text-white hover:bg-white/20 shadow-lg backdrop-blur-lg border border-white/20",
+        pill: "pill-button hover:pill-button-active",
       },
       size: {
-        default: "h-11 px-5 py-2",
-        sm: "h-9 px-3",
-        lg: "h-12 px-6",
-        icon: "h-11 w-11",
+        default: "h-12 px-6 py-3",
+        sm: "h-10 px-4 py-2",
+        lg: "h-14 px-8 py-4",
+        icon: "h-12 w-12",
+        pill: "h-10 px-5 py-2",
       },
     },
     defaultVariants: {

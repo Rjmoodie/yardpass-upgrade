@@ -363,41 +363,40 @@ export function MainFeed({
             {/* Action Buttons */}
             <div className="flex gap-3 pt-2">
               <Button 
-                size="sm" 
+                size="lg" 
+                variant="premium"
                 onClick={() => handleGetTickets(currentEvent)}
-                className="bg-accent hover:bg-accent-600 text-white font-bold px-6 py-2 rounded-xl shadow-lg"
+                className="px-8 py-3 text-base font-bold"
               >
                 Get Tickets
               </Button>
               <Button 
-                size="sm" 
-                variant="outline"
+                size="lg" 
+                variant="glass"
                 onClick={() => handleDetails(currentEvent)}
-                className="border-white/30 text-white hover:bg-white/10 font-semibold px-6 py-2 rounded-xl"
+                className="px-8 py-3 text-base font-semibold"
               >
                 Details
               </Button>
             </div>
           </div>
 
-          {/* Right Actions - Clean TikTok Style */}
-          <div className="flex flex-col items-center gap-5 pb-4">
+          {/* Right Actions - Premium Posh Style */}
+          <div className="flex flex-col items-center gap-4 pb-4">
             {/* Like Button */}
             <button
               onClick={() => handleLike(currentEvent.id)}
-              className="flex flex-col items-center group"
+              className="action-button group"
             >
-              <div className="w-12 h-12 flex items-center justify-center">
-                <Heart 
-                  className={`w-8 h-8 transition-all ${
-                    currentEvent.isLiked 
-                      ? 'fill-red-500 text-red-500 scale-110' 
-                      : 'text-white hover:scale-110'
-                  }`} 
-                  strokeWidth={1.5}
-                />
-              </div>
-              <span className="text-white text-xs font-semibold -mt-1">
+              <Heart 
+                className={`w-6 h-6 transition-all duration-300 ${
+                  currentEvent.isLiked 
+                    ? 'fill-red-500 text-red-500 scale-110' 
+                    : 'text-white group-hover:scale-110'
+                }`} 
+                strokeWidth={1.5}
+              />
+              <span className="absolute -bottom-6 text-white text-xs font-semibold">
                 {currentEvent.likes > 999 ? `${(currentEvent.likes/1000).toFixed(1)}M` : `${currentEvent.likes}`}
               </span>
             </button>
@@ -408,46 +407,39 @@ export function MainFeed({
                 capture('feed_click', { target: 'comment', event_id: currentEvent.id });
                 onEventClick?.(currentEvent.id);
               }}
-              className="flex flex-col items-center group"
+              className="action-button group"
             >
-              <div className="w-12 h-12 flex items-center justify-center">
-                <MessageCircle 
-                  className="w-8 h-8 text-white hover:scale-110 transition-all" 
-                  strokeWidth={1.5}
-                />
-              </div>
-              <span className="text-white text-xs font-semibold -mt-1">7,871</span>
+              <MessageCircle 
+                className="w-6 h-6 text-white group-hover:scale-110 transition-all duration-300" 
+                strokeWidth={1.5}
+              />
+              <span className="absolute -bottom-6 text-white text-xs font-semibold">7.8K</span>
             </button>
 
             {/* Bookmark Button */}
             <button
               onClick={() => {
                 capture('feed_click', { target: 'bookmark', event_id: currentEvent.id });
-                // TODO: Handle bookmark
               }}
-              className="flex flex-col items-center group"
+              className="action-button group"
             >
-              <div className="w-12 h-12 flex items-center justify-center">
-                <Bookmark 
-                  className="w-8 h-8 text-white hover:scale-110 transition-all" 
-                  strokeWidth={1.5}
-                />
-              </div>
-              <span className="text-white text-xs font-semibold -mt-1">70.2K</span>
+              <Bookmark 
+                className="w-6 h-6 text-white group-hover:scale-110 transition-all duration-300" 
+                strokeWidth={1.5}
+              />
+              <span className="absolute -bottom-6 text-white text-xs font-semibold">70K</span>
             </button>
 
             {/* Share Button */}
             <button
               onClick={() => handleShare(currentEvent)}
-              className="flex flex-col items-center group"
+              className="action-button group"
             >
-              <div className="w-12 h-12 flex items-center justify-center">
-                <Share 
-                  className="w-8 h-8 text-white hover:scale-110 transition-all" 
-                  strokeWidth={1.5}
-                />
-              </div>
-              <span className="text-white text-xs font-semibold -mt-1">
+              <Share 
+                className="w-6 h-6 text-white group-hover:scale-110 transition-all duration-300" 
+                strokeWidth={1.5}
+              />
+              <span className="absolute -bottom-6 text-white text-xs font-semibold">
                 {currentEvent.shares > 999 ? `${(currentEvent.shares/1000).toFixed(1)}K` : currentEvent.shares}
               </span>
             </button>
@@ -455,15 +447,17 @@ export function MainFeed({
             {/* Creator Profile Pic */}
             <button 
               onClick={() => onCreatePost?.(currentEvent.id)}
-              className="relative mt-2"
+              className="relative mt-4 group"
             >
-              <Avatar className="w-12 h-12 border-2 border-white">
-                <AvatarFallback className="bg-accent text-white font-bold">
-                  {currentEvent.organizer.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-accent rounded-full flex items-center justify-center border-2 border-white">
-                <Plus className="w-3 h-3 text-white" strokeWidth={2} />
+              <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/30 backdrop-blur-sm bg-white/10 group-hover:border-primary/50 transition-all duration-300">
+                <Avatar className="w-full h-full">
+                  <AvatarFallback className="brand-gradient text-white font-bold text-lg">
+                    {currentEvent.organizer.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 brand-gradient rounded-full flex items-center justify-center border-2 border-white shadow-lg">
+                <Plus className="w-3 h-3 text-white" strokeWidth={2.5} />
               </div>
             </button>
           </div>

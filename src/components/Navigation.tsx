@@ -187,7 +187,7 @@ export default function Navigation({ userRole }: NavigationProps) {
   ].filter(item => item.show);
 
   return (
-    <div className="floating-nav px-4 py-3 flex items-center justify-around">
+    <div className="glass-nav px-4 py-3 flex items-center justify-around">
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = location.pathname === item.path;
@@ -196,14 +196,14 @@ export default function Navigation({ userRole }: NavigationProps) {
           <button
             key={item.id}
             onClick={() => handleNavigation(item.path, item.id)}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-200 active:scale-95 ${
+            className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-300 active:scale-95 ${
               isActive 
-                ? 'text-primary bg-primary/15 shadow-sm' 
-                : 'text-muted-foreground hover:text-primary hover:bg-accent/50'
+                ? 'text-primary bg-primary/20 backdrop-blur-sm border border-primary/30 shadow-lg golden-glow' 
+                : 'text-muted-foreground hover:text-primary hover:bg-white/10 hover:backdrop-blur-sm hover:border hover:border-white/20'
             }`}
           >
-            <Icon className="w-5 h-5" />
-            <span className="text-xs font-medium">{item.label}</span>
+            <Icon className={`transition-all duration-300 ${isActive ? 'w-6 h-6' : 'w-5 h-5'}`} strokeWidth={isActive ? 2.5 : 2} />
+            <span className={`text-xs font-medium transition-all duration-300 ${isActive ? 'font-semibold' : ''}`}>{item.label}</span>
           </button>
         );
       })}
