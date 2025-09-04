@@ -278,7 +278,7 @@ function AppContent() {
                       name: profile?.display_name || 'User',
                       phone: profile?.phone || '',
                       role: (profile?.role as UserRole) || 'attendee',
-                      isVerified: profile?.verification_status !== 'basic'
+                      isVerified: profile?.verification_status === 'verified' || profile?.verification_status === 'pro'
                     }}
                     onRoleToggle={handleRoleToggle}
                     onBack={() => navigate('/')}

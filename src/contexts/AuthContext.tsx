@@ -7,7 +7,7 @@ interface UserProfile {
   display_name: string;
   phone?: string;
   role: 'attendee' | 'organizer';
-  verification_status: 'basic' | 'verified' | 'pro';
+  verification_status: 'none' | 'pending' | 'verified' | 'pro';
   created_at: string;
   photo_url?: string;
 }
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       ...data,
       role: data.role as 'attendee' | 'organizer',
-      verification_status: data.verification_status as 'basic' | 'verified' | 'pro'
+      verification_status: data.verification_status as 'none' | 'pending' | 'verified' | 'pro'
     };
   };
 
