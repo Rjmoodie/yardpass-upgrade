@@ -401,16 +401,18 @@ const AnalyticsHub: React.FC = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Analytics error:', error);
+        toast({
+          title: "Error",
+          description: `Failed to fetch analytics: ${error.message || 'Unknown error'}`,
+          variant: "destructive"
+        });
+        return;
+      }
 
+      console.log('Analytics data received:', data);
       setAnalytics(data);
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch analytics data",
-        variant: "destructive"
-      });
     } finally {
       setLoading(false);
     }
