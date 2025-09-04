@@ -136,6 +136,8 @@ function AppContent() {
   const userRole: UserRole = profile?.role || 'attendee';
 
   const handleEventSelect = (event: Event) => {
+    console.log('App: handleEventSelect called', event);
+    console.log('App: navigating to', '/events/' + event.id);
     setSelectedEvent(event);
     navigate('/events/' + event.id);
   };

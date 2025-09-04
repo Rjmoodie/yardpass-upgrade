@@ -175,7 +175,10 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
             <Card 
               key={event.id} 
               className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => onEventSelect(event)}
+              onClick={() => {
+                console.log('SearchPage: Event clicked', event);
+                onEventSelect(event);
+              }}
             >
               <div className="flex">
                 <ImageWithFallback
