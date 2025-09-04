@@ -32,38 +32,22 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
     
     setLoading(true);
     try {
-      // Create organization
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-          name: formData.name,
-          handle: formData.handle,
-          logo_url: formData.logoUrl,
-          created_by: user.id,
-          verification_status: 'none'
-        })
-        .select()
-        .single();
+      // Use a transaction to create both organization and membership
+      const { data, error } = await supabase.rpc('create_organization_with_membership', {
+        p_name: formData.name,
+        p_handle: formData.handle,
+        p_logo_url: formData.logoUrl || null,
+        p_creator_id: user.id
+      });
 
-      if (orgError) throw orgError;
-
-      // Add creator as owner
-      const { error: memberError } = await supabase
-        .from('org_memberships')
-        .insert({
-          org_id: org.id,
-          user_id: user.id,
-          role: 'owner'
-        });
-
-      if (memberError) throw memberError;
+      if (error) throw error;
 
       toast({
         title: "Organization Created",
         description: "Your organization has been created successfully!"
       });
 
-      onSuccess(org.id);
+      onSuccess(data);
     } catch (error: any) {
       toast({
         title: "Error",
