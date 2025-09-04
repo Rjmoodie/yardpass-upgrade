@@ -127,8 +127,8 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             </Badge>
           </div>
 
-          {/* Role Toggle */}
-          <Card className="max-w-sm mx-auto">
+          {/* Role Toggle - Debug Visible */}
+          <Card className="max-w-sm mx-auto border-2 border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="text-left flex-1">
@@ -136,28 +136,24 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                   <div className="text-xs text-muted-foreground">
                     {user.role === 'organizer' ? 'Create and manage events' : 'Switch to organize events'}
                   </div>
+                  <div className="text-xs text-red-500 mt-1">
+                    Current role: {user.role}
+                  </div>
                 </div>
                 <div className="flex-shrink-0">
-                  <button
+                  <Button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('Toggle button clicked, current role:', user.role);
+                      console.log('TOGGLE BUTTON CLICKED! Current role:', user.role);
                       onRoleToggle();
                     }}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                      user.role === 'organizer' 
-                        ? 'bg-primary' 
-                        : 'bg-muted-foreground'
-                    }`}
-                    aria-label="Toggle organizer mode"
+                    variant={user.role === 'organizer' ? 'default' : 'outline'}
+                    size="sm"
+                    className="min-w-[80px]"
                   >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        user.role === 'organizer' ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
+                    {user.role === 'organizer' ? 'Attendee' : 'Organizer'}
+                  </Button>
                 </div>
               </div>
             </CardContent>
