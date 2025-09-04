@@ -25,6 +25,7 @@ import { PostsDebugPage } from '@/components/PostsDebugPage';
 import { ScannerPage } from '@/components/ScannerPage';
 import AnalyticsHub from '@/components/AnalyticsHub';
 import EventAnalytics from '@/components/EventAnalytics';
+import { AnalyticsWrapper } from '@/components/AnalyticsWrapper';
 import NotFound from '@/pages/NotFound';
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
@@ -143,7 +144,8 @@ function AppContent() {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col">
+    <AnalyticsWrapper>
+      <div className="h-screen bg-background flex flex-col">
       <Routes>
         {/* Public Routes */}
         <Route 
@@ -402,7 +404,8 @@ function AppContent() {
       
       {/* Toast notifications */}
       <Toaster />
-    </div>
+      </div>
+    </AnalyticsWrapper>
   );
 }
 
