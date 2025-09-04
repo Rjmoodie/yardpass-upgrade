@@ -19,27 +19,7 @@ export default {
 		},
 		extend: {
 			colors: {
-				/* Mango Sand Theme Colors */
-				bg: 'hsl(var(--bg))',
-				'surface-1': 'hsl(var(--surface-1))',
-				'surface-2': 'hsl(var(--surface-2))',
-				text: {
-					DEFAULT: 'hsl(var(--text))',
-					2: 'hsl(var(--text-2))',
-					3: 'hsl(var(--text-3))'
-				},
 				border: 'hsl(var(--border))',
-				accent: {
-					DEFAULT: 'hsl(var(--accent))',
-					600: 'hsl(var(--accent-600))',
-					200: 'hsl(var(--accent-200))'
-				},
-				success: 'hsl(var(--success))',
-				warning: 'hsl(var(--warning))',
-				error: 'hsl(var(--error))',
-				info: 'hsl(var(--info))',
-				
-				/* Legacy support for existing components */
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
@@ -60,6 +40,10 @@ export default {
 					DEFAULT: 'hsl(var(--muted))',
 					foreground: 'hsl(var(--muted-foreground))'
 				},
+				accent: {
+					DEFAULT: 'hsl(var(--accent))',
+					foreground: 'hsl(var(--accent-foreground))'
+				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
 					foreground: 'hsl(var(--popover-foreground))'
@@ -69,7 +53,7 @@ export default {
 					foreground: 'hsl(var(--card-foreground))'
 				},
 				sidebar: {
-					DEFAULT: 'hsl(var(--sidebar))',
+					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
 					primary: 'hsl(var(--sidebar-primary))',
 					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
@@ -80,21 +64,9 @@ export default {
 				}
 			},
 			borderRadius: {
-				lg: '12px',
-				xl: '16px',
+				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
-			},
-			boxShadow: {
-				card: '0 6px 24px rgba(0,0,0,0.18)',
-				rail: '0 8px 24px rgba(0,0,0,0.22)'
-			},
-			transitionTimingFunction: {
-				yardpass: 'cubic-bezier(0.2, 0.8, 0.2, 1)'
-			},
-			transitionDuration: {
-				fast: '150ms',
-				base: '200ms'
 			},
 			keyframes: {
 				'accordion-down': {
