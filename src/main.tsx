@@ -7,17 +7,19 @@ import './index.css'
 
 // PostHog configuration for YardPass Analytics
 const postHogOptions = {
-  api_host: 'https://us.i.posthog.com',
+  api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
   person_profiles: 'identified_only' as const,
   loaded: (posthog: any) => {
     if (import.meta.env.DEV) posthog.debug()
   }
 }
 
+const postHogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY || 'phc_PLACEHOLDER_KEY';
+
 createRoot(document.getElementById("root")!).render(
   <BrowserRouter>
     <PostHogProvider 
-      apiKey="phc_PLACEHOLDER_KEY" // Replace with your actual PostHog project key
+      apiKey={postHogKey}
       options={postHogOptions}
     >
       <App />
