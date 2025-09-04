@@ -12,6 +12,10 @@ import { useAuthRedirect } from '@/hooks/useAuthRedirect';
 import { toast } from '@/hooks/use-toast';
 import { EventFeed } from '@/components/EventFeed';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
+import { useNavigate } from 'react-router-dom';
+import { routes } from '@/lib/routes';
+import { capture } from '@/lib/analytics';
+import { useShare } from '@/hooks/useShare';
 
 interface Event {
   id: string;
@@ -158,6 +162,8 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   const scrollRef = useRef<HTMLDivElement>(null);
   const { withRequireAuth } = useRequireAuth();
   const { requireAuth } = useAuthRedirect();
+  const navigate = useNavigate();
+  const { shareEvent } = useShare();
 
   const currentEvent = events[currentIndex];
 
@@ -183,16 +189,14 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
 
   const handleShare = (event: Event) => {
     console.log('handleShare called');
-    setShowShareModal(true);
+    capture('share_click', { event_id: event.id });
+    shareEvent(event.id, event.title);
   };
 
   const handleComment = () => {
     withRequireAuth(() => {
-      onEventSelect(currentEvent);
-      toast({
-        title: "Opening Comments",
-        description: "Loading event comments and discussions...",
-      });
+      capture('comment_click', { event_id: currentEvent.id });
+      navigate(routes.event(currentEvent.id));
     });
   };
 
@@ -207,36 +211,14 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
 
   const handleCategoryClick = (category: string) => {
     console.log('handleCategoryClick called with:', category);
-    if (onCategorySelect) {
-      onCategorySelect(category);
-      toast({
-        title: "Category Filter",
-        description: `Browsing ${category} events...`,
-      });
-    } else {
-      console.log('onCategorySelect not provided');
-      toast({
-        title: "Category Filter",
-        description: `${category} category selected`,
-      });
-    }
+    capture('category_click', { category });
+    navigate(routes.category(category));
   };
 
   const handleOrganizerClick = (organizerId: string, organizerName: string) => {
     console.log('handleOrganizerClick called with:', organizerId, organizerName);
-    if (onOrganizerSelect) {
-      onOrganizerSelect(organizerId, organizerName);
-      toast({
-        title: "Organizer Profile",
-        description: `Viewing ${organizerName}'s profile...`,
-      });
-    } else {
-      console.log('onOrganizerSelect not provided');
-      toast({
-        title: "Organizer Profile",
-        description: `${organizerName} profile selected`,
-      });
-    }
+    capture('organizer_click', { organizer_id: organizerId });
+    navigate(routes.org(organizerId));
   };
 
   const handleLocationClick = (location: string) => {
@@ -257,11 +239,8 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   };
 
   const handleEventTitleClick = () => {
-    onEventSelect(currentEvent);
-    toast({
-      title: "Event Details",
-      description: "Loading full event information...",
-    });
+    capture('event_title_click', { event_id: currentEvent.id });
+    navigate(routes.event(currentEvent.id));
   };
 
   const handleGetTickets = () => {
@@ -275,19 +254,13 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   };
 
   const handleEventDetails = () => {
-    onEventSelect(currentEvent);
-    toast({
-      title: "Event Details",
-      description: "Loading detailed event information...",
-    });
+    capture('event_details_click', { event_id: currentEvent.id });
+    navigate(routes.eventDetails(currentEvent.id));
   };
 
   const handleAttendeeClick = () => {
-    setShowAttendeeModal(true);
-    toast({
-      title: "Attendee List",
-      description: "Loading event attendees...",
-    });
+    capture('attendee_list_click', { event_id: currentEvent.id });
+    navigate(routes.attendees(currentEvent.id));
   };
 
   const handleScroll = (direction: 'up' | 'down') => {
@@ -686,18 +659,20 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
         eventDescription={currentEvent.description}
       />
 
-      <PostCreatorModal
-        isOpen={postCreatorOpen}
-        onClose={() => setPostCreatorOpen(false)}
-        preselectedEventId={currentEvent?.id}
-        onSuccess={() => {
-          setPostCreatorOpen(false);
-          toast({
-            title: "Success",
-            description: "Your post has been created!",
-          });
-        }}
-      />
+        <PostCreatorModal
+          isOpen={postCreatorOpen}
+          onClose={() => setPostCreatorOpen(false)}
+          preselectedEventId={currentEvent?.id}
+          onSuccess={() => {
+            setPostCreatorOpen(false);
+            toast({
+              title: "Success", 
+              description: "Your post has been created!",
+            });
+            // Refresh to show new post
+            window.location.reload();
+          }}
+        />
     </div>
   );
 };

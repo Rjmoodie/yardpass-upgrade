@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { Heart, MessageCircle, Share, Play, Pause, MoreVertical, MapPin, Calendar } from 'lucide-react';
+import { Heart, MessageCircle, Share, Play, Pause, MoreVertical, MapPin, Calendar, Plus } from 'lucide-react';
 import { routes } from '@/lib/routes';
 import { openMaps } from '@/lib/maps';
 import { capture } from '@/lib/analytics';
@@ -44,9 +44,14 @@ interface TicketTier {
 }
 
 interface MainFeedProps {
-  user: User;
-  onEventSelect: (event: Event) => void;
-  onCreatePost: () => void;
+  onEventClick?: (eventId: string) => void;
+  onGetTickets?: (eventId: string) => void;
+  onShareEvent?: (eventId: string, eventTitle: string, eventDescription?: string) => void;
+  onViewDetails?: (eventId: string) => void;
+  onCreatePost?: (eventId?: string) => void;
+  onUserProfile?: (userId: string) => void;
+  onOrganizerProfile?: (orgId: string) => void;
+  onAttendees?: (eventId: string) => void;
 }
 
 // Mock event data
@@ -113,7 +118,16 @@ const mockEvents: Event[] = [
   }
 ];
 
-export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
+export function MainFeed({ 
+  onEventClick,
+  onGetTickets,
+  onShareEvent,
+  onViewDetails,
+  onCreatePost,
+  onUserProfile,
+  onOrganizerProfile,
+  onAttendees
+}: MainFeedProps) {
   const navigate = useNavigate();
   const { shareEvent } = useShare();
   const [events, setEvents] = useState(mockEvents);
@@ -138,12 +152,12 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
 
   const handleShare = (event: Event) => {
     capture('feed_click', { target: 'share', event_id: event.id });
-    shareEvent(event.id, event.title);
+    onShareEvent?.(event.id, event.title, event.description);
   };
 
   const handleOrganizerClick = (event: Event) => {
     capture('feed_click', { target: 'handle', event_id: event.id });
-    // TODO: Navigate to org page when we have org slugs
+    onOrganizerProfile?.(event.organizerId);
   };
 
   const handleCategoryClick = (category: string, eventId: string) => {
@@ -153,7 +167,7 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
 
   const handleAttendeesClick = (event: Event) => {
     capture('feed_click', { target: 'attending', event_id: event.id });
-    // TODO: Navigate to attendees page when implemented
+    onAttendees?.(event.id);
   };
 
   const handleLocationClick = (event: Event, secondary = false) => {
@@ -167,12 +181,12 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
 
   const handleGetTickets = (event: Event) => {
     capture('feed_click', { target: 'tickets', event_id: event.id });
-    onEventSelect(event);
+    onGetTickets?.(event.id);
   };
 
   const handleDetails = (event: Event) => {
     capture('feed_click', { target: 'details', event_id: event.id });
-    onEventSelect(event);
+    onViewDetails?.(event.id);
   };
 
   const handleScroll = (direction: 'up' | 'down') => {
@@ -205,7 +219,7 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
           <Button
             size="sm"
             variant="secondary"
-            onClick={onCreatePost}
+            onClick={() => onCreatePost?.()}
             className="bg-white/20 text-white border-white/30 hover:bg-white/30"
           >
             + Post
@@ -255,7 +269,7 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
               <button 
                 onClick={() => {
                   capture('feed_click', { target: 'title', event_id: currentEvent.id });
-                  onEventSelect(currentEvent);
+                  onEventClick?.(currentEvent.id);
                 }}
                 className="text-left hover:opacity-80 transition-opacity"
               >
@@ -278,7 +292,7 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
                 <button 
                   onClick={() => {
                     capture('feed_click', { target: 'date', event_id: currentEvent.id });
-                    onEventSelect(currentEvent);
+                    onEventClick?.(currentEvent.id);
                   }}
                   className="flex items-center gap-1 hover:text-white transition-colors"
                 >
@@ -335,6 +349,10 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
             </button>
 
             <button 
+              onClick={() => {
+                capture('feed_click', { target: 'comment', event_id: currentEvent.id });
+                onEventClick?.(currentEvent.id);
+              }}
               className="flex flex-col items-center gap-1 group"
               aria-label="View comments"
             >
@@ -356,10 +374,14 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
             </button>
 
             <button 
-              className="p-3 rounded-full bg-white/20 hover:scale-110 transition-transform"
-              aria-label="More options"
+              onClick={() => onCreatePost?.(currentEvent.id)}
+              className="flex flex-col items-center gap-1 group"
+              aria-label="Create post"
             >
-              <MoreVertical className="w-6 h-6" />
+              <div className="p-3 rounded-full bg-primary/80 group-hover:scale-110 transition-transform">
+                <Plus className="w-6 h-6" />
+              </div>
+              <span className="text-xs">Post</span>
             </button>
           </div>
         </div>
