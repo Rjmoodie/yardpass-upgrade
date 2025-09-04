@@ -742,6 +742,10 @@ export type Database = {
         }
         Returns: string
       }
+      get_current_user_org_role: {
+        Args: { p_org_id: string }
+        Returns: string
+      }
       get_event_kpis_daily: {
         Args: { p_event_ids: string[]; p_from_date: string; p_to_date: string }
         Returns: {
@@ -802,6 +806,10 @@ export type Database = {
       get_user_event_badge: {
         Args: { p_event_id: string; p_user_id: string }
         Returns: string
+      }
+      is_current_user_org_admin: {
+        Args: { p_org_id: string }
+        Returns: boolean
       }
       is_event_individual_owner: {
         Args: { p_event_id: string }
