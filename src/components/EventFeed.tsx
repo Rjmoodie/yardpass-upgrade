@@ -3,11 +3,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Share, Crown } from 'lucide-react';
+import { Heart, MessageCircle, Share, Crown, MoreVertical } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { useShare } from '@/hooks/useShare';
 import { formatDistanceToNow } from 'date-fns';
+import { routes } from '@/lib/routes';
+import { capture } from '@/lib/analytics';
 
 interface EventPost {
   id: string;
@@ -37,6 +41,8 @@ interface EventFeedProps {
 
 export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { sharePost } = useShare();
   const [posts, setPosts] = useState<EventPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
@@ -165,20 +171,26 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
   };
 
   const handleShare = (post: EventPost) => {
-    if (navigator.share) {
-      navigator.share({
-        title: `Post from ${post.user_profiles.display_name}`,
-        text: post.text,
-        url: window.location.origin + `/events/${post.event_id}`,
-      });
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(window.location.origin + `/events/${post.event_id}`);
-      toast({
-        title: "Link copied",
-        description: "Event link copied to clipboard",
-      });
-    }
+    capture('feed_click', { 
+      target: 'share', 
+      event_id: post.event_id, 
+      post_id: post.id 
+    });
+    sharePost(post.id, post.events.title, post.text);
+  };
+
+  const handleComment = (post: EventPost) => {
+    capture('feed_click', { 
+      target: 'comment', 
+      event_id: post.event_id, 
+      post_id: post.id 
+    });
+    navigate(routes.post(post.id));
+  };
+
+  const handlePostMenu = (post: EventPost) => {
+    // TODO: Implement contextual menu (Report / Save / Copy Link)
+    console.log('Post menu for:', post.id);
   };
 
   if (loading) {
@@ -220,7 +232,7 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
   return (
     <div className="space-y-4">
       {posts.map((post) => (
-        <Card key={post.id} className="overflow-hidden">
+        <Card key={post.id} className="overflow-hidden group">
           <CardContent className="p-4 space-y-4">
             {/* Post Header */}
             <div className="flex items-start justify-between">
@@ -233,15 +245,35 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
                 </Avatar>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{post.user_profiles.display_name}</span>
+                    <button 
+                      className="font-medium hover:underline text-left"
+                      onClick={() => {
+                        capture('feed_click', { target: 'handle', event_id: post.event_id, post_id: post.id });
+                        // TODO: Navigate to user profile when we have usernames
+                      }}
+                    >
+                      {post.user_profiles.display_name}
+                    </button>
                     {post.is_organizer && (
-                      <Crown className="w-4 h-4 text-primary" />
+                      <button
+                        onClick={() => {
+                          capture('feed_click', { target: 'organizer_badge', event_id: post.event_id });
+                          // TODO: Navigate to org page when we have org slugs
+                        }}
+                        className="hover:opacity-80"
+                        aria-label="Organizer badge"
+                      >
+                        <Crown className="w-4 h-4 text-primary" />
+                      </button>
                     )}
                     {post.badge_label && (
                       <Badge 
                         variant="secondary" 
                         className="text-xs cursor-pointer hover:bg-secondary/80"
-                        onClick={() => onEventClick?.(post.event_id)}
+                        onClick={() => {
+                          capture('feed_click', { target: 'badge', event_id: post.event_id });
+                          onEventClick?.(post.event_id);
+                        }}
                       >
                         {post.badge_label}
                       </Badge>
@@ -253,7 +285,10 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
                       <>
                         {' • '}
                         <button 
-                          onClick={() => onEventClick?.(post.event_id)}
+                          onClick={() => {
+                            capture('feed_click', { target: 'title', event_id: post.event_id });
+                            onEventClick?.(post.event_id);
+                          }}
                           className="hover:text-foreground hover:underline"
                         >
                           {post.events.title}
@@ -262,6 +297,16 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
                     )}
                   </div>
                 </div>
+                
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handlePostMenu(post)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
               </div>
             </div>
 
@@ -301,8 +346,12 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleLike(post.id)}
+                  onClick={() => {
+                    capture('feed_click', { target: 'like', event_id: post.event_id, post_id: post.id });
+                    handleLike(post.id);
+                  }}
                   className={`gap-2 ${likedPosts.has(post.id) ? 'text-red-500' : ''}`}
+                  aria-label={likedPosts.has(post.id) ? 'Unlike post' : 'Like post'}
                 >
                   <Heart 
                     className={`w-4 h-4 ${likedPosts.has(post.id) ? 'fill-current' : ''}`} 
@@ -310,7 +359,13 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
                   {post.like_count}
                 </Button>
 
-                <Button variant="ghost" size="sm" className="gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={() => handleComment(post)}
+                  aria-label="View comments"
+                >
                   <MessageCircle className="w-4 h-4" />
                   {post.comment_count}
                 </Button>
@@ -321,6 +376,7 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
                 size="sm"
                 onClick={() => handleShare(post)}
                 className="gap-2"
+                aria-label="Share post"
               >
                 <Share className="w-4 h-4" />
                 Share

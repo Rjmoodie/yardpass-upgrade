@@ -1,9 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Heart, MessageCircle, Share, Play, Pause, MoreVertical, MapPin, Calendar } from 'lucide-react';
+import { routes } from '@/lib/routes';
+import { openMaps } from '@/lib/maps';
+import { capture } from '@/lib/analytics';
+import { useShare } from '@/hooks/useShare';
 
 interface User {
   id: string;
@@ -109,6 +114,8 @@ const mockEvents: Event[] = [
 ];
 
 export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
+  const navigate = useNavigate();
+  const { shareEvent } = useShare();
   const [events, setEvents] = useState(mockEvents);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -117,6 +124,7 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
   const currentEvent = events[currentIndex];
 
   const handleLike = (eventId: string) => {
+    capture('feed_click', { target: 'like', event_id: eventId });
     setEvents(prev => prev.map(event => 
       event.id === eventId 
         ? { 
@@ -129,12 +137,42 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
   };
 
   const handleShare = (event: Event) => {
-    // Mock share functionality
-    navigator.share?.({
-      title: event.title,
-      text: event.description,
-      url: `https://yardpass.com/events/${event.id}`
-    });
+    capture('feed_click', { target: 'share', event_id: event.id });
+    shareEvent(event.id, event.title);
+  };
+
+  const handleOrganizerClick = (event: Event) => {
+    capture('feed_click', { target: 'handle', event_id: event.id });
+    // TODO: Navigate to org page when we have org slugs
+  };
+
+  const handleCategoryClick = (category: string, eventId: string) => {
+    capture('feed_click', { target: 'category', event_id: eventId });
+    navigate(routes.category(category));
+  };
+
+  const handleAttendeesClick = (event: Event) => {
+    capture('feed_click', { target: 'attending', event_id: event.id });
+    // TODO: Navigate to attendees page when implemented
+  };
+
+  const handleLocationClick = (event: Event, secondary = false) => {
+    capture('feed_click', { target: 'location', event_id: event.id });
+    if (secondary) {
+      openMaps(`${event.location}`, event.title);
+    } else {
+      // TODO: Navigate to event location section
+    }
+  };
+
+  const handleGetTickets = (event: Event) => {
+    capture('feed_click', { target: 'tickets', event_id: event.id });
+    onEventSelect(event);
+  };
+
+  const handleDetails = (event: Event) => {
+    capture('feed_click', { target: 'details', event_id: event.id });
+    onEventSelect(event);
   };
 
   const handleScroll = (direction: 'up' | 'down') => {
@@ -201,33 +239,61 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
           {/* Event Details */}
           <div className="flex-1 mr-4 space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="secondary" className="bg-primary text-primary-foreground">
-                {currentEvent.category}
-              </Badge>
-              <Badge variant="outline" className="border-white/30 text-white">
-                {currentEvent.attendeeCount} attending
-              </Badge>
+              <button onClick={() => handleCategoryClick(currentEvent.category, currentEvent.id)}>
+                <Badge variant="secondary" className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90">
+                  {currentEvent.category}
+                </Badge>
+              </button>
+              <button onClick={() => handleAttendeesClick(currentEvent)}>
+                <Badge variant="outline" className="border-white/30 text-white cursor-pointer hover:bg-white/10">
+                  {currentEvent.attendeeCount} attending
+                </Badge>
+              </button>
             </div>
 
             <div>
-              <h2 className="mb-2 max-w-xs">{currentEvent.title}</h2>
+              <button 
+                onClick={() => {
+                  capture('feed_click', { target: 'title', event_id: currentEvent.id });
+                  onEventSelect(currentEvent);
+                }}
+                className="text-left hover:opacity-80 transition-opacity"
+              >
+                <h2 className="mb-2 max-w-xs">{currentEvent.title}</h2>
+              </button>
               <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
                 <Avatar className="w-6 h-6">
                   <AvatarFallback className="text-xs bg-white/20 text-white">
                     {currentEvent.organizer.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <span>@{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}</span>
+                <button 
+                  onClick={() => handleOrganizerClick(currentEvent)}
+                  className="hover:text-white transition-colors"
+                >
+                  @{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}
+                </button>
               </div>
               <div className="flex items-center gap-4 text-sm text-gray-300 mb-3">
-                <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => {
+                    capture('feed_click', { target: 'date', event_id: currentEvent.id });
+                    onEventSelect(currentEvent);
+                  }}
+                  className="flex items-center gap-1 hover:text-white transition-colors"
+                >
                   <Calendar className="w-4 h-4" />
                   {currentEvent.date}
-                </div>
-                <div className="flex items-center gap-1">
+                </button>
+                <button 
+                  onClick={() => handleLocationClick(currentEvent)}
+                  onAuxClick={() => handleLocationClick(currentEvent, true)}
+                  className="flex items-center gap-1 hover:text-white transition-colors"
+                  aria-label="View event location"
+                >
                   <MapPin className="w-4 h-4" />
                   {currentEvent.location}
-                </div>
+                </button>
               </div>
               <p className="text-sm text-gray-300 line-clamp-2 max-w-xs">
                 {currentEvent.description}
@@ -237,7 +303,7 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
             <div className="flex gap-2">
               <Button 
                 size="sm" 
-                onClick={() => onEventSelect(currentEvent)}
+                onClick={() => handleGetTickets(currentEvent)}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Get Tickets
@@ -245,7 +311,7 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
               <Button 
                 size="sm" 
                 variant="outline"
-                onClick={() => onEventSelect(currentEvent)}
+                onClick={() => handleDetails(currentEvent)}
                 className="border-white/30 text-white bg-white/10 hover:bg-white/20"
               >
                 Details
@@ -257,9 +323,10 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
           <div className="flex flex-col items-center gap-6 text-white">
             <button
               onClick={() => handleLike(currentEvent.id)}
-              className="flex flex-col items-center gap-1"
+              className="flex flex-col items-center gap-1 group"
+              aria-label={currentEvent.isLiked ? 'Unlike event' : 'Like event'}
             >
-              <div className={`p-3 rounded-full ${currentEvent.isLiked ? 'bg-red-500' : 'bg-white/20'} transition-colors`}>
+              <div className={`p-3 rounded-full ${currentEvent.isLiked ? 'bg-red-500' : 'bg-white/20'} transition-colors group-hover:scale-110`}>
                 <Heart 
                   className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white' : ''}`} 
                 />
@@ -267,8 +334,11 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
               <span className="text-xs">{currentEvent.likes}</span>
             </button>
 
-            <button className="flex flex-col items-center gap-1">
-              <div className="p-3 rounded-full bg-white/20">
+            <button 
+              className="flex flex-col items-center gap-1 group"
+              aria-label="View comments"
+            >
+              <div className="p-3 rounded-full bg-white/20 group-hover:scale-110 transition-transform">
                 <MessageCircle className="w-6 h-6" />
               </div>
               <span className="text-xs">42</span>
@@ -276,15 +346,19 @@ export function MainFeed({ user, onEventSelect, onCreatePost }: MainFeedProps) {
 
             <button
               onClick={() => handleShare(currentEvent)}
-              className="flex flex-col items-center gap-1"
+              className="flex flex-col items-center gap-1 group"
+              aria-label="Share event"
             >
-              <div className="p-3 rounded-full bg-white/20">
+              <div className="p-3 rounded-full bg-white/20 group-hover:scale-110 transition-transform">
                 <Share className="w-6 h-6" />
               </div>
               <span className="text-xs">{currentEvent.shares}</span>
             </button>
 
-            <button className="p-3 rounded-full bg-white/20">
+            <button 
+              className="p-3 rounded-full bg-white/20 hover:scale-110 transition-transform"
+              aria-label="More options"
+            >
               <MoreVertical className="w-6 h-6" />
             </button>
           </div>
