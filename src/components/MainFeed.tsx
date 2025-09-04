@@ -208,19 +208,19 @@ export function MainFeed({
   }, [currentIndex]);
 
   return (
-    <div className="flex-1 relative overflow-hidden bg-black">
+    <div className="flex-1 relative overflow-hidden bg-background">
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/50 to-transparent p-4">
+      <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/60 to-transparent p-4">
         <div className="flex items-center justify-between text-white">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🎪</span>
-            <span>YardPass</span>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🎪</span>
+            <span className="font-bold text-lg tracking-wide">YardPass</span>
           </div>
           <Button
             size="sm"
-            variant="secondary"
+            variant="glass"
             onClick={() => onCreatePost?.()}
-            className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+            className="font-semibold"
           >
             + Post
           </Button>
@@ -242,7 +242,7 @@ export function MainFeed({
             />
             
             {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
           </div>
         ))}
       </div>
@@ -314,38 +314,38 @@ export function MainFeed({
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button 
                 size="sm" 
                 onClick={() => handleGetTickets(currentEvent)}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg font-semibold px-6"
               >
                 Get Tickets
               </Button>
               <Button 
                 size="sm" 
-                variant="outline"
+                variant="glass"
                 onClick={() => handleDetails(currentEvent)}
-                className="border-white/30 text-white bg-white/10 hover:bg-white/20"
+                className="font-semibold px-6"
               >
                 Details
               </Button>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col items-center gap-6 text-white">
+          {/* Action Buttons - TikTok Style */}
+          <div className="flex flex-col items-center gap-4 text-white">
             <button
               onClick={() => handleLike(currentEvent.id)}
-              className="flex flex-col items-center gap-1 group"
+              className="flex flex-col items-center gap-2 group"
               aria-label={currentEvent.isLiked ? 'Unlike event' : 'Like event'}
             >
-              <div className={`p-3 rounded-full ${currentEvent.isLiked ? 'bg-red-500' : 'bg-white/20'} transition-colors group-hover:scale-110`}>
+              <div className={`action-button ${currentEvent.isLiked ? 'bg-red-500/90 border-red-400/50' : ''}`}>
                 <Heart 
-                  className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white' : ''}`} 
+                  className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white text-white' : 'text-white'}`} 
                 />
               </div>
-              <span className="text-xs">{currentEvent.likes}</span>
+              <span className="text-xs font-semibold">{currentEvent.likes}</span>
             </button>
 
             <button 
@@ -353,35 +353,35 @@ export function MainFeed({
                 capture('feed_click', { target: 'comment', event_id: currentEvent.id });
                 onEventClick?.(currentEvent.id);
               }}
-              className="flex flex-col items-center gap-1 group"
+              className="flex flex-col items-center gap-2 group"
               aria-label="View comments"
             >
-              <div className="p-3 rounded-full bg-white/20 group-hover:scale-110 transition-transform">
-                <MessageCircle className="w-6 h-6" />
+              <div className="action-button">
+                <MessageCircle className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs">42</span>
+              <span className="text-xs font-semibold">42</span>
             </button>
 
             <button
               onClick={() => handleShare(currentEvent)}
-              className="flex flex-col items-center gap-1 group"
+              className="flex flex-col items-center gap-2 group"
               aria-label="Share event"
             >
-              <div className="p-3 rounded-full bg-white/20 group-hover:scale-110 transition-transform">
-                <Share className="w-6 h-6" />
+              <div className="action-button">
+                <Share className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs">{currentEvent.shares}</span>
+              <span className="text-xs font-semibold">{currentEvent.shares}</span>
             </button>
 
             <button 
               onClick={() => onCreatePost?.(currentEvent.id)}
-              className="flex flex-col items-center gap-1 group"
+              className="flex flex-col items-center gap-2 group"
               aria-label="Create post"
             >
-              <div className="p-3 rounded-full bg-primary/80 group-hover:scale-110 transition-transform">
-                <Plus className="w-6 h-6" />
+              <div className="action-button-primary">
+                <Plus className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs">Post</span>
+              <span className="text-xs font-semibold">Post</span>
             </button>
           </div>
         </div>

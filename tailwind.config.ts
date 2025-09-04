@@ -61,12 +61,31 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				/* Mango Sand additions */
+				success: 'hsl(var(--success))',
+				warning: 'hsl(var(--warning))',
+				info: 'hsl(var(--info))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				sm: 'calc(var(--radius) - 4px)',
+				pill: 'var(--radius-pill)'
+			},
+			boxShadow: {
+				card: 'var(--shadow-card)',
+				rail: 'var(--shadow-rail)'
+			},
+			backdropBlur: {
+				'glass': '12px'
+			},
+			transitionTimingFunction: {
+				'mango': 'cubic-bezier(0.2, 0.8, 0.2, 1)'
+			},
+			transitionDuration: {
+				'fast': '150ms',
+				'base': '200ms'
 			},
 			keyframes: {
 				'accordion-down': {

@@ -187,7 +187,7 @@ export default function Navigation({ userRole }: NavigationProps) {
   ].filter(item => item.show);
 
   return (
-    <div className="bg-card border-t border-border px-4 py-2 flex items-center justify-around">
+    <div className="floating-nav px-4 py-3 flex items-center justify-around">
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = location.pathname === item.path;
@@ -196,14 +196,14 @@ export default function Navigation({ userRole }: NavigationProps) {
           <button
             key={item.id}
             onClick={() => handleNavigation(item.path, item.id)}
-            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-200 active:scale-95 ${
               isActive 
-                ? 'text-primary bg-primary/10' 
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                ? 'text-primary bg-primary/15 shadow-sm' 
+                : 'text-muted-foreground hover:text-primary hover:bg-accent/50'
             }`}
           >
             <Icon className="w-5 h-5" />
-            <span className="text-xs">{item.label}</span>
+            <span className="text-xs font-medium">{item.label}</span>
           </button>
         );
       })}
