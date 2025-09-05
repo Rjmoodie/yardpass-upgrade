@@ -197,6 +197,65 @@ export type Database = {
           },
         ]
       }
+      event_video_counters: {
+        Row: {
+          avg_dwell_ms: number | null
+          clicks_comment: number | null
+          clicks_details: number | null
+          clicks_organizer: number | null
+          clicks_share: number | null
+          clicks_tickets: number | null
+          comments: number | null
+          completions: number | null
+          event_id: string
+          likes: number | null
+          shares: number | null
+          updated_at: string | null
+          views_total: number | null
+          views_unique: number | null
+        }
+        Insert: {
+          avg_dwell_ms?: number | null
+          clicks_comment?: number | null
+          clicks_details?: number | null
+          clicks_organizer?: number | null
+          clicks_share?: number | null
+          clicks_tickets?: number | null
+          comments?: number | null
+          completions?: number | null
+          event_id: string
+          likes?: number | null
+          shares?: number | null
+          updated_at?: string | null
+          views_total?: number | null
+          views_unique?: number | null
+        }
+        Update: {
+          avg_dwell_ms?: number | null
+          clicks_comment?: number | null
+          clicks_details?: number | null
+          clicks_organizer?: number | null
+          clicks_share?: number | null
+          clicks_tickets?: number | null
+          comments?: number | null
+          completions?: number | null
+          event_id?: string
+          likes?: number | null
+          shares?: number | null
+          updated_at?: string | null
+          views_total?: number | null
+          views_unique?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_video_counters_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           address: string | null
@@ -535,6 +594,93 @@ export type Database = {
           id?: string
           payouts_enabled?: boolean | null
           stripe_connect_id?: string | null
+        }
+        Relationships: []
+      }
+      post_clicks: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          id: string
+          ip_address: unknown | null
+          post_id: string
+          session_id: string | null
+          source: string | null
+          target: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          id?: string
+          ip_address?: unknown | null
+          post_id: string
+          session_id?: string | null
+          source?: string | null
+          target: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          id?: string
+          ip_address?: unknown | null
+          post_id?: string
+          session_id?: string | null
+          source?: string | null
+          target?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      post_views: {
+        Row: {
+          completed: boolean | null
+          created_at: string | null
+          dwell_ms: number | null
+          event_id: string
+          id: string
+          ip_address: unknown | null
+          post_id: string
+          qualified: boolean | null
+          session_id: string | null
+          source: string | null
+          user_agent: string | null
+          user_id: string | null
+          watch_percentage: number | null
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string | null
+          dwell_ms?: number | null
+          event_id: string
+          id?: string
+          ip_address?: unknown | null
+          post_id: string
+          qualified?: boolean | null
+          session_id?: string | null
+          source?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          watch_percentage?: number | null
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string | null
+          dwell_ms?: number | null
+          event_id?: string
+          id?: string
+          ip_address?: unknown | null
+          post_id?: string
+          qualified?: boolean | null
+          session_id?: string | null
+          source?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          watch_percentage?: number | null
         }
         Relationships: []
       }
