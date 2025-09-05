@@ -109,7 +109,7 @@ serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: lineItems,
       mode: "payment",
-      success_url: `${req.headers.get("origin")}/tickets?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${req.headers.get("origin")}/ticket-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.get("origin")}/events/${eventId}`,
       metadata: {
         event_id: eventId,

@@ -36,7 +36,7 @@ serve(async (req) => {
       .from('tickets')
       .select(`
         *,
-        events (
+        events!event_id (
           id,
           title,
           start_at,
@@ -46,12 +46,12 @@ serve(async (req) => {
           address,
           cover_image_url
         ),
-        ticket_tiers (
+        ticket_tiers!tier_id (
           name,
           badge_label,
           price_cents
         ),
-        orders (
+        orders!order_id (
           total_cents,
           created_at
         )

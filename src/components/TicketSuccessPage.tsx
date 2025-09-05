@@ -177,7 +177,7 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
                 Back to Events
               </Button>
               <Button 
-                onClick={onViewTickets || (() => {})} 
+                onClick={onViewTickets || (() => window.location.href = '/tickets')} 
                 className="flex-1"
               >
                 <Ticket className="w-4 h-4 mr-2" />

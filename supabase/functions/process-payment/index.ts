@@ -1,20 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
-
-interface ProcessPaymentRequest {
-  sessionId: string;
-}
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[PROCESS-PAYMENT] ${step}${detailsStr}`);
-};
-
-const generateQRCode = (ticketId: string): string => {
-  // Generate a simple QR code identifier
-  return `YARD_${ticketId.replace(/-/g, '').toUpperCase().slice(0, 12)}`;
 };
 
 serve(async (req) => {
@@ -24,122 +14,116 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+    const { sessionId } = await req.json();
+    if (!sessionId) {
+      throw new Error("sessionId is required");
+    }
+    logStep("Session ID provided", { sessionId });
 
-    // Create Supabase service client (bypass RLS)
+    // Create Supabase service client
     const supabaseService = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
 
-    const { sessionId }: ProcessPaymentRequest = await req.json();
-    logStep("Request data parsed", { sessionId });
-
-    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
-
-    // Retrieve the checkout session
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    logStep("Session retrieved", { status: session.payment_status });
-
-    if (session.payment_status !== 'paid') {
-      throw new Error(`Payment not completed. Status: ${session.payment_status}`);
-    }
-
-    // Find the order
+    // Find the order by session ID
     const { data: order, error: orderError } = await supabaseService
       .from("orders")
-      .select("*")
+      .select(`
+        *,
+        events (
+          title
+        )
+      `)
       .eq("stripe_session_id", sessionId)
       .single();
 
-    if (orderError) throw new Error(`Order not found: ${orderError.message}`);
+    if (orderError) {
+      logStep("Order not found", { error: orderError.message });
+      throw new Error("Order not found");
+    }
+
     logStep("Order found", { orderId: order.id, status: order.status });
 
-    // Skip if already processed
+    // If already paid, return success
     if (order.status === 'paid') {
-      logStep("Order already processed");
-      return createResponse({ 
-        success: true, 
-        message: "Order already processed" 
+      const { data: tickets } = await supabaseService
+        .from("tickets")
+        .select("id")
+        .eq("order_id", order.id);
+
+      return createResponse({
+        order: {
+          id: order.id,
+          event_title: order.events?.title || "Event",
+          tickets_count: tickets?.length || 0,
+          total_amount: order.total_cents / 100,
+          status: 'paid'
+        }
       });
     }
 
-    // Update order status
-    const { error: updateOrderError } = await supabaseService
+    // Mark order as paid and create tickets
+    const { error: updateError } = await supabaseService
       .from("orders")
       .update({
-        status: "paid",
-        paid_at: new Date().toISOString(),
-        stripe_payment_intent_id: session.payment_intent
+        status: 'paid',
+        paid_at: new Date().toISOString()
       })
       .eq("id", order.id);
 
-    if (updateOrderError) throw new Error(`Order update failed: ${updateOrderError.message}`);
-    logStep("Order updated to paid");
+    if (updateError) {
+      logStep("Failed to update order", { error: updateError.message });
+      throw new Error("Failed to update order status");
+    }
 
-    // Get order items
+    // Create tickets based on order items
     const { data: orderItems, error: itemsError } = await supabaseService
       .from("order_items")
-      .select(`
-        *,
-        ticket_tiers (
-          id,
-          name,
-          badge_label,
-          event_id
-        )
-      `)
+      .select("*")
       .eq("order_id", order.id);
 
-    if (itemsError) throw new Error(`Order items not found: ${itemsError.message}`);
-    logStep("Order items found", { count: orderItems.length });
+    if (itemsError) {
+      logStep("Failed to fetch order items", { error: itemsError.message });
+      throw new Error("Failed to fetch order items");
+    }
 
-    // Create tickets
-    const tickets = [];
-    for (const item of orderItems) {
+    const ticketsToCreate = [];
+    for (const item of orderItems || []) {
       for (let i = 0; i < item.quantity; i++) {
-        const ticketId = crypto.randomUUID();
-        const qrCode = generateQRCode(ticketId);
-        
-        tickets.push({
-          id: ticketId,
-          event_id: item.ticket_tiers.event_id,
+        ticketsToCreate.push({
+          event_id: order.event_id,
           tier_id: item.tier_id,
-          owner_user_id: order.user_id,
           order_id: order.id,
-          qr_code: qrCode,
-          status: "issued"
+          owner_user_id: order.user_id,
+          qr_code: `ticket_${order.id}_${item.tier_id}_${Date.now()}_${i}`,
+          status: 'issued'
         });
       }
     }
 
     const { error: ticketsError } = await supabaseService
       .from("tickets")
-      .insert(tickets);
+      .insert(ticketsToCreate);
 
-    if (ticketsError) throw new Error(`Tickets creation failed: ${ticketsError.message}`);
-    logStep("Tickets created", { count: tickets.length });
-
-    // Get event details for confirmation
-    const { data: event, error: eventError } = await supabaseService
-      .from("events")
-      .select("title")
-      .eq("id", orderItems[0].ticket_tiers.event_id)
-      .single();
-
-    if (eventError) {
-      logStep("Could not fetch event details", { error: eventError.message });
+    if (ticketsError) {
+      logStep("Failed to create tickets", { error: ticketsError.message });
+      throw new Error("Failed to create tickets");
     }
 
+    logStep("Payment processed successfully", { 
+      orderId: order.id, 
+      ticketsCreated: ticketsToCreate.length 
+    });
+
     return createResponse({
-      success: true,
       order: {
         id: order.id,
-        event_title: event?.title || "Event",
-        tickets_count: tickets.length,
-        total_amount: order.total_cents / 100
+        event_title: order.events?.title || "Event",
+        tickets_count: ticketsToCreate.length,
+        total_amount: order.total_cents / 100,
+        status: 'paid'
       }
     });
   } catch (error) {
