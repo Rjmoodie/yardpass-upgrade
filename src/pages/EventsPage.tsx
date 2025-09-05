@@ -186,6 +186,19 @@ export default function EventsPage() {
     }
   };
 
+  const handleOrganizerClick = () => {
+    if (!event) return;
+    
+    if (event.owner_context_type === 'organization') {
+      // Navigate to organization profile
+      navigate(`/org/${event.owner_context_id}`);
+    } else {
+      // For individual users, we need to get their username/handle
+      // For now, we'll use their user ID and let UserProfilePage handle it
+      navigate(`/u/${event.created_by}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
@@ -255,13 +268,18 @@ export default function EventsPage() {
           </div>
           <h1 className="text-2xl font-bold mb-2">{event.title}</h1>
           <div className="flex items-center gap-2 text-sm">
-            <Avatar className="w-6 h-6">
-              <AvatarImage src={getOrganizerPhoto()} />
-              <AvatarFallback className="text-xs bg-white/20 text-white">
-                {getOrganizerName().charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <span>by {getOrganizerName()}</span>
+            <button 
+              onClick={handleOrganizerClick}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
+              <Avatar className="w-6 h-6">
+                <AvatarImage src={getOrganizerPhoto()} />
+                <AvatarFallback className="text-xs bg-white/20 text-white">
+                  {getOrganizerName().charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <span>by {getOrganizerName()}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -327,16 +345,19 @@ export default function EventsPage() {
                 <div>
                   <h3 className="font-semibold mb-2">Organizer</h3>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <button 
+                      onClick={handleOrganizerClick}
+                      className="flex items-center gap-3 hover:bg-muted/50 p-2 rounded-lg transition-colors flex-1 mr-3"
+                    >
                       <Avatar>
                         <AvatarImage src={getOrganizerPhoto()} />
                         <AvatarFallback>{getOrganizerName().charAt(0)}</AvatarFallback>
                       </Avatar>
-                      <div>
+                      <div className="text-left">
                         <div className="font-medium">{getOrganizerName()}</div>
                         <div className="text-xs text-muted-foreground">Event Organizer</div>
                       </div>
-                    </div>
+                    </button>
                     <Button variant="outline" size="sm">Follow</Button>
                   </div>
                 </div>

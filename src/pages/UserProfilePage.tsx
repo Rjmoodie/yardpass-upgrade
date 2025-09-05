@@ -75,13 +75,20 @@ export default function UserProfilePage() {
     try {
       setLoading(true);
       
-      // First, try to find user by display_name (since we don't have usernames yet)
-      // This is a temporary solution until proper usernames are implemented
-      const { data: profiles, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .ilike('display_name', `%${username}%`)
-        .limit(1);
+      // Check if username looks like a UUID (user ID) or is an actual username
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(username!);
+      
+      let query = supabase.from('user_profiles').select('*');
+      
+      if (isUUID) {
+        // Search by user_id if it's a UUID
+        query = query.eq('user_id', username);
+      } else {
+        // Search by display_name if it's a username (fallback for existing behavior)
+        query = query.ilike('display_name', `%${username}%`);
+      }
+      
+      const { data: profiles, error: profileError } = await query.limit(1);
 
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
