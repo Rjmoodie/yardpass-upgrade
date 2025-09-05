@@ -76,29 +76,35 @@ export function useOrganizerAnalytics() {
         });
       }
 
-      // First check if there are any events at all
-      const { data: allEvents, error: allEventsError } = await supabase
-        .from('events')
-        .select('id, title, owner_context_type, owner_context_id, created_by')
-        .limit(10);
-
-      console.log('All events (limited):', { allEvents, allEventsError });
-
-      // Get user's org memberships to query org-owned events
-      const { data: orgMemberships } = await supabase
+      // 1) Org memberships (collect org ids)
+      const { data: orgMemberships, error: orgErr } = await supabase
         .from('org_memberships')
         .select('org_id')
         .eq('user_id', user.id);
 
-      const orgIds = orgMemberships?.map(m => m.org_id) || [];
+      if (orgErr) {
+        console.error('Org memberships error:', orgErr);
+      }
+      const orgIds = (orgMemberships?.map(m => m.org_id) ?? []).filter(Boolean);
 
-      // Query events owned by user (individual) OR by their organizations
+      // Helper to build ownership filter safely
+      const ownerFilters: string[] = [
+        `and(owner_context_type.eq.individual,owner_context_id.eq.${user.id})`,
+      ];
+      if (orgIds.length) {
+        ownerFilters.push(
+          `and(owner_context_type.eq.organization,owner_context_id.in.(${orgIds.join(',')}))`
+        );
+      }
+      const ownershipOr = `(${ownerFilters.join(',')})`;
+
+      // 2) Quick existence probe
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select('id, title, created_at, start_at, end_at, completed_at, owner_context_type, owner_context_id, created_by')
-        .or(`and(owner_context_type.eq.individual,owner_context_id.eq.${user.id}),and(owner_context_type.eq.organization,owner_context_id.in.(${orgIds.join(',')}))`);
+        .or(ownershipOr);
 
-      console.log('Events query result:', { events, eventsError, userId: user.id, orgIds, ownerContextTypes: ['individual', 'organization'] });
+      console.log('Events query result:', { events, eventsError, userId: user.id, orgIds });
 
       if (eventsError) {
         console.error('Events query error:', eventsError);
@@ -106,7 +112,7 @@ export function useOrganizerAnalytics() {
         return;
       }
 
-      // Now fetch detailed analytics with proper foreign key relationships
+      // 3) Detailed analytics with explicit FKs for ALL embeds
       const { data: detailedEvents, error: detailedError } = await supabase
         .from('events')
         .select(`
@@ -116,40 +122,53 @@ export function useOrganizerAnalytics() {
           start_at,
           end_at,
           completed_at,
-          orders!orders_event_id_fkey(
+
+          orders:orders!orders_event_id_fkey (
             id,
             total_cents,
             status,
-            order_items!order_items_order_id_fkey(quantity)
+            order_items:order_items!order_items_order_id_fkey ( quantity )
           ),
-          tickets!tickets_event_id_fkey(
+
+          tickets:tickets!tickets_event_id_fkey (
             id,
             status,
             redeemed_at
           ),
-          event_posts!event_posts_event_id_fkey(
+
+          event_posts:event_posts!event_posts_event_id_fkey (
             id,
-            event_reactions!event_reactions_post_id_fkey(kind)
+            event_reactions:event_reactions!event_reactions_post_id_fkey ( kind )
           ),
-          scan_logs!scan_logs_event_id_fkey(
+
+          scan_logs:scan_logs!scan_logs_event_id_fkey (
             id,
             result
           )
         `)
-        .or(`and(owner_context_type.eq.individual,owner_context_id.eq.${user.id}),and(owner_context_type.eq.organization,owner_context_id.in.(${orgIds.join(',')}))`);
+        .or(ownershipOr);
 
       console.log('Detailed events result:', { detailedEvents, detailedError });
 
-      // Process event analytics with complex data
-      const processedAnalytics: EventAnalytics[] = (detailedEvents || events)?.map((event: any) => {
-        const paidOrders = event.orders?.filter((o: any) => o.status === 'paid') || [];
-        const totalRevenue = paidOrders.reduce((sum: number, order: any) => sum + (order.total_cents || 0), 0) / 100;
-        const ticketSales = paidOrders.reduce((sum: number, order: any) => 
-          sum + (order.order_items?.reduce((itemSum: number, item: any) => itemSum + (item.quantity || 0), 0) || 0), 0);
-        
-        const checkIns = event.scan_logs?.filter((log: any) => log.result === 'valid').length || 0;
-        
-        const reactions = event.event_posts?.flatMap((post: any) => post.event_reactions || []) || [];
+      if (detailedError) {
+        console.error('Detailed analytics error:', detailedError);
+      }
+
+      // 4) Process analytics with complex data
+      const source = detailedEvents ?? events ?? [];
+      const processedAnalytics: EventAnalytics[] = source.map((event: any) => {
+        const paidOrders = (event.orders ?? []).filter((o: any) => o.status === 'paid');
+        const totalRevenue = paidOrders.reduce((sum: number, o: any) => sum + (o.total_cents || 0), 0) / 100;
+
+        const ticketSales = paidOrders.reduce(
+          (sum: number, o: any) =>
+            sum + (o.order_items?.reduce((acc: number, it: any) => acc + (it.quantity || 0), 0) || 0),
+          0
+        );
+
+        const checkIns = (event.scan_logs ?? []).filter((log: any) => log.result === 'valid').length;
+
+        const reactions = (event.event_posts ?? []).flatMap((p: any) => p.event_reactions ?? []);
         const likes = reactions.filter((r: any) => r.kind === 'like').length;
         const comments = reactions.filter((r: any) => r.kind === 'comment').length;
         const shares = reactions.filter((r: any) => r.kind === 'share').length;
@@ -172,7 +191,7 @@ export function useOrganizerAnalytics() {
             amount: 0
           }
         };
-      }) || [];
+      });
 
       console.log('Processed analytics:', processedAnalytics);
       setEventAnalytics(processedAnalytics);
