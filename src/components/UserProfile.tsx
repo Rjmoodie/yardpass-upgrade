@@ -331,6 +331,7 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                   <p className="text-sm">Discover and attend amazing events!</p>
                 </div>
               )}
+            </div>
           </TabsContent>
 
           <TabsContent value="badges" className="p-4 space-y-4">
