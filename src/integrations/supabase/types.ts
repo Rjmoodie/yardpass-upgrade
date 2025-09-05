@@ -943,7 +943,25 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      event_video_kpis_daily: {
+        Row: {
+          avg_dwell_ms: number | null
+          clicks_comment: number | null
+          clicks_details: number | null
+          clicks_organizer: number | null
+          clicks_share: number | null
+          clicks_tickets: number | null
+          comments: number | null
+          completions: number | null
+          d: string | null
+          event_id: string | null
+          likes: number | null
+          shares: number | null
+          views_total: number | null
+          views_unique: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_current_user_post: {
@@ -1052,6 +1070,10 @@ export type Database = {
         Returns: boolean
       }
       refresh_analytics_views: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      refresh_video_analytics: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
