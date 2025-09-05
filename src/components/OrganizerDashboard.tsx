@@ -115,7 +115,7 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
   const totalAttendees = overallAnalytics?.total_attendees || userEvents.reduce((sum, event) => sum + (event.attendees || 0), 0);
   const totalEvents = overallAnalytics?.total_events || userEvents.length;
   const completedEvents = overallAnalytics?.completed_events || 0;
-  const totalViews = eventAnalytics.reduce((sum, event) => sum + ((event as any).views || 0), 0) || userEvents.reduce((sum, event) => sum + (event.views || 0), 0);
+  const totalViews = eventAnalytics.reduce((sum, event) => sum + event.total_views, 0) || userEvents.reduce((sum, event) => sum + (event.views || 0), 0);
 
   return (
     <div className="min-h-0 flex flex-col w-full">
@@ -125,7 +125,7 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h1>Organizer Dashboard</h1>
-              <VerificationBadge status={(profile?.verification_status === 'pending' ? 'none' : profile?.verification_status) || 'none'} />
+              <VerificationBadge status={profile?.verification_status || 'none'} />
             </div>
             <p className="text-sm text-muted-foreground">Welcome back, {user.name}</p>
           </div>

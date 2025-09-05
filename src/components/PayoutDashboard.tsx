@@ -51,21 +51,58 @@ export function PayoutDashboard() {
 
     setLoading(true);
     try {
-      // Fetch payout accounts instead of non-existent payouts table
-      const { data: payoutAccountData, error: payoutAccountError } = await supabase
-        .from('payout_accounts')
-        .select('*')
-        .eq('context_id', user.id)
-        .eq('context_type', 'individual')
-        .single();
+      // Fetch payout history
+      const { data: payoutData, error: payoutError } = await supabase
+        .from('payouts')
+        .select(`
+          id,
+          amount_cents,
+          status,
+          created_at,
+          processed_at,
+          payment_method,
+          events!fk_payouts_event_id (
+            title
+          )
+        `)
+        .eq('organizer_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-      if (payoutAccountError && payoutAccountError.code !== 'PGRST116') {
-        console.error('Error fetching payout account:', payoutAccountError);
+      if (payoutError) {
+        console.error('Error fetching payouts:', payoutError);
+        // Use mock data as fallback
+        setPayouts(getMockPayouts());
+        setStats(getMockStats());
+      } else {
+        const transformedPayouts = payoutData?.map(payout => ({
+          id: payout.id,
+          amount: payout.amount_cents / 100,
+          status: payout.status,
+          created_at: payout.created_at,
+          processed_at: payout.processed_at,
+          method: payout.payment_method,
+          event_title: (payout.events as any)?.title || 'Event'
+        })) || [];
+
+        setPayouts(transformedPayouts);
+
+        // Calculate stats
+        const totalEarned = transformedPayouts.reduce((sum, p) => sum + p.amount, 0);
+        const totalPaid = transformedPayouts
+          .filter(p => p.status === 'completed')
+          .reduce((sum, p) => sum + p.amount, 0);
+        const pendingAmount = transformedPayouts
+          .filter(p => p.status === 'pending' || p.status === 'processing')
+          .reduce((sum, p) => sum + p.amount, 0);
+
+        setStats({
+          total_earned: totalEarned,
+          total_paid: totalPaid,
+          pending_amount: pendingAmount,
+          next_payout_date: getNextPayoutDate()
+        });
       }
-
-      // For now, use mock data since payout history isn't in current schema
-      setPayouts(getMockPayouts());
-      setStats(getMockStats());
     } catch (error) {
       console.error('Error fetching payout data:', error);
       toast({
