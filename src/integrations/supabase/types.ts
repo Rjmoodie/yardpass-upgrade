@@ -273,7 +273,22 @@ export type Database = {
           venue?: string | null
           visibility?: Database["public"]["Enums"]["event_visibility"] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "events_owner_context_id_fkey"
+            columns: ["owner_context_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kv_store_d42c04e8: {
         Row: {
