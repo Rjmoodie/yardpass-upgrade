@@ -47,6 +47,13 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "cultural_guides_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
         ]
       }
       event_comments: {
@@ -74,6 +81,13 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "event_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_comments_post_id"
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "event_posts"
@@ -121,6 +135,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_posts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_posts_ticket_tier_id_fkey"
             columns: ["ticket_tier_id"]
             isOneToOne: false
@@ -132,6 +153,20 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_posts_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_posts_ticket_tier_id"
+            columns: ["ticket_tier_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tiers"
             referencedColumns: ["id"]
           },
         ]
@@ -158,6 +193,13 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "event_reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_reactions_post_id"
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "event_posts"
@@ -193,6 +235,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_scanners_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
             referencedColumns: ["id"]
           },
         ]
@@ -252,6 +301,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: true
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_video_counters_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events_enhanced"
             referencedColumns: ["id"]
           },
         ]
@@ -484,10 +540,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_orders_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orders_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
             referencedColumns: ["id"]
           },
         ]
@@ -756,10 +826,83 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "scan_logs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "scan_logs_ticket_id_fkey"
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_logs_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets_enhanced"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_analytics: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_analytics_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_analytics_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_analytics_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_analytics_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets_enhanced"
             referencedColumns: ["id"]
           },
         ]
@@ -819,10 +962,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_ticket_tiers_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ticket_tiers_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_tiers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
             referencedColumns: ["id"]
           },
         ]
@@ -873,6 +1030,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_tickets_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_tickets_tier_id"
             columns: ["tier_id"]
             isOneToOne: false
@@ -884,6 +1048,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
             referencedColumns: ["id"]
           },
           {
@@ -961,6 +1132,133 @@ export type Database = {
           views_unique: number | null
         }
         Relationships: []
+      }
+      events_enhanced: {
+        Row: {
+          address: string | null
+          attendee_count: number | null
+          category: string | null
+          city: string | null
+          completed_at: string | null
+          country: string | null
+          cover_image_url: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          end_at: string | null
+          hold_payout_until_end: boolean | null
+          id: string | null
+          lat: number | null
+          likes: number | null
+          lng: number | null
+          max_price: number | null
+          min_price: number | null
+          owner_context_id: string | null
+          owner_context_type:
+            | Database["public"]["Enums"]["owner_context"]
+            | null
+          post_count: number | null
+          refund_cutoff_days: number | null
+          shares: number | null
+          slug: string | null
+          start_at: string | null
+          tier_count: number | null
+          timezone: string | null
+          title: string | null
+          venue: string | null
+          visibility: Database["public"]["Enums"]["event_visibility"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "events_owner_context_id_fkey"
+            columns: ["owner_context_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets_enhanced: {
+        Row: {
+          badge: string | null
+          cover_image: string | null
+          created_at: string | null
+          event_date: string | null
+          event_id: string | null
+          event_location: string | null
+          event_time: string | null
+          event_title: string | null
+          id: string | null
+          order_date: string | null
+          order_id: string | null
+          organizer_name: string | null
+          owner_user_id: string | null
+          price: number | null
+          qr_code: string | null
+          redeemed_at: string | null
+          status: Database["public"]["Enums"]["ticket_status"] | null
+          ticket_type: string | null
+          tier_id: string | null
+          wallet_pass_url: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_tickets_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_tickets_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_tickets_tier_id"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
