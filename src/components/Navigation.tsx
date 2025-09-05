@@ -200,7 +200,7 @@ export default function Navigation({ userRole }: NavigationProps) {
             aria-current={isActive ? 'page' : undefined}
             role="tab"
             tabIndex={0}
-            className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 active:scale-95 ${
+            className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 active:scale-95 min-h-[56px] min-w-[56px] touch-manipulation ${
               isActive 
                 ? 'text-primary bg-primary/20 backdrop-blur-sm border border-primary/30 shadow-lg golden-glow scale-110' 
                 : 'text-muted-foreground hover:text-primary hover:bg-white/10 hover:backdrop-blur-sm hover:border hover:border-white/20 hover:scale-105'

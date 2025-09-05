@@ -458,7 +458,7 @@ export function MainFeed({
                 size="lg" 
                 variant="premium"
                 onClick={() => handleGetTickets(currentEvent)}
-                className="px-8 py-3 text-base font-bold"
+                className="px-8 py-3 text-base font-bold min-h-[48px] shadow-lg"
               >
                 Get Tickets
               </Button>
@@ -466,7 +466,7 @@ export function MainFeed({
                 size="lg" 
                 variant="glass"
                 onClick={() => handleDetails(currentEvent)}
-                className="px-8 py-3 text-base font-semibold"
+                className="px-8 py-3 text-base font-semibold min-h-[48px] backdrop-blur-md"
               >
                 Details
               </Button>
@@ -478,7 +478,7 @@ export function MainFeed({
             {/* Like Button */}
             <button
               onClick={() => handleLike(currentEvent.id)}
-              className="action-button action-button-like group"
+              className="action-button action-button-like group min-h-[56px] min-w-[56px] touch-manipulation"
             >
               <Heart 
                 className={`w-7 h-7 transition-all duration-300 ${
@@ -488,7 +488,7 @@ export function MainFeed({
                 }`} 
                 strokeWidth={1.5}
               />
-              <span className="absolute -bottom-8 text-white text-sm font-semibold">
+              <span className="absolute -bottom-8 text-white text-sm font-semibold drop-shadow-lg">
                 {currentEvent.likes > 999 ? `${(currentEvent.likes/1000).toFixed(1)}K` : `${currentEvent.likes}`}
               </span>
             </button>
@@ -500,13 +500,13 @@ export function MainFeed({
                 // Open comments modal instead of navigating away
                 notify("Comments feature coming soon!");
               }}
-              className="action-button action-button-comment group"
+              className="action-button action-button-comment group min-h-[56px] min-w-[56px] touch-manipulation"
             >
               <MessageCircle 
                 className="w-7 h-7 text-white group-hover:scale-110 transition-all duration-300" 
                 strokeWidth={1.5}
               />
-              <span className="absolute -bottom-8 text-white text-sm font-semibold">7.8K</span>
+              <span className="absolute -bottom-8 text-white text-sm font-semibold drop-shadow-lg">7.8K</span>
             </button>
 
             {/* Bookmark Button */}
@@ -514,25 +514,25 @@ export function MainFeed({
               onClick={() => {
                 capture('feed_click', { target: 'bookmark', event_id: currentEvent.id });
               }}
-              className="action-button action-button-bookmark group"
+              className="action-button action-button-bookmark group min-h-[56px] min-w-[56px] touch-manipulation"
             >
               <Bookmark 
                 className="w-7 h-7 text-white group-hover:scale-110 transition-all duration-300" 
                 strokeWidth={1.5}
               />
-              <span className="absolute -bottom-8 text-white text-sm font-semibold">70K</span>
+              <span className="absolute -bottom-8 text-white text-sm font-semibold drop-shadow-lg">70K</span>
             </button>
 
             {/* Share Button */}
             <button
               onClick={() => handleShare(currentEvent)}
-              className="action-button action-button-share group"
+              className="action-button action-button-share group min-h-[56px] min-w-[56px] touch-manipulation"
             >
               <Share 
                 className="w-7 h-7 text-white group-hover:scale-110 transition-all duration-300" 
                 strokeWidth={1.5}
               />
-              <span className="absolute -bottom-8 text-white text-sm font-semibold">
+              <span className="absolute -bottom-8 text-white text-sm font-semibold drop-shadow-lg">
                 {currentEvent.shares > 999 ? `${(currentEvent.shares/1000).toFixed(1)}K` : currentEvent.shares}
               </span>
             </button>
@@ -540,7 +540,7 @@ export function MainFeed({
             {/* Creator Profile Pic */}
             <button 
               onClick={() => onCreatePost?.(currentEvent.id)}
-              className="relative mt-6 group"
+              className="relative mt-6 group min-h-[64px] min-w-[64px] touch-manipulation"
             >
               <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white/30 backdrop-blur-sm bg-white/10 group-hover:border-primary/50 transition-all duration-300">
                 <Avatar className="w-full h-full">

@@ -415,10 +415,10 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             <span>YardPass</span>
           </div>
           <Button
-            size="sm"
-            variant="secondary"
+            size="lg"
+            variant="glass"
             onClick={() => requireAuth(() => onCreatePost(), "Please sign in to create content")}
-            className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+            className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[44px] px-4 font-semibold backdrop-blur-md shadow-lg"
           >
             + Create Event
           </Button>
@@ -536,28 +536,29 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button 
-                size="sm" 
+                size="lg" 
+                variant="premium"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   handleGetTickets();
                 }}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 z-30 relative"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 z-30 relative min-h-[48px] px-6 font-bold shadow-lg"
                 style={{ pointerEvents: 'auto' }}
               >
                 Get Tickets
               </Button>
               <Button 
-                size="sm" 
-                variant="outline"
+                size="lg" 
+                variant="glass"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   handleEventDetails();
                 }}
-                className="border-white/30 text-white bg-white/10 hover:bg-white/20 z-30 relative"
+                className="border-white/30 text-white bg-white/10 hover:bg-white/20 z-30 relative min-h-[48px] px-6 font-semibold backdrop-blur-md"
                 style={{ pointerEvents: 'auto' }}
               >
                 Details
@@ -573,7 +574,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 e.stopPropagation();
                 handleLike(currentEvent.id);
               }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[56px] min-w-[56px] p-2 touch-manipulation"
               style={{ 
                 touchAction: 'manipulation',
                 pointerEvents: 'auto',
@@ -582,7 +583,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             >
               <div className={`p-3 rounded-full transition-all duration-200 ${
                 currentEvent.isLiked 
-                  ? 'bg-red-500 shadow-lg shadow-red-500/30' 
+                  ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-110' 
                   : 'bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20'
               }`}>
                 <Heart 
@@ -591,7 +592,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                   }`} 
                 />
               </div>
-              <span className="text-xs font-medium">{currentEvent.likes}</span>
+              <span className="text-xs font-medium text-white drop-shadow-lg">{currentEvent.likes}</span>
             </button>
 
             <button 
@@ -600,7 +601,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 e.stopPropagation();
                 handleComment();
               }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[56px] min-w-[56px] p-2 touch-manipulation"
               style={{ 
                 touchAction: 'manipulation',
                 pointerEvents: 'auto',
@@ -610,7 +611,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
                 <MessageCircle className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs font-medium">
+              <span className="text-xs font-medium text-white drop-shadow-lg">
                 {currentEvent.posts?.length || 0}
               </span>
             </button>
@@ -621,17 +622,17 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 e.stopPropagation();
                 requireAuth(() => setPostCreatorOpen(true), "Please sign in to create posts");
               }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[56px] min-w-[56px] p-2 touch-manipulation"
               style={{ 
                 touchAction: 'manipulation',
                 pointerEvents: 'auto',
                 backgroundColor: 'transparent'
               }}
             >
-              <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200">
+              <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200 shadow-lg">
                 <Plus className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs font-medium">Post</span>
+              <span className="text-xs font-medium text-white drop-shadow-lg">Post</span>
             </button>
 
             <button
@@ -640,7 +641,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 e.stopPropagation();
                 handleShare(currentEvent);
               }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[44px] min-w-[44px] p-2"
+              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[56px] min-w-[56px] p-2 touch-manipulation"
               style={{ 
                 touchAction: 'manipulation',
                 pointerEvents: 'auto',
@@ -650,7 +651,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
                 <Share className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs font-medium">{currentEvent.shares}</span>
+              <span className="text-xs font-medium text-white drop-shadow-lg">{currentEvent.shares}</span>
             </button>
 
             <button 
@@ -659,7 +660,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
                 e.stopPropagation();
                 handleMoreOptions();
               }}
-              className="transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px]"
+              className="transition-transform active:scale-95 z-20 relative min-h-[56px] min-w-[56px] p-2 touch-manipulation"
               style={{ touchAction: 'manipulation' }}
             >
               <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
@@ -689,8 +690,8 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
         style={{ 
           pointerEvents: 'auto',
           touchAction: 'pan-y',
-          // Exclude the action buttons area on the right
-          clipPath: 'polygon(0% 0%, 85% 0%, 85% 100%, 0% 100%)'
+          // Exclude the action buttons area on the right and header area
+          clipPath: 'polygon(0% 15%, 80% 15%, 80% 100%, 0% 100%)'
         }}
         onTouchStart={(e) => {
           const touch = e.touches[0];

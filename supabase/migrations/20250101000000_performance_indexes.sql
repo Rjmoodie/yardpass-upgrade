@@ -81,11 +81,11 @@ CREATE INDEX IF NOT EXISTS idx_payouts_created_at ON payouts(created_at);
 -- Cultural guides indexes
 CREATE INDEX IF NOT EXISTS idx_cultural_guides_event_id ON cultural_guides(event_id);
 
--- Analytics indexes
+-- Analytics indexes (updated to match actual table structure)
 CREATE INDEX IF NOT EXISTS idx_ticket_analytics_ticket_id ON ticket_analytics(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_analytics_user_id ON ticket_analytics(user_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_analytics_event_id ON ticket_analytics(event_id);
-CREATE INDEX IF NOT EXISTS idx_ticket_analytics_action ON ticket_analytics(action);
+CREATE INDEX IF NOT EXISTS idx_ticket_analytics_event_type ON ticket_analytics(event_type);
 CREATE INDEX IF NOT EXISTS idx_ticket_analytics_created_at ON ticket_analytics(created_at);
 
 -- Composite indexes for common query patterns
