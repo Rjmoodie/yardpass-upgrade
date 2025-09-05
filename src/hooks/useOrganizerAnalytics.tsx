@@ -96,7 +96,7 @@ export function useOrganizerAnalytics() {
           `and(owner_context_type.eq.organization,owner_context_id.in.(${orgIds.join(',')}))`
         );
       }
-      const ownershipOr = `(${ownerFilters.join(',')})`;
+      const ownershipOr = ownerFilters.join(',');
 
       // 2) Quick existence probe
       const { data: events, error: eventsError } = await supabase
