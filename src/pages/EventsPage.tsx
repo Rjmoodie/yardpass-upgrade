@@ -81,6 +81,7 @@ export default function EventsPage() {
   }, [location.hash]);
 
   useEffect(() => {
+    console.log('[EventsPage] Slug parameter:', slug);
     if (slug) {
       fetchEvent();
     }
@@ -109,6 +110,8 @@ export default function EventsPage() {
 
       // If slug looks like a UUID, query by ID, otherwise by slug
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug!);
+      
+      console.log('[EventsPage] Searching for:', slug, 'isUUID:', isUUID);
       
       if (isUUID) {
         query = query.eq('id', slug);
