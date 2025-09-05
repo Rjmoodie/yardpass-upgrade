@@ -123,27 +123,54 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
     console.log('Creating post with data:', { selectedEventId, content, mediaFiles });
 
     try {
-      // Upload media files if any
+      // Upload media files - videos go to Mux, images to Supabase storage
       const mediaUrls: string[] = [];
       for (const file of mediaFiles) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
-        
-        console.log('Uploading file:', fileName);
-        const { error: uploadError } = await supabase.storage
-          .from('event-media')
-          .upload(fileName, file);
+        const isVideo = file.type.startsWith('video/') || 
+                       file.name.toLowerCase().includes('.mp4') || 
+                       file.name.toLowerCase().includes('.webm') ||
+                       file.name.toLowerCase().includes('.mov');
 
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          throw uploadError;
+        if (isVideo) {
+          // Upload video to Mux
+          console.log('Uploading video to Mux:', file.name);
+          const formData = new FormData();
+          formData.append('video', file);
+
+          const { data: muxResult, error: muxError } = await supabase.functions.invoke('upload-video-mux', {
+            body: formData,
+          });
+
+          if (muxError) {
+            console.error('Mux upload error:', muxError);
+            throw new Error(`Failed to upload video: ${muxError.message}`);
+          }
+
+          // Store Mux playback URL
+          if (muxResult.asset_id) {
+            mediaUrls.push(`mux:${muxResult.asset_id}`);
+          }
+        } else {
+          // Upload image to Supabase storage
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
+          
+          console.log('Uploading image to storage:', fileName);
+          const { error: uploadError } = await supabase.storage
+            .from('event-media')
+            .upload(fileName, file);
+
+          if (uploadError) {
+            console.error('Storage upload error:', uploadError);
+            throw uploadError;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('event-media')
+            .getPublicUrl(fileName);
+
+          mediaUrls.push(publicUrl);
         }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('event-media')
-          .getPublicUrl(fileName);
-
-        mediaUrls.push(publicUrl);
       }
 
       // Find the ticket tier for this event

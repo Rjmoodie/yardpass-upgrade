@@ -320,23 +320,36 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
             {/* Media */}
             {post.media_urls.length > 0 && (
               <div className="grid gap-2">
-                {post.media_urls.map((url, index) => (
-                  <div key={index} className="relative rounded-lg overflow-hidden">
-                    {url.includes('video') || url.includes('.mp4') || url.includes('.webm') ? (
-                      <video 
-                        src={url} 
-                        controls 
-                        className="w-full max-h-80 object-cover"
-                      />
-                    ) : (
-                      <img 
-                        src={url} 
-                        alt="Post media" 
-                        className="w-full max-h-80 object-cover"
-                      />
-                    )}
-                  </div>
-                ))}
+                {post.media_urls.map((url, index) => {
+                  // Check if it's a Mux video
+                  const isMuxVideo = url.startsWith('mux:');
+                  const isVideo = url.includes('video') || url.includes('.mp4') || url.includes('.webm');
+                  
+                  return (
+                    <div key={index} className="relative rounded-lg overflow-hidden">
+                      {isMuxVideo ? (
+                        <video 
+                          src={`https://stream.mux.com/${url.replace('mux:', '')}.m3u8`}
+                          controls 
+                          className="w-full max-h-80 object-cover"
+                          playsInline
+                        />
+                      ) : isVideo ? (
+                        <video 
+                          src={url} 
+                          controls 
+                          className="w-full max-h-80 object-cover"
+                        />
+                      ) : (
+                        <img 
+                          src={url} 
+                          alt="Post media" 
+                          className="w-full max-h-80 object-cover"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
