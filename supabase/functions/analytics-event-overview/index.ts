@@ -107,7 +107,12 @@ serve(async (req) => {
 
     const { data: tierSales } = await supabase
       .from('order_items')
-      .select('tier_id, quantity, unit_price_cents, orders!inner(status)')
+      .select(`
+        tier_id, 
+        quantity, 
+        unit_price_cents,
+        orders!order_items_order_id_fkey(status)
+      `)
       .in('tier_id', tiers?.map(t => t.id) || [])
       .eq('orders.status', 'paid');
 
