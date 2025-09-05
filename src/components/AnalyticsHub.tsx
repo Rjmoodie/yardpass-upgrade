@@ -705,7 +705,7 @@ const AnalyticsHub: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen overflow-auto">
+    <div className="min-h-0 w-full">
       <div className="container mx-auto p-6 max-w-7xl">
         {/* Header */}
         <div className="mb-8">

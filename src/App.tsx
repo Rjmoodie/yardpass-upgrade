@@ -197,15 +197,21 @@ function AppContent() {
 
   return (
     <AnalyticsWrapper>
-      <div className="h-screen bg-background flex flex-col relative overflow-hidden">
+      <div className="flex min-h-[100dvh] flex-col bg-background relative">
         {/* Subtle Background Pattern */}
-        <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0 opacity-5 pointer-events-none">
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/20 via-transparent to-accent/20" />
           <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
         </div>
         
-        <Routes>
+        {/* Main Content Area */}
+        <main className="
+          flex-1 overflow-y-auto
+          pb-[calc(env(safe-area-inset-bottom)+88px)]
+          [@supports(-webkit-touch-callout:none)]:[-webkit-overflow-scrolling:touch]
+        ">
+          <Routes>
         {/* Public Routes */}
         <Route 
           path="/" 
@@ -481,19 +487,22 @@ function AppContent() {
         
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
-      </Routes>
+        </Routes>
+        </main>
 
-      {/* Navigation - Show on most routes except specific ones */}
-      {!location.pathname.startsWith('/event/') && 
-       !location.pathname.startsWith('/event-management/') && 
-       location.pathname !== '/ticket-success' &&
-       location.pathname !== '/auth' && (
-        <Navigation 
-          currentScreen={location.pathname}
-          userRole={userRole}
-          onNavigate={() => {}} // Navigation component now handles routing internally
-        />
-      )}
+        {/* Navigation - Show on most routes except specific ones */}
+        {!location.pathname.startsWith('/event/') && 
+         !location.pathname.startsWith('/event-management/') && 
+         location.pathname !== '/ticket-success' &&
+         location.pathname !== '/auth' && (
+          <div className="fixed inset-x-0 bottom-0 z-30">
+            <Navigation 
+              currentScreen={location.pathname}
+              userRole={userRole}
+              onNavigate={() => {}} // Navigation component now handles routing internally
+            />
+          </div>
+        )}
       
       {/* Toast notifications */}
       <Toaster />

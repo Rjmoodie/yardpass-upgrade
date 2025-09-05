@@ -88,9 +88,9 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
   const totalViews = eventAnalytics.reduce((sum, event) => sum + event.total_views, 0) || mockEvents.reduce((sum, event) => sum + event.views, 0);
 
   return (
-    <div className="h-full bg-background flex flex-col">
+    <div className="min-h-0 flex flex-col w-full">
       {/* Header */}
-      <div className="border-b bg-card p-4">
+      <div className="border-b bg-card p-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
@@ -113,11 +113,11 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 min-h-0 p-4">
         <Tabs
           value={activeTab}
           onValueChange={(v) => setActiveTab(v as typeof activeTab)}
-          className="h-full"
+          className="h-full flex flex-col min-h-0"
         >
           {/* Make sure nothing overlays this row */}
           <div className="relative z-20">
