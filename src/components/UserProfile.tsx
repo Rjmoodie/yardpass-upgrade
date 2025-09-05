@@ -95,7 +95,7 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             title,
             cover_image_url
           ),
-          ticket_tiers!event_posts_tier_id_fkey (
+          ticket_tiers!event_posts_ticket_tier_id_fkey (
             badge_label
           )
         `)

@@ -37,8 +37,8 @@ export function useOrganizerAnalytics() {
   const fetchAnalytics = async () => {
     if (!user) return;
 
-    setLoading(true);
-    setError(null);
+      setLoading(true);
+      setError(null);
 
     try {
       // Fetch events created by the user
@@ -67,7 +67,7 @@ export function useOrganizerAnalytics() {
         .from('tickets')
         .select(`
           event_id,
-          status,
+            status,
           ticket_tiers!fk_tickets_tier_id (
             price_cents
           )
@@ -87,7 +87,7 @@ export function useOrganizerAnalytics() {
       // Fetch engagement metrics
       const { data: engagementData, error: engagementError } = await supabase
         .from('event_reactions')
-        .select('post_id, kind, event_posts!fk_event_reactions_post_id (event_id)')
+        .select('post_id, kind, event_posts!event_reactions_post_id_fkey (event_id)')
         .in('event_posts.event_id', eventIds);
 
       if (engagementError) throw engagementError;

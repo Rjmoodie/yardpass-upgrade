@@ -209,7 +209,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             user_profiles!events_created_by_fkey (
               display_name
             ),
-            ticket_tiers (
+            ticket_tiers!fk_ticket_tiers_event_id (
               id,
               name,
               price_cents,
