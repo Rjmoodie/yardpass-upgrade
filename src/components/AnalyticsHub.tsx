@@ -196,6 +196,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
   const fetchAudienceAnalytics = async () => {
     setLoading(true);
     try {
+      console.log('🔍 Fetching PostHog analytics...');
       const { data, error } = await supabase.functions.invoke('analytics-posthog-funnel', {
         body: {
           event_ids: [], // Would be populated with actual event IDs
@@ -204,10 +205,16 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
         }
       });
 
+      console.log('📊 PostHog response:', { data, error });
       if (error) throw error;
+      
+      // Check if we got real data or sample data
+      const isRealData = data?.funnel_steps?.[0]?.count !== 1250; // Sample data has 1250 as first count
+      console.log('✅ Using real PostHog data:', isRealData);
+      
       setAudienceData(data);
     } catch (error) {
-      console.error('Audience analytics error:', error);
+      console.error('❌ Audience analytics error:', error);
       // Fallback to sample data
       setAudienceData({
         funnel_steps: [

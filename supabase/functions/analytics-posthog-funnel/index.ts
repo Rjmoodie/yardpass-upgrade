@@ -16,12 +16,15 @@ serve(async (req) => {
 
     if (!postHogProjectToken) {
       console.log('PostHog project API token not configured, using sample data');
+      console.log('Available env vars:', Object.keys(Deno.env.toObject()));
       return getSampleResponse();
     }
 
     const { event_ids, from_date, to_date } = await req.json();
     console.log('PostHog analytics requested for events:', event_ids);
     console.log('Date range:', from_date, 'to', to_date);
+    console.log('Using PostHog Project ID:', postHogProjectId);
+    console.log('PostHog token configured:', !!postHogProjectToken);
 
     // Fetch real funnel data from PostHog
     const funnelData = await fetchPostHogFunnel(postHogProjectToken, postHogProjectId, from_date, to_date);
