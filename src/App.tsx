@@ -487,6 +487,13 @@ function AppContent() {
         </Routes>
         </main>
 
+        {/* Share Modal */}
+        <ShareModal
+          isOpen={!!sharePayload}
+          onClose={() => setSharePayload(null)}
+          payload={sharePayload}
+        />
+
         {/* Navigation - Show on most routes except specific ones */}
         {!location.pathname.startsWith('/event/') && 
          !location.pathname.startsWith('/event-management/') && 

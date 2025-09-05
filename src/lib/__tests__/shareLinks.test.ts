@@ -39,37 +39,28 @@ describe('shareLinks', () => {
       );
     });
 
-    it('preserves ref parameter', () => {
-      const result = buildShareUrl(
-        {
-          type: 'event',
-          slug: 'summer-fest',
-          title: 'Summer Festival',
-        },
-        { ref: 'affiliate123' }
-      );
+    it('includes UTM parameters', () => {
+      const result = buildShareUrl({
+        type: 'event',
+        slug: 'summer-fest',
+        title: 'Summer Festival',
+      });
 
-      expect(result).toContain('ref=affiliate123');
+      expect(result).toContain('utm_source=share');
+      expect(result).toContain('utm_medium=app');
+      expect(result).toContain('utm_campaign=event');
     });
 
-    it('merges custom UTM parameters', () => {
-      const result = buildShareUrl(
-        {
-          type: 'event',
-          slug: 'summer-fest',
-          title: 'Summer Festival',
-        },
-        {
-          utm: {
-            utm_content: 'button',
-            utm_term: 'festival',
-          },
-        }
-      );
+    it('handles post type URLs', () => {
+      const result = buildShareUrl({
+        type: 'post',
+        id: 'post123',
+        eventSlug: 'summer-fest',
+      });
 
-      expect(result).toContain('utm_content=button');
-      expect(result).toContain('utm_term=festival');
-      expect(result).toContain('utm_source=share'); // Default preserved
+      expect(result).toBe(
+        'https://yardpass.com/p/post123?utm_source=share&utm_medium=app&utm_campaign=post'
+      );
     });
   });
 

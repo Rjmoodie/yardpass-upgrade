@@ -1,11 +1,8 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { toast } from '@/hooks/use-toast';
-import { Share, Copy, MessageCircle, Smartphone, MoreHorizontal } from 'lucide-react';
-import { copyToClipboard } from '@/utils/platform';
-import { capture } from '@/lib/analytics';
-import { SharePayload } from '@/lib/share';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Copy, MessageCircle, Send, Share2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import type { SharePayload } from "@/lib/share";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -14,31 +11,30 @@ interface ShareModalProps {
 }
 
 export const ShareModal = ({ isOpen, onClose, payload }: ShareModalProps) => {
+  const { toast } = useToast();
+
   if (!payload) return null;
 
   const handleCopyLink = async () => {
     try {
-      const success = await copyToClipboard(payload.url);
-      if (success) {
-        toast({
-          title: "Link copied! 👍",
-          description: "Link copied to clipboard",
-        });
-        capture('share_completed', { channel: 'copy', ...payload } as Record<string, unknown>);
-      } else {
-        toast({
-          title: "Copy failed",
-          description: "Unable to copy link",
-          variant: "destructive",
-        });
+      await navigator.clipboard.writeText(payload.url);
+      toast({ title: "Link copied to clipboard" });
+      onClose();
+    } catch {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = payload.url;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        toast({ title: "Link copied to clipboard" });
+      } catch {
+        toast({ title: "Failed to copy link", variant: "destructive" });
       }
-    } catch (error) {
-      console.error('Copy error:', error);
-      toast({
-        title: "Copy failed",
-        description: "Unable to copy link",
-        variant: "destructive",
-      });
+      document.body.removeChild(textArea);
+      onClose();
     }
   };
 
@@ -46,115 +42,83 @@ export const ShareModal = ({ isOpen, onClose, payload }: ShareModalProps) => {
     try {
       if (navigator.share) {
         await navigator.share(payload);
-        capture('share_completed', { channel: 'web_api_retry', ...payload } as Record<string, unknown>);
-        onClose();
       } else {
         await handleCopyLink();
       }
-    } catch (error) {
-      console.log('Web share retry failed:', error);
+      onClose();
+    } catch {
       await handleCopyLink();
     }
   };
 
   const handleSocialShare = (platform: string) => {
-    const encodedUrl = encodeURIComponent(payload.url);
-    const encodedText = encodeURIComponent(`${payload.text || ''} ${payload.url}`.trim());
-    const encodedTitle = encodeURIComponent(payload.title);
-    
-    let shareUrl = '';
+    const text = payload.text || payload.title;
+    let url = '';
     
     switch (platform) {
       case 'whatsapp':
-        shareUrl = `https://wa.me/?text=${encodedText}`;
+        url = `https://wa.me/?text=${encodeURIComponent(text + ' ' + payload.url)}`;
         break;
       case 'sms':
-        shareUrl = `sms:?&body=${encodedText}`;
+        url = `sms:?&body=${encodeURIComponent(text + ' ' + payload.url)}`;
         break;
       case 'messenger':
-        // Try app first, fallback to web
-        shareUrl = `fb-messenger://share?link=${encodedUrl}`;
-        setTimeout(() => {
-          window.location.href = `https://www.messenger.com/new?message=${encodedText}`;
-        }, 1000);
+        // Facebook Messenger fallback to copy on web
+        if ((window as any).Capacitor?.isNativePlatform) {
+          url = `fb-messenger://share?link=${encodeURIComponent(payload.url)}`;
+        } else {
+          handleCopyLink();
+          return;
+        }
         break;
     }
     
-    if (shareUrl) {
-      try {
-        window.location.href = shareUrl;
-        capture('share_completed', { channel: platform, ...payload } as Record<string, unknown>);
-      } catch (error) {
-        console.error(`${platform} share failed:`, error);
-        handleCopyLink();
-      }
+    if (url) {
+      window.open(url, '_blank');
+      onClose();
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Share className="w-5 h-5" />
-            Share
-          </DialogTitle>
+          <DialogTitle>Share</DialogTitle>
         </DialogHeader>
-        
         <div className="space-y-4">
-          <div>
-            <p className="font-medium mb-2 line-clamp-2">{payload.title}</p>
-            <div className="flex gap-2">
-              <Input 
-                value={payload.url} 
-                readOnly 
-                className="text-sm"
-              />
-              <Button onClick={handleCopyLink} variant="outline" size="sm">
-                <Copy className="w-4 h-4" />
-              </Button>
-            </div>
+          <div className="space-y-2">
+            <p className="font-medium">{payload.title}</p>
+            <p className="text-sm text-muted-foreground break-all">{payload.url}</p>
           </div>
           
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Share via</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Button 
-                onClick={handleCopyLink}
-                variant="outline" 
-                className="justify-start gap-2"
-              >
-                <Copy className="w-4 h-4" />
-                Copy Link
-              </Button>
-              
-              <Button 
-                onClick={() => handleSocialShare('whatsapp')}
-                variant="outline" 
-                className="justify-start gap-2"
-              >
-                <MessageCircle className="w-4 h-4" />
-                WhatsApp
-              </Button>
-              
-              <Button 
-                onClick={() => handleSocialShare('sms')}
-                variant="outline" 
-                className="justify-start gap-2"
-              >
-                <Smartphone className="w-4 h-4" />
-                Messages
-              </Button>
-              
-              <Button 
-                onClick={handleWebShare}
-                variant="outline" 
-                className="justify-start gap-2"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-                Share via...
-              </Button>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Button onClick={handleCopyLink} variant="outline" className="flex items-center gap-2">
+              <Copy className="h-4 w-4" />
+              Copy Link
+            </Button>
+            
+            <Button onClick={handleWebShare} variant="outline" className="flex items-center gap-2">
+              <Share2 className="h-4 w-4" />
+              Share via...
+            </Button>
+            
+            <Button 
+              onClick={() => handleSocialShare('whatsapp')} 
+              variant="outline" 
+              className="flex items-center gap-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp
+            </Button>
+            
+            <Button 
+              onClick={() => handleSocialShare('sms')} 
+              variant="outline" 
+              className="flex items-center gap-2"
+            >
+              <Send className="h-4 w-4" />
+              SMS
+            </Button>
           </div>
         </div>
       </DialogContent>

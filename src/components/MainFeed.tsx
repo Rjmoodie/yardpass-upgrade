@@ -226,14 +226,13 @@ export function MainFeed({
     capture('feed_click', { target: 'share', event_id: event.id });
     
     const shareUrl = buildShareUrl(
-      { 
+      {
         type: 'event', 
         slug: event.id, 
         title: event.title,
         date: event.date,
         city: event.location
-      },
-      { ref: 'feed' }
+      }
     );
 
     sharePayload({
