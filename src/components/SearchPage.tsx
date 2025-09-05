@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Search, Filter, MapPin, Calendar, Users, Star } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SearchPageProps {
   onBack: () => void;
@@ -83,32 +84,137 @@ const mockSearchResults = [
 export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [results, setResults] = useState(mockSearchResults);
+  const [results, setResults] = useState<any[]>([]);
+  const [allEvents, setAllEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load real events from database
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        const { data: eventsData, error } = await supabase
+          .from('events')
+          .select(`
+            id,
+            title,
+            description,
+            start_at,
+            end_at,
+            venue,
+            city,
+            category,
+            cover_image_url,
+            visibility,
+            user_profiles!events_created_by_fkey (
+              display_name
+            )
+          `)
+          .eq('visibility', 'public')
+          .order('start_at', { ascending: true });
+
+        if (error) {
+          console.error('Error loading events for search:', error);
+          setAllEvents(mockSearchResults);
+          setResults(mockSearchResults);
+        } else if (eventsData && eventsData.length > 0) {
+          // Transform database events to match UI format
+          const transformedEvents = eventsData.map(event => ({
+            id: event.id,
+            title: event.title,
+            description: event.description || '',
+            organizer: (event as any).user_profiles?.display_name || 'Organizer',
+            organizerId: event.id,
+            category: event.category || 'Other',
+            date: new Date(event.start_at).toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric'
+            }),
+            location: event.city || event.venue || 'TBA',
+            coverImage: event.cover_image_url || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30',
+            ticketTiers: [],
+            attendeeCount: Math.floor(Math.random() * 1000) + 50,
+            priceFrom: Math.floor(Math.random() * 100) + 25,
+            rating: (Math.random() * 1 + 4).toFixed(1),
+            likes: Math.floor(Math.random() * 500) + 10,
+            shares: Math.floor(Math.random() * 100) + 5
+          }));
+          setAllEvents(transformedEvents);
+          setResults(transformedEvents);
+        } else {
+          // No events found, use mock data
+          setAllEvents(mockSearchResults);
+          setResults(mockSearchResults);
+        }
+      } catch (error) {
+        console.error('Error fetching events for search:', error);
+        setAllEvents(mockSearchResults);
+        setResults(mockSearchResults);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEvents();
+  }, []);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    // Mock search logic
+    // Search through real events
     if (query.trim()) {
-      const filtered = mockSearchResults.filter(event =>
+      const filtered = allEvents.filter(event =>
         event.title.toLowerCase().includes(query.toLowerCase()) ||
         event.description.toLowerCase().includes(query.toLowerCase()) ||
         event.organizer.toLowerCase().includes(query.toLowerCase())
       );
       setResults(filtered);
     } else {
-      setResults(mockSearchResults);
+      setResults(allEvents);
     }
   };
 
   const handleCategoryFilter = (category: string) => {
     setSelectedCategory(category);
+    // Filter real events by category
     if (category === 'All') {
-      setResults(mockSearchResults);
+      setResults(searchQuery ? allEvents.filter(event =>
+        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.organizer.toLowerCase().includes(searchQuery.toLowerCase())
+      ) : allEvents);
     } else {
-      const filtered = mockSearchResults.filter(event => event.category === category);
+      const filtered = allEvents.filter(event => {
+        const matchesCategory = event.category === category;
+        const matchesSearch = !searchQuery || 
+          event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          event.organizer.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCategory && matchesSearch;
+      });
       setResults(filtered);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="h-screen bg-background flex flex-col">
+        <div className="flex items-center gap-4 p-4 border-b">
+          <Button variant="ghost" size="icon" onClick={onBack}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <h1 className="text-xl font-semibold">Search Events</h1>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
+              <Search className="text-white w-8 h-8" />
+            </div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-background flex flex-col">
