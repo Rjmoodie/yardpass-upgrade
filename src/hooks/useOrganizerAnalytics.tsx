@@ -122,7 +122,7 @@ export function useOrganizerAnalytics() {
             status,
             order_items!order_items_order_id_fkey(quantity)
           ),
-          tickets!fk_tickets_event_id(
+          tickets!tickets_event_id_fkey(
             id,
             status,
             redeemed_at
