@@ -31,8 +31,8 @@
   --ring: hsl(32, 100%, 64%);
   
   /* Modal overlays */
-  --overlay: hsla(10, 12%, 6%, 0.45);
-  --overlay-strong: hsla(10, 12%, 6%, 0.55);
+  --overlay: hsla(10, 12%, 6%, 0.32);
+  --overlay-strong: hsla(10, 12%, 6%, 0.45);
   --modal-bg: hsl(0, 0%, 100%);
   --modal-border: hsl(45, 20%, 88%);
   
@@ -102,10 +102,10 @@
   --ring: hsl(32, 100%, 64%);
   
   /* Modal overlays - Dark Mode */
-  --overlay: hsla(0, 0%, 0%, 0.45);
-  --overlay-strong: hsla(0, 0%, 0%, 0.55);
-  --modal-bg: hsl(0, 0%, 12%);
-  --modal-border: hsl(0, 0%, 22%);
+  --overlay: hsla(0, 0%, 0%, 0.32);
+  --overlay-strong: hsla(0, 0%, 0%, 0.45);
+  --modal-bg: hsl(0, 0%, 14%);
+  --modal-border: hsl(0, 0%, 26%);
   
   /* YardPass Brand Colors - Dark Variants */
   --brand-golden: hsl(45, 85%, 65%);
