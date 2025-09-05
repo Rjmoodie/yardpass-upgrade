@@ -359,7 +359,7 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
   const fetchEventAnalytics = async () => {
     setLoading(true);
     try {
-      // Fetch events for the selected organization
+      // Fetch events for the selected organization with explicit FK names
       const { data: events, error } = await supabase
         .from('events')
         .select(`
@@ -368,20 +368,20 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
           created_at,
           start_at,
           end_at,
-          orders!fk_orders_event_id(
+          orders:orders!orders_event_id_fkey(
             id,
             total_cents,
             status,
-            order_items!fk_order_items_order_id(quantity)
+            order_items:order_items!order_items_order_id_fkey(quantity)
           ),
-          tickets(
+          tickets:tickets!tickets_event_id_fkey(
             id,
             status,
             redeemed_at
           ),
-          event_posts(
+          event_posts:event_posts!event_posts_event_id_fkey(
             id,
-            event_reactions(kind)
+            event_reactions:event_reactions!event_reactions_post_id_fkey(kind)
           )
         `)
         .eq('owner_context_type', 'organization')
