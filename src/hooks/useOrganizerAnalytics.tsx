@@ -86,22 +86,22 @@ export function useOrganizerAnalytics() {
           start_at,
           end_at,
           completed_at,
-          orders!fk_orders_event_id(
+          orders!orders_event_id_fkey(
             id,
             total_cents,
             status,
-            order_items!fk_order_items_order_id(quantity)
+            order_items!order_items_order_id_fkey(quantity)
           ),
-          tickets!fk_tickets_event_id(
+          tickets!tickets_event_id_fkey(
             id,
             status,
             redeemed_at
           ),
-          event_posts!fk_event_posts_event_id(
+          event_posts!event_posts_event_id_fkey(
             id,
-            event_reactions!fk_event_reactions_post_id(kind)
+            event_reactions!event_reactions_post_id_fkey(kind)
           ),
-          scan_logs(
+          scan_logs!scan_logs_event_id_fkey(
             id,
             result
           )
