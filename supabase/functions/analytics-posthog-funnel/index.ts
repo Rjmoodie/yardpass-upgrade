@@ -51,7 +51,8 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('PostHog analytics error:', error);
+    console.error('🚨 PostHog analytics error:', error);
+    console.error('🚨 Full error details:', JSON.stringify(error, null, 2));
     // Return sample data on error to prevent UI breaking
     return getSampleResponse();
   }
