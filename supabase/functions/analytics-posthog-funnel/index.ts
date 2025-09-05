@@ -27,7 +27,7 @@ serve(async (req) => {
     let from_date = "-30d", to_date = "today", event_ids: string[] = [];
     if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
-      event_ids = body.event_ids ?? ["event_view","ticket_cta_click","checkout_started","checkout_completed"];
+      event_ids = body.event_ids ?? [];
       from_date = body.from_date ?? from_date;
       to_date = body.to_date ?? to_date;
     } else {
@@ -35,7 +35,13 @@ serve(async (req) => {
       from_date = url.searchParams.get("from_date") ?? from_date;
       to_date = url.searchParams.get("to_date") ?? to_date;
       const ev = url.searchParams.getAll("event");
-      event_ids = ev.length ? ev : ["event_view","ticket_cta_click","checkout_started","checkout_completed"];
+      event_ids = ev.length ? ev : [];
+    }
+
+    // If no event_ids provided, use sample data
+    if (event_ids.length === 0) {
+      console.log("No event_ids provided, using sample data");
+      return getSampleResponse();
     }
 
     console.log("PostHog analytics requested for events:", event_ids);

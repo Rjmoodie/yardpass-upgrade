@@ -84,39 +84,91 @@ export function useOrganizerAnalytics() {
 
       console.log('All events (limited):', { allEvents, allEventsError });
 
-      // Now fetch user's events with debugging
+      // Get user's org memberships to query org-owned events
+      const { data: orgMemberships } = await supabase
+        .from('org_memberships')
+        .select('org_id')
+        .eq('user_id', user.id);
+
+      const orgIds = orgMemberships?.map(m => m.org_id) || [];
+
+      // Query events owned by user (individual) OR by their organizations
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select('id, title, created_at, start_at, end_at, completed_at, owner_context_type, owner_context_id, created_by')
-        .eq('owner_context_type', 'individual')
-        .eq('owner_context_id', user.id);
+        .or(`and(owner_context_type.eq.individual,owner_context_id.eq.${user.id}),and(owner_context_type.eq.organization,owner_context_id.in.(${orgIds.join(',')}))`);
 
-      console.log('Events query result:', { events, eventsError, userId: user.id, ownerContextType: 'individual' });
+      console.log('Events query result:', { events, eventsError, userId: user.id, orgIds, ownerContextTypes: ['individual', 'organization'] });
 
       if (eventsError) {
-        console.error('Events fetch error:', eventsError);
-        throw eventsError;
+        console.error('Events query error:', eventsError);
+        setEventAnalytics([]);
+        return;
       }
 
-      console.log('Events data:', events);
+      // Now fetch detailed analytics with proper foreign key relationships
+      const { data: detailedEvents, error: detailedError } = await supabase
+        .from('events')
+        .select(`
+          id,
+          title,
+          created_at,
+          start_at,
+          end_at,
+          completed_at,
+          orders!orders_event_id_fkey(
+            id,
+            total_cents,
+            status,
+            order_items!order_items_order_id_fkey(quantity)
+          ),
+          tickets!tickets_event_id_fkey(
+            id,
+            status,
+            redeemed_at
+          ),
+          event_posts!event_posts_event_id_fkey(
+            id,
+            event_reactions!event_reactions_post_id_fkey(kind)
+          ),
+          scan_logs!scan_logs_event_id_fkey(
+            id,
+            result
+          )
+        `)
+        .or(`and(owner_context_type.eq.individual,owner_context_id.eq.${user.id}),and(owner_context_type.eq.organization,owner_context_id.in.(${orgIds.join(',')}))`);
 
-      // Process event analytics - simplified for now
-      const processedAnalytics: EventAnalytics[] = events?.map((event: any) => {
+      console.log('Detailed events result:', { detailedEvents, detailedError });
+
+      // Process event analytics with complex data
+      const processedAnalytics: EventAnalytics[] = (detailedEvents || events)?.map((event: any) => {
+        const paidOrders = event.orders?.filter((o: any) => o.status === 'paid') || [];
+        const totalRevenue = paidOrders.reduce((sum: number, order: any) => sum + (order.total_cents || 0), 0) / 100;
+        const ticketSales = paidOrders.reduce((sum: number, order: any) => 
+          sum + (order.order_items?.reduce((itemSum: number, item: any) => itemSum + (item.quantity || 0), 0) || 0), 0);
+        
+        const checkIns = event.scan_logs?.filter((log: any) => log.result === 'valid').length || 0;
+        
+        const reactions = event.event_posts?.flatMap((post: any) => post.event_reactions || []) || [];
+        const likes = reactions.filter((r: any) => r.kind === 'like').length;
+        const comments = reactions.filter((r: any) => r.kind === 'comment').length;
+        const shares = reactions.filter((r: any) => r.kind === 'share').length;
+
         return {
           event_id: event.id,
           event_title: event.title,
-          total_revenue: 0, // Will be populated from overall analytics for now
-          total_attendees: 0, // Will be populated from overall analytics for now
-          ticket_sales: 0,
-          total_views: 0,
+          total_revenue: totalRevenue,
+          total_attendees: event.tickets?.length || 0,
+          ticket_sales: ticketSales,
+          total_views: 0, // This would need to be tracked separately
           engagement_metrics: {
-            likes: 0,
-            comments: 0,
-            shares: 0
+            likes,
+            comments,
+            shares
           },
-          check_ins: 0,
+          check_ins: checkIns,
           refunds: {
-            count: 0,
+            count: 0, // Would need to join refunds table
             amount: 0
           }
         };
