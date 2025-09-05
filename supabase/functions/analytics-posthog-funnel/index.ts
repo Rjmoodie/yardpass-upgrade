@@ -58,7 +58,11 @@ serve(async (req) => {
     };
 
     console.log("✅ Using real PostHog data: true");
-    return new Response(JSON.stringify(responseData), {
+    
+    // ✅ signal to the client this is real API-backed data
+    const body = { usingReal: true, data: responseData, error: null };
+    
+    return new Response(JSON.stringify(body), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 
@@ -237,7 +241,12 @@ function getSampleResponse() {
     ]
   };
 
-  return new Response(JSON.stringify(sampleData), {
+  console.log("✅ Using real PostHog data: false (sample)");
+  return new Response(JSON.stringify({
+    usingReal: false,   // 👈 important
+    data: sampleData,
+    error: null
+  }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
 }
