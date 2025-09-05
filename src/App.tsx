@@ -53,6 +53,7 @@ interface Event {
   attendeeCount: number;
   likes: number;
   shares: number;
+  slug?: string;
 }
 
 interface TicketTier {
@@ -137,6 +138,7 @@ function AppContent() {
 
   const handleEventSelect = (event: Event) => {
     setSelectedEvent(event);
+    // Use ID directly since database events don't have slugs
     navigate('/events/' + event.id);
   };
 
