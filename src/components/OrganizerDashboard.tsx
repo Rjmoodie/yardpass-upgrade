@@ -76,6 +76,7 @@ const salesData = [
 
 export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: OrganizerDashboardProps) {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
+  const [activeTab, setActiveTab] = useState<"overview" | "events" | "sales" | "engagement" | "payouts">("overview");
   const { profile } = useAuth();
   const { eventAnalytics, overallAnalytics, loading, error, refreshAnalytics } = useOrganizerAnalytics();
 
@@ -113,14 +114,21 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
-        <Tabs defaultValue="overview" className="h-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="events">Events ({totalEvents})</TabsTrigger>
-            <TabsTrigger value="sales">Sales</TabsTrigger>
-            <TabsTrigger value="engagement">Engagement</TabsTrigger>
-            <TabsTrigger value="payouts">Payouts</TabsTrigger>
-          </TabsList>
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+          className="h-full"
+        >
+          {/* Make sure nothing overlays this row */}
+          <div className="relative z-20">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger className="pointer-events-auto" value="overview">Overview</TabsTrigger>
+              <TabsTrigger className="pointer-events-auto" value="events">Events ({totalEvents})</TabsTrigger>
+              <TabsTrigger className="pointer-events-auto" value="sales">Sales</TabsTrigger>
+              <TabsTrigger className="pointer-events-auto" value="engagement">Engagement</TabsTrigger>
+              <TabsTrigger className="pointer-events-auto" value="payouts">Payouts</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-6">
             {/* Stats Cards */}
