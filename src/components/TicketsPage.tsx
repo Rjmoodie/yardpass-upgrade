@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Avatar, AvatarFallback } from './ui/avatar';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useTickets, UserTicket } from '@/hooks/useTickets';
 import { 
   ArrowLeft,
   Ticket,
@@ -25,157 +23,18 @@ interface User {
   role: 'attendee' | 'organizer';
 }
 
-interface Ticket {
-  id: string;
-  eventTitle: string;
-  eventDate: string;
-  eventTime: string;
-  venue: string;
-  city: string;
-  ticketType: string;
-  badgeLevel: string;
-  seatNumber: string;
-  qrCode: string;
-  status: string;
-  coverImage: string;
-  badge?: string;
-  eventLocation?: string;
-  organizerName?: string;
-  tierName?: string;
-  price?: number;
-  orderDate?: string;
-}
-
 interface TicketsPageProps {
   user: User;
   onBack: () => void;
 }
 
-// Mock user tickets data
-const mockTickets = [
-  {
-    id: '1',
-    eventTitle: 'Summer Music Festival 2024',
-    eventDate: 'July 15-17, 2024',
-    eventTime: '6:00 PM',
-    eventLocation: 'Central Park, NYC',
-    organizerName: 'LiveNation Events',
-    tierName: 'VIP Experience',
-    badge: 'VIP',
-    price: 199,
-    status: 'confirmed',
-    orderDate: '2024-06-15',
-    qrCode: 'VIP-SMF2024-001',
-    coverImage: 'https://images.unsplash.com/photo-1681149341674-45fd772fd463?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
-  },
-  {
-    id: '2',
-    eventTitle: 'Street Food Fiesta',
-    eventDate: 'August 8, 2024',
-    eventTime: '12:00 PM',
-    eventLocation: 'Brooklyn Bridge Park',
-    organizerName: 'Foodie Adventures',
-    tierName: 'Foodie Pass',
-    badge: 'FOODIE',
-    price: 75,
-    status: 'confirmed',
-    orderDate: '2024-07-20',
-    qrCode: 'FOODIE-SFF2024-023',
-    coverImage: 'https://images.unsplash.com/photo-1551883709-2516220df0bc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
-  }
-];
-
 
 export function TicketsPage({ user, onBack }: TicketsPageProps) {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
-  const { user: authUser } = useAuth();
+  const { tickets, upcomingTickets, pastTickets, loading, refreshTickets } = useTickets();
 
-  // Load user's tickets from database
-  useEffect(() => {
-    const loadUserTickets = async () => {
-      if (!authUser) return;
-      
-      try {
-        const { data: ticketsData, error } = await supabase
-          .from('tickets')
-          .select(`
-            *,
-            events (
-              id,
-              title,
-              start_at,
-              end_at,
-              venue,
-              city,
-              cover_image_url
-            ),
-            ticket_tiers (
-              name,
-              badge_label
-            )
-          `)
-          .eq('owner_user_id', authUser.id)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('Error loading user tickets:', error);
-          setTickets([]);
-        } else if (ticketsData && ticketsData.length > 0) {
-          // Transform database tickets to match UI format
-          const transformedTickets = ticketsData.map(ticket => ({
-            id: ticket.id,
-            eventTitle: (ticket as any).events?.title || 'Event',
-            eventDate: new Date((ticket as any).events?.start_at).toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            }),
-            eventTime: new Date((ticket as any).events?.start_at).toLocaleTimeString('en-US', {
-              hour: 'numeric',
-              minute: '2-digit'
-            }),
-            venue: (ticket as any).events?.venue || 'TBA',
-            city: (ticket as any).events?.city || '',
-            ticketType: (ticket as any).ticket_tiers?.name || 'General',
-            badgeLevel: (ticket as any).ticket_tiers?.badge_label || 'GA',
-            badge: (ticket as any).ticket_tiers?.badge_label || 'GA',
-            seatNumber: `Ticket #${ticket.id.slice(-8)}`,
-            qrCode: ticket.qr_code,
-            status: ticket.status,
-            coverImage: (ticket as any).events?.cover_image_url || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30',
-            eventLocation: `${(ticket as any).events?.venue || 'TBA'}, ${(ticket as any).events?.city || ''}`,
-            organizerName: 'Event Organizer',
-            tierName: (ticket as any).ticket_tiers?.name || 'General',
-            price: Math.floor(Math.random() * 100 + 25), // Mock price for now
-            orderDate: ticket.created_at
-          }));
-          setTickets(transformedTickets);
-        } else {
-          setTickets([]);
-        }
-      } catch (error) {
-        console.error('Error fetching user tickets:', error);
-        setTickets([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUserTickets();
-  }, [authUser]);
-
-  const upcomingTickets = tickets.filter(ticket => 
-    new Date(ticket.eventDate) > new Date()
-  );
-  const pastTickets = tickets.filter(ticket => 
-    new Date(ticket.eventDate) <= new Date()
-  );
-
-  const handleDownloadWalletPass = (ticket: any) => {
+  const handleDownloadWalletPass = (ticket: UserTicket) => {
     // Mock wallet pass download - would integrate with Apple/Google Wallet
     console.log('Downloading wallet pass for:', ticket.eventTitle);
   };
@@ -270,10 +129,10 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                         <div className="text-right">
                           <div className="text-sm font-medium">${ticket.price}</div>
                           <Badge 
-                            variant={ticket.status === 'confirmed' ? 'secondary' : 'outline'}
+                            variant={ticket.status === 'issued' ? 'secondary' : 'outline'}
                             className="text-xs"
                           >
-                            {ticket.status}
+                            {ticket.status === 'issued' ? 'confirmed' : ticket.status}
                           </Badge>
                         </div>
                       </div>
@@ -300,7 +159,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                       </div>
 
                       <div className="mt-2 text-xs text-muted-foreground">
-                        <span>{ticket.tierName}</span>
+                        <span>{ticket.ticketType}</span>
                         <span className="mx-2">•</span>
                         <span>Ordered {new Date(ticket.orderDate).toLocaleDateString()}</span>
                       </div>

@@ -1,30 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useOrderStatus } from '@/hooks/useOrderStatus';
+import { useTickets } from '@/hooks/useTickets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle, CreditCard, Ticket, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Ticket, ArrowLeft } from 'lucide-react';
 
 interface TicketSuccessPageProps {
   onBack: () => void;
+  onViewTickets?: () => void;
 }
 
-export function TicketSuccessPage({ onBack }: TicketSuccessPageProps) {
+export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPageProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [orderDetails, setOrderDetails] = useState<any>(null);
+  const { refreshTickets } = useTickets();
+  const [processing, setProcessing] = useState(false);
 
   // Get session ID from URL params
   const urlParams = new URLSearchParams(window.location.search);
   const sessionId = urlParams.get('session_id');
 
-  const processPayment = async () => {
-    if (!sessionId || !user) return;
+  // Use order status hook to check payment status
+  const { orderStatus, loading: statusLoading, refetch } = useOrderStatus(sessionId);
 
-    setLoading(true);
+  // Process payment when order is found but not yet paid
+  const processPayment = async () => {
+    if (!sessionId || !user || processing) return;
+
+    setProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('process-payment', {
         body: { sessionId }
@@ -32,7 +38,12 @@ export function TicketSuccessPage({ onBack }: TicketSuccessPageProps) {
 
       if (error) throw error;
 
-      setOrderDetails(data.order);
+      // Refresh both order status and tickets list
+      await Promise.all([
+        refetch(),
+        refreshTickets()
+      ]);
+
       toast({
         title: "Payment Successful!",
         description: `${data.order.tickets_count} tickets issued for ${data.order.event_title}`,
@@ -44,16 +55,18 @@ export function TicketSuccessPage({ onBack }: TicketSuccessPageProps) {
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
 
-  // Process payment on component mount if session ID exists
+  // Auto-process payment if order is found but still pending
   React.useEffect(() => {
-    if (sessionId && !orderDetails && !loading) {
+    if (orderStatus?.status === 'pending' && !processing) {
       processPayment();
     }
-  }, [sessionId]);
+  }, [orderStatus?.status]);
+
+  const loading = statusLoading || processing;
 
   if (loading) {
     return (
@@ -95,7 +108,7 @@ export function TicketSuccessPage({ onBack }: TicketSuccessPageProps) {
           </p>
         </CardHeader>
 
-        {orderDetails && (
+        {orderStatus && orderStatus.status === 'paid' && (
           <CardContent className="space-y-6">
             {/* Order Summary */}
             <Card className="bg-muted/50">
@@ -104,15 +117,15 @@ export function TicketSuccessPage({ onBack }: TicketSuccessPageProps) {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Event:</span>
-                    <span className="font-medium">{orderDetails.event_title}</span>
+                    <span className="font-medium">{orderStatus.event_title}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Tickets:</span>
-                    <span className="font-medium">{orderDetails.tickets_count}</span>
+                    <span className="font-medium">{orderStatus.tickets_count}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Total Paid:</span>
-                    <span className="font-bold text-lg">${orderDetails.total_amount}</span>
+                    <span className="font-bold text-lg">${orderStatus.total_amount}</span>
                   </div>
                 </div>
               </CardContent>
@@ -164,7 +177,7 @@ export function TicketSuccessPage({ onBack }: TicketSuccessPageProps) {
                 Back to Events
               </Button>
               <Button 
-                onClick={() => {/* Navigate to tickets page */}} 
+                onClick={onViewTickets || (() => {})} 
                 className="flex-1"
               >
                 <Ticket className="w-4 h-4 mr-2" />

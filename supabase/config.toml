@@ -51,6 +51,12 @@ verify_jwt = false
 [functions.process-payment]
 verify_jwt = false
 
+[functions.get-user-tickets]
+verify_jwt = true
+
+[functions.get-order-status]
+verify_jwt = false
+
 [functions.scanner-authorize]
 verify_jwt = true
 
