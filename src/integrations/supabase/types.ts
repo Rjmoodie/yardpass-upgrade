@@ -1021,6 +1021,22 @@ export type Database = {
           shares: number
         }[]
       }
+      get_top_posts_analytics: {
+        Args: { p_event_id: string; p_limit?: number; p_metric?: string }
+        Returns: {
+          clicks_tickets: number
+          clicks_total: number
+          completions: number
+          created_at: string
+          ctr_tickets: number
+          engagement_total: number
+          media_urls: string[]
+          post_id: string
+          title: string
+          views_total: number
+          views_unique: number
+        }[]
+      }
       get_user_analytics: {
         Args: { p_user_id: string }
         Returns: {
