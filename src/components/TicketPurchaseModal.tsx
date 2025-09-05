@@ -8,6 +8,7 @@ import { Minus, Plus, Ticket, CreditCard, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { notify, notifyInfo } from '@/lib/notifications';
 
 interface TicketTier {
   id: string;
@@ -106,10 +107,7 @@ export function TicketPurchaseModal({
       // Open Stripe checkout in new tab
       window.open(data.url, '_blank');
       
-      toast({
-        title: "Redirecting to Checkout",
-        description: "Opening Stripe checkout in a new tab..."
-      });
+      notifyInfo("Secure payment starting...");
 
       // Close modal and trigger success callback
       onSuccess();
@@ -127,7 +125,7 @@ export function TicketPurchaseModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[var(--modal-bg)] border-[var(--modal-border)] shadow-[var(--shadow-modal)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Ticket className="w-5 h-5" />

@@ -30,6 +30,12 @@
   --switch-background: hsl(45, 20%, 85%);
   --ring: hsl(32, 100%, 64%);
   
+  /* Modal overlays */
+  --overlay: hsla(10, 12%, 6%, 0.45);
+  --overlay-strong: hsla(10, 12%, 6%, 0.55);
+  --modal-bg: hsl(0, 0%, 100%);
+  --modal-border: hsl(45, 20%, 88%);
+  
   /* YardPass Brand Colors */
   --brand-golden: hsl(45, 85%, 65%);
   --brand-charcoal: hsl(0, 0%, 10%);
@@ -53,6 +59,9 @@
   /* Radius */
   --radius: 16px;
   --radius-pill: 9999px;
+  
+  /* Modal effects */
+  --shadow-modal: 0 24px 64px hsla(0, 0%, 0%, 0.45), 0 8px 24px hsla(0, 0%, 0%, 0.35);
   
   /* Typography */
   --font-weight-medium: 600;
@@ -91,6 +100,12 @@
   --input: hsl(0, 0%, 16%);
   --input-background: hsl(0, 0%, 16%);
   --ring: hsl(32, 100%, 64%);
+  
+  /* Modal overlays - Dark Mode */
+  --overlay: hsla(0, 0%, 0%, 0.45);
+  --overlay-strong: hsla(0, 0%, 0%, 0.55);
+  --modal-bg: hsl(0, 0%, 12%);
+  --modal-border: hsl(0, 0%, 22%);
   
   /* YardPass Brand Colors - Dark Variants */
   --brand-golden: hsl(45, 85%, 65%);
@@ -266,9 +281,9 @@ html {
   
   /* Premium Action Buttons */
   .action-button {
-    @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300;
+    @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 relative;
     @apply hover:scale-110 active:scale-95;
-    background: hsla(0, 0%, 100%, 0.08);
+    background: hsla(0, 0%, 100%, 0.06);
     backdrop-filter: blur(12px);
     border: 1px solid hsla(0, 0%, 100%, 0.15);
     box-shadow: 0 4px 16px hsla(0, 0%, 0%, 0.2);

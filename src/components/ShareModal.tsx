@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Copy, MessageCircle, Send, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { SharePayload } from "@/lib/share";
+import { notify } from "@/lib/notifications";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -18,7 +19,7 @@ export const ShareModal = ({ isOpen, onClose, payload }: ShareModalProps) => {
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(payload.url);
-      toast({ title: "Link copied to clipboard" });
+      notify("Link copied!");
       onClose();
     } catch {
       // Fallback for older browsers
@@ -29,7 +30,7 @@ export const ShareModal = ({ isOpen, onClose, payload }: ShareModalProps) => {
       textArea.select();
       try {
         document.execCommand('copy');
-        toast({ title: "Link copied to clipboard" });
+        notify("Link copied!");
       } catch {
         toast({ title: "Failed to copy link", variant: "destructive" });
       }
@@ -81,7 +82,7 @@ export const ShareModal = ({ isOpen, onClose, payload }: ShareModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-[var(--modal-bg)] border-[var(--modal-border)] shadow-[var(--shadow-modal)]">
         <DialogHeader>
           <DialogTitle>Share</DialogTitle>
         </DialogHeader>

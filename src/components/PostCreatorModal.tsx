@@ -9,6 +9,7 @@ import { Upload, X, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { notify, notifyError } from '@/lib/notifications';
 
 interface Event {
   id: string;
@@ -191,10 +192,8 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
       console.log('Posts-create result:', result, 'Error:', error);
       if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: "Your post has been created!",
-      });
+      const selectedEvent = userTickets.find(t => t.event_id === selectedEventId)?.events;
+      notify(`Posted to ${selectedEvent?.title || 'event'}`);
 
       // Reset form
       setContent('');
@@ -228,7 +227,7 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[var(--modal-bg)] border-[var(--modal-border)] shadow-[var(--shadow-modal)]">
         <DialogHeader>
           <DialogTitle>Create Post</DialogTitle>
         </DialogHeader>

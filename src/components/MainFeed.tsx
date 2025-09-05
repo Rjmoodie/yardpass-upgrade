@@ -11,6 +11,7 @@ import { openMaps } from '@/lib/maps';
 import { capture } from '@/lib/analytics';
 import { sharePayload } from '@/lib/share';
 import { buildShareUrl, getShareTitle, getShareText } from '@/lib/shareLinks';
+import { notify, notifyInfo } from '@/lib/notifications';
 import { supabase } from '@/integrations/supabase/client';
 
 interface User {
@@ -211,6 +212,8 @@ export function MainFeed({
 
   const handleLike = (eventId: string) => {
     capture('feed_click', { target: 'like', event_id: eventId });
+    const event = events.find(e => e.id === eventId);
+    
     setEvents(prev => prev.map(event => 
       event.id === eventId 
         ? { 
@@ -220,6 +223,11 @@ export function MainFeed({
           }
         : event
     ));
+    
+    // Show feedback
+    if (event) {
+      notify(event.isLiked ? "Removed like" : "Saved ❤️");
+    }
   };
 
   const handleShare = (event: Event) => {
@@ -240,6 +248,8 @@ export function MainFeed({
       text: getShareText({ type: 'event', slug: event.id, title: event.title, date: event.date, city: event.location }),
       url: shareUrl
     });
+    
+    notifyInfo("Shared 👍");
   };
 
   const handleOrganizerClick = (event: Event) => {
@@ -487,7 +497,8 @@ export function MainFeed({
             <button 
               onClick={() => {
                 capture('feed_click', { target: 'comment', event_id: currentEvent.id });
-                onEventClick?.(currentEvent.id);
+                // Open comments modal instead of navigating away
+                notify("Comments feature coming soon!");
               }}
               className="action-button action-button-comment group"
             >
