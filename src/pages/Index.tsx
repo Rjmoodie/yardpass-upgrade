@@ -37,8 +37,7 @@ interface DatabaseTicketTier {
   name: string;
   price_cents: number;
   badge_label?: string;
-  available_quantity: number;
-  total_quantity: number;
+  quantity: number;
 }
 
 interface Event {
@@ -214,8 +213,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               name,
               price_cents,
               badge_label,
-              available_quantity,
-              total_quantity
+              quantity
             )
           `)
           .eq('visibility', 'public')
@@ -247,8 +245,8 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               name: tier.name,
               price: tier.price_cents / 100, // Convert cents to dollars
               badge: tier.badge_label,
-              available: tier.available_quantity,
-              total: tier.total_quantity
+              available: tier.quantity,
+              total: tier.quantity
             })) || [],
             attendeeCount: Math.floor(Math.random() * 1000) + 50,
             likes: Math.floor(Math.random() * 500) + 10,
