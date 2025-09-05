@@ -14,9 +14,12 @@ serve(async (req) => {
     const postHogProjectToken = Deno.env.get('POSTHOG_PROJECT_API_TOKEN');
     const postHogProjectId = Deno.env.get('POSTHOG_PROJECT_ID') || '216145'; // Your project ID
 
+    console.log('🔍 Debug - PostHog token exists:', !!postHogProjectToken);
+    console.log('🔍 Debug - PostHog project ID:', postHogProjectId);
+    
     if (!postHogProjectToken) {
-      console.log('PostHog project API token not configured, using sample data');
-      console.log('Available env vars:', Object.keys(Deno.env.toObject()));
+      console.log('❌ PostHog project API token not configured, using sample data');
+      console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('POSTHOG')));
       return getSampleResponse();
     }
 
