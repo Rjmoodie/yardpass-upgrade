@@ -596,7 +596,7 @@ const AnalyticsHub: React.FC = () => {
   const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
   const [loading, setLoading] = useState(false);
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<"overview" | "events" | "videos" | "audience">("overview");
 
   useEffect(() => {
     if (user) {
@@ -746,33 +746,40 @@ const AnalyticsHub: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-        <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50 rounded-xl">
-          <TabsTrigger 
-            value="overview" 
-            className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-          >
-            Overview
-          </TabsTrigger>
-          <TabsTrigger 
-            value="events" 
-            className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-          >
-            Events
-          </TabsTrigger>
-          <TabsTrigger 
-            value="videos" 
-            className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-          >
-            Videos
-          </TabsTrigger>
-          <TabsTrigger 
-            value="audience" 
-            className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-          >
-            Audience
-          </TabsTrigger>
-        </TabsList>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+        className="w-full space-y-8"
+      >
+        {/* Make sure nothing overlays this row */}
+        <div className="relative z-20">
+          <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50 rounded-xl">
+            <TabsTrigger 
+              className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" 
+              value="overview"
+            >
+              Overview
+            </TabsTrigger>
+            <TabsTrigger 
+              className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" 
+              value="events"
+            >
+              Events
+            </TabsTrigger>
+            <TabsTrigger 
+              className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" 
+              value="videos"
+            >
+              Videos
+            </TabsTrigger>
+            <TabsTrigger 
+              className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" 
+              value="audience"
+            >
+              Audience
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="space-y-6">
           {loading ? (
