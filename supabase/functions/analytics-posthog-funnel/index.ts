@@ -19,7 +19,8 @@ serve(async (req) => {
     
     if (!postHogProjectToken) {
       console.log('❌ PostHog project API token not configured, using sample data');
-      console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('POSTHOG')));
+      console.log('🔧 Available env vars with POSTHOG:', Object.keys(Deno.env.toObject()).filter(k => k.includes('POSTHOG')));
+      console.log('🔧 All env vars count:', Object.keys(Deno.env.toObject()).length);
       return getSampleResponse();
     }
 

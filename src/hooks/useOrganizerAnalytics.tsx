@@ -97,9 +97,9 @@ export function useOrganizerAnalytics() {
             status,
             redeemed_at
           ),
-          event_posts(
+          event_posts!fk_event_posts_event_id(
             id,
-            event_reactions(kind)
+            event_reactions!fk_event_reactions_post_id(kind)
           ),
           scan_logs(
             id,
