@@ -112,7 +112,15 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
         });
         setUserPosts([]);
       } else {
-        setUserPosts(posts || []);
+        setUserPosts((posts || []).map(post => ({
+          id: post.id,
+          content: post.text || '',
+          event_id: post.events?.id || '',
+          tier_id: '', // Not available in current query
+          title: post.events?.title || '',
+          date: new Date(post.created_at).toLocaleDateString(),
+          cover_image_url: post.events?.cover_image_url
+        })));
       }
 
       // Calculate badges from ticket tiers with better error handling
@@ -124,8 +132,11 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
         });
 
         const badges = Array.from(badgeCounts.entries()).map(([name, count]) => ({
+          id: `badge-${name}`,
           name,
           count,
+          icon: 'badge',
+          earned_at: new Date().toISOString(),
           description: `${name} tier attendee`
         }));
 

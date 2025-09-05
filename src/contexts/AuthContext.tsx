@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateRole = async (role: 'attendee' | 'organizer') => {
     if (!user) {
       console.error('updateRole: No user logged in');
-      return { error: 'No user logged in' };
+      return { error: new Error('No user logged in') };
     }
     
     console.log('updateRole: Updating role to:', role, 'for user:', user.id);
@@ -195,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('updateRole: Database error:', error);
     }
     
-    return { error };
+    return { error: error ? new Error(error.message) : null };
   };
 
   const signOut = async () => {
