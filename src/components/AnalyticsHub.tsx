@@ -208,11 +208,12 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
       console.log('📊 PostHog response:', { data, error });
       if (error) throw error;
       
-      // Check if we got real data or sample data
-      const isRealData = data?.funnel_steps?.[0]?.count !== 1250; // Sample data has 1250 as first count
+      // Check if we got real data from the new response format
+      const responseData = data?.data || data; // Handle both old and new response formats
+      const isRealData = data?.usingReal || false;
       console.log('✅ Using real PostHog data:', isRealData);
       
-      setAudienceData(data);
+      setAudienceData(responseData);
     } catch (error) {
       console.error('❌ Audience analytics error:', error);
       // Fallback to sample data
