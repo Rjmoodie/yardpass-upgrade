@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { useShare } from '@/hooks/useShare';
 import { formatDistanceToNow } from 'date-fns';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
+import { useVideoAnalytics } from '@/hooks/useVideoAnalytics';
 
 interface EventPost {
   id: string;
@@ -43,9 +44,47 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { sharePost } = useShare();
+  const { trackClick, startViewTracking, stopViewTracking, trackVideoProgress } = useVideoAnalytics();
+  const observerRef = useRef<IntersectionObserver | null>(null);
   const [posts, setPosts] = useState<EventPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+
+  // Set up intersection observer for view tracking
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const postId = entry.target.getAttribute('data-post-id');
+          const eventIdAttr = entry.target.getAttribute('data-event-id');
+          
+          if (postId && eventIdAttr) {
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.25) {
+              // Start tracking when 25% visible
+              startViewTracking(postId, eventIdAttr);
+            } else {
+              // Stop tracking when not visible
+              stopViewTracking(postId, eventIdAttr);
+            }
+          }
+        });
+      },
+      { threshold: [0.25, 0.75] } // Track at 25% and 75% visibility
+    );
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [startViewTracking, stopViewTracking]);
+
+  // Attach observer to post elements
+  const postRef = useCallback((node: HTMLDivElement) => {
+    if (node && observerRef.current) {
+      observerRef.current.observe(node);
+    }
+  }, []);
 
   useEffect(() => {
     fetchPosts();
@@ -171,6 +210,11 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
   };
 
   const handleShare = (post: EventPost) => {
+    trackClick({
+      post_id: post.id,
+      event_id: post.event_id,
+      target: 'share'
+    });
     capture('feed_click', { 
       target: 'share', 
       event_id: post.event_id, 
@@ -180,6 +224,11 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
   };
 
   const handleComment = (post: EventPost) => {
+    trackClick({
+      post_id: post.id,
+      event_id: post.event_id,
+      target: 'comment'
+    });
     capture('feed_click', { 
       target: 'comment', 
       event_id: post.event_id, 
@@ -232,7 +281,13 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
   return (
     <div className="space-y-4">
       {posts.map((post) => (
-        <Card key={post.id} className="overflow-hidden group">
+        <Card 
+          key={post.id} 
+          className="overflow-hidden group"
+          ref={postRef}
+          data-post-id={post.id}
+          data-event-id={post.event_id}
+        >
           <CardContent className="p-4 space-y-4">
             {/* Post Header */}
             <div className="flex items-start justify-between">
@@ -334,12 +389,26 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
                           className="w-full max-h-80 object-cover"
                           playsInline
                           preload="metadata"
+                          onLoadedData={(e) => {
+                            // Set up video progress tracking
+                            const video = e.currentTarget;
+                            const cleanup = trackVideoProgress(post.id, post.event_id, video);
+                            // Store cleanup function for later use
+                            video.addEventListener('unload', cleanup);
+                          }}
                         />
                       ) : isVideo ? (
                         <video 
                           src={url} 
                           controls 
                           className="w-full max-h-80 object-cover"
+                          onLoadedData={(e) => {
+                            // Set up video progress tracking
+                            const video = e.currentTarget;
+                            const cleanup = trackVideoProgress(post.id, post.event_id, video);
+                            // Store cleanup function for later use
+                            video.addEventListener('unload', cleanup);
+                          }}
                         />
                       ) : (
                         <img 
