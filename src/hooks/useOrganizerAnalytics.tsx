@@ -76,7 +76,7 @@ export function useOrganizerAnalytics() {
         });
       }
 
-      // Fetch detailed event analytics - remove inner join that causes issues with empty data
+      // Fetch detailed event analytics - fix ambiguous relationship
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select(`
@@ -92,7 +92,7 @@ export function useOrganizerAnalytics() {
             status,
             order_items!fk_order_items_order_id(quantity)
           ),
-          tickets(
+          tickets!fk_tickets_event_id(
             id,
             status,
             redeemed_at

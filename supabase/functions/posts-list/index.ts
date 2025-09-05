@@ -44,7 +44,7 @@ serve(async (req) => {
         author_user_id,
         event_id,
         ticket_tier_id,
-        user_profiles:author_user_id (
+        user_profiles!event_posts_author_user_id_fkey (
           display_name,
           photo_url
         ),
