@@ -31,6 +31,7 @@ import { AnalyticsWrapper } from '@/components/AnalyticsWrapper';
 import NotFound from '@/pages/NotFound';
 import EventsPage from '@/pages/EventsPage';
 import UserProfilePage from '@/pages/UserProfilePage';
+import OrganizationProfilePage from '@/pages/OrganizationProfilePage';
 import { ShareModal } from '@/components/ShareModal';
 import { SharePayload } from '@/lib/share';
 import { Scan } from 'lucide-react';
@@ -245,13 +246,7 @@ function AppContent() {
         />
         <Route 
           path="/org/:id" 
-          element={
-            <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
-              <h1 className="text-2xl font-bold mb-2">Organization Profile</h1>
-              <p className="text-muted-foreground mb-4">Organization profiles coming soon!</p>
-              <Button onClick={() => navigate('/')}>Return Home</Button>
-            </div>
-          } 
+          element={<OrganizationProfilePage />} 
         />
         <Route 
           path="/event/:id" 
