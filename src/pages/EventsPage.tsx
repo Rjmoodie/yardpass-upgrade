@@ -95,12 +95,12 @@ export default function EventsPage() {
         .from('events')
         .select(`
           *,
-          user_profiles:created_by (
+          user_profiles!events_created_by_fkey (
             display_name,
             photo_url,
             verification_status
           ),
-          organizations:owner_context_id (
+          organizations!events_owner_context_id_fkey (
             name,
             logo_url,
             verification_status
