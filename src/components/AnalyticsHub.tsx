@@ -197,9 +197,13 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
     setLoading(true);
     try {
       console.log('🔍 Fetching PostHog analytics...');
+      
+      // Get actual event IDs if available (you can pass these from your events context)
+      const eventIds = []; // Can be populated with real event tracking IDs
+      
       const { data, error } = await supabase.functions.invoke('analytics-posthog-funnel', {
         body: {
-          event_ids: [], // Would be populated with actual event IDs
+          event_ids: eventIds, // PostHog will use defaults if empty
           from_date: getDateFromRange(dateRange),
           to_date: new Date().toISOString()
         }
