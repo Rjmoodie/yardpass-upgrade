@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   ArrowLeft,
   Ticket,
@@ -21,6 +23,27 @@ interface User {
   id: string;
   name: string;
   role: 'attendee' | 'organizer';
+}
+
+interface Ticket {
+  id: string;
+  eventTitle: string;
+  eventDate: string;
+  eventTime: string;
+  venue: string;
+  city: string;
+  ticketType: string;
+  badgeLevel: string;
+  seatNumber: string;
+  qrCode: string;
+  status: string;
+  coverImage: string;
+  badge?: string;
+  eventLocation?: string;
+  organizerName?: string;
+  tierName?: string;
+  price?: number;
+  orderDate?: string;
 }
 
 interface TicketsPageProps {
@@ -62,14 +85,93 @@ const mockTickets = [
   }
 ];
 
+
 export function TicketsPage({ user, onBack }: TicketsPageProps) {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
+  const { user: authUser } = useAuth();
 
-  const upcomingTickets = mockTickets.filter(ticket => 
+  // Load user's tickets from database
+  useEffect(() => {
+    const loadUserTickets = async () => {
+      if (!authUser) return;
+      
+      try {
+        const { data: ticketsData, error } = await supabase
+          .from('tickets')
+          .select(`
+            *,
+            events (
+              id,
+              title,
+              start_at,
+              end_at,
+              venue,
+              city,
+              cover_image_url
+            ),
+            ticket_tiers (
+              name,
+              badge_label
+            )
+          `)
+          .eq('owner_user_id', authUser.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error loading user tickets:', error);
+          setTickets([]);
+        } else if (ticketsData && ticketsData.length > 0) {
+          // Transform database tickets to match UI format
+          const transformedTickets = ticketsData.map(ticket => ({
+            id: ticket.id,
+            eventTitle: (ticket as any).events?.title || 'Event',
+            eventDate: new Date((ticket as any).events?.start_at).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
+            eventTime: new Date((ticket as any).events?.start_at).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit'
+            }),
+            venue: (ticket as any).events?.venue || 'TBA',
+            city: (ticket as any).events?.city || '',
+            ticketType: (ticket as any).ticket_tiers?.name || 'General',
+            badgeLevel: (ticket as any).ticket_tiers?.badge_label || 'GA',
+            badge: (ticket as any).ticket_tiers?.badge_label || 'GA',
+            seatNumber: `Ticket #${ticket.id.slice(-8)}`,
+            qrCode: ticket.qr_code,
+            status: ticket.status,
+            coverImage: (ticket as any).events?.cover_image_url || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30',
+            eventLocation: `${(ticket as any).events?.venue || 'TBA'}, ${(ticket as any).events?.city || ''}`,
+            organizerName: 'Event Organizer',
+            tierName: (ticket as any).ticket_tiers?.name || 'General',
+            price: Math.floor(Math.random() * 100 + 25), // Mock price for now
+            orderDate: ticket.created_at
+          }));
+          setTickets(transformedTickets);
+        } else {
+          setTickets([]);
+        }
+      } catch (error) {
+        console.error('Error fetching user tickets:', error);
+        setTickets([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserTickets();
+  }, [authUser]);
+
+  const upcomingTickets = tickets.filter(ticket => 
     new Date(ticket.eventDate) > new Date()
   );
-  const pastTickets = mockTickets.filter(ticket => 
+  const pastTickets = tickets.filter(ticket => 
     new Date(ticket.eventDate) <= new Date()
   );
 
@@ -81,6 +183,19 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
   const showQRCode = (ticketId: string) => {
     setSelectedTicket(ticketId);
   };
+
+  if (loading) {
+    return (
+      <div className="h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
+            <Ticket className="text-white w-8 h-8" />
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-background flex flex-col">
@@ -96,7 +211,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
           <div className="flex-1">
             <h1>My Tickets</h1>
             <p className="text-sm text-muted-foreground">
-              {mockTickets.length} ticket{mockTickets.length !== 1 ? 's' : ''}
+              {tickets.length} ticket{tickets.length !== 1 ? 's' : ''}
             </p>
           </div>
           <Button variant="outline" size="sm">
@@ -287,13 +402,13 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">
-                  {mockTickets.find(t => t.id === selectedTicket)?.eventTitle}
+                  {tickets.find(t => t.id === selectedTicket)?.eventTitle}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Show this code at the entrance
                 </p>
                 <p className="text-xs font-mono bg-muted p-2 rounded">
-                  {mockTickets.find(t => t.id === selectedTicket)?.qrCode}
+                  {tickets.find(t => t.id === selectedTicket)?.qrCode}
                 </p>
               </div>
               <Button onClick={() => setSelectedTicket(null)} className="w-full">

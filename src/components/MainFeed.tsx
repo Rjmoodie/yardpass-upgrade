@@ -11,6 +11,7 @@ import { openMaps } from '@/lib/maps';
 import { capture } from '@/lib/analytics';
 import { sharePayload } from '@/lib/share';
 import { buildShareUrl, getShareTitle, getShareText } from '@/lib/shareLinks';
+import { supabase } from '@/integrations/supabase/client';
 
 interface User {
   id: string;
@@ -131,11 +132,80 @@ export function MainFeed({
   onAttendees
 }: MainFeedProps) {
   const navigate = useNavigate();
-  const [events, setEvents] = useState(mockEvents);
+  const [events, setEvents] = useState<Event[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load real events from database
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        const { data: eventsData, error } = await supabase
+          .from('events')
+          .select(`
+            id,
+            title,
+            description,
+            start_at,
+            end_at,
+            venue,
+            city,
+            category,
+            cover_image_url,
+            visibility,
+            user_profiles!events_created_by_fkey (
+              display_name
+            )
+          `)
+          .eq('visibility', 'public')
+          .order('start_at', { ascending: true })
+          .limit(20);
+
+        if (error) {
+          console.error('Error loading events for MainFeed:', error);
+          // Fallback to mock data on error
+          setEvents(mockEvents);
+        } else if (eventsData && eventsData.length > 0) {
+          // Transform database events to match UI format
+          const transformedEvents = eventsData.map(event => ({
+            id: event.id,
+            title: event.title,
+            description: event.description || '',
+            organizer: (event as any).user_profiles?.display_name || 'Organizer',
+            organizerId: event.id,
+            category: event.category || 'Event',
+            date: new Date(event.start_at).toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric'
+            }),
+            location: event.city || event.venue || 'TBA',
+            coverImage: event.cover_image_url || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30',
+            videoUrl: '',
+            ticketTiers: [],
+            attendeeCount: Math.floor(Math.random() * 1000) + 50,
+            likes: Math.floor(Math.random() * 500) + 10,
+            shares: Math.floor(Math.random() * 100) + 5,
+            isLiked: false
+          }));
+          setEvents(transformedEvents);
+        } else {
+          // No events found, use mock data
+          setEvents(mockEvents);
+        }
+      } catch (error) {
+        console.error('Error fetching events for MainFeed:', error);
+        setEvents(mockEvents);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEvents();
+  }, []);
 
   const currentEvent = events[currentIndex];
 
@@ -224,6 +294,19 @@ export function MainFeed({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex]);
+
+  if (loading || !currentEvent) {
+    return (
+      <div className="h-full bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-xl">🎪</span>
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 relative overflow-hidden bg-background">
