@@ -704,12 +704,13 @@ const AnalyticsHub: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">YardPass Analytics Hub</h1>
-        <p className="text-muted-foreground">Comprehensive insights across your events and content</p>
-      </div>
+    <div className="min-h-screen overflow-auto">
+      <div className="container mx-auto p-6 max-w-7xl">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">YardPass Analytics Hub</h1>
+          <p className="text-muted-foreground">Comprehensive insights across your events and content</p>
+        </div>
 
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -875,6 +876,7 @@ const AnalyticsHub: React.FC = () => {
           <AudienceAnalytics selectedOrg={selectedOrg} dateRange={dateRange} />
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 };
