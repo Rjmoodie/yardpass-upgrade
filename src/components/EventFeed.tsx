@@ -333,6 +333,7 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
                           controls 
                           className="w-full max-h-80 object-cover"
                           playsInline
+                          preload="metadata"
                         />
                       ) : isVideo ? (
                         <video 
