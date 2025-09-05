@@ -111,7 +111,7 @@ serve(async (req) => {
         tier_id, 
         quantity, 
         unit_price_cents,
-        orders!order_items_order_id_fkey(status)
+        orders!order_items_order_id_fkey!inner(status)
       `)
       .in('tier_id', tiers?.map(t => t.id) || [])
       .eq('orders.status', 'paid');
