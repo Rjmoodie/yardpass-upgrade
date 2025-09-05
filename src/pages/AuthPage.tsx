@@ -6,18 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
+import { useAuthFlow } from '@/hooks/useAuthFlow';
 import { Mail, Phone } from 'lucide-react';
 
 export default function AuthPage() {
-  const [isLoading, setIsLoading] = useState(false);
   const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('phone');
-  const [showOtpInput, setShowOtpInput] = useState(false);
-  const [phoneForOtp, setPhoneForOtp] = useState('');
-  const { user, signIn, signInWithPhone, verifyPhoneOtp, signUp, signUpWithPhone } = useAuth();
+  const { user } = useAuth();
+  const { isLoading, showOtpInput, phoneForOtp, handleSignIn, handleSignUp, resetOtpState } = useAuthFlow();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
 
   // Only redirect if already logged in AND we're on the direct /auth route
   useEffect(() => {
@@ -27,144 +24,12 @@ export default function AuthPage() {
     }
   }, [user, navigate, location]);
 
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    const formData = new FormData(e.currentTarget);
-    
-    if (authMethod === 'phone' && !showOtpInput) {
-      // First step: send OTP
-      const phone = formData.get('phone') as string;
-      const { error } = await signInWithPhone(phone);
-      
-      if (error) {
-        toast({
-          title: "Failed to send verification code",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        setPhoneForOtp(phone);
-        setShowOtpInput(true);
-        toast({
-          title: "Verification code sent",
-          description: "Please check your phone for the verification code.",
-        });
-      }
-    } else if (authMethod === 'phone' && showOtpInput) {
-      // Second step: verify OTP
-      const otp = formData.get('otp') as string;
-      const { error } = await verifyPhoneOtp(phoneForOtp, otp);
-      
-      if (error) {
-        toast({
-          title: "Verification failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Welcome back!",
-          description: "You've successfully signed in.",
-        });
-        const redirectTo = location.state?.redirectTo || '/';
-        navigate(redirectTo, { replace: true });
-      }
-    } else {
-      // Email authentication
-      const email = formData.get('email') as string;
-      const password = formData.get('password') as string;
-      const { error } = await signIn(email, password);
-      
-      if (error) {
-        toast({
-          title: "Sign in failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Welcome back!",
-          description: "You've successfully signed in.",
-        });
-        const redirectTo = location.state?.redirectTo || '/';
-        navigate(redirectTo, { replace: true });
-      }
-    }
-    
-    setIsLoading(false);
+  const handleSignInSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    await handleSignIn(e, authMethod);
   };
 
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    const formData = new FormData(e.currentTarget);
-    const displayName = formData.get('displayName') as string;
-
-    if (authMethod === 'phone' && !showOtpInput) {
-      // First step: send OTP for sign up
-      const phone = formData.get('phone') as string;
-      const { error } = await signUpWithPhone(phone, displayName);
-      
-      if (error) {
-        toast({
-          title: "Failed to send verification code",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        setPhoneForOtp(phone);
-        setShowOtpInput(true);
-        toast({
-          title: "Verification code sent",
-          description: "Please check your phone for the verification code.",
-        });
-      }
-    } else if (authMethod === 'phone' && showOtpInput) {
-      // Second step: verify OTP for sign up
-      const otp = formData.get('otp') as string;
-      const { error } = await verifyPhoneOtp(phoneForOtp, otp);
-      
-      if (error) {
-        toast({
-          title: "Verification failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Welcome to YardPass!",
-          description: "Your account has been created successfully.",
-        });
-        const redirectTo = location.state?.redirectTo || '/';
-        navigate(redirectTo, { replace: true });
-      }
-    } else {
-      // Email authentication
-      const email = formData.get('email') as string;
-      const password = formData.get('password') as string;
-      const phone = formData.get('phone') as string;
-      const { error } = await signUp(email, password, displayName, phone);
-      
-      if (error) {
-        toast({
-          title: "Sign up failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Welcome to YardPass!",
-          description: "Please check your email to verify your account.",
-        });
-        const redirectTo = location.state?.redirectTo || '/';
-        navigate(redirectTo, { replace: true });
-      }
-    }
-    
-    setIsLoading(false);
+  const handleSignUpSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    await handleSignUp(e, authMethod);
   };
 
   return (
@@ -186,8 +51,7 @@ export default function AuthPage() {
                 size="sm"
                 onClick={() => {
                   setAuthMethod('phone');
-                  setShowOtpInput(false);
-                  setPhoneForOtp('');
+                  resetOtpState();
                 }}
                 className="flex items-center gap-2"
               >
@@ -199,8 +63,7 @@ export default function AuthPage() {
                 size="sm"
                 onClick={() => {
                   setAuthMethod('email');
-                  setShowOtpInput(false);
-                  setPhoneForOtp('');
+                  resetOtpState();
                 }}
                 className="flex items-center gap-2"
               >
@@ -217,7 +80,7 @@ export default function AuthPage() {
             </TabsList>
             
             <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
+              <form onSubmit={handleSignInSubmit} className="space-y-4">
                 {authMethod === 'email' ? (
                   <>
                     <div className="space-y-2">
@@ -289,10 +152,7 @@ export default function AuthPage() {
                     type="button" 
                     variant="ghost" 
                     className="w-full"
-                    onClick={() => {
-                      setShowOtpInput(false);
-                      setPhoneForOtp('');
-                    }}
+                    onClick={resetOtpState}
                   >
                     Back to phone number
                   </Button>
@@ -301,7 +161,7 @@ export default function AuthPage() {
             </TabsContent>
             
             <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
+              <form onSubmit={handleSignUpSubmit} className="space-y-4">
                 {!showOtpInput && (
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Display Name</Label>
@@ -396,10 +256,7 @@ export default function AuthPage() {
                     type="button" 
                     variant="ghost" 
                     className="w-full"
-                    onClick={() => {
-                      setShowOtpInput(false);
-                      setPhoneForOtp('');
-                    }}
+                    onClick={resetOtpState}
                   >
                     Back to phone number
                   </Button>

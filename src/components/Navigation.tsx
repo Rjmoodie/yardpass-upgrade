@@ -196,6 +196,10 @@ export default function Navigation({ userRole }: NavigationProps) {
           <button
             key={item.id}
             onClick={() => handleNavigation(item.path, item.id)}
+            aria-label={`Navigate to ${item.label}`}
+            aria-current={isActive ? 'page' : undefined}
+            role="tab"
+            tabIndex={0}
             className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 active:scale-95 ${
               isActive 
                 ? 'text-primary bg-primary/20 backdrop-blur-sm border border-primary/30 shadow-lg golden-glow scale-110' 

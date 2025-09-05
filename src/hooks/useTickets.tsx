@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTicketCache } from './useOfflineCache';
 
 export interface UserTicket {
   id: string;
@@ -26,9 +27,11 @@ export interface UserTicket {
 export function useTickets() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const ticketCache = useTicketCache();
   const [tickets, setTickets] = useState<UserTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   const fetchUserTickets = async () => {
     if (!user) {
@@ -40,6 +43,24 @@ export function useTickets() {
     try {
       setLoading(true);
       setError(null);
+
+      // Check if we're offline and have cached data
+      if (!navigator.onLine) {
+        const cachedTickets = ticketCache.getCachedTicketList();
+        if (cachedTickets.length > 0) {
+          setTickets(cachedTickets);
+          setLoading(false);
+          toast({
+            title: "Offline Mode",
+            description: "Showing cached tickets. Some data may be outdated.",
+          });
+          return;
+        } else {
+          setError('No internet connection and no cached tickets available');
+          setLoading(false);
+          return;
+        }
+      }
 
       const { data, error: fetchError } = await supabase.functions.invoke('get-user-tickets');
 
@@ -80,14 +101,30 @@ export function useTickets() {
       });
 
       setTickets(transformedTickets);
+      
+      // Cache the tickets for offline use
+      ticketCache.cacheTicketList(transformedTickets);
+      
     } catch (error: any) {
       console.error('Error fetching tickets:', error);
-      setError(error.message || 'Failed to fetch tickets');
-      toast({
-        title: "Error Loading Tickets",
-        description: error.message || 'Failed to fetch tickets',
-        variant: "destructive",
-      });
+      
+      // If online fetch fails, try to show cached data
+      const cachedTickets = ticketCache.getCachedTicketList();
+      if (cachedTickets.length > 0) {
+        setTickets(cachedTickets);
+        toast({
+          title: "Using Cached Data",
+          description: "Network error. Showing cached tickets.",
+          variant: "destructive",
+        });
+      } else {
+        setError(error.message || 'Failed to fetch tickets');
+        toast({
+          title: "Error Loading Tickets",
+          description: error.message || 'Failed to fetch tickets',
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -110,6 +147,7 @@ export function useTickets() {
     pastTickets,
     loading,
     error,
+    isOffline,
     refreshTickets
   };
 }

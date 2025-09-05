@@ -11,7 +11,7 @@ interface CheckoutRequest {
   }[];
 }
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
 };
@@ -67,6 +67,21 @@ serve(async (req) => {
 
     if (tiersError) throw new Error(`Ticket tiers not found: ${tiersError.message}`);
     logStep("Ticket tiers found", { count: tiers.length });
+
+    // Validate ticket quantities are available
+    for (const selection of ticketSelections) {
+      const tier = tiers.find(t => t.id === selection.tierId);
+      if (!tier) throw new Error(`Tier not found: ${selection.tierId}`);
+      
+      if (selection.quantity > tier.quantity) {
+        throw new Error(`Not enough tickets available for ${tier.name}. Available: ${tier.quantity}, Requested: ${selection.quantity}`);
+      }
+      
+      if (selection.quantity > tier.max_per_order) {
+        throw new Error(`Cannot purchase more than ${tier.max_per_order} tickets per order for ${tier.name}`);
+      }
+    }
+    logStep("Ticket quantity validation passed");
 
     // Calculate line items
     const lineItems = ticketSelections.map(selection => {
@@ -131,6 +146,26 @@ serve(async (req) => {
       sum + (item.price_data.unit_amount * item.quantity), 0
     );
 
+    // Reserve tickets by temporarily reducing available quantities
+    for (const selection of ticketSelections) {
+      const tier = tiers.find(t => t.id === selection.tierId);
+      if (!tier) continue;
+
+      const { error: reserveError } = await supabaseService
+        .from("ticket_tiers")
+        .update({
+          quantity: supabaseService.raw(`quantity - ${selection.quantity}`)
+        })
+        .eq("id", tier.id)
+        .gte("quantity", selection.quantity); // Ensure we have enough
+
+      if (reserveError) {
+        logStep("Failed to reserve tickets", { tierId: tier.id, error: reserveError.message });
+        throw new Error(`Failed to reserve tickets for ${tier.name}`);
+      }
+    }
+    logStep("Tickets reserved successfully");
+
     const { data: order, error: orderError } = await supabaseService
       .from("orders")
       .insert({
@@ -145,7 +180,21 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (orderError) throw new Error(`Order creation failed: ${orderError.message}`);
+    if (orderError) {
+      // If order creation fails, release the reserved tickets
+      for (const selection of ticketSelections) {
+        const tier = tiers.find(t => t.id === selection.tierId);
+        if (!tier) continue;
+
+        await supabaseService
+          .from("ticket_tiers")
+          .update({
+            quantity: supabaseService.raw(`quantity + ${selection.quantity}`)
+          })
+          .eq("id", tier.id);
+      }
+      throw new Error(`Order creation failed: ${orderError.message}`);
+    }
     logStep("Order created", { orderId: order.id });
 
     // Create order items

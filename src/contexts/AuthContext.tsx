@@ -17,13 +17,13 @@ interface AuthContextType {
   profile: UserProfile | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signInWithPhone: (phone: string) => Promise<{ error: any }>;
-  verifyPhoneOtp: (phone: string, token: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, displayName: string, phone?: string) => Promise<{ error: any }>;
-  signUpWithPhone: (phone: string, displayName: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithPhone: (phone: string) => Promise<{ error: Error | null }>;
+  verifyPhoneOtp: (phone: string, token: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, displayName: string, phone?: string) => Promise<{ error: Error | null }>;
+  signUpWithPhone: (phone: string, displayName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  updateRole: (role: 'attendee' | 'organizer') => Promise<{ error: any }>;
+  updateRole: (role: 'attendee' | 'organizer') => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,6 +62,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // Check if this is a new user signup
+          if (event === 'SIGNED_IN' && session.user.created_at === session.user.updated_at) {
+            // New user - create profile if it doesn't exist
+            const displayName = session.user.user_metadata?.display_name || 'User';
+            const phone = session.user.phone || session.user.user_metadata?.phone;
+            
+            const { error: profileError } = await supabase
+              .from('user_profiles')
+              .upsert({
+                user_id: session.user.id,
+                display_name: displayName,
+                phone: phone,
+                role: 'attendee',
+                verification_status: 'none',
+                created_at: new Date().toISOString(),
+              });
+            
+            if (profileError) {
+              console.error('Error creating user profile:', profileError);
+            }
+          }
+          
           // Fetch user profile to get role and other info
           setTimeout(async () => {
             const userProfile = await fetchUserProfile(session.user.id);
@@ -132,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUpWithPhone = async (phone: string, displayName: string) => {
-    const { error } = await supabase.auth.signInWithOtp({
+    const { data, error } = await supabase.auth.signInWithOtp({
       phone,
       options: {
         data: {
@@ -140,6 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     });
+    
+    // If OTP was sent successfully, we need to create the profile after verification
+    // This will be handled in the auth state change listener
     return { error };
   };
 
@@ -159,10 +184,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     console.log('updateRole result:', { data, error });
     
-    if (!error && profile) {
-      console.log('updateRole: Setting new profile with role:', role);
-      setProfile({ ...profile, role });
-    } else if (error) {
+    if (!error) {
+      // Refetch the complete profile to ensure consistency
+      const updatedProfile = await fetchUserProfile(user.id);
+      if (updatedProfile) {
+        console.log('updateRole: Setting updated profile with role:', role);
+        setProfile(updatedProfile);
+      }
+    } else {
       console.error('updateRole: Database error:', error);
     }
     

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface EventAnalytics {
   event_id: string;
@@ -8,13 +8,12 @@ interface EventAnalytics {
   total_revenue: number;
   total_attendees: number;
   ticket_sales: number;
-  total_views: number;
+  check_ins: number;
   engagement_metrics: {
     likes: number;
     comments: number;
     shares: number;
   };
-  check_ins: number;
   refunds: {
     count: number;
     amount: number;
@@ -22,189 +21,175 @@ interface EventAnalytics {
 }
 
 interface OverallAnalytics {
-  total_events: number;
   total_revenue: number;
   total_attendees: number;
+  total_events: number;
   completed_events: number;
 }
 
 export function useOrganizerAnalytics() {
-  const { user, profile } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const [eventAnalytics, setEventAnalytics] = useState<EventAnalytics[]>([]);
   const [overallAnalytics, setOverallAnalytics] = useState<OverallAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user || !profile) {
-      setLoading(false);
-      return;
-    }
-
-    fetchAnalytics();
-  }, [user, profile]);
 
   const fetchAnalytics = async () => {
     if (!user) return;
 
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-
-      console.log('Fetching analytics for user:', user.id);
-
-      // Fetch overall analytics based on user's context
-      const { data: overallData, error: overallError } = await supabase
-        .rpc('get_user_analytics', { p_user_id: user.id });
-
-      if (overallError) {
-        console.error('Overall analytics error:', overallError);
-        throw overallError;
-      }
-
-      console.log('Overall analytics data:', overallData);
-
-      if (overallData && overallData.length > 0) {
-        setOverallAnalytics(overallData[0]);
-      } else {
-        // Set default analytics when no data exists
-        setOverallAnalytics({
-          total_events: 0,
-          total_revenue: 0,
-          total_attendees: 0,
-          completed_events: 0
-        });
-      }
-
-      // 1) Org memberships (collect org ids)
-      const { data: orgMemberships, error: orgErr } = await supabase
-        .from('org_memberships')
-        .select('org_id')
-        .eq('user_id', user.id);
-
-      if (orgErr) {
-        console.error('Org memberships error:', orgErr);
-      }
-      const orgIds = (orgMemberships?.map(m => m.org_id) ?? []).filter(Boolean);
-
-      // Helper to build ownership filter safely
-      const ownerFilters: string[] = [
-        `and(owner_context_type.eq.individual,owner_context_id.eq.${user.id})`,
-      ];
-      if (orgIds.length) {
-        ownerFilters.push(
-          `and(owner_context_type.eq.organization,owner_context_id.in.(${orgIds.join(',')}))`
-        );
-      }
-      const ownershipOr = ownerFilters.join(',');
-
-      // 2) Quick existence probe
+      // Fetch events created by the user
       const { data: events, error: eventsError } = await supabase
         .from('events')
-        .select('id, title, created_at, start_at, end_at, completed_at, owner_context_type, owner_context_id, created_by')
-        .or(ownershipOr);
+        .select('id, title, created_at')
+        .eq('created_by', user.id);
 
-      console.log('Events query result:', { events, eventsError, userId: user.id, orgIds });
+      if (eventsError) throw eventsError;
 
-      if (eventsError) {
-        console.error('Events query error:', eventsError);
+      if (!events || events.length === 0) {
         setEventAnalytics([]);
+        setOverallAnalytics({
+          total_revenue: 0,
+          total_attendees: 0,
+          total_events: 0,
+          completed_events: 0
+        });
         return;
       }
 
-      // 3) Detailed analytics with explicit FKs for ALL embeds
-      const { data: detailedEvents, error: detailedError } = await supabase
-        .from('events')
+      const eventIds = events.map(e => e.id);
+
+      // Fetch ticket sales and revenue
+      const { data: ticketData, error: ticketError } = await supabase
+        .from('tickets')
         .select(`
-          id,
-          title,
-          created_at,
-          start_at,
-          end_at,
-          completed_at,
-
-          orders:orders!orders_event_id_fkey (
-            id,
-            total_cents,
-            status,
-            order_items:order_items!order_items_order_id_fkey ( quantity )
-          ),
-
-          tickets:tickets!tickets_event_id_fkey (
-            id,
-            status,
-            redeemed_at
-          ),
-
-          event_posts:event_posts!event_posts_event_id_fkey (
-            id,
-            event_reactions:event_reactions!event_reactions_post_id_fkey ( kind )
-          ),
-
-          scan_logs:scan_logs!scan_logs_event_id_fkey (
-            id,
-            result
+          event_id,
+          status,
+          ticket_tiers!fk_tickets_tier_id (
+            price_cents
           )
         `)
-        .or(ownershipOr);
+        .in('event_id', eventIds);
 
-      console.log('Detailed events result:', { detailedEvents, detailedError });
+      if (ticketError) throw ticketError;
 
-      if (detailedError) {
-        console.error('Detailed analytics error:', detailedError);
-      }
+      // Fetch check-ins
+      const { data: checkInData, error: checkInError } = await supabase
+        .from('ticket_scans')
+        .select('event_id, ticket_id')
+        .in('event_id', eventIds);
 
-      // 4) Process analytics with complex data
-      const source = detailedEvents ?? events ?? [];
-      const processedAnalytics: EventAnalytics[] = source.map((event: any) => {
-        const paidOrders = (event.orders ?? []).filter((o: any) => o.status === 'paid');
-        const totalRevenue = paidOrders.reduce((sum: number, o: any) => sum + (o.total_cents || 0), 0) / 100;
+      if (checkInError) throw checkInError;
 
-        const ticketSales = paidOrders.reduce(
-          (sum: number, o: any) =>
-            sum + (o.order_items?.reduce((acc: number, it: any) => acc + (it.quantity || 0), 0) || 0),
-          0
-        );
+      // Fetch engagement metrics
+      const { data: engagementData, error: engagementError } = await supabase
+        .from('event_reactions')
+        .select('post_id, kind, event_posts!fk_event_reactions_post_id (event_id)')
+        .in('event_posts.event_id', eventIds);
 
-        const checkIns = (event.scan_logs ?? []).filter((log: any) => log.result === 'valid').length;
+      if (engagementError) throw engagementError;
 
-        const reactions = (event.event_posts ?? []).flatMap((p: any) => p.event_reactions ?? []);
-        const likes = reactions.filter((r: any) => r.kind === 'like').length;
-        const comments = reactions.filter((r: any) => r.kind === 'comment').length;
-        const shares = reactions.filter((r: any) => r.kind === 'share').length;
+      // Process analytics data
+      const analyticsMap = new Map<string, EventAnalytics>();
 
-        return {
+      // Initialize analytics for each event
+      events.forEach(event => {
+        analyticsMap.set(event.id, {
           event_id: event.id,
           event_title: event.title,
-          total_revenue: totalRevenue,
-          total_attendees: event.tickets?.length || 0,
-          ticket_sales: ticketSales,
-          total_views: 0, // This would need to be tracked separately
+          total_revenue: 0,
+          total_attendees: 0,
+          ticket_sales: 0,
+          check_ins: 0,
           engagement_metrics: {
-            likes,
-            comments,
-            shares
+            likes: 0,
+            comments: 0,
+            shares: 0
           },
-          check_ins: checkIns,
           refunds: {
-            count: 0, // Would need to join refunds table
+            count: 0,
             amount: 0
           }
-        };
+        });
       });
 
-      console.log('Processed analytics:', processedAnalytics);
-      setEventAnalytics(processedAnalytics);
-    } catch (err) {
-      console.error('Error fetching analytics:', err);
+      // Process ticket data
+      ticketData?.forEach(ticket => {
+        const analytics = analyticsMap.get(ticket.event_id);
+        if (analytics) {
+          analytics.total_attendees++;
+          if (ticket.status === 'issued') {
+            analytics.ticket_sales++;
+            analytics.total_revenue += (ticket.ticket_tiers as any)?.price_cents || 0;
+          }
+        }
+      });
+
+      // Process check-in data
+      checkInData?.forEach(scan => {
+        const analytics = analyticsMap.get(scan.event_id);
+        if (analytics) {
+          analytics.check_ins++;
+        }
+      });
+
+      // Process engagement data
+      engagementData?.forEach(reaction => {
+        const eventId = (reaction.event_posts as any)?.event_id;
+        if (eventId) {
+          const analytics = analyticsMap.get(eventId);
+          if (analytics) {
+            switch (reaction.kind) {
+              case 'like':
+                analytics.engagement_metrics.likes++;
+                break;
+              case 'comment':
+                analytics.engagement_metrics.comments++;
+                break;
+              case 'share':
+                analytics.engagement_metrics.shares++;
+                break;
+            }
+          }
+        }
+      });
+
+      const eventAnalyticsArray = Array.from(analyticsMap.values());
+
+      // Calculate overall analytics
+      const overall = eventAnalyticsArray.reduce((acc, event) => ({
+        total_revenue: acc.total_revenue + event.total_revenue,
+        total_attendees: acc.total_attendees + event.total_attendees,
+        total_events: acc.total_events + 1,
+        completed_events: acc.completed_events + (event.check_ins > 0 ? 1 : 0)
+      }), {
+        total_revenue: 0,
+        total_attendees: 0,
+        total_events: 0,
+        completed_events: 0
+      });
+
+      setEventAnalytics(eventAnalyticsArray);
+      setOverallAnalytics(overall);
+
+    } catch (err: unknown) {
+      console.error('Error fetching organizer analytics:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch analytics');
+      setEventAnalytics([]);
+      setOverallAnalytics(null);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchAnalytics();
+  }, [user]);
+
   const refreshAnalytics = () => {
-    console.log('Refreshing analytics...');
     fetchAnalytics();
   };
 

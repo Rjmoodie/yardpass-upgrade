@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -6,6 +6,33 @@ import { Switch } from './ui/switch';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useTickets, UserTicket } from '@/hooks/useTickets';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+import { DEFAULT_EVENT_COVER } from '@/lib/constants';
+
+interface UserPost {
+  id: string;
+  content: string;
+  event_id: string;
+  tier_id: string;
+  created_at: string;
+  events: {
+    title: string;
+    date: string;
+  };
+  ticket_tiers: {
+    name: string;
+  };
+}
+
+interface UserBadge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  earned_at: string;
+}
 import { 
   ArrowLeft, 
   Settings, 
@@ -16,7 +43,9 @@ import {
   Users,
   Star,
   Edit,
-  Share
+  Share,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 
 interface User {
@@ -33,55 +62,92 @@ interface UserProfileProps {
   onBack: () => void;
 }
 
-// Mock user data
-const mockTickets = [
-  {
-    id: '1',
-    eventTitle: 'Summer Music Festival 2024',
-    eventDate: 'July 15, 2024',
-    eventLocation: 'Central Park, NYC',
-    tierName: 'VIP Experience',
-    badge: 'VIP',
-    price: 199,
-    status: 'confirmed',
-    coverImage: 'https://images.unsplash.com/photo-1681149341674-45fd772fd463?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
-  },
-  {
-    id: '2',
-    eventTitle: 'Street Food Fiesta',
-    eventDate: 'August 8, 2024',
-    eventLocation: 'Brooklyn Bridge Park',
-    tierName: 'Foodie Pass',
-    badge: 'FOODIE',
-    price: 75,
-    status: 'confirmed',
-    coverImage: 'https://images.unsplash.com/photo-1551883709-2516220df0bc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
-  }
-];
-
-const mockPosts = [
-  {
-    id: '1',
-    eventTitle: 'Summer Music Festival 2024',
-    content: 'Amazing lineup! Can\'t wait for the weekend 🎵',
-    timestamp: '2 days ago',
-    likes: 15,
-    badge: 'VIP',
-    coverImage: 'https://images.unsplash.com/photo-1681149341674-45fd772fd463?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
-  }
-];
-
-const mockBadges = [
-  { name: 'VIP', count: 3, description: 'VIP tier attendee' },
-  { name: 'FOODIE', count: 2, description: 'Food event enthusiast' },
-  { name: 'EARLY', count: 5, description: 'Early bird ticket holder' }
-];
 
 export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [userPosts, setUserPosts] = useState<UserPost[]>([]);
+  const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { tickets, loading: ticketsLoading } = useTickets();
 
-  const totalSpent = mockTickets.reduce((sum, ticket) => sum + ticket.price, 0);
-  const eventsAttended = mockTickets.length;
+  const totalSpent = tickets.reduce((sum, ticket) => sum + ticket.price, 0);
+  const eventsAttended = tickets.length;
+
+  // Fetch user's posts and badges
+  useEffect(() => {
+    if (user.id) {
+      fetchUserData();
+    }
+  }, [user.id]);
+
+  const fetchUserData = async () => {
+    setLoading(true);
+    try {
+      // Fetch user's posts with better error handling
+      const { data: posts, error: postsError } = await supabase
+        .from('event_posts')
+        .select(`
+          id,
+          text,
+          created_at,
+          events!event_posts_event_id_fkey (
+            id,
+            title,
+            cover_image_url
+          ),
+          ticket_tiers!event_posts_tier_id_fkey (
+            badge_label
+          )
+        `)
+        .eq('author_user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (postsError) {
+        console.error('Error fetching posts:', postsError);
+        toast({
+          title: "Warning",
+          description: "Could not load your posts",
+          variant: "destructive",
+        });
+        setUserPosts([]);
+      } else {
+        setUserPosts(posts || []);
+      }
+
+      // Calculate badges from ticket tiers with better error handling
+      try {
+        const badgeCounts = new Map();
+        tickets.forEach(ticket => {
+          const badge = ticket.badge || 'GA';
+          badgeCounts.set(badge, (badgeCounts.get(badge) || 0) + 1);
+        });
+
+        const badges = Array.from(badgeCounts.entries()).map(([name, count]) => ({
+          name,
+          count,
+          description: `${name} tier attendee`
+        }));
+
+        setUserBadges(badges);
+      } catch (badgeError) {
+        console.error('Error calculating badges:', badgeError);
+        setUserBadges([]);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load profile data. Please try refreshing the page.",
+        variant: "destructive",
+      });
+      // Set empty states to prevent UI crashes
+      setUserPosts([]);
+      setUserBadges([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="h-full bg-background flex flex-col">
@@ -187,11 +253,11 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             <div className="text-xs text-muted-foreground">Events</div>
           </div>
           <div className="p-4 text-center border-x">
-            <div className="text-xl">${totalSpent}</div>
+            <div className="text-xl">${totalSpent.toFixed(0)}</div>
             <div className="text-xs text-muted-foreground">Spent</div>
           </div>
           <div className="p-4 text-center">
-            <div className="text-xl">{mockPosts.length}</div>
+            <div className="text-xl">{userPosts.length}</div>
             <div className="text-xs text-muted-foreground">Posts</div>
           </div>
         </div>
@@ -211,7 +277,13 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             </div>
 
             <div className="space-y-3">
-              {mockTickets.map((ticket) => (
+              {ticketsLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="text-sm text-muted-foreground mt-2">Loading tickets...</p>
+                </div>
+              ) : tickets.length > 0 ? (
+                tickets.slice(0, 5).map((ticket) => (
                 <Card key={ticket.id} className="overflow-hidden">
                   <div className="flex">
                     <ImageWithFallback
@@ -240,39 +312,37 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                         </div>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-xs text-muted-foreground">{ticket.tierName}</span>
+                        <span className="text-xs text-muted-foreground">{ticket.ticketType}</span>
                         <Badge 
-                          variant={ticket.status === 'confirmed' ? 'secondary' : 'outline'}
+                          variant={ticket.status === 'issued' ? 'secondary' : 'outline'}
                           className="text-xs"
                         >
-                          {ticket.status}
+                          {ticket.status === 'issued' ? 'confirmed' : ticket.status}
                         </Badge>
                       </div>
                     </CardContent>
                   </div>
                 </Card>
-              ))}
-            </div>
-
-            {mockTickets.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Ticket className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No tickets yet</p>
-                <p className="text-sm">Discover and attend amazing events!</p>
-              </div>
-            )}
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Ticket className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No tickets yet</p>
+                  <p className="text-sm">Discover and attend amazing events!</p>
+                </div>
+              )}
           </TabsContent>
 
           <TabsContent value="badges" className="p-4 space-y-4">
             <div className="flex justify-between items-center">
               <h3>Your Badges</h3>
               <span className="text-sm text-muted-foreground">
-                {mockBadges.reduce((sum, badge) => sum + badge.count, 0)} total
+                {userBadges.reduce((sum, badge) => sum + badge.count, 0)} total
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              {mockBadges.map((badge) => (
+              {userBadges.length > 0 ? userBadges.map((badge) => (
                 <Card key={badge.name}>
                   <CardContent className="p-4 text-center">
                     <div className="mb-2">
@@ -286,7 +356,13 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                     </p>
                   </CardContent>
                 </Card>
-              ))}
+              )) : (
+                <div className="col-span-2 text-center py-8 text-muted-foreground">
+                  <Star className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No badges yet</p>
+                  <p className="text-sm">Attend events to earn badges!</p>
+                </div>
+              )}
             </div>
 
             <Card>
@@ -317,44 +393,45 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             </div>
 
             <div className="space-y-3">
-              {mockPosts.map((post) => (
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="text-sm text-muted-foreground mt-2">Loading posts...</p>
+                </div>
+              ) : userPosts.length > 0 ? (
+                userPosts.map((post) => (
                 <Card key={post.id}>
                   <CardContent className="p-4">
                     <div className="flex gap-3">
                       <ImageWithFallback
-                        src={post.coverImage}
-                        alt={post.eventTitle}
+                        src={post.events?.cover_image_url || DEFAULT_EVENT_COVER}
+                        alt={post.events?.title || 'Event'}
                         className="w-12 h-12 rounded object-cover"
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm">{post.eventTitle}</span>
+                          <span className="text-sm">{post.events?.title || 'Event'}</span>
                           <Badge variant="outline" className="text-xs">
-                            {post.badge}
+                            {post.ticket_tiers?.badge_label || 'GA'}
                           </Badge>
                         </div>
-                        <p className="text-sm mb-2">{post.content}</p>
+                        <p className="text-sm mb-2">{post.text}</p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span>{post.timestamp}</span>
-                          <span className="flex items-center gap-1">
-                            <Star className="w-3 h-3" />
-                            {post.likes}
-                          </span>
+                          <span>{new Date(post.created_at).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No posts yet</p>
+                  <p className="text-sm">Share your event experiences!</p>
+                </div>
+              )}
             </div>
-
-            {mockPosts.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No posts yet</p>
-                <p className="text-sm">Share your event experiences!</p>
-              </div>
-            )}
           </TabsContent>
         </Tabs>
       </div>

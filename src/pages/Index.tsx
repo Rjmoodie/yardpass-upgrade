@@ -17,6 +17,29 @@ import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { useShare } from '@/hooks/useShare';
 import { supabase } from '@/integrations/supabase/client';
+import { DEFAULT_EVENT_COVER } from '@/lib/constants';
+
+interface DatabaseEvent {
+  id: string;
+  title: string;
+  description: string;
+  organizer_id: string;
+  category: string;
+  start_at: string;
+  city?: string;
+  venue?: string;
+  cover_image_url?: string;
+  ticket_tiers?: DatabaseTicketTier[];
+}
+
+interface DatabaseTicketTier {
+  id: string;
+  name: string;
+  price_cents: number;
+  badge_label?: string;
+  available_quantity: number;
+  total_quantity: number;
+}
 
 interface Event {
   id: string;
@@ -73,7 +96,7 @@ const mockEvents: Event[] = [
     category: 'Music',
     date: 'July 15-17, 2024',
     location: 'Central Park, NYC',
-    coverImage: 'https://images.unsplash.com/photo-1681149341674-45fd772fd463?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080',
+    coverImage: DEFAULT_EVENT_COVER,
     ticketTiers: [
       { id: '1', name: 'General Admission', price: 89, badge: 'GA', available: 45, total: 1000 },
       { id: '2', name: 'VIP Experience', price: 199, badge: 'VIP', available: 12, total: 100 }
@@ -111,7 +134,7 @@ const mockEvents: Event[] = [
     category: 'Food & Drink',
     date: 'August 8, 2024',
     location: 'Brooklyn Bridge Park',
-    coverImage: 'https://images.unsplash.com/photo-1551883709-2516220df0bc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080',
+    coverImage: DEFAULT_EVENT_COVER,
     ticketTiers: [
       { id: '3', name: 'Entry Pass', price: 25, badge: 'ENTRY', available: 234, total: 500 },
       { id: '4', name: 'Foodie Pass', price: 75, badge: 'FOODIE', available: 18, total: 50 }
@@ -140,7 +163,7 @@ const mockEvents: Event[] = [
     category: 'Art & Culture',
     date: 'September 2, 2024',
     location: 'SoHo Art District',
-    coverImage: 'https://images.unsplash.com/photo-1713779490284-a81ff6a8ffae?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhcnQlMjBnYWxsZXJ5JTIwZXhoaWJpdGlvbnxlbnwxfHx8fDE3NTY3NjI4ODd8MA&ixlib=rb-4.0&q=80&w=1080',
+    coverImage: DEFAULT_EVENT_COVER,
     ticketTiers: [
       { id: '5', name: 'Standard', price: 35, badge: 'STD', available: 156, total: 200 },
       { id: '6', name: 'Premium', price: 85, badge: 'PREM', available: 23, total: 50 }
@@ -185,6 +208,14 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             visibility,
             user_profiles!events_created_by_fkey (
               display_name
+            ),
+            ticket_tiers (
+              id,
+              name,
+              price_cents,
+              badge_label,
+              available_quantity,
+              total_quantity
             )
           `)
           .eq('visibility', 'public')
@@ -210,8 +241,15 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               year: 'numeric'
             }),
             location: event.city || event.venue || 'TBA',
-            coverImage: event.cover_image_url || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30',
-            ticketTiers: [],
+            coverImage: event.cover_image_url || DEFAULT_EVENT_COVER,
+            ticketTiers: (event as DatabaseEvent).ticket_tiers?.map((tier: DatabaseTicketTier) => ({
+              id: tier.id,
+              name: tier.name,
+              price: tier.price_cents / 100, // Convert cents to dollars
+              badge: tier.badge_label,
+              available: tier.available_quantity,
+              total: tier.total_quantity
+            })) || [],
             attendeeCount: Math.floor(Math.random() * 1000) + 50,
             likes: Math.floor(Math.random() * 500) + 10,
             shares: Math.floor(Math.random() * 100) + 5,
@@ -237,7 +275,6 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   const currentEvent = events[currentIndex];
 
   const handleLike = withAuth((eventId: string) => {
-    console.log('Like function executing');
     setEvents(prev => prev.map(event => 
       event.id === eventId 
         ? { 
@@ -254,7 +291,6 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   }, "Please sign in to like events");
 
   const handleShare = (event: Event) => {
-    console.log('handleShare called');
     capture('share_click', { event_id: event.id });
     shareEvent(event.id, event.title);
   };
@@ -272,13 +308,11 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   }, "Please sign in to access more options");
 
   const handleCategoryClick = (category: string) => {
-    console.log('handleCategoryClick called with:', category);
     capture('category_click', { category });
     navigate(routes.category(category));
   };
 
   const handleOrganizerClick = (organizerId: string, organizerName: string) => {
-    console.log('handleOrganizerClick called with:', organizerId, organizerName);
     capture('organizer_click', { organizer_id: organizerId });
     navigate(routes.org(organizerId));
   };
@@ -623,7 +657,6 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('More options button clicked');
                 handleMoreOptions();
               }}
               className="transition-transform active:scale-95 z-20 relative min-h-[44px] min-w-[44px]"
@@ -662,20 +695,16 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
         onTouchStart={(e) => {
           const touch = e.touches[0];
           e.currentTarget.dataset.startY = touch.clientY.toString();
-          console.log('Touch start detected on swipe area');
         }}
         onTouchEnd={(e) => {
           const startY = parseInt(e.currentTarget.dataset.startY || '0');
           const endY = e.changedTouches[0].clientY;
           const diff = startY - endY;
 
-          console.log('Touch end detected, diff:', diff);
           if (Math.abs(diff) > 50) {
             if (diff > 0) {
-              console.log('Swiping down');
               handleScroll('down');
             } else {
-              console.log('Swiping up');
               handleScroll('up');
             }
           }

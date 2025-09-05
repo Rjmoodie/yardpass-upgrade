@@ -19,7 +19,7 @@ interface MapboxLocationPickerProps {
 }
 
 // Mapbox API configuration
-const MAPBOX_TOKEN = 'pk.eyJ1IjoiaG90cm9kMjUiLCJhIjoiY21lZm9sODBoMHdnaDJycHg5dmQyaGV3YSJ9.RoCyY_SXikylZK2sD35oMQ';
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiaG90cm9kMjUiLCJhIjoiY21lZm9sODBoMHdnaDJycHg5dmQyaGV3YSJ9.RoCyY_SXikylZK2sD35oMQ';
 const MAPBOX_GEOCODING_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
 
 export function MapboxLocationPicker({ value, onChange, className }: MapboxLocationPickerProps) {

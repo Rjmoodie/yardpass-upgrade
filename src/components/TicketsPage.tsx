@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useTickets, UserTicket } from '@/hooks/useTickets';
+import { toast } from '@/hooks/use-toast';
+import { generateQRData, generateQRCodeSVG, copyQRDataToClipboard, shareQRData } from '@/lib/qrCode';
+import { useTicketAnalytics } from '@/hooks/useTicketAnalytics';
 import { 
   ArrowLeft,
   Ticket,
@@ -14,7 +17,11 @@ import {
   Star,
   Filter,
   Download,
-  QrCode
+  QrCode,
+  RefreshCw,
+  AlertCircle,
+  Copy,
+  Share2
 } from 'lucide-react';
 
 interface User {
@@ -32,15 +39,97 @@ interface TicketsPageProps {
 export function TicketsPage({ user, onBack }: TicketsPageProps) {
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
-  const { tickets, upcomingTickets, pastTickets, loading, refreshTickets } = useTickets();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { tickets, upcomingTickets, pastTickets, loading, error, isOffline, refreshTickets } = useTickets();
+  const { trackTicketView, trackQRCodeView, trackTicketShare, trackTicketCopy, trackWalletDownload } = useTicketAnalytics();
 
   const handleDownloadWalletPass = (ticket: UserTicket) => {
-    // Mock wallet pass download - would integrate with Apple/Google Wallet
-    console.log('Downloading wallet pass for:', ticket.eventTitle);
+    // Track analytics
+    trackWalletDownload(ticket.id, ticket.eventId, user.id);
+    
+    // TODO: Integrate with Apple/Google Wallet API
+    // For now, show a toast with instructions
+    toast({
+      title: "Wallet Pass",
+      description: "Wallet integration coming soon! Your ticket QR code is available above.",
+    });
   };
 
   const showQRCode = (ticketId: string) => {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (ticket) {
+      trackQRCodeView(ticket.id, ticket.eventId, user.id);
+    }
     setSelectedTicket(ticketId);
+  };
+
+  const handleCopyQRCode = async (ticket: UserTicket) => {
+    try {
+      const qrData = generateQRData({
+        id: ticket.id,
+        eventId: ticket.eventId,
+        qrCode: ticket.qrCode,
+        userId: user.id
+      });
+      
+      await copyQRDataToClipboard(qrData);
+      trackTicketCopy(ticket.id, ticket.eventId, user.id);
+      
+      toast({
+        title: "Copied!",
+        description: "Ticket information copied to clipboard",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy ticket information",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShareTicket = async (ticket: UserTicket) => {
+    try {
+      const qrData = generateQRData({
+        id: ticket.id,
+        eventId: ticket.eventId,
+        qrCode: ticket.qrCode,
+        userId: user.id
+      });
+      
+      await shareQRData(qrData);
+      trackTicketShare(ticket.id, ticket.eventId, user.id, 'native_share');
+      
+      toast({
+        title: "Shared!",
+        description: "Ticket shared successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to share ticket",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshTickets();
+      toast({
+        title: "Tickets Refreshed",
+        description: "Your tickets have been updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh tickets. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   if (loading) {
@@ -73,12 +162,46 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
               {tickets.length} ticket{tickets.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <Button variant="outline" size="sm">
-            <Filter className="w-4 h-4 mr-1" />
-            Filter
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm">
+              <Filter className="w-4 h-4 mr-1" />
+              Filter
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Error State */}
+      {error && (
+        <div className="p-4">
+          <Card className="border-destructive">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">Error Loading Tickets</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">{error}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefresh}
+                className="mt-2"
+              >
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
@@ -246,37 +369,71 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
       </div>
 
       {/* QR Code Modal */}
-      {selectedTicket && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-sm">
-            <CardHeader className="text-center">
-              <CardTitle>Event Ticket</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <div className="w-48 h-48 bg-white mx-auto rounded-lg flex items-center justify-center">
-                {/* Mock QR Code */}
-                <div className="w-40 h-40 bg-black rounded-lg flex items-center justify-center">
-                  <QrCode className="w-32 h-32 text-white" />
+      {selectedTicket && (() => {
+        const ticket = tickets.find(t => t.id === selectedTicket);
+        if (!ticket) return null;
+        
+        const qrData = generateQRData({
+          id: ticket.id,
+          eventId: ticket.eventId,
+          qrCode: ticket.qrCode,
+          userId: user.id
+        });
+        
+        const qrCodeSVG = generateQRCodeSVG(qrData, 200);
+        
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-sm">
+              <CardHeader className="text-center">
+                <CardTitle>Event Ticket</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-4">
+                <div className="w-48 h-48 bg-white mx-auto rounded-lg flex items-center justify-center p-4">
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: qrCodeSVG }}
+                    className="w-full h-full"
+                  />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">
-                  {tickets.find(t => t.id === selectedTicket)?.eventTitle}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Show this code at the entrance
-                </p>
-                <p className="text-xs font-mono bg-muted p-2 rounded">
-                  {tickets.find(t => t.id === selectedTicket)?.qrCode}
-                </p>
-              </div>
-              <Button onClick={() => setSelectedTicket(null)} className="w-full">
-                Close
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    {ticket.eventTitle}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Show this code at the entrance
+                  </p>
+                  <p className="text-xs font-mono bg-muted p-2 rounded">
+                    {qrData.signature}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleCopyQRCode(ticket)}
+                    className="flex-1"
+                  >
+                    <Copy className="w-3 h-3 mr-1" />
+                    Copy
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleShareTicket(ticket)}
+                    className="flex-1"
+                  >
+                    <Share2 className="w-3 h-3 mr-1" />
+                    Share
+                  </Button>
+                </div>
+                <Button onClick={() => setSelectedTicket(null)} className="w-full">
+                  Close
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
     </div>
   );
 }

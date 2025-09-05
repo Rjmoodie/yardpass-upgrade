@@ -1,16 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     console.log('Posts-list function called with URL:', req.url);
@@ -74,10 +68,7 @@ serve(async (req) => {
 
     if (postsError) {
       console.error('Error fetching posts:', postsError);
-      return new Response(JSON.stringify({ error: postsError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return createErrorResponse(postsError.message, 500);
     }
 
     console.log(`Fetched ${posts?.length || 0} posts`);
@@ -121,22 +112,13 @@ serve(async (req) => {
         };
       });
 
-      return new Response(JSON.stringify({ data: transformedPosts }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return createResponse({ data: transformedPosts });
     }
 
-    return new Response(JSON.stringify({ data: [] }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return createResponse({ data: [] });
 
   } catch (error) {
     console.error('Error in posts-list function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return createErrorResponse(error.message, 500);
   }
 });

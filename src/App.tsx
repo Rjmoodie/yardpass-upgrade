@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
@@ -7,36 +7,37 @@ import { toast } from '@/hooks/use-toast';
 import AuthModal from '@/components/AuthModal';
 import AuthPage from '@/pages/AuthPage';
 import Index from '@/pages/Index';
-import EventDetail from '@/components/EventDetail';
-import { CreateEventFlow } from '@/components/CreateEventFlow';
-import OrganizerDashboard from '@/components/OrganizerDashboard';
-import UserProfile from '@/components/UserProfile';
-import PostCreator from '@/components/PostCreator';
-import SearchPage from '@/components/SearchPage';
-import EventManagement from '@/components/EventManagement';
 import Navigation from '@/components/Navigation';
-import OrganizationCreator from '@/components/OrganizationCreator';
-import OrganizationDashboard from '@/components/OrganizationDashboard';
-import PrivacyPolicy from '@/pages/PrivacyPolicy';
-import TermsOfService from '@/pages/TermsOfService';
-import RefundPolicy from '@/pages/RefundPolicy';
-import TicketsPage from '@/components/TicketsPage';
-import TicketSuccessPage from '@/components/TicketSuccessPage';
-import { PostsTestPage } from '@/components/PostsTestPage';
-import { PostsDebugPage } from '@/components/PostsDebugPage';
-import { ScannerPage } from '@/components/ScannerPage';
-import AnalyticsHub from '@/components/AnalyticsHub';
-import EventAnalytics from '@/components/EventAnalytics';
-import { AnalyticsWrapper } from '@/components/AnalyticsWrapper';
-import NotFound from '@/pages/NotFound';
-import EventsPage from '@/pages/EventsPage';
-import UserProfilePage from '@/pages/UserProfilePage';
-import OrganizationProfilePage from '@/pages/OrganizationProfilePage';
 import { ShareModal } from '@/components/ShareModal';
 import { SharePayload } from '@/lib/share';
 import { Scan } from 'lucide-react';
+import { PageLoadingSpinner } from '@/components/LoadingSpinner';
 
-type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success' | 'posts-test';
+// Lazy load heavy components
+const EventDetail = lazy(() => import('@/components/EventDetail'));
+const CreateEventFlow = lazy(() => import('@/components/CreateEventFlow').then(m => ({ default: m.CreateEventFlow })));
+const OrganizerDashboard = lazy(() => import('@/components/OrganizerDashboard'));
+const UserProfile = lazy(() => import('@/components/UserProfile'));
+const PostCreator = lazy(() => import('@/components/PostCreator'));
+const SearchPage = lazy(() => import('@/components/SearchPage'));
+const EventManagement = lazy(() => import('@/components/EventManagement'));
+const OrganizationCreator = lazy(() => import('@/components/OrganizationCreator'));
+const OrganizationDashboard = lazy(() => import('@/components/OrganizationDashboard'));
+const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
+const RefundPolicy = lazy(() => import('@/pages/RefundPolicy'));
+const TicketsPage = lazy(() => import('@/components/TicketsPage'));
+const TicketSuccessPage = lazy(() => import('@/components/TicketSuccessPage'));
+const ScannerPage = lazy(() => import('@/components/ScannerPage').then(m => ({ default: m.ScannerPage })));
+const AnalyticsHub = lazy(() => import('@/components/AnalyticsHub'));
+const EventAnalytics = lazy(() => import('@/components/EventAnalytics'));
+const AnalyticsWrapper = lazy(() => import('@/components/AnalyticsWrapper').then(m => ({ default: m.AnalyticsWrapper })));
+const NotFound = lazy(() => import('@/pages/NotFound'));
+const EventsPage = lazy(() => import('@/pages/EventsPage'));
+const UserProfilePage = lazy(() => import('@/pages/UserProfilePage'));
+const OrganizationProfilePage = lazy(() => import('@/pages/OrganizationProfilePage'));
+
+type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success';
 type UserRole = 'attendee' | 'organizer';
 
 interface Event {
@@ -126,7 +127,6 @@ function AppContent() {
   useEffect(() => {
     const onShareModalOpen = (e: CustomEvent<SharePayload>) => {
       if (import.meta.env.DEV) {
-        console.log('[Share] Modal opened with payload:', e.detail);
       }
       setSharePayload(e.detail);
     };
@@ -149,14 +149,12 @@ function AppContent() {
   };
 
   const handleRoleToggle = async () => {
-    console.log('handleRoleToggle called', { user: !!user, profile: !!profile, currentRole: userRole });
     if (!user || !profile) {
       console.error('Missing user or profile:', { user: !!user, profile: !!profile });
       return;
     }
     
     const newRole = userRole === 'attendee' ? 'organizer' : 'attendee';
-    console.log('Updating role from', userRole, 'to', newRole);
     
     try {
       const { error } = await updateRole(newRole);
@@ -169,7 +167,6 @@ function AppContent() {
           variant: "destructive",
         });
       } else {
-        console.log('Role updated successfully to:', newRole);
         toast({
           title: "Role Updated",
           description: `You are now ${newRole === 'organizer' ? 'an organizer' : 'an attendee'}`,
@@ -214,7 +211,8 @@ function AppContent() {
           pb-[calc(env(safe-area-inset-bottom)+88px)]
           [@supports(-webkit-touch-callout:none)]:[-webkit-overflow-scrolling:touch]
         ">
-          <Routes>
+          <Suspense fallback={<PageLoadingSpinner />}>
+            <Routes>
         {/* Public Routes */}
         <Route 
           path="/" 
@@ -237,7 +235,7 @@ function AppContent() {
           } 
         />
         <Route 
-          path="/events/:slug" 
+          path="/events/:id" 
           element={<EventsPage />} 
         />
         <Route 
@@ -270,7 +268,6 @@ function AppContent() {
         <Route path="/privacy-policy" element={<PrivacyPolicy onBack={() => navigate('/')} />} />
         <Route path="/terms-of-service" element={<TermsOfService onBack={() => navigate('/')} />} />
         <Route path="/refund-policy" element={<RefundPolicy onBack={() => navigate('/')} />} />
-        <Route path="/posts-debug" element={<PostsDebugPage />} />
 
         {/* Protected Routes */}
         <Route 
@@ -450,14 +447,6 @@ function AppContent() {
           } 
         />
         <Route 
-          path="/posts-test" 
-          element={
-            <AuthGuard>
-              <PostsTestPage />
-            </AuthGuard>
-          } 
-        />
-        <Route 
           path="/ticket-success" 
           element={
             <AuthGuard>
@@ -484,7 +473,8 @@ function AppContent() {
         
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
-        </Routes>
+            </Routes>
+          </Suspense>
         </main>
 
         {/* Share Modal */}

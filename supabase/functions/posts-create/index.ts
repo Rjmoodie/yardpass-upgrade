@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
 
 interface CreatePostRequest {
   event_id: string;
@@ -14,10 +10,8 @@ interface CreatePostRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     console.log('Posts-create function called with body:', await req.clone().text());
@@ -39,10 +33,7 @@ serve(async (req) => {
     
     if (userError || !user) {
       console.log('Authentication failed');
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return createErrorResponse("Unauthorized", 401);
     }
 
     const { event_id, text, media_urls, ticket_tier_id }: CreatePostRequest = await req.json();
@@ -144,24 +135,15 @@ serve(async (req) => {
 
     if (postError) {
       console.error('Error creating post:', postError);
-      return new Response(JSON.stringify({ error: postError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return createErrorResponse(postError.message, 500);
     }
 
     console.log('Post created successfully:', post);
 
-    return new Response(JSON.stringify({ data: post }), {
-      status: 201,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+          return createResponse({ data: post }, 201);
 
   } catch (error) {
     console.error('Error in posts-create function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return createErrorResponse(error.message, 500);
   }
 });

@@ -1,73 +1,226 @@
-# Welcome to your Lovable project
+# YardPass
 
-## Project info
+A premium event ticketing and social platform built with React, TypeScript, and Supabase.
 
-**URL**: https://lovable.dev/projects/f63ed2d9-b24c-482a-bacd-65518a3b8e6f
+## 🚀 Quick Start
 
-## How can I edit this code?
+### Prerequisites
+- Node.js 18+ and npm
+- Supabase account
+- Stripe account (for payments)
+- Mapbox account (for location services)
 
-There are several ways of editing your application.
+### Installation
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/f63ed2d9-b24c-482a-bacd-65518a3b8e6f) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+```bash
+# Clone the repository
 git clone <YOUR_GIT_URL>
+cd yardpass-upgrade
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install dependencies
+npm install
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your actual values
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Environment Variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Copy `.env.example` to `.env.local` and fill in your values:
 
-**Use GitHub Codespaces**
+```bash
+# Supabase Configuration
+VITE_SUPABASE_URL=https://yieslxnrfeqchbcmgavz.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_FUNCTIONS_URL=https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Stripe Configuration
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
 
-## What technologies are used for this project?
+# Mapbox Configuration
+VITE_MAPBOX_ACCESS_TOKEN=pk.your_mapbox_token
 
-This project is built with:
+# Push Notifications (Optional)
+VITE_WEB_PUSH_PUBLIC_KEY=your_vapid_public_key
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Analytics (Optional)
+VITE_POSTHOG_KEY=your_posthog_key
+VITE_POSTHOG_HOST=https://app.posthog.com
+```
 
-## How can I deploy this project?
+## 🏗️ Project Structure
 
-Simply open [Lovable](https://lovable.dev/projects/f63ed2d9-b24c-482a-bacd-65518a3b8e6f) and click on Share -> Publish.
+```
+src/
+├── components/          # React components
+│   ├── ui/             # Base UI components (shadcn/ui)
+│   └── ...             # Feature components
+├── hooks/              # Custom React hooks
+├── lib/                # Utility libraries
+├── pages/              # Page components
+├── contexts/           # React contexts
+├── integrations/       # External service integrations
+└── utils/              # Utility functions
 
-## Can I connect a custom domain to my Lovable project?
+supabase/
+├── functions/          # Edge functions
+├── migrations/         # Database migrations
+└── config.toml         # Supabase configuration
+```
 
-Yes, you can!
+## 🛠️ Development
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Available Scripts
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run preview      # Preview production build
+npm run lint         # Run ESLint
+npm run type-check   # Run TypeScript compiler
+```
+
+### Code Quality
+
+This project uses:
+- **TypeScript** for type safety
+- **ESLint** for code linting
+- **Prettier** for code formatting
+- **Tailwind CSS** for styling
+- **Radix UI** for accessible components
+
+### Database
+
+The project uses Supabase with the following key tables:
+- `events` - Event information
+- `ticket_tiers` - Ticket pricing and availability
+- `tickets` - User ticket purchases
+- `orders` - Payment orders
+- `event_posts` - Social posts for events
+- `profiles` - User profiles
+
+## 🚀 Deployment
+
+### Supabase Edge Functions
+
+Deploy edge functions to Supabase:
+
+```bash
+# Install Supabase CLI
+npm install -g supabase
+
+# Login to Supabase
+supabase login
+
+# Link to your project
+supabase link --project-ref yieslxnrfeqchbcmgavz
+
+# Deploy functions
+supabase functions deploy
+```
+
+### Web App Deployment
+
+The app can be deployed to any static hosting service:
+- Vercel
+- Netlify
+- GitHub Pages
+- AWS S3 + CloudFront
+
+Build the app:
+```bash
+npm run build
+```
+
+The built files will be in the `dist/` directory.
+
+## 🔧 Configuration
+
+### Supabase Setup
+
+1. Create a new Supabase project
+2. Run the migrations in `supabase/migrations/`
+3. Set up Row Level Security (RLS) policies
+4. Configure edge functions
+
+### Stripe Setup
+
+1. Create a Stripe account
+2. Set up webhooks pointing to your Supabase edge functions
+3. Configure products and pricing
+
+### Mapbox Setup
+
+1. Create a Mapbox account
+2. Generate an access token
+3. Add the token to your environment variables
+
+## 🧪 Testing
+
+Run the test suite:
+
+```bash
+npm test
+```
+
+## 📱 Mobile App
+
+This project includes Capacitor for mobile app deployment:
+
+```bash
+# Add mobile platforms
+npx cap add ios
+npx cap add android
+
+# Build and sync
+npm run build
+npx cap sync
+
+# Open in native IDEs
+npx cap open ios
+npx cap open android
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+**Build fails with TypeScript errors:**
+- Run `npm run type-check` to see specific errors
+- Ensure all environment variables are set correctly
+
+**Supabase connection issues:**
+- Verify your Supabase URL and keys
+- Check that RLS policies are configured correctly
+
+**Stripe payment issues:**
+- Ensure webhook endpoints are configured
+- Check that Stripe keys are for the correct environment (test/live)
+
+**Mobile app issues:**
+- Ensure Capacitor is properly configured
+- Check that native permissions are set correctly
+
+### Getting Help
+
+- Check the [Issues](https://github.com/your-repo/issues) page
+- Review the [Supabase documentation](https://supabase.com/docs)
+- Check the [Stripe documentation](https://stripe.com/docs)
