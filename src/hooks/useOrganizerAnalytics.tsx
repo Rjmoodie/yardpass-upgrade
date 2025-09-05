@@ -76,9 +76,9 @@ export function useOrganizerAnalytics() {
 
       if (ticketError) throw ticketError;
 
-      // Fetch check-ins
+      // Fetch check-ins from scan_logs table
       const { data: checkInData, error: checkInError } = await supabase
-        .from('ticket_scans')
+        .from('scan_logs')
         .select('event_id, ticket_id')
         .in('event_id', eventIds);
 

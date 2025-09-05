@@ -26,13 +26,13 @@ export async function checkTicketVisibility(
         throw new Error(response.error);
       }
       
-      if (response.data?.status === 'paid') {
+      if ((response.data as any)?.status === 'paid') {
         onSuccess?.();
         return true;
       }
       
-      if (response.data?.status === 'failed' || response.data?.status === 'cancelled') {
-        throw new Error(`Payment ${response.data.status}`);
+      if ((response.data as any)?.status === 'failed' || (response.data as any)?.status === 'cancelled') {
+        throw new Error(`Payment ${(response.data as any).status}`);
       }
       
       // Still pending, wait and retry

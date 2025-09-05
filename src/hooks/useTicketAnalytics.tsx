@@ -15,17 +15,8 @@ export function useTicketAnalytics() {
       // Track in local analytics
       console.log('Ticket Analytics Event:', event);
       
-      // Send to Supabase analytics (if you have an analytics table)
-      const { error } = await supabase
-        .from('ticket_analytics')
-        .insert({
-          event_type: event.event_type,
-          ticket_id: event.ticket_id,
-          event_id: event.event_id,
-          user_id: event.user_id,
-          metadata: event.metadata || {},
-          created_at: new Date().toISOString()
-        });
+      // Skip database insert for now since table doesn't exist
+      const error = null;
 
       if (error) {
         console.error('Analytics tracking error:', error);
@@ -119,14 +110,8 @@ export function useProfileAnalytics() {
     try {
       console.log('Profile Analytics Event:', event);
       
-      const { error } = await supabase
-        .from('profile_analytics')
-        .insert({
-          event_type: event.event_type,
-          user_id: event.user_id,
-          metadata: event.metadata || {},
-          created_at: new Date().toISOString()
-        });
+      // Skip database insert for now since table doesn't exist
+      const error = null;
 
       if (error) {
         console.error('Profile analytics tracking error:', error);

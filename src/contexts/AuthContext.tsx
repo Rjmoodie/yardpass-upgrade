@@ -215,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signUpWithPhone,
       signOut,
-      updateRole,
+      updateRole: updateRole as any,
     }}>
       {children}
     </AuthContext.Provider>

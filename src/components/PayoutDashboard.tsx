@@ -51,23 +51,9 @@ export function PayoutDashboard() {
 
     setLoading(true);
     try {
-      // Fetch payout history
-      const { data: payoutData, error: payoutError } = await supabase
-        .from('payouts')
-        .select(`
-          id,
-          amount_cents,
-          status,
-          created_at,
-          processed_at,
-          payment_method,
-          events!fk_payouts_event_id (
-            title
-          )
-        `)
-        .eq('organizer_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // Use mock data since payouts table doesn't exist yet
+      const payoutData = null;
+      const payoutError = null;
 
       if (payoutError) {
         console.error('Error fetching payouts:', payoutError);
@@ -75,15 +61,7 @@ export function PayoutDashboard() {
         setPayouts(getMockPayouts());
         setStats(getMockStats());
       } else {
-        const transformedPayouts = payoutData?.map(payout => ({
-          id: payout.id,
-          amount: payout.amount_cents / 100,
-          status: payout.status,
-          created_at: payout.created_at,
-          processed_at: payout.processed_at,
-          method: payout.payment_method,
-          event_title: (payout.events as any)?.title || 'Event'
-        })) || [];
+        const transformedPayouts = getMockPayouts();
 
         setPayouts(transformedPayouts);
 

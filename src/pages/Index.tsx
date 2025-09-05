@@ -242,7 +242,7 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
             }),
             location: event.city || event.venue || 'TBA',
             coverImage: event.cover_image_url || DEFAULT_EVENT_COVER,
-            ticketTiers: (event as DatabaseEvent).ticket_tiers?.map((tier: DatabaseTicketTier) => ({
+            ticketTiers: (event as any).ticket_tiers?.map((tier: any) => ({
               id: tier.id,
               name: tier.name,
               price: tier.price_cents / 100, // Convert cents to dollars

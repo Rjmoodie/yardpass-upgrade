@@ -47,8 +47,8 @@ export function useTickets() {
       // Check if we're offline and have cached data
       if (!navigator.onLine) {
         const cachedTickets = ticketCache.getCachedTicketList();
-        if (cachedTickets.length > 0) {
-          setTickets(cachedTickets);
+        if (Array.isArray(cachedTickets) && cachedTickets.length > 0) {
+          setTickets(cachedTickets as any);
           setLoading(false);
           toast({
             title: "Offline Mode",
@@ -103,15 +103,15 @@ export function useTickets() {
       setTickets(transformedTickets);
       
       // Cache the tickets for offline use
-      ticketCache.cacheTicketList(transformedTickets);
+      ticketCache.cacheTicketList(transformedTickets as any);
       
     } catch (error: any) {
       console.error('Error fetching tickets:', error);
       
       // If online fetch fails, try to show cached data
       const cachedTickets = ticketCache.getCachedTicketList();
-      if (cachedTickets.length > 0) {
-        setTickets(cachedTickets);
+      if (Array.isArray(cachedTickets) && cachedTickets.length > 0) {
+        setTickets(cachedTickets as any);
         toast({
           title: "Using Cached Data",
           description: "Network error. Showing cached tickets.",

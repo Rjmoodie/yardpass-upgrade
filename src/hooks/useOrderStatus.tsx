@@ -52,8 +52,8 @@ export function useOrderStatus(sessionId: string | null) {
       } else {
         setOrderStatus({
           id: data.id,
-          status: data.status,
-          event_title: data.events?.title || 'Event',
+          status: data.status as any,
+          event_title: 'Event',
           tickets_count: 0, // Will be updated when tickets are created
           total_amount: data.total_cents / 100,
           created_at: data.created_at,

@@ -39,7 +39,7 @@ export function useOfflineCache<T>(
       const stored = localStorage.getItem(`offline_cache_${key}`);
       if (stored) {
         const parsedCache = new Map(JSON.parse(stored));
-        setCache(parsedCache);
+        setCache(parsedCache as Map<string, CacheItem<T>>);
       }
     } catch (error) {
       console.error('Failed to load cache from localStorage:', error);
@@ -179,7 +179,7 @@ export function useTicketCache() {
   }, [cache]);
 
   const cacheTicketList = useCallback((tickets: CachedTicket[]) => {
-    cache.set('ticket_list', tickets);
+    cache.set('ticket_list', tickets as any);
     tickets.forEach(ticket => cacheTicket(ticket));
   }, [cache, cacheTicket]);
 
