@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -44,6 +44,8 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -96,6 +98,63 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         return ticketTiers.every((t) => t.name && t.badge && t.quantity > 0);
       default:
         return true;
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file",
+        description: "Please select an image file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `event-cover-${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('event-media')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('event-media')
+        .getPublicUrl(filePath);
+
+      setFormData({ ...formData, coverImageUrl: publicUrl });
+      
+      toast({
+        title: "Image uploaded",
+        description: "Cover image uploaded successfully!"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -262,9 +321,42 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
               <div className="space-y-2">
                 <label>Cover Image</label>
                 <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
-                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-2">Upload a cover image</p>
-                  <Button variant="outline" size="sm">Choose File</Button>
+                  {formData.coverImageUrl ? (
+                    <div className="space-y-2">
+                      <img 
+                        src={formData.coverImageUrl} 
+                        alt="Cover preview"
+                        className="w-full h-32 object-cover rounded-lg mx-auto"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, coverImageUrl: '' })}
+                      >
+                        Remove Image
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground mb-2">Upload a cover image</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingImage}
+                      >
+                        {uploadingImage ? 'Uploading...' : 'Choose File'}
+                      </Button>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
                 </div>
               </div>
             </CardContent>
