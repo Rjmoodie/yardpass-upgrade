@@ -447,6 +447,45 @@ export type Database = {
           },
         ]
       }
+      guest_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          event_id: string
+          expires_at: string | null
+          id: string
+          max_uses: number | null
+          notes: string | null
+          tier_id: string | null
+          used_count: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          event_id: string
+          expires_at?: string | null
+          id?: string
+          max_uses?: number | null
+          notes?: string | null
+          tier_id?: string | null
+          used_count?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          event_id?: string
+          expires_at?: string | null
+          id?: string
+          max_uses?: number | null
+          notes?: string | null
+          tier_id?: string | null
+          used_count?: number | null
+        }
+        Relationships: []
+      }
       kv_store_d42c04e8: {
         Row: {
           key: string

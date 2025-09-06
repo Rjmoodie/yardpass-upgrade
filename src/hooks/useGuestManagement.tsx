@@ -5,9 +5,23 @@ import { useToast } from '@/hooks/use-toast';
 interface GuestData {
   email: string;
   name?: string;
-  type: 'complimentary_ticket' | 'invite_only';
+  type: 'complimentary_ticket' | 'invite_only' | 'guest_code';
   tier_id?: string;
   notes?: string;
+  max_uses?: number;
+  expires_at?: string;
+}
+
+interface GuestCode {
+  id: string;
+  code: string;
+  tier_id?: string;
+  max_uses: number;
+  used_count: number;
+  expires_at?: string;
+  notes?: string;
+  created_at: string;
+  tier_name?: string;
 }
 
 interface Guest {
@@ -25,6 +39,7 @@ interface Guest {
 
 export function useGuestManagement(eventId: string) {
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [guestCodes, setGuestCodes] = useState<GuestCode[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -159,6 +174,30 @@ export function useGuestManagement(eventId: string) {
             description: `Ticket issued for ${guestData.name || guestData.email}`,
           });
         }
+      } else if (guestData.type === 'guest_code') {
+        // Generate a guest code
+        const code = `GUEST${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        
+        const { error } = await supabase
+          .from('guest_codes')
+          .insert({
+            event_id: eventId,
+            code,
+            tier_id: guestData.tier_id,
+            max_uses: guestData.max_uses || 1,
+            expires_at: guestData.expires_at,
+            created_by: (await supabase.auth.getUser()).data.user?.id!,
+            notes: guestData.notes
+          });
+
+        if (error) throw error;
+
+        toast({
+          title: "Guest code created",
+          description: `Code: ${code}`,
+        });
+
+        await loadGuestCodes();
       } else {
         // Create invite-only access
         const { error } = await supabase
@@ -227,11 +266,88 @@ export function useGuestManagement(eventId: string) {
     }
   }, [eventId, loadGuests, toast]);
 
+  const loadGuestCodes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: codes, error } = await supabase
+        .from('guest_codes')
+        .select(`
+          id,
+          code,
+          tier_id,
+          max_uses,
+          used_count,
+          expires_at,
+          notes,
+          created_at,
+          ticket_tiers (
+            name
+          )
+        `)
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedCodes: GuestCode[] = (codes || []).map((code: any) => ({
+        id: code.id,
+        code: code.code,
+        tier_id: code.tier_id,
+        max_uses: code.max_uses,
+        used_count: code.used_count,
+        expires_at: code.expires_at,
+        notes: code.notes,
+        created_at: code.created_at,
+        tier_name: code.ticket_tiers?.name
+      }));
+
+      setGuestCodes(formattedCodes);
+    } catch (error: any) {
+      toast({
+        title: "Error loading guest codes",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId, toast]);
+
+  const removeGuestCode = useCallback(async (codeId: string) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('guest_codes')
+        .delete()
+        .eq('id', codeId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Guest code removed",
+        description: "The guest code has been deleted",
+      });
+
+      await loadGuestCodes();
+    } catch (error: any) {
+      toast({
+        title: "Error removing guest code",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [loadGuestCodes, toast]);
+
   return {
     guests,
+    guestCodes,
     loading,
     loadGuests,
+    loadGuestCodes,
     addGuest,
-    removeGuest
+    removeGuest,
+    removeGuestCode
   };
 }
