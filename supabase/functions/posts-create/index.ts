@@ -18,7 +18,13 @@ serve(async (req) => {
   try {
     console.log('Posts-create function called');
     
-    // Create Supabase client
+    // Create service role client for idempotency and rate limiting
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
+    
+    // Create Supabase client for user operations
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -36,6 +42,44 @@ serve(async (req) => {
     if (userError || !user) {
       console.log('Authentication failed');
       return createErrorResponse("Unauthorized", 401);
+    }
+
+    // Check for idempotency key
+    const idempotencyKey = req.headers.get('Idempotency-Key');
+    if (idempotencyKey) {
+      const { data: existing } = await serviceClient
+        .from('idempotency_keys')
+        .select('response')
+        .eq('key', idempotencyKey)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (existing) {
+        console.log('Returning cached response for idempotency key:', idempotencyKey);
+        return createResponse(existing.response);
+      }
+    }
+    
+    // Rate limiting
+    const now = new Date();
+    const minute = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes());
+    
+    const { data: rateCheck } = await serviceClient
+      .from('rate_limits')
+      .upsert({ 
+        user_id: user.id, 
+        bucket: 'posts-create', 
+        minute: minute.toISOString(),
+        count: 1 
+      }, { 
+        onConflict: 'user_id,bucket,minute',
+        count: 'exact'
+      })
+      .select('count')
+      .maybeSingle();
+      
+    if (rateCheck && rateCheck.count > RATELIMIT_MAX_PER_MIN) {
+      return createErrorResponse('Rate limit exceeded', 429);
     }
 
     const { event_id, text, media_urls = [], ticket_tier_id }: CreatePostRequest = await req.json();
@@ -109,7 +153,7 @@ serve(async (req) => {
       .from('event_posts_with_meta')
       .select('*')
       .eq('id', post.id)
-      .single();
+      .maybeSingle();
 
     if (viewError) {
       console.error('Error fetching post metadata:', viewError);
@@ -117,7 +161,22 @@ serve(async (req) => {
       return createResponse({ data: post }, 201);
     }
 
-    return createResponse({ data: fullPost }, 201);
+    const responseData = { data: fullPost };
+    
+    // Cache successful response for idempotency
+    if (idempotencyKey) {
+      await serviceClient
+        .from('idempotency_keys')
+        .insert({
+          key: idempotencyKey,
+          user_id: user.id,
+          response: responseData
+        })
+        .select()
+        .maybeSingle();
+    }
+
+    return createResponse(responseData, 201);
 
   } catch (error) {
     console.error('Error in posts-create function:', error);
