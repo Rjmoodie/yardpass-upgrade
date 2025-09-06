@@ -1,8 +1,8 @@
 /**
  * QR Code Generation Utility
- * Generates QR codes for tickets using a simple pattern-based approach
- * In production, you would use a library like 'qrcode' or 'react-qr-code'
+ * Generates QR codes for tickets using the qrcode library
  */
+import QRCode from 'qrcode';
 
 export interface QRCodeData {
   ticketId: string;
@@ -42,43 +42,41 @@ function generateSignature(ticketId: string, eventId: string, timestamp: number)
   return Math.abs(hash).toString(16).padStart(8, '0');
 }
 
-export function generateQRCodeSVG(data: QRCodeData, size: number = 200): string {
-  // Generate a simple QR-like pattern
-  // In production, use a proper QR code library
-  const pattern = generateQRPattern(data);
+export async function generateQRCodeSVG(data: QRCodeData, size: number = 200): Promise<string> {
+  const qrDataString = JSON.stringify({
+    ticketId: data.ticketId,
+    eventId: data.eventId,
+    timestamp: data.timestamp,
+    signature: data.signature
+  });
   
-  return `
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${size}" height="${size}" fill="white"/>
-      ${pattern}
-    </svg>
-  `;
+  return await QRCode.toString(qrDataString, {
+    type: 'svg',
+    width: size,
+    margin: 2,
+    color: {
+      dark: '#000000',
+      light: '#FFFFFF'
+    }
+  });
 }
 
-function generateQRPattern(data: QRCodeData): string {
-  const size = 25; // 25x25 grid
-  const cellSize = 8;
-  const pattern: string[] = [];
+export async function generateQRCodeDataURL(data: QRCodeData, size: number = 200): Promise<string> {
+  const qrDataString = JSON.stringify({
+    ticketId: data.ticketId,
+    eventId: data.eventId,
+    timestamp: data.timestamp,
+    signature: data.signature
+  });
   
-  // Generate a deterministic pattern based on the data
-  const seed = data.signature;
-  let seedNum = parseInt(seed, 16);
-  
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      // Use seed to determine if cell should be black
-      seedNum = (seedNum * 1103515245 + 12345) & 0x7fffffff;
-      const isBlack = (seedNum % 3) === 0;
-      
-      if (isBlack) {
-        pattern.push(
-          `<rect x="${x * cellSize}" y="${y * cellSize}" width="${cellSize}" height="${cellSize}" fill="black"/>`
-        );
-      }
+  return await QRCode.toDataURL(qrDataString, {
+    width: size,
+    margin: 2,
+    color: {
+      dark: '#000000',
+      light: '#FFFFFF'
     }
-  }
-  
-  return pattern.join('');
+  });
 }
 
 export function copyQRDataToClipboard(data: QRCodeData): Promise<void> {

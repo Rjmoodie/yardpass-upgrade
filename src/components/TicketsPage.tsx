@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useTickets, UserTicket } from '@/hooks/useTickets';
 import { toast } from '@/hooks/use-toast';
-import { generateQRData, generateQRCodeSVG, copyQRDataToClipboard, shareQRData } from '@/lib/qrCode';
+import { copyQRDataToClipboard, shareQRData, generateQRData } from '@/lib/qrCode';
+import { QRCodeModal } from '@/components/QRCodeModal';
 import { useTicketAnalytics } from '@/hooks/useTicketAnalytics';
 import { 
   ArrowLeft,
@@ -369,71 +370,15 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
       </div>
 
       {/* QR Code Modal */}
-      {selectedTicket && (() => {
-        const ticket = tickets.find(t => t.id === selectedTicket);
-        if (!ticket) return null;
-        
-        const qrData = generateQRData({
-          id: ticket.id,
-          eventId: ticket.eventId,
-          qrCode: ticket.qrCode,
-          userId: user.id
-        });
-        
-        const qrCodeSVG = generateQRCodeSVG(qrData, 200);
-        
-        return (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-sm">
-              <CardHeader className="text-center">
-                <CardTitle>Event Ticket</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-4">
-                <div className="w-48 h-48 bg-white mx-auto rounded-lg flex items-center justify-center p-4">
-                  <div 
-                    dangerouslySetInnerHTML={{ __html: qrCodeSVG }}
-                    className="w-full h-full"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">
-                    {ticket.eventTitle}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Show this code at the entrance
-                  </p>
-                  <p className="text-xs font-mono bg-muted p-2 rounded">
-                    {qrData.signature}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleCopyQRCode(ticket)}
-                    className="flex-1"
-                  >
-                    <Copy className="w-3 h-3 mr-1" />
-                    Copy
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleShareTicket(ticket)}
-                    className="flex-1"
-                  >
-                    <Share2 className="w-3 h-3 mr-1" />
-                    Share
-                  </Button>
-                </div>
-                <Button onClick={() => setSelectedTicket(null)} className="w-full">
-                  Close
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        );
-      })()}
+      {selectedTicket && (
+        <QRCodeModal 
+          ticket={tickets.find(t => t.id === selectedTicket)!} 
+          user={user}
+          onClose={() => setSelectedTicket(null)}
+          onCopy={handleCopyQRCode}
+          onShare={handleShareTicket}
+        />
+      )}
     </div>
   );
 }
