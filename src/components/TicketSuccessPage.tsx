@@ -40,7 +40,7 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
   // Use order status hook to check payment status
   const { orderStatus, loading: statusLoading, refetch } = useOrderStatus(sessionId);
 
-  const hasTiming = !!orderStatus; // Remove reference to non-existent properties
+  const hasTiming = !!orderStatus;
 
   // Process payment when order is found but not yet paid
   const processPayment = async () => {
