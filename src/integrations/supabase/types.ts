@@ -383,6 +383,78 @@ export type Database = {
           },
         ]
       }
+      event_share_assets: {
+        Row: {
+          active: boolean
+          caption: string | null
+          created_at: string
+          created_by: string
+          duration_seconds: number | null
+          event_id: string
+          height: number | null
+          id: string
+          kind: string
+          mux_asset_id: string | null
+          mux_playback_id: string | null
+          mux_upload_id: string | null
+          poster_url: string | null
+          storage_path: string | null
+          title: string | null
+          width: number | null
+        }
+        Insert: {
+          active?: boolean
+          caption?: string | null
+          created_at?: string
+          created_by: string
+          duration_seconds?: number | null
+          event_id: string
+          height?: number | null
+          id?: string
+          kind: string
+          mux_asset_id?: string | null
+          mux_playback_id?: string | null
+          mux_upload_id?: string | null
+          poster_url?: string | null
+          storage_path?: string | null
+          title?: string | null
+          width?: number | null
+        }
+        Update: {
+          active?: boolean
+          caption?: string | null
+          created_at?: string
+          created_by?: string
+          duration_seconds?: number | null
+          event_id?: string
+          height?: number | null
+          id?: string
+          kind?: string
+          mux_asset_id?: string | null
+          mux_playback_id?: string | null
+          mux_upload_id?: string | null
+          poster_url?: string | null
+          storage_path?: string | null
+          title?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_share_assets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_share_assets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_video_counters: {
         Row: {
           avg_dwell_ms: number | null
@@ -1068,6 +1140,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      share_links: {
+        Row: {
+          channel: string | null
+          clicks: number
+          code: string
+          content_id: string
+          content_type: string
+          created_at: string
+          created_by: string | null
+          last_clicked_at: string | null
+          params: Json
+        }
+        Insert: {
+          channel?: string | null
+          clicks?: number
+          code: string
+          content_id: string
+          content_type: string
+          created_at?: string
+          created_by?: string | null
+          last_clicked_at?: string | null
+          params?: Json
+        }
+        Update: {
+          channel?: string | null
+          clicks?: number
+          code?: string
+          content_id?: string
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          last_clicked_at?: string | null
+          params?: Json
+        }
+        Relationships: []
       }
       ticket_analytics: {
         Row: {
