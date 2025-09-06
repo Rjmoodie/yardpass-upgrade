@@ -93,6 +93,7 @@ export default function Navigation({ userRole }: NavigationProps) {
         return;
       }
       if (screen === 'posts-test') {
+        console.log('Posts button clicked, calling handleCreatePost');
         void handleCreatePost();
         return;
       }
@@ -103,7 +104,9 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   // Parallelized posting eligibility check
   const handleCreatePost = useCallback(async () => {
+    console.log('handleCreatePost called, user:', user?.id);
     if (!user) {
+      console.log('No user, opening auth modal');
       setAuthModalOpen(true);
       return;
     }
