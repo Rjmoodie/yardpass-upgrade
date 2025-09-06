@@ -53,7 +53,7 @@ export default function Navigation({ userRole }: NavigationProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  console.log('Navigation render - user:', user?.id, 'userRole:', userRole);
+  // console.log('Navigation render - user:', user?.id, 'userRole:', userRole);
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<Screen | null>(null);
@@ -84,7 +84,7 @@ export default function Navigation({ userRole }: NavigationProps) {
       ] as const
     ).filter((i) => i.show);
     
-    console.log('Navigation items:', items.map(i => ({ id: i.id, label: i.label, show: i.show })));
+    // console.log('Navigation items:', items.map(i => ({ id: i.id, label: i.label, show: i.show })));
     return items;
   }, [userRole]);
 
@@ -92,7 +92,7 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   // Open post creation for any authenticated user
   const handleCreatePost = useCallback(async () => {
-    console.log('handleCreatePost called, user:', user?.id);
+    // console.log('handleCreatePost called, user:', user?.id);
     if (!user) {
       console.log('No user, opening auth modal');
       setAuthModalOpen(true);
@@ -105,7 +105,7 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   const handleNavigation = useCallback(
     (path: string, screen: Screen) => {
-      console.log('handleNavigation called with:', { path, screen, user: user?.id, userRole });
+      // console.log('handleNavigation called with:', { path, screen, user: user?.id, userRole });
       
       if (requiresAuth(path) && !user) {
         setPendingNavigation(screen);
@@ -113,7 +113,7 @@ export default function Navigation({ userRole }: NavigationProps) {
         return;
       }
       if (screen === 'posts-test') {
-        console.log('Posts button clicked, user:', user?.id, 'userRole:', userRole);
+        // console.log('Posts button clicked, user:', user?.id, 'userRole:', userRole);
         void handleCreatePost();
         return;
       }
