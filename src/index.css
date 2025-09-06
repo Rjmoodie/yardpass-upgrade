@@ -2,478 +2,153 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Variant helper (kept from your setup) */
 @custom-variant dark (&:is(.dark *));
 
+/* 
+  Design tokens
+  — Switched to HSL *triplets* so Tailwind color opacity utilities (e.g. bg-primary/90) work reliably.
+  — Also expose OKLCH companions if you want to reference them in custom CSS.
+*/
 :root {
   --font-size: 14px;
-  
-  /* YardPass Brand Theme - Light Mode */
-  --background: hsl(45, 25%, 97%);
-  --foreground: hsl(0, 0%, 10%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(0, 0%, 10%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(0, 0%, 10%);
-  --primary: hsl(32, 100%, 64%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(45, 20%, 95%);
-  --secondary-foreground: hsl(0, 0%, 20%);
-  --muted: hsl(45, 15%, 94%);
-  --muted-foreground: hsl(0, 0%, 42%);
-  --accent: hsl(45, 85%, 65%);
-  --accent-foreground: hsl(0, 0%, 10%);
-  --destructive: hsl(0, 72%, 51%);
-  --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(45, 20%, 88%);
-  --input: transparent;
-  --input-background: hsl(45, 30%, 96%);
-  --switch-background: hsl(45, 20%, 85%);
-  --ring: hsl(32, 100%, 64%);
-  
-  /* Modal overlays */
-  --overlay: hsla(10, 12%, 6%, 0.32);
-  --overlay-strong: hsla(10, 12%, 6%, 0.45);
-  --modal-bg: hsl(0, 0%, 100%);
-  --modal-border: hsl(45, 20%, 88%);
-  
-  /* YardPass Brand Colors */
-  --brand-golden: hsl(45, 85%, 65%);
-  --brand-charcoal: hsl(0, 0%, 10%);
-  --brand-off-white: hsl(0, 0%, 98%);
-  --brand-amber: hsl(32, 100%, 64%);
-  --brand-emerald: hsl(142, 71%, 45%);
-  --brand-soft-red: hsl(0, 72%, 55%);
-  
-  /* Gradients */
-  --gradient-golden: linear-gradient(135deg, hsl(45, 85%, 65%), hsl(32, 100%, 64%));
-  --gradient-charcoal: linear-gradient(135deg, hsl(0, 0%, 10%), hsl(0, 0%, 20%));
-  --gradient-glass: linear-gradient(135deg, hsla(0, 0%, 100%, 0.1), hsla(0, 0%, 100%, 0.05));
-  --gradient-fade: linear-gradient(180deg, transparent 0%, hsla(0, 0%, 0%, 0.8) 100%);
-  
-  /* Elevation & effects */
-  --shadow-card: 0 8px 32px hsla(0, 0%, 0%, 0.08);
-  --shadow-elevated: 0 16px 48px hsla(0, 0%, 0%, 0.12);
-  --shadow-glow: 0 0 40px hsla(32, 100%, 64%, 0.4);
-  --backdrop-blur: blur(16px);
-  
-  /* Radius */
+
+  /* Core palette (HSL triplets) */
+  --background: 45 25% 97%;
+  --foreground: 0 0% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 10%;
+  --primary: 32 100% 64%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 45 20% 95%;
+  --secondary-foreground: 0 0% 20%;
+  --muted: 45 15% 94%;
+  --muted-foreground: 0 0% 42%;
+  --accent: 45 85% 65%;
+  --accent-foreground: 0 0% 10%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 45 20% 88%;
+  --input: 0 0% 100% / 0; /* transparent */
+  --input-background: 45 30% 96%;
+  --switch-background: 45 20% 85%;
+  --ring: 32 100% 64%;
+
+  /* Status */
+  --success: 142 71% 45%;
+  --warning: 40 96% 56%;
+  --info: 201 96% 32%;
+
+  /* Brand companions (OKLCH mirrors) */
+  --primary-oklch: oklch(0.82 0.16 77);
+  --background-oklch: oklch(0.97 0.02 90);
+  --foreground-oklch: oklch(0.15 0 0);
+
+  /* Layout & elevation */
   --radius: 16px;
   --radius-pill: 9999px;
-  
-  /* Modal effects */
-  --shadow-modal: 0 24px 64px hsla(0, 0%, 0%, 0.45), 0 8px 24px hsla(0, 0%, 0%, 0.35);
-  
-  /* Typography */
+
+  --shadow-card: 0 8px 32px hsl(0 0% 0% / 8%);
+  --shadow-elevated: 0 16px 48px hsl(0 0% 0% / 12%);
+  --shadow-glow: 0 0 40px hsl(32 100% 64% / 40%);
+  --shadow-modal: 0 24px 64px hsl(0 0% 0% / 45%), 0 8px 24px hsl(0 0% 0% / 35%);
+
+  /* Overlays */
+  --overlay: 10 12% 6% / 32%;
+  --overlay-strong: 10 12% 6% / 45%;
+
+  /* Sidebar */
+  --sidebar: 45 25% 97%;
+  --sidebar-foreground: 0 0% 10%;
+  --sidebar-primary: 32 100% 64%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 45 20% 96%;
+  --sidebar-accent-foreground: 0 0% 20%;
+  --sidebar-border: 45 20% 90%;
+  --sidebar-ring: 32 100% 64%;
+
+  /* Typography weights */
   --font-weight-medium: 600;
   --font-weight-normal: 500;
-  
-  /* Sidebar */
-  --sidebar: hsl(45, 25%, 97%);
-  --sidebar-foreground: hsl(0, 0%, 10%);
-  --sidebar-primary: hsl(32, 100%, 64%);
-  --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(45, 20%, 96%);
-  --sidebar-accent-foreground: hsl(0, 0%, 20%);
-  --sidebar-border: hsl(45, 20%, 90%);
-  --sidebar-ring: hsl(32, 100%, 64%);
 }
 
+/* Dark theme */
 .dark {
-  /* YardPass Brand Theme - Dark Mode */
-  --background: hsl(0, 0%, 8%);
-  --foreground: hsl(0, 0%, 98%);
-  --card: hsl(0, 0%, 12%);
-  --card-foreground: hsl(0, 0%, 98%);
-  --popover: hsl(0, 0%, 12%);
-  --popover-foreground: hsl(0, 0%, 98%);
-  --primary: hsl(32, 100%, 64%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(0, 0%, 18%);
-  --secondary-foreground: hsl(0, 0%, 90%);
-  --muted: hsl(0, 0%, 16%);
-  --muted-foreground: hsl(0, 0%, 70%);
-  --accent: hsl(45, 85%, 65%);
-  --accent-foreground: hsl(0, 0%, 10%);
-  --destructive: hsl(0, 72%, 55%);
-  --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(0, 0%, 22%);
-  --input: hsl(0, 0%, 16%);
-  --input-background: hsl(0, 0%, 16%);
-  --ring: hsl(32, 100%, 64%);
-  
-  /* Modal overlays - Dark Mode */
-  --overlay: hsla(0, 0%, 0%, 0.32);
-  --overlay-strong: hsla(0, 0%, 0%, 0.45);
-  --modal-bg: hsl(0, 0%, 14%);
-  --modal-border: hsl(0, 0%, 26%);
-  
-  /* YardPass Brand Colors - Dark Variants */
-  --brand-golden: hsl(45, 85%, 65%);
-  --brand-charcoal: hsl(0, 0%, 8%);
-  --brand-off-white: hsl(0, 0%, 98%);
-  --brand-amber: hsl(32, 100%, 64%);
-  --brand-emerald: hsl(142, 71%, 45%);
-  --brand-soft-red: hsl(0, 72%, 55%);
-  
-  /* Gradients - Dark Mode */
-  --gradient-golden: linear-gradient(135deg, hsl(45, 85%, 65%), hsl(32, 100%, 64%));
-  --gradient-charcoal: linear-gradient(135deg, hsl(0, 0%, 8%), hsl(0, 0%, 15%));
-  --gradient-glass: linear-gradient(135deg, hsla(0, 0%, 100%, 0.08), hsla(0, 0%, 100%, 0.04));
-  --gradient-fade: linear-gradient(180deg, transparent 0%, hsla(0, 0%, 0%, 0.9) 100%);
-  
-  /* Elevation & effects - Dark Mode */
-  --shadow-card: 0 8px 32px hsla(0, 0%, 0%, 0.6);
-  --shadow-elevated: 0 16px 48px hsla(0, 0%, 0%, 0.8);
-  --shadow-glow: 0 0 40px hsla(32, 100%, 64%, 0.3);
-  
-  /* Sidebar dark */
-  --sidebar: hsl(0, 0%, 6%);
-  --sidebar-foreground: hsl(0, 0%, 100%);
-  --sidebar-primary: hsl(32, 100%, 64%);
-  --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(0, 0%, 12%);
-  --sidebar-accent-foreground: hsl(0, 0%, 85%);
-  --sidebar-border: hsl(0, 0%, 20%);
-  --sidebar-ring: hsl(32, 100%, 64%);
+  --background: 0 0% 8%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 12%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 12%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 32 100% 64%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 18%;
+  --secondary-foreground: 0 0% 90%;
+  --muted: 0 0% 16%;
+  --muted-foreground: 0 0% 70%;
+  --accent: 45 85% 65%;
+  --accent-foreground: 0 0% 10%;
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 22%;
+  --input: 0 0% 16%;
+  --input-background: 0 0% 16%;
+  --ring: 32 100% 64%;
+
+  --sidebar: 0 0% 6%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-primary: 32 100% 64%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 12%;
+  --sidebar-accent-foreground: 0 0% 85%;
+  --sidebar-border: 0 0% 20%;
+  --sidebar-ring: 32 100% 64%;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-input-background: var(--input-background);
-  --color-switch-background: var(--switch-background);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-}
-
+/* Base */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
 
+  html {
+    font-size: var(--font-size);
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    transition: background-color 200ms ease;
+    transition: background-color 200ms ease, color 200ms ease;
   }
-  
-  /* Set dark mode as default */
-  html {
-    @apply dark;
-  }
-}
 
-/**
- * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
- */
-@layer base {
+  /* Prefer dark by default (opt-out by removing this) */
+  html { @apply dark; }
+
+  /* Selection */
+  ::selection {
+    background: hsl(var(--primary) / 0.25);
+    color: hsl(var(--primary-foreground));
+  }
+
+  /* Typography defaults (kept, slightly tuned) */
   :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
-    h1 {
-      font-size: var(--text-2xl);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h2 {
-      font-size: var(--text-xl);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h3 {
-      font-size: var(--text-lg);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h4 {
+    h1 { font-size: var(--text-2xl); font-weight: var(--font-weight-medium); line-height: 1.5; }
+    h2 { font-size: var(--text-xl);  font-weight: var(--font-weight-medium); line-height: 1.5; }
+    h3 { font-size: var(--text-lg);  font-weight: var(--font-weight-medium); line-height: 1.5; }
+    h4 { font-size: var(--text-base);font-weight: var(--font-weight-medium); line-height: 1.5; }
+    p  { font-size: var(--text-base);font-weight: var(--font-weight-normal); line-height: 1.5; }
+    label, button, input {
       font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
       line-height: 1.5;
     }
-
-    p {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
-      line-height: 1.5;
-    }
-
-    label {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    button {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    input {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
-      line-height: 1.5;
-    }
-  }
-}
-
-html {
-  font-size: var(--font-size);
-}
-
-/* YardPass Premium UI Effects & Animations */
-@layer utilities {
-  .tiktok-scroll {
-    scroll-snap-type: y mandatory;
-    scroll-behavior: smooth;
-  }
-  
-  .tiktok-item {
-    scroll-snap-align: start;
-  }
-  
-  /* Frosted Glass Effects */
-  .glass-effect {
-    background: var(--gradient-glass);
-    backdrop-filter: var(--backdrop-blur);
-    border: 1px solid hsla(0, 0%, 100%, 0.15);
-  }
-  
-  .glass-nav {
-    background: hsla(0, 0%, 100%, 0.08);
-    backdrop-filter: var(--backdrop-blur);
-    border-top: 1px solid hsla(0, 0%, 100%, 0.1);
-    box-shadow: 0 -8px 32px hsla(0, 0%, 0%, 0.1);
-  }
-  
-  /* Premium Action Buttons */
-  .action-button {
-    @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 relative;
-    @apply hover:scale-110 active:scale-95;
-    background: hsla(0, 0%, 100%, 0.06);
-    backdrop-filter: blur(12px);
-    border: 1px solid hsla(0, 0%, 100%, 0.15);
-    box-shadow: 0 4px 16px hsla(0, 0%, 0%, 0.2);
-  }
-  
-  .action-button:hover {
-    background: hsla(32, 100%, 64%, 0.2);
-    border-color: hsla(32, 100%, 64%, 0.3);
-    box-shadow: var(--shadow-glow);
-  }
-  
-  .action-button-primary {
-    background: var(--gradient-golden);
-    border: 1px solid hsla(32, 100%, 64%, 0.4);
-    box-shadow: var(--shadow-glow);
-  }
-  
-  /* Navigation & UI */
-  .floating-nav {
-    background: hsla(0, 0%, 100%, 0.08);
-    backdrop-filter: var(--backdrop-blur);
-    border-top: 1px solid hsla(0, 0%, 100%, 0.1);
-    box-shadow: 0 -8px 32px hsla(0, 0%, 0%, 0.15);
-  }
-  
-  .brand-gradient {
-    background: var(--gradient-golden);
-  }
-  
-  .charcoal-gradient {
-    background: var(--gradient-charcoal);
-  }
-  
-  .glass-card {
-    background: var(--gradient-glass);
-    backdrop-filter: var(--backdrop-blur);
-    border: 1px solid hsla(0, 0%, 100%, 0.1);
-    box-shadow: var(--shadow-card);
-  }
-  
-  .premium-button {
-    @apply rounded-full px-6 py-3 font-semibold transition-all duration-300;
-    background: var(--gradient-golden);
-    color: white;
-    border: none;
-    box-shadow: var(--shadow-elevated);
-  }
-  
-  .premium-button:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-glow), var(--shadow-elevated);
-  }
-  
-  .pill-button {
-    @apply rounded-full px-4 py-2 text-sm font-medium transition-all duration-200;
-    @apply border border-white/20 backdrop-blur-sm;
-  }
-  
-  .pill-button-active {
-    background: var(--gradient-golden);
-    border-color: hsla(32, 100%, 64%, 0.4);
-    color: white;
-    box-shadow: var(--shadow-glow);
-  }
-  
-  .feed-gradient {
-    background: var(--gradient-fade);
-  }
-  
-  /* Animations */
-  .golden-glow {
-    box-shadow: 0 0 20px hsla(32, 100%, 64%, 0.4);
-  }
-  
-  .scale-hover {
-    @apply transition-transform duration-200 hover:scale-105;
+    label, button { font-weight: var(--font-weight-medium); }
+    input { font-weight: var(--font-weight-normal); }
   }
 
-  /* Enhanced App Feel Utilities */
-  .app-glow {
-    box-shadow: 0 0 60px hsla(32, 100%, 64%, 0.15);
-  }
-
-  .app-glow-hover:hover {
-    box-shadow: 0 0 80px hsla(32, 100%, 64%, 0.25);
-  }
-
-  .subtle-pattern {
-    background-image: 
-      radial-gradient(circle at 25% 25%, hsla(32, 100%, 64%, 0.03) 0%, transparent 50%),
-      radial-gradient(circle at 75% 75%, hsla(45, 85%, 65%, 0.03) 0%, transparent 50%);
-  }
-
-  .enhanced-card {
-    background: hsla(0, 0%, 100%, 0.05);
-    backdrop-filter: blur(20px);
-    border: 1px solid hsla(0, 0%, 100%, 0.1);
-    box-shadow: 
-      0 8px 32px hsla(0, 0%, 0%, 0.1),
-      0 2px 8px hsla(0, 0%, 0%, 0.05);
-  }
-
-  .enhanced-card:hover {
-    background: hsla(0, 0%, 100%, 0.08);
-    border-color: hsla(0, 0%, 100%, 0.15);
-    box-shadow: 
-      0 12px 40px hsla(0, 0%, 0%, 0.15),
-      0 4px 12px hsla(0, 0%, 0%, 0.08);
-    transform: translateY(-2px);
-  }
-
-  /* Micro-interactions */
-  .micro-bounce {
-    transition: transform 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  }
-
-  .micro-bounce:hover {
-    transform: scale(1.05);
-  }
-
-  .micro-bounce:active {
-    transform: scale(0.95);
-  }
-
-  /* Enhanced Text Styles */
-  .text-shadow-soft {
-    text-shadow: 0 2px 4px hsla(0, 0%, 0%, 0.1);
-  }
-
-  .text-shadow-strong {
-    text-shadow: 0 4px 8px hsla(0, 0%, 0%, 0.2);
-  }
-
-  /* Smooth Scrolling */
-  .smooth-scroll {
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Enhanced Focus States */
-  .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background;
-  }
-
-  .focus-ring-white {
-    @apply focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-transparent;
-  }
-}
-
-/* Mobile optimizations */
-@media (max-width: 768px) {
-  .glass-nav {
-    backdrop-filter: blur(20px);
-    background: rgba(0, 0, 0, 0.8);
-  }
-  
-  .action-button {
-    min-height: 56px;
-    min-width: 56px;
-  }
-  
-  /* Better touch targets */
-  .touch-manipulation {
-    touch-action: manipulation;
-  }
-  
-  /* Improved button spacing on mobile */
-  .mobile-button-spacing {
-    gap: 0.75rem;
-  }
-  
-  /* Better text contrast on mobile */
-  .mobile-text-shadow {
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  }
-  
-  /* Enhanced mobile button styles */
-  .mobile-button {
-    min-height: 48px;
-    min-width: 48px;
-    padding: 0.75rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-  }
-  
-  /* Mobile toast positioning */
-  .mobile-toast {
-    top: 1rem;
-    left: 1rem;
-    right: 1rem;
-    max-width: none;
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
   }
 }
