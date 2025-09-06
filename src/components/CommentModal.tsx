@@ -10,15 +10,31 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 
+interface CommentRow {
+  id: string;
+  text: string;
+  author_user_id: string;
+  created_at: string;
+  user_profiles: { display_name: string | null; photo_url: string | null } | null;
+}
+
+interface PostRow {
+  id: string;
+  text: string;
+  author_user_id: string;
+  created_at: string;
+  media_urls: string[] | null;
+  user_profiles: { display_name: string | null; photo_url: string | null } | null;
+  ticket_tiers: { badge_label: string | null } | null;
+}
+
 interface Comment {
   id: string;
   text: string;
   author_user_id: string;
   created_at: string;
-  author_name?: string;
-  author_avatar?: string;
-  is_liked?: boolean;
-  likes_count?: number;
+  author_name?: string | null;
+  author_avatar?: string | null;
 }
 
 interface Post {
@@ -27,12 +43,12 @@ interface Post {
   author_user_id: string;
   created_at: string;
   media_urls: string[];
-  author_name?: string;
-  author_avatar?: string;
-  author_badge?: string;
+  author_name?: string | null;
+  author_avatar?: string | null;
+  author_badge?: string | null;
   comments: Comment[];
-  is_liked?: boolean;
-  likes_count?: number;
+  likes_count: number;
+  is_liked: boolean;
 }
 
 interface CommentModalProps {
@@ -50,89 +66,97 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch posts and comments for the event
   useEffect(() => {
-    if (isOpen && eventId) {
-      fetchPostsAndComments();
-    }
+    if (isOpen) fetchPostsAndComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId]);
 
   const fetchPostsAndComments = async () => {
     setLoading(true);
     try {
-      // Fetch posts for the event
-      const { data: postsData, error: postsError } = await supabase
+      // Posts
+      const { data: postRows, error: postsError } = await supabase
         .from('event_posts')
         .select(`
-          id,
-          text,
-          author_user_id,
-          created_at,
-          media_urls,
-          user_profiles!event_posts_author_user_id_fkey (
-            display_name,
-            photo_url
-          ),
-          ticket_tiers!event_posts_ticket_tier_id_fkey (
-            badge_label
-          )
+          id, text, author_user_id, created_at, media_urls,
+          user_profiles!event_posts_author_user_id_fkey ( display_name, photo_url ),
+          ticket_tiers!event_posts_ticket_tier_id_fkey ( badge_label )
         `)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false });
 
       if (postsError) throw postsError;
 
-      // Fetch comments for each post
-      const postsWithComments = await Promise.all(
-        (postsData || []).map(async (post: any) => {
-          const { data: commentsData, error: commentsError } = await supabase
-            .from('event_comments')
-            .select(`
-              id,
-              text,
-              author_user_id,
-              created_at,
-              user_profiles!event_comments_author_user_id_fkey (
-                display_name,
-                photo_url
-              )
-            `)
-            .eq('post_id', post.id)
-            .order('created_at', { ascending: true });
+      const ids = (postRows || []).map((p) => p.id);
+      // Comments
+      const { data: commentRows, error: commentsError } = await supabase
+        .from('event_comments')
+        .select(`
+          id, text, author_user_id, created_at, post_id,
+          user_profiles!event_comments_author_user_id_fkey ( display_name, photo_url )
+        `)
+        .in('post_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
+        .order('created_at', { ascending: true });
 
-          if (commentsError) throw commentsError;
+      if (commentsError) throw commentsError;
 
-          return {
-            id: post.id,
-            text: post.text,
-            author_user_id: post.author_user_id,
-            created_at: post.created_at,
-            media_urls: post.media_urls || [],
-            author_name: post.user_profiles?.display_name || 'Anonymous',
-            author_avatar: post.user_profiles?.photo_url,
-            author_badge: post.ticket_tiers?.badge_label,
-            comments: (commentsData || []).map((comment: any) => ({
-              id: comment.id,
-              text: comment.text,
-              author_user_id: comment.author_user_id,
-              created_at: comment.created_at,
-              author_name: comment.user_profiles?.display_name || 'Anonymous',
-              author_avatar: comment.user_profiles?.photo_url,
-              is_liked: false, // TODO: Implement comment likes
-              likes_count: 0
-            }))
-          };
-        })
-      );
+      // Likes for current user
+      let likedSet = new Set<string>();
+      if (user && ids.length) {
+        const { data: myLikes } = await supabase
+          .from('event_reactions')
+          .select('post_id')
+          .eq('user_id', user.id)
+          .eq('kind', 'like')
+          .in('post_id', ids);
+        likedSet = new Set((myLikes ?? []).map((r) => r.post_id));
+      }
 
-      setPosts(postsWithComments);
-    } catch (error) {
-      console.error('Error fetching posts and comments:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load comments",
-        variant: "destructive",
-      });
+      // Like counts
+      const { data: likeCounts } = await supabase
+        .from('event_reactions')
+        .select('post_id, count:count(*)')
+        .eq('kind', 'like')
+        .in('post_id', ids)
+        .group('post_id');
+
+      const countsMap = (likeCounts ?? []).reduce((acc: Record<string, number>, row: any) => {
+        acc[row.post_id] = row.count ?? 0;
+        return acc;
+      }, {});
+
+      const commentsByPost = (commentRows || []).reduce((acc: Record<string, Comment[]>, c: any) => {
+        const list = acc[c.post_id] || [];
+        list.push({
+          id: c.id,
+          text: c.text,
+          author_user_id: c.author_user_id,
+          created_at: c.created_at,
+          author_name: c.user_profiles?.display_name ?? 'Anonymous',
+          author_avatar: c.user_profiles?.photo_url ?? null,
+        });
+        acc[c.post_id] = list;
+        return acc;
+      }, {});
+
+      const mapped: Post[] = (postRows as unknown as PostRow[]).map((p) => ({
+        id: p.id,
+        text: p.text,
+        author_user_id: p.author_user_id,
+        created_at: p.created_at,
+        media_urls: p.media_urls ?? [],
+        author_name: p.user_profiles?.display_name ?? 'Anonymous',
+        author_avatar: p.user_profiles?.photo_url ?? null,
+        author_badge: p.ticket_tiers?.badge_label ?? null,
+        comments: commentsByPost[p.id] ?? [],
+        likes_count: countsMap[p.id] ?? 0,
+        is_liked: likedSet.has(p.id),
+      }));
+
+      setPosts(mapped);
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Error', description: e.message || 'Failed to load comments', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -143,55 +167,52 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
 
     setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('event_comments')
-        .insert({
-          post_id: selectedPostId,
-          author_user_id: user.id,
-          text: newComment.trim()
-        });
+      const { error } = await supabase.from('event_comments').insert({
+        post_id: selectedPostId,
+        author_user_id: user.id,
+        text: newComment.trim(),
+      });
 
       if (error) throw error;
 
-      // Refresh comments
-      await fetchPostsAndComments();
       setNewComment('');
       setSelectedPostId(null);
-      
-      toast({
-        title: "Success",
-        description: "Comment added successfully!",
-      });
-    } catch (error) {
-      console.error('Error submitting comment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add comment",
-        variant: "destructive",
-      });
+      await fetchPostsAndComments();
+      toast({ title: 'Success', description: 'Comment added successfully!' });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Error', description: e.message || 'Failed to add comment', variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleLikePost = async (postId: string) => {
+  const toggleLikePost = async (postId: string) => {
     if (!user) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in to like posts",
-        variant: "destructive",
-      });
+      toast({ title: 'Sign in required', description: 'Please sign in to like posts', variant: 'destructive' });
       return;
     }
 
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+
     try {
-      // TODO: Implement post liking
-      toast({
-        title: "Liked!",
-        description: "Post liked successfully",
-      });
-    } catch (error) {
-      console.error('Error liking post:', error);
+      if (post.is_liked) {
+        await supabase.from('event_reactions').delete().eq('post_id', postId).eq('user_id', user.id).eq('kind', 'like');
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId ? { ...p, is_liked: false, likes_count: Math.max(0, p.likes_count - 1) } : p
+          )
+        );
+      } else {
+        await supabase.from('event_reactions').insert({ post_id: postId, user_id: user.id, kind: 'like' });
+        setPosts((prev) =>
+          prev.map((p) => (p.id === postId ? { ...p, is_liked: true, likes_count: p.likes_count + 1 } : p))
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'Error', description: 'Failed to update like', variant: 'destructive' });
     }
   };
 
@@ -200,15 +221,8 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-background border shadow-xl">
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">
-              Comments for {eventTitle}
-            </DialogTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="h-8 w-8 p-0"
-            >
+            <DialogTitle className="text-lg font-semibold">Comments for {eventTitle}</DialogTitle>
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -230,7 +244,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
                 {/* Post Header */}
                 <div className="flex items-start gap-3">
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src={post.author_avatar} />
+                    <AvatarImage src={post.author_avatar || undefined} />
                     <AvatarFallback className="text-xs">
                       {post.author_name?.charAt(0) || 'A'}
                     </AvatarFallback>
@@ -254,11 +268,11 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
                 {/* Post Actions */}
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <button
-                    onClick={() => handleLikePost(post.id)}
-                    className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => toggleLikePost(post.id)}
+                    className={`flex items-center gap-1 hover:text-foreground transition-colors ${post.is_liked ? 'text-red-500' : ''}`}
                   >
-                    <Heart className="w-3 h-3" />
-                    {post.likes_count || 0}
+                    <Heart className={`w-3 h-3 ${post.is_liked ? 'fill-current' : ''}`} />
+                    {post.likes_count}
                   </button>
                   <span>{post.comments.length} comments</span>
                 </div>
@@ -269,7 +283,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
                     {post.comments.map((comment) => (
                       <div key={comment.id} className="flex items-start gap-3">
                         <Avatar className="w-6 h-6">
-                          <AvatarImage src={comment.author_avatar} />
+                          <AvatarImage src={comment.author_avatar || undefined} />
                           <AvatarFallback className="text-xs">
                             {comment.author_name?.charAt(0) || 'A'}
                           </AvatarFallback>
@@ -333,9 +347,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
 
         {!user && (
           <div className="flex-shrink-0 p-4 bg-muted/50 rounded-lg">
-            <p className="text-sm text-center text-muted-foreground">
-              Sign in to join the conversation
-            </p>
+            <p className="text-sm text-center text-muted-foreground">Sign in to join the conversation</p>
           </div>
         )}
       </DialogContent>
