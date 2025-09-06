@@ -303,7 +303,15 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         onSuccess={() => { setShowTicketModal(false); toast({ title: 'Redirecting to Checkout', description: 'Opening Stripe checkout in a new tab…' }); }}
       />
 
-      <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} shareUrl={typeof window !== 'undefined' ? window.location.href : ''} />
+      <ShareModal 
+        isOpen={showShareModal} 
+        onClose={() => setShowShareModal(false)} 
+        payload={showShareModal ? {
+          title: currentEvent.title,
+          text: `Check out ${currentEvent.title} - ${currentEvent.description}`,
+          url: typeof window !== 'undefined' ? window.location.href : ''
+        } : null} 
+      />
     </div>
   );
 }
