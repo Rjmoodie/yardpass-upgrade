@@ -95,6 +95,45 @@ export type Database = {
           },
         ]
       }
+      event_invites: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          event_id: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          event_id: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          event_id?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_posts: {
         Row: {
           author_user_id: string
@@ -327,6 +366,7 @@ export type Database = {
           hold_payout_until_end: boolean | null
           id: string
           lat: number | null
+          link_token: string | null
           lng: number | null
           owner_context_id: string
           owner_context_type: Database["public"]["Enums"]["owner_context"]
@@ -352,6 +392,7 @@ export type Database = {
           hold_payout_until_end?: boolean | null
           id?: string
           lat?: number | null
+          link_token?: string | null
           lng?: number | null
           owner_context_id: string
           owner_context_type: Database["public"]["Enums"]["owner_context"]
@@ -377,6 +418,7 @@ export type Database = {
           hold_payout_until_end?: boolean | null
           id?: string
           lat?: number | null
+          link_token?: string | null
           lng?: number | null
           owner_context_id?: string
           owner_context_type?: Database["public"]["Enums"]["owner_context"]

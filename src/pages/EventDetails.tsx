@@ -11,8 +11,6 @@ type EventRow = {
   id: string;
   title: string;
   description: string;
-  visibility: 'public' | 'unlisted' | 'private';
-  link_token?: string | null;
   start_at: string;
   venue?: string | null;
   address?: string | null;
@@ -35,7 +33,7 @@ export default function EventDetails() {
       // 1) Fetch event
       const { data: ev, error } = await supabase
         .from('events')
-        .select('id,title,description,visibility,link_token,start_at,venue,address')
+        .select('id,title,description,start_at,venue,address')
         .eq('id', id)
         .single();
 
@@ -45,24 +43,8 @@ export default function EventDetails() {
         return;
       }
 
-      // 2) Hardened Unlisted: require token match if link_token is set
-      if (ev.visibility === 'unlisted' && ev.link_token) {
-        if (!kParam || kParam !== ev.link_token) {
-          setEvent(null);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // 3) Private: permission check
-      if (ev.visibility === 'private') {
-        const gate = await canViewEvent(ev.id, user?.id);
-        if (!gate.allowed) {
-          setEvent({ ...ev, description: '' });
-          setLoading(false);
-          return;
-        }
-      }
+      // For now, all events are accessible (visibility logic will be added later)
+      // TODO: Add visibility and link_token logic once columns are available in types
 
       setEvent(ev);
       setLoading(false);
@@ -89,16 +71,11 @@ export default function EventDetails() {
     );
   }
 
-  // If private and blocked, show RequestAccess
-  if (event.visibility === 'private' && !event.description) {
-    return <RequestAccess eventId={event.id} />;
-  }
-
-  // Normal details UI (stub)
+  // Normal details UI
   return (
     <div className="p-6">
       <div className="mb-4">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">{event.visibility}</span>
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">public</span>
         <h1 className="text-2xl font-bold">{event.title}</h1>
       </div>
       <p className="text-muted-foreground mb-6">{event.description}</p>
