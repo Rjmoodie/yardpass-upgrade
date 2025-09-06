@@ -120,10 +120,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts_with_meta"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_event_comments_post_id"
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "event_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_comments_post_id"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts_with_meta"
             referencedColumns: ["id"]
           },
         ]
@@ -170,9 +184,12 @@ export type Database = {
       event_posts: {
         Row: {
           author_user_id: string
+          comment_count: number
           created_at: string | null
+          deleted_at: string | null
           event_id: string
           id: string
+          like_count: number
           media_urls: string[] | null
           text: string | null
           ticket_tier_id: string | null
@@ -180,9 +197,12 @@ export type Database = {
         }
         Insert: {
           author_user_id: string
+          comment_count?: number
           created_at?: string | null
+          deleted_at?: string | null
           event_id: string
           id?: string
+          like_count?: number
           media_urls?: string[] | null
           text?: string | null
           ticket_tier_id?: string | null
@@ -190,9 +210,12 @@ export type Database = {
         }
         Update: {
           author_user_id?: string
+          comment_count?: number
           created_at?: string | null
+          deleted_at?: string | null
           event_id?: string
           id?: string
+          like_count?: number
           media_urls?: string[] | null
           text?: string | null
           ticket_tier_id?: string | null
@@ -271,10 +294,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts_with_meta"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_event_reactions_post_id"
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "event_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_reactions_post_id"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts_with_meta"
             referencedColumns: ["id"]
           },
         ]
@@ -1228,6 +1265,70 @@ export type Database = {
       }
     }
     Views: {
+      event_posts_with_meta: {
+        Row: {
+          author_badge_label: string | null
+          author_is_organizer: boolean | null
+          author_name: string | null
+          author_photo_url: string | null
+          author_user_id: string | null
+          comment_count: number | null
+          created_at: string | null
+          deleted_at: string | null
+          event_id: string | null
+          event_title: string | null
+          id: string | null
+          like_count: number | null
+          media_urls: string[] | null
+          text: string | null
+          ticket_tier_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_posts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_posts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_posts_ticket_tier_id_fkey"
+            columns: ["ticket_tier_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_posts_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_posts_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_posts_ticket_tier_id"
+            columns: ["ticket_tier_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_video_kpis_daily: {
         Row: {
           avg_dwell_ms: number | null
@@ -1377,7 +1478,7 @@ export type Database = {
     }
     Functions: {
       can_current_user_post: {
-        Args: { p_event_id: string }
+        Args: { p_event_id: string } | { target_event_id: string; uid: string }
         Returns: boolean
       }
       create_organization_with_membership: {

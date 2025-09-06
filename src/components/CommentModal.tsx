@@ -112,16 +112,14 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
         likedSet = new Set((myLikes ?? []).map((r) => r.post_id));
       }
 
-      // Like counts
-      const { data: likeCounts } = await supabase
-        .from('event_reactions')
-        .select('post_id, count:count(*)')
-        .eq('kind', 'like')
-        .in('post_id', ids)
-        .group('post_id');
+      // Like counts - use the new counters from event_posts
+      const { data: postsWithCounts } = await supabase
+        .from('event_posts')
+        .select('id, like_count, comment_count')
+        .in('id', ids);
 
-      const countsMap = (likeCounts ?? []).reduce((acc: Record<string, number>, row: any) => {
-        acc[row.post_id] = row.count ?? 0;
+      const countsMap = (postsWithCounts ?? []).reduce((acc: Record<string, number>, row: any) => {
+        acc[row.id] = row.like_count ?? 0;
         return acc;
       }, {});
 

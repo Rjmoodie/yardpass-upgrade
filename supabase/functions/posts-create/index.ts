@@ -9,12 +9,14 @@ interface CreatePostRequest {
   ticket_tier_id?: string;
 }
 
+const RATELIMIT_MAX_PER_MIN = 10;
+
 serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
   try {
-    console.log('Posts-create function called with body:', await req.clone().text());
+    console.log('Posts-create function called');
     
     // Create Supabase client
     const supabaseClient = createClient(
@@ -36,66 +38,26 @@ serve(async (req) => {
       return createErrorResponse("Unauthorized", 401);
     }
 
-    const { event_id, text, media_urls, ticket_tier_id }: CreatePostRequest = await req.json();
+    const { event_id, text, media_urls = [], ticket_tier_id }: CreatePostRequest = await req.json();
     console.log('Request data:', { event_id, text, media_urls, ticket_tier_id });
 
-    // Validate that user can post to this event
-    // Check if user has a ticket for this event OR is an event manager
-    console.log('Checking user tickets...');
-    const { data: tickets, error: ticketsError } = await supabaseClient
-      .from('tickets')
-      .select('id, tier_id')
-      .eq('event_id', event_id)
-      .eq('owner_user_id', user.id)
-      .in('status', ['issued', 'transferred', 'redeemed']);
-
-    console.log('User tickets:', tickets, 'Error:', ticketsError);
-
-    console.log('Checking event data...');
-    const { data: eventData, error: eventError } = await supabaseClient
-      .from('events')
-      .select('id, owner_context_type, owner_context_id')
-      .eq('id', event_id)
-      .single();
-
-    console.log('Event data:', eventData, 'Error:', eventError);
-
-    // Check if user is event manager
-    let canPost = false;
-    console.log('Checking if user can post...');
-    
-    if (eventData) {
-      if (eventData.owner_context_type === 'individual' && eventData.owner_context_id === user.id) {
-        console.log('User is individual event owner');
-        canPost = true;
-      } else if (eventData.owner_context_type === 'organization') {
-        console.log('Checking org membership...');
-        // Check org membership
-        const { data: membership } = await supabaseClient
-          .from('org_memberships')
-          .select('role')
-          .eq('org_id', eventData.owner_context_id)
-          .eq('user_id', user.id)
-          .single();
-        console.log('Org membership:', membership);
-        if (membership && ['editor', 'admin', 'owner'].includes(membership.role)) {
-          console.log('User has org permissions');
-          canPost = true;
-        }
-      }
-    } else {
-      console.log('No event data found for event_id:', event_id);
+    if (!event_id || !text || typeof text !== "string") {
+      return createErrorResponse("Missing event_id or text", 400);
+    }
+    if (text.length > 2000) {
+      return createErrorResponse("Text too long", 400);
     }
 
-    // Check if user has tickets
-    if (!canPost && tickets && tickets.length > 0) {
-      console.log('User has tickets, can post');
-      canPost = true;
-    }
+    // Permission check using the new function
+    const { data: canPost, error: permError } = await supabaseClient
+      .rpc("can_current_user_post", { 
+        target_event_id: event_id, 
+        uid: user.id 
+      });
 
-    console.log('Final canPost decision:', canPost);
+    console.log('Permission check result:', { canPost, permError });
 
-    if (!canPost) {
+    if (permError || !canPost) {
       return new Response(JSON.stringify({ 
         error: "You must have a ticket or be an event organizer to post to this event",
         requiresTicket: true 
@@ -105,18 +67,20 @@ serve(async (req) => {
       });
     }
 
-    // Determine the ticket tier for badge display
+    // Derive author's badge (if not provided)
     let finalTicketTierId = ticket_tier_id;
-    if (!finalTicketTierId && tickets && tickets.length > 0) {
-      // Use the highest tier ticket (assuming higher price = higher tier)
-      const { data: tierData } = await supabaseClient
-        .from('ticket_tiers')
-        .select('id, price_cents')
-        .in('id', tickets.map(t => t.tier_id))
-        .order('price_cents', { ascending: false });
+    if (!finalTicketTierId) {
+      const { data: tickets } = await supabaseClient
+        .from('tickets')
+        .select('tier_id')
+        .eq('event_id', event_id)
+        .eq('owner_user_id', user.id)
+        .in('status', ['issued', 'transferred', 'redeemed'])
+        .order('created_at', { ascending: false })
+        .limit(1);
       
-      if (tierData && tierData.length > 0) {
-        finalTicketTierId = tierData[0].id;
+      if (tickets && tickets.length > 0) {
+        finalTicketTierId = tickets[0].tier_id;
       }
     }
 
@@ -126,11 +90,11 @@ serve(async (req) => {
       .insert({
         event_id,
         author_user_id: user.id,
-        text: text || '',
+        text: text.trim(),
         media_urls: media_urls || [],
         ticket_tier_id: finalTicketTierId,
       })
-      .select()
+      .select('id')
       .single();
 
     if (postError) {
@@ -140,7 +104,20 @@ serve(async (req) => {
 
     console.log('Post created successfully:', post);
 
-          return createResponse({ data: post }, 201);
+    // Fetch from the new view for rich metadata
+    const { data: fullPost, error: viewError } = await supabaseClient
+      .from('event_posts_with_meta')
+      .select('*')
+      .eq('id', post.id)
+      .single();
+
+    if (viewError) {
+      console.error('Error fetching post metadata:', viewError);
+      // Fallback to basic post data
+      return createResponse({ data: post }, 201);
+    }
+
+    return createResponse({ data: fullPost }, 201);
 
   } catch (error) {
     console.error('Error in posts-create function:', error);

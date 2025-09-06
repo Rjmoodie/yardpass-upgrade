@@ -9,6 +9,14 @@ serve(async (req) => {
   try {
     console.log('Posts-list function called with URL:', req.url);
     
+    const url = new URL(req.url);
+    const eventId = url.searchParams.get("event_id");
+    const authorId = url.searchParams.get("user_id");
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10), 50);
+    const cursor = url.searchParams.get("cursor"); // created_at|id format
+
+    console.log('Query params:', { eventId, authorId, limit, cursor });
+
     // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -20,48 +28,30 @@ serve(async (req) => {
       }
     );
 
-    const url = new URL(req.url);
-    const event_id = url.searchParams.get('event_id');
-    const user_id = url.searchParams.get('user_id');
-    const limit = parseInt(url.searchParams.get('limit') || '20');
-    const offset = parseInt(url.searchParams.get('offset') || '0');
+    const { data: { user } } = await supabaseClient.auth.getUser();
 
-    console.log('Query params:', { event_id, user_id, limit, offset });
-
+    // Build query using the new view
     let query = supabaseClient
-      .from('event_posts')
-      .select(`
-        id,
-        text,
-        media_urls,
-        created_at,
-        author_user_id,
-        event_id,
-        ticket_tier_id,
-        user_profiles!event_posts_author_user_id_fkey (
-          display_name,
-          photo_url
-        ),
-        ticket_tiers:ticket_tier_id (
-          badge_label,
-          name
-        ),
-        events:event_id (
-          title,
-          owner_context_type,
-          owner_context_id,
-          visibility
-        )
-      `)
+      .from('event_posts_with_meta')
+      .select('*')
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .order('id', { ascending: false })
+      .limit(limit + 1); // Get one extra to check if there are more
 
-    // Filter by event or user if specified
-    if (event_id) {
-      query = query.eq('event_id', event_id);
+    // Apply filters
+    if (eventId) {
+      query = query.eq('event_id', eventId);
     }
-    if (user_id) {
-      query = query.eq('author_user_id', user_id);
+    if (authorId) {
+      query = query.eq('author_user_id', authorId);
+    }
+
+    // Apply cursor pagination
+    if (cursor) {
+      const [cCreated, cId] = cursor.split("|");
+      if (cCreated && cId) {
+        query = query.or(`created_at.lt.${cCreated},and(created_at.eq.${cCreated},id.lt.${cId})`);
+      }
     }
 
     const { data: posts, error: postsError } = await query;
@@ -73,49 +63,44 @@ serve(async (req) => {
 
     console.log(`Fetched ${posts?.length || 0} posts`);
 
-    // Get reaction counts and comments for each post
-    if (posts && posts.length > 0) {
-      const postIds = posts.map(p => p.id);
-      
-      // Get reaction counts
-      const { data: reactions } = await supabaseClient
+    const items = posts || [];
+    const hasMore = items.length > limit;
+    const page = hasMore ? items.slice(0, -1) : items;
+    const nextCursor = hasMore && page.length > 0
+      ? `${page[page.length - 1].created_at}|${page[page.length - 1].id}`
+      : null;
+
+    // Get liked_by_me data for authenticated users
+    let likedMap: Record<string, boolean> = {};
+    if (user && page.length > 0) {
+      const postIds = page.map(p => p.id);
+      const { data: likes } = await supabaseClient
         .from('event_reactions')
-        .select('post_id, kind')
-        .in('post_id', postIds);
-
-      // Get comment counts  
-      const { data: comments } = await supabaseClient
-        .from('event_comments')
         .select('post_id')
+        .eq('user_id', user.id)
+        .eq('kind', 'like')
         .in('post_id', postIds);
 
-      // Transform the data to include computed fields
-      const transformedPosts = posts.map(post => {
-        const postReactions = reactions?.filter(r => r.post_id === post.id) || [];
-        const postComments = comments?.filter(c => c.post_id === post.id) || [];
-        
-        return {
-          ...post,
-          like_count: postReactions.filter(r => r.kind === 'like').length,
-          comment_count: postComments.length,
-          is_organizer: post.events && (
-            (post.events.owner_context_type === 'individual' && post.events.owner_context_id === post.author_user_id) ||
-            (post.events.owner_context_type === 'organization')
-          ),
-          badge_label: post.ticket_tiers?.badge_label || (
-            post.events && post.events.owner_context_type === 'individual' && post.events.owner_context_id === post.author_user_id 
-              ? 'HOST' 
-              : post.events && post.events.owner_context_type === 'organization' 
-                ? 'CREW' 
-                : null
-          )
-        };
-      });
-
-      return createResponse({ data: transformedPosts });
+      likedMap = Object.fromEntries((likes || []).map(l => [l.post_id, true]));
     }
 
-    return createResponse({ data: [] });
+    // Transform data to include liked_by_me
+    const transformedPosts = page.map(post => ({
+      ...post,
+      liked_by_me: !!likedMap[post.id],
+      // Map badge_label for backward compatibility
+      badge_label: post.author_badge_label || (
+        post.author_is_organizer ? 'HOST' : null
+      ),
+      // Include computed fields for compatibility
+      is_organizer: post.author_is_organizer
+    }));
+
+    return createResponse({
+      data: transformedPosts,
+      next_cursor: nextCursor,
+      has_more: hasMore,
+    });
 
   } catch (error) {
     console.error('Error in posts-list function:', error);
