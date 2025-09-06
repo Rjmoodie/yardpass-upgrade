@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { OrganizationCreator } from './OrganizationCreator';
 import { EventCreator } from './EventCreator';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Building2, Plus, Users } from 'lucide-react';
+import { Input } from './ui/input';
+import { Building2, Plus, Users, RefreshCw, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,81 +22,141 @@ interface CreateEventFlowProps {
   onCreate: () => void;
 }
 
+const LAST_ORG_KEY = 'yp:lastOrgId';
+
 export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+
   const [step, setStep] = useState<'select-org' | 'create-org' | 'create-event'>('select-org');
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
+  // Restore last used org early (for optimistic preselect)
   useEffect(() => {
-    if (user) {
-      loadUserOrganizations();
-    }
+    if (!user) return;
+    const lastId = localStorage.getItem(LAST_ORG_KEY) || '';
+    if (lastId) setSelectedOrgId(lastId);
   }, [user]);
 
-  const loadUserOrganizations = async () => {
+  useEffect(() => {
     if (!user) return;
-    
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('org_memberships')
-        .select(`
-          organizations!fk_org_memberships_org_id (
-            id,
-            name,
-            handle,
-            logo_url
-          )
-        `)
-        .eq('user_id', user.id)
-        .in('role', ['owner', 'admin', 'editor']);
+    let alive = true;
 
-      if (error) throw error;
+    const loadUserOrganizations = async () => {
+      setLoading(true);
+      setLoadError(null);
 
-      const orgs = data
-        .map(item => item.organizations)
-        .filter(Boolean) as Organization[];
-      
-      setOrganizations(orgs);
-      
-      // Auto-select if only one organization
-      if (orgs.length === 1) {
-        setSelectedOrgId(orgs[0].id);
-        setStep('create-event');
-      } else if (orgs.length === 0) {
-        setStep('create-org');
+      try {
+        const { data, error } = await supabase
+          .from('org_memberships')
+          .select(`
+            role,
+            organizations!fk_org_memberships_org_id (
+              id,
+              name,
+              handle,
+              logo_url
+            )
+          `)
+          .eq('user_id', user.id)
+          .in('role', ['owner', 'admin', 'editor']);
+
+        if (error) throw error;
+
+        const orgs = (data ?? [])
+          .map((row) => row.organizations)
+          .filter(Boolean) as Organization[];
+
+        if (!alive) return;
+
+        setOrganizations(orgs);
+
+        // Auto-routes:
+        if (orgs.length === 0) {
+          setStep('create-org');
+          return;
+        }
+
+        // Prefer last used org if still valid
+        const lastId = localStorage.getItem(LAST_ORG_KEY) || '';
+        if (lastId && orgs.some((o) => o.id === lastId)) {
+          setSelectedOrgId(lastId);
+        } else if (orgs.length === 1) {
+          setSelectedOrgId(orgs[0].id);
+          // don’t auto-jump immediately; let user confirm
+        }
+
+      } catch (err: any) {
+        if (!alive) return;
+        setLoadError(err?.message || 'Failed to load organizations');
+        toast({
+          title: 'Error loading organizations',
+          description: err?.message || 'Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        if (alive) setLoading(false);
       }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  const handleOrgCreated = (orgId: string) => {
-    setSelectedOrgId(orgId);
+    loadUserOrganizations();
+    return () => { alive = false; };
+  }, [user, toast]);
+
+  // Persist last used org selection
+  useEffect(() => {
+    if (selectedOrgId) localStorage.setItem(LAST_ORG_KEY, selectedOrgId);
+  }, [selectedOrgId]);
+
+  const filteredOrgs = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return organizations;
+    return organizations.filter(
+      (o) =>
+        o.name.toLowerCase().includes(q) ||
+        o.handle.toLowerCase().includes(q)
+    );
+  }, [organizations, search]);
+
+  const handleContinue = useCallback(() => {
+    if (!selectedOrgId) return;
     setStep('create-event');
-    loadUserOrganizations(); // Refresh the list
-  };
+  }, [selectedOrgId]);
 
-  const handleEventCreated = () => {
+  const handleOrgCreated = useCallback((orgId: string) => {
+    setSelectedOrgId(orgId);
+    localStorage.setItem(LAST_ORG_KEY, orgId);
+    setStep('create-event');
+  }, []);
+
+  const handleEventCreated = useCallback(() => {
+    toast({ title: 'Event created 🎉', description: 'Redirecting...' });
     onCreate();
-  };
+  }, [onCreate, toast]);
 
+  const retryLoad = useCallback(() => {
+    // Force a fresh reload by toggling loading + clearing error
+    setLoadError(null);
+    setLoading(true);
+    // Re-run the effect by touching a state that it depends on (noop here).
+    // Simpler: just mimic a soft refresh:
+    window.setTimeout(() => window.location.reload(), 100);
+  }, []);
+
+  // —————————————————————
+  // Guards
+  // —————————————————————
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20 p-4">
-        <div className="text-center">
-          <h2 className="text-xl font-bold mb-4">Authentication Required</h2>
-          <p className="text-muted-foreground mb-4">You need to be signed in to create events.</p>
-          <Button onClick={onBack}>Go Back</Button>
+        <div className="text-center max-w-sm">
+          <h2 className="text-xl font-bold mb-2">Authentication Required</h2>
+          <p className="text-muted-foreground mb-4">Sign in to create events and manage organizations.</p>
+          <Button onClick={onBack} className="pill-button">Go Back</Button>
         </div>
       </div>
     );
@@ -103,22 +164,43 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading organizations...</p>
+      <div className="min-h-screen p-4">
+        <header className="flex items-center gap-3 mb-6">
+          <Button onClick={onBack} variant="ghost" size="icon" aria-label="Back">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1>Create Event</h1>
+            <p className="text-sm text-muted-foreground">Loading organizations…</p>
+          </div>
+        </header>
+
+        <div className="max-w-md mx-auto space-y-4">
+          <Card className="enhanced-card">
+            <CardHeader>
+              <div className="h-5 w-40 rounded-md bg-muted animate-pulse" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="h-10 w-full rounded-md bg-muted animate-pulse" />
+              <div className="h-10 w-full rounded-md bg-muted animate-pulse" />
+            </CardContent>
+          </Card>
+
+          <Card className="enhanced-card">
+            <CardHeader>
+              <div className="h-5 w-56 rounded-md bg-muted animate-pulse" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-10 w-full rounded-md bg-muted animate-pulse" />
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
 
   if (step === 'create-org') {
-    return (
-      <OrganizationCreator
-        onBack={onBack}
-        onSuccess={handleOrgCreated}
-      />
-    );
+    return <OrganizationCreator onBack={onBack} onSuccess={handleOrgCreated} />;
   }
 
   if (step === 'create-event') {
@@ -131,24 +213,35 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
     );
   }
 
-  // Organization selection step
+  // —————————————————————
+  // Select Organization step
+  // —————————————————————
   return (
     <div className="h-full bg-background flex flex-col">
       {/* Header */}
       <div className="border-b bg-card p-4">
         <div className="flex items-center gap-4">
-          <button
+          <Button
             onClick={onBack}
-            className="p-2 rounded-full hover:bg-muted transition-colors"
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            aria-label="Back to previous"
           >
-            <Building2 className="w-5 h-5" />
-          </button>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
           <div className="flex-1">
             <h1>Create Event</h1>
             <p className="text-sm text-muted-foreground">
               Choose an organization or create a new one
             </p>
           </div>
+          {loadError && (
+            <Button variant="outline" size="sm" onClick={retryLoad} className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </Button>
+          )}
         </div>
       </div>
 
@@ -157,43 +250,83 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
         <div className="max-w-md mx-auto space-y-6">
           {/* Select Existing Organization */}
           {organizations.length > 0 && (
-            <Card>
+            <Card className="enhanced-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="w-5 h-5" />
                   Select Organization
                 </CardTitle>
               </CardHeader>
+
               <CardContent className="space-y-4">
-                <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose an organization" />
+                {/* Search/filter */}
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search organizations by name or @handle"
+                  aria-label="Search organizations"
+                />
+
+                <Select
+                  value={selectedOrgId}
+                  onValueChange={(val) => setSelectedOrgId(val)}
+                >
+                  <SelectTrigger aria-label="Organization selector">
+                    <SelectValue placeholder={filteredOrgs.length ? "Choose an organization" : "No matches"} />
                   </SelectTrigger>
-                  <SelectContent>
-                    {organizations.map((org) => (
-                      <SelectItem key={org.id} value={org.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{org.name}</span>
-                          <span className="text-xs text-muted-foreground">@{org.handle}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-64 overflow-auto scrollbar-slim">
+                    {filteredOrgs.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">No organizations found</div>
+                    ) : (
+                      filteredOrgs.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{org.name}</span>
+                            <span className="text-xs text-muted-foreground">@{org.handle}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
-                
-                <Button 
-                  className="w-full" 
-                  onClick={() => setStep('create-event')}
-                  disabled={!selectedOrgId}
-                >
-                  Continue with Selected Organization
-                </Button>
+
+                {/* Contextual helper */}
+                {selectedOrgId && (
+                  <div className="text-xs text-muted-foreground">
+                    You’ll create this event under&nbsp;
+                    <span className="font-medium">
+                      @{organizations.find((o) => o.id === selectedOrgId)?.handle}
+                    </span>.
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <Button
+                    className="flex-1"
+                    onClick={handleContinue}
+                    disabled={!selectedOrgId}
+                  >
+                    Continue
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => {
+                      // refresh the list silently
+                      window.location.reload();
+                    }}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Refresh
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
 
           {/* Create New Organization */}
-          <Card>
+          <Card className="enhanced-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Plus className="w-5 h-5" />
@@ -202,10 +335,10 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Create a new organization to manage your events and team members.
+                Set up an organization to manage events, teammates, and payouts.
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => setStep('create-org')}
               >
@@ -216,7 +349,7 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
           </Card>
 
           {/* Info Card */}
-          <Card>
+          <Card className="enhanced-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
@@ -224,26 +357,23 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                <p>Collaborate with team members on event management</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                <p>Centralized billing and payment processing</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                <p>Professional branding and verification</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                <p>Analytics and reporting across all events</p>
-              </div>
+              <Bullet>Collaborate with teammates on events and check-in.</Bullet>
+              <Bullet>Centralized billing and payouts.</Bullet>
+              <Bullet>Professional branding and verification.</Bullet>
+              <Bullet>Unified analytics across events.</Bullet>
             </CardContent>
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Bullet({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="w-2 h-2 bg-primary rounded-full mt-2" />
+      <p>{children}</p>
     </div>
   );
 }
