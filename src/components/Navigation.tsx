@@ -90,53 +90,17 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   const requiresAuth = useCallback((path: string) => path in AUTH_REQUIRED, []);
 
-  // Parallelized posting eligibility check
+  // Open post creation for any authenticated user
   const handleCreatePost = useCallback(async () => {
-    console.log('handleCreatePost called, user:', user?.id, 'loading:', checkingEligibility);
+    console.log('handleCreatePost called, user:', user?.id);
     if (!user) {
       console.log('No user, opening auth modal');
       setAuthModalOpen(true);
       return;
     }
-    try {
-      setCheckingEligibility(true);
-      const [ticketsRes, ownedEventsRes, orgMembershipsRes] = await Promise.all([
-        supabase
-          .from('tickets')
-          .select('id, event_id, status')
-          .eq('owner_user_id', user.id)
-          .in('status', ['issued', 'transferred', 'redeemed'])
-          .limit(1),
-        supabase
-          .from('events')
-          .select('id')
-          .eq('owner_context_type', 'individual')
-          .eq('owner_context_id', user.id)
-          .limit(1),
-        supabase
-          .from('org_memberships')
-          .select('id, role')
-          .eq('user_id', user.id)
-          .in('role', ['editor', 'admin', 'owner'])
-          .limit(1),
-      ]);
-
-      const hasTickets = (ticketsRes.data?.length || 0) > 0;
-      const isOrganizer = (ownedEventsRes.data?.length || 0) > 0 || (orgMembershipsRes.data?.length || 0) > 0;
-
-      if (isOrganizer) {
-        setOrganizerMenuOpen(true);
-      } else if (hasTickets) {
-        setPostCreatorOpen(true);
-      } else {
-        setPurchaseGateOpen(true);
-      }
-    } catch (error) {
-      console.error('Eligibility check error', error);
-      toast({ title: 'Error', description: 'Failed to check posting eligibility', variant: 'destructive' });
-    } finally {
-      setCheckingEligibility(false);
-    }
+    
+    // Always open post creator for authenticated users
+    setPostCreatorOpen(true);
   }, [user]);
 
   const handleNavigation = useCallback(
