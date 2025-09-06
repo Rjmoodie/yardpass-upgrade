@@ -250,14 +250,11 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       {/* Header */}
       <div className="border-b bg-card p-4">
         <div className="flex items-center gap-4 mb-4">
-          <button
-            onClick={onBack}
-            className="p-2 rounded-full hover:bg-muted transition-colors"
-          >
+          <Button variant="ghost" size="icon" onClick={onBack}>
             <ArrowLeft className="w-5 h-5" />
-          </button>
+          </Button>
           <div className="flex-1">
-            <h1>Search Events</h1>
+            <h1 className="text-xl font-semibold">Search Events</h1>
             <p className="text-sm text-muted-foreground">Discover amazing events near you</p>
           </div>
         </div>
@@ -281,16 +278,16 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 <Filter className="w-4 h-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-4 bg-card border shadow-lg z-50" align="end">
-              <div className="space-y-4">
+            <PopoverContent className="w-80 p-0 bg-card border shadow-lg" align="end">
+              <div className="p-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium">Filters</h3>
+                  <h3 className="font-medium">Filters</h3>
                   <div className="flex gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={clearFilters}
-                      className="text-xs"
+                      className="text-xs h-8 px-2 text-muted-foreground hover:text-foreground"
                     >
                       Clear all
                     </Button>
@@ -298,6 +295,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                       variant="ghost"
                       size="sm"
                       onClick={() => setShowFilters(false)}
+                      className="h-8 w-8 p-0"
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -322,13 +320,13 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                           {dateRange.from ? format(dateRange.from, "MMM dd") : "From"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 z-50" align="start">
+                      <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
                           selected={dateRange.from}
                           onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
                           initialFocus
-                          className={cn("p-3 pointer-events-auto")}
+                          className="p-3 pointer-events-auto"
                         />
                       </PopoverContent>
                     </Popover>
@@ -347,13 +345,13 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                           {dateRange.to ? format(dateRange.to, "MMM dd") : "To"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 z-50" align="start">
+                      <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
                           selected={dateRange.to}
                           onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
                           initialFocus
-                          className={cn("p-3 pointer-events-auto")}
+                          className="p-3 pointer-events-auto"
                         />
                       </PopoverContent>
                     </Popover>
