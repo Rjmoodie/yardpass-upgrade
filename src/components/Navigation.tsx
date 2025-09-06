@@ -90,23 +90,6 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   const requiresAuth = useCallback((path: string) => path in AUTH_REQUIRED, []);
 
-  const handleNavigation = useCallback(
-    (path: string, screen: Screen) => {
-      if (requiresAuth(path) && !user) {
-        setPendingNavigation(screen);
-        setAuthModalOpen(true);
-        return;
-      }
-      if (screen === 'posts-test') {
-        console.log('Posts button clicked, user:', user?.id, 'userRole:', userRole);
-        void handleCreatePost();
-        return;
-      }
-      navigate(path);
-    },
-    [navigate, requiresAuth, user]
-  );
-
   // Parallelized posting eligibility check
   const handleCreatePost = useCallback(async () => {
     console.log('handleCreatePost called, user:', user?.id, 'loading:', checkingEligibility);
@@ -155,6 +138,25 @@ export default function Navigation({ userRole }: NavigationProps) {
       setCheckingEligibility(false);
     }
   }, [user]);
+
+  const handleNavigation = useCallback(
+    (path: string, screen: Screen) => {
+      console.log('handleNavigation called with:', { path, screen, user: user?.id, userRole });
+      
+      if (requiresAuth(path) && !user) {
+        setPendingNavigation(screen);
+        setAuthModalOpen(true);
+        return;
+      }
+      if (screen === 'posts-test') {
+        console.log('Posts button clicked, user:', user?.id, 'userRole:', userRole);
+        void handleCreatePost();
+        return;
+      }
+      navigate(path);
+    },
+    [navigate, requiresAuth, user, userRole, handleCreatePost]
+  );
 
   const handleAuthSuccess = useCallback(() => {
     setAuthModalOpen(false);
