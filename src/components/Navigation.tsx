@@ -53,6 +53,8 @@ export default function Navigation({ userRole }: NavigationProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  console.log('Navigation render - user:', user?.id, 'userRole:', userRole);
+
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<Screen | null>(null);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
@@ -62,7 +64,7 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   // Build nav items from role
   const navItems = useMemo(() => {
-    return (
+    const items = (
       [
         { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
         { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
@@ -81,6 +83,9 @@ export default function Navigation({ userRole }: NavigationProps) {
         { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
       ] as const
     ).filter((i) => i.show);
+    
+    console.log('Navigation items:', items.map(i => ({ id: i.id, label: i.label, show: i.show })));
+    return items;
   }, [userRole]);
 
   const requiresAuth = useCallback((path: string) => path in AUTH_REQUIRED, []);
