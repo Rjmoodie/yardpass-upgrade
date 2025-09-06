@@ -245,8 +245,8 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
               name: tier.name,
               price: tier.price_cents / 100, // Convert cents to dollars
               badge: tier.badge_label,
-              available: tier.quantity,
-              total: tier.quantity
+              available: tier.quantity || 0,
+              total: tier.quantity || 0
             })) || [],
             attendeeCount: Math.floor(Math.random() * 1000) + 50,
             likes: Math.floor(Math.random() * 500) + 10,
