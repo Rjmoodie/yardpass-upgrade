@@ -97,8 +97,21 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       try {
         const { data, error } = await supabase
           .from('events')
-          .select(`id,title,description,start_at,end_at,venue,city,category,cover_image_url,visibility,
-                   user_profiles!events_created_by_fkey ( display_name )`)
+          .select(`
+            id,
+            title,
+            description,
+            start_at,
+            end_at,
+            venue,
+            city,
+            category,
+            cover_image_url,
+            visibility,
+            user_profiles!events_created_by_fkey (
+              display_name
+            )
+          `)
           .eq('visibility', 'public')
           .order('start_at', { ascending: true })
           .limit(50);
