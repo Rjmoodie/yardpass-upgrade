@@ -1,9 +1,11 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, MessageCircle, Send, Share2 } from "lucide-react";
+import { Copy, MessageCircle, Send, Share2, Instagram } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { SharePayload } from "@/lib/share";
 import { notify } from "@/lib/notifications";
+import { Capacitor } from "@capacitor/core";
+import { shareStoryFromMux, downloadStoryVideo } from "@/lib/instagramStories";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -15,6 +17,32 @@ export const ShareModal = ({ isOpen, onClose, payload }: ShareModalProps) => {
   const { toast } = useToast();
 
   if (!payload) return null;
+
+  const handleInstagramStory = async () => {
+    try {
+      // For now, we'll use a placeholder playback ID
+      // In a real implementation, you'd get this from the event's share assets
+      const playbackId = "example_playback_id"; // This should come from event data
+      
+      if (Capacitor.getPlatform() === "web") {
+        // Web fallback - download video and show instructions
+        await downloadStoryVideo(playbackId);
+        notify("Video downloaded! Open Instagram, create a story, and upload from your camera roll.");
+      } else {
+        // Native app - share directly to Instagram Stories
+        await shareStoryFromMux(playbackId, payload.url);
+        notify("Shared to Instagram Stories!");
+      }
+      onClose();
+    } catch (err) {
+      console.error('Instagram share failed:', err);
+      toast({
+        title: "Instagram sharing failed",
+        description: "Instagram sharing not available on this device",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleCopyLink = async () => {
     try {
@@ -101,6 +129,15 @@ export const ShareModal = ({ isOpen, onClose, payload }: ShareModalProps) => {
             <Button onClick={handleWebShare} variant="outline" className="flex items-center gap-2">
               <Share2 className="h-4 w-4" />
               Share via...
+            </Button>
+            
+            <Button 
+              onClick={handleInstagramStory} 
+              variant="outline" 
+              className="flex items-center gap-2"
+            >
+              <Instagram className="h-4 w-4" />
+              Stories
             </Button>
             
             <Button 
