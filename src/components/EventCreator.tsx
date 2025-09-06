@@ -57,7 +57,6 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     coverImageUrl: '',
     culturalGuide: {
       history: '',
-      etiquette: [] as string[],
       themes: [] as string[],
       community: [] as string[]
     }
@@ -138,7 +137,6 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
       // Create cultural guide if provided
       if (formData.culturalGuide.history || 
-          formData.culturalGuide.etiquette.length > 0 || 
           formData.culturalGuide.themes.length > 0 || 
           formData.culturalGuide.community.length > 0) {
         
@@ -147,7 +145,6 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           .insert({
             event_id: event.id,
             history_long: formData.culturalGuide.history,
-            etiquette_tips: formData.culturalGuide.etiquette,
             themes: formData.culturalGuide.themes,
             community: formData.culturalGuide.community
           });
@@ -322,6 +319,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                       type="date"
                       value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
                     />
                   </div>
 
@@ -344,6 +342,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                       type="date"
                       value={formData.endDate}
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      min={formData.startDate || new Date().toISOString().split('T')[0]}
                     />
                   </div>
 
@@ -390,10 +389,10 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label htmlFor="cultural-history">Historical Context</label>
+                    <label htmlFor="cultural-history">Why You Do What You Do</label>
                     <Textarea
                       id="cultural-history"
-                      placeholder="Share the history or background of this event type..."
+                      placeholder="Share the story behind your event - what drives you to create this experience? What's the deeper meaning or purpose?"
                       value={formData.culturalGuide.history}
                       onChange={(e) => setFormData({
                         ...formData,
@@ -403,50 +402,6 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label htmlFor="cultural-etiquette">Etiquette Tips</label>
-                    <Input
-                      id="cultural-etiquette"
-                      placeholder="Add etiquette tip and press Enter"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          const value = (e.target as HTMLInputElement).value.trim();
-                          if (value && !formData.culturalGuide.etiquette.includes(value)) {
-                            setFormData({
-                              ...formData,
-                              culturalGuide: {
-                                ...formData.culturalGuide,
-                                etiquette: [...formData.culturalGuide.etiquette, value]
-                              }
-                            });
-                            (e.target as HTMLInputElement).value = '';
-                          }
-                        }
-                      }}
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      {formData.culturalGuide.etiquette.map((tip, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {tip}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormData({
-                                ...formData,
-                                culturalGuide: {
-                                  ...formData.culturalGuide,
-                                  etiquette: formData.culturalGuide.etiquette.filter((_, i) => i !== index)
-                                }
-                              });
-                            }}
-                            className="ml-1 hover:text-destructive"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </div>
             </CardContent>
@@ -560,19 +515,10 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 <p className="text-sm text-muted-foreground">{formData.description}</p>
               </div>
 
-              {(formData.culturalGuide.history || formData.culturalGuide.etiquette.length > 0) && (
+              {formData.culturalGuide.history && (
                 <div>
                   <h3 className="mb-2">Cultural Guide</h3>
-                  {formData.culturalGuide.history && (
-                    <p className="text-sm text-muted-foreground mb-2">{formData.culturalGuide.history}</p>
-                  )}
-                  {formData.culturalGuide.etiquette.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {formData.culturalGuide.etiquette.map((tip, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">{tip}</Badge>
-                      ))}
-                    </div>
-                  )}
+                  <p className="text-sm text-muted-foreground mb-2">{formData.culturalGuide.history}</p>
                 </div>
               )}
 
