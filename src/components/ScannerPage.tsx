@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Camera, Keyboard, CheckCircle, XCircle, AlertTriangle, Clock, Ban, QrCode } from 'lucide-react';
+import { ArrowLeft, Camera, Keyboard, Ban, QrCode, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -13,10 +13,12 @@ interface ScannerPageProps {
   onBack: () => void;
 }
 
+type ScanOutcome = 'valid' | 'duplicate' | 'expired' | 'invalid' | 'wrong_event' | 'refunded' | 'void';
+
 interface ScanResult {
   id: string;
   success: boolean;
-  result: 'valid' | 'duplicate' | 'expired' | 'invalid' | 'wrong_event' | 'refunded' | 'void';
+  result: ScanOutcome;
   ticket?: {
     id: string;
     tier_name: string;
@@ -32,9 +34,20 @@ interface AuthorizeResponse {
   role: 'owner' | 'editor' | 'scanner' | 'none';
 }
 
+const RESULT_LABEL: Record<ScanOutcome, string> = {
+  valid: 'Valid',
+  duplicate: 'Already Scanned',
+  expired: 'Expired',
+  wrong_event: 'Wrong Event',
+  refunded: 'Refunded',
+  void: 'Void',
+  invalid: 'Invalid',
+};
+
 export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+
   const [scanMode, setScanMode] = useState<'manual' | 'camera'>('manual');
   const [manualCode, setManualCode] = useState('');
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
@@ -42,15 +55,20 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState<string>('none');
   const [event, setEvent] = useState<any>(null);
+  const [lastResult, setLastResult] = useState<ScanResult | null>(null);
+  const [soundOn, setSoundOn] = useState(true);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const cooldownRef = useRef<number>(0);
+  const lastTokensRef = useRef<Set<string>>(new Set()); // prevent dup in rapid sequence
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     checkAuthorization();
     fetchEvent();
-    return () => {
-      stopCamera();
-    };
+    return () => stopCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   const checkAuthorization = async () => {
@@ -58,31 +76,20 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       setAuthorized(false);
       return;
     }
-
-    // Check if eventId is valid before making the request
-    if (!eventId || eventId.trim() === '') {
-      console.error('No event ID provided');
+    if (!eventId?.trim()) {
       setAuthorized(false);
       return;
     }
-
     try {
-      console.log('Checking authorization for event:', eventId);
       const { data, error } = await supabase.functions.invoke('scanner-authorize', {
         body: { event_id: eventId }
       });
-
-      if (error) {
-        console.error('Authorization error:', error);
-        setAuthorized(false);
-        return;
-      }
-
+      if (error) throw error;
       const response: AuthorizeResponse = data;
       setAuthorized(response.allowed);
       setUserRole(response.role);
-    } catch (error) {
-      console.error('Error checking authorization:', error);
+    } catch (err) {
+      console.error('Authorization error:', err);
       setAuthorized(false);
     }
   };
@@ -94,52 +101,30 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
         .select('id, title, start_at, end_at')
         .eq('id', eventId)
         .single();
-
-      if (error) {
-        console.error('Error fetching event:', error);
-        return;
-      }
-
+      if (error) throw error;
       setEvent(data);
-    } catch (error) {
-      console.error('Error fetching event:', error);
+    } catch (err) {
+      console.error('Error fetching event:', err);
     }
   };
 
-  const handleManualScan = async () => {
-    if (!manualCode.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a ticket code",
-        variant: "destructive"
-      });
-      return;
-    }
+  const validateTicket = useCallback(async (qrToken: string) => {
+    // Cooldown to avoid spamming
+    const now = Date.now();
+    if (now - cooldownRef.current < 1200) return; // 1.2s guard
+    cooldownRef.current = now;
 
-    await validateTicket(manualCode.trim());
-    setManualCode('');
-  };
+    // Prevent same token burst
+    if (lastTokensRef.current.has(qrToken)) return;
+    lastTokensRef.current.add(qrToken);
+    setTimeout(() => lastTokensRef.current.delete(qrToken), 10_000);
 
-  const validateTicket = async (qrToken: string) => {
     setScanning(true);
-    
     try {
       const { data, error } = await supabase.functions.invoke('scanner-validate', {
-        body: { 
-          event_id: eventId,
-          qr_token: qrToken
-        }
+        body: { event_id: eventId, qr_token: qrToken }
       });
-
-      if (error) {
-        console.error('Validation error:', error);
-        toast({
-          title: "Error",
-          description: "Failed to validate ticket",
-          variant: "destructive"
-        });
-        return;
-      }
+      if (error) throw error;
 
       const result: ScanResult = {
         id: Date.now().toString(),
@@ -147,18 +132,35 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
         timestamp: new Date().toISOString()
       };
 
-      setScanHistory(prev => [result, ...prev.slice(0, 49)]); // Keep last 50 scans
+      setScanHistory(prev => [result, ...prev.slice(0, 49)]);
+      setLastResult(result);
 
-      // Show toast with result
-      const isSuccess = result.success;
+      // Feedback
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate?.(result.success ? 20 : [10, 60, 10]); } catch {}
+      }
+      if (soundOn) {
+        // tiny beep using WebAudio
+        try {
+          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = 'sine';
+          o.frequency.value = result.success ? 880 : 220;
+          o.connect(g); g.connect(ctx.destination);
+          g.gain.value = 0.03;
+          o.start();
+          setTimeout(() => { o.stop(); ctx.close(); }, 120);
+        } catch {}
+      }
+
       toast({
-        title: isSuccess ? "✅ Valid Ticket" : getResultIcon(result.result) + " " + getResultTitle(result.result),
+        title: result.success ? '✅ Valid Ticket' : `❗ ${RESULT_LABEL[result.result] || 'Invalid'}`,
         description: result.message,
-        variant: isSuccess ? "default" : "destructive"
+        variant: result.success ? 'default' : 'destructive'
       });
-
-    } catch (error) {
-      console.error('Error validating ticket:', error);
+    } catch (err) {
+      console.error('Validate error:', err);
       toast({
         title: "Error",
         description: "Failed to validate ticket",
@@ -167,78 +169,85 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     } finally {
       setScanning(false);
     }
+  }, [eventId, soundOn, toast]);
+
+  const handleManualScan = async () => {
+    const token = manualCode.trim();
+    if (!token) {
+      toast({ title: "Enter a code", description: "Please enter a ticket code", variant: "destructive" });
+      return;
+    }
+    await validateTicket(token);
+    setManualCode('');
   };
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
-      
+      stopCamera();
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
+        await videoRef.current.play();
+
+        // Try BarcodeDetector first
+        // @ts-ignore
+        const Supported = ('BarcodeDetector' in window);
+        if (Supported) {
+          // @ts-ignore
+          const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+          const detect = async () => {
+            if (!videoRef.current) return;
+            try {
+              // @ts-ignore
+              const codes = await detector.detect(videoRef.current);
+              const qr = codes?.[0]?.rawValue;
+              if (qr) await validateTicket(qr);
+            } catch {}
+            rafRef.current = requestAnimationFrame(detect);
+          };
+          rafRef.current = requestAnimationFrame(detect);
+        } else {
+          // Fallback: manual only (no jsQR dependency here)
+          toast({
+            title: 'Camera scanning not supported',
+            description: 'Your browser lacks QR detection. Use Manual mode.',
+          });
+          setScanMode('manual');
+          stopCamera();
+        }
       }
-    } catch (error) {
-      console.error('Error starting camera:', error);
+    } catch (err) {
+      console.error('Camera error:', err);
       toast({
         title: "Camera Error",
-        description: "Unable to access camera. Please check permissions.",
+        description: "Unable to access camera. Check permissions.",
         variant: "destructive"
       });
+      setScanMode('manual');
     }
-  };
+  }, [toast, validateTicket]);
 
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
-  };
+  }, []);
 
   const handleModeChange = (mode: 'manual' | 'camera') => {
     setScanMode(mode);
-    if (mode === 'camera') {
-      startCamera();
-    } else {
-      stopCamera();
-    }
+    if (mode === 'camera') startCamera();
+    else stopCamera();
   };
 
-  const getResultIcon = (result: string) => {
-    switch (result) {
-      case 'valid': return '✅';
-      case 'duplicate': return '⚠️';
-      case 'expired': return '⏳';
-      case 'wrong_event': return '⛔';
-      case 'refunded': case 'void': return '❌';
-      default: return '❌';
-    }
-  };
+  useEffect(() => {
+    return () => stopCamera();
+  }, [stopCamera]);
 
-  const getResultTitle = (result: string) => {
-    switch (result) {
-      case 'valid': return 'Valid';
-      case 'duplicate': return 'Already Scanned';
-      case 'expired': return 'Expired';
-      case 'wrong_event': return 'Wrong Event';
-      case 'refunded': return 'Refunded';
-      case 'void': return 'Void';
-      default: return 'Invalid';
-    }
-  };
-
-  const getResultColor = (result: string) => {
-    switch (result) {
-      case 'valid': return 'bg-green-600';
-      case 'duplicate': return 'bg-yellow-600';
-      case 'expired': return 'bg-orange-600';
-      case 'wrong_event': case 'refunded': case 'void': case 'invalid': return 'bg-destructive';
-      default: return 'bg-muted';
-    }
-  };
-
-  // Calculate stats
+  // Stats
   const totalScans = scanHistory.length;
   const validScans = scanHistory.filter(s => s.result === 'valid').length;
   const duplicateScans = scanHistory.filter(s => s.result === 'duplicate').length;
@@ -250,8 +259,8 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Checking authorization...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+              <p className="text-muted-foreground">Checking authorization…</p>
             </div>
           </CardContent>
         </Card>
@@ -268,9 +277,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
           </CardHeader>
           <CardContent className="text-center space-y-4">
             <Ban className="h-16 w-16 text-destructive mx-auto" />
-            <p className="text-muted-foreground">
-              You don't have permission to scan tickets for this event.
-            </p>
+            <p className="text-muted-foreground">You don’t have permission to scan tickets for this event.</p>
             <Button onClick={onBack} variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
@@ -294,19 +301,48 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
               </Button>
               <div>
                 <h1 className="text-xl font-semibold">Ticket Scanner</h1>
-                {event && (
-                  <p className="text-sm text-muted-foreground">{event.title}</p>
-                )}
+                {event && <p className="text-sm text-muted-foreground">{event.title}</p>}
               </div>
             </div>
-            <Badge variant="secondary">
-              {userRole === 'owner' ? 'Organizer' : userRole === 'editor' ? 'Editor' : 'Scanner'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">
+                {userRole === 'owner' ? 'Organizer' : userRole === 'editor' ? 'Editor' : 'Scanner'}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={soundOn ? 'Disable sound' : 'Enable sound'}
+                onClick={() => setSoundOn(s => !s)}
+              >
+                {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-6 space-y-6">
+        {/* Last result banner */}
+        {lastResult && (
+          <div
+            className={`rounded-lg p-3 text-sm ${
+              lastResult.success ? 'bg-green-500/15 text-green-200 border border-green-500/30' : 'bg-red-500/15 text-red-200 border border-red-500/30'
+            }`}
+          >
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="font-medium">
+                  {lastResult.success ? 'Valid Ticket' : RESULT_LABEL[lastResult.result] || 'Invalid'}
+                </div>
+                <div className="opacity-80">{lastResult.message}</div>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {new Date(lastResult.timestamp).toLocaleTimeString()}
+              </Badge>
+            </div>
+          </div>
+        )}
+
         {/* Scanner Interface */}
         <Card>
           <CardHeader>
@@ -343,29 +379,27 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                     placeholder="Enter ticket code manually"
                     value={manualCode}
                     onChange={(e) => setManualCode(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleManualScan()}
+                    onKeyDown={(e) => e.key === 'Enter' && handleManualScan()}
                     disabled={scanning}
                   />
-                  <Button 
-                    onClick={handleManualScan} 
-                    disabled={scanning || !manualCode.trim()}
-                  >
-                    {scanning ? 'Validating...' : 'Scan'}
+                  <Button onClick={handleManualScan} disabled={scanning || !manualCode.trim()}>
+                    {scanning ? 'Validating…' : 'Scan'}
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="bg-black rounded-lg aspect-video flex items-center justify-center">
+                <div className="bg-black rounded-lg aspect-video flex items-center justify-center overflow-hidden">
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
                     className="w-full h-full object-cover rounded-lg"
+                    muted
                   />
                 </div>
                 <p className="text-sm text-muted-foreground text-center">
-                  Point your camera at a QR code to scan
+                  Point your camera at a QR code to scan.
                 </p>
               </div>
             )}
@@ -374,38 +408,10 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
 
         {/* Statistics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{totalScans}</div>
-                <p className="text-xs text-muted-foreground">Total Scans</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{validScans}</div>
-                <p className="text-xs text-muted-foreground">Valid</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600">{duplicateScans}</div>
-                <p className="text-xs text-muted-foreground">Duplicates</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-destructive">{invalidScans}</div>
-                <p className="text-xs text-muted-foreground">Invalid</p>
-              </div>
-            </CardContent>
-          </Card>
+          <Card><CardContent className="pt-6 text-center"><div className="text-2xl font-bold text-primary">{totalScans}</div><p className="text-xs text-muted-foreground">Total Scans</p></CardContent></Card>
+          <Card><CardContent className="pt-6 text-center"><div className="text-2xl font-bold text-green-600">{validScans}</div><p className="text-xs text-muted-foreground">Valid</p></CardContent></Card>
+          <Card><CardContent className="pt-6 text-center"><div className="text-2xl font-bold text-yellow-600">{duplicateScans}</div><p className="text-xs text-muted-foreground">Duplicates</p></CardContent></Card>
+          <Card><CardContent className="pt-6 text-center"><div className="text-2xl font-bold text-destructive">{invalidScans}</div><p className="text-xs text-muted-foreground">Invalid</p></CardContent></Card>
         </div>
 
         {/* Scan History */}
@@ -424,11 +430,19 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                 {scanHistory.slice(0, 10).map((scan) => (
                   <div key={scan.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${getResultColor(scan.result)}`} />
+                      <div
+                        className={`w-3 h-3 rounded-full ${
+                          scan.result === 'valid'
+                            ? 'bg-green-600'
+                            : scan.result === 'duplicate'
+                            ? 'bg-yellow-600'
+                            : scan.result === 'expired'
+                            ? 'bg-orange-600'
+                            : 'bg-destructive'
+                        }`}
+                      />
                       <div>
-                        <p className="font-medium">
-                          {scan.ticket ? scan.ticket.attendee_name : 'Unknown'}
-                        </p>
+                        <p className="font-medium">{scan.ticket ? scan.ticket.attendee_name : 'Unknown'}</p>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <span>{scan.message}</span>
                           {scan.ticket?.badge_label && (
@@ -441,7 +455,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium">
-                        {getResultIcon(scan.result)} {getResultTitle(scan.result)}
+                        {RESULT_LABEL[scan.result] || 'Invalid'}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(scan.timestamp).toLocaleTimeString()}
@@ -457,3 +471,5 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     </div>
   );
 }
+
+export default ScannerPage;
