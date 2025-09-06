@@ -8,6 +8,7 @@ import { EventTicketModal } from '@/components/EventTicketModal';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
 import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users, Plus } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
+import { PostCreatorModal } from '@/components/PostCreatorModal';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -311,6 +312,16 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           text: `Check out ${currentEvent.title} - ${currentEvent.description}`,
           url: typeof window !== 'undefined' ? window.location.href : ''
         } : null} 
+      />
+
+      <PostCreatorModal
+        isOpen={postCreatorOpen}
+        onClose={() => setPostCreatorOpen(false)}
+        onSuccess={() => {
+          setPostCreatorOpen(false);
+          toast({ title: 'Success', description: 'Your post has been created!' });
+        }}
+        preselectedEventId={currentEvent.id}
       />
     </div>
   );
