@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +10,6 @@ import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Use
 import { ShareModal } from '@/components/ShareModal';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { toast } from '@/hooks/use-toast';
-import { EventFeed } from '@/components/EventFeed';
-import { PostCreatorModal } from '@/components/PostCreatorModal';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
@@ -19,62 +17,16 @@ import { useShare } from '@/hooks/useShare';
 import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 
+interface DatabaseTicketTier { id: string; name: string; price_cents: number; badge_label?: string; quantity: number; }
 interface DatabaseEvent {
-  id: string;
-  title: string;
-  description: string;
-  organizer_id: string;
-  category: string;
-  start_at: string;
-  city?: string;
-  venue?: string;
-  cover_image_url?: string;
+  id: string; title: string; description: string; organizer_id: string; category: string; start_at: string; city?: string; venue?: string; cover_image_url?: string;
   ticket_tiers?: DatabaseTicketTier[];
 }
 
-interface DatabaseTicketTier {
-  id: string;
-  name: string;
-  price_cents: number;
-  badge_label?: string;
-  quantity: number;
-}
-
+interface EventPost { id: string; authorName: string; authorBadge: string; isOrganizer?: boolean; content: string; timestamp: string; likes: number; }
+interface TicketTier { id: string; name: string; price: number; badge: string; available: number; total: number; }
 interface Event {
-  id: string;
-  title: string;
-  description: string;
-  organizer: string;
-  organizerId: string;
-  category: string;
-  date: string;
-  location: string;
-  coverImage: string;
-  ticketTiers: TicketTier[];
-  attendeeCount: number;
-  likes: number;
-  shares: number;
-  isLiked?: boolean;
-  posts?: EventPost[];
-}
-
-interface EventPost {
-  id: string;
-  authorName: string;
-  authorBadge: string;
-  isOrganizer?: boolean;
-  content: string;
-  timestamp: string;
-  likes: number;
-}
-
-interface TicketTier {
-  id: string;
-  name: string;
-  price: number;
-  badge: string;
-  available: number;
-  total: number;
+  id: string; title: string; description: string; organizer: string; organizerId: string; category: string; date: string; location: string; coverImage: string; ticketTiers: TicketTier[]; attendeeCount: number; likes: number; shares: number; isLiked?: boolean; posts?: EventPost[];
 }
 
 interface IndexProps {
@@ -84,7 +36,9 @@ interface IndexProps {
   onOrganizerSelect?: (organizerId: string, organizerName: string) => void;
 }
 
-// Mock event data with posts and badges per YardPass specs
+// ————————————————————————————————————————
+// Mock fallback
+// ————————————————————————————————————————
 const mockEvents: Event[] = [
   {
     id: '1',
@@ -100,294 +54,126 @@ const mockEvents: Event[] = [
       { id: '1', name: 'General Admission', price: 89, badge: 'GA', available: 45, total: 1000 },
       { id: '2', name: 'VIP Experience', price: 199, badge: 'VIP', available: 12, total: 100 }
     ],
-    attendeeCount: 1243,
-    likes: 892,
-    shares: 156,
-    isLiked: false,
-    posts: [
-      {
-        id: '1',
-        authorName: 'Sarah Chen',
-        authorBadge: 'VIP',
-        content: 'Just got my VIP tickets! Can\'t wait for the weekend 🎵',
-        timestamp: '2h ago',
-        likes: 15
-      },
-      {
-        id: '2',
-        authorName: 'LiveNation Events',
-        authorBadge: 'ORGANIZER',
-        isOrganizer: true,
-        content: 'Excited to announce headliner performances this weekend! 🎤',
-        timestamp: '3h ago',
-        likes: 87
-      }
-    ]
+    attendeeCount: 1243, likes: 892, shares: 156, isLiked: false, posts: []
   },
   {
-    id: '2',
-    title: 'Street Food Fiesta',
-    description: 'Taste authentic flavors from around the world. Over 50 food vendors, live cooking demos, and family-friendly activities.',
-    organizer: 'Foodie Adventures',
-    organizerId: '102',
-    category: 'Food & Drink',
-    date: 'August 8, 2024',
-    location: 'Brooklyn Bridge Park',
-    coverImage: DEFAULT_EVENT_COVER,
-    ticketTiers: [
-      { id: '3', name: 'Entry Pass', price: 25, badge: 'ENTRY', available: 234, total: 500 },
-      { id: '4', name: 'Foodie Pass', price: 75, badge: 'FOODIE', available: 18, total: 50 }
-    ],
-    attendeeCount: 567,
-    likes: 445,
-    shares: 89,
-    isLiked: true,
-    posts: [
-      {
-        id: '3',
-        authorName: 'Mike Rodriguez',
-        authorBadge: 'FOODIE',
-        content: 'The authentic tacos here are incredible! 🌮',
-        timestamp: '1h ago',
-        likes: 23
-      }
-    ]
+    id: '2', title: 'Street Food Fiesta', description: 'Taste authentic flavors from around the world. Over 50 food vendors, live cooking demos, and family-friendly activities.', organizer: 'Foodie Adventures', organizerId: '102', category: 'Food & Drink', date: 'August 8, 2024', location: 'Brooklyn Bridge Park', coverImage: DEFAULT_EVENT_COVER,
+    ticketTiers: [ { id: '3', name: 'Entry Pass', price: 25, badge: 'ENTRY', available: 234, total: 500 }, { id: '4', name: 'Foodie Pass', price: 75, badge: 'FOODIE', available: 18, total: 50 } ],
+    attendeeCount: 567, likes: 445, shares: 89, isLiked: true, posts: []
   },
   {
-    id: '3',
-    title: 'Contemporary Art Showcase',
-    description: 'Discover emerging artists and groundbreaking installations. Interactive exhibits, artist talks, and exclusive previews.',
-    organizer: 'Modern Gallery NYC',
-    organizerId: '103',
-    category: 'Art & Culture',
-    date: 'September 2, 2024',
-    location: 'SoHo Art District',
-    coverImage: DEFAULT_EVENT_COVER,
-    ticketTiers: [
-      { id: '5', name: 'Standard', price: 35, badge: 'STD', available: 156, total: 200 },
-      { id: '6', name: 'Premium', price: 85, badge: 'PREM', available: 23, total: 50 }
-    ],
-    attendeeCount: 298,
-    likes: 234,
-    shares: 67,
-    isLiked: false,
-    posts: []
+    id: '3', title: 'Contemporary Art Showcase', description: 'Discover emerging artists and groundbreaking installations. Interactive exhibits, artist talks, and exclusive previews.', organizer: 'Modern Gallery NYC', organizerId: '103', category: 'Art & Culture', date: 'September 2, 2024', location: 'SoHo Art District', coverImage: DEFAULT_EVENT_COVER,
+    ticketTiers: [ { id: '5', name: 'Standard', price: 35, badge: 'STD', available: 156, total: 200 }, { id: '6', name: 'Premium', price: 85, badge: 'PREM', available: 23, total: 50 } ],
+    attendeeCount: 298, likes: 234, shares: 67, isLiked: false, posts: []
   }
 ];
 
-const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelect }: IndexProps) => {
+export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [events, setEvents] = useState<Event[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAttendeeModal, setShowAttendeeModal] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
   const { shareEvent } = useShare();
 
-  // Load real events from database
+  // Fetch events
   useEffect(() => {
-    const loadEvents = async () => {
+    const load = async () => {
       try {
-        const { data: eventsData, error } = await supabase
+        const { data, error } = await supabase
           .from('events')
           .select(`
-            id,
-            title,
-            description,
-            start_at,
-            end_at,
-            venue,
-            city,
-            category,
-            cover_image_url,
-            visibility,
-            user_profiles!events_created_by_fkey (
-              display_name
-            ),
-            ticket_tiers!ticket_tiers_event_id_fkey (
-              id,
-              name,
-              price_cents,
-              badge_label,
-              quantity
-            )
+            id, title, description, start_at, end_at, venue, city, category, cover_image_url, visibility,
+            user_profiles!events_created_by_fkey ( display_name ),
+            ticket_tiers!ticket_tiers_event_id_fkey ( id, name, price_cents, badge_label, quantity )
           `)
           .eq('visibility', 'public')
           .order('start_at', { ascending: true })
           .limit(20);
-
-        if (error) {
-          console.error('Error loading events:', error);
-          // Fallback to mock data on error
-          setEvents(mockEvents);
-        } else if (eventsData && eventsData.length > 0) {
-          // Transform database events to match UI format
-          const transformedEvents = eventsData.map(event => ({
-            id: event.id,
-            title: event.title,
-            description: event.description || '',
-            organizer: (event as any).user_profiles?.display_name || 'Organizer',
-            organizerId: event.id,
-            category: event.category || 'Event',
-            date: new Date(event.start_at).toLocaleDateString('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric'
-            }),
-            location: event.city || event.venue || 'TBA',
-            coverImage: event.cover_image_url || DEFAULT_EVENT_COVER,
-            ticketTiers: (event as any).ticket_tiers?.map((tier: any) => ({
-              id: tier.id,
-              name: tier.name,
-              price: tier.price_cents / 100, // Convert cents to dollars
-              badge: tier.badge_label,
-              available: tier.quantity || 0,
-              total: tier.quantity || 0
-            })) || [],
-            attendeeCount: Math.floor(Math.random() * 1000) + 50,
-            likes: Math.floor(Math.random() * 500) + 10,
-            shares: Math.floor(Math.random() * 100) + 5,
-            isLiked: false,
-            posts: []
-          }));
-          setEvents(transformedEvents);
-        } else {
-          // No events found, use mock data
-          setEvents(mockEvents);
-        }
-      } catch (error) {
-        console.error('Error fetching events:', error);
+        if (error) throw error;
+        if (!data || !data.length) { setEvents(mockEvents); return; }
+        const transformed: Event[] = data.map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          description: e.description || '',
+          organizer: e.user_profiles?.display_name || 'Organizer',
+          organizerId: e.id,
+          category: e.category || 'Event',
+          date: new Date(e.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+          location: e.city || e.venue || 'TBA',
+          coverImage: e.cover_image_url || DEFAULT_EVENT_COVER,
+          ticketTiers: (e.ticket_tiers || []).map((t: any) => ({ id: t.id, name: t.name, price: (t.price_cents||0)/100, badge: t.badge_label, available: t.quantity||0, total: t.quantity||0 })),
+          attendeeCount: Math.floor(Math.random()*1000)+50,
+          likes: Math.floor(Math.random()*500)+10,
+          shares: Math.floor(Math.random()*100)+5,
+          isLiked: false,
+          posts: []
+        }));
+        setEvents(transformed);
+      } catch (e) {
+        console.error('load events error', e);
         setEvents(mockEvents);
       } finally {
         setLoading(false);
       }
     };
-
-    loadEvents();
+    load();
   }, []);
 
   const currentEvent = events[currentIndex];
 
-  const handleLike = withAuth((eventId: string) => {
-    setEvents(prev => prev.map(event => 
-      event.id === eventId 
-        ? { 
-            ...event, 
-            isLiked: !event.isLiked, 
-            likes: event.isLiked ? event.likes - 1 : event.likes + 1 
-          }
-        : event
-    ));
-    toast({
-      title: "Like Updated",
-      description: "Event like status changed",
-    });
-  }, "Please sign in to like events");
+  // Meta tags
+  useEffect(() => { updateMetaTags(defaultMeta); }, []);
 
-  const handleShare = (event: Event) => {
-    capture('share_click', { event_id: event.id });
-    shareEvent(event.id, event.title);
-  };
-
-  const handleComment = withAuth(() => {
-    capture('comment_click', { event_id: currentEvent.id });
-    navigate(routes.event(currentEvent.id));
-  }, "Please sign in to comment on events");
-
-  const handleMoreOptions = withAuth(() => {
-    toast({
-      title: "More Options",
-      description: "Additional options menu coming soon...",
-    });
-  }, "Please sign in to access more options");
-
-  const handleCategoryClick = (category: string) => {
-    capture('category_click', { category });
-    navigate(routes.category(category));
-  };
-
-  const handleOrganizerClick = (organizerId: string, organizerName: string) => {
-    capture('organizer_click', { organizer_id: organizerId });
-    navigate(routes.org(organizerId));
-  };
-
-  const handleLocationClick = (location: string) => {
-    toast({
-      title: "Location Events",
-      description: `Finding events near ${location}...`,
-    });
-  };
-
-  const handleTicketTierClick = (tierName: string) => {
-    requireAuth(() => {
-      onEventSelect(currentEvent);
-      toast({
-        title: "Ticket Details",
-        description: `Viewing ${tierName} ticket information...`,
-      });
-    }, "Please sign in to view ticket details");
-  };
-
-  const handleEventTitleClick = () => {
-    capture('event_title_click', { event_id: currentEvent.id });
-    navigate(routes.event(currentEvent.id));
-  };
-
-  const handleGetTickets = () => {
-    requireAuth(() => {
-      setShowTicketModal(true);
-      toast({
-        title: "Get Tickets",
-        description: "Opening ticket purchase modal...",
-      });
-    }, "Please sign in to purchase tickets");
-  };
-
-  const handleEventDetails = () => {
-    capture('event_details_click', { event_id: currentEvent.id });
-    navigate(routes.eventDetails(currentEvent.id));
-  };
-
-  const handleAttendeeClick = () => {
-    capture('attendee_list_click', { event_id: currentEvent.id });
-    navigate(routes.attendees(currentEvent.id));
-  };
-
-  const handleScroll = (direction: 'up' | 'down') => {
-    if (direction === 'down' && currentIndex < events.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else if (direction === 'up' && currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
-
-  // Set default meta tags for homepage
+  // Keyboard navigation
   useEffect(() => {
-    updateMetaTags(defaultMeta);
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp') handleScroll('up');
-      if (e.key === 'ArrowDown') handleScroll('down');
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'PageUp') setCurrentIndex(i => Math.max(0, i-1));
+      if (e.key === 'ArrowDown' || e.key === 'PageDown') setCurrentIndex(i => Math.min(events.length-1, i+1));
+      if (e.key === 'Home') setCurrentIndex(0);
+      if (e.key === 'End') setCurrentIndex(Math.max(0, events.length-1));
     };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [events.length]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex]);
+  // Touch swipe
+  const startY = useRef<number | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => { startY.current = e.touches[0].clientY; };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (startY.current == null) return;
+    const diff = startY.current - e.changedTouches[0].clientY;
+    if (Math.abs(diff) > 50) setCurrentIndex(i => diff > 0 ? Math.min(events.length-1, i+1) : Math.max(0, i-1));
+    startY.current = null;
+  };
+
+  // Preload neighboring images for a smoother swipe
+  useEffect(() => {
+    const next = events[currentIndex+1]?.coverImage; const prev = events[currentIndex-1]?.coverImage;
+    [next, prev].filter(Boolean).forEach((src) => { const img = new Image(); img.src = src as string; });
+  }, [currentIndex, events]);
+
+  const handleLike = withAuth((eventId: string) => {
+    setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, isLiked: !ev.isLiked, likes: ev.isLiked ? ev.likes-1 : ev.likes+1 } : ev));
+  }, 'Please sign in to like events');
+
+  const handleShare = (ev: Event) => { capture('share_click', { event_id: ev.id }); setShowShareModal(true); };
+  const handleComment = withAuth(() => navigate(routes.event(currentEvent.id)), 'Please sign in to comment on events');
+  const handleMore = withAuth(() => toast({ title: 'More Options', description: 'Additional options coming soon…' }), 'Please sign in to access more options');
+
+  const goTo = (i: number) => setCurrentIndex(Math.max(0, Math.min(events.length-1, i)));
 
   if (loading) {
     return (
-      <div className="h-screen bg-background flex items-center justify-center">
+      <div className="h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-xl">🎪</span>
-          </div>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4"><span className="text-white font-bold text-xl">🎪</span></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
         </div>
       </div>
     );
@@ -404,368 +190,129 @@ const Index = ({ onEventSelect, onCreatePost, onCategorySelect, onOrganizerSelec
   }
 
   return (
-    <div className="h-screen relative overflow-hidden bg-black" style={{ position: 'relative', touchAction: 'pan-y' }}>
+    <div className="h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/50 to-transparent p-4">
+      <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/60 to-transparent p-4">
         <div className="flex items-center justify-between text-white">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🎪</span>
-            <span>YardPass</span>
-          </div>
-          <Button
-            size="lg"
-            variant="glass"
-            onClick={() => requireAuth(() => onCreatePost(), "Please sign in to create content")}
-            className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[44px] px-4 font-semibold backdrop-blur-md shadow-lg"
-          >
-            + Create Event
-          </Button>
+          <div className="flex items-center gap-2"><span className="text-lg">🎪</span><span className="font-medium">YardPass</span></div>
+          <Button size="sm" variant="glass" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create content')} className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg">+ Create Event</Button>
         </div>
       </div>
 
-      {/* Video/Image Container */}
-      <div 
-        ref={scrollRef}
-        className="h-full w-full relative transition-transform duration-300 ease-out"
-        style={{ transform: `translateY(-${currentIndex * 100}%)` }}
-      >
-        {events.map((event, index) => (
-          <div key={event.id} className="h-full w-full absolute" style={{ top: `${index * 100}%` }}>
-            <ImageWithFallback
-              src={event.coverImage}
-              alt={event.title}
-              className="w-full h-full object-cover"
-            />
-            
-            {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+      {/* Slides track */}
+      <div ref={trackRef} className="h-full w-full relative transition-transform duration-300 ease-out" style={{ transform: `translateY(-${currentIndex * 100}%)` }}>
+        {events.map((ev, i) => (
+          <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
+            <ImageWithFallback src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
           </div>
         ))}
       </div>
 
-      {/* Event Info Overlay */}
-      <div className="absolute bottom-20 left-0 right-0 p-4 text-white">
-        <div className="flex justify-between items-end">
-          {/* Event Details */}
-          <div className="flex-1 mr-4 space-y-3">
+      {/* Information panel */}
+      <div className="absolute bottom-20 left-0 right-0 p-4 text-white z-20">
+        <div className="flex justify-between items-end gap-4">
+          <div className="flex-1 space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge 
-                variant="secondary" 
-                className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90 transition-colors z-30 relative"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleCategoryClick(currentEvent.category);
-                }}
-                style={{ pointerEvents: 'auto' }}
+              <Badge
+                variant="secondary"
+                className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90"
+                onClick={() => navigate(routes.category(currentEvent.category))}
               >
                 {currentEvent.category}
               </Badge>
-              <Badge 
-                variant="outline" 
-                className="border-white/30 text-white cursor-pointer hover:bg-white/10 transition-colors z-30 relative"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleAttendeeClick();
-                }}
-                style={{ pointerEvents: 'auto' }}
-              >
+              <Badge variant="outline" className="border-white/30 text-white cursor-pointer hover:bg-white/10" onClick={() => setShowAttendeeModal(true)}>
                 {currentEvent.attendeeCount} attending
               </Badge>
             </div>
 
             <div>
-              <h2 
-                className="text-2xl font-bold mb-2 max-w-xs cursor-pointer hover:text-primary-foreground/90 transition-colors z-30 relative"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleEventTitleClick();
-                }}
-                style={{ pointerEvents: 'auto' }}
-              >
-                {currentEvent.title}
-              </h2>
+              <h2 className="text-2xl font-bold mb-2 max-w-xl cursor-pointer hover:text-primary/90" onClick={() => navigate(routes.event(currentEvent.id))}>{currentEvent.title}</h2>
               <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
-                <Avatar className="w-6 h-6">
-                  <AvatarFallback className="text-xs bg-white/20 text-white">
-                    {currentEvent.organizer.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                <span 
-                  className="cursor-pointer hover:text-white transition-colors z-30 relative"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleOrganizerClick(currentEvent.organizerId, currentEvent.organizer);
-                  }}
-                  style={{ pointerEvents: 'auto' }}
-                >
-                  @{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}
-                </span>
-                <Badge variant="secondary" className="text-xs">
-                  <Crown className="w-3 h-3 mr-1" />
-                  ORGANIZER
-                </Badge>
+                <Avatar className="w-6 h-6"><AvatarFallback className="text-xs bg-white/20 text-white">{currentEvent.organizer.charAt(0)}</AvatarFallback></Avatar>
+                <span className="cursor-pointer hover:text-white" onClick={() => navigate(routes.org(currentEvent.organizerId))}>@{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}</span>
+                <Badge variant="secondary" className="text-[10px] tracking-wide"><Crown className="w-3 h-3 mr-1"/>ORGANIZER</Badge>
               </div>
-              <div className="flex items-center gap-4 text-sm text-gray-300 mb-3">
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  {currentEvent.date}
-                </div>
-                <div 
-                  className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors"
-                  onClick={() => handleLocationClick(currentEvent.location)}
-                >
-                  <MapPin className="w-4 h-4" />
-                  {currentEvent.location}
-                </div>
-                <div 
-                  className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors"
-                  onClick={() => setShowAttendeeModal(true)}
-                >
-                  <Users className="w-4 h-4" />
-                  {currentEvent.attendeeCount}
-                </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300 mb-3">
+                <span className="inline-flex items-center gap-1"><Calendar className="w-4 h-4" /> {currentEvent.date}</span>
+                <button className="inline-flex items-center gap-1 hover:text-white" onClick={() => toast({ title: 'Location', description: `Finding events near ${currentEvent.location}…` })}>
+                  <MapPin className="w-4 h-4" /> {currentEvent.location}
+                </button>
+                <span className="inline-flex items-center gap-1"><Users className="w-4 h-4" /> {currentEvent.attendeeCount}</span>
               </div>
-              <p className="text-sm text-gray-300 line-clamp-2 max-w-xs">
-                {currentEvent.description}
-              </p>
+              <p className="text-sm text-gray-200/90 line-clamp-3 max-w-xl">{currentEvent.description}</p>
             </div>
 
-            <div className="flex gap-3">
-              <Button 
-                size="lg" 
-                variant="premium"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleGetTickets();
-                }}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 z-30 relative min-h-[48px] px-6 font-bold shadow-lg"
-                style={{ pointerEvents: 'auto' }}
-              >
-                Get Tickets
-              </Button>
-              <Button 
-                size="lg" 
-                variant="glass"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleEventDetails();
-                }}
-                className="border-white/30 text-white bg-white/10 hover:bg-white/20 z-30 relative min-h-[48px] px-6 font-semibold backdrop-blur-md"
-                style={{ pointerEvents: 'auto' }}
-              >
-                Details
-              </Button>
+            {currentEvent.ticketTiers?.length > 0 && (
+              <div className="flex gap-2 pt-1 flex-wrap">
+                {currentEvent.ticketTiers.map(t => (
+                  <Button key={t.id} size="sm" variant="secondary" className="rounded-full bg-white/15 hover:bg-white/25 backdrop-blur border-white/30"
+                    onClick={() => requireAuth(() => { onEventSelect(currentEvent); toast({ title: 'Ticket Details', description: `Viewing ${t.name} ticket…` }); }, 'Please sign in to view ticket details')}>
+                    {t.badge ? <span className="mr-2 px-1.5 py-0.5 text-[10px] rounded bg-black/40">{t.badge}</span> : null}
+                    {t.name} · ${t.price.toFixed(0)}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <Button size="lg" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[48px] px-6 font-bold shadow-lg">Get Tickets</Button>
+              <Button size="lg" variant="glass" onClick={() => navigate(routes.eventDetails(currentEvent.id))} className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[48px] px-6 font-semibold backdrop-blur-md">Details</Button>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col items-center gap-4 text-white relative z-20">
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleLike(currentEvent.id);
-              }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[56px] min-w-[56px] p-2 touch-manipulation"
-              style={{ 
-                touchAction: 'manipulation',
-                pointerEvents: 'auto',
-                backgroundColor: 'transparent'
-              }}
-            >
-              <div className={`p-3 rounded-full transition-all duration-200 ${
-                currentEvent.isLiked 
-                  ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-110' 
-                  : 'bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20'
-              }`}>
-                <Heart 
-                  className={`w-6 h-6 transition-colors ${
-                    currentEvent.isLiked ? 'fill-white text-white' : 'text-white'
-                  }`} 
-                />
-              </div>
-              <span className="text-xs font-medium text-white drop-shadow-lg">{currentEvent.likes}</span>
-            </button>
-
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleComment();
-              }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[56px] min-w-[56px] p-2 touch-manipulation"
-              style={{ 
-                touchAction: 'manipulation',
-                pointerEvents: 'auto',
-                backgroundColor: 'transparent'
-              }}
-            >
-              <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
-                <MessageCircle className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xs font-medium text-white drop-shadow-lg">
-                {currentEvent.posts?.length || 0}
-              </span>
-            </button>
-
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                requireAuth(() => setPostCreatorOpen(true), "Please sign in to create posts");
-              }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[56px] min-w-[56px] p-2 touch-manipulation"
-              style={{ 
-                touchAction: 'manipulation',
-                pointerEvents: 'auto',
-                backgroundColor: 'transparent'
-              }}
-            >
-              <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200 shadow-lg">
-                <Plus className="w-6 h-6 text-white" />
-              </div>
+          {/* Action rail */}
+          <div className="flex flex-col items-center gap-4 text-white select-none">
+            <IconButton ariaLabel="Like" active={currentEvent.isLiked} count={currentEvent.likes} onClick={() => handleLike(currentEvent.id)}>
+              <Heart className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white text-white' : 'text-white'}`} />
+            </IconButton>
+            <IconButton ariaLabel="Comments" count={currentEvent.posts?.length || 0} onClick={() => handleComment()}>
+              <MessageCircle className="w-6 h-6 text-white" />
+            </IconButton>
+            <IconButton ariaLabel="Create post" onClick={() => requireAuth(() => setPostCreatorOpen(true), 'Please sign in to create posts')}>
+              <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200 shadow-lg"><Plus className="w-6 h-6 text-white" /></div>
               <span className="text-xs font-medium text-white drop-shadow-lg">Post</span>
-            </button>
-
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleShare(currentEvent);
-              }}
-              className="flex flex-col items-center gap-1 transition-transform active:scale-95 z-30 relative min-h-[56px] min-w-[56px] p-2 touch-manipulation"
-              style={{ 
-                touchAction: 'manipulation',
-                pointerEvents: 'auto',
-                backgroundColor: 'transparent'
-              }}
-            >
-              <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
-                <Share className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xs font-medium text-white drop-shadow-lg">{currentEvent.shares}</span>
-            </button>
-
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleMoreOptions();
-              }}
-              className="transition-transform active:scale-95 z-20 relative min-h-[56px] min-w-[56px] p-2 touch-manipulation"
-              style={{ touchAction: 'manipulation' }}
-            >
-              <div className="p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
-                <MoreVertical className="w-6 h-6 text-white" />
-              </div>
-            </button>
+            </IconButton>
+            <IconButton ariaLabel="Share" count={currentEvent.shares} onClick={() => handleShare(currentEvent)}>
+              <Share className="w-6 h-6 text-white" />
+            </IconButton>
+            <IconButton ariaLabel="More" onClick={() => handleMore()}>
+              <MoreVertical className="w-6 h-6 text-white" />
+            </IconButton>
           </div>
         </div>
       </div>
 
-      {/* Scroll Indicators */}
-      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex flex-col gap-1">
-        {events.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => setCurrentIndex(index)}
-            className={`w-1 h-8 rounded-full transition-colors ${
-              index === currentIndex ? 'bg-white' : 'bg-white/30'
-            }`}
-          />
+      {/* Dots */}
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1 z-20">
+        {events.map((_, i) => (
+          <button key={i} aria-label={`Go to event ${i+1}`} onClick={() => goTo(i)} className={`w-1.5 h-8 rounded-full transition-colors ${i===currentIndex ? 'bg-white' : 'bg-white/30 hover:bg-white/50'}`} />
         ))}
       </div>
 
-      {/* Swipe Navigation (Mobile) - Lower z-index than buttons */}
-      <div 
-        className="absolute inset-0 z-10"
-        style={{ 
-          pointerEvents: 'auto',
-          touchAction: 'pan-y',
-          // Exclude the action buttons area on the right and header area
-          clipPath: 'polygon(0% 15%, 80% 15%, 80% 100%, 0% 100%)'
-        }}
-        onTouchStart={(e) => {
-          const touch = e.touches[0];
-          e.currentTarget.dataset.startY = touch.clientY.toString();
-        }}
-        onTouchEnd={(e) => {
-          const startY = parseInt(e.currentTarget.dataset.startY || '0');
-          const endY = e.changedTouches[0].clientY;
-          const diff = startY - endY;
-
-          if (Math.abs(diff) > 50) {
-            if (diff > 0) {
-              handleScroll('down');
-            } else {
-              handleScroll('up');
-            }
-          }
-        }}
-      />
+      {/* Swipe layer (excludes action rail & header) */}
+      <div className="absolute inset-0 z-10" style={{ pointerEvents: 'auto', touchAction: 'pan-y', clipPath: 'polygon(0% 15%, 80% 15%, 80% 100%, 0% 100%)' }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} />
 
       {/* Modals */}
-      <AttendeeListModal
-        isOpen={showAttendeeModal}
-        onClose={() => setShowAttendeeModal(false)}
-        eventTitle={currentEvent.title}
-        attendeeCount={currentEvent.attendeeCount}
-        attendees={[]}
-      />
+      <AttendeeListModal isOpen={showAttendeeModal} onClose={() => setShowAttendeeModal(false)} eventTitle={currentEvent.title} attendeeCount={currentEvent.attendeeCount} attendees={[]} />
 
-      {/* Event Ticket Modal */}
       <EventTicketModal
-        event={currentEvent ? {
-          id: currentEvent.id,
-          title: currentEvent.title,
-          start_at: (() => {
-            // Try to parse the date string, fallback to a future date if invalid
-            const parsedDate = new Date(currentEvent.date);
-            if (isNaN(parsedDate.getTime())) {
-              // If date string can't be parsed, use a default future date
-              return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days from now
-            }
-            return parsedDate.toISOString();
-          })(),
-          venue: currentEvent.location,
-          address: currentEvent.location,
-          description: currentEvent.description
-        } : null}
+        event={{ id: currentEvent.id, title: currentEvent.title, start_at: (() => { const d = new Date(currentEvent.date); return isNaN(d.getTime()) ? new Date(Date.now()+30*24*60*60*1000).toISOString() : d.toISOString(); })(), venue: currentEvent.location, address: currentEvent.location, description: currentEvent.description }}
         isOpen={showTicketModal}
         onClose={() => setShowTicketModal(false)}
-        onSuccess={() => {
-          setShowTicketModal(false);
-          toast({
-            title: "Redirecting to Checkout",
-            description: "Opening Stripe checkout in a new tab..."
-          });
-        }}
+        onSuccess={() => { setShowTicketModal(false); toast({ title: 'Redirecting to Checkout', description: 'Opening Stripe checkout in a new tab…' }); }}
       />
-      
 
-
-        <PostCreatorModal
-          isOpen={postCreatorOpen}
-          onClose={() => setPostCreatorOpen(false)}
-          preselectedEventId={currentEvent?.id}
-          onSuccess={() => {
-            setPostCreatorOpen(false);
-            toast({
-              title: "Success", 
-              description: "Your post has been created!",
-            });
-            // Refresh to show new post
-            window.location.reload();
-          }}
-        />
+      <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} shareUrl={typeof window !== 'undefined' ? window.location.href : ''} />
     </div>
   );
-};
+}
 
-export default Index;
+function IconButton({ children, onClick, count, active, ariaLabel }: { children: React.ReactNode; onClick: () => void; count?: number; active?: boolean; ariaLabel: string; }) {
+  return (
+    <button aria-label={ariaLabel} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }} className="flex flex-col items-center gap-1 transition-transform active:scale-95 min-h-[56px] min-w-[56px] p-2 touch-manipulation" style={{ backgroundColor: 'transparent' }}>
+      <div className={`p-3 rounded-full transition-all duration-200 ${active ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-110' : 'bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20'}`}>{children}</div>
+      {typeof count !== 'undefined' && <span className="text-xs font-medium text-white drop-shadow-lg">{count}</span>}
+    </button>
+  );
+}
