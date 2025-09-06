@@ -92,7 +92,7 @@ export default function Navigation({ userRole }: NavigationProps) {
         setAuthModalOpen(true);
         return;
       }
-      if (screen === 'create-post') {
+      if (screen === 'posts-test') {
         void handleCreatePost();
         return;
       }
