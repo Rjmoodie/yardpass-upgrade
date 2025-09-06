@@ -5,24 +5,27 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Video, X } from 'lucide-react';
+import { Upload, X, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
-type Event = {
+interface Event {
   id: string;
   title: string;
-  cover_image_url?: string | null;
-};
+  cover_image_url?: string;
+}
 
-type UserTicket = {
+interface UserTicket {
   id: string;
   event_id: string;
-  tier_id: string | null;
+  tier_id: string;
   events: Event;
-  ticket_tiers: { badge_label: string | null; name: string | null } | null;
-};
+  ticket_tiers: {
+    badge_label: string;
+    name: string;
+  };
+}
 
 interface PostCreatorModalProps {
   isOpen: boolean;
@@ -31,158 +34,254 @@ interface PostCreatorModalProps {
   preselectedEventId?: string;
 }
 
-const MAX_LEN = 280;
-const MAX_MEDIA = 8;
+type QueuedFile = {
+  file: File;
+  kind: 'image' | 'video';
+  status: 'queued' | 'uploading' | 'processing' | 'done' | 'error';
+  remoteUrl?: string;          // image public URL OR mux:playback_id
+  errorMsg?: string;
+  name: string;
+  size: number;
+};
 
-export function PostCreatorModal({
-  isOpen,
-  onClose,
-  onSuccess,
-  preselectedEventId,
-}: PostCreatorModalProps) {
+const IMAGE_BUCKET = 'event-media';
+
+async function uploadImageToSupabase(file: File): Promise<string> {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const path = `posts/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await supabase
+    .storage
+    .from(IMAGE_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/**
+ * Ask your edge function to create a Mux Direct Upload and return:
+ * { upload_id, upload_url }
+ */
+async function createMuxDirectUpload(): Promise<{ upload_id: string; upload_url: string }> {
+  const { data, error } = await supabase.functions.invoke('create-mux-upload', {
+    body: {},
+  });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Poll your edge function to resolve a Mux upload into a playback_id.
+ * Returns string playback_id when ready, or throws if failed/timeout.
+ */
+async function resolveMuxUploadToPlaybackId(upload_id: string, maxAttempts = 12, intervalMs = 1500): Promise<string> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const { data, error } = await supabase.functions.invoke('resolve-mux-upload', {
+      body: { upload_id },
+    });
+    if (error) throw error;
+
+    if (data?.status === 'ready' && data?.playback_id) {
+      return data.playback_id as string;
+    }
+    if (data?.status === 'errored') {
+      throw new Error(data?.message || 'Mux processing failed');
+    }
+    // wait a bit then try again
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  throw new Error('Mux processing timed out');
+}
+
+export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventId }: PostCreatorModalProps) {
   const { user, profile } = useAuth();
   const [content, setContent] = useState('');
   const [selectedEventId, setSelectedEventId] = useState(preselectedEventId || '');
   const [userTickets, setUserTickets] = useState<UserTicket[]>([]);
   const [loading, setLoading] = useState(false);
-  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
 
-  // Fetch user's tickets when opened
+  const [queue, setQueue] = useState<QueuedFile[]>([]);
+
+  // Fetch user's tickets
   useEffect(() => {
-    if (!isOpen || !user) return;
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from('tickets')
-          .select(`
+    if (isOpen && user) {
+      fetchUserTickets();
+    }
+  }, [isOpen, user]);
+
+  const fetchUserTickets = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select(`
+          id,
+          event_id,
+          tier_id,
+          events!fk_tickets_event_id (
             id,
-            event_id,
-            tier_id,
-            events!fk_tickets_event_id ( id, title, cover_image_url ),
-            ticket_tiers!fk_tickets_tier_id ( badge_label, name )
-          `)
-          .eq('owner_user_id', user.id)
-          .in('status', ['issued', 'transferred', 'redeemed']);
-        if (error) throw error;
+            title,
+            cover_image_url
+          ),
+          ticket_tiers!fk_tickets_tier_id (
+            badge_label,
+            name
+          )
+        `)
+        .eq('owner_user_id', user.id)
+        .in('status', ['issued', 'transferred', 'redeemed']);
 
-        const rows = (data as unknown as UserTicket[]) ?? [];
-        setUserTickets(rows);
+      if (error) throw error;
+      setUserTickets(data || []);
 
-        if (preselectedEventId) {
-          setSelectedEventId(preselectedEventId);
-        } else if (rows.length === 1) {
-          setSelectedEventId(rows[0].event_id);
-        }
-      } catch (e: any) {
-        console.error(e);
-        toast({
-          title: 'Error',
-          description: e.message || 'Failed to load your events',
-          variant: 'destructive',
-        });
+      if (preselectedEventId) {
+        setSelectedEventId(preselectedEventId);
+      } else if (data && data.length === 1) {
+        setSelectedEventId(data[0].event_id);
       }
-    })();
-  }, [isOpen, user, preselectedEventId]);
+    } catch (err) {
+      console.error('Error fetching user tickets:', err);
+      toast({
+        title: "Error",
+        description: "Failed to load your events",
+        variant: "destructive",
+      });
+    }
+  };
 
-  const handleMediaUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
+  const handleFilePick = (ev: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(ev.target.files || []);
     if (!files.length) return;
-    const next = [...mediaFiles, ...files].slice(0, MAX_MEDIA);
-    setMediaFiles(next);
-    event.currentTarget.value = '';
+
+    const next: QueuedFile[] = files.map((f) => ({
+      file: f,
+      kind: f.type.startsWith('video') || /\.(mp4|webm|mov)$/i.test(f.name) ? 'video' : 'image',
+      status: 'queued',
+      name: f.name,
+      size: f.size,
+    }));
+
+    setQueue((q) => [...q, ...next]);
+    // reset input so selecting the same file again works
+    ev.currentTarget.value = '';
   };
 
-  const removeMedia = (index: number) => {
-    setMediaFiles((prev) => prev.filter((_, i) => i !== index));
+  const removeQueued = (name: string) => {
+    setQueue((q) => q.filter((f) => f.name !== name));
   };
 
-  async function uploadImages(files: File[]) {
+  const uploadQueue = async (): Promise<string[]> => {
+    // returns array of media_urls to include with post
     const urls: string[] = [];
-    for (const f of files) {
-      const ext = (f.name.split('.').pop() || 'bin').toLowerCase();
-      const path = `${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from('event-media').upload(path, f, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-      if (error) throw error;
-      const { data } = supabase.storage.from('event-media').getPublicUrl(path);
-      urls.push(data.publicUrl);
-    }
-    return urls;
-  }
+    const updates = [...queue];
 
-  async function uploadVideos(files: File[]) {
-    const urls: string[] = [];
-    for (const f of files) {
-      const formData = new FormData();
-      formData.append('video', f);
-      const { data, error } = await supabase.functions.invoke('upload-video-mux', {
-        body: formData,
-      });
-      if (error) throw error;
-      if (data?.asset_id) urls.push(`mux:${data.asset_id}`);
+    for (let i = 0; i < updates.length; i++) {
+      const item = updates[i];
+      if (item.status === 'done' && item.remoteUrl) {
+        urls.push(item.remoteUrl);
+        continue;
+      }
+
+      try {
+        // mark uploading
+        updates[i] = { ...item, status: 'uploading', errorMsg: undefined };
+        setQueue([...updates]);
+
+        if (item.kind === 'image') {
+          const publicUrl = await uploadImageToSupabase(item.file);
+          updates[i] = { ...item, status: 'done', remoteUrl: publicUrl };
+          urls.push(publicUrl);
+          setQueue([...updates]);
+        } else {
+          // VIDEO → Mux Direct Upload
+          const { upload_id, upload_url } = await createMuxDirectUpload();
+
+          // PUT binary to Mux upload URL
+          await fetch(upload_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': item.file.type || 'application/octet-stream' },
+            body: item.file,
+          });
+
+          // now video is processing on Mux
+          updates[i] = { ...item, status: 'processing' };
+          setQueue([...updates]);
+
+          // Poll until we get a playback_id
+          const playback_id = await resolveMuxUploadToPlaybackId(upload_id);
+
+          const muxUrl = `mux:${playback_id}`;
+          updates[i] = { ...item, status: 'done', remoteUrl: muxUrl };
+          urls.push(muxUrl);
+          setQueue([...updates]);
+        }
+      } catch (err: any) {
+        console.error('Upload error:', err);
+        updates[i] = { ...item, status: 'error', errorMsg: err?.message || 'Upload failed' };
+        setQueue([...updates]);
+        throw err; // bubble up to stop submission
+      }
     }
     return urls;
-  }
+  };
 
   const handleSubmit = async () => {
     if (!selectedEventId || !content.trim()) {
       toast({
-        title: 'Missing Information',
-        description: 'Please select an event and add content',
-        variant: 'destructive',
+        title: "Missing Information",
+        description: "Please select an event and add content",
+        variant: "destructive",
       });
       return;
     }
 
     setLoading(true);
     try {
-      const imageFiles = mediaFiles.filter((f) => f.type.startsWith('image/'));
-      const videoFiles = mediaFiles.filter((f) => f.type.startsWith('video/'));
+      const media_urls = await uploadQueue();
 
-      const [imageUrls, videoUrls] = await Promise.all([
-        uploadImages(imageFiles),
-        uploadVideos(videoFiles),
-      ]);
+      // Find the ticket tier for this event (for badge)
+      const userTicket = userTickets.find(t => t.event_id === selectedEventId);
 
-      const media_urls = [...imageUrls, ...videoUrls];
-
-      const ticket = userTickets.find((t) => t.event_id === selectedEventId);
-      const { error } = await supabase.functions.invoke('posts-create', {
+      const { data: result, error } = await supabase.functions.invoke('posts-create', {
         body: {
           event_id: selectedEventId,
-          text: content.trim(),
+          text: content,
           media_urls,
-          ticket_tier_id: ticket?.tier_id ?? null,
+          ticket_tier_id: userTicket?.tier_id,
         },
       });
-
       if (error) throw error;
 
-      toast({ title: 'Posted', description: 'Your post has been created!' });
+      toast({
+        title: "Posted!",
+        description: `Shared to ${result?.data?.event_title || 'event'}`,
+      });
+
+      // reset
       setContent('');
-      setMediaFiles([]);
+      setQueue([]);
       if (!preselectedEventId) setSelectedEventId('');
+
       onSuccess?.();
       onClose();
-    } catch (e: any) {
-      console.error(e);
+    } catch (err: any) {
       toast({
-        title: 'Error',
-        description: e.message || 'Failed to create post',
-        variant: 'destructive',
+        title: "Post failed",
+        description: err?.message || 'Unable to create post',
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const selectedTicket = userTickets.find((t) => t.event_id === selectedEventId);
+  const selectedTicket = userTickets.find(t => t.event_id === selectedEventId);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-background border shadow-xl">
+      <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[var(--modal-bg)] border-[var(--modal-border)] shadow-[var(--shadow-modal)]">
         <DialogHeader>
           <DialogTitle>Create Post</DialogTitle>
         </DialogHeader>
@@ -192,11 +291,13 @@ export function PostCreatorModal({
           <div className="flex items-center gap-3">
             <Avatar className="w-10 h-10">
               <AvatarImage src={profile?.photo_url || ''} />
-              <AvatarFallback>{profile?.display_name?.charAt(0) || 'U'}</AvatarFallback>
+              <AvatarFallback>
+                {profile?.display_name?.charAt(0) || 'U'}
+              </AvatarFallback>
             </Avatar>
             <div>
-              <div className="font-medium">{profile?.display_name || 'You'}</div>
-              {selectedTicket?.ticket_tiers?.badge_label && (
+              <div className="font-medium">{profile?.display_name}</div>
+              {selectedTicket && (
                 <Badge variant="secondary" className="text-xs">
                   {selectedTicket.ticket_tiers.badge_label}
                 </Badge>
@@ -207,21 +308,21 @@ export function PostCreatorModal({
           {/* Event Selection */}
           {!preselectedEventId && (
             <div>
-              <label className="text-sm font-medium mb-2 block">Select Event</label>
+              <label className="text-sm font-medium mb-2 block">
+                Select Event
+              </label>
               <Select value={selectedEventId} onValueChange={setSelectedEventId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choose an event to post to" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userTickets.map((t) => (
-                    <SelectItem key={t.event_id} value={t.event_id}>
+                  {userTickets.map((ticket) => (
+                    <SelectItem key={ticket.event_id} value={ticket.event_id}>
                       <div className="flex items-center gap-2">
-                        <span>{t.events.title}</span>
-                        {t.ticket_tiers?.badge_label && (
-                          <Badge variant="outline" className="text-xs">
-                            {t.ticket_tiers.badge_label}
-                          </Badge>
-                        )}
+                        <span>{ticket.events.title}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {ticket.ticket_tiers.badge_label}
+                        </Badge>
                       </div>
                     </SelectItem>
                   ))}
@@ -235,21 +336,26 @@ export function PostCreatorModal({
             <Textarea
               placeholder="Share your thoughts about this event..."
               value={content}
-              onChange={(e) => setContent(e.target.value.slice(0, MAX_LEN))}
+              onChange={(e) => setContent(e.target.value)}
               className="min-h-[100px] resize-none"
+              maxLength={2000}
             />
-            <div className="mt-1 text-xs text-muted-foreground text-right">{content.length}/{MAX_LEN}</div>
+            <div className="text-right text-xs text-muted-foreground mt-1">
+              {content.length}/2000
+            </div>
           </div>
 
           {/* Media Upload */}
           <div>
-            <label className="text-sm font-medium mb-2 block">Add Media (Optional)</label>
+            <label className="text-sm font-medium mb-2 block">
+              Add Media (Images → Supabase, Videos → Mux)
+            </label>
             <div className="border-2 border-dashed border-border rounded-lg p-4">
               <input
                 type="file"
                 accept="video/*,image/*"
                 multiple
-                onChange={handleMediaUpload}
+                onChange={handleFilePick}
                 className="hidden"
                 id="media-upload"
               />
@@ -259,17 +365,27 @@ export function PostCreatorModal({
               >
                 <Video className="w-8 h-8" />
                 <span className="text-sm">Upload video or photos</span>
-                <span className="text-xs">{mediaFiles.length}/{MAX_MEDIA} selected</span>
               </label>
             </div>
 
-            {/* Media Preview */}
-            {mediaFiles.length > 0 && (
+            {/* Queue preview */}
+            {queue.length > 0 && (
               <div className="mt-3 space-y-2">
-                {mediaFiles.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between bg-muted rounded-lg p-2">
-                    <span className="text-sm truncate">{file.name}</span>
-                    <Button size="sm" variant="ghost" onClick={() => removeMedia(index)}>
+                {queue.map((q) => (
+                  <div key={q.name} className="flex items-center justify-between bg-muted rounded-lg p-2">
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium truncate">{q.name}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {q.kind.toUpperCase()} • {(q.size / (1024 * 1024)).toFixed(1)} MB • {q.status}
+                        {q.errorMsg ? ` — ${q.errorMsg}` : ''}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => removeQueued(q.name)}
+                      disabled={q.status === 'uploading' || q.status === 'processing'}
+                    >
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
@@ -283,8 +399,8 @@ export function PostCreatorModal({
             <Button variant="outline" onClick={onClose} className="flex-1">
               Cancel
             </Button>
-            <Button
-              onClick={handleSubmit}
+            <Button 
+              onClick={handleSubmit} 
               disabled={loading || !selectedEventId || !content.trim()}
               className="flex-1"
             >
