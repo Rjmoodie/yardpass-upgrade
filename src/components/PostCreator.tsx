@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { ArrowLeft, Camera, Video, MapPin, Tag } from 'lucide-react';
+import { ArrowLeft, Camera, Video, MapPin, Tag, X } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface User {
   id: string;
@@ -19,32 +21,34 @@ interface PostCreatorProps {
   onPost: () => void;
 }
 
-// Mock user's events for tagging
-const mockUserEvents = [
-  {
-    id: '1',
-    title: 'Summer Music Festival 2024',
-    date: 'July 15-17, 2024',
-    badge: 'VIP',
-    coverImage: 'https://images.unsplash.com/photo-1681149341674-45fd772fd463?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
-  },
-  {
-    id: '2',
-    title: 'Street Food Fiesta',
-    date: 'August 8, 2024',
-    badge: 'FOODIE',
-    coverImage: 'https://images.unsplash.com/photo-1551883709-2516220df0bc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwZmVzdGl2YWwlMjBvdXRkb29yfGVufDF8fHx8MTc1Njc5OTY4OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
-  }
-];
+type UserTicket = {
+  id: string;
+  event_id: string;
+  tier_id: string | null;
+  events: {
+    id: string;
+    title: string;
+    cover_image_url?: string | null;
+    start_at?: string | null;
+  };
+  ticket_tiers: {
+    badge_label: string | null;
+    name: string | null;
+  } | null;
+};
 
-// Mock organizers for tagging
-const mockOrganizers = [
-  { id: '101', name: 'LiveNation Events', verified: true },
-  { id: '102', name: 'Foodie Adventures', verified: true },
-  { id: '103', name: 'Modern Gallery NYC', verified: false }
-];
+const MAX_LEN = 280;
+const MAX_MEDIA = 8;
 
 export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
+  const { toast } = useToast();
+  const [content, setContent] = useState('');
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [userTickets, setUserTickets] = useState<UserTicket[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+
   // Redirect if not authenticated
   if (!user) {
     return (
@@ -57,29 +61,142 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
       </div>
     );
   }
-  const [content, setContent] = useState('');
-  const [selectedEvent, setSelectedEvent] = useState<string>('');
-  const [selectedOrganizers, setSelectedOrganizers] = useState<string[]>([]);
-  const [mediaType, setMediaType] = useState<'photo' | 'video' | null>(null);
 
-  const selectedEventData = mockUserEvents.find(event => event.id === selectedEvent);
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tickets')
+          .select(`
+            id,
+            event_id,
+            tier_id,
+            events!fk_tickets_event_id ( id, title, cover_image_url, start_at ),
+            ticket_tiers!fk_tickets_tier_id ( badge_label, name )
+          `)
+          .eq('owner_user_id', user.id)
+          .in('status', ['issued', 'transferred', 'redeemed']);
 
-  const handleSubmit = () => {
-    if (content.trim() && selectedEvent) {
-      // Mock post creation
+        if (error) throw error;
+
+        setUserTickets((data as unknown as UserTicket[]) ?? []);
+        if (data && data.length === 1) setSelectedEventId(data[0].event_id);
+      } catch (e: any) {
+        console.error(e);
+        toast({
+          title: 'Error',
+          description: e.message || 'Failed to load your events',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    fetchTickets();
+  }, [user.id, toast]);
+
+  const selectedTicket = useMemo(
+    () => userTickets.find((t) => t.event_id === selectedEventId) || null,
+    [userTickets, selectedEventId]
+  );
+
+  const handlePickMedia = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const next = [...mediaFiles, ...files].slice(0, MAX_MEDIA);
+    setMediaFiles(next);
+    e.currentTarget.value = '';
+  };
+
+  const removeMedia = (idx: number) => {
+    setMediaFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  async function uploadImages(files: File[]) {
+    const urls: string[] = [];
+    for (const f of files) {
+      const ext = (f.name.split('.').pop() || 'bin').toLowerCase();
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('event-media').upload(path, f, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from('event-media').getPublicUrl(path);
+      urls.push(data.publicUrl);
+    }
+    return urls;
+  }
+
+  async function uploadVideos(files: File[]) {
+    // expects an Edge Function 'upload-video-mux' that returns { asset_id }
+    const urls: string[] = [];
+    for (const f of files) {
+      const formData = new FormData();
+      formData.append('video', f);
+      const { data, error } = await supabase.functions.invoke('upload-video-mux', {
+        body: formData,
+      });
+      if (error) throw error;
+      if (data?.asset_id) urls.push(`mux:${data.asset_id}`);
+    }
+    return urls;
+  }
+
+  const handleSubmit = async () => {
+    if (!content.trim() || !selectedEventId) {
+      toast({
+        title: 'Missing info',
+        description: 'Select an event and add some text',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const imageFiles = mediaFiles.filter((f) => f.type.startsWith('image/'));
+      const videoFiles =
+        mediaFiles.filter((f) => f.type.startsWith('video/')) ??
+        mediaFiles.filter((f) =>
+          ['.mp4', '.webm', '.mov'].some((ext) => f.name.toLowerCase().endsWith(ext))
+        );
+
+      const [imageUrls, videoUrls] = await Promise.all([
+        uploadImages(imageFiles),
+        uploadVideos(videoFiles),
+      ]);
+
+      const media_urls = [...imageUrls, ...videoUrls];
+
+      const { data, error } = await supabase.functions.invoke('posts-create', {
+        body: {
+          event_id: selectedEventId,
+          text: content.trim(),
+          media_urls,
+          ticket_tier_id: selectedTicket?.tier_id ?? null,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({ title: 'Posted', description: 'Your post has been created!' });
+      setContent('');
+      setMediaFiles([]);
       onPost();
+    } catch (e: any) {
+      console.error(e);
+      toast({
+        title: 'Post failed',
+        description: e.message || 'Unable to create post',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
     }
   };
 
-  const toggleOrganizerTag = (organizerId: string) => {
-    setSelectedOrganizers(prev =>
-      prev.includes(organizerId)
-        ? prev.filter(id => id !== organizerId)
-        : [...prev, organizerId]
-    );
-  };
-
-  const canPost = content.trim() && selectedEvent;
+  const canPost = Boolean(content.trim() && selectedEventId && !uploading);
 
   return (
     <div className="h-full bg-background flex flex-col">
@@ -87,10 +204,7 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
       <div className="border-b bg-card p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button
-              onClick={onBack}
-              className="p-2 rounded-full hover:bg-muted transition-colors"
-            >
+            <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
@@ -98,12 +212,8 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
               <p className="text-sm text-muted-foreground">Share your event experience</p>
             </div>
           </div>
-          <Button
-            onClick={handleSubmit}
-            disabled={!canPost}
-            className="px-6"
-          >
-            Post
+          <Button onClick={handleSubmit} disabled={!canPost} className="px-6">
+            {uploading ? 'Posting...' : 'Post'}
           </Button>
         </div>
       </div>
@@ -117,48 +227,72 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
-              placeholder="Share your thoughts about the event, tag organizers, or post updates..."
+              placeholder="Share your thoughts about the event..."
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={(e) => setContent(e.target.value.slice(0, MAX_LEN))}
               className="min-h-32 resize-none"
-              maxLength={280}
+              maxLength={MAX_LEN}
             />
-            
+
             <div className="flex justify-between items-center text-sm text-muted-foreground">
-              <span>{content.length}/280 characters</span>
+              <span>{content.length}/{MAX_LEN} characters</span>
+              <span>{mediaFiles.length}/{MAX_MEDIA} media</span>
             </div>
 
-            {/* Media Options */}
+            {/* Media Picker */}
             <div className="flex gap-2">
-              <Button
-                variant={mediaType === 'photo' ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={() => setMediaType(mediaType === 'photo' ? null : 'photo')}
-              >
-                <Camera className="w-4 h-4 mr-1" />
-                Photo
-              </Button>
-              <Button
-                variant={mediaType === 'video' ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={() => setMediaType(mediaType === 'video' ? null : 'video')}
-              >
-                <Video className="w-4 h-4 mr-1" />
-                Video
-              </Button>
+              <label className="inline-flex">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePickMedia}
+                  className="hidden"
+                />
+                <Button asChild variant="outline" size="sm">
+                  <span className="cursor-pointer">
+                    <Camera className="w-4 h-4 mr-1" />
+                    Photos
+                  </span>
+                </Button>
+              </label>
+
+              <label className="inline-flex">
+                <input
+                  type="file"
+                  accept="video/*"
+                  multiple
+                  onChange={handlePickMedia}
+                  className="hidden"
+                />
+                <Button asChild variant="outline" size="sm">
+                  <span className="cursor-pointer">
+                    <Video className="w-4 h-4 mr-1" />
+                    Videos
+                  </span>
+                </Button>
+              </label>
             </div>
 
-            {mediaType && (
-              <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
-                <div className="w-12 h-12 mx-auto mb-2 bg-muted rounded-full flex items-center justify-center">
-                  {mediaType === 'photo' ? <Camera className="w-6 h-6" /> : <Video className="w-6 h-6" />}
-                </div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Upload a {mediaType} to your post
-                </p>
-                <Button variant="outline" size="sm">
-                  Choose {mediaType === 'photo' ? 'Photo' : 'Video'}
-                </Button>
+            {/* Media Preview */}
+            {mediaFiles.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {mediaFiles.map((file, idx) => (
+                  <div key={idx} className="relative border rounded-lg p-2 text-xs">
+                    <div className="absolute top-1 right-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => removeMedia(idx)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="truncate">{file.name}</div>
+                    <div className="text-muted-foreground">{Math.round(file.size / 1024)} KB</div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
@@ -173,22 +307,24 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Select value={selectedEvent} onValueChange={setSelectedEvent}>
+            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select an event you're attending" />
               </SelectTrigger>
               <SelectContent>
-                {mockUserEvents.map((event) => (
-                  <SelectItem key={event.id} value={event.id}>
+                {userTickets.map((ticket) => (
+                  <SelectItem key={ticket.event_id} value={ticket.event_id}>
                     <div className="flex items-center gap-2 py-1">
                       <ImageWithFallback
-                        src={event.coverImage}
-                        alt={event.title}
+                        src={ticket.events.cover_image_url || ''}
+                        alt={ticket.events.title}
                         className="w-8 h-8 rounded object-cover"
                       />
                       <div>
-                        <div className="text-sm">{event.title}</div>
-                        <div className="text-xs text-muted-foreground">{event.date}</div>
+                        <div className="text-sm">{ticket.events.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {ticket.ticket_tiers?.badge_label || 'ATTENDEE'}
+                        </div>
                       </div>
                     </div>
                   </SelectItem>
@@ -196,23 +332,29 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
               </SelectContent>
             </Select>
 
-            {selectedEventData && (
+            {selectedTicket && (
               <Card className="border-primary/20 bg-primary/5">
                 <CardContent className="p-3">
                   <div className="flex items-center gap-3">
                     <ImageWithFallback
-                      src={selectedEventData.coverImage}
-                      alt={selectedEventData.title}
+                      src={selectedTicket.events.cover_image_url || ''}
+                      alt={selectedTicket.events.title}
                       className="w-10 h-10 rounded object-cover"
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm">{selectedEventData.title}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {selectedEventData.badge}
-                        </Badge>
+                        <span className="text-sm">{selectedTicket.events.title}</span>
+                        {selectedTicket.ticket_tiers?.badge_label && (
+                          <Badge variant="outline" className="text-xs">
+                            {selectedTicket.ticket_tiers.badge_label}
+                          </Badge>
+                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground">{selectedEventData.date}</div>
+                      {selectedTicket.events.start_at && (
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(selectedTicket.events.start_at).toLocaleString()}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -221,72 +363,8 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
           </CardContent>
         </Card>
 
-        {/* Tag Organizers */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Tag Organizers</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Mention event organizers in your post
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {mockOrganizers.map((organizer) => (
-              <div
-                key={organizer.id}
-                className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                  selectedOrganizers.includes(organizer.id)
-                    ? 'border-primary bg-primary/5'
-                    : 'hover:bg-muted/50'
-                }`}
-                onClick={() => toggleOrganizerTag(organizer.id)}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                    {organizer.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm">{organizer.name}</span>
-                      {organizer.verified && (
-                        <Badge variant="secondary" className="text-xs">
-                          Verified
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  selectedOrganizers.includes(organizer.id)
-                    ? 'border-primary bg-primary'
-                    : 'border-muted-foreground'
-                }`}>
-                  {selectedOrganizers.includes(organizer.id) && (
-                    <div className="w-2 h-2 bg-primary-foreground rounded-full" />
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {selectedOrganizers.length > 0 && (
-              <div className="mt-3">
-                <p className="text-xs text-muted-foreground mb-2">Tagged organizers:</p>
-                <div className="flex flex-wrap gap-1">
-                  {selectedOrganizers.map((organizerId) => {
-                    const organizer = mockOrganizers.find(o => o.id === organizerId);
-                    return organizer ? (
-                      <Badge key={organizerId} variant="secondary" className="text-xs">
-                        @{organizer.name.replace(/\s+/g, '').toLowerCase()}
-                      </Badge>
-                    ) : null;
-                  })}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Preview */}
-        {content && selectedEvent && (
+        {content && selectedTicket && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Post Preview</CardTitle>
@@ -296,26 +374,24 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                     <span className="text-xs text-primary-foreground">
-                      {user.name.split(' ').map(n => n[0]).join('')}
+                      {user.name.split(' ').map((n) => n[0]).join('')}
                     </span>
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm">{user.name}</span>
-                      {selectedEventData && (
+                      {selectedTicket.ticket_tiers?.badge_label && (
                         <Badge variant="outline" className="text-xs">
-                          {selectedEventData.badge}
+                          {selectedTicket.ticket_tiers.badge_label}
                         </Badge>
                       )}
                     </div>
                     <p className="text-sm mb-2">{content}</p>
-                    
-                    {selectedEventData && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <MapPin className="w-3 h-3" />
-                        <span>at {selectedEventData.title}</span>
-                      </div>
-                    )}
+
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <MapPin className="w-3 h-3" />
+                      <span>at {selectedTicket.events.title}</span>
+                    </div>
                   </div>
                 </div>
               </div>
