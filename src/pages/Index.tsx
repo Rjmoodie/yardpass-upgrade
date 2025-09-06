@@ -9,6 +9,7 @@ import { AttendeeListModal } from '@/components/AttendeeListModal';
 import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users, Plus } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
+import { CommentModal } from '@/components/CommentModal';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -75,6 +76,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [showAttendeeModal, setShowAttendeeModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showCommentModal, setShowCommentModal] = useState(false);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -164,7 +166,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }, 'Please sign in to like events');
 
   const handleShare = (ev: Event) => { capture('share_click', { event_id: ev.id }); setShowShareModal(true); };
-  const handleComment = withAuth(() => navigate(routes.event(currentEvent.id)), 'Please sign in to comment on events');
+  const handleComment = withAuth(() => setShowCommentModal(true), 'Please sign in to comment on events');
   const handleMore = withAuth(() => toast({ title: 'More Options', description: 'Additional options coming soon…' }), 'Please sign in to access more options');
 
   const goTo = (i: number) => setCurrentIndex(Math.max(0, Math.min(events.length-1, i)));
@@ -322,6 +324,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           toast({ title: 'Success', description: 'Your post has been created!' });
         }}
         preselectedEventId={currentEvent.id}
+      />
+
+      <CommentModal
+        isOpen={showCommentModal}
+        onClose={() => setShowCommentModal(false)}
+        eventId={currentEvent.id}
+        eventTitle={currentEvent.title}
       />
     </div>
   );
