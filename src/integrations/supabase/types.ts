@@ -1588,7 +1588,7 @@ export type Database = {
     }
     Functions: {
       can_current_user_post: {
-        Args: { p_event_id: string } | { target_event_id: string; uid: string }
+        Args: { p_event_id: string }
         Returns: boolean
       }
       cleanup_old_keys: {

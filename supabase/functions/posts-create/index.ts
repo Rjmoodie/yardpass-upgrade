@@ -92,11 +92,10 @@ serve(async (req) => {
       return createErrorResponse("Text too long", 400);
     }
 
-    // Permission check using the new function
+    // Permission check using the corrected function
     const { data: canPost, error: permError } = await supabaseClient
       .rpc("can_current_user_post", { 
-        target_event_id: event_id, 
-        uid: user.id 
+        p_event_id: event_id
       });
 
     console.log('Permission check result:', { canPost, permError });
