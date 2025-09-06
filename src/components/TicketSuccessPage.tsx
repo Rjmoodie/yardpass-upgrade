@@ -1,83 +1,315 @@
-// + add import
-import { downloadICS } from '@/lib/ics';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useOrderStatus } from '@/hooks/useOrderStatus';
+import { useTickets } from '@/hooks/useTickets';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CheckCircle, Ticket, ArrowLeft, CalendarPlus } from 'lucide-react';
 
-// ...inside component
-export function TicketSuccessPage({ onBack, onViewTickets, autoRedirectMs = 6000 }: TicketSuccessPageProps) {
-  // existing hooks:
-  const { tickets, refreshTickets } = useTickets(); // <-- use tickets list here
+interface TicketSuccessPageProps {
+  onBack: () => void;
+  onViewTickets?: () => void;
+}
 
-  // helper to add to calendar based on matched ticket
-  const addPaidEventToCalendar = () => {
-    if (!orderStatus?.event_title) {
-      toast({
-        title: 'Missing event info',
-        description: 'Could not find event details to export.',
-        variant: 'destructive'
+/**
+ * Optional helper: ICS creation when orderStatus includes event timing.
+ * If timing isn't available on the status payload, the Calendar button is hidden.
+ */
+const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+const toICSUTC = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(
+    d.getUTCHours()
+  )}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+};
+const escapeICS = (s: string) =>
+  (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+
+export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPageProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { refreshTickets } = useTickets();
+  const [processing, setProcessing] = useState(false);
+
+  // Get session ID from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const sessionId = urlParams.get('session_id');
+
+  // Use order status hook to check payment status
+  const { orderStatus, loading: statusLoading, refetch } = useOrderStatus(sessionId);
+
+  const hasTiming = !!(orderStatus?.event_start_at || orderStatus?.start_at);
+
+  // Process payment when order is found but not yet paid
+  const processPayment = async () => {
+    if (!sessionId || !user || processing) return;
+
+    setProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: { sessionId },
       });
-      return;
-    }
 
-    // Find a matching upcoming ticket for this event title
-    const t = tickets.find(
-      (tk) =>
-        tk.eventTitle?.toLowerCase() === orderStatus.event_title.toLowerCase() &&
-        tk.isUpcoming
-    );
+      if (error) throw error;
 
-    if (!t) {
+      // Refresh both order status and tickets list
+      await Promise.all([refetch(), refreshTickets()]);
+
       toast({
-        title: 'Event not found yet',
-        description: 'Try again in a few seconds after tickets refresh.',
+        title: 'Payment Successful!',
+        description: `${data.order.tickets_count} tickets issued for ${data.order.event_title}`,
       });
-      return;
+    } catch (error: any) {
+      toast({
+        title: 'Payment Processing Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessing(false);
     }
-
-    const start = t.startISO ? new Date(t.startISO) : new Date(`${t.eventDate} ${t.eventTime}`);
-    const end = t.endISO ? new Date(t.endISO) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
-
-    downloadICS(
-      {
-        title: t.eventTitle,
-        start,
-        end,
-        location: t.eventLocation || t.address,
-        description: `Tickets purchased: ${orderStatus.tickets_count}`,
-        url: t.url,
-        organizer: t.organizerName
-      },
-      `${t.eventTitle}.ics`
-    );
-
-    toast({
-      title: 'Calendar file created',
-      description: 'Open the .ics file to add it to your calendar.',
-    });
   };
 
-// ...in the paid UI Actions section, add this extra button (next to View My Tickets)
-  <div className="flex flex-col sm:flex-row gap-3">
-    <Button variant="outline" onClick={onBack} className="flex-1">
-      <ArrowLeft className="w-4 h-4 mr-2" />
-      Back to Events
-    </Button>
-    <Button
-      onClick={onViewTickets || (() => (window.location.href = '/tickets'))}
-      className="flex-1"
-    >
-      <Ticket className="w-4 h-4 mr-2" />
-      View My Tickets
-    </Button>
+  // Auto-process payment if order is found but still pending
+  useEffect(() => {
+    if (orderStatus?.status === 'pending' && !processing) {
+      processPayment();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderStatus?.status]);
 
-    {/* NEW: Add to Calendar */}
-    <Button variant="secondary" onClick={addPaidEventToCalendar} className="flex-1">
-      <CalendarIcon className="w-4 h-4 mr-2" />
-      Add to Calendar (.ics)
-    </Button>
+  const loading = statusLoading || processing;
 
-    {orderStatus?.status === 'paid' && autoRedirectMs > 0 && (
-      <Button variant="ghost" onClick={() => setCancelRedirect(true)} className="sm:w-auto">
-        Stop Auto-Redirect
-      </Button>
-    )}
-  </div>
+  const buildICS = () => {
+    if (!orderStatus) return null;
+
+    // Try a few common keys (support various function payloads)
+    const title =
+      (orderStatus as any).event_title ||
+      (orderStatus as any).title ||
+      'Event';
+
+    const startISO: string =
+      (orderStatus as any).event_start_at ||
+      (orderStatus as any).start_at ||
+      '';
+
+    if (!startISO) return null;
+
+    const endISO: string =
+      (orderStatus as any).event_end_at ||
+      (orderStatus as any).end_at ||
+      new Date(new Date(startISO).getTime() + 2 * 60 * 60 * 1000).toISOString();
+
+    const location =
+      (orderStatus as any).event_location ||
+      (orderStatus as any).location ||
+      (orderStatus as any).venue ||
+      '';
+
+    const eventId =
+      (orderStatus as any).event_id ||
+      (orderStatus as any).id ||
+      '';
+
+    const url = eventId ? `${window.location.origin}/events/${eventId}` : window.location.origin;
+
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//YardPass//TicketSuccess//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `UID:${(orderStatus as any).id || sessionId || Math.random().toString(36).slice(2)}@yardpass`,
+      `DTSTAMP:${toICSUTC(new Date().toISOString())}`,
+      `DTSTART:${toICSUTC(startISO)}`,
+      `DTEND:${toICSUTC(endISO)}`,
+      `SUMMARY:${escapeICS(title)}`,
+      `DESCRIPTION:${escapeICS(`Your order is confirmed.\n${url}`)}`,
+      `LOCATION:${escapeICS(location)}`,
+      `URL:${url}`,
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ];
+
+    return lines.join('\r\n');
+  };
+
+  const handleAddToCalendar = async () => {
+    try {
+      const content = buildICS();
+      if (!content) return;
+
+      const title =
+        (orderStatus as any)?.event_title || (orderStatus as any)?.title || 'event';
+      const fileName = `${String(title).replace(/[^\w\s-]/g, '')}.ics`;
+      const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+
+      // Try native share
+      if (navigator.canShare && 'share' in navigator) {
+        const file = new File([blob], fileName, { type: 'text/calendar' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: String(title), text: 'Add to calendar', files: [file] });
+          toast({ title: 'Shared to Calendar apps' });
+          return;
+        }
+      }
+
+      // Fallback: download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      toast({ title: 'ICS downloaded', description: 'Open it to add to your calendar.' });
+    } catch {
+      toast({
+        title: 'Calendar error',
+        description: 'Could not generate calendar file.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Processing your payment...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-bold mb-4">Invalid Payment Session</h2>
+            <p className="text-muted-foreground mb-4">
+              No payment session found. Please try purchasing tickets again.
+            </p>
+            <Button onClick={onBack}>Return to Events</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-background dark:to-muted flex items-center justify-center p-4">
+      <Card className="max-w-2xl w-full">
+        <CardHeader className="text-center">
+          <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+          <CardTitle className="text-2xl text-green-600">Payment Successful!</CardTitle>
+          <p className="text-muted-foreground">Your tickets have been issued and are ready to use</p>
+        </CardHeader>
+
+        {orderStatus && orderStatus.status === 'paid' && (
+          <CardContent className="space-y-6">
+            {/* Order Summary */}
+            <Card className="bg-muted/50">
+              <CardContent className="p-4">
+                <h3 className="font-semibold mb-3">Order Summary</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Event:</span>
+                    <span className="font-medium">
+                      {(orderStatus as any).event_title || (orderStatus as any).title || 'Event'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tickets:</span>
+                    <span className="font-medium">{(orderStatus as any).tickets_count}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Paid:</span>
+                    <span className="font-bold text-lg">${(orderStatus as any).total_amount}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* What's Next */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Ticket className="w-5 h-5" />
+                  What’s Next?
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2" />
+                  <div>
+                    <p className="text-sm font-medium">Check your email</p>
+                    <p className="text-xs text-muted-foreground">
+                      Confirmation and ticket details sent to your email
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2" />
+                  <div>
+                    <p className="text-sm font-medium">Add to Calendar</p>
+                    <p className="text-xs text-muted-foreground">
+                      Download an .ics file to save the event to your calendar
+                    </p>
+                    {hasTiming && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={handleAddToCalendar}
+                      >
+                        <CalendarPlus className="w-4 h-4 mr-2" />
+                        Add to Calendar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2" />
+                  <div>
+                    <p className="text-sm font-medium">Event Day</p>
+                    <p className="text-xs text-muted-foreground">
+                      Show your QR code at the event entrance
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={onBack} className="flex-1">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Events
+              </Button>
+              <Button
+                onClick={onViewTickets || (() => (window.location.href = '/tickets'))}
+                className="flex-1"
+              >
+                <Ticket className="w-4 h-4 mr-2" />
+                View My Tickets
+              </Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+export default TicketSuccessPage;
