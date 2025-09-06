@@ -230,9 +230,9 @@ export default function UserProfilePage() {
           
           <div className="flex items-center gap-4 flex-1">
             <Avatar className="w-16 h-16">
-              <AvatarImage src={profile.photo_url} />
-              <AvatarFallback className="text-lg">
-                {profile.display_name.charAt(0)}
+              <AvatarImage src={profile.photo_url} alt={profile.display_name} />
+              <AvatarFallback className="text-lg bg-gradient-to-br from-primary/20 to-accent/20">
+                {profile.display_name.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             

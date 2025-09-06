@@ -37,6 +37,7 @@ const EventsPage = lazy(() => import('@/pages/EventsPage'));
 const EventDetails = lazy(() => import('@/pages/EventDetails'));
 const UserProfilePage = lazy(() => import('@/pages/UserProfilePage'));
 const OrganizationProfilePage = lazy(() => import('@/pages/OrganizationProfilePage'));
+const EditProfilePage = lazy(() => import('@/pages/EditProfilePage'));
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success';
 type UserRole = 'attendee' | 'organizer';
@@ -347,6 +348,16 @@ function AppContent() {
                     onBack={() => navigate('/')}
                   />
                 )}
+              </UserDependentRoute>
+            </AuthGuard>
+          } 
+        />
+        <Route 
+          path="/edit-profile" 
+          element={
+            <AuthGuard>
+              <UserDependentRoute>
+                {() => <EditProfilePage />}
               </UserDependentRoute>
             </AuthGuard>
           } 

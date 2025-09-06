@@ -183,8 +183,16 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             >
               <Share className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setIsEditing(!isEditing)}>
-              {isEditing ? 'Done' : <Edit className="w-4 h-4" />}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                import('@/lib/routes').then(({ routes }) => {
+                  window.location.href = '/edit-profile';
+                });
+              }}
+            >
+              <Edit className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -195,13 +203,12 @@ export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
         {/* Profile Header */}
         <div className="p-6 text-center border-b">
           <Avatar className="w-20 h-20 mx-auto mb-4">
-            <AvatarFallback className="text-xl">
+            <AvatarFallback className="text-xl bg-gradient-to-br from-primary/20 to-accent/20">
               {user.name.split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
           </Avatar>
           
           <h2 className="mb-1">{user.name}</h2>
-          <p className="text-sm text-muted-foreground mb-2">{user.phone}</p>
           
           <div className="flex items-center justify-center gap-2 mb-4">
             {user.isVerified && (
