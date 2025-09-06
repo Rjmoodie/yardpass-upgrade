@@ -127,6 +127,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "trending_posts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_event_comments_post_id"
             columns: ["post_id"]
             isOneToOne: false
@@ -138,6 +145,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "event_posts_with_meta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_comments_post_id"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "trending_posts"
             referencedColumns: ["id"]
           },
         ]
@@ -301,6 +315,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "trending_posts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_event_reactions_post_id"
             columns: ["post_id"]
             isOneToOne: false
@@ -312,6 +333,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "event_posts_with_meta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_reactions_post_id"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "trending_posts"
             referencedColumns: ["id"]
           },
         ]
@@ -553,6 +581,27 @@ export type Database = {
           notes?: string | null
           tier_id?: string | null
           used_count?: number | null
+        }
+        Relationships: []
+      }
+      idempotency_keys: {
+        Row: {
+          created_at: string | null
+          key: string
+          response: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          key: string
+          response: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          key?: string
+          response?: Json
+          user_id?: string
         }
         Relationships: []
       }
@@ -902,6 +951,27 @@ export type Database = {
           user_agent?: string | null
           user_id?: string | null
           watch_percentage?: number | null
+        }
+        Relationships: []
+      }
+      rate_limits: {
+        Row: {
+          bucket: string
+          count: number | null
+          minute: string
+          user_id: string
+        }
+        Insert: {
+          bucket: string
+          count?: number | null
+          minute: string
+          user_id: string
+        }
+        Update: {
+          bucket?: string
+          count?: number | null
+          minute?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1475,11 +1545,55 @@ export type Database = {
           },
         ]
       }
+      trending_posts: {
+        Row: {
+          comment_count: number | null
+          created_at: string | null
+          event_id: string | null
+          id: string | null
+          like_count: number | null
+          trending_score: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_posts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_posts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_posts_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_posts_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_current_user_post: {
         Args: { p_event_id: string } | { target_event_id: string; uid: string }
         Returns: boolean
+      }
+      cleanup_old_keys: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       create_organization_with_membership: {
         Args: {
@@ -1599,6 +1713,10 @@ export type Database = {
         Returns: boolean
       }
       refresh_analytics_views: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      refresh_trending_posts: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
