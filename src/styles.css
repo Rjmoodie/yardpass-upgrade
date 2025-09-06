@@ -1,154 +1,135 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Keep your class names so pages/components won’t break */
 
-/* Variant helper (kept from your setup) */
-@custom-variant dark (&:is(.dark *));
+/* Scroll snap like TikTok feed */
+@layer utilities {
+  .tiktok-scroll { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+  .tiktok-item { scroll-snap-align: start; }
 
-/* 
-  Design tokens
-  — Switched to HSL *triplets* so Tailwind color opacity utilities (e.g. bg-primary/90) work reliably.
-  — Also expose OKLCH companions if you want to reference them in custom CSS.
-*/
-:root {
-  --font-size: 14px;
-
-  /* Core palette (HSL triplets) */
-  --background: 45 25% 97%;
-  --foreground: 0 0% 10%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 10%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 10%;
-  --primary: 32 100% 64%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 45 20% 95%;
-  --secondary-foreground: 0 0% 20%;
-  --muted: 45 15% 94%;
-  --muted-foreground: 0 0% 42%;
-  --accent: 45 85% 65%;
-  --accent-foreground: 0 0% 10%;
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 45 20% 88%;
-  --input: 0 0% 100% / 0; /* transparent */
-  --input-background: 45 30% 96%;
-  --switch-background: 45 20% 85%;
-  --ring: 32 100% 64%;
-
-  /* Status */
-  --success: 142 71% 45%;
-  --warning: 40 96% 56%;
-  --info: 201 96% 32%;
-
-  /* Brand companions (OKLCH mirrors) */
-  --primary-oklch: oklch(0.82 0.16 77);
-  --background-oklch: oklch(0.97 0.02 90);
-  --foreground-oklch: oklch(0.15 0 0);
-
-  /* Layout & elevation */
-  --radius: 16px;
-  --radius-pill: 9999px;
-
-  --shadow-card: 0 8px 32px hsl(0 0% 0% / 8%);
-  --shadow-elevated: 0 16px 48px hsl(0 0% 0% / 12%);
-  --shadow-glow: 0 0 40px hsl(32 100% 64% / 40%);
-  --shadow-modal: 0 24px 64px hsl(0 0% 0% / 45%), 0 8px 24px hsl(0 0% 0% / 35%);
-
-  /* Overlays */
-  --overlay: 10 12% 6% / 32%;
-  --overlay-strong: 10 12% 6% / 45%;
-
-  /* Sidebar */
-  --sidebar: 45 25% 97%;
-  --sidebar-foreground: 0 0% 10%;
-  --sidebar-primary: 32 100% 64%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 45 20% 96%;
-  --sidebar-accent-foreground: 0 0% 20%;
-  --sidebar-border: 45 20% 90%;
-  --sidebar-ring: 32 100% 64%;
-
-  /* Typography weights */
-  --font-weight-medium: 600;
-  --font-weight-normal: 500;
-}
-
-/* Dark theme */
-.dark {
-  --background: 0 0% 8%;
-  --foreground: 0 0% 98%;
-  --card: 0 0% 12%;
-  --card-foreground: 0 0% 98%;
-  --popover: 0 0% 12%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 32 100% 64%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 0 0% 18%;
-  --secondary-foreground: 0 0% 90%;
-  --muted: 0 0% 16%;
-  --muted-foreground: 0 0% 70%;
-  --accent: 45 85% 65%;
-  --accent-foreground: 0 0% 10%;
-  --destructive: 0 72% 55%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 22%;
-  --input: 0 0% 16%;
-  --input-background: 0 0% 16%;
-  --ring: 32 100% 64%;
-
-  --sidebar: 0 0% 6%;
-  --sidebar-foreground: 0 0% 100%;
-  --sidebar-primary: 32 100% 64%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 0 0% 12%;
-  --sidebar-accent-foreground: 0 0% 85%;
-  --sidebar-border: 0 0% 20%;
-  --sidebar-ring: 32 100% 64%;
-}
-
-/* Base */
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
+  /* Glass */
+  .glass-effect {
+    background: linear-gradient(135deg, hsl(0 0% 100% / 0.10), hsl(0 0% 100% / 0.05));
+    backdrop-filter: blur(16px);
+    border: 1px solid hsl(0 0% 100% / 0.15);
   }
 
-  html {
-    font-size: var(--font-size);
+  .glass-nav {
+    background: hsl(0 0% 100% / 0.08);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid hsl(0 0% 100% / 0.1);
+    box-shadow: 0 -8px 32px hsl(0 0% 0% / 0.15);
   }
 
-  body {
-    @apply bg-background text-foreground antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    transition: background-color 200ms ease, color 200ms ease;
+  /* Premium action button */
+  .action-button {
+    @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 relative hover:scale-110 active:scale-95;
+    background: hsl(0 0% 100% / 0.06);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(0 0% 100% / 0.15);
+    box-shadow: 0 4px 16px hsl(0 0% 0% / 0.2);
+  }
+  .action-button:hover {
+    background: hsl(var(--primary) / 0.2);
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: var(--shadow-glow);
+  }
+  .action-button-primary {
+    background: linear-gradient(135deg, hsl(45 85% 65%), hsl(32 100% 64%));
+    border: 1px solid hsl(32 100% 64% / 0.4);
+    box-shadow: var(--shadow-glow);
   }
 
-  /* Prefer dark by default (opt-out by removing this) */
-  html { @apply dark; }
+  /* Buttons */
+  .premium-button {
+    @apply rounded-full px-6 py-3 font-semibold transition-all duration-300;
+    background: linear-gradient(135deg, hsl(45 85% 65%), hsl(32 100% 64%));
+    color: white;
+    border: none;
+    box-shadow: var(--shadow-elevated);
+  }
+  .premium-button:hover { transform: translateY(-2px); box-shadow: var(--shadow-glow), var(--shadow-elevated); }
 
-  /* Selection */
-  ::selection {
-    background: hsl(var(--primary) / 0.25);
-    color: hsl(var(--primary-foreground));
+  .pill-button { @apply rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 border; border-color: hsl(0 0% 100% / 0.2); backdrop-filter: blur(6px); }
+  .pill-button-active { background: linear-gradient(135deg, hsl(45 85% 65%), hsl(32 100% 64%)); border-color: hsl(32 100% 64% / 0.4); color: white; box-shadow: var(--shadow-glow); }
+
+  /* Elevation utilities */
+  .enhanced-card {
+    background: hsl(0 0% 100% / 0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid hsl(0 0% 100% / 0.1);
+    box-shadow: 0 8px 32px hsl(0 0% 0% / 0.1), 0 2px 8px hsl(0 0% 0% / 0.05);
+    transition: transform 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+  }
+  .enhanced-card:hover {
+    background: hsl(0 0% 100% / 0.08);
+    border-color: hsl(0 0% 100% / 0.15);
+    box-shadow: 0 12px 40px hsl(0 0% 0% / 0.15), 0 4px 12px hsl(0 0% 0% / 0.08);
+    transform: translateY(-2px);
   }
 
-  /* Typography defaults (kept, slightly tuned) */
-  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
-    h1 { font-size: var(--text-2xl); font-weight: var(--font-weight-medium); line-height: 1.5; }
-    h2 { font-size: var(--text-xl);  font-weight: var(--font-weight-medium); line-height: 1.5; }
-    h3 { font-size: var(--text-lg);  font-weight: var(--font-weight-medium); line-height: 1.5; }
-    h4 { font-size: var(--text-base);font-weight: var(--font-weight-medium); line-height: 1.5; }
-    p  { font-size: var(--text-base);font-weight: var(--font-weight-normal); line-height: 1.5; }
-    label, button, input {
-      font-size: var(--text-base);
-      line-height: 1.5;
-    }
-    label, button { font-weight: var(--font-weight-medium); }
-    input { font-weight: var(--font-weight-normal); }
+  /* Subtle app glow */
+  .golden-glow { box-shadow: 0 0 20px hsl(32 100% 64% / 0.4); }
+  .app-glow { box-shadow: 0 0 60px hsl(32 100% 64% / 0.15); }
+  .app-glow-hover:hover { box-shadow: 0 0 80px hsl(32 100% 64% / 0.25); }
+
+  /* Patterns & gradients */
+  .subtle-pattern {
+    background-image:
+      radial-gradient(circle at 25% 25%, hsl(32 100% 64% / 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, hsl(45 85% 65% / 0.03) 0%, transparent 50%);
+  }
+  .brand-gradient { background: linear-gradient(135deg, hsl(45 85% 65%), hsl(32 100% 64%)); }
+  .charcoal-gradient { background: linear-gradient(135deg, hsl(0 0% 10%), hsl(0 0% 20%)); }
+  .feed-gradient { background: linear-gradient(180deg, transparent 0%, hsl(0 0% 0% / 0.8) 100%); }
+
+  /* Text shadows */
+  .text-shadow-soft { text-shadow: 0 2px 4px hsl(0 0% 0% / 0.1); }
+  .text-shadow-strong { text-shadow: 0 4px 8px hsl(0 0% 0% / 0.2); }
+
+  /* Micro interactions */
+  .micro-bounce { transition: transform 0.2s cubic-bezier(0.68,-0.55,0.265,1.55); }
+  .micro-bounce:hover { transform: scale(1.05); }
+  .micro-bounce:active { transform: scale(0.95); }
+
+  /* Shimmer & skeleton */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted) / 0.6) 20%,
+      hsl(var(--muted)) 40%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+  .skeleton { @apply shimmer rounded-md; }
+
+  /* Focus rings */
+  .focus-ring { @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background; }
+  .focus-ring-white { @apply focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-transparent; }
+
+  /* Scrollbar */
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.5) transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar { height: 8px; width: 8px; }
+  .scrollbar-slim::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.5); border-radius: 9999px; }
+
+  /* Smooth scrolling */
+  .smooth-scroll { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+
+  /* Mobile optimizations */
+  @media (max-width: 768px) {
+    .glass-nav { backdrop-filter: blur(20px); background: rgba(0,0,0,0.8); }
+    .action-button { min-height: 56px; min-width: 56px; }
+    .touch-manipulation { touch-action: manipulation; }
+    .mobile-button-spacing { gap: 0.75rem; }
+    .mobile-text-shadow { text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+    .mobile-button { min-height: 48px; min-width: 48px; padding: 0.75rem; font-size: 0.875rem; font-weight: 600; }
+    .mobile-toast { top: 1rem; left: 1rem; right: 1rem; max-width: none; }
   }
 
-  /* Reduced motion */
-  @media (prefers-reduced-motion: reduce) {
-    * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
-  }
+  /* Safe-area helpers */
+  .safe-bottom-pad { padding-bottom: env(safe-area-inset-bottom); }
+  .inset-safe { inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 }
