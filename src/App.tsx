@@ -34,6 +34,7 @@ const EventAnalytics = lazy(() => import('@/components/EventAnalytics'));
 const AnalyticsWrapper = lazy(() => import('@/components/AnalyticsWrapper').then(m => ({ default: m.AnalyticsWrapper })));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const EventsPage = lazy(() => import('@/pages/EventsPage'));
+const EventDetails = lazy(() => import('@/pages/EventDetails'));
 const UserProfilePage = lazy(() => import('@/pages/UserProfilePage'));
 const OrganizationProfilePage = lazy(() => import('@/pages/OrganizationProfilePage'));
 
@@ -236,7 +237,7 @@ function AppContent() {
         />
         <Route 
           path="/events/:id" 
-          element={<EventsPage />} 
+          element={<EventDetails />} 
         />
         <Route 
           path="/u/:username" 
