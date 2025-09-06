@@ -3,9 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Search, Filter, MapPin, Calendar, Users, Star } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ArrowLeft, Search, Filter, MapPin, Calendar as CalendarIcon, Users, Star, X } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface SearchPageProps {
   onBack: () => void;
@@ -87,6 +91,9 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const [results, setResults] = useState<any[]>([]);
   const [allEvents, setAllEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [locationFilter, setLocationFilter] = useState('');
 
   // Load real events from database
   useEffect(() => {
@@ -158,42 +165,64 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     loadEvents();
   }, []);
 
+  const applyFilters = () => {
+    let filtered = allEvents;
+
+    // Apply search query filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(event =>
+        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.organizer.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply category filter
+    if (selectedCategory !== 'All') {
+      filtered = filtered.filter(event => event.category === selectedCategory);
+    }
+
+    // Apply date range filter
+    if (dateRange.from || dateRange.to) {
+      filtered = filtered.filter(event => {
+        const eventDate = new Date(event.date);
+        const isAfterFrom = !dateRange.from || eventDate >= dateRange.from;
+        const isBeforeTo = !dateRange.to || eventDate <= dateRange.to;
+        return isAfterFrom && isBeforeTo;
+      });
+    }
+
+    // Apply location filter
+    if (locationFilter.trim()) {
+      filtered = filtered.filter(event =>
+        event.location.toLowerCase().includes(locationFilter.toLowerCase())
+      );
+    }
+
+    setResults(filtered);
+  };
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    // Search through real events
-    if (query.trim()) {
-      const filtered = allEvents.filter(event =>
-        event.title.toLowerCase().includes(query.toLowerCase()) ||
-        event.description.toLowerCase().includes(query.toLowerCase()) ||
-        event.organizer.toLowerCase().includes(query.toLowerCase())
-      );
-      setResults(filtered);
-    } else {
-      setResults(allEvents);
-    }
+    // Trigger filter application when search changes
+    setTimeout(applyFilters, 0);
+  };
+
+  const clearFilters = () => {
+    setDateRange({});
+    setLocationFilter('');
+    setTimeout(applyFilters, 0);
   };
 
   const handleCategoryFilter = (category: string) => {
     setSelectedCategory(category);
-    // Filter real events by category
-    if (category === 'All') {
-      setResults(searchQuery ? allEvents.filter(event =>
-        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.organizer.toLowerCase().includes(searchQuery.toLowerCase())
-      ) : allEvents);
-    } else {
-      const filtered = allEvents.filter(event => {
-        const matchesCategory = event.category === category;
-        const matchesSearch = !searchQuery || 
-          event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          event.organizer.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesCategory && matchesSearch;
-      });
-      setResults(filtered);
-    }
+    setTimeout(applyFilters, 0);
   };
+
+  // Apply filters whenever dependencies change
+  useEffect(() => {
+    applyFilters();
+  }, [selectedCategory, dateRange, locationFilter, allEvents]);
 
   if (loading) {
     return (
@@ -242,13 +271,135 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
             onChange={(e) => handleSearch(e.target.value)}
             className="pl-10 pr-12"
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute right-1 top-1/2 transform -translate-y-1/2"
-          >
-            <Filter className="w-4 h-4" />
-          </Button>
+          <Popover open={showFilters} onOpenChange={setShowFilters}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2"
+              >
+                <Filter className="w-4 h-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-4 bg-card border shadow-lg z-50" align="end">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Filters</h3>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearFilters}
+                      className="text-xs"
+                    >
+                      Clear all
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFilters(false)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Date Range Filter */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Date Range</label>
+                  <div className="flex gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "flex-1 justify-start text-left font-normal",
+                            !dateRange.from && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="w-4 h-4 mr-2" />
+                          {dateRange.from ? format(dateRange.from, "MMM dd") : "From"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-50" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateRange.from}
+                          onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "flex-1 justify-start text-left font-normal",
+                            !dateRange.to && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="w-4 h-4 mr-2" />
+                          {dateRange.to ? format(dateRange.to, "MMM dd") : "To"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-50" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateRange.to}
+                          onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                {/* Location Filter */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Location</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Enter city or location..."
+                      value={locationFilter}
+                      onChange={(e) => setLocationFilter(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                {/* Active Filters Summary */}
+                {(dateRange.from || dateRange.to || locationFilter) && (
+                  <div className="pt-2 border-t">
+                    <p className="text-xs text-muted-foreground mb-2">Active filters:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {dateRange.from && (
+                        <Badge variant="secondary" className="text-xs">
+                          From: {format(dateRange.from, "MMM dd")}
+                        </Badge>
+                      )}
+                      {dateRange.to && (
+                        <Badge variant="secondary" className="text-xs">
+                          To: {format(dateRange.to, "MMM dd")}
+                        </Badge>
+                      )}
+                      {locationFilter && (
+                        <Badge variant="secondary" className="text-xs">
+                          Location: {locationFilter}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Category Filters */}
