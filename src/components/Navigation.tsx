@@ -83,7 +83,7 @@ export default function Navigation({ userRole }: NavigationProps) {
     ).filter((i) => i.show);
   }, [userRole]);
 
-  const requiresAuth = useCallback((path: string) => Object.hasOwn(AUTH_REQUIRED, path), []);
+  const requiresAuth = useCallback((path: string) => path in AUTH_REQUIRED, []);
 
   const handleNavigation = useCallback(
     (path: string, screen: Screen) => {
