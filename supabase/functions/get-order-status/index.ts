@@ -34,7 +34,7 @@ serve(async (req) => {
       .from("orders")
       .select(`
         *,
-        events (
+        events!orders_event_id_fkey (
           title
         )
       `)
