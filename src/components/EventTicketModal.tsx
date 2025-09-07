@@ -10,7 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 interface Event {
   id: string;
   title: string;
-  start_at: string;
+  start_at: string; // Keep this for backward compatibility
+  startAtISO?: string; // New field from Index.tsx
   venue?: string;
   address?: string;
   description?: string;

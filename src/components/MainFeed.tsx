@@ -16,43 +16,9 @@ import { capture } from '@/lib/analytics';
 import { useShare } from '@/hooks/useShare';
 import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
+import { Event, EventPost, TicketTier } from '@/types/events';
 
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  organizer: string;
-  organizerId: string;
-  category: string;
-  date: string;
-  location: string;
-  coverImage: string;
-  ticketTiers: TicketTier[];
-  attendeeCount: number;
-  likes: number;
-  shares: number;
-  isLiked?: boolean;
-  posts?: EventPost[];
-}
-
-interface EventPost {
-  id: string;
-  authorName: string;
-  authorBadge: string;
-  isOrganizer?: boolean;
-  content: string;
-  timestamp: string;
-  likes: number;
-}
-
-interface TicketTier {
-  id: string;
-  name: string;
-  price: number;
-  badge: string;
-  available: number;
-  total: number;
-}
+// Event, EventPost, and TicketTier interfaces now imported from @/types/events
 
 interface IndexProps {
   onEventSelect: (event: Event) => void;

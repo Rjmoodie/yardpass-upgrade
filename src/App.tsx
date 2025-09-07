@@ -13,6 +13,7 @@ import { SharePayload } from '@/lib/share';
 import { getEventRoute } from '@/lib/eventRouting';
 import { Scan } from 'lucide-react';
 import { PageLoadingSpinner } from '@/components/LoadingSpinner';
+import { Event, TicketTier } from '@/types/events';
 
 // Lazy load heavy components
 const EventDetail = lazy(() => import('@/components/EventDetail'));
@@ -46,32 +47,7 @@ const EditProfilePage = lazy(() => import('@/pages/EditProfilePage'));
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success';
 type UserRole = 'attendee' | 'organizer';
 
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  organizer: string;
-  organizerId: string;
-  category: string;
-  date: string;
-  location: string;
-  coverImage: string;
-  videoUrl: string;
-  ticketTiers: TicketTier[];
-  attendeeCount: number;
-  likes: number;
-  shares: number;
-  slug?: string;
-}
-
-interface TicketTier {
-  id: string;
-  name: string;
-  price: number;
-  badge: string;
-  available: number;
-  total: number;
-}
+// Event and TicketTier interfaces now imported from @/types/events
 
 // Scanner route component
 function ScannerRouteComponent() {

@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
-import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users, Plus } from 'lucide-react';
+import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users, Plus, Play, Image as ImageIcon, TrendingUp, Clock } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
 import { CommentModal } from '@/components/CommentModal';
@@ -19,18 +19,7 @@ import { capture } from '@/lib/analytics';
 import { useShare } from '@/hooks/useShare';
 import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
-
-interface DatabaseTicketTier { id: string; name: string; price_cents: number; badge_label?: string; quantity: number; }
-interface DatabaseEvent {
-  id: string; title: string; description: string; organizer_id: string; category: string; start_at: string; city?: string; venue?: string; cover_image_url?: string;
-  ticket_tiers?: DatabaseTicketTier[];
-}
-
-interface EventPost { id: string; authorName: string; authorBadge: string; isOrganizer?: boolean; content: string; timestamp: string; likes: number; }
-interface TicketTier { id: string; name: string; price: number; badge: string; available: number; total: number; }
-interface Event {
-  id: string; title: string; description: string; organizer: string; organizerId: string; category: string; date: string; location: string; coverImage: string; ticketTiers: TicketTier[]; attendeeCount: number; likes: number; shares: number; isLiked?: boolean; posts?: EventPost[];
-}
+import { Event, EventPost, TicketTier, DatabaseEvent, DatabaseTicketTier } from '@/types/events';
 
 interface IndexProps {
   onEventSelect: (event: Event) => void;
@@ -50,7 +39,9 @@ const mockEvents: Event[] = [
     organizer: 'LiveNation Events',
     organizerId: '101',
     category: 'Music',
-    date: 'July 15-17, 2024',
+    startAtISO: '2024-07-15T18:00:00Z',
+    endAtISO: '2024-07-17T23:00:00Z',
+    dateLabel: 'July 15-17, 2024',
     location: 'Central Park, NYC',
     coverImage: DEFAULT_EVENT_COVER,
     ticketTiers: [
@@ -60,16 +51,151 @@ const mockEvents: Event[] = [
     attendeeCount: 1243, likes: 892, shares: 156, isLiked: false, posts: []
   },
   {
-    id: '2', title: 'Street Food Fiesta', description: 'Taste authentic flavors from around the world. Over 50 food vendors, live cooking demos, and family-friendly activities.', organizer: 'Foodie Adventures', organizerId: '102', category: 'Food & Drink', date: 'August 8, 2024', location: 'Brooklyn Bridge Park', coverImage: DEFAULT_EVENT_COVER,
+    id: '2', title: 'Street Food Fiesta', description: 'Taste authentic flavors from around the world. Over 50 food vendors, live cooking demos, and family-friendly activities.', organizer: 'Foodie Adventures', organizerId: '102', category: 'Food & Drink', startAtISO: '2024-08-08T12:00:00Z', dateLabel: 'August 8, 2024', location: 'Brooklyn Bridge Park', coverImage: DEFAULT_EVENT_COVER,
     ticketTiers: [ { id: '3', name: 'Entry Pass', price: 25, badge: 'ENTRY', available: 234, total: 500 }, { id: '4', name: 'Foodie Pass', price: 75, badge: 'FOODIE', available: 18, total: 50 } ],
     attendeeCount: 567, likes: 445, shares: 89, isLiked: true, posts: []
   },
   {
-    id: '3', title: 'Contemporary Art Showcase', description: 'Discover emerging artists and groundbreaking installations. Interactive exhibits, artist talks, and exclusive previews.', organizer: 'Modern Gallery NYC', organizerId: '103', category: 'Art & Culture', date: 'September 2, 2024', location: 'SoHo Art District', coverImage: DEFAULT_EVENT_COVER,
+    id: '3', title: 'Contemporary Art Showcase', description: 'Discover emerging artists and groundbreaking installations. Interactive exhibits, artist talks, and exclusive previews.', organizer: 'Modern Gallery NYC', organizerId: '103', category: 'Art & Culture', startAtISO: '2024-09-02T19:00:00Z', dateLabel: 'September 2, 2024', location: 'SoHo Art District', coverImage: DEFAULT_EVENT_COVER,
     ticketTiers: [ { id: '5', name: 'Standard', price: 35, badge: 'STD', available: 156, total: 200 }, { id: '6', name: 'Premium', price: 85, badge: 'PREM', available: 23, total: 50 } ],
     attendeeCount: 298, likes: 234, shares: 67, isLiked: false, posts: []
   }
 ];
+
+// RecentPostsRail component for displaying post tiles within event cards
+function RecentPostsRail({ 
+  posts, 
+  eventId, 
+  onPostClick, 
+  onViewAllClick 
+}: { 
+  posts: EventPost[]; 
+  eventId: string; 
+  onPostClick: (postId: string) => void;
+  onViewAllClick: () => void;
+}) {
+  const [imageLoading, setImageLoading] = useState<Record<string, boolean>>({});
+  const [isVisible, setIsVisible] = useState(false);
+  const railRef = useRef<HTMLDivElement>(null);
+
+  // IntersectionObserver for lazy loading
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect(); // Only load once
+        }
+      },
+      { 
+        rootMargin: '50px', // Start loading 50px before it comes into view
+        threshold: 0.1 
+      }
+    );
+
+    if (railRef.current) {
+      observer.observe(railRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  if (!posts || posts.length === 0) {
+    return (
+      <div ref={railRef} className="mt-3 p-3 bg-white/5 rounded-lg border border-white/10">
+        <p className="text-sm text-gray-300 text-center">Be the first to post about this event!</p>
+      </div>
+    );
+  }
+
+  // Show loading state until visible
+  if (!isVisible) {
+    return (
+      <div ref={railRef} className="mt-3 p-3 bg-white/5 rounded-lg border border-white/10">
+        <div className="flex items-center justify-center">
+          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          <span className="ml-2 text-sm text-gray-300">Loading posts...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={railRef} className="mt-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium text-white">Recent Posts</h4>
+        <button 
+          onClick={onViewAllClick}
+          className="text-xs text-primary hover:text-primary/80 font-medium"
+        >
+          View All
+        </button>
+      </div>
+      
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {posts.map((post) => (
+          <div 
+            key={post.id}
+            onClick={() => onPostClick(post.id)}
+            className="flex-shrink-0 w-24 h-24 bg-white/10 rounded-lg border border-white/20 cursor-pointer hover:bg-white/15 transition-all duration-200 relative group"
+          >
+            {/* Media thumbnail */}
+            {post.thumbnailUrl ? (
+              <div className="relative w-full h-full">
+                <ImageWithFallback 
+                  src={post.thumbnailUrl} 
+                  alt="Post thumbnail"
+                  className="w-full h-full object-cover rounded-lg"
+                  onLoad={() => setImageLoading(prev => ({ ...prev, [post.id]: false }))}
+                  onError={() => setImageLoading(prev => ({ ...prev, [post.id]: false }))}
+                />
+                {imageLoading[post.id] !== false && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/5">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center rounded-lg bg-white/5">
+                {post.mediaType === 'video' ? (
+                  <Play className="w-6 h-6 text-white/60" />
+                ) : (
+                  <ImageIcon className="w-6 h-6 text-white/60" />
+                )}
+              </div>
+            )}
+            
+            {/* Play overlay for videos */}
+            {post.mediaType === 'video' && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8 bg-black/50 rounded-full flex items-center justify-center">
+                  <Play className="w-4 h-4 text-white ml-0.5" />
+                </div>
+              </div>
+            )}
+            
+            {/* Author info overlay */}
+            <div className="absolute bottom-1 left-1 right-1">
+              <div className="bg-black/70 rounded px-1 py-0.5">
+                <p className="text-xs text-white truncate">{post.authorName}</p>
+                <div className="flex items-center gap-1 text-xs text-gray-300">
+                  <Heart className="w-3 h-3" />
+                  <span>{post.likes}</span>
+                  {post.commentCount && post.commentCount > 0 && (
+                    <>
+                      <MessageCircle className="w-3 h-3 ml-1" />
+                      <span>{post.commentCount}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [events, setEvents] = useState<Event[]>([]);
@@ -80,68 +206,100 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sortByActivity, setSortByActivity] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
   const { shareEvent } = useShare();
 
-  // Fetch events
+  // Fetch events with recent posts using optimized RPC
   useEffect(() => {
-    const load = async () => {
+    const ac = new AbortController();
+    let cancelled = false;
+
+    const load = async (retryCount = 0) => {
+      const maxRetries = 3;
       try {
-        console.log('Fetching events...');
-        const { data, error } = await supabase
-          .from('events')
-          .select(`
-            id, title, description, start_at, end_at, venue, city, category, cover_image_url, visibility,
-            user_profiles!events_created_by_fkey ( display_name ),
-            ticket_tiers!ticket_tiers_event_id_fkey ( id, name, price_cents, badge_label, quantity )
-          `)
-          .eq('visibility', 'public')
-          .order('start_at', { ascending: true })
-          .limit(20);
+        console.log(`Fetching home feed... (attempt ${retryCount + 1})`);
         
-        console.log('Events query result:', { data, error, dataLength: data?.length });
+        // Get current user session
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
         
-        if (error) {
-          console.error('Events query error:', error);
-          throw error;
+        if (userError) {
+          console.error('Auth error:', userError);
+          throw userError;
         }
         
-        if (!data || !data.length) { 
+        if (!user) {
+          console.log('No user session, using mock data');
+          if (!cancelled) setEvents(mockEvents);
+          return;
+        }
+
+        // Use the optimized RPC function
+        const { data, error } = await supabase.functions.invoke('get-home-feed', {
+          body: { 
+            posts_per_event: 3,
+            sort_by_activity: sortByActivity
+          },
+          signal: ac.signal
+        });
+
+        if (error) throw error;
+        if (cancelled) return;
+        
+        if (!data?.events || !data.events.length) { 
           console.log('No events found, using mock data');
-          setEvents(mockEvents); 
+          if (!cancelled) setEvents(mockEvents);
           return; 
         }
-        const transformed: Event[] = data.map((e: any) => ({
-          id: e.id,
-          title: e.title,
-          description: e.description || '',
-          organizer: e.user_profiles?.display_name || 'Organizer',
-          organizerId: e.id,
-          category: e.category || 'Event',
-          date: new Date(e.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-          location: e.city || e.venue || 'TBA',
-          coverImage: e.cover_image_url || DEFAULT_EVENT_COVER,
-          ticketTiers: (e.ticket_tiers || []).map((t: any) => ({ id: t.id, name: t.name, price: (t.price_cents||0)/100, badge: t.badge_label, available: t.quantity||0, total: t.quantity||0 })),
-          attendeeCount: Math.floor(Math.random()*1000)+50,
-          likes: Math.floor(Math.random()*500)+10,
-          shares: Math.floor(Math.random()*100)+5,
-          isLiked: false,
-          posts: []
-        }));
-        setEvents(transformed);
-      } catch (e) {
-        console.error('load events error', e);
-        setEvents(mockEvents);
+
+        console.log(`Loaded ${data.events.length} events with real attendee counts`);
+        if (!cancelled) setEvents(data.events);
+      } catch (e: any) {
+        if (cancelled) return;
+        console.error('load home feed error', e);
+        
+        // Retry logic for network errors with exponential backoff + jitter
+        const isAbort = e?.name === 'AbortError';
+        if (!isAbort) {
+          const maxRetries = 3;
+          const retryCount = (Number(e?.__retryCount) || 0);
+          if (retryCount < maxRetries && e?.code !== 'PGRST116') {
+            const delay = Math.min(8000, 500 * 2 ** retryCount) + Math.random() * 250;
+            console.log(`Retrying in ${Math.round(delay)}ms...`);
+            const retryError: any = new Error('retry');
+            (retryError as any).__retryCount = retryCount + 1;
+            setTimeout(() => load(retryCount + 1), delay);
+            return;
+          }
+        }
+        
+        // Fallback to mock data on final failure
+        console.log('Using mock data as fallback');
+        if (!cancelled) {
+          setEvents(mockEvents);
+          toast({
+            title: 'Unable to load events',
+            description: 'Showing sample events. Please check your connection.',
+            variant: 'destructive'
+          });
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
-  }, []);
 
-  const currentEvent = events[currentIndex];
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [sortByActivity]);
+
+  // Clamp currentIndex to prevent out-of-bounds access
+  const safeIndex = Math.max(0, Math.min(currentIndex, events.length - 1));
+  const currentEvent = events[safeIndex];
 
   // Meta tags
   useEffect(() => { updateMetaTags(defaultMeta); }, []);
@@ -174,15 +332,89 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     [next, prev].filter(Boolean).forEach((src) => { const img = new Image(); img.src = src as string; });
   }, [currentIndex, events]);
 
-  const handleLike = withAuth((eventId: string) => {
+  // Listen for new posts and update events optimistically
+  useEffect(() => {
+    const handlePostCreated = (event: CustomEvent) => {
+      try {
+        const { eventId, postData } = event.detail;
+        console.log('Post created event received:', { eventId, postData });
+        
+        if (!eventId || !postData) {
+          console.warn('Invalid post created event data:', event.detail);
+          return;
+        }
+        
+        // Update the events state to include the new post
+        setEvents(prevEvents => 
+          prevEvents.map(event => {
+            if (event.id === eventId) {
+              const newPost: EventPost = {
+                id: postData.id || `temp-${Date.now()}`,
+                authorName: postData.authorName || 'You',
+                authorBadge: postData.isOrganizer ? 'ORGANIZER' : 'ATTENDEE',
+                isOrganizer: postData.isOrganizer || false,
+                content: postData.content || '',
+                timestamp: new Date().toLocaleDateString(),
+                likes: 0,
+                mediaType: postData.mediaType,
+                mediaUrl: postData.mediaUrl,
+                thumbnailUrl: postData.thumbnailUrl,
+                commentCount: 0
+              };
+              
+              // Add new post to the beginning of the posts array, maintaining 3-post limit
+              const updatedPosts = [newPost, ...(event.posts || [])].slice(0, 3);
+              
+              return {
+                ...event,
+                posts: updatedPosts
+              };
+            }
+            return event;
+          })
+        );
+        
+        // Show success toast
+      toast({
+          title: 'Post created!',
+          description: 'Your post has been added to the event feed.',
+        });
+      } catch (error) {
+        console.error('Error handling post created event:', error);
+      }
+    };
+
+    // Add event listener for post creation
+    window.addEventListener('postCreated', handlePostCreated as EventListener);
+    
+    return () => {
+      window.removeEventListener('postCreated', handlePostCreated as EventListener);
+    };
+  }, []);
+
+  // Memoized handlers for performance
+  const handleLike = useCallback(withAuth((eventId: string) => {
     setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, isLiked: !ev.isLiked, likes: ev.isLiked ? ev.likes-1 : ev.likes+1 } : ev));
-  }, 'Please sign in to like events');
+  }, 'Please sign in to like events'), []);
 
-  const handleShare = (ev: Event) => { capture('share_click', { event_id: ev.id }); setShowShareModal(true); };
-  const handleComment = withAuth(() => setShowCommentModal(true), 'Please sign in to comment on events');
-  const handleMore = withAuth(() => toast({ title: 'More Options', description: 'Additional options coming soon…' }), 'Please sign in to access more options');
+  const handleShare = useCallback((ev: Event) => { 
+    capture('share_click', { event_id: ev.id }); 
+    setShowShareModal(true); 
+  }, []);
 
-  const goTo = (i: number) => setCurrentIndex(Math.max(0, Math.min(events.length-1, i)));
+  const handleComment = useCallback(withAuth(() => setShowCommentModal(true), 'Please sign in to comment on events'), []);
+  const handleMore = useCallback(withAuth(() => toast({ title: 'More Options', description: 'Additional options coming soon…' }), 'Please sign in to access more options'), []);
+
+  const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(events.length-1, i))), [events.length]);
+
+  // Memoized post click handlers
+  const handlePostClick = useCallback((postId: string) => {
+    navigate(routes.eventDetails(currentEvent.id) + '?tab=posts&post=' + postId);
+  }, [navigate, currentEvent.id]);
+
+  const handleViewAllPosts = useCallback(() => {
+    navigate(routes.eventDetails(currentEvent.id) + '?tab=posts');
+  }, [navigate, currentEvent.id]);
 
   if (loading) {
     return (
@@ -217,7 +449,27 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             <img src="/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png" alt="YardPass" className="w-8 h-8" />
             <span className="font-bold text-lg">YardPass</span>
           </div>
-          <Button size="sm" variant="glass" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create content')} className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg">+ Create Event</Button>
+          <div className="flex items-center gap-2">
+            {/* Sort Toggle */}
+            <button
+              onClick={() => setSortByActivity(!sortByActivity)}
+              className="flex items-center gap-1 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg border border-white/20 transition-all duration-200 backdrop-blur-sm"
+              title={sortByActivity ? "Sort by event date" : "Sort by activity"}
+            >
+              {sortByActivity ? (
+                <>
+                  <TrendingUp className="w-4 h-4" />
+                  <span className="text-xs font-medium">Active</span>
+                </>
+              ) : (
+                <>
+                  <Clock className="w-4 h-4" />
+                  <span className="text-xs font-medium">Upcoming</span>
+                </>
+              )}
+            </button>
+            <Button size="sm" variant="glass" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create content')} className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg">+ Create Post</Button>
+          </div>
         </div>
       </div>
 
@@ -236,8 +488,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         <div className="flex justify-between items-end gap-4">
           <div className="flex-1 space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge
-                variant="secondary"
+              <Badge 
+                variant="secondary" 
                 className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90"
                 onClick={() => navigate(routes.category(currentEvent.category))}
               >
@@ -256,7 +508,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 <Badge variant="secondary" className="text-[10px] tracking-wide"><Crown className="w-3 h-3 mr-1"/>ORGANIZER</Badge>
               </div>
               <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300 mb-3">
-                <span className="inline-flex items-center gap-1"><Calendar className="w-4 h-4" /> {currentEvent.date}</span>
+                <span className="inline-flex items-center gap-1"><Calendar className="w-4 h-4" /> {currentEvent.dateLabel}</span>
                 <button className="inline-flex items-center gap-1 hover:text-white" onClick={() => toast({ title: 'Location', description: `Finding events near ${currentEvent.location}…` })}>
                   <MapPin className="w-4 h-4" /> {currentEvent.location}
                 </button>
@@ -272,23 +524,31 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                     onClick={() => requireAuth(() => { onEventSelect(currentEvent); toast({ title: 'Ticket Details', description: `Viewing ${t.name} ticket…` }); }, 'Please sign in to view ticket details')}>
                     {t.badge ? <span className="mr-2 px-1.5 py-0.5 text-[10px] rounded bg-black/40">{t.badge}</span> : null}
                     {t.name} · ${t.price.toFixed(0)}
-                  </Button>
+              </Button>
                 ))}
               </div>
             )}
 
+            {/* Recent Posts Rail */}
+            <RecentPostsRail 
+              posts={currentEvent.posts || []}
+              eventId={currentEvent.id}
+              onPostClick={handlePostClick}
+              onViewAllClick={handleViewAllPosts}
+            />
+
             <div className="flex gap-3 pt-1">
               <Button size="lg" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[48px] px-6 font-bold shadow-lg">Get Tickets</Button>
               <Button size="lg" variant="glass" onClick={() => navigate(routes.eventDetails(currentEvent.id))} className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[48px] px-6 font-semibold backdrop-blur-md">Details</Button>
-            </div>
-          </div>
+              </div>
+              </div>
 
           {/* Action rail */}
           <div className="flex flex-col items-center gap-4 text-white select-none">
             <IconButton ariaLabel="Like" active={currentEvent.isLiked} count={currentEvent.likes} onClick={() => handleLike(currentEvent.id)}>
               <Heart className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white text-white' : 'text-white'}`} />
             </IconButton>
-            <IconButton ariaLabel="Comments" count={currentEvent.posts?.length || 0} onClick={() => handleComment()}>
+            <IconButton ariaLabel="Comments" count={currentEvent.posts?.reduce((sum, post) => sum + (post.commentCount || 0), 0) || 0} onClick={() => handleComment()}>
               <MessageCircle className="w-6 h-6 text-white" />
             </IconButton>
             <IconButton ariaLabel="Create post" onClick={() => requireAuth(() => setPostCreatorOpen(true), 'Please sign in to create posts')}>
@@ -296,10 +556,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
               <span className="text-xs font-medium text-white drop-shadow-lg">Post</span>
             </IconButton>
             <IconButton ariaLabel="Share" count={currentEvent.shares} onClick={() => handleShare(currentEvent)}>
-              <Share className="w-6 h-6 text-white" />
+                <Share className="w-6 h-6 text-white" />
             </IconButton>
             <IconButton ariaLabel="More" onClick={() => handleMore()}>
-              <MoreVertical className="w-6 h-6 text-white" />
+                <MoreVertical className="w-6 h-6 text-white" />
             </IconButton>
           </div>
         </div>
@@ -319,7 +579,14 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       <AttendeeListModal isOpen={showAttendeeModal} onClose={() => setShowAttendeeModal(false)} eventTitle={currentEvent.title} attendeeCount={currentEvent.attendeeCount} attendees={[]} />
 
       <EventTicketModal
-        event={{ id: currentEvent.id, title: currentEvent.title, start_at: (() => { const d = new Date(currentEvent.date); return isNaN(d.getTime()) ? new Date(Date.now()+30*24*60*60*1000).toISOString() : d.toISOString(); })(), venue: currentEvent.location, address: currentEvent.location, description: currentEvent.description }}
+        event={{ 
+          id: currentEvent.id,
+          title: currentEvent.title,
+          start_at: currentEvent.startAtISO, 
+          venue: currentEvent.location,
+          address: currentEvent.location,
+          description: currentEvent.description
+        }}
         isOpen={showTicketModal}
         onClose={() => setShowTicketModal(false)}
         onSuccess={() => { setShowTicketModal(false); toast({ title: 'Redirecting to Checkout', description: 'Opening Stripe checkout in a new tab…' }); }}
@@ -335,11 +602,11 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         } : null} 
       />
 
-      <PostCreatorModal
-        isOpen={postCreatorOpen}
-        onClose={() => setPostCreatorOpen(false)}
-        onSuccess={() => {
-          setPostCreatorOpen(false);
+        <PostCreatorModal
+          isOpen={postCreatorOpen}
+          onClose={() => setPostCreatorOpen(false)}
+          onSuccess={() => {
+            setPostCreatorOpen(false);
           toast({ title: 'Success', description: 'Your post has been created!' });
         }}
         preselectedEventId={currentEvent.id}
@@ -350,7 +617,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         onClose={() => setShowCommentModal(false)}
         eventId={currentEvent.id}
         eventTitle={currentEvent.title}
-      />
+        />
     </div>
   );
 }
