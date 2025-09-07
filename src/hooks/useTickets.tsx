@@ -201,7 +201,7 @@ export function useTickets() {
         });
       }
     }
-  }, [user, cache, toast, transform]);
+  }, [user, cache, toast]);  // Removed transform from dependencies
 
   // Public API
   const refreshTickets = useCallback(async () => {
@@ -231,12 +231,12 @@ export function useTickets() {
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
     };
-  }, [fetchUserTickets, toast]);
+  }, [toast]);  // Removed fetchUserTickets dependency to prevent infinite loop
 
   // First load
   useEffect(() => {
     fetchUserTickets();
-  }, [user?.id, fetchUserTickets]);
+  }, [user?.id]);  // Removed fetchUserTickets dependency
 
   // Realtime: keep local list fresh when user's tickets change
   useEffect(() => {
@@ -258,7 +258,7 @@ export function useTickets() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, fetchUserTickets]);
+  }, [user?.id]);  // Removed fetchUserTickets dependency
 
   const upcomingTickets = useMemo(
     () => state.tickets.filter((t) => t.isUpcoming),
