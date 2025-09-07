@@ -151,13 +151,17 @@ serve(async (req) => {
       const tier = tiers.find(t => t.id === selection.tierId);
       if (!tier) continue;
 
+      // First check if we have enough tickets
+      if (tier.quantity < selection.quantity) {
+        throw new Error(`Not enough tickets available for ${tier.name}. Available: ${tier.quantity}, Requested: ${selection.quantity}`);
+      }
+
       const { error: reserveError } = await supabaseService
         .from("ticket_tiers")
         .update({
-          quantity: supabaseService.raw(`quantity - ${selection.quantity}`)
+          quantity: tier.quantity - selection.quantity
         })
-        .eq("id", tier.id)
-        .gte("quantity", selection.quantity); // Ensure we have enough
+        .eq("id", tier.id);
 
       if (reserveError) {
         logStep("Failed to reserve tickets", { tierId: tier.id, error: reserveError.message });
@@ -189,7 +193,7 @@ serve(async (req) => {
         await supabaseService
           .from("ticket_tiers")
           .update({
-            quantity: supabaseService.raw(`quantity + ${selection.quantity}`)
+            quantity: tier.quantity + selection.quantity
           })
           .eq("id", tier.id);
       }
