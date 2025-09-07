@@ -65,7 +65,7 @@ export function PurchaseSuccessHandler() {
       
       refreshAndRedirect();
     }
-  }, [orderStatus?.status, ticketsRefreshed, forceRefreshTickets, toast, navigate]);
+  }, [orderStatus?.status, ticketsRefreshed, toast, navigate]); // Removed forceRefreshTickets from deps
 
   // Handle timeout and retry logic - also process payment for pending orders
   useEffect(() => {
