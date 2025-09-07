@@ -122,6 +122,8 @@ serve(async (req) => {
 
   } catch (e) {
     console.error("Mux direct upload error:", e);
-    return createErrorResponse(e?.message ?? "unknown_error", 500);
+    console.error("Error stack:", e?.stack);
+    const errorMessage = e instanceof Error ? e.message : "unknown_error";
+    return createErrorResponse(errorMessage, 500);
   }
 });
