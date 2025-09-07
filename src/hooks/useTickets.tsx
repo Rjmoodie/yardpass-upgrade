@@ -160,13 +160,16 @@ export function useTickets() {
       });
       
       console.log('🎫 get-user-tickets response:', { data, error });
+      console.log('🎫 Full response data structure:', JSON.stringify(data, null, 2));
       if (error) throw error;
 
       // Ignore outdated responses
       if (requestId !== inFlight.current) return;
 
-      const transformed = transform(data?.tickets || []);
-      console.log('🎫 Raw tickets from API:', data?.tickets);
+      const tickets = data?.tickets || data || [];
+      console.log('🎫 Extracted tickets:', tickets);
+      const transformed = transform(tickets);
+      console.log('🎫 Raw tickets from API:', tickets);
       console.log('🎫 Transformed tickets:', transformed);
       const nowMs = Date.now();
       transformed.sort((a, b) => {
@@ -236,10 +239,13 @@ export function useTickets() {
       });
       
       console.log('🔄 Force refresh - get-user-tickets response:', { data, error });
+      console.log('🔄 Force refresh - Full response data structure:', JSON.stringify(data, null, 2));
       if (error) throw error;
 
-      const transformed = transform(data?.tickets || []);
-      console.log('🎫 Force refresh - Raw tickets from API:', data?.tickets);
+      const tickets = data?.tickets || data || [];
+      console.log('🔄 Force refresh - Extracted tickets:', tickets);
+      const transformed = transform(tickets);
+      console.log('🎫 Force refresh - Raw tickets from API:', tickets);
       console.log('🎫 Force refresh - Transformed tickets:', transformed);
       const nowMs = Date.now();
       transformed.sort((a, b) => {
