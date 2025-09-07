@@ -58,21 +58,12 @@ serve(async (req) => {
       .from('events')
       .select(`
         id, title, description, start_at, end_at, venue, city, category, cover_image_url, visibility, created_by,
-        user_profiles!events_created_by_fkey ( id, display_name, avatar_url ),
-        ticket_tiers!ticket_tiers_event_id_fkey ( id, name, price_cents, badge_label, quantity ),
-        event_posts (
-          id, content, created_at, media_type, media_url, thumbnail_url, like_count, comment_count,
-          user_profiles!event_posts_author_user_id_user_profiles_fkey ( user_id, display_name, photo_url )
-        )
+        user_profiles!events_created_by_fkey ( user_id, display_name, photo_url ),
+        ticket_tiers!ticket_tiers_event_id_fkey ( id, name, price_cents, badge_label, quantity )
       `)
       .in('id', eventIds);
 
-    // Add post ordering and limiting
-    query = query
-      .order('created_at', { foreignTable: 'event_posts', ascending: false })
-      .limit(posts_per_event, { foreignTable: 'event_posts' });
-
-    // Main event ordering
+    // Add main event ordering  
     if (sort_by_activity) {
       // For activity-based sorting, we'll do it client-side after fetching
       query = query.order('start_at', { ascending: true });
@@ -107,28 +98,12 @@ serve(async (req) => {
 
     // Transform the data
     const transformed = data.map((e: any) => {
-      const recentPosts = (e.event_posts || [])
-        .filter((p: any) => p?.id)
-        .map((post: any) => ({
-          id: post.id,
-          authorName: post.user_profiles?.display_name || 'Anonymous',
-          authorBadge: post.user_profiles?.id === e.created_by ? 'ORGANIZER' : 'ATTENDEE',
-          isOrganizer: post.user_profiles?.id === e.created_by,
-          content: post.content || '',
-          timestamp: new Date(post.created_at).toLocaleDateString(),
-          likes: post.like_count || 0,
-          mediaType: (post.media_type as 'image' | 'video') ?? undefined,
-          mediaUrl: post.media_url,
-          thumbnailUrl: post.thumbnail_url,
-          commentCount: post.comment_count || 0
-        }));
+      // For now, we'll fetch posts separately to avoid complex joins
+      const recentPosts: any[] = [];
 
-      // Calculate latest activity timestamp
-      const latestPostTime = recentPosts.length > 0 
-        ? Math.max(...recentPosts.map(p => new Date(p.timestamp).getTime()))
-        : 0;
+      // Calculate latest activity timestamp  
       const eventTime = new Date(e.start_at).getTime();
-      const latestActivityAt = Math.max(latestPostTime, eventTime);
+      const latestActivityAt = eventTime;
 
       return {
         id: e.id,
