@@ -3,6 +3,7 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { MapPin, Search, ExternalLink } from 'lucide-react';
 import { openMap } from '@/utils/platform';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Location {
   address: string;
@@ -19,7 +20,6 @@ interface MapboxLocationPickerProps {
 }
 
 // Mapbox API configuration
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiaG90cm9kMjUiLCJhIjoiY21lZm9sODBoMHdnaDJycHg5dmQyaGV3YSJ9.RoCyY_SXikylZK2sD35oMQ';
 const MAPBOX_GEOCODING_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
 
 export function MapboxLocationPicker({ value, onChange, className }: MapboxLocationPickerProps) {
@@ -27,7 +27,27 @@ export function MapboxLocationPicker({ value, onChange, className }: MapboxLocat
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const debounceTimeout = useRef<NodeJS.Timeout>();
+
+  // Get Mapbox token from edge function
+  const getMapboxToken = async (): Promise<string | null> => {
+    if (mapboxToken) return mapboxToken;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+      if (error) throw error;
+      
+      const token = data?.token;
+      if (token) {
+        setMapboxToken(token);
+        return token;
+      }
+    } catch (error) {
+      console.error('Failed to get Mapbox token:', error);
+    }
+    return null;
+  };
 
   const searchLocations = async (query: string) => {
     if (!query.trim() || query.length < 3) {
@@ -38,8 +58,13 @@ export function MapboxLocationPicker({ value, onChange, className }: MapboxLocat
 
     setLoading(true);
     try {
+      const token = await getMapboxToken();
+      if (!token) {
+        throw new Error('Mapbox token not available');
+      }
+
       const response = await fetch(
-        `${MAPBOX_GEOCODING_URL}/${encodeURIComponent(query)}.json?access_token=${MAPBOX_TOKEN}&limit=5&types=place,postcode,locality,neighborhood,address`
+        `${MAPBOX_GEOCODING_URL}/${encodeURIComponent(query)}.json?access_token=${token}&limit=5&types=place,postcode,locality,neighborhood,address`
       );
       
       if (!response.ok) {
@@ -97,9 +122,14 @@ export function MapboxLocationPicker({ value, onChange, className }: MapboxLocat
           const { latitude, longitude } = position.coords;
           
           try {
+            const token = await getMapboxToken();
+            if (!token) {
+              throw new Error('Mapbox token not available');
+            }
+
             // Reverse geocode the coordinates
             const response = await fetch(
-              `${MAPBOX_GEOCODING_URL}/${longitude},${latitude}.json?access_token=${MAPBOX_TOKEN}&types=address,poi`
+              `${MAPBOX_GEOCODING_URL}/${longitude},${latitude}.json?access_token=${token}&types=address,poi`
             );
             
             if (response.ok) {
