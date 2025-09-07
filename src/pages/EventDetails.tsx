@@ -250,11 +250,6 @@ export default function EventDetails() {
               </div>
             )}
 
-            {event.slug && (
-              <p className="text-sm text-muted-foreground font-mono bg-muted/50 px-3 py-2 rounded-md inline-block">
-                yardpass.com/events/{event.slug}
-              </p>
-            )}
 
             <p className="text-lg text-muted-foreground leading-relaxed">{event.description}</p>
           </div>
@@ -299,27 +294,35 @@ export default function EventDetails() {
                 {locationText && <p className="font-medium">{locationText}</p>}
                 {event.address && <p className="text-sm text-muted-foreground">{event.address}</p>}
 
-                {/* Map Preview with smooth fade-in */}
+                {/* Map Preview with custom styling */}
                 {(event.lat && event.lng) ? (
-                  <div className="relative h-56 w-full rounded-lg overflow-hidden border">
+                  <div className="relative h-56 w-full rounded-lg overflow-hidden border bg-gradient-to-br from-primary/5 to-accent/5">
                     {!mapLoaded && (
-                      <div className="absolute inset-0">
-                        <div className="h-full w-full bg-muted animate-pulse" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="h-full w-full bg-gradient-to-br from-muted via-muted to-muted/50 animate-pulse rounded-lg" />
                       </div>
                     )}
                     <iframe
                       title="Event location map"
                       src={buildMapEmbed(event.lat, event.lng)}
-                      className={`w-full h-full border-0 transition-opacity duration-500 ${
+                      className={`w-full h-full border-0 transition-opacity duration-500 rounded-lg ${
                         mapLoaded ? 'opacity-100' : 'opacity-0'
                       }`}
                       onLoad={() => setMapLoaded(true)}
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
+                      style={{
+                        filter: 'saturate(0.8) contrast(1.1)',
+                        mixBlendMode: 'multiply'
+                      }}
                     />
+                    {/* Overlay to hide OSM attribution */}
+                    <div className="absolute bottom-0 right-0 bg-background/90 text-xs px-2 py-1 rounded-tl-md">
+                      Map data
+                    </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+                  <div className="rounded-lg border p-4 text-sm text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10">
                     Map preview unavailable. Use the button above to open the address in Maps.
                   </div>
                 )}
