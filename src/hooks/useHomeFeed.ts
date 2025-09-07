@@ -76,21 +76,24 @@ export function useHomeFeed(postLimit = 3) {
 
       const { data: rows, error: rpcErr } = await supabase.rpc('get_home_feed', {
         p_user_id: userId,
-        p_post_limit: postLimit,
+        p_limit: 20,
+        p_offset: 0
       });
 
       if (rpcErr) throw rpcErr;
 
-      const events: HomeFeedEvent[] = (rows || []).map((e: any) => {
-        const startISO: string = e.start_at;
-        const endISO: string | undefined = e.end_at ?? undefined;
+      const events: HomeFeedEvent[] = (rows || []).map((row: any) => {
+        const startISO: string = row.start_at;
+        const endISO: string | undefined = row.end_at ?? undefined;
         const dateLabel = new Date(startISO).toLocaleDateString('en-US', {
           month: 'long',
           day: 'numeric',
           year: 'numeric',
         });
 
-        const tiers: TicketTier[] = (e.ticket_tiers || []).map((t: any) => ({
+        // Extract ticket tiers from RPC result
+        const tiersArray = Array.isArray(row.ticket_tiers) ? row.ticket_tiers : [];
+        const tiers: TicketTier[] = tiersArray.map((t: any) => ({
           id: t.id,
           name: t.name,
           price: (t.price_cents || 0) / 100,
@@ -99,14 +102,16 @@ export function useHomeFeed(postLimit = 3) {
           total: t.quantity ?? 0,
         }));
 
-        const posts: EventPost[] = (e.recent_posts || []).map((p: any) => {
+        // Extract posts from RPC result
+        const postsArray = Array.isArray(row.recent_posts) ? row.recent_posts : [];
+        const posts: EventPost[] = postsArray.map((p: any) => {
           const url = firstUrl(p.media_urls);
           const mediaType = inferMediaType(url);
           return {
             id: p.id,
-            authorName: p.author_display_name || 'Anonymous',
-            authorBadge: p.is_organizer ? 'ORGANIZER' : 'ATTENDEE',
-            isOrganizer: !!p.is_organizer,
+            authorName: p.author?.display_name || 'Anonymous',
+            authorBadge: p.author?.is_organizer ? 'ORGANIZER' : 'ATTENDEE',
+            isOrganizer: !!p.author?.is_organizer,
             content: p.text || '',
             timestamp: new Date(p.created_at).toLocaleDateString(),
             likes: p.like_count || 0,
@@ -118,19 +123,19 @@ export function useHomeFeed(postLimit = 3) {
         });
 
         return {
-          id: e.id,
-          title: e.title,
-          description: e.description || '',
-          organizer: e.organizer_display_name || 'Organizer',
-          organizerId: e.created_by,
-          category: e.category || 'Event',
+          id: row.event_id,
+          title: row.title,
+          description: row.description || '',
+          organizer: row.organizer_display_name || 'Organizer',
+          organizerId: row.created_by,
+          category: row.category || 'Event',
           startAtISO: startISO,
           endAtISO: endISO,
           dateLabel,
-          location: e.city || e.venue || 'TBA',
-          coverImage: e.cover_image_url || DEFAULT_EVENT_COVER,
+          location: row.city || row.venue || 'TBA',
+          coverImage: row.cover_image_url || DEFAULT_EVENT_COVER,
           ticketTiers: tiers,
-          attendeeCount: Math.floor(Math.random() * 1000) + 50, // if you have a counter view, replace this
+          attendeeCount: Math.floor(Math.random() * 1000) + 50, // TODO: Add real attendee count
           likes: Math.floor(Math.random() * 500) + 10,
           shares: Math.floor(Math.random() * 100) + 5,
           isLiked: false,

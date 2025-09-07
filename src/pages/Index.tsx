@@ -490,6 +490,14 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
               <p className="text-sm text-gray-200/90 line-clamp-3 max-w-xl">{currentEvent.description}</p>
             </div>
 
+            {/* Recent Posts Rail - Show first for social focus */}
+            <RecentPostsRail 
+              posts={currentEvent.posts || []}
+              eventId={currentEvent.id}
+              onPostClick={handlePostClick}
+              onViewAllClick={handleViewAllPosts}
+            />
+
             {currentEvent.ticketTiers?.length > 0 && (
               <div className="flex gap-2 pt-1 flex-wrap">
                 {currentEvent.ticketTiers.map(t => (
@@ -501,14 +509,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 ))}
               </div>
             )}
-
-            {/* Recent Posts Rail */}
-            <RecentPostsRail 
-              posts={currentEvent.posts || []}
-              eventId={currentEvent.id}
-              onPostClick={handlePostClick}
-              onViewAllClick={handleViewAllPosts}
-            />
 
             <div className="flex gap-3 pt-1">
               <Button size="lg" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[48px] px-6 font-bold shadow-lg">Get Tickets</Button>
@@ -611,5 +611,4 @@ function IconButton({ children, onClick, count, active, ariaLabel }: { children:
       <div className={`p-3 rounded-full transition-all duration-200 ${active ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-110' : 'bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20'}`}>{children}</div>
       {typeof count !== 'undefined' && <span className="text-xs font-medium text-white drop-shadow-lg">{count}</span>}
     </button>
-  );
-}
+  )
