@@ -316,7 +316,10 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
                   <SelectValue placeholder="Choose an event to post to" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userTickets.map((ticket) => (
+                  {Array.from(new Map(userTickets.map(ticket => [
+                    ticket.event_id, 
+                    ticket
+                  ])).values()).map((ticket) => (
                     <SelectItem key={ticket.event_id} value={ticket.event_id}>
                       <div className="flex items-center gap-2">
                         <span>{ticket.events.title}</span>
