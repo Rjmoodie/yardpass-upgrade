@@ -217,10 +217,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             <img src="/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png" alt="YardPass" className="w-8 h-8" />
             <span className="font-bold text-lg">YardPass</span>
           </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="glass" onClick={() => requireAuth(() => navigate('/feed'), 'Please sign in to view posts')} className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg">Posts</Button>
-            <Button size="sm" variant="glass" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create content')} className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg">+ Create</Button>
-          </div>
+          <Button size="sm" variant="glass" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create content')} className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg">+ Create Event</Button>
         </div>
       </div>
 
@@ -282,7 +279,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
             <div className="flex gap-3 pt-1">
               <Button size="lg" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[48px] px-6 font-bold shadow-lg">Get Tickets</Button>
-              <Button size="lg" variant="glass" onClick={() => navigate(`/events/${currentEvent.id}`)} className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[48px] px-6 font-semibold backdrop-blur-md">Details</Button>
+              <Button size="lg" variant="glass" onClick={() => navigate(routes.eventDetails(currentEvent.id))} className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[48px] px-6 font-semibold backdrop-blur-md">Details</Button>
             </div>
           </div>
 

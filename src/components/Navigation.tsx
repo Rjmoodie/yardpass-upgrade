@@ -11,7 +11,6 @@ import { toast } from '@/hooks/use-toast';
 
 export type Screen =
   | 'feed'
-  | 'posts-feed'
   | 'search'
   | 'create-event'
   | 'event-detail'
@@ -42,7 +41,6 @@ interface NavigationProps {
 const AUTH_REQUIRED: Record<string, Screen> = {
   '/create-event': 'create-event',
   '/create-post': 'create-post',
-  '/feed': 'posts-feed',
   '/dashboard': 'dashboard',
   '/profile': 'profile',
   '/tickets': 'tickets',
@@ -68,10 +66,10 @@ export default function Navigation({ userRole }: NavigationProps) {
   const navItems = useMemo(() => {
     const items = (
       [
-        { id: 'feed' as Screen, path: '/', icon: Home, label: 'Home', show: true },
-        { id: 'posts-feed' as Screen, path: '/feed', icon: Plus, label: 'Posts', show: true },
+        { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
         { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
         { id: 'create-event' as Screen, path: '/create-event', icon: Plus, label: 'Create', show: userRole === 'organizer' },
+        { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: userRole === 'attendee' },
         // Attendees see Tickets; organizers see Scan
         {
           id: (userRole === 'organizer' ? 'scanner' : 'tickets') as Screen,
@@ -114,7 +112,11 @@ export default function Navigation({ userRole }: NavigationProps) {
         setAuthModalOpen(true);
         return;
       }
-      // Remove the special posts-test handler since we now navigate to /feed normally
+      if (screen === 'posts-test') {
+        console.log('Posts button clicked, user:', user?.id, 'userRole:', userRole);
+        void handleCreatePost();
+        return;
+      }
       navigate(path);
     },
     [navigate, requiresAuth, user, userRole, handleCreatePost]

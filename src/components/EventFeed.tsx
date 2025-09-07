@@ -96,12 +96,10 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     setLoading(true);
     try {
       console.log('🔄 Fetching posts for:', { eventId, userId });
-      console.log('🔍 Current user:', user);
       
       // Build GET to Edge Function (uses auth header)
       const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const url = new URL(`${baseUrl}/functions/v1/posts-list`);
-      console.log('📍 EventFeed API call initiated for URL:', url.toString());
       if (eventId) url.searchParams.append('event_id', eventId);
       if (userId) url.searchParams.append('user_id', userId);
       url.searchParams.append('limit', '20');
@@ -197,19 +195,16 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   }, [eventId, userId, user]);
 
   useEffect(() => {
-    console.log('⚡ EventFeed useEffect triggered with:', { eventId, userId, refreshTrigger });
     fetchPosts();
   }, [fetchPosts, refreshTrigger]); // Add refreshTrigger to dependencies
 
   // Listen for global post creation events
   useEffect(() => {
     const handlePostCreated = (event: any) => {
-    console.log('📢 Post created event received, refreshing posts...', event.detail);
-      console.log('💡 About to refresh posts in EventFeed after post creation');
+      console.log('📢 Post created event received, refreshing posts...', event.detail);
       
       // Add a small delay to ensure the database has been updated
       setTimeout(() => {
-        console.log('⏰ Executing delayed fetchPosts after post creation');
         fetchPosts();
       }, 1000);
     };

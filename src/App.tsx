@@ -42,7 +42,6 @@ const EventDetails = lazy(() => import('@/pages/EventDetails'));
 const UserProfilePage = lazy(() => import('@/pages/UserProfilePage'));
 const OrganizationProfilePage = lazy(() => import('@/pages/OrganizationProfilePage'));
 const EditProfilePage = lazy(() => import('@/pages/EditProfilePage'));
-const MainPostsFeed = lazy(() => import('@/components/MainPostsFeed').then(m => ({ default: m.MainPostsFeed })));
 
 type Screen = 'feed' | 'search' | 'create-event' | 'event-detail' | 'dashboard' | 'profile' | 'create-post' | 'event-management' | 'create-organization' | 'organization-dashboard' | 'privacy-policy' | 'terms-of-service' | 'refund-policy' | 'tickets' | 'scanner' | 'ticket-success';
 type UserRole = 'attendee' | 'organizer';
@@ -252,16 +251,6 @@ function AppContent() {
         <Route 
           path="/org/:id" 
           element={<OrganizationProfilePage />} 
-        />
-        <Route 
-          path="/feed" 
-          element={
-            <AuthGuard>
-              <MainPostsFeed 
-                onEventSelect={(eventId) => navigate('/events/' + eventId)}
-              />
-            </AuthGuard>
-          } 
         />
         <Route 
           path="/event/:id" 
