@@ -63,7 +63,7 @@ interface UserProfileProps {
 }
 
 
-export function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
+function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [userPosts, setUserPosts] = useState<UserPost[]>([]);
   const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
