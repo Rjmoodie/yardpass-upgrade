@@ -57,7 +57,7 @@ serve(async (req) => {
       return cors(new Response(JSON.stringify({ error: error.message }), { status: 400 }));
     }
 
-    return cors(new Response(JSON.stringify({ data }), { status: 200 }));
+    return cors(new Response(JSON.stringify({ tickets: data }), { status: 200 }));
   } catch (e) {
     console.error("get-user-tickets fatal:", e);
     return cors(new Response(JSON.stringify({ error: e?.message ?? "unknown_error" }), { status: 500 }));
