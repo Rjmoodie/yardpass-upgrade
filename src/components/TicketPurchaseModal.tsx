@@ -121,28 +121,33 @@ export function TicketPurchaseModal({
         throw error;
       }
 
-      console.log('✅ Checkout session created, redirecting to:', data.url);
+      console.log('✅ Checkout session created, opening in new tab:', data.url);
       
       // Show redirect notification
-      notifyInfo("Redirecting to secure payment...");
+      notifyInfo("Opening secure payment in new tab...");
       
-      // Add a small delay to ensure the notification is seen
-      setTimeout(() => {
-        try {
-          // Redirect to Stripe checkout (not new tab)
+      // Open Stripe checkout in a new tab (recommended approach)
+      const checkoutWindow = window.open(data.url, '_blank');
+      
+      if (!checkoutWindow) {
+        // Popup blocked - show fallback message
+        toast({
+          title: "Popup Blocked",
+          description: "Please allow popups and try again, or copy this link to complete payment.",
+          variant: "destructive",
+        });
+        
+        // Fallback: redirect in same window
+        setTimeout(() => {
           window.location.href = data.url;
-        } catch (error) {
-          console.error('❌ Redirect failed:', error);
-          toast({
-            title: "Redirect Failed",
-            description: "Please click the link to complete your payment.",
-            variant: "destructive",
-          });
-          
-          // Fallback: open in new tab
-          window.open(data.url, '_blank');
-        }
-      }, 500);
+        }, 1000);
+      } else {
+        // Successfully opened in new tab
+        toast({
+          title: "Payment Window Opened",
+          description: "Complete your payment in the new tab. You'll be redirected after successful payment.",
+        });
+      }
 
       // Close modal (success will be handled by PurchaseSuccessHandler)
       onClose();
