@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
 import { Badge } from '@/components/ui/badge';
@@ -17,9 +17,52 @@ import { useNavigate } from 'react-router-dom';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { useShare } from '@/hooks/useShare';
-import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
-import { Event, EventPost, TicketTier, DatabaseEvent, DatabaseTicketTier } from '@/types/events';
+import { useHomeFeed } from '@/hooks/useHomeFeed';
+import { useRealtimePosts } from '@/hooks/useRealtimePosts';
+
+interface EventPost { 
+  id: string; 
+  authorName: string; 
+  authorBadge: 'ORGANIZER' | 'ATTENDEE'; 
+  isOrganizer?: boolean; 
+  content: string; 
+  timestamp: string; 
+  likes: number; 
+  mediaType?: 'image' | 'video' | 'none';
+  mediaUrl?: string;
+  thumbnailUrl?: string;
+  commentCount?: number;
+}
+
+interface TicketTier {
+  id: string;
+  name: string;
+  price: number;
+  badge: string;
+  available: number;
+  total: number;
+}
+
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  organizer: string;
+  organizerId: string;
+  category: string;
+  startAtISO: string;
+  endAtISO?: string;
+  dateLabel: string;
+  location: string;
+  coverImage: string;
+  ticketTiers: TicketTier[];
+  attendeeCount: number;
+  likes: number;
+  shares: number;
+  isLiked?: boolean;
+  posts?: EventPost[];
+}
 
 interface IndexProps {
   onEventSelect: (event: Event) => void;
@@ -27,6 +70,7 @@ interface IndexProps {
   onCategorySelect?: (category: string) => void;
   onOrganizerSelect?: (organizerId: string, organizerName: string) => void;
 }
+
 
 // ————————————————————————————————————————
 // Mock fallback
@@ -212,89 +256,43 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const navigate = useNavigate();
   const { shareEvent } = useShare();
 
-  // Fetch events with recent posts using optimized RPC
+  // ---- Home feed via RPC (useHomeFeed) ----
+  const { data: feed, loading: feedLoading, error, refresh, setData: setFeed } = useHomeFeed(3);
   useEffect(() => {
-    const ac = new AbortController();
-    let cancelled = false;
+    setEvents(feed || []);
+    setLoading(feedLoading);
+  }, [feed, feedLoading]);
 
-    const load = async (retryCount = 0) => {
-      const maxRetries = 3;
-      try {
-        console.log(`Fetching home feed... (attempt ${retryCount + 1})`);
-        
-        // Get current user session
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
-        if (userError) {
-          console.error('Auth error:', userError);
-          throw userError;
-        }
-        
-        if (!user) {
-          console.log('No user session, using mock data');
-          if (!cancelled) setEvents(mockEvents);
-          return;
-        }
-
-        // Use the optimized RPC function
-        const { data, error } = await supabase.functions.invoke('get-home-feed', {
-          body: { 
-            posts_per_event: 3,
-            sort_by_activity: sortByActivity
-          }
+  // ---- Realtime posts (useRealtimePosts) ----
+  useRealtimePosts(
+    events.map(e => e.id),
+    (p) => {
+      // Insert new post at head of the matching event's posts (keep max 3)
+      setFeed(prev => {
+        const next = (prev || []).map((ev: any) => {
+          if (ev.id !== p.event_id) return ev;
+          const url = (p.media_urls && p.media_urls[0]) || undefined;
+          const isVideo = url ? (url.toLowerCase().includes('mux') || url.toLowerCase().endsWith('.mp4') || url.toLowerCase().endsWith('.mov') || url.toLowerCase().endsWith('.m3u8')) : false;
+          const newPost: EventPost = {
+            id: p.id,
+            authorName: 'Someone', // author name is not sent in INSERT payload; resolved on next fetch
+            authorBadge: 'ATTENDEE',
+            isOrganizer: false,
+            content: p.text || '',
+            timestamp: new Date(p.created_at).toLocaleDateString(),
+            likes: p.like_count || 0,
+            mediaType: isVideo ? 'video' : (url ? 'image' : 'none'),
+            mediaUrl: url,
+            thumbnailUrl: !isVideo ? url : undefined,
+            commentCount: p.comment_count || 0
+          };
+          const posts = [newPost, ...(ev.posts || [])].slice(0, 3);
+          return { ...ev, posts };
         });
-
-        if (error) throw error;
-        if (cancelled) return;
-        
-        if (!data?.events || !data.events.length) { 
-          console.log('No events found, using mock data');
-          if (!cancelled) setEvents(mockEvents);
-          return; 
-        }
-
-        console.log(`Loaded ${data.events.length} events with real attendee counts`);
-        if (!cancelled) setEvents(data.events);
-      } catch (e: any) {
-        if (cancelled) return;
-        console.error('load home feed error', e);
-        
-        // Retry logic for network errors with exponential backoff + jitter
-        const isAbort = e?.name === 'AbortError';
-        if (!isAbort) {
-          const maxRetries = 3;
-          const retryCount = (Number(e?.__retryCount) || 0);
-          if (retryCount < maxRetries && e?.code !== 'PGRST116') {
-            const delay = Math.min(8000, 500 * 2 ** retryCount) + Math.random() * 250;
-            console.log(`Retrying in ${Math.round(delay)}ms...`);
-            const retryError: any = new Error('retry');
-            (retryError as any).__retryCount = retryCount + 1;
-            setTimeout(() => load(retryCount + 1), delay);
-            return;
-          }
-        }
-        
-        // Fallback to mock data on final failure
-        console.log('Using mock data as fallback');
-        if (!cancelled) {
-          setEvents(mockEvents);
-          toast({
-            title: 'Unable to load events',
-            description: 'Showing sample events. Please check your connection.',
-            variant: 'destructive'
-          });
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-
-    return () => {
-      cancelled = true;
-      ac.abort();
-    };
-  }, [sortByActivity]);
+        return next;
+      });
+    }
+  );
 
   // Clamp currentIndex to prevent out-of-bounds access
   const safeIndex = Math.max(0, Math.min(currentIndex, events.length - 1));
@@ -331,65 +329,37 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     [next, prev].filter(Boolean).forEach((src) => { const img = new Image(); img.src = src as string; });
   }, [currentIndex, events]);
 
-  // Listen for new posts and update events optimistically
+  // Keep optimistic UI from PostCreatorModal (still useful)
   useEffect(() => {
     const handlePostCreated = (event: CustomEvent) => {
-      try {
-        const { eventId, postData } = event.detail;
-        console.log('Post created event received:', { eventId, postData });
-        
-        if (!eventId || !postData) {
-          console.warn('Invalid post created event data:', event.detail);
-          return;
-        }
-        
-        // Update the events state to include the new post
-        setEvents(prevEvents => 
-          prevEvents.map(event => {
-            if (event.id === eventId) {
-              const newPost: EventPost = {
-                id: postData.id || `temp-${Date.now()}`,
-                authorName: postData.authorName || 'You',
-                authorBadge: postData.isOrganizer ? 'ORGANIZER' : 'ATTENDEE',
-                isOrganizer: postData.isOrganizer || false,
-                content: postData.content || '',
-                timestamp: new Date().toLocaleDateString(),
-                likes: 0,
-                mediaType: postData.mediaType,
-                mediaUrl: postData.mediaUrl,
-                thumbnailUrl: postData.thumbnailUrl,
-                commentCount: 0
-              };
-              
-              // Add new post to the beginning of the posts array, maintaining 3-post limit
-              const updatedPosts = [newPost, ...(event.posts || [])].slice(0, 3);
-              
-              return {
-                ...event,
-                posts: updatedPosts
-              };
-            }
-            return event;
-          })
-        );
-        
-        // Show success toast
-      toast({
-          title: 'Post created!',
-          description: 'Your post has been added to the event feed.',
-        });
-      } catch (error) {
-        console.error('Error handling post created event:', error);
-      }
+      const { eventId, postData } = event.detail || {};
+      if (!eventId || !postData) return;
+      setEvents(prev =>
+        prev.map(ev => {
+          if (ev.id !== eventId) return ev;
+          const newPost: EventPost = {
+            id: postData.id || `temp-${Date.now()}`,
+            authorName: postData.authorName || 'You',
+            authorBadge: postData.isOrganizer ? 'ORGANIZER' : 'ATTENDEE',
+            isOrganizer: !!postData.isOrganizer,
+            content: postData.content || '',
+            timestamp: new Date().toLocaleDateString(),
+            likes: 0,
+            mediaType: postData.mediaType,
+            mediaUrl: postData.mediaUrl,
+            thumbnailUrl: postData.thumbnailUrl,
+            commentCount: 0
+          };
+          const posts = [newPost, ...(ev.posts || [])].slice(0, 3);
+          return { ...ev, posts };
+        })
+      );
+      toast({ title: 'Post created!', description: 'Your post has been added to the event feed.' });
     };
-
-    // Add event listener for post creation
     window.addEventListener('postCreated', handlePostCreated as EventListener);
-    
-    return () => {
-      window.removeEventListener('postCreated', handlePostCreated as EventListener);
-    };
-  }, []);
+    return () => window.removeEventListener('postCreated', handlePostCreated as EventListener);
+  }, [toast]);
+
 
   // Memoized handlers for performance
   const handleLike = useCallback(withAuth((eventId: string) => {
@@ -551,7 +521,17 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             <IconButton ariaLabel="Like" active={currentEvent.isLiked} count={currentEvent.likes} onClick={() => handleLike(currentEvent.id)}>
               <Heart className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white text-white' : 'text-white'}`} />
             </IconButton>
-            <IconButton ariaLabel="Comments" count={currentEvent.posts?.reduce((sum, post) => sum + (post.commentCount || 0), 0) || 0} onClick={() => handleComment()}>
+            <IconButton 
+              ariaLabel="Comments" 
+              count={
+                // either sum current previews:
+                // currentEvent.posts?.reduce((s,p)=>s+(p.commentCount||0),0) || 0
+
+                // or use rollup from RPC (recommended):
+                (currentEvent as any)?.totalComments ?? 0
+              } 
+              onClick={() => handleComment()}
+            >
               <MessageCircle className="w-6 h-6 text-white" />
             </IconButton>
             <IconButton ariaLabel="Create post" onClick={() => requireAuth(() => setPostCreatorOpen(true), 'Please sign in to create posts')}>

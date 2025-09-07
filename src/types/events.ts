@@ -44,6 +44,7 @@ export interface Event {
   latestActivityAt?: number; // timestamp for activity-based sorting
   slug?: string; // for URL routing
   videoUrl?: string; // for video content
+  totalComments?: number; // total comment count for the event
 }
 
 // Database-specific interfaces (for Supabase queries)

@@ -30,30 +30,26 @@ serve(async (req) => {
 
     console.log("User authenticated:", user.id);
 
-    const { posts_per_event = 3, sort_by_activity = false } = await req.json();
+    const { p_user_id, p_limit = 20, p_offset = 0 } = await req.json();
 
-    // Get events where user is organizer or has tickets
+    // Get events where user is organizer or has tickets (for private events)
     const [orgEvents, ticketEvents] = await Promise.all([
       sbUser.from('events').select('id').eq('created_by', user.id),
       sbUser.from('tickets').select('event_id').eq('user_id', user.id).eq('status', 'issued')
     ]);
 
-    const eventIds = Array.from(new Set([
+    const userRelatedEventIds = Array.from(new Set([
       ...(orgEvents.data || []).map(e => e.id),
       ...(ticketEvents.data || []).map(t => t.event_id)
     ]));
 
-    if (eventIds.length === 0) {
-      console.log("User not related to any events");
-      return createResponse({ events: [], totalCount: 0 }, 200);
-    }
-
-    console.log(`Found ${eventIds.length} related events for user`);
+    console.log(`User is related to ${userRelatedEventIds.length} events`);
 
     // Use service role for efficient querying
     const sbSrv = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-    // Build the query with proper ordering
+    // Build the query to show ALL public events + private events user is related to
+    // This ensures posts are visible to everyone who should see them
     let query = sbSrv
       .from('events')
       .select(`
@@ -65,7 +61,9 @@ serve(async (req) => {
           user_profiles!event_posts_author_id_fkey ( id, display_name, avatar_url )
         )
       `)
-      .in('id', eventIds);
+      .or(`visibility.eq.public${userRelatedEventIds.length > 0 ? `,id.in.(${userRelatedEventIds.join(',')})` : ''}`);
+
+    console.log(`Querying events with visibility: public events + ${userRelatedEventIds.length} user-related events`);
 
     // Add post ordering and limiting
     query = query
@@ -105,72 +103,46 @@ serve(async (req) => {
 
     const attendeeMap = new Map(attendeeCounts.map(ac => [ac.eventId, ac.count]));
 
-    // Transform the data
+    // Transform the data to match HomeFeedRow interface
     const transformed = data.map((e: any) => {
       const recentPosts = (e.event_posts || [])
         .filter((p: any) => p?.id)
         .map((post: any) => ({
           id: post.id,
-          authorName: post.user_profiles?.display_name || 'Anonymous',
-          authorBadge: post.user_profiles?.id === e.created_by ? 'ORGANIZER' : 'ATTENDEE',
+          authorName: post.user_profiles?.display_name || null,
+          authorUserId: post.user_profiles?.id || '',
           isOrganizer: post.user_profiles?.id === e.created_by,
-          content: post.content || '',
-          timestamp: new Date(post.created_at).toLocaleDateString(),
+          content: post.content || null,
+          mediaUrls: post.media_url ? [post.media_url] : null,
           likes: post.like_count || 0,
-          mediaType: (post.media_type as 'image' | 'video') ?? undefined,
-          mediaUrl: post.media_url,
-          thumbnailUrl: post.thumbnail_url,
-          commentCount: post.comment_count || 0
+          commentCount: post.comment_count || 0,
+          createdAt: post.created_at
         }));
 
-      // Calculate latest activity timestamp
-      const latestPostTime = recentPosts.length > 0 
-        ? Math.max(...recentPosts.map(p => new Date(p.timestamp).getTime()))
-        : 0;
-      const eventTime = new Date(e.start_at).getTime();
-      const latestActivityAt = Math.max(latestPostTime, eventTime);
+      // Calculate total posts and comments for this event
+      const totalPosts = recentPosts.length;
+      const totalComments = recentPosts.reduce((sum, post) => sum + post.commentCount, 0);
 
       return {
         id: e.id,
         title: e.title,
-        description: e.description || '',
-        organizer: e.user_profiles?.display_name || 'Organizer',
-        organizerId: e.created_by,
-        category: e.category || 'Event',
-        startAtISO: e.start_at,
-        endAtISO: e.end_at,
-        dateLabel: new Date(e.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-        location: e.city || e.venue || 'TBA',
-        coverImage: e.cover_image_url || '/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png',
-        ticketTiers: (e.ticket_tiers || []).map((t: any) => ({ 
-          id: t.id, 
-          name: t.name, 
-          price: (t.price_cents||0)/100, 
-          badge: t.badge_label, 
-          available: t.quantity||0, 
-          total: t.quantity||0 
-        })),
-        attendeeCount: attendeeMap.get(e.id) || 0, // Real attendee count
-        likes: Math.floor(Math.random()*500)+10, // TODO: Replace with real likes
-        shares: Math.floor(Math.random()*100)+5, // TODO: Replace with real shares
-        isLiked: false,
-        posts: recentPosts,
-        latestActivityAt
+        description: e.description || null,
+        category: e.category || null,
+        cover_image_url: e.cover_image_url || null,
+        start_at: e.start_at,
+        end_at: e.end_at || null,
+        venue: e.venue || null,
+        city: e.city || null,
+        created_by: e.created_by,
+        total_posts: totalPosts,
+        total_comments: totalComments,
+        recent_posts: recentPosts
       };
     });
 
-    // Sort by activity if requested
-    if (sort_by_activity) {
-      transformed.sort((a, b) => b.latestActivityAt - a.latestActivityAt);
-    }
-
     console.log(`Successfully processed ${transformed.length} events with posts`);
 
-    return createResponse({ 
-      events: transformed, 
-      totalCount: transformed.length,
-      sortByActivity: sort_by_activity
-    }, 200);
+    return createResponse(transformed, 200);
 
   } catch (e) {
     console.error("get-home-feed error:", e);
