@@ -68,15 +68,10 @@ serve(async (req) => {
     // Add post ordering and limiting
     query = query
       .order('created_at', { foreignTable: 'event_posts', ascending: false })
-      .limit(posts_per_event, { foreignTable: 'event_posts' });
+      .limit(p_limit, { foreignTable: 'event_posts' });
 
     // Main event ordering
-    if (sort_by_activity) {
-      // For activity-based sorting, we'll do it client-side after fetching
-      query = query.order('start_at', { ascending: true });
-    } else {
-      query = query.order('start_at', { ascending: true });
-    }
+    query = query.order('start_at', { ascending: true });
 
     const { data, error } = await query;
 
