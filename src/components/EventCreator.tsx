@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import { ArrowLeft, ArrowRight, Plus, X, Upload, Calendar, MapPin, Shield } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Plus, X, Upload, Calendar, MapPin, Shield, Share2, Users } from 'lucide-react';
 import { MapboxLocationPicker } from './MapboxLocationPicker';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -517,50 +517,139 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         )}
 
         {step === 4 && (
-          <Card>
-            <CardHeader><CardTitle>Review & Publish</CardTitle></CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h3 className="mb-2">Event Details</h3>
-                <div className="space-y-2 text-sm">
-                  <div><strong>Title:</strong> {formData.title}</div>
-                  <div><strong>Category:</strong> {formData.category}</div>
-                  <div><strong>Visibility:</strong> {formData.visibility}</div>
-                  <div><strong>Start:</strong> {formData.startDate} at {formData.startTime}</div>
-                  <div><strong>End:</strong> {formData.endDate} at {formData.endTime}</div>
-                  {formData.venue && <div><strong>Venue:</strong> {formData.venue}</div>}
-                  {location && <div><strong>Location:</strong> {location.address}</div>}
+          <div className="space-y-4">
+            <div className="text-center">
+              <h2 className="text-lg font-semibold mb-2">Event Preview</h2>
+              <p className="text-sm text-muted-foreground">This is how your event will appear to users</p>
+            </div>
+            
+            {/* EVENT PREVIEW - matches EventSlugPage design */}
+            <div className="pb-8">
+              {/* COVER IMAGE */}
+              {formData.coverImageUrl ? (
+                <div className="relative">
+                  <img
+                    src={formData.coverImageUrl}
+                    alt={formData.title}
+                    className="w-full h-64 object-cover rounded-t-lg"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent rounded-t-lg" />
                 </div>
+              ) : null}
+
+              {/* HEADER CARD */}
+              <div className={`${formData.coverImageUrl ? '-mt-12' : ''} relative`}>
+                <Card className="shadow-lg">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        {formData.category ? (
+                          <Badge variant="secondary" className="mb-2">{formData.category}</Badge>
+                        ) : null}
+                        <h1 className="text-xl md:text-2xl font-semibold leading-tight">
+                          {formData.title}
+                        </h1>
+                        <div className="mt-2 text-sm text-muted-foreground space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            <span>
+                              {formData.startDate && formData.startTime 
+                                ? `${new Date(formData.startDate).toLocaleDateString()} at ${formData.startTime}`
+                                : 'Date TBA'
+                              }
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4" />
+                            <span>
+                              {[formData.venue, location?.address].filter(Boolean).join(' • ') || 'Location TBA'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Button variant="default" size="sm" disabled>
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Share
+                      </Button>
+                    </div>
+
+                    {/* MOCK ATTENDEES */}
+                    <div className="mt-5 flex items-center justify-between">
+                      <div className="flex -space-x-2 overflow-hidden">
+                        {/* Mock attendee avatars */}
+                        <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-blue-400 to-purple-500" />
+                        <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-green-400 to-blue-500" />
+                        <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-purple-400 to-pink-500" />
+                      </div>
+                      <Button variant="outline" size="sm" disabled>
+                        <Users className="w-4 h-4 mr-2" />
+                        See who's going
+                      </Button>
+                    </div>
+
+                    {/* ORGANIZER */}
+                    <div className="mt-4 text-sm">
+                      Hosted by{' '}
+                      <span className="font-medium text-primary">
+                        Your Organization
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
-              <div>
-                <h3 className="mb-2">Description</h3>
-                <p className="text-sm text-muted-foreground">{formData.description}</p>
-              </div>
-
-              {formData.culturalGuide.history && (
-                <div>
-                  <h3 className="mb-2">Cultural Guide</h3>
-                  <p className="text-sm text-muted-foreground mb-2">{formData.culturalGuide.history}</p>
-                </div>
+              {/* DESCRIPTION */}
+              {formData.description && (
+                <Card className="mt-4">
+                  <CardContent className="p-5">
+                    <h3 className="font-semibold mb-3">About this event</h3>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {formData.description}
+                    </p>
+                  </CardContent>
+                </Card>
               )}
 
-              <div>
-                <h3 className="mb-2">Ticket Tiers</h3>
-                <div className="space-y-2">
-                  {ticketTiers.map((tier) => (
-                    <div key={tier.id} className="flex justify-between items-center p-3 border rounded">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{tier.badge}</Badge>
-                        <span className="text-sm">{tier.name}</span>
-                      </div>
-                      <div className="text-sm">${tier.price} × {tier.quantity}</div>
+              {/* CULTURAL GUIDE */}
+              {formData.culturalGuide.history && (
+                <Card className="mt-4">
+                  <CardContent className="p-5">
+                    <h3 className="font-semibold mb-3">Cultural Guide</h3>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {formData.culturalGuide.history}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* TICKETS */}
+              {ticketTiers.length > 0 && (
+                <Card className="mt-4">
+                  <CardContent className="p-5">
+                    <h3 className="font-semibold mb-3">Tickets</h3>
+                    <div className="space-y-3">
+                      {ticketTiers.map((tier) => (
+                        <div key={tier.id} className="flex justify-between items-center p-4 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline">{tier.badge}</Badge>
+                            <div>
+                              <div className="text-sm font-medium">{tier.name}</div>
+                              <div className="text-xs text-muted-foreground">{tier.quantity} available</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-semibold">${tier.price}</div>
+                            <Button size="sm" disabled>Get Ticket</Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
