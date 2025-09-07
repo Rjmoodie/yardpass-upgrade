@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import MapboxEventMap from '@/components/MapboxEventMap';
+import { EventTicketModal } from '@/components/EventTicketModal';
 import { Calendar, MapPin, Users, Share2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -46,6 +47,7 @@ export default function EventDetails() {
   const navigate = useNavigate();
   const [event, setEvent] = useState<EventRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showTicketModal, setShowTicketModal] = useState(false);
 
   const kParam = useMemo(() => new URLSearchParams(search).get('k'), [search]);
 
@@ -373,7 +375,10 @@ export default function EventDetails() {
             <Button
               size="lg"
               className="flex-1 h-12"
-              onClick={() => navigate(`/e/${identifier}#tickets`)}
+              onClick={() => {
+                console.log('🎫 Get Tickets clicked on EventDetails page');
+                setShowTicketModal(true);
+              }}
               aria-label="Get tickets"
             >
               <Users className="w-5 h-5 mr-2" />
@@ -422,6 +427,27 @@ export default function EventDetails() {
           </Card>
         </div>
       </div>
+
+      {/* Event Ticket Modal */}
+      {event && (
+        <EventTicketModal
+          event={{
+            id: event.id,
+            title: event.title,
+            start_at: event.start_at,
+            venue: event.venue || undefined,
+            address: event.address || undefined,
+            description: event.description
+          }}
+          isOpen={showTicketModal}
+          onClose={() => setShowTicketModal(false)}
+          onSuccess={() => {
+            setShowTicketModal(false);
+            // Optional: show success message or redirect
+            console.log('✅ Ticket purchase completed!');
+          }}
+        />
+      )}
     </div>
   );
 }
