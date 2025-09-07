@@ -446,75 +446,97 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         </div>
       </div>
 
-      {/* Slides track */}
+      {/* Main Content - User Posts as Hero */}
       <div ref={trackRef} className="h-full w-full relative transition-transform duration-300 ease-out" style={{ transform: `translateY(-${currentIndex * 100}%)` }}>
         {events.map((ev, i) => (
           <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
-            <ImageWithFallback src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
+            {/* Show user posts as hero content */}
+            {ev.posts && ev.posts.length > 0 ? (
+              <div className="h-full w-full relative">
+                {/* Main post video/image - FULL SCREEN */}
+                <div className="h-full w-full relative">
+                  {ev.posts[0].mediaType === 'video' ? (
+                    <video 
+                      className="w-full h-full object-cover"
+                      autoPlay 
+                      muted 
+                      loop
+                      playsInline
+                    >
+                      <source src={ev.posts[0].mediaUrl} type="video/mp4" />
+                    </video>
+                  ) : (
+                    <ImageWithFallback 
+                      src={ev.posts[0].mediaUrl || ev.coverImage} 
+                      alt={ev.posts[0].content || ev.title} 
+                      loading="lazy" 
+                      className="w-full h-full object-cover" 
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
+                </div>
+                
+                {/* Post overlay info */}
+                <div className="absolute bottom-20 left-4 right-4 text-white z-20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback className="text-xs bg-white/20 text-white">
+                        {ev.posts[0].authorName.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="font-semibold">{ev.posts[0].authorName}</span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {ev.posts[0].authorBadge}
+                    </Badge>
+                  </div>
+                  <p className="text-sm mb-3 line-clamp-2">{ev.posts[0].content}</p>
+                  
+                  {/* Event context - small and secondary */}
+                  <div className="bg-black/40 backdrop-blur-sm rounded-lg p-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-sm">{ev.title}</h3>
+                        <p className="text-xs text-gray-300">{ev.dateLabel} • {ev.location}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="glass" onClick={() => navigate(routes.eventDetails(ev.id))} className="bg-white/20 text-white border-white/30 hover:bg-white/30 text-xs">
+                          Details
+                        </Button>
+                        <Button size="sm" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs">
+                          Get Tickets
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Fallback to event cover if no posts */
+              <div className="h-full w-full relative">
+                <ImageWithFallback src={ev.coverImage} alt={ev.title} loading="lazy" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
+                
+                {/* Event info when no posts */}
+                <div className="absolute bottom-20 left-4 right-4 text-white z-20">
+                  <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4">
+                    <h2 className="text-xl font-bold mb-2">{ev.title}</h2>
+                    <p className="text-sm text-gray-300 mb-3">{ev.description}</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="glass" onClick={() => navigate(routes.eventDetails(ev.id))} className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                        Details
+                      </Button>
+                      <Button size="sm" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                        Get Tickets
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Information panel */}
-      <div className="absolute bottom-20 left-0 right-0 p-4 text-white z-20">
-        <div className="flex justify-between items-end gap-4">
-          <div className="flex-1 space-y-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge 
-                variant="secondary" 
-                className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90"
-                onClick={() => navigate(routes.category(currentEvent.category))}
-              >
-                {currentEvent.category}
-              </Badge>
-              <Badge variant="outline" className="border-white/30 text-white cursor-pointer hover:bg-white/10" onClick={() => setShowAttendeeModal(true)}>
-                {currentEvent.attendeeCount} attending
-              </Badge>
-            </div>
-
-            <div>
-              <h2 className="text-2xl font-bold mb-2 max-w-xl cursor-pointer hover:text-primary/90" onClick={() => navigate(routes.event(currentEvent.id))}>{currentEvent.title}</h2>
-              <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
-                <Avatar className="w-6 h-6"><AvatarFallback className="text-xs bg-white/20 text-white">{currentEvent.organizer.charAt(0)}</AvatarFallback></Avatar>
-                <span className="cursor-pointer hover:text-white" onClick={() => navigate(routes.org(currentEvent.organizerId))}>@{currentEvent.organizer.replace(/\s+/g, '').toLowerCase()}</span>
-                <Badge variant="secondary" className="text-[10px] tracking-wide"><Crown className="w-3 h-3 mr-1"/>ORGANIZER</Badge>
-              </div>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300 mb-3">
-                <span className="inline-flex items-center gap-1"><Calendar className="w-4 h-4" /> {currentEvent.dateLabel}</span>
-                <button className="inline-flex items-center gap-1 hover:text-white" onClick={() => toast({ title: 'Location', description: `Finding events near ${currentEvent.location}…` })}>
-                  <MapPin className="w-4 h-4" /> {currentEvent.location}
-                </button>
-                <span className="inline-flex items-center gap-1"><Users className="w-4 h-4" /> {currentEvent.attendeeCount}</span>
-              </div>
-              <p className="text-sm text-gray-200/90 line-clamp-3 max-w-xl">{currentEvent.description}</p>
-            </div>
-
-            {/* Recent Posts Rail - Show first for social focus */}
-            <RecentPostsRail 
-              posts={currentEvent.posts || []}
-              eventId={currentEvent.id}
-              onPostClick={handlePostClick}
-              onViewAllClick={handleViewAllPosts}
-            />
-
-            {currentEvent.ticketTiers?.length > 0 && (
-              <div className="flex gap-2 pt-1 flex-wrap">
-                {currentEvent.ticketTiers.map(t => (
-                  <Button key={t.id} size="sm" variant="secondary" className="rounded-full bg-white/15 hover:bg-white/25 backdrop-blur border-white/30"
-                    onClick={() => requireAuth(() => { onEventSelect(currentEvent); toast({ title: 'Ticket Details', description: `Viewing ${t.name} ticket…` }); }, 'Please sign in to view ticket details')}>
-                    {t.badge ? <span className="mr-2 px-1.5 py-0.5 text-[10px] rounded bg-black/40">{t.badge}</span> : null}
-                    {t.name} · ${t.price.toFixed(0)}
-              </Button>
-                ))}
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-1">
-              <Button size="lg" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[48px] px-6 font-bold shadow-lg">Get Tickets</Button>
-              <Button size="lg" variant="glass" onClick={() => navigate(routes.eventDetails(currentEvent.id))} className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[48px] px-6 font-semibold backdrop-blur-md">Details</Button>
-              </div>
-              </div>
 
           {/* Action rail */}
           <div className="flex flex-col items-center gap-4 text-white select-none">
