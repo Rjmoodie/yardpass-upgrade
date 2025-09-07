@@ -75,7 +75,13 @@ interface IndexProps {
 // ————————————————————————————————————————
 // PostHero Component for Full-Screen User Posts
 // ————————————————————————————————————————
-function PostHero({ post }: { post: EventPost | undefined }) {
+function PostHero({ post, event, navigate, requireAuth, setShowTicketModal }: { 
+  post: EventPost | undefined; 
+  event: Event;
+  navigate: any;
+  requireAuth: any;
+  setShowTicketModal: any;
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [muted, setMuted] = useState(true);
 
@@ -94,7 +100,9 @@ function PostHero({ post }: { post: EventPost | undefined }) {
       <div className="absolute inset-0">
         <video
           ref={videoRef}
-          src={post.mediaUrl}
+          src={post.mediaUrl.startsWith('mux:') 
+            ? `https://stream.mux.com/${post.mediaUrl.replace('mux:', '')}.m3u8`
+            : post.mediaUrl}
           className="w-full h-full object-cover"
           autoPlay
           muted={muted}
@@ -115,6 +123,24 @@ function PostHero({ post }: { post: EventPost | undefined }) {
           <div className="text-white text-sm">
             <div className="font-semibold">{post.authorName} {post.isOrganizer && <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded">ORGANIZER</span>}</div>
             {post.content && <div className="opacity-90 line-clamp-2">{post.content}</div>}
+          </div>
+          
+          {/* Event overlay with Details and Get Tickets */}
+          <div className="bg-black/40 backdrop-blur-sm rounded-lg p-3 mt-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-sm">{event.title}</h3>
+                <p className="text-xs text-gray-300">{event.dateLabel} • {event.location}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="glass" onClick={() => navigate(routes.eventDetails(event.id))} className="bg-white/20 text-white border-white/30 hover:bg-white/30 text-xs">
+                  Details
+                </Button>
+                <Button size="sm" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs">
+                  Get Tickets
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -526,7 +552,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           return (
             <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
               {heroPost ? (
-                <PostHero post={heroPost} />
+                <PostHero post={heroPost} event={ev} navigate={navigate} requireAuth={requireAuth} setShowTicketModal={setShowTicketModal} />
               ) : (
                 <>
                   <ImageWithFallback src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover" />
