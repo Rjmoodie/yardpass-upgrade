@@ -62,7 +62,7 @@ serve(async (req) => {
         ticket_tiers!ticket_tiers_event_id_fkey ( id, name, price_cents, badge_label, quantity ),
         event_posts (
           id, content, created_at, media_type, media_url, thumbnail_url, like_count, comment_count,
-          user_profiles!event_posts_author_id_fkey ( id, display_name, avatar_url )
+          user_profiles!event_posts_author_user_id_fkey ( user_id, display_name, photo_url )
         )
       `)
       .in('id', eventIds);
