@@ -2,71 +2,69 @@
  * Utility functions for generating and handling SEO-friendly slugs
  */
 
-/**
- * Generates a URL-friendly slug from a title
- * @param title - The title to convert to a slug
- * @param maxLength - Maximum length of the slug (default: 50)
- * @returns A URL-friendly slug
- */
-export function generateSlug(title: string, maxLength: number = 50): string {
+const MAX_LEN = 60;
+
+/** Normalize, strip diacritics/emojis, collapse spaces, hyphenate */
+export function generateSlug(title: string, maxLength: number = MAX_LEN): string {
   return title
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')          // remove diacritics
+    .replace(/[^\p{Letter}\p{Number}]+/gu, '-')// non-alphanum -> hyphen
+    .replace(/^-+|-+$/g, '')                   // trim hyphens
+    .replace(/-+/g, '-')                       // collapse hyphens
     .toLowerCase()
-    .trim()
-    // Replace spaces and special characters with hyphens
-    .replace(/[^a-z0-9]+/g, '-')
-    // Remove leading/trailing hyphens
-    .replace(/^-+|-+$/g, '')
-    // Remove multiple consecutive hyphens
-    .replace(/-+/g, '-')
-    // Truncate to max length
     .substring(0, maxLength)
-    // Remove trailing hyphen if truncation created one
-    .replace(/-+$/, '');
+    .replace(/-+$/g, '');
 }
 
-/**
- * Generates a unique slug by appending a random suffix
- * @param baseSlug - The base slug to make unique
- * @returns A unique slug with random suffix
- */
+/** quick random suffix (base36, 5–6 chars) */
+export function randomSuffix(len = 6) {
+  return Math.random().toString(36).slice(2, 2 + len);
+}
+
 export function generateUniqueSlug(baseSlug: string): string {
-  const randomSuffix = Math.random().toString(36).substring(2, 8);
-  return `${baseSlug}-${randomSuffix}`;
+  return `${baseSlug}-${randomSuffix(6)}`;
 }
 
-/**
- * Creates an event slug from title with optional uniqueness
- * @param title - Event title
- * @param makeUnique - Whether to add random suffix for uniqueness
- * @returns SEO-friendly event slug
- */
+/** Event slugs default to unique */
 export function createEventSlug(title: string, makeUnique: boolean = true): string {
-  const baseSlug = generateSlug(title);
-  return makeUnique ? generateUniqueSlug(baseSlug) : baseSlug;
+  const base = generateSlug(title);
+  return makeUnique ? generateUniqueSlug(base) : base;
 }
 
-/**
- * Validates if a slug is properly formatted
- * @param slug - The slug to validate
- * @returns True if slug is valid
- */
 export function isValidSlug(slug: string): boolean {
-  return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug);
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+}
+
+/** Remove a trailing -xxxxxx random suffix if present */
+export function getBaseSlug(slug: string): string {
+  const parts = slug.split('-');
+  const last = parts[parts.length - 1];
+  if (/^[a-z0-9]{5,8}$/.test(last)) return parts.slice(0, -1).join('-');
+  return slug;
 }
 
 /**
- * Extracts the base slug without the unique suffix
- * @param slug - The full slug
- * @returns Base slug without random suffix
+ * Given a desired slug, check DB and return an available one.
+ * Pass a checker that returns true if a slug EXISTS.
  */
-export function getBaseSlug(slug: string): string {
-  // Remove the last part if it looks like a random suffix (6 characters)
-  const parts = slug.split('-');
-  const lastPart = parts[parts.length - 1];
-  
-  if (lastPart.length === 6 && /^[a-z0-9]{6}$/.test(lastPart)) {
-    return parts.slice(0, -1).join('-');
+export async function ensureAvailableSlug(
+  desired: string,
+  exists: (slug: string) => Promise<boolean>
+): Promise<string> {
+  let candidate = generateSlug(desired) || randomSuffix(6);
+  if (!(await exists(candidate))) return candidate;
+
+  // try a few deterministic variations before fully random
+  const base = candidate;
+  for (let i = 2; i <= 5; i++) {
+    candidate = `${base}-${i}`;
+    if (!(await exists(candidate))) return candidate;
   }
-  
-  return slug;
+  // fallback to random
+  do {
+    candidate = `${base}-${randomSuffix(6)}`;
+  } while (await exists(candidate));
+
+  return candidate;
 }
