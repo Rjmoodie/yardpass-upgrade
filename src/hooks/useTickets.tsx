@@ -124,8 +124,18 @@ export function useTickets() {
         return;
       }
 
-      // Online fetch
-      const { data, error } = await supabase.functions.invoke('get-user-tickets');
+      
+      // Online fetch - ensure we have a valid session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("No valid session found. Please log in again.");
+      }
+
+      const { data, error } = await supabase.functions.invoke('get-user-tickets', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
       if (error) throw error;
 
       const transformed = transform(data?.tickets || []);
