@@ -24,9 +24,7 @@ type EventRow = {
   cover_image_url: string | null;
   owner_context_type: 'organization' | 'individual';
   owner_context_id: string;
-  events_created_by_fkey?: { display_name?: string | null } | null; // optional
-  organizations?: { id: string; name: string; slug: string | null; avatar_url: string | null } | null;
-  [key: string]: any; // Allow additional properties from Supabase
+  organizations?: { id: string; name: string; handle: string | null } | null;
 };
 
 type Attendee = { id: string; display_name: string | null; avatar_url: string | null };
@@ -52,7 +50,7 @@ export default function EventSlugPage() {
         .select(`
           id, slug, title, description, category, start_at, end_at, venue, city, country, cover_image_url,
           owner_context_type, owner_context_id,
-          organizations:organizations!events_owner_context_id_fkey(id, name, slug, avatar_url)
+          organizations:organizations!events_owner_context_id_fkey(id, name, handle)
         `)
         .eq('slug', identifier)
         .limit(1);
@@ -66,7 +64,7 @@ export default function EventSlugPage() {
           .select(`
             id, slug, title, description, category, start_at, end_at, venue, city, country, cover_image_url,
             owner_context_type, owner_context_id,
-            organizations:organizations!events_owner_context_id_fkey(id, name, slug, avatar_url)
+            organizations:organizations!events_owner_context_id_fkey(id, name, handle)
           `)
           .eq('id', identifier)
           .limit(1);
@@ -81,7 +79,7 @@ export default function EventSlugPage() {
       }
 
       const ev = data?.[0] ?? null;
-      setEvent(ev as any);
+      setEvent(ev);
 
       if (ev) {
         // attendees preview (first 12) + total count
@@ -235,7 +233,7 @@ export default function EventSlugPage() {
               <div className="mt-4 text-sm">
                 Hosted by{' '}
                 <Link
-                  to={`/org/${event.organizations.slug ?? event.organizations.id}`}
+                  to={`/org/${event.organizations.handle ?? event.organizations.id}`}
                   className="font-medium underline underline-offset-2"
                 >
                   {event.organizations.name}
