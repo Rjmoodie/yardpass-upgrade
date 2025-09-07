@@ -23,6 +23,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Starting Mux direct upload request");
+    
     const authHeader = req.headers.get("Authorization") ?? "";
     const sbUser = createClient(SUPABASE_URL, SUPABASE_ANON, { 
       global: { headers: { Authorization: authHeader } } 
@@ -30,10 +32,15 @@ serve(async (req) => {
     
     const { data: { user }, error: userErr } = await sbUser.auth.getUser();
     if (userErr || !user) {
+      console.error("Authentication failed:", userErr);
       return createErrorResponse("not_authenticated", 401);
     }
 
+    console.log("User authenticated:", user.id);
+
     const { event_id, kind = "story_video", title, caption } = await req.json();
+    console.log("Request data:", { event_id, kind, title, caption });
+    
     if (!event_id) {
       return createErrorResponse("missing event_id", 400);
     }
@@ -42,37 +49,49 @@ serve(async (req) => {
     }
 
     // Check if user can post to this event (includes ticket holders)
+    console.log("Checking user permissions for event:", event_id);
     const { data: can } = await sbUser.rpc("can_current_user_post", { p_event_id: event_id });
+    console.log("User can post:", can);
+    
     if (!can) {
       return createErrorResponse("forbidden", 403);
     }
 
     // Create Mux Direct Upload
+    console.log("Creating Mux direct upload");
     const auth = "Basic " + btoa(`${MUX_TOKEN_ID}:${MUX_TOKEN_SECRET}`);
+    
+    const muxPayload = {
+      cors_origin: "*",
+      new_asset_settings: {
+        playback_policy: ["public"],
+        mp4_support: "standard"
+      }
+    };
+    
+    console.log("Making request to Mux API");
     const muxRes = await fetch("https://api.mux.com/video/v1/uploads", {
       method: "POST",
       headers: { 
         "authorization": auth, 
         "content-type": "application/json" 
       },
-      body: JSON.stringify({
-        cors_origin: "*",
-        new_asset_settings: {
-          playback_policy: ["public"],
-          mp4_support: "standard"
-        }
-      })
+      body: JSON.stringify(muxPayload)
     });
 
+    console.log("Mux API response status:", muxRes.status);
+    
     if (!muxRes.ok) {
       const txt = await muxRes.text();
-      console.error("Mux upload creation failed:", txt);
+      console.error("Mux upload creation failed:", muxRes.status, txt);
       return createErrorResponse(`mux_upload_create_failed: ${txt}`, 502);
     }
 
     const { data: upload } = await muxRes.json();
+    console.log("Mux upload created:", upload.id);
 
     // Save a placeholder row using service role
+    console.log("Saving to database");
     const sbSrv = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: row, error: insErr } = await sbSrv
       .from("event_share_assets")
@@ -93,7 +112,7 @@ serve(async (req) => {
       return createErrorResponse(insErr.message, 400);
     }
 
-    console.log("Created direct upload:", upload.id, "for event:", event_id);
+    console.log("Successfully created direct upload:", upload.id, "for event:", event_id);
 
     return createResponse({
       upload_id: upload.id,
