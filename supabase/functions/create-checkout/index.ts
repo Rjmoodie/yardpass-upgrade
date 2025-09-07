@@ -163,7 +163,9 @@ serve(async (req) => {
         line_items: lineItems,
         mode: "payment",
         success_url: `${siteUrl}/ticket-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${siteUrl}/events/${eventId}`,
+        cancel_url: `${siteUrl}/?cancelled=true`,
+        allow_promotion_codes: true,
+        billing_address_collection: 'required',
         metadata: {
           event_id: eventId,
           user_id: user.id,
