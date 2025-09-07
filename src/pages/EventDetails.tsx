@@ -15,10 +15,9 @@ import { Calendar, MapPin, Users, Share2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 
 type OrganizerProfile = {
-  id: string;
+  user_id: string;
   display_name?: string | null;
-  username?: string | null;
-  avatar_url?: string | null;
+  photo_url?: string | null;
 };
 
 type EventRow = {
@@ -76,9 +75,8 @@ export default function EventDetails() {
           lng,
           created_by,
           user_profiles!events_created_by_fkey(
-            id,
+            user_id,
             display_name,
-            username,
             photo_url
           )
         `);
@@ -235,8 +233,8 @@ export default function EventDetails() {
             {organizer && (
               <div className="flex items-center gap-3">
                 <Avatar className="w-8 h-8">
-                  {organizer.avatar_url ? (
-                    <AvatarImage src={organizer.avatar_url} alt={organizer.display_name ?? 'Organizer'} />
+                  {organizer.photo_url ? (
+                    <AvatarImage src={organizer.photo_url} alt={organizer.display_name ?? 'Organizer'} />
                   ) : (
                     <AvatarFallback>
                       {(organizer.display_name ?? 'O').charAt(0).toUpperCase()}
@@ -245,7 +243,7 @@ export default function EventDetails() {
                 </Avatar>
                 <button
                   className="text-sm text-muted-foreground hover:underline"
-                  onClick={() => navigate(`/u/${organizer.username ?? organizer.id}`)}
+                  onClick={() => navigate(`/u/${organizer.user_id}`)}
                 >
                   by {organizer.display_name ?? 'Organizer'}
                 </button>
@@ -376,8 +374,8 @@ export default function EventDetails() {
             <CardContent className="pt-6">
               <div className="flex items-start gap-4">
                 <Avatar className="w-12 h-12">
-                  {organizer?.avatar_url ? (
-                    <AvatarImage src={organizer.avatar_url} alt={organizer.display_name ?? 'Organizer'} />
+                  {organizer?.photo_url ? (
+                    <AvatarImage src={organizer.photo_url} alt={organizer.display_name ?? 'Organizer'} />
                   ) : (
                     <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                       {event.title.charAt(0).toUpperCase()}
