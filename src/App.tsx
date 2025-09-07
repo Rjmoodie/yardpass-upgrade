@@ -10,6 +10,7 @@ import Index from '@/pages/Index';
 import Navigation from '@/components/Navigation';
 import { ShareModal } from '@/components/ShareModal';
 import { SharePayload } from '@/lib/share';
+import { getEventRoute } from '@/lib/eventRouting';
 import { Scan } from 'lucide-react';
 import { PageLoadingSpinner } from '@/components/LoadingSpinner';
 
@@ -141,8 +142,8 @@ function AppContent() {
 
   const handleEventSelect = (event: Event) => {
     setSelectedEvent(event);
-    // Use ID directly since database events don't have slugs
-    navigate('/events/' + event.id);
+    // Use slug if available, otherwise fall back to UUID
+    navigate(getEventRoute(event));
   };
 
   const handleBackToFeed = () => {

@@ -114,7 +114,22 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
       (orderStatus as any).id ||
       '';
 
-    const url = eventId ? `${window.location.origin}/events/${eventId}` : window.location.origin;
+    // Try to get event slug for better URL
+    let eventUrl = `${window.location.origin}/events/${eventId}`;
+    if (eventId) {
+      // Fetch event to get slug if available
+      supabase.from('events')
+        .select('slug')
+        .eq('id', eventId)
+        .single()
+        .then(({ data }) => {
+          if (data?.slug) {
+            eventUrl = `${window.location.origin}/events/${data.slug}`;
+          }
+        });
+    }
+
+    const url = eventId ? eventUrl : window.location.origin;
 
     const lines = [
       'BEGIN:VCALENDAR',

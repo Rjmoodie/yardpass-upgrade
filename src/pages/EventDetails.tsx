@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewEvent } from '@/lib/permissions';
+import { parseEventIdentifier } from '@/lib/eventRouting';
 import { Button } from '@/components/ui/button';
 import RequestAccess from '@/components/RequestAccess';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,6 +15,7 @@ type EventRow = {
   start_at: string;
   venue?: string | null;
   address?: string | null;
+  slug?: string | null;
 };
 
 export default function EventDetails() {
@@ -30,16 +32,30 @@ export default function EventDetails() {
       if (!id) return;
       setLoading(true);
 
-      // 1) Fetch event
-      const { data: ev, error } = await supabase
+      const { identifier, isUUID } = parseEventIdentifier(id);
+      
+      // Build query based on whether we have a UUID or slug
+      let query = supabase
         .from('events')
-        .select('id,title,description,start_at,venue,address')
-        .eq('id', id)
-        .single();
+        .select('id,title,description,start_at,venue,address,slug');
+      
+      if (isUUID) {
+        query = query.eq('id', identifier);
+      } else {
+        query = query.eq('slug', identifier);
+      }
+
+      const { data: ev, error } = await query.single();
 
       if (error || !ev) {
         setEvent(null);
         setLoading(false);
+        return;
+      }
+
+      // Redirect to slug-based URL if we accessed via UUID but have a slug
+      if (isUUID && ev.slug && window.location.pathname.includes(identifier)) {
+        navigate(`/events/${ev.slug}${search}`, { replace: true });
         return;
       }
 
@@ -49,7 +65,7 @@ export default function EventDetails() {
       setEvent(ev);
       setLoading(false);
     })();
-  }, [id, kParam, user?.id]);
+  }, [id, kParam, user?.id, navigate, search]);
 
   if (loading) {
     return (
@@ -75,8 +91,20 @@ export default function EventDetails() {
   return (
     <div className="p-6">
       <div className="mb-4">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">public</span>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">public</span>
+          {event.slug && (
+            <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">
+              SEO Optimized
+            </span>
+          )}
+        </div>
         <h1 className="text-2xl font-bold">{event.title}</h1>
+        {event.slug && (
+          <p className="text-sm text-muted-foreground mt-1">
+            URL: /events/{event.slug}
+          </p>
+        )}
       </div>
       <p className="text-muted-foreground mb-6">{event.description}</p>
       <div className="text-sm">
