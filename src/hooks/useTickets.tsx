@@ -68,7 +68,13 @@ export function useTickets() {
   const transform = useCallback((rows: any[]): UserTicket[] => {
     const now = new Date();
 
-    return (rows || []).map((ticket: any) => {
+    // Ensure rows is an array
+    if (!Array.isArray(rows)) {
+      console.warn('🎫 Transform function received non-array data:', rows);
+      return [];
+    }
+
+    return rows.map((ticket: any) => {
       const ev = ticket.events || {};
       const startISO: string = ev.start_at ?? new Date().toISOString();
       const endISO: string =
@@ -166,7 +172,19 @@ export function useTickets() {
       // Ignore outdated responses
       if (requestId !== inFlight.current) return;
 
-      const tickets = data?.tickets || data || [];
+      // Ensure we have an array of tickets
+      let tickets = [];
+      if (Array.isArray(data)) {
+        tickets = data;
+      } else if (data && Array.isArray(data.tickets)) {
+        tickets = data.tickets;
+      } else if (data && data.tickets === null) {
+        tickets = [];
+      } else {
+        console.warn('🎫 Unexpected tickets data structure:', data);
+        tickets = [];
+      }
+      
       console.log('🎫 Extracted tickets:', tickets);
       const transformed = transform(tickets);
       console.log('🎫 Raw tickets from API:', tickets);
@@ -242,7 +260,19 @@ export function useTickets() {
       console.log('🔄 Force refresh - Full response data structure:', JSON.stringify(data, null, 2));
       if (error) throw error;
 
-      const tickets = data?.tickets || data || [];
+      // Ensure we have an array of tickets
+      let tickets = [];
+      if (Array.isArray(data)) {
+        tickets = data;
+      } else if (data && Array.isArray(data.tickets)) {
+        tickets = data.tickets;
+      } else if (data && data.tickets === null) {
+        tickets = [];
+      } else {
+        console.warn('🔄 Force refresh - Unexpected tickets data structure:', data);
+        tickets = [];
+      }
+      
       console.log('🔄 Force refresh - Extracted tickets:', tickets);
       const transformed = transform(tickets);
       console.log('🎫 Force refresh - Raw tickets from API:', tickets);
