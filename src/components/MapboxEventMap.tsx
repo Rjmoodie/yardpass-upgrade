@@ -106,8 +106,12 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
       setMapLoaded(true);
       
       // Add subtle 3D buildings if available
-      if (map.current?.getLayer('building')) {
-        map.current.setPaintProperty('building', 'fill-extrusion-opacity', 0.3);
+      try {
+        if (map.current?.getLayer('building')) {
+          map.current.setPaintProperty('building', 'fill-extrusion-opacity', 0.3);
+        }
+      } catch (error) {
+        console.warn('Could not set building properties:', error);
       }
     });
 

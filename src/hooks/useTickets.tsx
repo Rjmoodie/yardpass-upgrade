@@ -176,31 +176,27 @@ export function useTickets() {
       if (typeof data === 'string') {
         try {
           parsedData = JSON.parse(data);
-          console.log('🎫 Parsed string data:', parsedData);
+          console.log('🎫 Parsed string data successfully');
         } catch (parseError) {
           console.error('🎫 Failed to parse tickets data:', parseError);
           parsedData = { tickets: [] };
         }
       }
 
-      console.log('🎫 Final parsedData type:', typeof parsedData);
-      console.log('🎫 Final parsedData:', parsedData);
-      console.log('🎫 parsedData.tickets exists:', !!parsedData?.tickets);
-      console.log('🎫 parsedData.tickets is array:', Array.isArray(parsedData?.tickets));
-
       // Ensure we have an array of tickets
       let tickets = [];
       if (Array.isArray(parsedData)) {
-        console.log('🎫 Using parsedData directly as array');
+        console.log('🎫 Using parsedData directly as array, length:', parsedData.length);
         tickets = parsedData;
-      } else if (parsedData && Array.isArray(parsedData.tickets)) {
-        console.log('🎫 Using parsedData.tickets array');
+      } else if (parsedData?.tickets && Array.isArray(parsedData.tickets)) {
+        console.log('🎫 Using parsedData.tickets array, length:', parsedData.tickets.length);
         tickets = parsedData.tickets;
-      } else if (parsedData && parsedData.tickets === null) {
+      } else if (parsedData?.tickets === null) {
         console.log('🎫 parsedData.tickets is null');
         tickets = [];
       } else {
-        console.warn('🎫 Unexpected tickets data structure:', parsedData);
+        console.warn('🎫 Unexpected tickets data structure, keys:', Object.keys(parsedData || {}));
+        console.warn('🎫 parsedData.tickets type:', typeof parsedData?.tickets);
         tickets = [];
       }
       
