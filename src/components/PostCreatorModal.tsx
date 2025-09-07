@@ -63,9 +63,9 @@ async function uploadImageToSupabase(file: File): Promise<string> {
  * Ask your edge function to create a Mux Direct Upload and return:
  * { upload_id, upload_url }
  */
-async function createMuxDirectUpload(): Promise<{ upload_id: string; upload_url: string }> {
+async function createMuxDirectUpload(eventId: string): Promise<{ upload_id: string; upload_url: string }> {
   const { data, error } = await supabase.functions.invoke('mux-create-direct-upload', {
-    body: {},
+    body: { event_id: eventId },
   });
   if (error) throw error;
   return data;
@@ -196,7 +196,7 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
           setQueue([...updates]);
         } else {
           // VIDEO → Mux Direct Upload
-          const { upload_id, upload_url } = await createMuxDirectUpload();
+          const { upload_id, upload_url } = await createMuxDirectUpload(selectedEventId);
 
           // PUT binary to Mux upload URL
           await fetch(upload_url, {
