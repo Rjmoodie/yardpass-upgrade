@@ -31,7 +31,7 @@ const escapeICS = (s: string) =>
 export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPageProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { refreshTickets } = useTickets();
+  const { refreshTickets, forceRefreshTickets } = useTickets();
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
@@ -67,9 +67,17 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
         description: `Your tickets are ready! Redirecting to your tickets...`,
       });
       
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        onViewTickets?.();
+      // Force refresh tickets and redirect to tickets page after 2 seconds
+      setTimeout(async () => {
+        // Force refresh tickets to ensure they're visible
+        await forceRefreshTickets();
+        
+        if (onViewTickets) {
+          onViewTickets();
+        } else {
+          // Fallback: navigate to tickets page
+          window.location.href = '/tickets';
+        }
       }, 2000);
     }
   }, [orderStatus?.status, onViewTickets, toast]);

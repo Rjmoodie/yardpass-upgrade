@@ -205,8 +205,54 @@ export function useTickets() {
 
   // Public API
   const refreshTickets = useCallback(async () => {
+    console.log('🔄 Refreshing tickets...');
     await fetchUserTickets();
   }, [fetchUserTickets]);
+
+  // Force refresh tickets (bypasses cache)
+  const forceRefreshTickets = useCallback(async () => {
+    if (!user) return;
+    
+    console.log('🔄 Force refreshing tickets...');
+    setPartial({ loading: true, error: null });
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No valid session found. Please log in again.');
+
+      const { data, error } = await supabase.functions.invoke('get-user-tickets', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      
+      if (error) throw error;
+
+      const transformed = transform(data?.tickets || []);
+      // Sort: upcoming by soonest, past by most recent
+      const nowMs = Date.now();
+      transformed.sort((a, b) => {
+        const aStart = new Date(a.startAtISO).getTime();
+        const bStart = new Date(b.startAtISO).getTime();
+        const aUp = aStart >= nowMs;
+        const bUp = bStart >= nowMs;
+        if (aUp && bUp) return aStart - bStart;
+        if (!aUp && !bUp) return bStart - aStart;
+        return aUp ? -1 : 1;
+      });
+
+      setPartial({ tickets: transformed, loading: false, isOffline: false });
+      cache.cacheTicketList(transformed as any);
+      
+      console.log('✅ Tickets refreshed successfully:', transformed.length);
+    } catch (e: any) {
+      console.error('❌ Error force refreshing tickets:', e);
+      setPartial({
+        loading: false,
+        error: e?.message || 'Failed to refresh tickets',
+      });
+    }
+  }, [user, transform, cache]);
 
   // Online/offline listeners
   useEffect(() => {
@@ -278,5 +324,6 @@ export function useTickets() {
     error: state.error,
     isOffline: state.isOffline,
     refreshTickets,
+    forceRefreshTickets,
   };
 }

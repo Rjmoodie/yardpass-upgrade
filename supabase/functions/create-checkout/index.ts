@@ -162,7 +162,7 @@ serve(async (req) => {
         customer_email: customerId ? undefined : user.email,
         line_items: lineItems,
         mode: "payment",
-        success_url: `${siteUrl}/ticket-success?session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${siteUrl}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${siteUrl}/?cancelled=true`,
         allow_promotion_codes: true,
         billing_address_collection: 'required',

@@ -121,15 +121,14 @@ export function TicketPurchaseModal({
         throw error;
       }
 
-      console.log('✅ Checkout session created, opening URL:', data.url);
+      console.log('✅ Checkout session created, redirecting to:', data.url);
       
-      // Open Stripe checkout in new tab
-      window.open(data.url, '_blank');
+      // Redirect to Stripe checkout (not new tab)
+      window.location.href = data.url;
       
-      notifyInfo("Secure payment starting...");
+      notifyInfo("Redirecting to secure payment...");
 
-      // Close modal and trigger success callback
-      onSuccess();
+      // Close modal (success will be handled by PurchaseSuccessHandler)
       onClose();
     } catch (error: any) {
       console.error('💥 Purchase error:', error);

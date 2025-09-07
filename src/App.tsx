@@ -31,6 +31,7 @@ const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
 const RefundPolicy = lazy(() => import('@/pages/RefundPolicy'));
 const TicketsPage = lazy(() => import('@/components/TicketsPage'));
 const TicketSuccessPage = lazy(() => import('@/components/TicketSuccessPage'));
+const PurchaseSuccessHandler = lazy(() => import('@/components/PurchaseSuccessHandler'));
 const ScannerPage = lazy(() => import('@/components/ScannerPage').then(m => ({ default: m.ScannerPage })));
 const AnalyticsHub = lazy(() => import('@/components/AnalyticsHub'));
 const EventAnalytics = lazy(() => import('@/components/EventAnalytics'));
@@ -471,6 +472,14 @@ function AppContent() {
                 onBack={() => navigate('/')} 
                 onViewTickets={() => navigate('/tickets')}
               />
+            </AuthGuard>
+          } 
+        />
+        <Route 
+          path="/purchase-success" 
+          element={
+            <AuthGuard>
+              <PurchaseSuccessHandler />
             </AuthGuard>
           } 
         />

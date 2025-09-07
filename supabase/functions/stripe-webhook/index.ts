@@ -91,58 +91,12 @@ serve(async (req) => {
         throw new Error("Failed to update order status");
       }
 
-      // Create tickets based on order items
-      const { data: orderItems, error: itemsError } = await supabaseService
-        .from("order_items")
-        .select("*")
-        .eq("order_id", order.id);
-
-      if (itemsError) {
-        logStep("Failed to fetch order items", { error: itemsError.message });
-        throw new Error("Failed to fetch order items");
-      }
-
-      const ticketsToCreate = [];
-      for (const item of orderItems || []) {
-        for (let i = 0; i < item.quantity; i++) {
-          ticketsToCreate.push({
-            event_id: order.event_id,
-            tier_id: item.tier_id,
-            order_id: order.id,
-            owner_user_id: order.user_id,
-            qr_code: `ticket_${order.id}_${item.tier_id}_${Date.now()}_${i}`,
-            status: 'issued'
-          });
-        }
-      }
-
-      const { error: ticketsError } = await supabaseService
-        .from("tickets")
-        .insert(ticketsToCreate);
-
-      if (ticketsError) {
-        logStep("Failed to create tickets", { error: ticketsError.message });
-        throw new Error("Failed to create tickets");
-      }
-
-      // Update ticket tier quantities
-      for (const item of orderItems || []) {
-        const { error: tierError } = await supabaseService
-          .from("ticket_tiers")
-          .update({
-            quantity: supabaseService.raw(`quantity - ${item.quantity}`)
-          })
-          .eq("id", item.tier_id);
-
-        if (tierError) {
-          logStep("Failed to update tier quantity", { error: tierError.message });
-          // Don't throw here, tickets are already created
-        }
-      }
+      // Note: Ticket creation is handled by process-payment function
+      // This webhook only marks the order as paid to trigger the process-payment flow
+      logStep("Order marked as paid, process-payment will handle ticket creation");
 
       logStep("Payment processed successfully", { 
-        orderId: order.id, 
-        ticketsCreated: ticketsToCreate.length 
+        orderId: order.id
       });
 
     } else if (event.type === "checkout.session.expired") {
