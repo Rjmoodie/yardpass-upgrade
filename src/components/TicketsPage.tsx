@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react';
+// src/components/TicketsPage.tsx
+
+import { useState } from 'react';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -11,7 +13,7 @@ import { QRCodeModal } from '@/components/QRCodeModal';
 import { useTicketAnalytics } from '@/hooks/useTicketAnalytics';
 import {
   ArrowLeft,
-  Ticket,
+  Ticket as TicketIcon,
   Calendar,
   MapPin,
   Users,
@@ -36,6 +38,9 @@ interface TicketsPageProps {
   onBack: () => void;
 }
 
+const formatUSD = (n: number) =>
+  new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n || 0);
+
 export function TicketsPage({ user, onBack }: TicketsPageProps) {
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
@@ -47,7 +52,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
     useTicketAnalytics();
 
   // ——————————————————————————————————
-  // ICS generation helpers
+  // ICS helpers
   // ——————————————————————————————————
   const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
   const toICSUTC = (iso: string) => {
@@ -56,6 +61,9 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
       d.getUTCHours()
     )}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
   };
+
+  const escapeICS = (s: string) =>
+    (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 
   const buildICS = (ticket: UserTicket) => {
     const dtStart = toICSUTC(ticket.startAtISO);
@@ -84,20 +92,17 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
     return ics;
   };
 
-  const escapeICS = (s: string) =>
-    (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-
   const downloadICS = async (ticket: UserTicket) => {
     try {
       const content = buildICS(ticket);
       const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
       const fileName = `${ticket.eventTitle.replace(/[^\w\s-]/g, '')}.ics`;
 
-      // Try native share with a file (mobile)
-      if (navigator.canShare && 'share' in navigator) {
+      // Mobile-native share with a file if available
+      if ((navigator as any).canShare && 'share' in navigator) {
         const file = new File([blob], fileName, { type: 'text/calendar' });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
+        if ((navigator as any).canShare({ files: [file] })) {
+          await (navigator as any).share({
             title: ticket.eventTitle,
             text: 'Add to calendar',
             files: [file],
@@ -107,7 +112,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
         }
       }
 
-      // Fallback: download the file
+      // Fallback: download
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -228,7 +233,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
       <div className="h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-            <Ticket className="text-white w-8 h-8" />
+            <TicketIcon className="text-white w-8 h-8" />
           </div>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
         </div>
@@ -241,7 +246,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
       {/* Header */}
       <div className="border-b bg-card p-4">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors">
+          <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors" aria-label="Back">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
@@ -256,7 +261,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
               <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="outline" size="sm" disabled>
+            <Button variant="outline" size="sm" disabled title="Filters coming soon">
               <Filter className="w-4 h-4 mr-1" />
               Filter
             </Button>
@@ -326,7 +331,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-sm font-medium">${ticket.price}</div>
+                          <div className="text-sm font-medium">{formatUSD(ticket.price)}</div>
                           <Badge
                             variant={ticket.status === 'issued' ? 'secondary' : 'outline'}
                             className="text-xs"
@@ -389,7 +394,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
               ))
             ) : (
               <div className="text-center py-12">
-                <Ticket className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <TicketIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
                 <h3 className="text-lg mb-2">No upcoming events</h3>
                 <p className="text-sm text-muted-foreground mb-4">
                   Discover amazing events and get your tickets!
@@ -403,7 +408,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
           <TabsContent value="past" className="p-4 space-y-4">
             {pastTickets.length > 0 ? (
               pastTickets.map((ticket) => (
-                <Card key={ticket.id} className="overflow-hidden opacity-80">
+                <Card key={ticket.id} className="overflow-hidden opacity-90">
                   <div className="flex">
                     <ImageWithFallback
                       src={ticket.coverImage}
@@ -435,7 +440,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-sm font-medium">${ticket.price}</div>
+                          <div className="text-sm font-medium">{formatUSD(ticket.price)}</div>
                         </div>
                       </div>
 
