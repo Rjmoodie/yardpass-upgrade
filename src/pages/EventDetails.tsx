@@ -98,7 +98,10 @@ export default function EventDetails() {
         return;
       }
 
-      setEvent(ev as EventRow);
+      setEvent({
+        ...ev,
+        user_profiles: null
+      } as EventRow);
       setLoading(false);
     })();
   }, [id, kParam, user?.id, navigate, search]);
