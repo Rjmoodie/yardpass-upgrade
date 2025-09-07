@@ -175,7 +175,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     return (
       <div className="h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4"><span className="text-white font-bold text-xl">🎪</span></div>
+          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
+            <img src="/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png" alt="YardPass" className="w-10 h-10" />
+          </div>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
         </div>
       </div>
@@ -197,7 +199,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/60 to-transparent p-4">
         <div className="flex items-center justify-between text-white">
-          <div className="flex items-center gap-2"><span className="text-lg">🎪</span><span className="font-medium">YardPass</span></div>
+          <div className="flex items-center gap-2">
+            <img src="/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png" alt="YardPass" className="w-8 h-8" />
+            <span className="font-bold text-lg">YardPass</span>
+          </div>
           <Button size="sm" variant="glass" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create content')} className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg">+ Create Event</Button>
         </div>
       </div>

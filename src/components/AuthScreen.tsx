@@ -43,7 +43,7 @@ export function AuthScreen({ onAuth }: AuthScreenProps) {
       <Card className="w-full max-w-md glass-card relative z-10">
         <CardHeader className="text-center space-y-6">
           <div className="mx-auto w-20 h-20 brand-gradient rounded-2xl flex items-center justify-center shadow-xl golden-glow">
-            <span className="text-white font-bold text-2xl">🎪</span>
+            <img src="/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png" alt="YardPass" className="w-12 h-12" />
           </div>
           <div className="space-y-2">
             <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
