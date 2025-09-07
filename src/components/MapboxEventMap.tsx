@@ -26,18 +26,18 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
   useEffect(() => {
     const fetchMapboxToken = async () => {
       try {
-        const response = await fetch('/api/get-mapbox-token', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
         
-        if (response.ok) {
-          const data = await response.json();
+        if (error) {
+          console.error('Error calling Mapbox token function:', error);
+          return;
+        }
+        
+        if (data?.token) {
           setMapboxToken(data.token);
         } else {
-          console.error('Failed to fetch Mapbox token');
+          console.error('No token returned from Mapbox function');
         }
       } catch (error) {
         console.error('Error fetching Mapbox token:', error);
