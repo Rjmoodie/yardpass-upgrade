@@ -279,7 +279,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
             <div className="flex gap-3 pt-1">
               <Button size="lg" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[48px] px-6 font-bold shadow-lg">Get Tickets</Button>
-              <Button size="lg" variant="glass" onClick={() => navigate(routes.eventDetails(currentEvent.id))} className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[48px] px-6 font-semibold backdrop-blur-md">Details</Button>
+              <Button size="lg" variant="glass" onClick={() => navigate(`/events/${currentEvent.id}`)} className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[48px] px-6 font-semibold backdrop-blur-md">Posts</Button>
             </div>
           </div>
 
