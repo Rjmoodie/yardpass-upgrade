@@ -27,7 +27,7 @@ export type HomeFeedRow = {
 };
 
 export async function fetchHomeFeed(userId: string, limit = 20, offset = 0) {
-  return supabase.rpc<HomeFeedRow>("get_home_feed", {
+  return supabase.rpc("get_home_feed", {
     p_user_id: userId,
     p_limit: limit,
     p_offset: offset,
