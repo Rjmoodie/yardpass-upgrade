@@ -259,6 +259,11 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
         description: `Shared to ${result?.data?.event_title || 'event'}`,
       });
 
+      // Trigger global post refresh event
+      window.dispatchEvent(new CustomEvent('postCreated', { 
+        detail: { eventId: selectedEventId, postId: result?.data?.id } 
+      }));
+
       // reset
       setContent('');
       setQueue([]);

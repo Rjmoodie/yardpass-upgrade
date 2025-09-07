@@ -181,6 +181,12 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
       if (error) throw error;
 
       toast({ title: 'Posted', description: 'Your post has been created!' });
+      
+      // Trigger global post refresh event
+      window.dispatchEvent(new CustomEvent('postCreated', { 
+        detail: { eventId: selectedEventId, postId: data?.id } 
+      }));
+      
       setContent('');
       setMediaFiles([]);
       onPost();

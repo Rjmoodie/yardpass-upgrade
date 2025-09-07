@@ -53,9 +53,10 @@ interface EventFeedProps {
   eventId?: string;
   userId?: string;
   onEventClick?: (eventId: string) => void;
+  refreshTrigger?: number; // Add this to trigger refresh from parent
 }
 
-export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
+export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: EventFeedProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { trackClick, startViewTracking, stopViewTracking, trackVideoProgress } = useVideoAnalytics();
@@ -90,12 +91,7 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
     if (node) observerRef.current?.observe(node);
   }, []);
 
-  useEffect(() => {
-    fetchPosts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, userId]);
-
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
       // Build GET to Edge Function (uses auth header)
@@ -116,7 +112,7 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
 
       if (!res.ok) throw new Error(`Failed: ${res.status}`);
       const payload = await res.json();
-      const rows: EventPostRow[] = payload.items ?? payload.data ?? [];
+      const rows: EventPostRow[] = payload.data ?? [];
 
       // fetch event titles for mapping
       const uniqueEventIds = [...new Set(rows.map((r) => r.event_id))].filter(Boolean);
@@ -135,22 +131,22 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
         }
       }
 
-      const mapped: EventPost[] = rows.map((r) => ({
+      const mapped: EventPost[] = rows.map((r: any) => ({
         id: r.id,
         text: r.text,
         media_urls: r.media_urls ?? [],
         created_at: r.created_at,
         author_user_id: r.author_user_id,
         event_id: r.event_id,
-        like_count: r.likes ?? 0,
-        comment_count: r.comments ?? 0,
-        is_organizer: false,
-        badge_label: r.badge ?? null,
+        like_count: r.like_count ?? 0,
+        comment_count: r.comment_count ?? 0,
+        is_organizer: r.author_is_organizer ?? false,
+        badge_label: r.author_badge_label ?? null,
         user_profiles: {
-          display_name: r.author?.name ?? 'User',
-          photo_url: r.author?.avatar ?? null,
+          display_name: r.author_name ?? 'User',
+          photo_url: r.author_photo_url ?? null,
         },
-        events: { title: titles[r.event_id] ?? 'Event' },
+        events: { title: r.event_title ?? titles[r.event_id] ?? 'Event' },
       }));
 
       setPosts(mapped);
@@ -173,7 +169,23 @@ export function EventFeed({ eventId, userId, onEventClick }: EventFeedProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId, userId, user]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts, refreshTrigger]); // Add refreshTrigger to dependencies
+
+  // Listen for global post creation events
+  useEffect(() => {
+    const handlePostCreated = (event: any) => {
+      console.log('Post created event received, refreshing posts...', event.detail);
+      fetchPosts();
+    };
+
+    window.addEventListener('postCreated', handlePostCreated);
+    return () => window.removeEventListener('postCreated', handlePostCreated);
+  }, [fetchPosts]);
+
 
   const handleLike = async (postId: string) => {
     if (!user) {
