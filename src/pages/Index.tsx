@@ -88,6 +88,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   useEffect(() => {
     const load = async () => {
       try {
+        console.log('Fetching events...');
         const { data, error } = await supabase
           .from('events')
           .select(`
@@ -98,8 +99,19 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           .eq('visibility', 'public')
           .order('start_at', { ascending: true })
           .limit(20);
-        if (error) throw error;
-        if (!data || !data.length) { setEvents(mockEvents); return; }
+        
+        console.log('Events query result:', { data, error, dataLength: data?.length });
+        
+        if (error) {
+          console.error('Events query error:', error);
+          throw error;
+        }
+        
+        if (!data || !data.length) { 
+          console.log('No events found, using mock data');
+          setEvents(mockEvents); 
+          return; 
+        }
         const transformed: Event[] = data.map((e: any) => ({
           id: e.id,
           title: e.title,
