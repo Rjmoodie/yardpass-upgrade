@@ -34,36 +34,51 @@ export default function EventDetails() {
       if (!id) return;
       setLoading(true);
 
-      // Simple query without joins for now
-      const { data: ev, error } = await supabase
-        .from('events')
-        .select(`
-          id,
-          title,
-          description,
-          start_at,
-          venue,
-          address,
-          city,
-          country,
-          cover_image_url,
-          category,
-          slug,
-          lat,
-          lng
-        `)
-        .eq('id', id)
-        .single();
+      try {
+        // Check if id looks like a UUID
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        
+        let query = supabase
+          .from('events')
+          .select(`
+            id,
+            title,
+            description,
+            start_at,
+            venue,
+            address,
+            city,
+            country,
+            cover_image_url,
+            category,
+            slug,
+            lat,
+            lng
+          `);
 
-      if (error || !ev) {
+        // Query by ID if UUID, or by slug if not
+        if (isUUID) {
+          query = query.eq('id', id);
+        } else {
+          query = query.eq('slug', id);
+        }
+
+        const { data: ev, error } = await query.single();
+
+        if (error || !ev) {
+          console.error('Event fetch error:', error);
+          setEvent(null);
+          setLoading(false);
+          return;
+        }
+
+        setEvent(ev as EventRow);
+        setLoading(false);
+      } catch (error) {
         console.error('Event fetch error:', error);
         setEvent(null);
         setLoading(false);
-        return;
       }
-
-      setEvent(ev as EventRow);
-      setLoading(false);
     })();
   }, [id]);
 
