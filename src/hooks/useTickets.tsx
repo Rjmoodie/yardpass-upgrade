@@ -104,7 +104,7 @@ export function useTickets() {
         price: (ticket.ticket_tiers?.price_cents || 0) / 100,
         orderDate: ticket.orders?.created_at || ticket.created_at,
         isUpcoming: end > now,
-        organizerName: ev.organizer_name || 'Event Organizer',
+        organizerName: ev.user_profiles?.display_name || 'Event Organizer',
         startAtISO: startISO,
         endAtISO: endISO,
         timezone: ev.timezone || undefined,
@@ -166,7 +166,8 @@ export function useTickets() {
       if (requestId !== inFlight.current) return;
 
       const transformed = transform(data?.tickets || []);
-      // Sort: upcoming by soonest, past by most recent
+      console.log('🎫 Raw tickets from API:', data?.tickets);
+      console.log('🎫 Transformed tickets:', transformed);
       const nowMs = Date.now();
       transformed.sort((a, b) => {
         const aStart = new Date(a.startAtISO).getTime();
@@ -238,7 +239,8 @@ export function useTickets() {
       if (error) throw error;
 
       const transformed = transform(data?.tickets || []);
-      // Sort: upcoming by soonest, past by most recent
+      console.log('🎫 Force refresh - Raw tickets from API:', data?.tickets);
+      console.log('🎫 Force refresh - Transformed tickets:', transformed);
       const nowMs = Date.now();
       transformed.sort((a, b) => {
         const aStart = new Date(a.startAtISO).getTime();
