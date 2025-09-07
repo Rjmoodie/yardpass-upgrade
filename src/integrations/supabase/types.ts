@@ -1829,22 +1829,8 @@ export type Database = {
         }[]
       }
       get_home_feed: {
-        Args: { p_limit?: number; p_offset?: number; p_user_id: string }
-        Returns: {
-          category: string
-          city: string
-          cover_image_url: string
-          created_by: string
-          description: string
-          end_at: string
-          id: string
-          recent_posts: Json
-          start_at: string
-          title: string
-          total_comments: number
-          total_posts: number
-          venue: string
-        }[]
+        Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
+        Returns: Database["public"]["CompositeTypes"]["home_feed_row"][]
       }
       get_org_analytics: {
         Args: { p_org_id: string }
@@ -1958,7 +1944,23 @@ export type Database = {
       verification_status: "none" | "pending" | "verified" | "pro"
     }
     CompositeTypes: {
-      [_ in never]: never
+      home_feed_row: {
+        event_id: string | null
+        title: string | null
+        description: string | null
+        category: string | null
+        cover_image_url: string | null
+        start_at: string | null
+        end_at: string | null
+        venue: string | null
+        city: string | null
+        visibility: Database["public"]["Enums"]["event_visibility"] | null
+        created_by: string | null
+        organizer_display_name: string | null
+        organizer_avatar_url: string | null
+        recent_posts: Json | null
+        ticket_tiers: Json | null
+      }
     }
   }
 }
