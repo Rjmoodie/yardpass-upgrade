@@ -112,6 +112,9 @@ export function useTickets() {
     });
   }, []);
 
+  // Use refs to avoid infinite loops
+  const fetchRef = useRef<() => Promise<void>>();
+  
   const fetchUserTickets = useCallback(async () => {
     if (!user) {
       setPartial({ tickets: [], loading: false, error: null });
@@ -203,7 +206,10 @@ export function useTickets() {
         });
       }
     }
-  }, [user, cache, toast]);  // Removed transform from dependencies
+  }, [user, cache, toast, transform]);
+  
+  // Store stable reference
+  fetchRef.current = fetchUserTickets;
 
   // Public API
   const refreshTickets = useCallback(async () => {
@@ -261,7 +267,7 @@ export function useTickets() {
   useEffect(() => {
     const goOnline = () => {
       setPartial({ isOffline: false });
-      fetchUserTickets();
+      if (fetchRef.current) fetchRef.current();
     };
     const goOffline = () => {
       setPartial({ isOffline: true });
@@ -280,12 +286,12 @@ export function useTickets() {
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
     };
-  }, [toast]);  // Removed fetchUserTickets dependency to prevent infinite loop
+  }, [toast]);
 
   // First load
   useEffect(() => {
-    fetchUserTickets();
-  }, [user?.id]);  // Removed fetchUserTickets dependency
+    if (fetchRef.current) fetchRef.current();
+  }, [user?.id]);
 
   // Realtime: keep local list fresh when user's tickets change
   useEffect(() => {
@@ -300,14 +306,16 @@ export function useTickets() {
           table: 'tickets',
           filter: `owner_user_id=eq.${user.id}`,
         },
-        () => fetchUserTickets()
+        () => {
+          if (fetchRef.current) fetchRef.current();
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);  // Removed fetchUserTickets dependency
+  }, [user?.id]);
 
   const upcomingTickets = useMemo(
     () => state.tickets.filter((t) => t.isUpcoming),
