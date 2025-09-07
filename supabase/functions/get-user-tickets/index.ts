@@ -1,29 +1,27 @@
-// supabase/functions/get-user-tickets/index.ts
-
-// Deno Deploy / Supabase Edge Function
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+};
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-function cors(res: Response) {
-  const h = new Headers(res.headers);
-  h.set("Access-Control-Allow-Origin", "*");
-  h.set("Access-Control-Allow-Headers", "authorization, x-client-info, apikey, content-type");
-  h.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  return new Response(res.body, { status: res.status, headers: h });
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return cors(new Response(null, { status: 204 }));
+    return new Response(null, { headers: corsHeaders, status: 200 });
   }
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader) {
-      return cors(new Response(JSON.stringify({ error: "not_authenticated" }), { status: 401 }));
+      return new Response(JSON.stringify({ error: "not_authenticated" }), { 
+        headers: corsHeaders, 
+        status: 401 
+      });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -32,7 +30,10 @@ serve(async (req) => {
 
     const { data: { user }, error: userErr } = await supabase.auth.getUser();
     if (userErr || !user) {
-      return cors(new Response(JSON.stringify({ error: "not_authenticated" }), { status: 401 }));
+      return new Response(JSON.stringify({ error: "not_authenticated" }), { 
+        headers: corsHeaders, 
+        status: 401 
+      });
     }
 
     // Fetch user's tickets (only relevant statuses)
@@ -45,11 +46,17 @@ serve(async (req) => {
 
     if (ticketsError) {
       console.error("get-user-tickets tickets error:", ticketsError);
-      return cors(new Response(JSON.stringify({ error: ticketsError.message }), { status: 400 }));
+      return new Response(JSON.stringify({ error: ticketsError.message }), { 
+        headers: corsHeaders, 
+        status: 400 
+      });
     }
 
     if (!tickets || tickets.length === 0) {
-      return cors(new Response(JSON.stringify({ tickets: [] }), { status: 200 }));
+      return new Response(JSON.stringify({ tickets: [] }), { 
+        headers: corsHeaders, 
+        status: 200 
+      });
     }
 
     // Collect FK ids
@@ -74,15 +81,24 @@ serve(async (req) => {
 
     if (eventsRes.error) {
       console.error("get-user-tickets events error:", eventsRes.error);
-      return cors(new Response(JSON.stringify({ error: eventsRes.error.message }), { status: 400 }));
+      return new Response(JSON.stringify({ error: eventsRes.error.message }), { 
+        headers: corsHeaders, 
+        status: 400 
+      });
     }
     if (tiersRes.error) {
       console.error("get-user-tickets tiers error:", tiersRes.error);
-      return cors(new Response(JSON.stringify({ error: tiersRes.error.message }), { status: 400 }));
+      return new Response(JSON.stringify({ error: tiersRes.error.message }), { 
+        headers: corsHeaders, 
+        status: 400 
+      });
     }
     if (ordersRes.error) {
       console.error("get-user-tickets orders error:", ordersRes.error);
-      return cors(new Response(JSON.stringify({ error: ordersRes.error.message }), { status: 400 }));
+      return new Response(JSON.stringify({ error: ordersRes.error.message }), { 
+        headers: corsHeaders, 
+        status: 400 
+      });
     }
 
     // Build lookups
@@ -98,9 +114,15 @@ serve(async (req) => {
       orders: ticket.order_id ? ordersMap.get(ticket.order_id) || null : null,
     }));
 
-    return cors(new Response(JSON.stringify({ tickets: enrichedTickets }), { status: 200 }));
+    return new Response(JSON.stringify({ tickets: enrichedTickets }), { 
+      headers: corsHeaders, 
+      status: 200 
+    });
   } catch (e) {
     console.error("get-user-tickets fatal:", e);
-    return cors(new Response(JSON.stringify({ error: e?.message ?? "unknown_error" }), { status: 500 }));
+    return new Response(JSON.stringify({ error: e?.message ?? "unknown_error" }), { 
+      headers: corsHeaders, 
+      status: 500 
+    });
   }
 });
