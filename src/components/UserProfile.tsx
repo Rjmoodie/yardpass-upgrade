@@ -45,7 +45,8 @@ import {
   Edit,
   Share,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  LogOut
 } from 'lucide-react';
 
 interface User {
@@ -187,12 +188,31 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
               variant="ghost" 
               size="sm" 
               onClick={() => {
-                import('@/lib/routes').then(({ routes }) => {
-                  window.location.href = '/edit-profile';
-                });
+                window.location.href = '/edit-profile';
               }}
             >
               <Edit className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                try {
+                  await supabase.auth.signOut();
+                  toast({
+                    title: "Signed out",
+                    description: "You have been signed out successfully."
+                  });
+                } catch (error) {
+                  toast({
+                    title: "Error",
+                    description: "Failed to sign out. Please try again.",
+                    variant: "destructive"
+                  });
+                }
+              }}
+            >
+              Sign Out
             </Button>
           </div>
         </div>
