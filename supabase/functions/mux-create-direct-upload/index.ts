@@ -70,21 +70,40 @@ serve(async (req) => {
     };
     
     console.log("Making request to Mux API");
-    const muxRes = await fetch("https://api.mux.com/video/v1/uploads", {
-      method: "POST",
-      headers: { 
-        "authorization": auth, 
-        "content-type": "application/json" 
-      },
-      body: JSON.stringify(muxPayload)
-    });
-
-    console.log("Mux API response status:", muxRes.status);
+    console.log("Mux API URL:", "https://api.mux.com/video/v1/uploads");
+    console.log("Mux payload:", JSON.stringify(muxPayload));
     
-    if (!muxRes.ok) {
-      const txt = await muxRes.text();
-      console.error("Mux upload creation failed:", muxRes.status, txt);
-      return createErrorResponse(`mux_upload_create_failed: ${txt}`, 502);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout
+    
+    try {
+      const muxRes = await fetch("https://api.mux.com/video/v1/uploads", {
+        method: "POST",
+        headers: { 
+          "authorization": auth, 
+          "content-type": "application/json" 
+        },
+        body: JSON.stringify(muxPayload),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log("Mux API response status:", muxRes.status);
+      
+      if (!muxRes.ok) {
+        const txt = await muxRes.text();
+        console.error("Mux upload creation failed:", muxRes.status, txt);
+        return createErrorResponse(`mux_upload_create_failed: ${txt}`, 502);
+      }
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error("Mux API request timeout");
+        return createErrorResponse("Request timeout to Mux API", 504);
+      }
+      console.error("Mux API fetch error:", fetchError);
+      return createErrorResponse(`Network error: ${fetchError.message}`, 502);
     }
 
     const { data: upload } = await muxRes.json();
