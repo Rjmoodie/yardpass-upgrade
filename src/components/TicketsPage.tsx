@@ -46,7 +46,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { tickets, upcomingTickets, pastTickets, loading, error, isOffline, refreshTickets } =
+  const { tickets, upcomingTickets, pastTickets, loading, error, isOffline, refreshTickets, forceRefreshTickets } =
     useTickets();
   const { trackTicketView, trackQRCodeView, trackTicketShare, trackTicketCopy, trackWalletDownload } =
     useTicketAnalytics();
@@ -209,15 +209,52 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refreshTickets();
+      console.log('🔄 Force refreshing tickets...');
+      await forceRefreshTickets();
       toast({
         title: 'Tickets Refreshed',
         description: 'Your tickets have been updated.',
       });
-    } catch {
+    } catch (error) {
+      console.error('❌ Refresh failed:', error);
       toast({
         title: 'Refresh Failed',
         description: 'Failed to refresh tickets. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Emergency refresh function that bypasses all caching
+  const handleEmergencyRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      console.log('🚨 Emergency refresh - bypassing all cache...');
+      
+      // Clear any cached data
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const keys = Object.keys(window.localStorage);
+        keys.forEach(key => {
+          if (key.includes('ticket') || key.includes('cache')) {
+            window.localStorage.removeItem(key);
+          }
+        });
+      }
+      
+      // Force refresh
+      await forceRefreshTickets();
+      
+      toast({
+        title: 'Emergency Refresh Complete',
+        description: 'All cached data cleared and tickets refreshed.',
+      });
+    } catch (error) {
+      console.error('❌ Emergency refresh failed:', error);
+      toast({
+        title: 'Emergency Refresh Failed',
+        description: 'Please contact support if the issue persists.',
         variant: 'destructive',
       });
     } finally {
@@ -260,6 +297,10 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
               <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleEmergencyRefresh} disabled={isRefreshing} className="text-orange-600 hover:text-orange-700">
+              <AlertCircle className="w-4 h-4 mr-1" />
+              Force Refresh
             </Button>
             <Button variant="outline" size="sm" disabled title="Filters coming soon">
               <Filter className="w-4 h-4 mr-1" />

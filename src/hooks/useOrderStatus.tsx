@@ -72,7 +72,13 @@ export function useOrderStatus(sessionId: string | null) {
       }
     } catch (err: unknown) {
       console.error('Error fetching order status:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch order status');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch order status';
+      setError(errorMessage);
+      
+      // If it's a network error or timeout, we might want to retry
+      if (errorMessage.includes('fetch') || errorMessage.includes('timeout')) {
+        console.log('🔄 Network error detected, will retry...');
+      }
     } finally {
       setLoading(false);
     }

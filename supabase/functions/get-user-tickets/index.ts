@@ -37,12 +37,15 @@ serve(async (req) => {
     }
 
     // Fetch user's tickets (only relevant statuses)
+    console.log(`[GET-USER-TICKETS] Fetching tickets for user: ${user.id}`);
     const { data: tickets, error: ticketsError } = await supabase
       .from("tickets")
       .select("id, event_id, tier_id, order_id, status, qr_code, created_at")
       .eq("owner_user_id", user.id)
       .in("status", ["issued", "transferred", "redeemed"])
       .order("created_at", { ascending: false });
+    
+    console.log(`[GET-USER-TICKETS] Found ${tickets?.length || 0} tickets for user ${user.id}`);
 
     if (ticketsError) {
       console.error("get-user-tickets tickets error:", ticketsError);

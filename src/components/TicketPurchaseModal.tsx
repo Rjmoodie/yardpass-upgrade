@@ -123,10 +123,26 @@ export function TicketPurchaseModal({
 
       console.log('✅ Checkout session created, redirecting to:', data.url);
       
-      // Redirect to Stripe checkout (not new tab)
-      window.location.href = data.url;
-      
+      // Show redirect notification
       notifyInfo("Redirecting to secure payment...");
+      
+      // Add a small delay to ensure the notification is seen
+      setTimeout(() => {
+        try {
+          // Redirect to Stripe checkout (not new tab)
+          window.location.href = data.url;
+        } catch (error) {
+          console.error('❌ Redirect failed:', error);
+          toast({
+            title: "Redirect Failed",
+            description: "Please click the link to complete your payment.",
+            variant: "destructive",
+          });
+          
+          // Fallback: open in new tab
+          window.open(data.url, '_blank');
+        }
+      }, 500);
 
       // Close modal (success will be handled by PurchaseSuccessHandler)
       onClose();

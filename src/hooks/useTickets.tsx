@@ -155,6 +155,8 @@ export function useTickets() {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
+      
+      console.log('🎫 get-user-tickets response:', { data, error });
       if (error) throw error;
 
       // Ignore outdated responses
@@ -226,6 +228,7 @@ export function useTickets() {
         },
       });
       
+      console.log('🔄 Force refresh - get-user-tickets response:', { data, error });
       if (error) throw error;
 
       const transformed = transform(data?.tickets || []);

@@ -16,10 +16,12 @@ export function PurchaseSuccessHandler() {
   const { forceRefreshTickets } = useTickets();
   
   const sessionId = searchParams.get('session_id');
-  const { orderStatus, loading: statusLoading, refetch } = useOrderStatus(sessionId);
+  const { orderStatus, loading: statusLoading, refetch, error: orderError } = useOrderStatus(sessionId);
   
   const [redirecting, setRedirecting] = useState(false);
   const [ticketsRefreshed, setTicketsRefreshed] = useState(false);
+  const [timeoutReached, setTimeoutReached] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Handle successful payment
   useEffect(() => {
@@ -63,6 +65,58 @@ export function PurchaseSuccessHandler() {
     }
   }, [orderStatus?.status, ticketsRefreshed, forceRefreshTickets, toast, navigate]);
 
+  // Handle timeout and retry logic
+  useEffect(() => {
+    if (!sessionId) {
+      toast({
+        title: 'Invalid Session',
+        description: 'No session ID found. Redirecting to home...',
+        variant: 'destructive',
+      });
+      setTimeout(() => navigate('/', { replace: true }), 2000);
+      return;
+    }
+
+    // Set a timeout for order status checking
+    const timeoutId = setTimeout(() => {
+      if (!orderStatus && !statusLoading) {
+        console.log('⏰ Timeout reached, attempting retry...');
+        setTimeoutReached(true);
+        
+        if (retryCount < 3) {
+          setRetryCount(prev => prev + 1);
+          refetch();
+        } else {
+          // After 3 retries, assume payment was successful and redirect
+          console.log('🔄 Max retries reached, assuming payment successful...');
+          toast({
+            title: 'Payment Processing',
+            description: 'Your payment is being processed. You can check your tickets in the tickets section.',
+            variant: 'default',
+          });
+          setTimeout(() => navigate('/tickets', { replace: true }), 2000);
+        }
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeoutId);
+  }, [sessionId, orderStatus, statusLoading, retryCount, refetch, toast, navigate]);
+
+  // Handle order error
+  useEffect(() => {
+    if (orderError && !statusLoading) {
+      console.error('❌ Order status error:', orderError);
+      toast({
+        title: 'Payment Status Error',
+        description: 'Unable to verify payment status. Your payment may still be processing.',
+        variant: 'destructive',
+      });
+      
+      // Still redirect to tickets page after error
+      setTimeout(() => navigate('/tickets', { replace: true }), 3000);
+    }
+  }, [orderError, statusLoading, toast, navigate]);
+
   // Handle loading state
   if (statusLoading) {
     return (
@@ -71,9 +125,19 @@ export function PurchaseSuccessHandler() {
           <CardContent className="p-8 text-center">
             <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Processing Payment</h2>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mb-2">
               Please wait while we confirm your payment...
             </p>
+            {retryCount > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Retry attempt {retryCount} of 3
+              </p>
+            )}
+            {timeoutReached && (
+              <p className="text-sm text-orange-600">
+                Taking longer than expected, retrying...
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -138,16 +202,38 @@ export function PurchaseSuccessHandler() {
     );
   }
 
-  // Default loading state
+  // Default loading state with manual redirect option
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardContent className="p-8 text-center">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">Processing Payment</h2>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-4">
             Please wait while we confirm your payment...
           </p>
+          {retryCount > 0 && (
+            <p className="text-sm text-muted-foreground mb-4">
+              Retry attempt {retryCount} of 3
+            </p>
+          )}
+          <div className="space-y-2">
+            <Button 
+              onClick={() => navigate('/tickets')} 
+              variant="outline" 
+              className="w-full"
+            >
+              <Ticket className="w-4 h-4 mr-2" />
+              Go to My Tickets
+            </Button>
+            <Button 
+              onClick={() => navigate('/')} 
+              variant="ghost" 
+              className="w-full"
+            >
+              Return Home
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
