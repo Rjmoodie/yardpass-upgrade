@@ -218,9 +218,17 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
           setQueue([...updates]);
         }
       } catch (err: any) {
-        console.error('Upload error:', err);
+        console.error('❌ Upload error for item:', item.name, err);
         updates[i] = { ...item, status: 'error', errorMsg: err?.message || 'Upload failed' };
         setQueue([...updates]);
+        
+        // Show specific error toast
+        toast({
+          title: "Upload Failed",
+          description: `Failed to upload ${item.name}: ${err?.message || 'Unknown error'}`,
+          variant: "destructive",
+        });
+        
         throw err; // bubble up to stop submission
       }
     }
@@ -254,15 +262,24 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
       });
       if (error) throw error;
 
+      console.log('✅ Post created successfully:', result);
+      
       toast({
-        title: "Posted!",
-        description: `Shared to ${result?.data?.event_title || 'event'}`,
+        title: "Posted Successfully!",
+        description: `Your post has been shared to ${result?.data?.event_title || 'the event'}`,
       });
 
-      // Trigger global post refresh event
+      // Trigger global post refresh event with more details
       window.dispatchEvent(new CustomEvent('postCreated', { 
-        detail: { eventId: selectedEventId, postId: result?.data?.id } 
+        detail: { 
+          eventId: selectedEventId, 
+          postId: result?.data?.id,
+          eventTitle: result?.data?.event_title,
+          timestamp: new Date().toISOString()
+        } 
       }));
+      
+      console.log('📢 Post creation event dispatched');
 
       // reset
       setContent('');
@@ -272,9 +289,10 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
       onSuccess?.();
       onClose();
     } catch (err: any) {
+      console.error('❌ Post creation failed:', err);
       toast({
-        title: "Post failed",
-        description: err?.message || 'Unable to create post',
+        title: "Post Failed",
+        description: err?.message || 'Unable to create post. Please try again.',
         variant: "destructive",
       });
     } finally {
@@ -412,7 +430,14 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
               disabled={loading || !selectedEventId || !content.trim()}
               className="flex-1"
             >
-              {loading ? 'Posting...' : 'Post'}
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Posting...
+                </div>
+              ) : (
+                'Post'
+              )}
             </Button>
           </div>
         </div>

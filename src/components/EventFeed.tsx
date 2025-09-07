@@ -40,6 +40,7 @@ interface EventPost {
   comment_count: number;
   is_organizer: boolean;
   badge_label?: string | null;
+  liked_by_me?: boolean;
   user_profiles: {
     display_name: string;
     photo_url?: string | null;
@@ -94,6 +95,8 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
+      console.log('🔄 Fetching posts for:', { eventId, userId });
+      
       // Build GET to Edge Function (uses auth header)
       const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const url = new URL(`${baseUrl}/functions/v1/posts-list`);
@@ -102,17 +105,31 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       url.searchParams.append('limit', '20');
 
       const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.warn('⚠️ No session found, skipping posts fetch');
+        setPosts([]);
+        return;
+      }
 
       const res = await fetch(url.toString(), {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${session?.access_token ?? ''}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
-      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('❌ Posts fetch failed:', res.status, errorText);
+        throw new Error(`Failed to fetch posts: ${res.status} ${errorText}`);
+      }
+      
       const payload = await res.json();
+      console.log('📝 Posts API response:', payload);
+      
       const rows: EventPostRow[] = payload.data ?? [];
+      console.log('📋 Raw posts data:', rows);
 
       // fetch event titles for mapping
       const uniqueEventIds = [...new Set(rows.map((r) => r.event_id))].filter(Boolean);
@@ -147,6 +164,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
           photo_url: r.author_photo_url ?? null,
         },
         events: { title: r.event_title ?? titles[r.event_id] ?? 'Event' },
+        liked_by_me: r.liked_by_me ?? false, // Add this field for consistency
       }));
 
       setPosts(mapped);
@@ -164,8 +182,13 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
         setLikedPosts(likedSet);
       }
     } catch (e: any) {
-      console.error(e);
-      toast({ title: 'Error', description: e.message || 'Failed to load posts', variant: 'destructive' });
+      console.error('❌ Error fetching posts:', e);
+      toast({ 
+        title: 'Error Loading Posts', 
+        description: e.message || 'Failed to load posts. Please try again.', 
+        variant: 'destructive' 
+      });
+      setPosts([]); // Clear posts on error
     } finally {
       setLoading(false);
     }
@@ -178,12 +201,22 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   // Listen for global post creation events
   useEffect(() => {
     const handlePostCreated = (event: any) => {
-      console.log('Post created event received, refreshing posts...', event.detail);
-      fetchPosts();
+      console.log('📢 Post created event received, refreshing posts...', event.detail);
+      
+      // Add a small delay to ensure the database has been updated
+      setTimeout(() => {
+        fetchPosts();
+      }, 1000);
     };
 
     window.addEventListener('postCreated', handlePostCreated);
     return () => window.removeEventListener('postCreated', handlePostCreated);
+  }, [fetchPosts]);
+
+  // Add retry function
+  const retryFetch = useCallback(() => {
+    console.log('🔄 Retrying posts fetch...');
+    fetchPosts();
   }, [fetchPosts]);
 
 
@@ -268,12 +301,20 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     );
   }
 
-  if (!posts.length) {
+  if (!posts.length && !loading) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
         <p>No posts yet</p>
         <p className="text-sm">Be the first to share something!</p>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={retryFetch}
+          className="mt-4"
+        >
+          Refresh
+        </Button>
       </div>
     );
   }
