@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTickets } from '@/hooks/useTickets';
 import { useOrderStatus } from '@/hooks/useOrderStatus';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { CheckCircle, Ticket, ArrowRight, Loader2 } from 'lucide-react';
@@ -22,6 +23,7 @@ export function PurchaseSuccessHandler() {
   const [ticketsRefreshed, setTicketsRefreshed] = useState(false);
   const [timeoutReached, setTimeoutReached] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [processing, setProcessing] = useState(false);
 
   // Handle successful payment
   useEffect(() => {
@@ -65,7 +67,7 @@ export function PurchaseSuccessHandler() {
     }
   }, [orderStatus?.status, ticketsRefreshed, forceRefreshTickets, toast, navigate]);
 
-  // Handle timeout and retry logic
+  // Handle timeout and retry logic - also process payment for pending orders
   useEffect(() => {
     if (!sessionId) {
       toast({
@@ -75,6 +77,12 @@ export function PurchaseSuccessHandler() {
       });
       setTimeout(() => navigate('/', { replace: true }), 2000);
       return;
+    }
+
+    // If order status is pending and not already processing, try to process the payment
+    if (orderStatus?.status === 'pending' && !processing && !statusLoading) {
+      console.log('🔄 Order is pending, attempting to process payment...');
+      processPayment();
     }
 
     // Set a timeout for order status checking
@@ -100,7 +108,40 @@ export function PurchaseSuccessHandler() {
     }, 10000); // 10 second timeout
 
     return () => clearTimeout(timeoutId);
-  }, [sessionId, orderStatus, statusLoading, retryCount, refetch, toast, navigate]);
+  }, [sessionId, orderStatus, statusLoading, retryCount, processing, refetch, toast, navigate]);
+
+  const processPayment = async () => {
+    if (!sessionId || processing) return;
+    
+    setProcessing(true);
+    try {
+      console.log('💳 Processing payment for session:', sessionId);
+      
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: { sessionId }
+      });
+      
+      if (error) {
+        console.error('❌ Payment processing error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Payment processed successfully:', data);
+      
+      // Refresh order status after processing
+      refetch();
+      
+    } catch (error) {
+      console.error('❌ Failed to process payment:', error);
+      toast({
+        title: 'Payment Processing Error',
+        description: 'There was an issue processing your payment. Please contact support if this persists.',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   // Handle order error
   useEffect(() => {

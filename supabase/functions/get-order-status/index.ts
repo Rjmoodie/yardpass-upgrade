@@ -39,10 +39,15 @@ serve(async (req) => {
         )
       `)
       .eq("stripe_session_id", sessionId)
-      .single();
+      .maybeSingle();
 
     if (orderError) {
-      logStep("Order not found", { error: orderError.message });
+      logStep("Database error", { error: orderError.message });
+      return createErrorResponse(orderError.message);
+    }
+
+    if (!order) {
+      logStep("Order not found", { sessionId });
       return createResponse({ 
         status: 'not_found',
         message: 'Order not found'
