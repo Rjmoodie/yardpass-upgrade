@@ -68,19 +68,31 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
       });
       
       // Force refresh tickets and redirect to tickets page after 2 seconds
-      setTimeout(async () => {
-        // Force refresh tickets to ensure they're visible
-        await forceRefreshTickets();
-        
-        if (onViewTickets) {
-          onViewTickets();
-        } else {
-          // Fallback: navigate to tickets page
-          window.location.href = '/tickets';
+      const redirectTimer = setTimeout(async () => {
+        try {
+          // Force refresh tickets to ensure they're visible
+          await forceRefreshTickets();
+          
+          if (onViewTickets) {
+            onViewTickets();
+          } else {
+            // Fallback: navigate to tickets page
+            window.location.href = '/tickets';
+          }
+        } catch (error) {
+          console.error('Error refreshing tickets:', error);
+          // Still redirect on error
+          if (onViewTickets) {
+            onViewTickets();
+          } else {
+            window.location.href = '/tickets';
+          }
         }
       }, 2000);
+
+      return () => clearTimeout(redirectTimer);
     }
-  }, [orderStatus?.status, onViewTickets, toast]);
+  }, [orderStatus?.status, onViewTickets, forceRefreshTickets, toast]);
 
   // Timeout handler - redirect if taking too long
   useEffect(() => {
@@ -91,9 +103,11 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
         variant: 'default',
       });
       
-      setTimeout(() => {
+      const timeoutRedirect = setTimeout(() => {
         onViewTickets?.();
       }, 1000);
+
+      return () => clearTimeout(timeoutRedirect);
     }
   }, [timeElapsed, onViewTickets, toast]);
 

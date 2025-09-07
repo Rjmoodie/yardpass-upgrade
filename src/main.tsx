@@ -11,6 +11,14 @@ const postHogOptions = {
   person_profiles: 'identified_only' as const,
   loaded: (posthog: any) => {
     if (import.meta.env.DEV) posthog.debug()
+  },
+  // Reduce noise and rate limiting
+  capture_pageview: false, // We'll manually track pageviews
+  capture_pageleave: false,
+  disable_session_recording: true,
+  rate_limiting: {
+    events_burst_limit: 10,
+    events_per_second: 3
   }
 }
 
