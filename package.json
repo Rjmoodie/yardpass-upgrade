@@ -71,6 +71,7 @@
     "input-otp": "^1.4.2",
     "jsdom": "^26.1.0",
     "lucide-react": "^0.462.0",
+    "mapbox-gl": "^3.14.0",
     "next-themes": "^0.3.0",
     "posthog-js": "^1.261.6",
     "prettier": "^3.6.2",

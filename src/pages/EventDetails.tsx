@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+import MapboxEventMap from '@/components/MapboxEventMap';
 import { Calendar, MapPin, Users, Share2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -45,7 +46,6 @@ export default function EventDetails() {
   const navigate = useNavigate();
   const [event, setEvent] = useState<EventRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mapLoaded, setMapLoaded] = useState(false);
 
   const kParam = useMemo(() => new URLSearchParams(search).get('k'), [search]);
 
@@ -350,29 +350,15 @@ export default function EventDetails() {
                 {locationText && <p className="font-medium">{locationText}</p>}
                 {event.address && <p className="text-sm text-muted-foreground">{event.address}</p>}
 
-                {/* Map Preview with smooth fade-in and visible attribution */}
+                {/* Mapbox Map */}
                 {(event.lat && event.lng) ? (
-                  <div className="relative h-56 w-full rounded-lg overflow-hidden border bg-gradient-to-br from-primary/5 to-accent/5">
-                    {!mapLoaded && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="h-full w-full bg-gradient-to-br from-muted via-muted to-muted/50 animate-pulse rounded-lg" />
-                      </div>
-                    )}
-                    <iframe
-                      title="Event location map"
-                      src={buildMapEmbed(event.lat, event.lng)}
-                      className={`w-full h-full border-0 transition-opacity duration-500 rounded-lg ${
-                        mapLoaded ? 'opacity-100' : 'opacity-0'
-                      }`}
-                      onLoad={() => setMapLoaded(true)}
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      style={{ filter: 'saturate(0.95) contrast(1.05)' }}
-                    />
-                    <div className="absolute bottom-0 left-0 text-[10px] md:text-xs bg-background/90 px-2 py-1 rounded-tr-md">
-                      © OpenStreetMap contributors
-                    </div>
-                  </div>
+                  <MapboxEventMap
+                    lat={event.lat}
+                    lng={event.lng}
+                    venue={event.venue || undefined}
+                    address={event.address || undefined}
+                    className="w-full h-56 rounded-lg border shadow-sm"
+                  />
                 ) : (
                   <div className="rounded-lg border p-4 text-sm text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10">
                     Map preview unavailable. Use the button above to open the address in Maps.
