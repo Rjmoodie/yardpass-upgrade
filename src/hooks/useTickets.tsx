@@ -183,13 +183,21 @@ export function useTickets() {
         }
       }
 
+      console.log('🎫 Final parsedData type:', typeof parsedData);
+      console.log('🎫 Final parsedData:', parsedData);
+      console.log('🎫 parsedData.tickets exists:', !!parsedData?.tickets);
+      console.log('🎫 parsedData.tickets is array:', Array.isArray(parsedData?.tickets));
+
       // Ensure we have an array of tickets
       let tickets = [];
       if (Array.isArray(parsedData)) {
+        console.log('🎫 Using parsedData directly as array');
         tickets = parsedData;
       } else if (parsedData && Array.isArray(parsedData.tickets)) {
+        console.log('🎫 Using parsedData.tickets array');
         tickets = parsedData.tickets;
       } else if (parsedData && parsedData.tickets === null) {
+        console.log('🎫 parsedData.tickets is null');
         tickets = [];
       } else {
         console.warn('🎫 Unexpected tickets data structure:', parsedData);
@@ -282,13 +290,21 @@ export function useTickets() {
         }
       }
 
+      console.log('🔄 Force refresh - Final parsedData type:', typeof parsedData);
+      console.log('🔄 Force refresh - Final parsedData:', parsedData);
+      console.log('🔄 Force refresh - parsedData.tickets exists:', !!parsedData?.tickets);
+      console.log('🔄 Force refresh - parsedData.tickets is array:', Array.isArray(parsedData?.tickets));
+
       // Ensure we have an array of tickets
       let tickets = [];
       if (Array.isArray(parsedData)) {
+        console.log('🔄 Force refresh - Using parsedData directly as array');
         tickets = parsedData;
       } else if (parsedData && Array.isArray(parsedData.tickets)) {
+        console.log('🔄 Force refresh - Using parsedData.tickets array');
         tickets = parsedData.tickets;
       } else if (parsedData && parsedData.tickets === null) {
+        console.log('🔄 Force refresh - parsedData.tickets is null');
         tickets = [];
       } else {
         console.warn('🔄 Force refresh - Unexpected tickets data structure:', parsedData);
