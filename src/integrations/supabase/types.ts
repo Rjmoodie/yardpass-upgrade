@@ -1846,6 +1846,12 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      user_related_event_ids: {
+        Args: { p_user_id: string }
+        Returns: {
+          event_id: string
+        }[]
+      }
     }
     Enums: {
       event_visibility: "public" | "unlisted" | "private"
