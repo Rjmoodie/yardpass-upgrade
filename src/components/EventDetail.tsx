@@ -8,35 +8,12 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { ArrowLeft, MapPin, Calendar, Heart, Share, MoreVertical } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 
+import { Event, TicketTier } from '@/types/events';
+
 interface User {
   id: string;
   name: string;
   role: 'attendee' | 'organizer';
-}
-
-interface TicketTier {
-  id: string;
-  name: string;
-  price: number;
-  badge: string;
-  available: number;
-  total: number;
-}
-
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  organizer: string;
-  organizerId: string;
-  category: string;
-  date: string;
-  location: string;
-  coverImage: string;
-  ticketTiers: TicketTier[];
-  attendeeCount: number;
-  likes: number;
-  shares: number;
 }
 
 interface EventDetailProps {
@@ -138,7 +115,7 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
                         slug: ident,
                         title: event.title,
                         city: event.location,
-                        date: event.date,
+                        date: event.dateLabel,
                       }),
                       url: buildShareUrl({
                         type: 'event',
@@ -195,7 +172,7 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="w-4 h-4" />
                 <div>
-                  <div className="text-foreground">{event.date}</div>
+                  <div className="text-foreground">{event.dateLabel}</div>
                   <div>8:00 PM - 2:00 AM</div>
                 </div>
               </div>

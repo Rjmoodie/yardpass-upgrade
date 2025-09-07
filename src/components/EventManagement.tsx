@@ -7,31 +7,7 @@ import { ArrowLeft, Calendar, Users, BarChart3, Settings, Scan, Download, Extern
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GuestManagement } from '@/components/GuestManagement';
 
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  organizer: string;
-  organizerId: string;
-  category: string;
-  date: string;
-  location: string;
-  coverImage: string;
-  videoUrl: string;
-  ticketTiers: TicketTier[];
-  attendeeCount: number;
-  likes: number;
-  shares: number;
-}
-
-interface TicketTier {
-  id: string;
-  name: string;
-  price: number;
-  badge: string;
-  available: number;
-  total: number;
-}
+import { Event, TicketTier } from '@/types/events';
 
 // Mock attendee data
 const mockAttendees = [

@@ -16,9 +16,8 @@ import { capture } from '@/lib/analytics';
 import { useShare } from '@/hooks/useShare';
 import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
-import { Event, EventPost, TicketTier } from '@/types/events';
-
-// Event, EventPost, and TicketTier interfaces now imported from @/types/events
+import { Event } from '@/types/events';
+import { format } from 'date-fns';
 
 interface IndexProps {
   onEventSelect: (event: Event) => void;
@@ -34,7 +33,8 @@ const mockEvents: Event[] = [
     organizer: 'LiveNation Events',
     organizerId: '101',
     category: 'Music',
-    date: 'July 15-17, 2025',
+    startAtISO: '2025-07-15T18:00:00Z',
+    dateLabel: 'July 15-17, 2025',
     location: 'Central Park, NYC',
     coverImage: DEFAULT_EVENT_COVER,
     ticketTiers: [
@@ -54,7 +54,8 @@ const mockEvents: Event[] = [
     organizer: 'Foodie Adventures',
     organizerId: '102',
     category: 'Food & Drink',
-    date: 'August 8, 2025',
+    startAtISO: '2025-08-08T18:00:00Z',
+    dateLabel: 'August 8, 2025',
     location: 'Brooklyn Bridge Park',
     coverImage: DEFAULT_EVENT_COVER,
     ticketTiers: [],
@@ -99,12 +100,9 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
               organizer: (e as any).user_profiles?.display_name || 'Organizer',
               organizerId: e.id,
               category: e.category || 'Event',
-              date: new Date(e.start_at).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              }),
-              location: e.city || e.venue || 'TBA',
+              startAtISO: e.start_at,
+              dateLabel: format(new Date(e.start_at), 'MMM dd, yyyy'),
+              location: `${e.venue || ''}, ${e.city || ''}`.replace(/^,\s*/, ''),
               coverImage: e.cover_image_url || DEFAULT_EVENT_COVER,
               ticketTiers: [],
               attendeeCount: Math.floor(Math.random() * 1000) + 50,
@@ -201,7 +199,7 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
             ? {
                 id: current.id,
                 title: current.title,
-                start_at: new Date().toISOString(),
+                start_at: current.startAtISO,
                 venue: current.location,
                 address: current.location,
                 description: current.description,
@@ -345,7 +343,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
           <div className="flex items-center gap-4 text-sm text-gray-300 mb-3">
             <div className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
-              {event.date}
+              {event.dateLabel}
             </div>
             <div className="flex items-center gap-1">
               <MapPin className="w-4 h-4" />
@@ -469,8 +467,7 @@ function SwipeArea({ handleScroll }: { handleScroll: (dir: 'up' | 'down') => voi
         const endY = e.changedTouches[0].clientY;
         const diff = startY - endY;
         if (Math.abs(diff) > 50) {
-          if (diff > 0) handleScroll('down');
-          else handleScroll('up');
+          handleScroll(diff > 0 ? 'down' : 'up');
         }
       }}
     />
@@ -479,12 +476,10 @@ function SwipeArea({ handleScroll }: { handleScroll: (dir: 'up' | 'down') => voi
 
 function LoadingState() {
   return (
-    <div className="h-screen bg-background flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-          <span className="text-white font-bold text-xl">🎪</span>
-        </div>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+    <div className="h-screen bg-black flex items-center justify-center">
+      <div className="text-white text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+        <p>Loading events...</p>
       </div>
     </div>
   );
@@ -492,10 +487,12 @@ function LoadingState() {
 
 function EmptyState() {
   return (
-    <div className="h-screen bg-background flex items-center justify-center">
-      <div className="text-center text-muted-foreground">
-        <p className="mb-2">No events yet</p>
-        <p className="text-sm">Check back soon.</p>
+    <div className="h-screen bg-gradient-to-br from-purple-900 to-blue-900 flex items-center justify-center text-white text-center p-8">
+      <div>
+        <div className="text-6xl mb-4">🎪</div>
+        <h2 className="text-2xl font-bold mb-2">No Events Yet</h2>
+        <p className="text-gray-300 mb-6">Be the first to create an amazing event!</p>
+        <Button className="bg-white text-black hover:bg-gray-100">Create Event</Button>
       </div>
     </div>
   );

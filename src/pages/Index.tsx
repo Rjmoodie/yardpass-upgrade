@@ -241,8 +241,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           body: { 
             posts_per_event: 3,
             sort_by_activity: sortByActivity
-          },
-          signal: ac.signal
+          }
         });
 
         if (error) throw error;
