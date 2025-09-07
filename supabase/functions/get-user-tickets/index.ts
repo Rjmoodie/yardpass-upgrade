@@ -37,15 +37,28 @@ serve(async (req) => {
         event_id,
         tier_id,
         status,
-        events!fk_tickets_event_id (
+        qr_code,
+        created_at,
+        redeemed_at,
+        order_id,
+        events (
           id,
           title,
-          cover_image_url
+          start_at,
+          end_at,
+          venue,
+          city,
+          cover_image_url,
+          timezone
         ),
-        ticket_tiers!fk_tickets_tier_id (
+        ticket_tiers (
           id,
           name,
-          badge_label
+          badge_label,
+          price_cents
+        ),
+        orders (
+          created_at
         )
       `)
       .eq("owner_user_id", user.id)
