@@ -75,6 +75,7 @@ serve(async (req) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout
     
+    let upload;
     try {
       const muxRes = await fetch("https://api.mux.com/video/v1/uploads", {
         method: "POST",
@@ -95,6 +96,10 @@ serve(async (req) => {
         console.error("Mux upload creation failed:", muxRes.status, txt);
         return createErrorResponse(`mux_upload_create_failed: ${txt}`, 502);
       }
+
+      const { data: uploadData } = await muxRes.json();
+      upload = uploadData;
+      console.log("Mux upload created:", upload.id);
     } catch (fetchError) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
@@ -104,8 +109,6 @@ serve(async (req) => {
       console.error("Mux API fetch error:", fetchError);
       return createErrorResponse(`Network error: ${fetchError.message}`, 502);
     }
-
-    const { data: upload } = await muxRes.json();
     console.log("Mux upload created:", upload.id);
 
     // Save a placeholder row using service role
