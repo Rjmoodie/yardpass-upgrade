@@ -96,6 +96,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     setLoading(true);
     try {
       console.log('🔄 Fetching posts for:', { eventId, userId });
+      console.log('🔍 Current user:', user);
       
       // Build GET to Edge Function (uses auth header)
       const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -196,6 +197,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   }, [eventId, userId, user]);
 
   useEffect(() => {
+    console.log('⚡ EventFeed useEffect triggered with:', { eventId, userId, refreshTrigger });
     fetchPosts();
   }, [fetchPosts, refreshTrigger]); // Add refreshTrigger to dependencies
 

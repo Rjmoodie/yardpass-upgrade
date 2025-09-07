@@ -217,7 +217,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             <img src="/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png" alt="YardPass" className="w-8 h-8" />
             <span className="font-bold text-lg">YardPass</span>
           </div>
-          <Button size="sm" variant="glass" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create content')} className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg">+ Create Event</Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="glass" onClick={() => requireAuth(() => navigate('/feed'), 'Please sign in to view posts')} className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg">Posts</Button>
+            <Button size="sm" variant="glass" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create content')} className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg">+ Create</Button>
+          </div>
         </div>
       </div>
 
