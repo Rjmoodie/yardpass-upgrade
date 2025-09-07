@@ -1,3 +1,5 @@
+// src/components/QRCodeModal.tsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +27,7 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
-  // Close on ESC / backdrop click
+  // Trap close on ESC / backdrop click
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -35,7 +37,7 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
   useEffect(() => {
     // subtle haptic for mobile when opening
     if ('vibrate' in navigator) {
-      try { navigator.vibrate?.(10); } catch {}
+      try { (navigator as any).vibrate?.(10); } catch {}
     }
   }, []);
 
@@ -87,7 +89,7 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Canvas not supported');
 
-      // white bg so dark mode prints well
+      // White bg so dark mode prints well
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, size, size);
       ctx.drawImage(img, 0, 0, size, size);
@@ -115,10 +117,13 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="qr-modal-title"
     >
-      <Card className="w-full max-w-sm relative">
+      <Card className="w-full max-w-sm relative animate-in fade-in zoom-in duration-200">
         <CardHeader className="text-center">
-          <CardTitle>Event Ticket</CardTitle>
+          <CardTitle id="qr-modal-title">Event Ticket</CardTitle>
           <Button
             variant="ghost"
             size="icon"
@@ -133,8 +138,9 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
         <CardContent className="space-y-4">
           <div className="text-center space-y-2">
             <h3 className="font-semibold leading-tight">{ticket.eventTitle}</h3>
+            {/* Use the already formatted strings instead of reparsing */}
             <p className="text-sm text-muted-foreground">
-              {new Date(ticket.eventDate).toLocaleDateString()} at {ticket.eventTime}
+              {ticket.eventDate} at {ticket.eventTime}
             </p>
             <p className="text-sm text-muted-foreground">{ticket.eventLocation}</p>
           </div>
@@ -155,6 +161,7 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
             {!loading && !failed && (
               <div
                 className="w-[200px] h-[200px] select-none"
+                aria-label="Ticket QR code"
                 dangerouslySetInnerHTML={{ __html: qrCodeSVG }}
               />
             )}
