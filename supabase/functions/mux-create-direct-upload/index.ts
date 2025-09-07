@@ -35,8 +35,8 @@ serve(async (req) => {
       return createErrorResponse("invalid kind", 400);
     }
 
-    // Check if user can manage this event
-    const { data: can } = await sbUser.rpc("is_event_manager", { p_event_id: event_id });
+    // Check if user can post to this event (includes ticket holders)
+    const { data: can } = await sbUser.rpc("can_current_user_post", { p_event_id: event_id });
     if (!can) {
       return createErrorResponse("forbidden", 403);
     }
