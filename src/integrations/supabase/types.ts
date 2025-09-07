@@ -237,6 +237,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "event_posts_author_user_id_user_profiles_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "event_posts_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -1463,6 +1470,13 @@ export type Database = {
           updated_at: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "event_posts_author_user_id_user_profiles_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "event_posts_event_id_fkey"
             columns: ["event_id"]

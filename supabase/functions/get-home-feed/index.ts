@@ -35,7 +35,7 @@ serve(async (req) => {
     // Get events where user is organizer or has tickets
     const [orgEvents, ticketEvents] = await Promise.all([
       sbUser.from('events').select('id').eq('created_by', user.id),
-      sbUser.from('tickets').select('event_id').eq('user_id', user.id).eq('status', 'issued')
+      sbUser.from('tickets').select('event_id').eq('owner_user_id', user.id).eq('status', 'issued')
     ]);
 
     const eventIds = Array.from(new Set([
@@ -62,7 +62,7 @@ serve(async (req) => {
         ticket_tiers!ticket_tiers_event_id_fkey ( id, name, price_cents, badge_label, quantity ),
         event_posts (
           id, content, created_at, media_type, media_url, thumbnail_url, like_count, comment_count,
-          user_profiles!event_posts_author_user_id_fkey ( user_id, display_name, photo_url )
+          user_profiles!event_posts_author_user_id_user_profiles_fkey ( user_id, display_name, photo_url )
         )
       `)
       .in('id', eventIds);
