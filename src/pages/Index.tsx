@@ -408,12 +408,16 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   // Memoized post click handlers
   const handlePostClick = useCallback((postId: string) => {
-    navigate(routes.eventDetails(currentEvent.id) + '?tab=posts&post=' + postId);
-  }, [navigate, currentEvent.id]);
+    if (currentEvent?.id) {
+      navigate(routes.eventDetails(currentEvent.id) + '?tab=posts&post=' + postId);
+    }
+  }, [navigate, currentEvent?.id]);
 
   const handleViewAllPosts = useCallback(() => {
-    navigate(routes.eventDetails(currentEvent.id) + '?tab=posts');
-  }, [navigate, currentEvent.id]);
+    if (currentEvent?.id) {
+      navigate(routes.eventDetails(currentEvent.id) + '?tab=posts');
+    }
+  }, [navigate, currentEvent?.id]);
 
   if (loading) {
     return (
