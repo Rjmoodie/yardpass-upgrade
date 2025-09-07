@@ -28,14 +28,23 @@ export function useOrderStatus(sessionId: string | null) {
     setError(null);
 
     try {
-      // Use the edge function for better error handling and service role access
-      const { data, error } = await supabase.functions.invoke('get-order-status', {
-        body: { session_id: sessionId }
-      });
+      // Use the edge function with URL parameters as expected by the function
+      const response = await fetch(
+        `https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/get-order-status?session_id=${encodeURIComponent(sessionId)}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY`,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY',
+          },
+        }
+      );
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
 
       if (data.status === 'not_found') {
         setError('Order not found');
