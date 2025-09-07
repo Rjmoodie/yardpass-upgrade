@@ -467,7 +467,10 @@ function AppContent() {
           path="/ticket-success" 
           element={
             <AuthGuard>
-              <TicketSuccessPage onBack={() => navigate('/')} />
+              <TicketSuccessPage 
+                onBack={() => navigate('/')} 
+                onViewTickets={() => navigate('/tickets')}
+              />
             </AuthGuard>
           } 
         />
