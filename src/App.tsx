@@ -16,6 +16,8 @@ import { PageLoadingSpinner } from '@/components/LoadingSpinner';
 
 // Lazy load heavy components
 const EventDetail = lazy(() => import('@/components/EventDetail'));
+const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
+const EventAttendeesPage = lazy(() => import('@/pages/EventAttendeesPage'));
 const CreateEventFlow = lazy(() => import('@/components/CreateEventFlow').then(m => ({ default: m.CreateEventFlow })));
 const OrganizerDashboard = lazy(() => import('@/components/OrganizerDashboard'));
 const UserProfile = lazy(() => import('@/components/UserProfile'));
@@ -260,6 +262,8 @@ function AppContent() {
           } 
         />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/e/:identifier" element={<EventSlugPage />} />
+        <Route path="/e/:identifier/attendees" element={<EventAttendeesPage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy onBack={() => navigate('/')} />} />
         <Route path="/terms-of-service" element={<TermsOfService onBack={() => navigate('/')} />} />
         <Route path="/refund-policy" element={<RefundPolicy onBack={() => navigate('/')} />} />
