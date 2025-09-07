@@ -37,7 +37,7 @@ export function useOrderStatus(sessionId: string | null) {
           total_cents,
           created_at,
           paid_at,
-          events (
+          events!event_id (
             title
           ),
           order_items (
