@@ -537,54 +537,54 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                     <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4">
                       <h2 className="text-xl font-bold mb-2">{ev.title}</h2>
                       <p className="text-sm text-gray-300 mb-3">{ev.description}</p>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="glass" onClick={() => navigate(routes.eventDetails(ev.id))} className="bg-white/20 text-white border-white/30 hover:bg-white/30">
-                          Details
-                        </Button>
-                        <Button size="sm" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                          Get Tickets
-                        </Button>
-                </div>
-                </div>
-              </div>
-                </>
-              )}
-            </div>
-          );
-        })}
-          </div>
+                       <div className="flex gap-2">
+                         <Button size="sm" variant="glass" onClick={() => navigate(routes.eventDetails(ev.id))} className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                           Details
+                         </Button>
+                         <Button size="sm" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                           Get Tickets
+                         </Button>
+                       </div>
+                     </div>
+                   </div>
+                 </>
+               )}
+             </div>
+           );
+         })}
+       </div>
 
-      {/* Action rail */}
-          <div className="flex flex-col items-center gap-4 text-white select-none">
-            <IconButton ariaLabel="Like" active={currentEvent.isLiked} count={currentEvent.likes} onClick={() => handleLike(currentEvent.id)}>
-              <Heart className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white text-white' : 'text-white'}`} />
-            </IconButton>
-            <IconButton 
-              ariaLabel="Comments" 
-              count={
-                // either sum current previews:
-                // currentEvent.posts?.reduce((s,p)=>s+(p.commentCount||0),0) || 0
+       {/* Action rail */}
+       <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20">
+         <div className="flex flex-col items-center gap-4 text-white select-none">
+           <IconButton ariaLabel="Like" active={currentEvent.isLiked} count={currentEvent.likes} onClick={() => handleLike(currentEvent.id)}>
+             <Heart className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white text-white' : 'text-white'}`} />
+           </IconButton>
+           <IconButton 
+             ariaLabel="Comments" 
+             count={
+               // either sum current previews:
+               // currentEvent.posts?.reduce((s,p)=>s+(p.commentCount||0),0) || 0
 
-                // or use rollup from RPC (recommended):
-                (currentEvent as any)?.totalComments ?? 0
-              } 
-              onClick={() => handleComment()}
-            >
-                <MessageCircle className="w-6 h-6 text-white" />
-            </IconButton>
-            <IconButton ariaLabel="Create post" onClick={() => requireAuth(() => setPostCreatorOpen(true), 'Please sign in to create posts')}>
-              <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200 shadow-lg"><Plus className="w-6 h-6 text-white" /></div>
-              <span className="text-xs font-medium text-white drop-shadow-lg">Post</span>
-            </IconButton>
-            <IconButton ariaLabel="Share" count={currentEvent.shares} onClick={() => handleShare(currentEvent)}>
-                <Share className="w-6 h-6 text-white" />
-            </IconButton>
-            <IconButton ariaLabel="More" onClick={() => handleMore()}>
-                <MoreVertical className="w-6 h-6 text-white" />
-            </IconButton>
-          </div>
-        </div>
-      </div>
+               // or use rollup from RPC (recommended):
+               (currentEvent as any)?.totalComments ?? 0
+             } 
+             onClick={() => handleComment()}
+           >
+             <MessageCircle className="w-6 h-6 text-white" />
+           </IconButton>
+           <IconButton ariaLabel="Create post" onClick={() => requireAuth(() => setPostCreatorOpen(true), 'Please sign in to create posts')}>
+             <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200 shadow-lg"><Plus className="w-6 h-6 text-white" /></div>
+             <span className="text-xs font-medium text-white drop-shadow-lg">Post</span>
+           </IconButton>
+           <IconButton ariaLabel="Share" count={currentEvent.shares} onClick={() => handleShare(currentEvent)}>
+             <Share className="w-6 h-6 text-white" />
+           </IconButton>
+           <IconButton ariaLabel="More" onClick={() => handleMore()}>
+             <MoreVertical className="w-6 h-6 text-white" />
+           </IconButton>
+         </div>
+       </div>
 
       {/* Dots */}
       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1 z-20">
@@ -623,11 +623,11 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         } : null} 
       />
 
-        <PostCreatorModal
-          isOpen={postCreatorOpen}
-          onClose={() => setPostCreatorOpen(false)}
-          onSuccess={() => {
-            setPostCreatorOpen(false);
+      <PostCreatorModal
+        isOpen={postCreatorOpen}
+        onClose={() => setPostCreatorOpen(false)}
+        onSuccess={() => {
+          setPostCreatorOpen(false);
           toast({ title: 'Success', description: 'Your post has been created!' });
         }}
         preselectedEventId={currentEvent.id}
@@ -638,7 +638,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         onClose={() => setShowCommentModal(false)}
         eventId={currentEvent.id}
         eventTitle={currentEvent.title}
-        />
+      />
     </div>
   );
 }
