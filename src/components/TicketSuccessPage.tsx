@@ -4,6 +4,7 @@ import { useOrderStatus } from '@/hooks/useOrderStatus';
 import { useTickets } from '@/hooks/useTickets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, Ticket, ArrowLeft, CalendarPlus } from 'lucide-react';
@@ -32,6 +33,9 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
   const { toast } = useToast();
   const { refreshTickets } = useTickets();
   const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const navigate = useNavigate();
 
   // Get session ID from URL params
   const urlParams = new URLSearchParams(window.location.search);
@@ -42,11 +46,56 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
 
   const hasTiming = !!orderStatus;
 
+  // Progress timer for better UX
+  useEffect(() => {
+    if (processing || statusLoading) {
+      const interval = setInterval(() => {
+        setTimeElapsed(prev => prev + 1);
+        setProgress(prev => Math.min(prev + 2, 90)); // Slow progress to 90%
+      }, 100);
+      
+      return () => clearInterval(interval);
+    }
+  }, [processing, statusLoading]);
+
+  // Auto-redirect after success or timeout
+  useEffect(() => {
+    if (orderStatus?.status === 'paid') {
+      setProgress(100);
+      toast({
+        title: 'Payment Successful!',
+        description: `Your tickets are ready! Redirecting to your tickets...`,
+      });
+      
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        onViewTickets?.();
+      }, 2000);
+    }
+  }, [orderStatus?.status, onViewTickets, toast]);
+
+  // Timeout handler - redirect if taking too long
+  useEffect(() => {
+    if (timeElapsed >= 15) { // 15 seconds timeout
+      toast({
+        title: 'Taking longer than expected',
+        description: 'Redirecting to your tickets page...',
+        variant: 'default',
+      });
+      
+      setTimeout(() => {
+        onViewTickets?.();
+      }, 1000);
+    }
+  }, [timeElapsed, onViewTickets, toast]);
+
   // Process payment when order is found but not yet paid
   const processPayment = async () => {
     if (!sessionId || !user || processing) return;
 
     setProcessing(true);
+    setProgress(20);
+    
     try {
       const { data, error } = await supabase.functions.invoke('process-payment', {
         body: { sessionId },
@@ -54,19 +103,29 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
 
       if (error) throw error;
 
+      setProgress(80);
+      
       // Refresh both order status and tickets list
       await Promise.all([refetch(), refreshTickets()]);
+      
+      setProgress(100);
 
       toast({
         title: 'Payment Successful!',
         description: `${data.order.tickets_count} tickets issued for ${data.order.event_title}`,
       });
     } catch (error: any) {
+      console.error('Payment processing error:', error);
       toast({
         title: 'Payment Processing Error',
-        description: error.message,
+        description: error.message || 'Something went wrong. Please check your tickets page.',
         variant: 'destructive',
       });
+      
+      // Still redirect to tickets page in case the payment actually worked
+      setTimeout(() => {
+        onViewTickets?.();
+      }, 3000);
     } finally {
       setProcessing(false);
     }
@@ -195,10 +254,32 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Processing your payment...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 dark:from-background dark:to-muted">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-10 h-10 text-green-600 animate-pulse" />
+          </div>
+          
+          <h2 className="text-2xl font-bold text-green-600 mb-4">Processing Your Payment</h2>
+          
+          {/* Progress bar */}
+          <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+            <div 
+              className="bg-green-600 h-3 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          
+          <div className="space-y-2 text-sm text-muted-foreground">
+            {timeElapsed < 3 && <p>Confirming your payment...</p>}
+            {timeElapsed >= 3 && timeElapsed < 8 && <p>Creating your tickets...</p>}
+            {timeElapsed >= 8 && timeElapsed < 12 && <p>Almost ready...</p>}
+            {timeElapsed >= 12 && <p>Just a few more seconds...</p>}
+          </div>
+          
+          <p className="text-xs text-muted-foreground mt-4">
+            Time elapsed: {timeElapsed}s
+          </p>
         </div>
       </div>
     );
@@ -314,11 +395,17 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
               </Button>
               <Button
                 onClick={onViewTickets}
-                className="flex-1"
+                className="flex-1 bg-green-600 hover:bg-green-700"
               >
                 <Ticket className="w-4 h-4 mr-2" />
                 View My Tickets
               </Button>
+            </div>
+            
+            <div className="text-center">
+              <p className="text-sm text-green-600 font-medium">
+                🎉 Redirecting to your tickets in a few seconds...
+              </p>
             </div>
           </CardContent>
         )}
