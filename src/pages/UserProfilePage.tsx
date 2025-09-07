@@ -107,7 +107,7 @@ export default function UserProfilePage() {
         .from('tickets')
         .select(`
           *,
-          events!fk_tickets_event_id (
+          events!tickets_event_id_fkey (
             id,
             title,
             start_at,
@@ -116,7 +116,7 @@ export default function UserProfilePage() {
             cover_image_url,
             category
           ),
-          ticket_tiers!fk_tickets_tier_id (
+          ticket_tiers!tickets_tier_id_fkey (
             name,
             badge_label
           )
@@ -127,6 +127,12 @@ export default function UserProfilePage() {
 
       if (ticketError) {
         console.error('Error fetching user tickets:', ticketError);
+        toast({
+          title: "Error Loading Tickets",
+          description: "Could not load user tickets. Please try again.",
+          variant: "destructive",
+        });
+        setTickets([]);
       } else {
         setTickets(ticketData || []);
       }
@@ -224,6 +230,8 @@ export default function UserProfilePage() {
             onClick={handleBack}
             variant="ghost"
             size="icon"
+            className="min-h-[40px] min-w-[40px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
+            aria-label="Go back to previous page"
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -256,17 +264,32 @@ export default function UserProfilePage() {
           <Button 
             variant="ghost" 
             size="sm"
-            onClick={() => {
-              import('@/lib/share').then(({ sharePayload }) => {
-                import('@/lib/shareLinks').then(({ buildShareUrl, getShareTitle, getShareText }) => {
-                  sharePayload({
-                    title: getShareTitle({ type: 'user', handle: username || profile.user_id, name: profile.display_name }),
-                    text: getShareText({ type: 'user', handle: username || profile.user_id, name: profile.display_name }),
-                    url: buildShareUrl({ type: 'user', handle: username || profile.user_id, name: profile.display_name })
-                  });
+            onClick={async () => {
+              try {
+                const { sharePayload } = await import('@/lib/share');
+                const { buildShareUrl, getShareTitle, getShareText } = await import('@/lib/shareLinks');
+                
+                await sharePayload({
+                  title: getShareTitle({ type: 'user', handle: username || profile.user_id, name: profile.display_name }),
+                  text: getShareText({ type: 'user', handle: username || profile.user_id, name: profile.display_name }),
+                  url: buildShareUrl({ type: 'user', handle: username || profile.user_id, name: profile.display_name })
                 });
-              });
+                
+                toast({
+                  title: "Profile Shared",
+                  description: "Profile shared successfully!",
+                });
+              } catch (error) {
+                console.error('Error sharing profile:', error);
+                toast({
+                  title: "Share Failed",
+                  description: "Could not share profile. Please try again.",
+                  variant: "destructive",
+                });
+              }
             }}
+            className="min-h-[36px] min-w-[36px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
+            aria-label="Share this profile"
           >
             <Share className="w-4 h-4" />
           </Button>
@@ -289,9 +312,24 @@ export default function UserProfilePage() {
       <div className="flex-1 overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
           <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10 bg-background border-b">
-            <TabsTrigger value="posts">Posts</TabsTrigger>
-            <TabsTrigger value="tickets">Tickets</TabsTrigger>
-            <TabsTrigger value="events">Events</TabsTrigger>
+            <TabsTrigger 
+              value="posts"
+              className="min-h-[44px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
+            >
+              Posts
+            </TabsTrigger>
+            <TabsTrigger 
+              value="tickets"
+              className="min-h-[44px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
+            >
+              Tickets
+            </TabsTrigger>
+            <TabsTrigger 
+              value="events"
+              className="min-h-[44px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
+            >
+              Events
+            </TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-y-auto">

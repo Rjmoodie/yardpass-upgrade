@@ -211,6 +211,8 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                   });
                 }
               }}
+              className="min-h-[36px] min-w-[80px] transition-all duration-200 hover:bg-red-50 hover:border-red-200 hover:text-red-700 active:scale-95"
+              aria-label="Sign out of your account"
             >
               Sign Out
             </Button>
@@ -262,10 +264,15 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                       e.stopPropagation();
                       console.log('TOGGLE BUTTON CLICKED! Current role:', user.role);
                       onRoleToggle();
+                      toast({
+                        title: "Role Switched",
+                        description: `Switched to ${user.role === 'organizer' ? 'Attendee' : 'Organizer'} mode`,
+                      });
                     }}
                     variant={user.role === 'organizer' ? 'default' : 'outline'}
                     size="sm"
-                    className="min-w-[80px]"
+                    className="min-w-[80px] min-h-[32px] transition-all duration-200 hover:scale-105 active:scale-95"
+                    aria-label={`Switch to ${user.role === 'organizer' ? 'Attendee' : 'Organizer'} mode`}
                   >
                     {user.role === 'organizer' ? 'Attendee' : 'Organizer'}
                   </Button>
@@ -294,15 +301,43 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
         {/* Tabs */}
         <Tabs defaultValue="tickets" className="flex-1">
           <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10 bg-background border-b">
-            <TabsTrigger value="tickets">Tickets</TabsTrigger>
-            <TabsTrigger value="badges">Badges</TabsTrigger>
-            <TabsTrigger value="posts">Posts</TabsTrigger>
+            <TabsTrigger 
+              value="tickets"
+              className="min-h-[44px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
+            >
+              Tickets
+            </TabsTrigger>
+            <TabsTrigger 
+              value="badges"
+              className="min-h-[44px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
+            >
+              Badges
+            </TabsTrigger>
+            <TabsTrigger 
+              value="posts"
+              className="min-h-[44px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
+            >
+              Posts
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="tickets" className="p-4 space-y-4">
             <div className="flex justify-between items-center">
               <h3>Your Tickets</h3>
-              <Button variant="outline" size="sm">Filter</Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  // TODO: Implement ticket filtering
+                  toast({
+                    title: "Filter Feature",
+                    description: "Ticket filtering will be available soon!",
+                  });
+                }}
+                className="min-h-[32px] min-w-[60px]"
+              >
+                Filter
+              </Button>
             </div>
 
             <div className="space-y-3">
@@ -419,7 +454,20 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
           <TabsContent value="posts" className="p-4 space-y-4">
             <div className="flex justify-between items-center">
               <h3>Your Posts</h3>
-              <Button variant="outline" size="sm">Create Post</Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  // TODO: Implement post creation from profile
+                  toast({
+                    title: "Create Post",
+                    description: "Post creation from profile will be available soon!",
+                  });
+                }}
+                className="min-h-[32px] min-w-[80px]"
+              >
+                Create Post
+              </Button>
             </div>
 
             <div className="space-y-3">
