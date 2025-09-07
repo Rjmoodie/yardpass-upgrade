@@ -64,7 +64,7 @@ async function uploadImageToSupabase(file: File): Promise<string> {
  * { upload_id, upload_url }
  */
 async function createMuxDirectUpload(): Promise<{ upload_id: string; upload_url: string }> {
-  const { data, error } = await supabase.functions.invoke('create-mux-upload', {
+  const { data, error } = await supabase.functions.invoke('mux-create-direct-upload', {
     body: {},
   });
   if (error) throw error;
