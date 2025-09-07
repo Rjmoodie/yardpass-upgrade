@@ -166,22 +166,33 @@ export function useTickets() {
       });
       
       console.log('🎫 get-user-tickets response:', { data, error });
-      console.log('🎫 Full response data structure:', JSON.stringify(data, null, 2));
       if (error) throw error;
 
       // Ignore outdated responses
       if (requestId !== inFlight.current) return;
 
+      // Parse data if it's a string (edge function returning JSON string)
+      let parsedData = data;
+      if (typeof data === 'string') {
+        try {
+          parsedData = JSON.parse(data);
+          console.log('🎫 Parsed string data:', parsedData);
+        } catch (parseError) {
+          console.error('🎫 Failed to parse tickets data:', parseError);
+          parsedData = { tickets: [] };
+        }
+      }
+
       // Ensure we have an array of tickets
       let tickets = [];
-      if (Array.isArray(data)) {
-        tickets = data;
-      } else if (data && Array.isArray(data.tickets)) {
-        tickets = data.tickets;
-      } else if (data && data.tickets === null) {
+      if (Array.isArray(parsedData)) {
+        tickets = parsedData;
+      } else if (parsedData && Array.isArray(parsedData.tickets)) {
+        tickets = parsedData.tickets;
+      } else if (parsedData && parsedData.tickets === null) {
         tickets = [];
       } else {
-        console.warn('🎫 Unexpected tickets data structure:', data);
+        console.warn('🎫 Unexpected tickets data structure:', parsedData);
         tickets = [];
       }
       
@@ -257,19 +268,30 @@ export function useTickets() {
       });
       
       console.log('🔄 Force refresh - get-user-tickets response:', { data, error });
-      console.log('🔄 Force refresh - Full response data structure:', JSON.stringify(data, null, 2));
       if (error) throw error;
+
+      // Parse data if it's a string (edge function returning JSON string)
+      let parsedData = data;
+      if (typeof data === 'string') {
+        try {
+          parsedData = JSON.parse(data);
+          console.log('🔄 Force refresh - Parsed string data:', parsedData);
+        } catch (parseError) {
+          console.error('🔄 Force refresh - Failed to parse tickets data:', parseError);
+          parsedData = { tickets: [] };
+        }
+      }
 
       // Ensure we have an array of tickets
       let tickets = [];
-      if (Array.isArray(data)) {
-        tickets = data;
-      } else if (data && Array.isArray(data.tickets)) {
-        tickets = data.tickets;
-      } else if (data && data.tickets === null) {
+      if (Array.isArray(parsedData)) {
+        tickets = parsedData;
+      } else if (parsedData && Array.isArray(parsedData.tickets)) {
+        tickets = parsedData.tickets;
+      } else if (parsedData && parsedData.tickets === null) {
         tickets = [];
       } else {
-        console.warn('🔄 Force refresh - Unexpected tickets data structure:', data);
+        console.warn('🔄 Force refresh - Unexpected tickets data structure:', parsedData);
         tickets = [];
       }
       
