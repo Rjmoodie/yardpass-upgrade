@@ -258,10 +258,21 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   // ---- Home feed via RPC (useHomeFeed) ----
   const { data: feed, loading: feedLoading, error, refresh, setData: setFeed } = useHomeFeed(3);
+  
   useEffect(() => {
     setEvents(feed || []);
     setLoading(feedLoading);
-  }, [feed, feedLoading]);
+    
+    // Show error if RPC fails
+    if (error) {
+      console.error('Home feed error:', error);
+      toast({
+        title: 'Failed to load events',
+        description: 'Please try refreshing the page.',
+        variant: 'destructive'
+      });
+    }
+  }, [feed, feedLoading, error, toast]);
 
   // ---- Realtime posts (useRealtimePosts) ----
   useRealtimePosts(
@@ -490,13 +501,15 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
               <p className="text-sm text-gray-200/90 line-clamp-3 max-w-xl">{currentEvent.description}</p>
             </div>
 
-            {/* Recent Posts Rail - Show first for social focus */}
-            <RecentPostsRail 
-              posts={currentEvent.posts || []}
-              eventId={currentEvent.id}
-              onPostClick={handlePostClick}
-              onViewAllClick={handleViewAllPosts}
-            />
+            {/* Recent Posts Rail - Social-first layout: show posts prominently */}
+            <div className="mt-4 mb-3">
+              <RecentPostsRail 
+                posts={currentEvent.posts || []}
+                eventId={currentEvent.id}
+                onPostClick={handlePostClick}
+                onViewAllClick={handleViewAllPosts}
+              />
+            </div>
 
             {currentEvent.ticketTiers?.length > 0 && (
               <div className="flex gap-2 pt-1 flex-wrap">
@@ -611,4 +624,5 @@ function IconButton({ children, onClick, count, active, ariaLabel }: { children:
       <div className={`p-3 rounded-full transition-all duration-200 ${active ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-110' : 'bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20'}`}>{children}</div>
       {typeof count !== 'undefined' && <span className="text-xs font-medium text-white drop-shadow-lg">{count}</span>}
     </button>
-  )
+  );
+}
