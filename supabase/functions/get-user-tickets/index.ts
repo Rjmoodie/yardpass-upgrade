@@ -1,3 +1,5 @@
+// supabase/functions/get-user-tickets/index.ts
+
 // Deno Deploy / Supabase Edge Function
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -20,6 +22,10 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader) {
+      return cors(new Response(JSON.stringify({ error: "not_authenticated" }), { status: 401 }));
+    }
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -29,10 +35,10 @@ serve(async (req) => {
       return cors(new Response(JSON.stringify({ error: "not_authenticated" }), { status: 401 }));
     }
 
-    // First get the tickets
+    // Fetch user's tickets (only relevant statuses)
     const { data: tickets, error: ticketsError } = await supabase
       .from("tickets")
-      .select("*")
+      .select("id, event_id, tier_id, order_id, status, qr_code, created_at")
       .eq("owner_user_id", user.id)
       .in("status", ["issued", "transferred", "redeemed"])
       .order("created_at", { ascending: false });
@@ -42,40 +48,55 @@ serve(async (req) => {
       return cors(new Response(JSON.stringify({ error: ticketsError.message }), { status: 400 }));
     }
 
-    // Get event IDs and tier IDs
-    const eventIds = [...new Set(tickets?.map(t => t.event_id) || [])];
-    const tierIds = [...new Set(tickets?.map(t => t.tier_id) || [])];
-    const orderIds = [...new Set(tickets?.map(t => t.order_id).filter(Boolean) || [])];
+    if (!tickets || tickets.length === 0) {
+      return cors(new Response(JSON.stringify({ tickets: [] }), { status: 200 }));
+    }
 
-    // Fetch related data
+    // Collect FK ids
+    const eventIds = [...new Set(tickets.map(t => t.event_id))];
+    const tierIds = [...new Set(tickets.map(t => t.tier_id))];
+    const orderIds = [...new Set(tickets.map(t => t.order_id).filter(Boolean))];
+
+    // Fetch related data (only needed fields)
     const [eventsRes, tiersRes, ordersRes] = await Promise.all([
-      supabase.from("events").select("*").in("id", eventIds),
-      supabase.from("ticket_tiers").select("*").in("id", tierIds),
-      orderIds.length > 0 ? supabase.from("orders").select("id, created_at").in("id", orderIds) : { data: [], error: null }
+      supabase
+        .from("events")
+        .select("id, title, start_at, end_at, timezone, venue, city, cover_image_url, organizer_name")
+        .in("id", eventIds),
+      supabase
+        .from("ticket_tiers")
+        .select("id, name, price_cents, badge_label")
+        .in("id", tierIds),
+      orderIds.length > 0
+        ? supabase.from("orders").select("id, created_at").in("id", orderIds)
+        : Promise.resolve({ data: [], error: null } as any),
     ]);
 
     if (eventsRes.error) {
       console.error("get-user-tickets events error:", eventsRes.error);
       return cors(new Response(JSON.stringify({ error: eventsRes.error.message }), { status: 400 }));
     }
-
     if (tiersRes.error) {
       console.error("get-user-tickets tiers error:", tiersRes.error);
       return cors(new Response(JSON.stringify({ error: tiersRes.error.message }), { status: 400 }));
     }
+    if (ordersRes.error) {
+      console.error("get-user-tickets orders error:", ordersRes.error);
+      return cors(new Response(JSON.stringify({ error: ordersRes.error.message }), { status: 400 }));
+    }
 
-    // Create lookup maps
-    const eventsMap = new Map(eventsRes.data?.map(e => [e.id, e]) || []);
-    const tiersMap = new Map(tiersRes.data?.map(t => [t.id, t]) || []);
-    const ordersMap = new Map(ordersRes.data?.map(o => [o.id, o]) || []);
+    // Build lookups
+    const eventsMap = new Map(eventsRes.data?.map((e: any) => [e.id, e]) || []);
+    const tiersMap = new Map(tiersRes.data?.map((t: any) => [t.id, t]) || []);
+    const ordersMap = new Map(ordersRes.data?.map((o: any) => [o.id, o]) || []);
 
-    // Combine the data
-    const enrichedTickets = tickets?.map(ticket => ({
+    // Enrich
+    const enrichedTickets = tickets.map((ticket) => ({
       ...ticket,
       events: eventsMap.get(ticket.event_id) || null,
       ticket_tiers: tiersMap.get(ticket.tier_id) || null,
-      orders: ticket.order_id ? ordersMap.get(ticket.order_id) || null : null
-    })) || [];
+      orders: ticket.order_id ? ordersMap.get(ticket.order_id) || null : null,
+    }));
 
     return cors(new Response(JSON.stringify({ tickets: enrichedTickets }), { status: 200 }));
   } catch (e) {
