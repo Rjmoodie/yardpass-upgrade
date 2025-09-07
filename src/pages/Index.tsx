@@ -53,8 +53,8 @@ const mockEvents: Event[] = [
     location: 'Central Park, NYC',
     coverImage: DEFAULT_EVENT_COVER,
     ticketTiers: [
-      { id: '1', name: 'General Admission', price: 89, badge: 'GA', available: 45, total: 1000 },
-      { id: '2', name: 'VIP Experience', price: 199, badge: 'VIP', available: 12, total: 100 }
+      { id: '1', name: 'General Admission', price: 30, badge: 'GA', available: 45, total: 1000 },
+      { id: '2', name: 'VIP', price: 90, badge: 'VIP', available: 12, total: 100 }
     ],
     attendeeCount: 1243, likes: 892, shares: 156, isLiked: false, posts: []
   },

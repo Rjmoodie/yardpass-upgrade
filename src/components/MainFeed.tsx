@@ -244,7 +244,10 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
         }
         isOpen={showTicketModal}
         onClose={() => setShowTicketModal(false)}
-        onSuccess={() => toast({ title: 'Redirecting', description: 'Opening checkout...' })}
+        onSuccess={() => {
+          setShowTicketModal(false);
+          toast({ title: 'Success!', description: 'Redirecting to checkout...' });
+        }}
       />
       <PostCreatorModal
         isOpen={postCreatorOpen}
@@ -327,6 +330,28 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
               {event.attendeeCount} attending
             </Badge>
           </div>
+          
+          {/* Show ticket tiers if available */}
+          {event.ticketTiers?.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {event.ticketTiers.map((tier: any) => (
+                <Button
+                  key={tier.id}
+                  size="sm"
+                  variant="secondary"
+                  className="rounded-full bg-white/15 hover:bg-white/25 backdrop-blur border-white/30"
+                  onClick={() => requireAuth(() => {
+                    capture('feed_click', { target: 'ticket_tier', event_id: event.id, tier: tier.name });
+                    setShowTicketModal(true);
+                  }, 'Sign in to view tickets')}
+                >
+                  {tier.badge && <span className="mr-2 px-1.5 py-0.5 text-[10px] rounded bg-black/40">{tier.badge}</span>}
+                  {tier.name} · ${tier.price}
+                </Button>
+              ))}
+            </div>
+          )}
+          
           <h2
             onClick={() => {
               capture('feed_click', { target: 'title', event_id: event.id });
@@ -374,7 +399,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
                 requireAuth(() => {
                   capture('feed_click', { target: 'tickets', event_id: event.id });
                   setShowTicketModal(true);
-                }, 'Sign in to buy')
+                }, 'Sign in to buy tickets')
               }
               className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[48px] px-6 font-bold shadow-lg"
             >
