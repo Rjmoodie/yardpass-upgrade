@@ -21,7 +21,12 @@ export function useRealtimePosts(eventIds: string[], onInsert: OnInsert) {
   }, [eventIds]);
 
   useEffect(() => {
-    if (!filter) return;
+    if (!filter) {
+      console.log('🔄 useRealtimePosts: No events to watch');
+      return;
+    }
+
+    console.log(`🎯 useRealtimePosts: Setting up realtime for ${eventIds.length} events`, eventIds);
 
     const channel = supabase
       .channel('realtime:home_feed_posts')
@@ -29,6 +34,7 @@ export function useRealtimePosts(eventIds: string[], onInsert: OnInsert) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'event_posts', filter },
         (payload) => {
+          console.log('⚡ useRealtimePosts: New post received!', payload.new);
           const r: any = payload.new;
           onInsert({
             event_id: r.event_id,
@@ -42,10 +48,13 @@ export function useRealtimePosts(eventIds: string[], onInsert: OnInsert) {
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('🔌 useRealtimePosts: Subscription status:', status);
+      });
 
     return () => {
+      console.log('🔌 useRealtimePosts: Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
-  }, [filter, onInsert]);
+  }, [filter, onInsert, eventIds]);
 }

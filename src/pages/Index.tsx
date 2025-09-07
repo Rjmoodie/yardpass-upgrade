@@ -73,6 +73,64 @@ interface IndexProps {
 
 
 // ————————————————————————————————————————
+// PostHero Component for Full-Screen User Posts
+// ————————————————————————————————————————
+function PostHero({ post }: { post: EventPost | undefined }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [muted, setMuted] = useState(true);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || post?.mediaType !== 'video') return;
+    // iOS requires muted + playsInline to autoplay.
+    v.muted = true;
+    v.play().catch(() => {/* ignore; show muted overlay */});
+  }, [post?.id, post?.mediaUrl]);
+
+  if (!post) return null;
+
+  if (post.mediaType === 'video' && post.mediaUrl) {
+    return (
+      <div className="absolute inset-0">
+        <video
+          ref={videoRef}
+          src={post.mediaUrl}
+          className="w-full h-full object-cover"
+          autoPlay
+          muted={muted}
+          playsInline
+          loop
+          preload="metadata"
+          controls={false}
+          disablePictureInPicture
+          controlsList="nodownload noplaybackrate nofullscreen"
+        />
+        <button
+          onClick={() => setMuted(m => !m)}
+          className="absolute top-16 right-4 bg-black/60 text-white rounded-full px-3 py-1 text-xs"
+        >
+          {muted ? 'Tap for sound' : 'Mute'}
+        </button>
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+          <div className="text-white text-sm">
+            <div className="font-semibold">{post.authorName} {post.isOrganizer && <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded">ORGANIZER</span>}</div>
+            {post.content && <div className="opacity-90 line-clamp-2">{post.content}</div>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Image fallback
+  return (
+    <div className="absolute inset-0">
+      <ImageWithFallback src={post.mediaUrl || post.thumbnailUrl || ''} alt="" className="w-full h-full object-cover"/>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
+    </div>
+  );
+}
+
+// ————————————————————————————————————————
 // Mock fallback
 // ————————————————————————————————————————
 const mockEvents: Event[] = [
@@ -258,10 +316,21 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   // ---- Home feed via RPC (useHomeFeed) ----
   const { data: feed, loading: feedLoading, error, refresh, setData: setFeed } = useHomeFeed(3);
+  
   useEffect(() => {
     setEvents(feed || []);
     setLoading(feedLoading);
-  }, [feed, feedLoading]);
+    
+    // Show error if RPC fails
+        if (error) {
+      console.error('Home feed error:', error);
+      toast({
+        title: 'Failed to load events',
+        description: 'Please try refreshing the page.',
+        variant: 'destructive'
+      });
+    }
+  }, [feed, feedLoading, error, toast]);
 
   // ---- Realtime posts (useRealtimePosts) ----
   useRealtimePosts(
@@ -447,98 +516,45 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       </div>
 
       {/* Main Content - User Posts as Hero */}
-      <div ref={trackRef} className="h-full w-full relative transition-transform duration-300 ease-out" style={{ transform: `translateY(-${currentIndex * 100}%)` }}>
-        {events.map((ev, i) => (
-          <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
-            {/* Show user posts as hero content */}
-            {ev.posts && ev.posts.length > 0 ? (
-              <div className="h-full w-full relative">
-                {/* Main post video/image - FULL SCREEN */}
-                <div className="h-full w-full relative">
-                  {ev.posts[0].mediaType === 'video' ? (
-                    <video 
-                      className="w-full h-full object-cover"
-                      autoPlay 
-                      muted 
-                      loop
-                      playsInline
-                    >
-                      <source src={ev.posts[0].mediaUrl} type="video/mp4" />
-                    </video>
-                  ) : (
-                    <ImageWithFallback 
-                      src={ev.posts[0].mediaUrl || ev.coverImage} 
-                      alt={ev.posts[0].content || ev.title} 
-                      loading="lazy" 
-                      className="w-full h-full object-cover" 
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
-                </div>
-                
-                {/* Post overlay info */}
-                <div className="absolute bottom-20 left-4 right-4 text-white z-20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className="text-xs bg-white/20 text-white">
-                        {ev.posts[0].authorName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-semibold">{ev.posts[0].authorName}</span>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {ev.posts[0].authorBadge}
-                    </Badge>
-                  </div>
-                  <p className="text-sm mb-3 line-clamp-2">{ev.posts[0].content}</p>
+      <div 
+        ref={trackRef}
+        className="h-full w-full relative transition-transform duration-300 ease-out"
+        style={{ transform: `translateY(-${currentIndex * 100}%)` }}
+      >
+        {events.map((ev, i) => {
+          const heroPost = (ev.posts || []).find(p => p.mediaUrl); // newest first due to order
+          return (
+            <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
+              {heroPost ? (
+                <PostHero post={heroPost} />
+              ) : (
+                <>
+                  <ImageWithFallback src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
                   
-                  {/* Event context - small and secondary */}
-                  <div className="bg-black/40 backdrop-blur-sm rounded-lg p-3 mb-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-sm">{ev.title}</h3>
-                        <p className="text-xs text-gray-300">{ev.dateLabel} • {ev.location}</p>
-                      </div>
+                  {/* Event info when no posts */}
+                  <div className="absolute bottom-20 left-4 right-4 text-white z-20">
+                    <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4">
+                      <h2 className="text-xl font-bold mb-2">{ev.title}</h2>
+                      <p className="text-sm text-gray-300 mb-3">{ev.description}</p>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="glass" onClick={() => navigate(routes.eventDetails(ev.id))} className="bg-white/20 text-white border-white/30 hover:bg-white/30 text-xs">
+                        <Button size="sm" variant="glass" onClick={() => navigate(routes.eventDetails(ev.id))} className="bg-white/20 text-white border-white/30 hover:bg-white/30">
                           Details
                         </Button>
-                        <Button size="sm" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs">
+                        <Button size="sm" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90">
                           Get Tickets
                         </Button>
-                      </div>
-                    </div>
-                  </div>
+                </div>
                 </div>
               </div>
-            ) : (
-              /* Fallback to event cover if no posts */
-              <div className="h-full w-full relative">
-                <ImageWithFallback src={ev.coverImage} alt={ev.title} loading="lazy" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
-                
-                {/* Event info when no posts */}
-                <div className="absolute bottom-20 left-4 right-4 text-white z-20">
-                  <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4">
-                    <h2 className="text-xl font-bold mb-2">{ev.title}</h2>
-                    <p className="text-sm text-gray-300 mb-3">{ev.description}</p>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="glass" onClick={() => navigate(routes.eventDetails(ev.id))} className="bg-white/20 text-white border-white/30 hover:bg-white/30">
-                        Details
-                      </Button>
-                      <Button size="sm" variant="premium" onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                        Get Tickets
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+                </>
+              )}
+            </div>
+          );
+        })}
           </div>
-        ))}
-      </div>
 
-
-          {/* Action rail */}
+      {/* Action rail */}
           <div className="flex flex-col items-center gap-4 text-white select-none">
             <IconButton ariaLabel="Like" active={currentEvent.isLiked} count={currentEvent.likes} onClick={() => handleLike(currentEvent.id)}>
               <Heart className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white text-white' : 'text-white'}`} />
@@ -554,7 +570,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
               } 
               onClick={() => handleComment()}
             >
-              <MessageCircle className="w-6 h-6 text-white" />
+                <MessageCircle className="w-6 h-6 text-white" />
             </IconButton>
             <IconButton ariaLabel="Create post" onClick={() => requireAuth(() => setPostCreatorOpen(true), 'Please sign in to create posts')}>
               <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200 shadow-lg"><Plus className="w-6 h-6 text-white" /></div>
@@ -633,4 +649,5 @@ function IconButton({ children, onClick, count, active, ariaLabel }: { children:
       <div className={`p-3 rounded-full transition-all duration-200 ${active ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-110' : 'bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20'}`}>{children}</div>
       {typeof count !== 'undefined' && <span className="text-xs font-medium text-white drop-shadow-lg">{count}</span>}
     </button>
-  )
+  );
+}
