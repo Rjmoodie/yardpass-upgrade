@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { updateMetaTags } from '@/utils/meta';
 import { supabase } from '@/integrations/supabase/client';
-import { EventDetail } from '@/components/EventDetail';
+import EventDetail from '@/components/EventDetail';
 import { EventFeed } from '@/components/EventFeed';
 import { toast } from '@/hooks/use-toast';
 import { routes } from '@/lib/routes';

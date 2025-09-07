@@ -226,7 +226,7 @@ export default function EventSlugPage() {
                 onClick={() => navigate(`/e/${event.slug ?? event.id}/attendees`)}
               >
                 <Users className="w-4 h-4 mr-2" />
-                See who’s going {attendeeCount ? `(${attendeeCount})` : ''}
+                See who's going {attendeeCount ? `(${attendeeCount})` : ''}
               </Button>
             </div>
 
