@@ -255,7 +255,15 @@ function AppContent() {
           path="/event/:id" 
           element={
             selectedEvent ? (
-              <EventDetail />
+              <EventDetail
+                event={selectedEvent}
+                user={user ? {
+                  id: user.id,
+                  name: profile?.display_name || 'User',
+                  role: (profile?.role as UserRole) || 'attendee'
+                } : null}
+                onBack={handleBackToFeed}
+              />
             ) : (
               <div>Event not found</div>
             )

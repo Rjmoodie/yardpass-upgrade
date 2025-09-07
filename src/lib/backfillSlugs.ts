@@ -4,50 +4,39 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { createEventSlug } from './slugUtils';
+import { ensureAvailableSlug } from './slugUtils';
 
 export async function backfillEventSlugs() {
   try {
-    // Get all events without slugs
     const { data: events, error } = await supabase
       .from('events')
       .select('id, title, slug')
       .or('slug.is.null,slug.eq.""');
 
-    if (error) {
-      console.error('Error fetching events:', error);
-      return { success: false, error: error.message };
-    }
+    if (error) return { success: false, error: error.message };
+    if (!events?.length) return { success: true, updated: 0 };
 
-    if (!events || events.length === 0) {
-      console.log('No events need slug backfill');
-      return { success: true, updated: 0 };
-    }
-
-    console.log(`Backfilling slugs for ${events.length} events...`);
-
-    // Update each event with a generated slug
     let updated = 0;
-    for (const event of events) {
-      const slug = createEventSlug(event.title);
+    for (const ev of events) {
+      const slug = await ensureAvailableSlug(ev.title, async (candidate) => {
+        const { count, error: existsErr } = await supabase
+          .from('events')
+          .select('id', { head: true, count: 'exact' })
+          .eq('slug', candidate);
+        if (existsErr) return true;
+        return !!count && count > 0;
+      });
+
       const { error: updateError } = await supabase
         .from('events')
         .update({ slug })
-        .eq('id', event.id);
+        .eq('id', ev.id);
 
-      if (updateError) {
-        console.error(`Error updating event ${event.id}:`, updateError);
-      } else {
-        updated++;
-      }
+      if (!updateError) updated++;
     }
-
-    console.log(`Successfully backfilled slugs for ${updated} events`);
     return { success: true, updated };
-
-  } catch (error) {
-    console.error('Unexpected error:', error);
-    return { success: false, error: 'Unexpected error occurred' };
+  } catch (e) {
+    return { success: false, error: 'Unexpected error' };
   }
 }
 

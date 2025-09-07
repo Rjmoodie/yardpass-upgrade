@@ -112,6 +112,26 @@ export default function EventDetails() {
         {event.venue && <div><strong>Venue:</strong> {event.venue}</div>}
         {event.address && <div><strong>Address:</strong> {event.address}</div>}
       </div>
+      
+      <div className="mt-6">
+        <Button
+          variant="outline"
+          onClick={() => {
+            import('@/lib/share').then(({ sharePayload }) => {
+              import('@/lib/shareLinks').then(({ buildShareUrl, getShareTitle, getShareText }) => {
+                const ident = (event as any).slug ?? event.id;
+                sharePayload({
+                  title: getShareTitle({ type: 'event', slug: ident, title: event.title }),
+                  text: getShareText({ type: 'event', slug: ident, title: event.title, city: event.venue, date: new Date(event.start_at).toLocaleDateString() }),
+                  url: buildShareUrl({ type: 'event', slug: ident, title: event.title })
+                });
+              });
+            });
+          }}
+        >
+          Share Event
+        </Button>
+      </div>
     </div>
   );
 }

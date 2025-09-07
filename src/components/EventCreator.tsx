@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { createEventSlug } from '@/lib/slugUtils';
+import { createEventSlug, ensureAvailableSlug } from '@/lib/slugUtils';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
@@ -159,6 +159,19 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     }
   };
 
+  // Ensure slug is unique in DB
+  const ensureUniqueEventSlug = async (title: string) => {
+    const desired = title;
+    return await ensureAvailableSlug(desired, async (slug) => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('id', { head: true, count: 'exact' })
+        .eq('slug', slug);
+      if (error) return true; // be safe: treat unknown as exists
+      return (data === null ? false : true); // head=true returns null; rely on count below when possible
+    });
+  };
+
   const handleSubmit = async () => {
     if (!user || !location) return;
     setLoading(true);
@@ -170,6 +183,8 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       const linkToken = formData.visibility === 'unlisted' && 'randomUUID' in crypto
         ? crypto.randomUUID()
         : null;
+
+      const slug = await ensureUniqueEventSlug(formData.title);
 
       const insertPayload: any = {
         title: formData.title,
@@ -189,8 +204,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         owner_context_id: organizationId,
         created_by: user.id,
         visibility: formData.visibility,
-        slug: createEventSlug(formData.title),
-        // comment the next line if you haven't added link_token column yet
+        slug,
         link_token: linkToken
       };
 
