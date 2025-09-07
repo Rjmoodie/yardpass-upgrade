@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+// src/hooks/useTickets.tsx
+
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -10,24 +12,24 @@ export interface UserTicket {
   eventTitle: string;
 
   // Human-readable
-  eventDate: string;   // "Friday, July 12, 2025"
-  eventTime: string;   // "7:00 PM"
-  eventLocation: string; // "Venue, City"
+  eventDate: string;        // "Friday, July 12, 2025"
+  eventTime: string;        // "7:00 PM"
+  eventLocation: string;    // "Venue, City"
   venue: string;
   city: string;
 
   // Raw time data (for ICS / logic)
-  startAtISO: string;     // ISO
-  endAtISO: string;       // ISO (fallback +2h if missing)
-  timezone?: string;      // Olson TZ name if provided
+  startAtISO: string;       // ISO
+  endAtISO: string;         // ISO (fallback +2h if missing)
+  timezone?: string;
 
   coverImage: string;
   ticketType: string;
   badge: string;
   qrCode: string;
   status: string;
-  price: number;          // USD number
-  orderDate: string;      // ISO from order or ticket created
+  price: number;            // USD number
+  orderDate: string;        // ISO
   isUpcoming: boolean;
   organizerName?: string;
 }
@@ -51,18 +53,32 @@ export function useTickets() {
     isOffline: !navigator.onLine,
   });
 
+  // Prevent race conditions between quick re-fetches
+  const inFlight = useRef(0);
+  const lastToast = useRef<number>(0);
+
   const setPartial = (patch: Partial<FetchState>) =>
     setState((s) => ({ ...s, ...patch }));
 
-  const transform = (rows: any[]): UserTicket[] => {
+  const safeDate = (iso?: string | null) => {
+    const d = iso ? new Date(iso) : new Date();
+    return Number.isNaN(d.getTime()) ? new Date() : d;
+  };
+
+  const transform = useCallback((rows: any[]): UserTicket[] => {
     const now = new Date();
 
     return (rows || []).map((ticket: any) => {
       const ev = ticket.events || {};
       const startISO: string = ev.start_at ?? new Date().toISOString();
-      const endISO: string = ev.end_at ?? new Date(new Date(startISO).getTime() + 2 * 60 * 60 * 1000).toISOString();
+      const endISO: string =
+        ev.end_at ?? new Date(new Date(startISO).getTime() + 2 * 60 * 60 * 1000).toISOString();
 
-      const start = new Date(startISO);
+      const start = safeDate(startISO);
+      const end = safeDate(endISO);
+
+      const venue = ev.venue || 'TBA';
+      const city = ev.city || '';
 
       return {
         id: ticket.id,
@@ -75,9 +91,9 @@ export function useTickets() {
           day: 'numeric',
         }),
         eventTime: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-        venue: ev.venue || 'TBA',
-        city: ev.city || '',
-        eventLocation: `${ev.venue || 'TBA'}${ev.city ? `, ${ev.city}` : ''}`,
+        venue,
+        city,
+        eventLocation: `${venue}${city ? `, ${city}` : ''}`,
         coverImage:
           ev.cover_image_url ||
           'https://images.unsplash.com/photo-1492684223066-81342ee5ff30',
@@ -87,33 +103,39 @@ export function useTickets() {
         status: ticket.status,
         price: (ticket.ticket_tiers?.price_cents || 0) / 100,
         orderDate: ticket.orders?.created_at || ticket.created_at,
-        isUpcoming: new Date(endISO) > now,
-        organizerName: 'Event Organizer',
+        isUpcoming: end > now,
+        organizerName: ev.organizer_name || 'Event Organizer',
         startAtISO: startISO,
         endAtISO: endISO,
         timezone: ev.timezone || undefined,
       } as UserTicket;
     });
-  };
+  }, []);
 
-  const fetchUserTickets = async () => {
+  const fetchUserTickets = useCallback(async () => {
     if (!user) {
       setPartial({ tickets: [], loading: false, error: null });
       return;
     }
 
+    const requestId = ++inFlight.current;
+
     try {
       setPartial({ loading: true, error: null });
 
-      // Offline path first
+      // Offline-first
       if (!navigator.onLine) {
         const cached = cache.getCachedTicketList();
         if (Array.isArray(cached) && cached.length) {
           setPartial({ tickets: cached as any, loading: false, isOffline: true });
-          toast({
-            title: 'Offline Mode',
-            description: 'Showing cached tickets. Some data may be outdated.',
-          });
+          const now = Date.now();
+          if (now - lastToast.current > 2500) {
+            toast({
+              title: 'Offline Mode',
+              description: 'Showing cached tickets. Some data may be outdated.',
+            });
+            lastToast.current = now;
+          }
           return;
         }
         setPartial({
@@ -124,21 +146,33 @@ export function useTickets() {
         return;
       }
 
-      
-      // Online fetch - ensure we have a valid session
+      // Online fetch (requires a session)
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("No valid session found. Please log in again.");
-      }
+      if (!session) throw new Error('No valid session found. Please log in again.');
 
       const { data, error } = await supabase.functions.invoke('get-user-tickets', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
       if (error) throw error;
 
+      // Ignore outdated responses
+      if (requestId !== inFlight.current) return;
+
       const transformed = transform(data?.tickets || []);
+      // Sort: upcoming by soonest, past by most recent
+      const nowMs = Date.now();
+      transformed.sort((a, b) => {
+        const aStart = new Date(a.startAtISO).getTime();
+        const bStart = new Date(b.startAtISO).getTime();
+        const aUp = aStart >= nowMs;
+        const bUp = bStart >= nowMs;
+        if (aUp && bUp) return aStart - bStart;
+        if (!aUp && !bUp) return bStart - aStart;
+        return aUp ? -1 : 1;
+      });
+
       setPartial({ tickets: transformed, loading: false, isOffline: false });
 
       // Cache for offline
@@ -153,7 +187,6 @@ export function useTickets() {
         toast({
           title: 'Using Cached Data',
           description: e?.message || 'Network error. Showing cached tickets.',
-          variant: 'destructive',
         });
       } else {
         setPartial({
@@ -168,12 +201,12 @@ export function useTickets() {
         });
       }
     }
-  };
+  }, [user, cache, toast, transform]);
 
-  // Refresh public API
-  const refreshTickets = async () => {
+  // Public API
+  const refreshTickets = useCallback(async () => {
     await fetchUserTickets();
-  };
+  }, [fetchUserTickets]);
 
   // Online/offline listeners
   useEffect(() => {
@@ -183,10 +216,14 @@ export function useTickets() {
     };
     const goOffline = () => {
       setPartial({ isOffline: true });
-      toast({
-        title: 'Offline',
-        description: 'You lost internet connection. Showing cached data if available.',
-      });
+      const now = Date.now();
+      if (now - lastToast.current > 2500) {
+        toast({
+          title: 'Offline',
+          description: 'You lost internet connection. Showing cached data if available.',
+        });
+        lastToast.current = now;
+      }
     };
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
@@ -194,15 +231,14 @@ export function useTickets() {
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
     };
-  }, []);
+  }, [fetchUserTickets, toast]);
 
   // First load
   useEffect(() => {
     fetchUserTickets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, fetchUserTickets]);
 
-  // Realtime (optional): keep local list fresh when tickets change
+  // Realtime: keep local list fresh when user's tickets change
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -222,13 +258,13 @@ export function useTickets() {
     return () => {
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, fetchUserTickets]);
 
   const upcomingTickets = useMemo(
     () => state.tickets.filter((t) => t.isUpcoming),
     [state.tickets]
   );
+
   const pastTickets = useMemo(
     () => state.tickets.filter((t) => !t.isUpcoming),
     [state.tickets]
