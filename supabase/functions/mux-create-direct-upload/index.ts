@@ -64,8 +64,7 @@ serve(async (req) => {
     const muxPayload = {
       cors_origin: "*",
       new_asset_settings: {
-        playback_policy: ["public"],
-        mp4_support: "standard"
+        playback_policy: ["public"]
       }
     };
     
