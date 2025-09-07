@@ -16,6 +16,12 @@ serve(async (req) => {
     return createErrorResponse("Method not allowed", 405);
   }
 
+  // Check for required environment variables
+  if (!MUX_TOKEN_ID || !MUX_TOKEN_SECRET) {
+    console.error("Missing Mux credentials");
+    return createErrorResponse("Missing Mux configuration", 500);
+  }
+
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
     const sbUser = createClient(SUPABASE_URL, SUPABASE_ANON, { 
