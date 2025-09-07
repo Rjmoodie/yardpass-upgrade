@@ -126,6 +126,44 @@ export default function EventDetails() {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
   };
 
+  const shareEvent = async (slugOrId: string, title: string, city?: string | null, whenText?: string) => {
+    try {
+      // Use existing share module if available
+      const { sharePayload } = await import('@/lib/share');
+      const { buildShareUrl, getShareTitle, getShareText } = await import('@/lib/shareLinks');
+      sharePayload({
+        title: getShareTitle({ type: 'event', slug: slugOrId, title }),
+        text: getShareText({
+          type: 'event',
+          slug: slugOrId,
+          title,
+          city: city || undefined,
+          date: whenText,
+        }),
+        url: buildShareUrl({ type: 'event', slug: slugOrId, title }),
+      });
+    } catch {
+      // Graceful fallback: native share or copy link
+      const url = window.location.origin + `/events/${slugOrId}`;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title, text: title, url });
+          return;
+        } catch {
+          // ignore and fall through to clipboard
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        // lightweight feedback
+        alert('Link copied to clipboard');
+      } catch {
+        // final fallback
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
@@ -148,11 +186,11 @@ export default function EventDetails() {
   if (!event) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center">
-        <Card className="w-full max-w-md mx-4">
+        <Card className="w-full max-w-md mx-4 shadow-lg">
           <CardContent className="pt-6 text-center">
             <h1 className="text-xl font-semibold mb-2">Event not found</h1>
             <p className="text-muted-foreground mb-4">This event may be private, unlisted, or has been deleted.</p>
-            <Button variant="outline" onClick={() => navigate(-1)} className="w-full">
+            <Button variant="outline" onClick={() => navigate(-1)} className="w-full" aria-label="Go back">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Go back
             </Button>
@@ -174,10 +212,10 @@ export default function EventDetails() {
         <div className="relative h-72 w-full">
           <ImageWithFallback
             src={event.cover_image_url}
-            alt={event.title}
+            alt={event.title || 'Event cover image'}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
           {/* Back */}
           <Button
@@ -185,6 +223,7 @@ export default function EventDetails() {
             size="sm"
             onClick={() => navigate(-1)}
             className="absolute top-4 left-4 text-white hover:bg-white/20 backdrop-blur-sm"
+            aria-label="Back to previous page"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
@@ -196,7 +235,11 @@ export default function EventDetails() {
               PUBLIC
             </Badge>
             {event.slug && (
-              <Badge variant="outline" className="backdrop-blur-sm bg-emerald-500/90 text-white border-emerald-400">
+              <Badge
+                variant="outline"
+                className="backdrop-blur-sm bg-emerald-500/90 text-white border-emerald-400"
+                title="This page is SEO-friendly and shareable"
+              >
                 SEO Optimized
               </Badge>
             )}
@@ -211,7 +254,7 @@ export default function EventDetails() {
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               {event.category && (
-                <Badge variant="outline" className="capitalize">
+                <Badge variant="outline" className="capitalize" title="Event category">
                   {event.category}
                 </Badge>
               )}
@@ -221,6 +264,7 @@ export default function EventDetails() {
                 size="sm"
                 onClick={() => navigate(getEventAttendeesRoute({ id: event.id, slug: event.slug ?? undefined }))}
                 className="gap-2"
+                aria-label="See who’s going"
               >
                 <Users className="w-4 h-4" />
                 See who’s going
@@ -228,6 +272,15 @@ export default function EventDetails() {
             </div>
 
             <h1 className="text-4xl font-bold tracking-tight leading-tight">{event.title}</h1>
+
+            {/* Slug hint for quick sharing (if present) */}
+            {event.slug && (
+              <div className="inline-flex items-center gap-2">
+                <span className="text-sm text-muted-foreground font-mono bg-muted/50 px-3 py-2 rounded-md">
+                  yardpass.com/events/{event.slug}
+                </span>
+              </div>
+            )}
 
             {/* Organizer (links to profile if we have a handle/id) */}
             {organizer && (
@@ -244,20 +297,23 @@ export default function EventDetails() {
                 <button
                   className="text-sm text-muted-foreground hover:underline"
                   onClick={() => navigate(`/u/${organizer.user_id}`)}
+                  aria-label="View organizer profile"
+                  title="View organizer profile"
                 >
                   by {organizer.display_name ?? 'Organizer'}
                 </button>
               </div>
             )}
 
-
-            <p className="text-lg text-muted-foreground leading-relaxed">{event.description}</p>
+            {event.description && (
+              <p className="text-lg text-muted-foreground leading-relaxed">{event.description}</p>
+            )}
           </div>
 
           {/* Details + Map */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Date & Time */}
-            <Card className="border-l-4 border-l-primary">
+            <Card className="border-l-4 border-l-primary shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-primary/10 rounded-lg">
@@ -273,7 +329,7 @@ export default function EventDetails() {
             </Card>
 
             {/* Location + Map */}
-            <Card className="border-l-4 border-l-accent overflow-hidden">
+            <Card className="border-l-4 border-l-accent overflow-hidden shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -282,8 +338,8 @@ export default function EventDetails() {
                     </div>
                     <h3 className="font-semibold">Location</h3>
                   </div>
-                  <Button variant="secondary" size="sm" asChild>
-                    <a href={googleMapsHref(event)} target="_blank" rel="noreferrer">
+                  <Button variant="secondary" size="sm" asChild aria-label="Open in Google Maps">
+                    <a href={googleMapsHref(event)} target="_blank" rel="noopener noreferrer">
                       Open in Maps
                     </a>
                   </Button>
@@ -294,7 +350,7 @@ export default function EventDetails() {
                 {locationText && <p className="font-medium">{locationText}</p>}
                 {event.address && <p className="text-sm text-muted-foreground">{event.address}</p>}
 
-                {/* Map Preview with custom styling */}
+                {/* Map Preview with smooth fade-in and visible attribution */}
                 {(event.lat && event.lng) ? (
                   <div className="relative h-56 w-full rounded-lg overflow-hidden border bg-gradient-to-br from-primary/5 to-accent/5">
                     {!mapLoaded && (
@@ -311,14 +367,10 @@ export default function EventDetails() {
                       onLoad={() => setMapLoaded(true)}
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
-                      style={{
-                        filter: 'saturate(0.8) contrast(1.1)',
-                        mixBlendMode: 'multiply'
-                      }}
+                      style={{ filter: 'saturate(0.95) contrast(1.05)' }}
                     />
-                    {/* Overlay to hide OSM attribution */}
-                    <div className="absolute bottom-0 right-0 bg-background/90 text-xs px-2 py-1 rounded-tl-md">
-                      Map data
+                    <div className="absolute bottom-0 left-0 text-[10px] md:text-xs bg-background/90 px-2 py-1 rounded-tr-md">
+                      © OpenStreetMap contributors
                     </div>
                   </div>
                 ) : (
@@ -336,6 +388,7 @@ export default function EventDetails() {
               size="lg"
               className="flex-1 h-12"
               onClick={() => navigate(`/e/${identifier}#tickets`)}
+              aria-label="Get tickets"
             >
               <Users className="w-5 h-5 mr-2" />
               Get Tickets
@@ -346,26 +399,12 @@ export default function EventDetails() {
               size="lg"
               className="flex-1 h-12"
               onClick={() => {
-                import('@/lib/share').then(({ sharePayload }) => {
-                  import('@/lib/shareLinks').then(({ buildShareUrl, getShareTitle, getShareText }) => {
-                    const ident = event.slug ?? event.id;
-                    const when = `${eventDate} at ${eventTime}`;
-                    const cityOrVenue = event.city || event.venue || undefined;
-
-                    sharePayload({
-                      title: getShareTitle({ type: 'event', slug: ident, title: event.title }),
-                      text: getShareText({
-                        type: 'event',
-                        slug: ident,
-                        title: event.title,
-                        city: cityOrVenue,
-                        date: when,
-                      }),
-                      url: buildShareUrl({ type: 'event', slug: ident, title: event.title }),
-                    });
-                  });
-                });
+                const ident = event.slug ?? event.id;
+                const when = `${eventDate} at ${eventTime}`;
+                const cityOrVenue = event.city || event.venue || undefined;
+                shareEvent(ident, event.title, cityOrVenue, when);
               }}
+              aria-label="Share event"
             >
               <Share2 className="w-5 h-5 mr-2" />
               Share Event
