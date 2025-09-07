@@ -29,48 +29,55 @@ serve(async (req) => {
       return cors(new Response(JSON.stringify({ error: "not_authenticated" }), { status: 401 }));
     }
 
-    // Fetch the user's active tickets + event + tier badge
-    const { data, error } = await supabase
+    // First get the tickets
+    const { data: tickets, error: ticketsError } = await supabase
       .from("tickets")
-      .select(`
-        id,
-        event_id,
-        tier_id,
-        status,
-        qr_code,
-        created_at,
-        redeemed_at,
-        order_id,
-        events (
-          id,
-          title,
-          start_at,
-          end_at,
-          venue,
-          city,
-          cover_image_url,
-          timezone
-        ),
-        ticket_tiers (
-          id,
-          name,
-          badge_label,
-          price_cents
-        ),
-        orders (
-          created_at
-        )
-      `)
+      .select("*")
       .eq("owner_user_id", user.id)
       .in("status", ["issued", "transferred", "redeemed"])
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("get-user-tickets select error:", error);
-      return cors(new Response(JSON.stringify({ error: error.message }), { status: 400 }));
+    if (ticketsError) {
+      console.error("get-user-tickets tickets error:", ticketsError);
+      return cors(new Response(JSON.stringify({ error: ticketsError.message }), { status: 400 }));
     }
 
-    return cors(new Response(JSON.stringify({ tickets: data }), { status: 200 }));
+    // Get event IDs and tier IDs
+    const eventIds = [...new Set(tickets?.map(t => t.event_id) || [])];
+    const tierIds = [...new Set(tickets?.map(t => t.tier_id) || [])];
+    const orderIds = [...new Set(tickets?.map(t => t.order_id).filter(Boolean) || [])];
+
+    // Fetch related data
+    const [eventsRes, tiersRes, ordersRes] = await Promise.all([
+      supabase.from("events").select("*").in("id", eventIds),
+      supabase.from("ticket_tiers").select("*").in("id", tierIds),
+      orderIds.length > 0 ? supabase.from("orders").select("id, created_at").in("id", orderIds) : { data: [], error: null }
+    ]);
+
+    if (eventsRes.error) {
+      console.error("get-user-tickets events error:", eventsRes.error);
+      return cors(new Response(JSON.stringify({ error: eventsRes.error.message }), { status: 400 }));
+    }
+
+    if (tiersRes.error) {
+      console.error("get-user-tickets tiers error:", tiersRes.error);
+      return cors(new Response(JSON.stringify({ error: tiersRes.error.message }), { status: 400 }));
+    }
+
+    // Create lookup maps
+    const eventsMap = new Map(eventsRes.data?.map(e => [e.id, e]) || []);
+    const tiersMap = new Map(tiersRes.data?.map(t => [t.id, t]) || []);
+    const ordersMap = new Map(ordersRes.data?.map(o => [o.id, o]) || []);
+
+    // Combine the data
+    const enrichedTickets = tickets?.map(ticket => ({
+      ...ticket,
+      events: eventsMap.get(ticket.event_id) || null,
+      ticket_tiers: tiersMap.get(ticket.tier_id) || null,
+      orders: ticket.order_id ? ordersMap.get(ticket.order_id) || null : null
+    })) || [];
+
+    return cors(new Response(JSON.stringify({ tickets: enrichedTickets }), { status: 200 }));
   } catch (e) {
     console.error("get-user-tickets fatal:", e);
     return cors(new Response(JSON.stringify({ error: e?.message ?? "unknown_error" }), { status: 500 }));
