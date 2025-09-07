@@ -71,7 +71,13 @@ export function TicketPurchaseModal({
   }, 0);
 
   const handlePurchase = async () => {
+    console.log('🎫 Purchase button clicked!');
+    console.log('User:', user);
+    console.log('Total tickets:', totalTickets);
+    console.log('Selections:', selections);
+    
     if (!user) {
+      console.log('❌ User not authenticated');
       toast({
         title: "Authentication Required",
         description: "Please sign in to purchase tickets.",
@@ -81,6 +87,7 @@ export function TicketPurchaseModal({
     }
 
     if (totalTickets === 0) {
+      console.log('❌ No tickets selected');
       toast({
         title: "No Tickets Selected",
         description: "Please select at least one ticket.",
@@ -95,6 +102,11 @@ export function TicketPurchaseModal({
         .filter(([_, qty]) => qty > 0)
         .map(([tierId, quantity]) => ({ tierId, quantity }));
 
+      console.log('🚀 Calling create-checkout with:', {
+        eventId: event.id,
+        ticketSelections
+      });
+
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
           eventId: event.id,
@@ -102,8 +114,15 @@ export function TicketPurchaseModal({
         }
       });
 
-      if (error) throw error;
+      console.log('📡 Edge function response:', { data, error });
 
+      if (error) {
+        console.error('❌ Edge function error:', error);
+        throw error;
+      }
+
+      console.log('✅ Checkout session created, opening URL:', data.url);
+      
       // Open Stripe checkout in new tab
       window.open(data.url, '_blank');
       
@@ -113,6 +132,7 @@ export function TicketPurchaseModal({
       onSuccess();
       onClose();
     } catch (error: any) {
+      console.error('💥 Purchase error:', error);
       toast({
         title: "Checkout Error",
         description: error.message || "Failed to create checkout session",

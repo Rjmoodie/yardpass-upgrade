@@ -47,6 +47,7 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
   const fetchTicketTiers = async () => {
     if (!event?.id) return;
     
+    console.log('🎫 Fetching ticket tiers for event:', event.id);
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -55,10 +56,12 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
         .eq('event_id', event.id)
         .order('price_cents', { ascending: true });
 
+      console.log('🎫 Ticket tiers result:', { data, error, count: data?.length });
+      
       if (error) throw error;
       setTicketTiers(data || []);
     } catch (error) {
-      console.error('Error fetching ticket tiers:', error);
+      console.error('❌ Error fetching ticket tiers:', error);
       setTicketTiers([]);
     } finally {
       setLoading(false);
