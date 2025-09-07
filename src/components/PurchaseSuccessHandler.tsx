@@ -161,24 +161,42 @@ export function PurchaseSuccessHandler() {
   // Handle loading state
   if (statusLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-xl border-0 bg-white/95 backdrop-blur-sm">
           <CardContent className="p-8 text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Processing Payment</h2>
-            <p className="text-muted-foreground mb-2">
-              Please wait while we confirm your payment...
-            </p>
-            {retryCount > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Retry attempt {retryCount} of 3
-              </p>
-            )}
-            {timeoutReached && (
-              <p className="text-sm text-orange-600">
-                Taking longer than expected, retrying...
-              </p>
-            )}
+            <div className="space-y-6">
+              {/* Animated payment icon */}
+              <div className="w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mx-auto shadow-lg animate-pulse">
+                <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              
+              <div className="space-y-3">
+                <h2 className="text-xl font-semibold text-gray-900">Processing Payment</h2>
+                <p className="text-muted-foreground">
+                  Please wait while we confirm your payment...
+                </p>
+                
+                {/* Progress indicators */}
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                </div>
+                
+                {retryCount > 0 && (
+                  <p className="text-sm text-orange-600 font-medium">
+                    Retry attempt {retryCount} of 3
+                  </p>
+                )}
+                {timeoutReached && (
+                  <p className="text-sm text-orange-600 font-medium">
+                    Taking longer than expected, retrying...
+                  </p>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -188,17 +206,32 @@ export function PurchaseSuccessHandler() {
   // Handle redirecting state
   if (redirecting) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-xl border-0 bg-white/95 backdrop-blur-sm">
           <CardContent className="p-8 text-center">
-            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Payment Successful!</h2>
-            <p className="text-muted-foreground mb-4">
-              Your tickets are ready! Redirecting to your ticket wallet...
-            </p>
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Redirecting...</span>
+            <div className="space-y-6">
+              {/* Success animation */}
+              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg animate-pulse">
+                <CheckCircle className="w-10 h-10 text-white" />
+              </div>
+              
+              <div className="space-y-3">
+                <h2 className="text-xl font-semibold text-gray-900">Payment Successful!</h2>
+                <p className="text-muted-foreground">
+                  Your tickets are ready! Redirecting to your ticket wallet...
+                </p>
+                
+                {/* Animated redirect indicator */}
+                <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="font-medium">Redirecting...</span>
+                  <div className="flex space-x-1">
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce"></div>
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

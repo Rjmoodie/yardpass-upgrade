@@ -227,40 +227,6 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
     }
   };
 
-  // Emergency refresh function that bypasses all caching
-  const handleEmergencyRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      console.log('🚨 Emergency refresh - bypassing all cache...');
-      
-      // Clear any cached data
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const keys = Object.keys(window.localStorage);
-        keys.forEach(key => {
-          if (key.includes('ticket') || key.includes('cache')) {
-            window.localStorage.removeItem(key);
-          }
-        });
-      }
-      
-      // Force refresh
-      await forceRefreshTickets();
-      
-      toast({
-        title: 'Emergency Refresh Complete',
-        description: 'All cached data cleared and tickets refreshed.',
-      });
-    } catch (error) {
-      console.error('❌ Emergency refresh failed:', error);
-      toast({
-        title: 'Emergency Refresh Failed',
-        description: 'Please contact support if the issue persists.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
   // ——————————————————————————————————
   // Render
@@ -268,11 +234,15 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
   if (loading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-            <TicketIcon className="text-white w-8 h-8" />
+        <div className="text-center space-y-6">
+          <div className="w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mx-auto shadow-xl animate-pulse">
+            <TicketIcon className="text-white w-10 h-10" />
           </div>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+          <div className="space-y-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+            <p className="text-muted-foreground font-medium">Loading your tickets...</p>
+            <p className="text-sm text-muted-foreground">This may take a moment</p>
+          </div>
         </div>
       </div>
     );
@@ -294,15 +264,11 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200">
               <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="outline" size="sm" onClick={handleEmergencyRefresh} disabled={isRefreshing} className="text-orange-600 hover:text-orange-700">
-              <AlertCircle className="w-4 h-4 mr-1" />
-              Force Refresh
-            </Button>
-            <Button variant="outline" size="sm" disabled title="Filters coming soon">
+            <Button variant="outline" size="sm" disabled title="Filters coming soon" className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200">
               <Filter className="w-4 h-4 mr-1" />
               Filter
             </Button>
@@ -313,14 +279,24 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
       {/* Error State */}
       {error && (
         <div className="p-4">
-          <Card className="border-destructive">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-destructive">
-                <AlertCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">Error Loading Tickets</span>
+          <Card className="border-red-200 bg-red-50/50">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 text-red-700 mb-3">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Error Loading Tickets</h3>
+                  <p className="text-sm text-red-600 mt-1">{error}</p>
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">{error}</p>
-              <Button variant="outline" size="sm" onClick={handleRefresh} className="mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefresh} 
+                className="mt-3 hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-all duration-200"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
                 Try Again
               </Button>
             </CardContent>

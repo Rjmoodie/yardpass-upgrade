@@ -14,20 +14,28 @@ export function LoadingSpinner({ size = 'md', className = '' }: LoadingSpinnerPr
 
   return (
     <div className={`flex items-center justify-center p-4 ${className}`}>
-      <Loader2 className={`animate-spin text-primary ${sizeClasses[size]}`} />
+      <div className="relative">
+        <Loader2 className={`animate-spin text-primary ${sizeClasses[size]}`} />
+        <div className={`absolute inset-0 animate-ping text-primary/20 ${sizeClasses[size]}`}>
+          <Loader2 className={sizeClasses[size]} />
+        </div>
+      </div>
     </div>
   );
 }
 
 export function PageLoadingSpinner() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
-      <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-          <span className="text-white font-bold text-xl">🎪</span>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
+      <div className="text-center space-y-6">
+        <div className="w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mx-auto shadow-xl animate-pulse">
+          <span className="text-white font-bold text-2xl">🎪</span>
         </div>
-        <LoadingSpinner size="lg" />
-        <p className="text-muted-foreground mt-4">Loading...</p>
+        <div className="space-y-3">
+          <LoadingSpinner size="lg" />
+          <p className="text-muted-foreground font-medium">Loading...</p>
+          <p className="text-sm text-muted-foreground">Please wait a moment</p>
+        </div>
       </div>
     </div>
   );

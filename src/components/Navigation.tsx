@@ -1,4 +1,4 @@
-import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, Zap } from 'lucide-react';
+import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCallback, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -53,7 +53,7 @@ export default function Navigation({ userRole }: NavigationProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // console.log('Navigation render - user:', user?.id, 'userRole:', userRole);
+  console.log('Navigation render - user:', user?.id, 'userRole:', userRole);
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<Screen | null>(null);
@@ -84,7 +84,7 @@ export default function Navigation({ userRole }: NavigationProps) {
       ] as const
     ).filter((i) => i.show);
     
-    // console.log('Navigation items:', items.map(i => ({ id: i.id, label: i.label, show: i.show })));
+    console.log('Navigation items:', items.map(i => ({ id: i.id, label: i.label, show: i.show })));
     return items;
   }, [userRole]);
 
@@ -92,7 +92,7 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   // Open post creation for any authenticated user
   const handleCreatePost = useCallback(async () => {
-    // console.log('handleCreatePost called, user:', user?.id);
+    console.log('handleCreatePost called, user:', user?.id);
     if (!user) {
       console.log('No user, opening auth modal');
       setAuthModalOpen(true);
@@ -105,7 +105,7 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   const handleNavigation = useCallback(
     (path: string, screen: Screen) => {
-      // console.log('handleNavigation called with:', { path, screen, user: user?.id, userRole });
+      console.log('handleNavigation called with:', { path, screen, user: user?.id, userRole });
       
       if (requiresAuth(path) && !user) {
         setPendingNavigation(screen);
@@ -113,7 +113,7 @@ export default function Navigation({ userRole }: NavigationProps) {
         return;
       }
       if (screen === 'posts-test') {
-        // console.log('Posts button clicked, user:', user?.id, 'userRole:', userRole);
+        console.log('Posts button clicked, user:', user?.id, 'userRole:', userRole);
         void handleCreatePost();
         return;
       }
@@ -146,8 +146,8 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div className="glass-nav px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 backdrop-blur-md">
-      <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-2 sm:gap-3 w-full max-w-3xl mx-auto">
+    <div className="glass-nav px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-white/20 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 shadow-lg shadow-black/5">
+      <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-1 sm:gap-2 w-full max-w-3xl mx-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -222,14 +222,30 @@ function NavButton({ children, label, active, onClick }: { children: React.React
       aria-current={active ? 'page' : undefined}
       role="tab"
       tabIndex={0}
-      className={`flex flex-col items-center gap-1.5 sm:gap-2 flex-1 max-w-[92px] p-2 sm:p-3 rounded-2xl transition-all duration-300 active:scale-95 min-h-[56px] min-w-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+      className={`group flex flex-col items-center gap-1.5 sm:gap-2 flex-1 max-w-[92px] p-2 sm:p-3 rounded-2xl transition-all duration-300 active:scale-95 min-h-[56px] min-w-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 relative overflow-hidden ${
         active
-          ? 'text-primary bg-primary/15 border border-primary/30 shadow-lg scale-105'
-          : 'text-muted-foreground hover:text-primary hover:bg-white/10 hover:backdrop-blur-sm hover:border hover:border-white/20'
+          ? 'text-primary bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/40 shadow-lg shadow-primary/20 scale-105'
+          : 'text-muted-foreground hover:text-primary hover:bg-gradient-to-br hover:from-white/15 hover:to-white/5 hover:backdrop-blur-sm hover:border hover:border-white/30 hover:shadow-md'
       }`}
     >
-      {children}
-      <span className={`text-[10px] sm:text-xs font-medium leading-none transition-all duration-300 ${active ? 'font-bold' : ''}`}>{label}</span>
+      {/* Subtle background glow for active state */}
+      {active && (
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-2xl" />
+      )}
+      
+      {/* Icon with enhanced styling */}
+      <div className={`relative z-10 transition-all duration-300 ${active ? 'drop-shadow-sm' : 'group-hover:drop-shadow-sm'}`}>
+        {children}
+      </div>
+      
+      {/* Label with better typography */}
+      <span className={`relative z-10 text-[10px] sm:text-xs font-medium leading-none transition-all duration-300 ${
+        active 
+          ? 'font-bold text-primary drop-shadow-sm' 
+          : 'group-hover:font-semibold group-hover:text-primary'
+      }`}>
+        {label}
+      </span>
     </button>
   );
 }
