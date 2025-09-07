@@ -71,7 +71,7 @@ serve(async (req) => {
     const [eventsRes, tiersRes, ordersRes] = await Promise.all([
       supabase
         .from("events")
-        .select("id, title, start_at, end_at, timezone, venue, city, cover_image_url, organizer_name")
+        .select("id, title, start_at, end_at, timezone, venue, city, cover_image_url, user_profiles!events_created_by_fkey(display_name)")
         .in("id", eventIds),
       supabase
         .from("ticket_tiers")
