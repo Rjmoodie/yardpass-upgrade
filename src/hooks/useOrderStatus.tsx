@@ -28,45 +28,26 @@ export function useOrderStatus(sessionId: string | null) {
     setError(null);
 
     try {
-      // Fetch order, event title, and order_items to compute ticket count
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          status,
-          total_cents,
-          created_at,
-          paid_at,
-          events!event_id (
-            title
-          ),
-          order_items (
-            quantity
-          )
-        `)
-        .eq('stripe_session_id', sessionId)
-        .single();
+      // Use the edge function for better error handling and service role access
+      const { data, error } = await supabase.functions.invoke('get-order-status', {
+        body: { session_id: sessionId }
+      });
 
       if (error) {
-        if ((error as any).code === 'PGRST116') {
-          setError('Order not found');
-          setOrderStatus(null);
-        } else {
-          throw error;
-        }
-      } else {
-        const ticketsCount =
-          Array.isArray(data.order_items) && data.order_items.length > 0
-            ? data.order_items.reduce((sum: number, it: { quantity: number }) => sum + (it?.quantity || 0), 0)
-            : 0;
+        throw error;
+      }
 
+      if (data.status === 'not_found') {
+        setError('Order not found');
+        setOrderStatus(null);
+      } else {
         setOrderStatus({
-          id: data.id,
+          id: data.order_id,
           status: data.status as OrderStatus['status'],
-          event_title: data.events?.title || 'Event',
-          tickets_count: ticketsCount,
-          total_amount: (data.total_cents || 0) / 100,
-          created_at: data.created_at,
+          event_title: data.event_title || 'Event',
+          tickets_count: data.tickets_count || 0,
+          total_amount: data.total_amount || 0,
+          created_at: data.created_at || new Date().toISOString(),
           paid_at: data.paid_at || undefined,
         });
       }
