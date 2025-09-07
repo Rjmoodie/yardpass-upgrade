@@ -74,11 +74,12 @@ export default function EventDetails() {
           slug,
           lat,
           lng,
-          user_profiles:events_created_by_fkey(
+          created_by,
+          user_profiles!events_created_by_fkey(
             id,
             display_name,
             username,
-            avatar_url
+            photo_url
           )
         `);
 
