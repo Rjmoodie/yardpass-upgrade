@@ -13,10 +13,13 @@ import {
   RefreshCw,
   Trash2,
   Ban,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+
 // Optional: if you have analytics
 // import { useAnalytics } from '@/hooks/useAnalytics';
 
@@ -47,11 +50,15 @@ interface PostCreatorModalProps {
 /** ---------- Config ---------- */
 const IMAGE_BUCKET = 'event-media';
 const MAX_FILES = 6;
-const MAX_IMAGE_MB = 8;  // hard cap for images
+const MAX_IMAGE_MB = 8; // hard cap for images
 const MAX_VIDEO_MB = 512; // hard cap for videos (Mux accepts large uploads; tune to your plan)
 const ACCEPT = 'video/*,image/*';
 const DRAFT_KEY = (uid?: string) => `yardpass-post-draft:${uid || 'anon'}`;
 const LAST_EVENT_KEY = (uid?: string) => `yardpass-last-event:${uid || 'anon'}`;
+
+// Image preprocessing
+const IMG_MAX_DIM = 1920; // max width/height
+const IMG_QUALITY = 0.85; // JPEG/WebP export quality
 
 type FileKind = 'image' | 'video';
 type FileStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'error' | 'canceled';
@@ -60,24 +67,23 @@ type QueuedFile = {
   file: File;
   kind: FileKind;
   status: FileStatus;
-  remoteUrl?: string;           // image public URL OR mux:playback_id
+  remoteUrl?: string; // image public URL OR mux:playback_id
   errorMsg?: string;
   name: string;
   size: number;
-  previewUrl?: string;          // object URL for local preview
+  previewUrl?: string; // object URL for local preview
   controller?: AbortController; // can cancel uploads
+  progress?: number; // 0-100 (upload only; processing not included)
 };
 
 const bytesToMB = (b: number) => +(b / (1024 * 1024)).toFixed(2);
-const isImageFile = (f: File) =>
-  f.type.startsWith('image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(f.name);
-const isVideoFile = (f: File) =>
-  f.type.startsWith('video') || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
+const isImageFile = (f: File) => f.type.startsWith('image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(f.name);
+const isVideoFile = (f: File) => f.type.startsWith('video') || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function uploadImageToSupabase(file: File, signal?: AbortSignal): Promise<string> {
-  const ext = file.name.split('.').pop() || 'jpg';
+async function uploadImageToSupabase(file: File): Promise<string> {
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   const path = `posts/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  // supabase-js doesn't support fetch signal in storage API yet; we still pass best effort
   const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
     contentType: file.type,
     upsert: false,
@@ -119,12 +125,57 @@ async function resolveMuxUploadToPlaybackId(
     if (data?.status === 'errored') {
       throw new Error(data?.message || 'Mux processing failed');
     }
-    // backoff
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((r) => setTimeout(r, wait));
+    await sleep(wait);
     wait = Math.min(max, Math.ceil(wait * 1.4));
   }
   throw new Error('Mux processing timed out');
+}
+
+/** Canvas-based image resize + recompress; preserves alpha by exporting to WebP if needed. */
+async function preprocessImage(file: File): Promise<File> {
+  try {
+    if (!isImageFile(file)) return file;
+
+    // Skip small images
+    if (bytesToMB(file.size) <= MAX_IMAGE_MB / 2) return file;
+
+    const bitmap = await createImageBitmap(file).catch(() => null);
+    if (!bitmap) return file;
+    const { width, height } = bitmap;
+
+    const scale = Math.min(1, IMG_MAX_DIM / Math.max(width, height));
+    const targetW = Math.max(1, Math.round(width * scale));
+    const targetH = Math.max(1, Math.round(height * scale));
+
+    if (scale === 1) {
+      // No resize; consider re-encode to reduce size
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, targetW, targetH);
+
+    const hasAlpha = file.type.includes('png') || file.type.includes('webp') || file.type.includes('avif');
+    const mime = hasAlpha ? 'image/webp' : 'image/jpeg';
+    const blob: Blob | null = await new Promise((res) =>
+      canvas.toBlob((b) => res(b), mime, IMG_QUALITY)
+    );
+
+    if (!blob) return file;
+
+    // Prefer resized if smaller
+    if (blob.size < file.size * 0.9) {
+      const ext = hasAlpha ? 'webp' : 'jpg';
+      const newName = file.name.replace(/\.[^.]+$/, '') + `-optimized.${ext}`;
+      return new File([blob], newName, { type: mime });
+    }
+    return file;
+  } catch {
+    return file;
+  }
 }
 
 export function PostCreatorModal({
@@ -144,6 +195,8 @@ export function PostCreatorModal({
   const [isDragging, setIsDragging] = useState(false);
 
   const dropRef = useRef<HTMLDivElement | null>(null);
+  const unmountedRef = useRef(false);
+  const submittingRef = useRef(false);
 
   // Load draft + last-event (if no preselect)
   useEffect(() => {
@@ -166,13 +219,16 @@ export function PostCreatorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Persist draft
+  // Persist draft (debounced)
   useEffect(() => {
     if (!isOpen) return;
-    const payload = JSON.stringify({ content, eventId: selectedEventId });
-    try {
-      localStorage.setItem(DRAFT_KEY(user?.id), payload);
-    } catch {}
+    const id = setTimeout(() => {
+      const payload = JSON.stringify({ content, eventId: selectedEventId });
+      try {
+        localStorage.setItem(DRAFT_KEY(user?.id), payload);
+      } catch {}
+    }, 250);
+    return () => clearTimeout(id);
   }, [content, selectedEventId, isOpen, user?.id]);
 
   // Fetch user's tickets
@@ -204,10 +260,7 @@ export function PostCreatorModal({
         if (error) throw error;
         if (!mounted) return;
 
-        const dedupByEvent = Array.from(
-          new Map((data || []).map((t: UserTicket) => [t.event_id, t])).values()
-        );
-
+        const dedupByEvent = Array.from(new Map((data || []).map((t: UserTicket) => [t.event_id, t])).values());
         setUserTickets(dedupByEvent);
 
         if (preselectedEventId) {
@@ -230,9 +283,10 @@ export function PostCreatorModal({
     };
   }, [isOpen, user, preselectedEventId, selectedEventId]);
 
-  // Revoke object URLs on unmount
+  // Revoke object URLs on unmount + mark unmounted
   useEffect(() => {
     return () => {
+      unmountedRef.current = true;
       queue.forEach((q) => q.previewUrl && URL.revokeObjectURL(q.previewUrl));
     };
   }, [queue]);
@@ -243,65 +297,75 @@ export function PostCreatorModal({
   );
 
   /** -------------- File intake -------------- */
-  const addFiles = useCallback((files: File[]) => {
-    if (!files.length) return;
+  const addFiles = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
 
-    const existingCount = queue.length;
-    const allowed = Math.max(0, MAX_FILES - existingCount);
-    const slice = files.slice(0, allowed);
-    const rejected = files.slice(allowed);
+      const existingCount = queue.length;
+      const allowed = Math.max(0, MAX_FILES - existingCount);
+      const slice = files.slice(0, allowed);
+      const rejected = files.slice(allowed);
 
-    if (rejected.length) {
-      toast({
-        title: 'Too many files',
-        description: `You can attach up to ${MAX_FILES} items per post.`,
-        variant: 'destructive',
-      });
-    }
-
-    const next: QueuedFile[] = [];
-
-    for (const f of slice) {
-      const kind: FileKind = isVideoFile(f) ? 'video' : isImageFile(f) ? 'image' : 'image';
-      const sizeMB = bytesToMB(f.size);
-
-      if (kind === 'image' && sizeMB > MAX_IMAGE_MB) {
+      if (rejected.length) {
         toast({
-          title: 'Image too large',
-          description: `${f.name} is ${sizeMB}MB (limit ${MAX_IMAGE_MB}MB).`,
+          title: 'Too many files',
+          description: `You can attach up to ${MAX_FILES} items per post.`,
           variant: 'destructive',
         });
-        continue;
       }
-      if (kind === 'video' && sizeMB > MAX_VIDEO_MB) {
-        toast({
-          title: 'Video too large',
-          description: `${f.name} is ${sizeMB}MB (limit ${MAX_VIDEO_MB}MB).`,
-          variant: 'destructive',
+
+      const next: QueuedFile[] = [];
+
+      for (const f of slice) {
+        const kind: FileKind = isVideoFile(f) ? 'video' : isImageFile(f) ? 'image' : 'image';
+        const sizeMB = bytesToMB(f.size);
+
+        if (kind === 'image' && sizeMB > MAX_IMAGE_MB) {
+          // try preprocessing (resize/compress). If still too large, reject.
+          const optimized = await preprocessImage(f);
+          if (bytesToMB(optimized.size) > MAX_IMAGE_MB) {
+            toast({
+              title: 'Image too large',
+              description: `${f.name} is ${sizeMB}MB (limit ${MAX_IMAGE_MB}MB).`,
+              variant: 'destructive',
+            });
+            continue;
+          }
+          // replace file with optimized
+          f = optimized;
+        } else if (kind === 'video' && sizeMB > MAX_VIDEO_MB) {
+          toast({
+            title: 'Video too large',
+            description: `${f.name} is ${sizeMB}MB (limit ${MAX_VIDEO_MB}MB).`,
+            variant: 'destructive',
+          });
+          continue;
+        }
+
+        // de-dupe by name+size
+        if (queue.some((q) => q.name === f.name && q.size === f.size)) {
+          continue;
+        }
+
+        next.push({
+          file: f,
+          kind,
+          status: 'queued',
+          name: f.name,
+          size: f.size,
+          previewUrl: kind === 'image' ? URL.createObjectURL(f) : undefined,
+          progress: 0,
         });
-        continue;
       }
 
-      // de-dupe by name+size
-      if (queue.some((q) => q.name === f.name && q.size === f.size)) {
-        continue;
-      }
-
-      next.push({
-        file: f,
-        kind,
-        status: 'queued',
-        name: f.name,
-        size: f.size,
-        previewUrl: kind === 'image' ? URL.createObjectURL(f) : undefined,
-      });
-    }
-
-    if (next.length) setQueue((q) => [...q, ...next]);
-  }, [queue]);
+      if (next.length) setQueue((q) => [...q, ...next]);
+    },
+    [queue]
+  );
 
   const handleFilePick = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(ev.target.files || []);
+    // fire-and-forget async (preprocess can be async)
     addFiles(files);
     ev.currentTarget.value = ''; // allow reselecting same file
   };
@@ -369,17 +433,62 @@ export function PostCreatorModal({
   const retryUpload = (name: string) => {
     setQueue((q) =>
       q.map((f) =>
-        f.name === name ? { ...f, status: 'queued', errorMsg: undefined, remoteUrl: undefined } : f
+        f.name === name
+          ? { ...f, status: 'queued', errorMsg: undefined, remoteUrl: undefined, progress: 0 }
+          : f
       )
     );
   };
 
+  const moveQueued = (name: string, dir: -1 | 1) => {
+    setQueue((q) => {
+      const idx = q.findIndex((f) => f.name === name);
+      if (idx === -1) return q;
+      const next = [...q];
+      const swapWith = idx + dir;
+      if (swapWith < 0 || swapWith >= next.length) return q;
+      [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
+      return next;
+    });
+  };
+
+  const clearAll = () => {
+    setQueue((q) => {
+      q.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
+      return [];
+    });
+  };
+
   /** -------------- Upload pipeline -------------- */
+  const uploadMuxWithProgress = (url: string, file: File, controller: AbortController, onProgress: (p: number) => void) =>
+    new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', url);
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return;
+        const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+        onProgress(pct);
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          onProgress(100);
+          resolve();
+        } else {
+          reject(new Error(`Mux upload failed (${xhr.status})`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Mux upload network error'));
+      xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'));
+      controller.signal.addEventListener('abort', () => xhr.abort());
+      xhr.send(file);
+    });
+
   const uploadQueue = async (): Promise<string[]> => {
     const urls: string[] = [];
     const updates = [...queue];
 
-    // sequential keeps it simple (max concurrency can be added if needed)
+    // sequential keeps it simple; adjust to limited concurrency if desired
     for (let i = 0; i < updates.length; i++) {
       const item = updates[i];
 
@@ -392,12 +501,18 @@ export function PostCreatorModal({
 
       try {
         const controller = new AbortController();
-        updates[i] = { ...item, status: 'uploading', controller, errorMsg: undefined };
+        updates[i] = { ...item, status: 'uploading', controller, errorMsg: undefined, progress: 0 };
         setQueue([...updates]);
 
         if (item.kind === 'image') {
-          const publicUrl = await uploadImageToSupabase(item.file, controller.signal);
-          updates[i] = { ...updates[i], status: 'done', remoteUrl: publicUrl, controller: undefined };
+          const publicUrl = await uploadImageToSupabase(item.file);
+          updates[i] = {
+            ...updates[i],
+            status: 'done',
+            remoteUrl: publicUrl,
+            controller: undefined,
+            progress: 100,
+          };
           urls.push(publicUrl);
           setQueue([...updates]);
         } else {
@@ -406,18 +521,16 @@ export function PostCreatorModal({
 
           const { upload_id, upload_url } = await createMuxDirectUpload(selectedEventId);
 
-          // PUT binary to Mux upload URL (fetch has no progress; use AbortController only)
-          const putResp = await fetch(upload_url, {
-            method: 'PUT',
-            headers: { 'Content-Type': item.file.type || 'application/octet-stream' },
-            body: item.file,
-            signal: controller.signal,
-          });
-
-          if (!putResp.ok) {
-            const text = await putResp.text().catch(() => '');
-            throw new Error(`Mux upload failed (${putResp.status}) ${text}`);
-          }
+          // PUT binary to Mux upload URL with progress
+          await uploadMuxWithProgress(
+            upload_url,
+            item.file,
+            controller,
+            (p) => {
+              updates[i] = { ...updates[i], progress: p };
+              if (!unmountedRef.current) setQueue([...updates]);
+            }
+          );
 
           // now video is processing on Mux
           updates[i] = { ...updates[i], status: 'processing', controller: undefined };
@@ -427,7 +540,7 @@ export function PostCreatorModal({
           const playback_id = await resolveMuxUploadToPlaybackId(upload_id);
 
           const muxUrl = `mux:${playback_id}`;
-          updates[i] = { ...updates[i], status: 'done', remoteUrl: muxUrl };
+          updates[i] = { ...updates[i], status: 'done', remoteUrl: muxUrl, progress: 100 };
           urls.push(muxUrl);
           setQueue([...updates]);
         }
@@ -460,6 +573,7 @@ export function PostCreatorModal({
   const canPost = !!selectedEventId && content.trim().length > 0 && !loading;
 
   const handleSubmit = async () => {
+    if (submittingRef.current) return;
     if (!selectedEventId || !content.trim()) {
       toast({
         title: 'Missing Information',
@@ -469,6 +583,7 @@ export function PostCreatorModal({
       return;
     }
 
+    submittingRef.current = true;
     setLoading(true);
     try {
       // Remember user’s last used event
@@ -510,10 +625,7 @@ export function PostCreatorModal({
 
       // reset
       setContent('');
-      setQueue((q) => {
-        q.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
-        return [];
-      });
+      clearAll();
       if (!preselectedEventId) setSelectedEventId('');
 
       // clear draft
@@ -532,6 +644,7 @@ export function PostCreatorModal({
       });
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -610,7 +723,15 @@ export function PostCreatorModal({
 
           {/* Media Upload (drag & drop + click + paste) */}
           <div>
-            <label className="text-sm font-medium mb-2 block">Add Media</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium">Add Media</label>
+              {queue.length > 0 && (
+                <Button size="sm" variant="ghost" onClick={clearAll} aria-label="Clear all media">
+                  <X className="w-4 h-4 mr-1" />
+                  Clear all
+                </Button>
+              )}
+            </div>
 
             <div
               ref={dropRef}
@@ -648,7 +769,7 @@ export function PostCreatorModal({
             {/* Queue preview */}
             {queue.length > 0 && (
               <div className="mt-3 space-y-2">
-                {queue.map((q) => (
+                {queue.map((q, idx) => (
                   <div
                     key={q.name + q.size}
                     className="flex items-center justify-between gap-3 bg-muted rounded-lg p-2"
@@ -671,12 +792,44 @@ export function PostCreatorModal({
                         </div>
                         <div className="text-[10px] text-muted-foreground">
                           {q.kind.toUpperCase()} • {bytesToMB(q.size)} MB • {q.status}
+                          {typeof q.progress === 'number' && (q.status === 'uploading' || q.status === 'processing') ? (
+                            <> • {q.progress}%</>
+                          ) : null}
                           {q.errorMsg ? ` — ${q.errorMsg}` : ''}
                         </div>
+                        {q.status === 'uploading' || q.status === 'processing' ? (
+                          <div className="h-1 w-full bg-background/60 rounded mt-1 overflow-hidden">
+                            <div
+                              className="h-full bg-primary transition-[width]"
+                              style={{ width: `${Math.max(5, Math.min(100, q.progress || 5))}%` }}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1">
+                      <div className="flex flex-col">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => moveQueued(q.name, -1)}
+                          title="Move up"
+                          disabled={idx === 0}
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => moveQueued(q.name, +1)}
+                          title="Move down"
+                          disabled={idx === queue.length - 1}
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
+                      </div>
+
                       {q.status === 'error' && (
                         <Button size="icon" variant="ghost" onClick={() => retryUpload(q.name)} title="Retry">
                           <RefreshCw className="w-4 h-4" />
