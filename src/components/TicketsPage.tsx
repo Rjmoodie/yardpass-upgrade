@@ -133,12 +133,11 @@ export default function TicketsPage({
 
   // Build ICS calendar content
   const buildICS = (ticket: any) => {
-    const event = ticket.event;
-    const dtstart = toICSUTC(event.start_at);
-    const dtend = event.end_at ? toICSUTC(event.end_at) : '';
-    const summary = escapeICS(event.title);
-    const description = escapeICS(`Ticket: ${ticket.tier.name}\nEvent: ${event.title}`);
-    const location = escapeICS(event.venue || '');
+    const dtstart = toICSUTC(ticket.startAtISO);
+    const dtend = ticket.endAtISO ? toICSUTC(ticket.endAtISO) : '';
+    const summary = escapeICS(ticket.eventTitle);
+    const description = escapeICS(`Ticket: ${ticket.ticketType}\nEvent: ${ticket.eventTitle}`);
+    const location = escapeICS(ticket.venue || '');
     const uid = `ticket-${ticket.id}@yardpass.app`;
 
     return [
@@ -167,7 +166,7 @@ export default function TicketsPage({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${ticket.event.title.replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
+    link.download = `${ticket.eventTitle.replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -178,7 +177,7 @@ export default function TicketsPage({
   const showQRCode = (ticket: any) => {
     setSelectedTicket(ticket);
     if (user) {
-      trackQRCodeView(ticket.id, ticket.event.id, user.id);
+      trackQRCodeView(ticket.id, ticket.eventId, user.id);
     }
   };
 
@@ -195,8 +194,8 @@ export default function TicketsPage({
   // Share ticket
   const handleShareTicket = (ticket: any) => {
     const shareData = {
-      title: `My ticket to ${ticket.event.title}`,
-      text: `Check out my ticket to ${ticket.event.title}!`,
+      title: `My ticket to ${ticket.eventTitle}`,
+      text: `Check out my ticket to ${ticket.eventTitle}!`,
       url: window.location.href,
     };
 
@@ -208,7 +207,7 @@ export default function TicketsPage({
     }
 
     if (user) {
-      trackTicketShare(ticket.id, ticket.event.id, user.id, 'share');
+      trackTicketShare(ticket.id, ticket.eventId, user.id, 'share');
     }
   };
 
@@ -230,7 +229,7 @@ export default function TicketsPage({
   useEffect(() => {
     tickets.forEach((ticket) => {
       if (user) {
-        trackTicketView(ticket.id, ticket.event.id, user.id);
+        trackTicketView(ticket.id, ticket.eventId, user.id);
       }
     });
   }, [tickets, trackTicketView, user]);
@@ -484,10 +483,10 @@ function TicketCard({
         <div className="flex">
           {/* Event Image */}
           <div className="w-24 h-24 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0">
-            {ticket.event.cover_image_url ? (
+            {ticket.coverImage ? (
               <img
-                src={ticket.event.cover_image_url}
-                alt={ticket.event.title}
+                src={ticket.coverImage}
+                alt={ticket.eventTitle}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -500,25 +499,25 @@ function TicketCard({
             <div className="flex justify-between items-start mb-2">
               <div>
                 <h3 className="font-semibold text-lg leading-tight mb-1">
-                  {ticket.event.title}
+                  {ticket.eventTitle}
                 </h3>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                   <Calendar className="w-4 h-4" />
-                  <span>{formatDate(ticket.event.start_at)}</span>
+                  <span>{ticket.eventDate}</span>
                   <Clock className="w-4 h-4 ml-2" />
-                  <span>{formatTime(ticket.event.start_at)}</span>
+                  <span>{ticket.eventTime}</span>
                 </div>
-                {ticket.event.venue && (
+                {ticket.venue && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4" />
-                    <span className="truncate">{ticket.event.venue}</span>
+                    <span className="truncate">{ticket.venue}</span>
                   </div>
                 )}
               </div>
               <div className="text-right">
                 {getStatusBadge(ticket.status, !!ticket.redeemed_at)}
                 <div className="mt-1 text-sm font-medium">
-                  {formatUSD((ticket.tier.price_cents || 0) / 100)}
+                  {formatUSD(ticket.price)}
                 </div>
               </div>
             </div>
@@ -527,11 +526,11 @@ function TicketCard({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
-                  {ticket.tier.name}
+                  {ticket.ticketType}
                 </Badge>
-                {ticket.tier.badge_label && (
+                {ticket.badge && (
                   <Badge variant="secondary" className="text-xs">
-                    {ticket.tier.badge_label}
+                    {ticket.badge}
                   </Badge>
                 )}
               </div>
@@ -542,7 +541,7 @@ function TicketCard({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => window.open(`/e/${ticket.event.id}`, '_blank')}
+                onClick={() => window.open(`/e/${ticket.eventId}`, '_blank')}
                 className="flex-1 min-w-[80px]"
               >
                 <ExternalLink className="w-4 h-4 mr-1" />
