@@ -159,12 +159,12 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
 
   const openEvent = (eventId?: string | null) => {
     if (!eventId) return;
-    navigate(routes.eventDetails(eventId));
+    navigate(routes.event(eventId));
   };
 
   const openEventPost = (eventId?: string | null, postId?: string) => {
     if (!eventId || !postId) return;
-    navigate(`${routes.eventDetails(eventId)}?tab=posts&post=${postId}`);
+    navigate(`${routes.event(eventId)}?tab=posts&post=${postId}`);
   };
 
   return (

@@ -14,7 +14,6 @@ import { PageLoadingSpinner } from '@/components/LoadingSpinner';
 import { Event } from '@/types/events';
 
 // Lazy load heavy components
-const EventDetail = lazy(() => import('@/components/EventDetail'));
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
 const EventAttendeesPage = lazy(() => import('@/pages/EventAttendeesPage'));
 const CreateEventFlow = lazy(() =>
@@ -43,7 +42,6 @@ const AnalyticsWrapper = lazy(() =>
 );
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const EventsPage = lazy(() => import('@/pages/EventsPage'));
-const EventDetails = lazy(() => import('@/pages/EventDetails'));
 const UserProfilePage = lazy(() => import('@/pages/UserProfilePage'));
 const OrganizationProfilePage = lazy(() => import('@/pages/OrganizationProfilePage'));
 const EditProfilePage = lazy(() => import('@/pages/EditProfilePage'));
@@ -53,6 +51,21 @@ const AuthPage = lazy(() => import('@/pages/AuthPage'));
 import { AuthGuard } from '@/components/AuthGuard';
 
 type UserRole = 'attendee' | 'organizer';
+
+// Redirect component for legacy event routes
+function RedirectToEventSlug() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (id) {
+      // Redirect to primary event slug route
+      navigate(`/e/${id}`, { replace: true });
+    }
+  }, [id, navigate]);
+  
+  return <PageLoadingSpinner />;
+}
 
 // Scanner route component
 function ScannerRouteComponent() {
@@ -237,31 +250,12 @@ function AppContent() {
                 path="/search"
                 element={<SearchPage onBack={() => navigate('/')} onEventSelect={handleEventSelect} />}
               />
-              <Route path="/events/:id" element={<EventDetails />} />
+              {/* Redirect legacy event routes to primary /e/:identifier format */}
+              <Route path="/events/:id" element={<RedirectToEventSlug />} />
+              <Route path="/event/:id" element={<RedirectToEventSlug />} />
+              
               <Route path="/u/:username" element={<UserProfilePage />} />
               <Route path="/org/:id" element={<OrganizationProfilePage />} />
-              <Route
-                path="/event/:id"
-                element={
-                  selectedEvent ? (
-                    <EventDetail
-                      event={selectedEvent}
-                      user={
-                        user
-                          ? {
-                              id: user.id,
-                              name: profile?.display_name || 'User',
-                              role: (profile?.role as UserRole) || 'attendee',
-                            }
-                          : null
-                      }
-                      onBack={handleBackToFeed}
-                    />
-                  ) : (
-                    <div>Event not found</div>
-                  )
-                }
-              />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/e/:identifier" element={<EventSlugPage />} />
               <Route path="/e/:identifier/attendees" element={<EventAttendeesPage />} />

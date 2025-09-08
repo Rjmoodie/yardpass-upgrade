@@ -201,7 +201,7 @@ function PostHero({
     } else {
       console.warn('⚠️ No authorId found for post, using fallback');
       // Fallback: go to event posts tab
-      navigate(`${routes.eventDetails(event.id)}?tab=posts`);
+      navigate(`${routes.event(event.id)}?tab=posts`);
     }
   };
 
@@ -209,13 +209,13 @@ function PostHero({
     if (typeof anyRoutes.org === 'function') {
       navigate(anyRoutes.org(event.organizerId));
     } else {
-      navigate(`${routes.eventDetails(event.id)}?tab=details`);
+      navigate(`${routes.event(event.id)}?tab=details`);
     }
   };
 
   const goToTicketsTab = () => {
     const tierParam = post.ticketTierId ? `&tier=${post.ticketTierId}` : '';
-    navigate(`${routes.eventDetails(event.id)}?tab=tickets${tierParam}`);
+    navigate(`${routes.event(event.id)}?tab=tickets${tierParam}`);
   };
 
   if (!post) return null;
@@ -275,7 +275,7 @@ function PostHero({
               <div className="min-w-0">
                 <button
                   className="text-left"
-                  onClick={() => navigate(routes.eventDetails(event.id))}
+                  onClick={() => navigate(routes.event(event.id))}
                   title="Open event"
                 >
                   <h3 className="font-semibold text-sm truncate">{event.title}</h3>
@@ -288,7 +288,7 @@ function PostHero({
                 <Button
                   size="sm"
                   variant="glass"
-                  onClick={() => navigate(routes.eventDetails(event.id))}
+                  onClick={() => navigate(routes.event(event.id))}
                   className="bg-white/20 text-white border-white/30 hover:bg-white/30 text-xs"
                 >
                   Details
@@ -616,13 +616,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   const handlePostClick = useCallback(
     (postId: string) => {
-      if (currentEvent?.id) navigate(`${routes.eventDetails(currentEvent.id)}?tab=posts&post=${postId}`);
+      if (currentEvent?.id) navigate(`${routes.event(currentEvent.id)}?tab=posts&post=${postId}`);
     },
     [navigate, currentEvent?.id]
   );
 
   const handleViewAllPosts = useCallback(() => {
-    if (currentEvent?.id) navigate(`${routes.eventDetails(currentEvent.id)}?tab=posts`);
+    if (currentEvent?.id) navigate(`${routes.event(currentEvent.id)}?tab=posts`);
   }, [navigate, currentEvent?.id]);
 
   if (loading) {
@@ -725,7 +725,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                         <Button
                           size="sm"
                           variant="glass"
-                          onClick={() => navigate(routes.eventDetails(ev.id))}
+                          onClick={() => navigate(routes.event(ev.id))}
                           className="bg-white/20 text-white border-white/30 hover:bg-white/30"
                         >
                           Details

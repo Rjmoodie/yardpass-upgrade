@@ -374,7 +374,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
               variant="glass"
               onClick={() => {
                 capture('feed_click', { target: 'details', event_id: event.id });
-                navigate(routes.eventDetails(event.id));
+                navigate(routes.event(event.id));
               }}
               className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[48px] px-6 font-semibold backdrop-blur-md"
             >
