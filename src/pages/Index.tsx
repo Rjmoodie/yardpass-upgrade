@@ -205,7 +205,7 @@ function PostHero({
               >
                 {post.authorName}
               </button>
-              <VerificationBadge status="verified" size="sm" />
+              {/* Remove VerificationBadge from here - it's causing the error */}
               {post.isOrganizer ? (
                 <Badge variant="secondary" className="text-[10px] tracking-wide">
                   <Crown className="w-3 h-3 mr-1" />
