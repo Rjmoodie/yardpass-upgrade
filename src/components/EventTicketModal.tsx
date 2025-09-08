@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Ticket, X, CreditCard } from 'lucide-react';
+import { Ticket, X, CreditCard, AlertCircle } from 'lucide-react';
 import { TicketPurchaseModal } from './TicketPurchaseModal';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface Event {
   id: string;
@@ -72,12 +73,19 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
   if (!event) return null;
 
   const handlePurchaseClick = () => {
+    console.log('🛒 Purchase button clicked!');
+    console.log('Available ticket tiers:', ticketTiers?.length);
     setShowPurchaseModal(true);
   };
 
   const handlePurchaseSuccess = () => {
+    console.log('✅ Purchase successful!');
     setShowPurchaseModal(false);
     onSuccess();
+    toast({
+      title: 'Success!',
+      description: 'Redirecting to checkout...'
+    });
   };
 
   return (
@@ -162,13 +170,18 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
       </Dialog>
 
       {/* Purchase Modal */}
-      <TicketPurchaseModal
-        event={event}
-        ticketTiers={ticketTiers}
-        isOpen={showPurchaseModal}
-        onClose={() => setShowPurchaseModal(false)}
-        onSuccess={handlePurchaseSuccess}
-      />
+      {event && (
+        <TicketPurchaseModal
+          event={event}
+          ticketTiers={ticketTiers || []}
+          isOpen={showPurchaseModal}
+          onClose={() => {
+            console.log('🔄 Purchase modal closed');
+            setShowPurchaseModal(false);
+          }}
+          onSuccess={handlePurchaseSuccess}
+        />
+      )}
     </>
   );
 }

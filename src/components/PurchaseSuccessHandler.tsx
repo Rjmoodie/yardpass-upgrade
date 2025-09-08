@@ -84,6 +84,12 @@ export function PurchaseSuccessHandler() {
       console.log('🔄 Order is pending, attempting to process payment...');
       processPayment();
     }
+    
+    // If order status loading has been too long, try processing payment
+    if (!orderStatus && statusLoading && !processing && retryCount === 0) {
+      console.log('🔄 Order status taking too long, attempting to process payment...');
+      processPayment();
+    }
 
     // Set a timeout for order status checking
     const timeoutId = setTimeout(() => {

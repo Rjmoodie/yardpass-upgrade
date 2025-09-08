@@ -28,30 +28,26 @@ export function useOrderStatus(sessionId: string | null) {
     setError(null);
 
     try {
-      // Use the edge function with URL parameters as expected by the function
-      const response = await fetch(
-        `https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/get-order-status?session_id=${encodeURIComponent(sessionId)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY`,
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY',
-          },
-        }
-      );
+      console.log('🔍 Fetching order status for session:', sessionId);
+      
+      const { data, error } = await supabase.functions.invoke('get-order-status', {
+        body: { sessionId }
+      });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      console.log('📡 get-order-status response:', { data, error });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch order status');
       }
 
-      const data = await response.json();
-
       if (data.status === 'not_found') {
+        console.log('❌ Order not found for session:', sessionId);
         setError('Order not found');
         setOrderStatus(null);
       } else {
+        console.log('✅ Order status received:', data);
         setOrderStatus({
-          id: data.order_id,
+          id: data.order_id || data.id,
           status: data.status as OrderStatus['status'],
           event_title: data.event_title || 'Event',
           tickets_count: data.tickets_count || 0,

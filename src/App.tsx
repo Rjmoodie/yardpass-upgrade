@@ -355,6 +355,14 @@ function AppContent() {
               />
               <Route path="/tickets" element={<TicketsRoute />} />
               <Route
+                path="/purchase-success"
+                element={
+                  <Suspense fallback={<PageLoadingSpinner />}>
+                    <PurchaseSuccessHandler />
+                  </Suspense>
+                }
+              />
+              <Route
                 path="/scanner"
                 element={
                   <AuthGuard>
