@@ -4,6 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from 'lucide-react';
 import { openMaps } from '@/lib/maps';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MapCardProps {
   address: string;
@@ -30,19 +31,18 @@ export default function MapCard({
   useEffect(() => {
     (async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-mapbox-token`, {
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-          }
-        });
-        if (response.ok) {
-          const { token } = await response.json();
-          setMapboxToken(token);
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        
+        if (error) throw error;
+        
+        if (data?.token) {
+          setMapboxToken(data.token);
         } else {
           // Fallback to showing token input
           setShowTokenInput(true);
         }
       } catch (error) {
+        console.error('Failed to get Mapbox token:', error);
         // Show token input if API fails
         setShowTokenInput(true);
       }
