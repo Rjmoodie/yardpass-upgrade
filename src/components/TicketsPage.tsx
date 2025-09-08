@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { QRCodeModal } from '@/components/QRCodeModal';
 import { useTickets } from '@/hooks/useTickets';
 import { useTicketAnalytics } from '@/hooks/useTicketAnalytics';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft,
@@ -61,6 +62,7 @@ export default function TicketsPage({
   onGuestSignOut, 
   onBack 
 }: TicketsPageProps) {
+  const { toast } = useToast();
   const { tickets: userTickets, loading: userLoading, error: userError, refreshTickets } = useTickets();
   const [guestTickets, setGuestTickets] = useState<any[]>([]);
   const [guestLoading, setGuestLoading] = useState(false);
@@ -192,22 +194,39 @@ export default function TicketsPage({
   };
 
   // Share ticket
-  const handleShareTicket = (ticket: any) => {
-    const shareData = {
-      title: `My ticket to ${ticket.eventTitle}`,
-      text: `Check out my ticket to ${ticket.eventTitle}!`,
-      url: window.location.href,
-    };
+  const handleShareTicket = async (ticket: any) => {
+    try {
+      const shareData = {
+        title: `My ticket to ${ticket?.eventTitle || 'Event'}`,
+        text: `Check out my ticket to ${ticket?.eventTitle || 'Event'}!`,
+        url: window.location.href,
+      };
 
-    if (navigator.share && navigator.canShare(shareData)) {
-      navigator.share(shareData);
-    } else {
-      // Fallback: copy URL to clipboard
-      navigator.clipboard.writeText(window.location.href);
-    }
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        toast({
+          title: "Shared successfully",
+          description: "Ticket shared!",
+        });
+      } else {
+        // Fallback: copy URL to clipboard
+        await navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: "Link copied",
+          description: "Ticket link copied to clipboard!",
+        });
+      }
 
-    if (user) {
-      trackTicketShare(ticket.id, ticket.eventId, user.id, 'share');
+      if (user && ticket?.id && ticket?.eventId) {
+        trackTicketShare(ticket.id, ticket.eventId, user.id, 'share');
+      }
+    } catch (error) {
+      console.error('Share failed:', error);
+      toast({
+        title: "Share failed",
+        description: "Could not share the ticket. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
