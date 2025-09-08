@@ -49,6 +49,7 @@ type UserTicket = {
     badge_label: string | null;
     name: string | null;
   } | null;
+  isOrganizer?: boolean;
 };
 
 /** ------------ Config ------------ */
@@ -220,12 +221,13 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
     );
   }
 
-  /** Fetch tickets & hydrate defaults */
+  /** Fetch tickets & events user can post to */
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const { data, error } = await supabase
+        // Get events where user has tickets
+        const { data: ticketsData, error: ticketsError } = await supabase
           .from('tickets')
           .select(`
             id,
@@ -237,11 +239,87 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
           .eq('owner_user_id', user.id)
           .in('status', ['issued', 'transferred', 'redeemed']);
 
-        if (error) throw error;
+        if (ticketsError) throw ticketsError;
+
+        // Get events where user is organizer
+        const { data: organizerEvents, error: orgError } = await supabase
+          .from('events')
+          .select(`
+            id,
+            title,
+            cover_image_url,
+            start_at,
+            owner_context_type,
+            owner_context_id,
+            created_by
+          `)
+          .or(`created_by.eq.${user.id},owner_context_id.eq.${user.id}`);
+
+        if (orgError) throw orgError;
+
+        // Also get events where user is an organization member with posting rights
+        const { data: orgMemberships, error: memberError } = await supabase
+          .from('org_memberships')
+          .select('org_id')
+          .eq('user_id', user.id)
+          .in('role', ['owner', 'admin', 'editor']);
+
+        if (memberError) throw memberError;
+
+        const orgIds = (orgMemberships || []).map(m => m.org_id);
+        let orgEvents: any[] = [];
+        
+        if (orgIds.length > 0) {
+          const { data: orgEventsData, error: orgEventsError } = await supabase
+            .from('events')
+            .select(`
+              id,
+              title,
+              cover_image_url,
+              start_at
+            `)
+            .eq('owner_context_type', 'organization')
+            .in('owner_context_id', orgIds);
+
+          if (orgEventsError) throw orgEventsError;
+          orgEvents = orgEventsData || [];
+        }
+
+        // Combine direct organizer events and organization events
+        const allOrganizerEvents = [...(organizerEvents || []), ...orgEvents];
+
         if (!mounted) return;
 
-        // dedupe by event_id
-        const dedup = Array.from(new Map((data || []).map((t: any) => [t.event_id, t])).values()) as UserTicket[];
+        // Combine tickets and organizer events
+        const ticketEvents = (ticketsData || []).map((t: any) => ({
+          id: t.id,
+          event_id: t.event_id,
+          tier_id: t.tier_id,
+          events: t.events,
+          ticket_tiers: t.ticket_tiers,
+          isOrganizer: false
+        }));
+
+        const organizerEventsFormatted = allOrganizerEvents.map((e: any) => ({
+          id: `organizer-${e.id}`,
+          event_id: e.id,
+          tier_id: null,
+          events: e,
+          ticket_tiers: { badge_label: 'ORGANIZER', name: 'Organizer' },
+          isOrganizer: true
+        }));
+
+        // Dedupe by event_id, prioritizing organizer status
+        const allEvents = [...organizerEventsFormatted, ...ticketEvents];
+        const eventMap = new Map();
+        allEvents.forEach((item) => {
+          const existing = eventMap.get(item.event_id);
+          if (!existing || item.isOrganizer) {
+            eventMap.set(item.event_id, item);
+          }
+        });
+        
+        const dedup = Array.from(eventMap.values()) as UserTicket[];
         setUserTickets(dedup);
 
         // Load last selected event
@@ -761,7 +839,7 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select an event you're attending" />
+                <SelectValue placeholder="Select an event to post to" />
               </SelectTrigger>
               <SelectContent>
                 {userTickets.map((ticket) => (

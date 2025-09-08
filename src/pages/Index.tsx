@@ -683,14 +683,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 </>
               )}
             </button>
-            <Button
-              size="sm"
-              variant="glass"
-              onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create content')}
-              className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] px-3 font-semibold backdrop-blur-md shadow-lg"
-            >
-              + Create Post
-            </Button>
           </div>
         </div>
       </div>
