@@ -1,12 +1,21 @@
 // src/pages/Index.tsx
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
-import { Badge } from '@/components/ui/badge';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
-import { Heart, MessageCircle, Share, MoreVertical, Plus, Play, Image as ImageIcon, TrendingUp, Clock, Crown } from 'lucide-react';
+import {
+  Heart,
+  MessageCircle,
+  Share,
+  MoreVertical,
+  Plus,
+  Play,
+  Image as ImageIcon,
+  TrendingUp,
+  Clock,
+} from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
 import { CommentModal } from '@/components/CommentModal';
@@ -16,11 +25,9 @@ import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
-import { useShare } from '@/hooks/useShare';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { useHomeFeed } from '@/hooks/useHomeFeed';
 import { useRealtimePosts } from '@/hooks/useRealtimePosts';
-import { VerificationBadge } from '@/components/VerificationBadge';
 
 // ---------- Types ----------
 interface EventPost {
@@ -32,12 +39,12 @@ interface EventPost {
   timestamp: string;
   likes: number;
   mediaType?: 'image' | 'video' | 'none';
-  mediaUrl?: string;
+  mediaUrl?: string;       // mux:playbackId or direct URL
   thumbnailUrl?: string;
   commentCount?: number;
-  authorId?: string;       // for profile link (optional)
-  ticketTierId?: string;   // for ticket tab deeplink (optional)
-  ticketBadge?: string;    // badge label shown next to author (optional)
+  authorId?: string;       // used for profile deep-link
+  ticketTierId?: string;   // used to deep-link ticket tab
+  ticketBadge?: string;
 }
 
 interface TicketTier {
@@ -81,7 +88,7 @@ function PostHero({
   post,
   event,
   onOpenTickets,
-  isActive
+  isActive,
 }: {
   post: EventPost | undefined;
   event: Event;
@@ -90,38 +97,35 @@ function PostHero({
 }) {
   const navigate = useNavigate();
   const { requireAuth } = useAuthGuard();
-  
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<any>(null);
   const [muted, setMuted] = useState(true);
   const [ready, setReady] = useState(false);
 
-  // Build a playable src (Mux playback id or direct URL)
-  const src = post?.mediaUrl
-    ? post.mediaUrl.startsWith('mux:')
+  const src = useMemo(() => {
+    if (!post?.mediaUrl) return undefined;
+    return post.mediaUrl.startsWith('mux:')
       ? `https://stream.mux.com/${post.mediaUrl.replace('mux:', '')}.m3u8`
-      : post.mediaUrl
-    : undefined;
+      : post.mediaUrl;
+  }, [post?.mediaUrl]);
 
-  // Init HLS / attach media
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !post || post.mediaType !== 'video' || !src) return;
 
-    // Reset previous
     setReady(false);
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
-    v.src = ''; // detach old
+    v.src = '';
     v.load();
 
     const isHls = src.endsWith('.m3u8');
     const canPlayNative = v.canPlayType('application/vnd.apple.mpegurl') !== '';
 
-    // Dynamic import HLS.js
-    const initHls = async () => {
+    const init = async () => {
       try {
         const Hls = (await import('hls.js')).default;
         if (isHls && !canPlayNative && Hls.isSupported()) {
@@ -130,22 +134,18 @@ function PostHero({
           hls.loadSource(src);
           hls.attachMedia(v);
           hls.on(Hls.Events.MANIFEST_PARSED, () => setReady(true));
-          hls.on(Hls.Events.ERROR, () => setReady(true)); // still try to play
+          hls.on(Hls.Events.ERROR, () => setReady(true));
         } else {
           v.src = src;
-          // When metadata is ready, mark ready
           v.onloadedmetadata = () => setReady(true);
         }
-      } catch (error) {
-        console.error('Failed to load HLS.js:', error);
+      } catch {
         v.src = src;
         v.onloadedmetadata = () => setReady(true);
       }
     };
 
-    initHls();
-
-    // iOS autoplay requires muted + playsInline
+    init();
     v.muted = true;
     v.playsInline = true;
 
@@ -156,71 +156,49 @@ function PostHero({
       }
       v.pause();
     };
-  }, [post?.id, src, post?.mediaType]);
+  }, [post?.id, post?.mediaType, src]);
 
-  // Play only when this slide is active
   useEffect(() => {
     const v = videoRef.current;
     if (!v || post?.mediaType !== 'video') return;
 
     if (isActive && ready) {
-      // Try autoplay (muted inline)
-      v.play().catch(() => {/* user gesture required; keep overlay */});
+      v.play().catch(() => {});
     } else {
       v.pause();
-      v.currentTime = 0; // rewind for that snappy TikTok feel
+      v.currentTime = 0;
     }
   }, [isActive, ready, post?.mediaType]);
 
-  // Tap anywhere toggles mute (unmute needs user gesture)
   const handleToggleMute = () => {
     const v = videoRef.current;
     if (!v) return;
     const next = !muted;
     setMuted(next);
     v.muted = next;
-    if (!next) {
-      v.play().catch(() => {/* ignore */});
-    }
+    if (!next) v.play().catch(() => {});
   };
 
-  if (!post) return null;
-
-  const anyRoutes = routes as any;
-
   const goToAuthor = () => {
-    console.log('🔗 Clicking on author:', { 
-      authorName: post.authorName, 
-      authorId: post.authorId,
-      route: post.authorId ? routes.user(post.authorId) : 'NO_ID'
-    });
-    
-    if (post.authorId) {
-      // Use the user ID directly with the user route
+    if (post?.authorId) {
       navigate(routes.user(post.authorId));
     } else {
-      console.warn('⚠️ No authorId found for post, using fallback');
-      // Fallback: go to event posts tab
+      // fallback: event posts tab
       navigate(`${routes.event(event.id)}?tab=posts`);
     }
   };
 
   const goToOrganizer = () => {
-    if (typeof anyRoutes.org === 'function') {
-      navigate(anyRoutes.org(event.organizerId));
+    if (event.organizerId) {
+      navigate(routes.org(event.organizerId));
     } else {
       navigate(`${routes.event(event.id)}?tab=details`);
     }
   };
 
-  const goToTicketsTab = () => {
-    const tierParam = post.ticketTierId ? `&tier=${post.ticketTierId}` : '';
-    navigate(`${routes.event(event.id)}?tab=tickets${tierParam}`);
-  };
-
   if (!post) return null;
 
-  // VIDEO
+  // --- VIDEO SLIDE ---
   if (post.mediaType === 'video' && src) {
     return (
       <div className="absolute inset-0">
@@ -234,43 +212,36 @@ function PostHero({
           controls={false}
           disablePictureInPicture
           controlsList="nodownload noplaybackrate nofullscreen"
-          onClick={handleToggleMute} // TikTok-like: tap video to unmute/mute
+          onClick={handleToggleMute}
         />
 
-        {/* Unmute hint */}
-        {muted && (
-          <button
-            onClick={handleToggleMute}
-            className="absolute top-16 right-4 bg-black/60 text-white rounded-full px-3 py-1 text-xs"
-          >
-            Tap for sound
-          </button>
-        )}
-
-        {/* Gradient + captions + actions footer */}
+        {/* Footer overlay (clickable areas opt back into pointer events) */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent">
           <div className="p-4 text-white">
-        <div className="text-sm font-semibold">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              goToAuthor();
-            }}
-            className="hover:text-primary transition-colors cursor-pointer underline"
-          >
-            {post.authorName}
-          </button>{' '}
-          {post.isOrganizer && (
-            <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
-              ORGANIZER
-            </span>
-          )}
-        </div>
-            {post.content && (
-              <div className="text-sm opacity-90 line-clamp-2">{post.content}</div>
-            )}
+            <div className="pointer-events-auto">
+              <div className="text-sm font-semibold">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToAuthor();
+                  })}
+                  className="hover:text-primary transition-colors cursor-pointer underline"
+                  title="View profile"
+                >
+                  {post.authorName}
+                </button>
+                {post.isOrganizer && (
+                  <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded align-middle">
+                    ORGANIZER
+                  </span>
+                )}
+              </div>
+              {post.content && (
+                <div className="text-sm opacity-90 line-clamp-2">{post.content}</div>
+              )}
+            </div>
 
-            {/* Event CTA row — keep clickable */}
+            {/* Event CTA row */}
             <div className="pointer-events-auto mt-3 flex items-center justify-between bg-black/40 backdrop-blur-sm rounded-lg p-3">
               <div className="min-w-0">
                 <button
@@ -283,7 +254,20 @@ function PostHero({
                     {event.dateLabel} • {event.location}
                   </p>
                 </button>
+                {event.organizer && event.organizerId && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goToOrganizer();
+                    }}
+                    className="mt-1 text-[11px] text-gray-200 underline hover:text-white"
+                    title="View organizer"
+                  >
+                    by {event.organizer}
+                  </button>
+                )}
               </div>
+
               <div className="flex gap-2 flex-shrink-0">
                 <Button
                   size="sm"
@@ -296,9 +280,7 @@ function PostHero({
                 <Button
                   size="sm"
                   variant="premium"
-                  onClick={() =>
-                    requireAuth(() => onOpenTickets(), 'Please sign in to purchase tickets')
-                  }
+                  onClick={() => requireAuth(() => onOpenTickets(), 'Please sign in to purchase tickets')}
                   className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs"
                 >
                   Get Tickets
@@ -307,11 +289,21 @@ function PostHero({
             </div>
           </div>
         </div>
+
+        {/* Unmute hint */}
+        {muted && (
+          <button
+            onClick={handleToggleMute}
+            className="absolute top-16 right-4 bg-black/60 text-white rounded-full px-3 py-1 text-xs"
+          >
+            Tap for sound
+          </button>
+        )}
       </div>
     );
   }
 
-  // IMAGE fallback
+  // --- IMAGE SLIDE ---
   return (
     <div className="absolute inset-0">
       <ImageWithFallback
@@ -321,31 +313,44 @@ function PostHero({
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
 
-      {/* Minimal footer for images */}
-      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+      <div className="absolute inset-x-0 bottom-0 p-4 text-white pointer-events-auto">
         <div className="text-sm font-semibold">
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
               goToAuthor();
             }}
             className="hover:text-primary transition-colors cursor-pointer underline"
+            title="View profile"
           >
             {post.authorName}
-          </button>{' '}
+          </button>
           {post.isOrganizer && (
-            <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
+            <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded align-middle">
               ORGANIZER
             </span>
           )}
         </div>
         {post.content && <div className="text-sm opacity-90 line-clamp-2">{post.content}</div>}
+
+        {event.organizer && event.organizerId && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              goToOrganizer();
+            }}
+            className="mt-2 text-[11px] text-gray-200 underline hover:text-white"
+            title="View organizer"
+          >
+            by {event.organizer}
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-// ---------- Mock fallback (kept minimal) ----------
+// ---------- Mock fallback ----------
 const mockEvents: Event[] = [
   {
     id: '1',
@@ -450,7 +455,11 @@ function RecentPostsRail({
               </div>
             ) : (
               <div className="w-full h-full flex items-center justify-center rounded-lg bg-white/5">
-                {post.mediaType === 'video' ? <Play className="w-6 h-6 text-white/60" /> : <ImageIcon className="w-6 h-6 text-white/60" />}
+                {post.mediaType === 'video' ? (
+                  <Play className="w-6 h-6 text-white/60" />
+                ) : (
+                  <ImageIcon className="w-6 h-6 text-white/60" />
+                )}
               </div>
             )}
 
@@ -498,7 +507,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
-  const { shareEvent } = useShare();
 
   // Feed via RPC
   const { data: feed, loading: feedLoading, error, setData: setFeed } = useHomeFeed(3);
@@ -527,9 +535,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           const isVideo = url ? /mux|\.mp4$|\.mov$|\.m3u8$/i.test(url) : false;
           const newPost: EventPost = {
             id: p.id,
-            authorName: 'Someone',
-            authorBadge: 'ATTENDEE',
-            isOrganizer: false,
+            authorName: p.author_display_name || 'Someone',
+            authorBadge: p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE',
+            isOrganizer: !!p.author_is_organizer,
+            authorId: p.author_id || undefined,            // <-- make profile link work
             content: p.text || '',
             timestamp: new Date(p.created_at).toLocaleDateString(),
             likes: p.like_count || 0,
@@ -537,6 +546,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             mediaUrl: url,
             thumbnailUrl: !isVideo ? url : undefined,
             commentCount: p.comment_count || 0,
+            ticketTierId: p.ticket_tier_id || undefined,
           };
           const posts = [newPost, ...(ev.posts || [])].slice(0, 3);
           return { ...ev, posts };
@@ -567,18 +577,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [events.length]);
 
-  // Touch swipe helpers
-  const startY = useRef<number | null>(null);
-  const onTouchStart = (e: React.TouchEvent) => {
-    startY.current = e.touches[0].clientY;
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (startY.current == null) return;
-    const diff = startY.current - e.changedTouches[0].clientY;
-    if (Math.abs(diff) > 50) setCurrentIndex((i) => (diff > 0 ? Math.min(events.length - 1, i + 1) : Math.max(0, i - 1)));
-    startY.current = null;
-  };
-
   // Preload neighbors
   useEffect(() => {
     const next = events[currentIndex + 1]?.coverImage;
@@ -595,10 +593,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const handleLike = useCallback(
     withAuth((eventId: string) => {
       setEvents((prev) =>
-        prev.map((ev) => (ev.id === eventId ? { ...ev, isLiked: !ev.isLiked, likes: ev.isLiked ? ev.likes - 1 : ev.likes + 1 } : ev))
+        prev.map((ev) =>
+          ev.id === eventId ? { ...ev, isLiked: !ev.isLiked, likes: ev.isLiked ? ev.likes - 1 : ev.likes + 1 } : ev
+        )
       );
     }, 'Please sign in to like events'),
-    []
+    [withAuth]
   );
 
   const handleShare = useCallback((ev: Event) => {
@@ -606,10 +606,14 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     setShowShareModal(true);
   }, []);
 
-  const handleComment = useCallback(withAuth(() => setShowCommentModal(true), 'Please sign in to comment on events'), []);
+  const handleComment = useCallback(
+    withAuth(() => setShowCommentModal(true), 'Please sign in to comment on events'),
+    [withAuth]
+  );
+
   const handleMore = useCallback(
     withAuth(() => toast({ title: 'More Options', description: 'Additional options coming soon…' }), 'Please sign in to access more options'),
-    []
+    [withAuth]
   );
 
   const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(events.length - 1, i))), [events.length]);
@@ -644,14 +648,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         <h1 className="text-2xl font-bold mb-2">No Events Found</h1>
         <p className="text-muted-foreground mb-4">There are currently no events to display.</p>
         <PaymentSuccessHelper />
-        <Button onClick={() => window.location.href = window.location.href} className="mt-4">
+        <Button onClick={() => (window.location.href = window.location.href)} className="mt-4">
           Try Again
         </Button>
       </div>
     );
   }
 
-  // Safe comment count (no ?? / || mix)
   const commentCount =
     ((currentEvent as any)?.totalComments) ??
     (currentEvent.posts?.reduce((s, p) => s + (p.commentCount ?? 0), 0) ?? 0);
@@ -702,16 +705,28 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                   post={heroPost}
                   event={ev}
                   onOpenTickets={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')}
-                  isActive={i === safeIndex}
+                  isActive={i === Math.max(0, Math.min(currentIndex, events.length - 1))}
                 />
               ) : (
                 <>
                   <ImageWithFallback src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
-                  {/* Fallback event overlay (clickable) */}
+
+                  {/* Fallback overlay */}
                   <div className="absolute bottom-24 left-4 right-4 text-white z-30 pointer-events-auto">
                     <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4">
-                      <h2 className="text-xl font-bold mb-2">{ev.title}</h2>
+                      <h2 className="text-xl font-bold mb-1">{ev.title}</h2>
+                      {ev.organizer && (
+                        <button
+                          onClick={() =>
+                            ev.organizerId ? navigate(routes.org(ev.organizerId)) : navigate(`${routes.event(ev.id)}?tab=details`)
+                          }
+                          className="text-[11px] text-gray-200 underline hover:text-white mb-2"
+                          title="View organizer"
+                        >
+                          by {ev.organizer}
+                        </button>
+                      )}
                       <p className="text-sm text-gray-300 mb-3">{ev.description}</p>
                       <div className="flex gap-2">
                         <Button
@@ -776,7 +791,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         ))}
       </div>
 
-      {/* Swipe zone (no clip-path; leaves header + bottom overlay clickable) */}
+      {/* Swipe zone */}
       <div
         className="absolute z-10"
         style={{
@@ -794,7 +809,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           const startY = (e.currentTarget as any).__startY as number | undefined;
           if (startY == null) return;
           const diff = startY - e.changedTouches[0].clientY;
-          if (Math.abs(diff) > 50) setCurrentIndex((i) => (diff > 0 ? Math.min(events.length - 1, i + 1) : Math.max(0, i - 1)));
+          if (Math.abs(diff) > 50)
+            setCurrentIndex((i) => (diff > 0 ? Math.min(events.length - 1, i + 1) : Math.max(0, i - 1)));
           (e.currentTarget as any).__startY = undefined;
         }}
       />
@@ -849,7 +865,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         preselectedEventId={currentEvent.id}
       />
 
-      <CommentModal isOpen={showCommentModal} onClose={() => setShowCommentModal(false)} eventId={currentEvent.id} eventTitle={currentEvent.title} />
+      <CommentModal
+        isOpen={showCommentModal}
+        onClose={() => setShowCommentModal(false)}
+        eventId={currentEvent.id}
+        eventTitle={currentEvent.title}
+      />
     </div>
   );
 }
@@ -878,7 +899,11 @@ function IconButton({
       className="flex flex-col items-center gap-1 transition-transform active:scale-95 min-h-[56px] min-w-[56px] p-2 touch-manipulation"
       style={{ backgroundColor: 'transparent' }}
     >
-      <div className={`p-3 rounded-full transition-all duration-200 ${active ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-110' : 'bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20'}`}>
+      <div
+        className={`p-3 rounded-full transition-all duration-200 ${
+          active ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-110' : 'bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20'
+        }`}
+      >
         {children}
       </div>
       {typeof count !== 'undefined' && <span className="text-xs font-medium text-white drop-shadow-lg">{count}</span>}
