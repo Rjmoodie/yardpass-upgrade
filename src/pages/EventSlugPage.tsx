@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { sharePayload } from '@/lib/share';
 import { buildShareUrl, getShareTitle, getShareText } from '@/lib/shareLinks';
+import { EventTicketModal } from '@/components/EventTicketModal';
 
 const MapCard = lazy(() => import('@/components/maps/MapCard'));
 
@@ -76,6 +77,7 @@ export default function EventSlugPage() {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [attendeeCount, setAttendeeCount] = useState<number>(0);
   const [geoReady, setGeoReady] = useState(false); // for JSON-LD enhancement later if you add coords
+  const [showTicketModal, setShowTicketModal] = useState(false);
 
   // Fetch event by slug OR id
   useEffect(() => {
@@ -327,8 +329,8 @@ export default function EventSlugPage() {
                 className="w-full"
                 size="lg"
                 onClick={() => {
-                  // Will implement ticket modal logic
-                  console.log('Get tickets clicked');
+                  console.log('Get tickets clicked for event:', event.id);
+                  setShowTicketModal(true);
                 }}
               >
                 <Ticket className="w-5 h-5 mr-2" />
@@ -482,6 +484,24 @@ export default function EventSlugPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* EVENT TICKET MODAL */}
+      <EventTicketModal
+        event={event ? {
+          id: event.id,
+          title: event.title,
+          start_at: event.start_at || '',
+          venue: event.venue || undefined,
+          address: fullAddress,
+          description: stripHtml(event.description) || undefined
+        } : null}
+        isOpen={showTicketModal}
+        onClose={() => setShowTicketModal(false)}
+        onSuccess={() => {
+          setShowTicketModal(false);
+          // Optionally refresh attendee count
+        }}
+      />
     </div>
   );
 }
