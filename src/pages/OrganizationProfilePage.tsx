@@ -75,22 +75,39 @@ export default function OrganizationProfilePage() {
     try {
       setLoading(true);
 
-      // Fetch organization details
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // Check if id is UUID format
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
+      
+      // Fetch organization details - try by id first, then by handle
+      let org, orgError;
+      if (isUUID) {
+        const result = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('id', id)
+          .single();
+        org = result.data;
+        orgError = result.error;
+      } else {
+        // Try to find by handle
+        const result = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('handle', id)
+          .single();
+        org = result.data;
+        orgError = result.error;
+      }
 
       if (orgError) throw orgError;
       setOrganization(org);
 
-      // Fetch organization's public events
+      // Fetch organization's public events using the actual org id
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select('id, title, description, start_at, city, venue, cover_image_url, category')
         .eq('owner_context_type', 'organization')
-        .eq('owner_context_id', id)
+        .eq('owner_context_id', org.id)
         .eq('visibility', 'public')
         .order('start_at', { ascending: true });
 
