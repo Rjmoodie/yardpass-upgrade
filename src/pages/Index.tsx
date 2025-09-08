@@ -97,11 +97,13 @@ function PostHero({
   event,
   onOpenTickets,
   isActive,
+  onPostClick,
 }: {
   post: EventPost | undefined;
   event: Event;
   onOpenTickets: () => void;
   isActive: boolean;
+  onPostClick: (postId: string) => void;
 }) {
   const navigate = useNavigate();
   const { requireAuth } = useAuthGuard();
@@ -343,6 +345,14 @@ function PostHero({
             by {event.organizer}
           </button>
         )}
+
+        {/* Recent Posts Rail for image slides */}
+        <RecentPostsRail
+          posts={event.posts || []}
+          eventId={event.id}
+          onPostClick={onPostClick}
+          onViewAllClick={() => navigate(`${routes.event(event.id)}?tab=posts`)}
+        />
       </div>
     </div>
   );
@@ -476,6 +486,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
+  const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sortByActivity, setSortByActivity] = useState(false);
@@ -696,18 +707,26 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     [withAuth]
   );
 
-  const handleComment = useCallback(
-    withAuth(() => setShowCommentModal(true), 'Please sign in to comment on events'),
+  const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(events.length - 1, i))), [events.length]);
+  const currentEvent = events[Math.max(0, Math.min(currentIndex, events.length - 1))];
+
+  const openCommentsForPost = useCallback(
+    withAuth((pid?: string) => {
+      setCommentPostId(pid);
+      setShowCommentModal(true);
+    }, 'Please sign in to comment on events'),
     [withAuth]
   );
+
+  const handleComment = useCallback(() => {
+    const heroPost = (currentEvent.posts || []).find(p => !!p.mediaUrl) || (currentEvent.posts || [])[0];
+    openCommentsForPost(heroPost?.id);
+  }, [currentEvent.posts, openCommentsForPost]);
 
   const handleMore = useCallback(
     withAuth(() => toast({ title: 'More Options', description: 'Additional options coming soon…' }), 'Please sign in to access more options'),
     [withAuth]
   );
-
-  const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(events.length - 1, i))), [events.length]);
-  const currentEvent = events[Math.max(0, Math.min(currentIndex, events.length - 1))];
 
   if (loading) {
     return (
@@ -785,6 +804,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                   event={ev}
                   onOpenTickets={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')}
                   isActive={i === Math.max(0, Math.min(currentIndex, events.length - 1))}
+                  onPostClick={openCommentsForPost}
                 />
               ) : (
                 <>
@@ -953,9 +973,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
       <CommentModal
         isOpen={showCommentModal}
-        onClose={() => setShowCommentModal(false)}
+        onClose={() => { 
+          setShowCommentModal(false); 
+          setCommentPostId(undefined); 
+        }}
         eventId={currentEvent.id}
         eventTitle={currentEvent.title}
+        postId={commentPostId}
       />
     </div>
   );

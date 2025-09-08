@@ -302,10 +302,15 @@ export default function CommentModal({ isOpen, onClose, eventId, eventTitle, pos
         is_liked: likedPostSet.has(p.id),
       }));
 
-      setPosts((prev) => (reset ? mapped : [...prev, ...mapped]));
+      // 🛡️ enforce single-post mode
+      const finalMapped = singleMode && postId
+        ? mapped.filter(p => p.id === postId)
+        : mapped;
+
+      setPosts((prev) => (reset ? finalMapped : [...prev, ...finalMapped]));
 
       // In single-mode, auto-select this post for the composer
-      if (singleMode && mapped[0]?.id) setSelectedPostId(mapped[0].id);
+      if (singleMode && finalMapped[0]?.id) setSelectedPostId(finalMapped[0].id);
 
       if (!singleMode) setPageFrom(to + 1);
     } catch (e: any) {
