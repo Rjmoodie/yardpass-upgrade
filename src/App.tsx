@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -178,8 +178,7 @@ function AppContent() {
   }
 
   return (
-    <AnalyticsWrapper>
-      <div className="flex min-h-[100dvh] flex-col bg-background relative">
+    <div className="flex min-h-[100dvh] flex-col bg-background relative">
         {/* Subtle Background Pattern */}
         <div className="absolute inset-0 opacity-5 pointer-events-none">
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/20 via-transparent to-accent/20" />
@@ -513,14 +512,9 @@ function AppContent() {
         payload={sharePayload} 
       />
       </div>
-    </AnalyticsWrapper>
   );
 }
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  );
+  return <AppContent />;
 }
