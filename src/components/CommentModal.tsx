@@ -68,9 +68,10 @@ interface CommentModalProps {
   onClose: () => void;
   eventId: string;
   eventTitle: string;
+  postId?: string; // Optional: auto-select a specific post
 }
 
-export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentModalProps) {
+export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: CommentModalProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -93,9 +94,10 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
     setPosts([]);
     setPageFrom(0);
     setHasMore(true);
+    setSelectedPostId(postId || null); // Auto-select the specified post
     void loadPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, eventId]);
+  }, [isOpen, eventId, postId]);
 
   // Realtime: new comments (live append when they target a loaded post)
   useEffect(() => {
@@ -296,6 +298,11 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
 
       setPosts((prev) => (reset ? mapped : [...prev, ...mapped]));
       setPageFrom(to + 1);
+      
+      // Auto-select first post if none selected and posts are available
+      if (reset && mapped.length > 0 && !selectedPostId && !postId) {
+        setSelectedPostId(mapped[0].id);
+      }
     } catch (e: any) {
       console.error(e);
       toast({ title: 'Error', description: e.message || 'Failed to load comments', variant: 'destructive' });
@@ -563,7 +570,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
             </div>
           ) : (
             posts.map((post) => (
-              <div key={post.id} className="border rounded-lg p-4 space-y-3">
+              <div key={post.id} className={`border rounded-lg p-4 space-y-3 transition-all ${selectedPostId === post.id ? 'ring-2 ring-primary border-primary' : ''}`}>
                 {/* Post Header */}
                 <div className="flex items-start gap-3">
                   <button
@@ -720,14 +727,21 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
                         {user.user_metadata?.display_name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 space-y-2">
-                      <Textarea
-                        placeholder="Add a comment..."
-                        value={selectedPostId === post.id ? newComment : ''}
-                        onChange={(e) => {
-                          setNewComment(e.target.value);
-                          setSelectedPostId(post.id);
-                        }}
+                     <div className="flex-1 space-y-2">
+                       {selectedPostId === post.id && (
+                         <div className="text-xs text-primary font-medium flex items-center gap-1">
+                           <div className="w-2 h-2 bg-primary rounded-full"></div>
+                           Commenting on this post
+                         </div>
+                       )}
+                       <Textarea
+                         placeholder={selectedPostId === post.id ? "Write your comment..." : "Click to comment on this post..."}
+                         value={selectedPostId === post.id ? newComment : ''}
+                         onChange={(e) => {
+                           setNewComment(e.target.value);
+                           setSelectedPostId(post.id);
+                         }}
+                         onFocus={() => setSelectedPostId(post.id)}
                         className="min-h-[60px] resize-none text-sm"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
