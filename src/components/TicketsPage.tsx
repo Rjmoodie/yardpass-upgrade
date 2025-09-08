@@ -221,8 +221,8 @@ export default function TicketsPage({
 
   // Filter tickets
   const now = new Date();
-  const upcomingTickets = tickets.filter((ticket) => new Date(ticket.event.start_at) > now);
-  const pastTickets = tickets.filter((ticket) => new Date(ticket.event.start_at) <= now);
+  const upcomingTickets = tickets.filter((ticket) => ticket.startAtISO && new Date(ticket.startAtISO) > now);
+  const pastTickets = tickets.filter((ticket) => ticket.startAtISO && new Date(ticket.startAtISO) <= now);
   const totalCount = tickets.length;
   const isOffline = false; // You can implement offline detection if needed
 
