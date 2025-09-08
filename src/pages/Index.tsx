@@ -252,8 +252,11 @@ function PostHero({
           <div className="p-4 text-white">
         <div className="text-sm font-semibold">
           <button 
-            onClick={goToAuthor}
-            className="hover:text-primary transition-colors cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToAuthor();
+            }}
+            className="hover:text-primary transition-colors cursor-pointer underline"
           >
             {post.authorName}
           </button>{' '}
@@ -322,8 +325,11 @@ function PostHero({
       <div className="absolute inset-x-0 bottom-0 p-4 text-white">
         <div className="text-sm font-semibold">
           <button 
-            onClick={goToAuthor}
-            className="hover:text-primary transition-colors cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToAuthor();
+            }}
+            className="hover:text-primary transition-colors cursor-pointer underline"
           >
             {post.authorName}
           </button>{' '}
