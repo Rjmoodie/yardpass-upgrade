@@ -28,6 +28,7 @@ import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { useAffinityFeed } from '@/hooks/useAffinityFeed';
 import { useRealtimePosts } from '@/hooks/useRealtimePosts';
 import { OrganizerChip } from '@/components/OrganizerChip';
+import { extractMuxPlaybackId } from '@/utils/mux';
 import { EventCTA } from '@/components/EventCTA';
 import { FollowButton } from '@/components/follow/FollowButton';
 import { AddToCalendar } from '@/components/AddToCalendar';
@@ -487,6 +488,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
+  const [commentMediaId, setCommentMediaId] = useState<string | undefined>(undefined);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sortByActivity, setSortByActivity] = useState(false);
@@ -711,8 +713,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const currentEvent = events[Math.max(0, Math.min(currentIndex, events.length - 1))];
 
   const openCommentsForPost = useCallback(
-    withAuth((pid?: string) => {
+    withAuth((pid?: string, post?: any) => {
+      // Prefer the post's UUID
       setCommentPostId(pid);
+      // Also pass playbackId so the modal can resolve if needed
+      const playbackId = extractMuxPlaybackId(post?.mediaUrl);
+      setCommentMediaId(playbackId ?? undefined);
       setShowCommentModal(true);
     }, 'Please sign in to comment on events'),
     [withAuth]
@@ -721,7 +727,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const handleComment = useCallback(() => {
     if (!currentEvent) return;
     const heroPost = (currentEvent.posts || []).find(p => !!p.mediaUrl) || (currentEvent.posts || [])[0];
-    openCommentsForPost(heroPost?.id);
+    openCommentsForPost(heroPost?.id, heroPost);
   }, [currentEvent, openCommentsForPost]);
 
   const handleMore = useCallback(
@@ -976,11 +982,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         isOpen={showCommentModal}
         onClose={() => { 
           setShowCommentModal(false); 
-          setCommentPostId(undefined); 
+          setCommentPostId(undefined);
+          setCommentMediaId(undefined);
         }}
         eventId={currentEvent?.id || ''}
         eventTitle={currentEvent?.title || ''}
         postId={commentPostId}
+        mediaPlaybackId={commentMediaId}
       />
     </div>
   );

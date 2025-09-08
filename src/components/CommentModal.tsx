@@ -67,9 +67,13 @@ interface CommentModalProps {
   eventTitle: string;
   /** If provided, the modal locks to this single post (no other posts, no pagination) */
   postId?: string;
+  /** Fallback: if postId is missing, resolve from this Mux playback ID */
+  mediaPlaybackId?: string;
 }
 
-export default function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: CommentModalProps) {
+export default function CommentModal({ 
+  isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId 
+}: CommentModalProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -83,10 +87,50 @@ export default function CommentModal({ isOpen, onClose, eventId, eventTitle, pos
   const [pageFrom, setPageFrom] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
-  const singleMode = !!postId; // 🔒 when true, we only show the clicked post
+  const singleMode = !!postId || !!mediaPlaybackId; // 🔒 when true, we only show the clicked post
+  const [resolvedPostId, setResolvedPostId] = useState<string | null>(postId ?? null);
 
   // derived: ids of loaded posts for realtime filter
   const postIdSet = useMemo(() => new Set(posts.map((p) => p.id)), [posts]);
+
+  // Helper: find the post that contains this playback ID in its media_urls
+  async function resolvePostIdFromMedia(eventId: string, playbackId: string): Promise<string | null> {
+    // Pull candidates for this event and scan client-side (robust across array storage variations)
+    const { data, error } = await supabase
+      .from('event_posts')
+      .select('id, media_urls')
+      .eq('event_id', eventId);
+
+    if (error) return null;
+
+    for (const row of data ?? []) {
+      const arr: string[] = row.media_urls ?? [];
+      const hit = arr.some(u =>
+        u === `mux:${playbackId}` ||
+        u.includes(playbackId)     // covers https://stream.mux.com/<id>.m3u8 and similar
+      );
+      if (hit) return row.id;
+    }
+    return null;
+  }
+
+  // When opening, resolve postId if we only have a playback id
+  useEffect(() => {
+    if (!isOpen) return;
+
+    (async () => {
+      if (postId) {
+        setResolvedPostId(postId);
+        return;
+      }
+      if (mediaPlaybackId) {
+        const id = await resolvePostIdFromMedia(eventId, mediaPlaybackId);
+        setResolvedPostId(id);
+        return;
+      }
+      setResolvedPostId(null);
+    })();
+  }, [isOpen, eventId, postId, mediaPlaybackId]);
 
   // reset & load when opened
   useEffect(() => {
@@ -94,10 +138,10 @@ export default function CommentModal({ isOpen, onClose, eventId, eventTitle, pos
     setPosts([]);
     setPageFrom(0);
     setHasMore(!singleMode);
-    setSelectedPostId(postId ?? null);
+    setSelectedPostId(resolvedPostId);
     void loadPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, eventId, postId]);
+  }, [isOpen, eventId, resolvedPostId, singleMode]);
 
   // --- Realtime: only subscribe to the target (post or event) ---
   useEffect(() => {
@@ -112,7 +156,7 @@ export default function CommentModal({ isOpen, onClose, eventId, eventTitle, pos
           event: 'INSERT',
           schema: 'public',
           table: 'event_comments',
-          ...(singleMode ? { filter: `post_id=eq.${postId}` } : {}), // ✅ only this post in single-mode
+          ...(singleMode ? { filter: `post_id=eq.${resolvedPostId}` } : {}), // ✅ only this post in single-mode
         },
         (payload) => {
           const c = payload.new as CommentRow;
@@ -150,7 +194,7 @@ export default function CommentModal({ isOpen, onClose, eventId, eventTitle, pos
         supabase.removeChannel(channel);
       } catch {}
     };
-  }, [isOpen, eventId, singleMode, postId, postIdSet]);
+  }, [isOpen, eventId, singleMode, resolvedPostId, postIdSet]);
 
   // Load posts (+ comments, likes, profiles). In singleMode we load only that one post.
   const loadPage = async (reset = false) => {
@@ -166,8 +210,9 @@ export default function CommentModal({ isOpen, onClose, eventId, eventTitle, pos
         .from('event_posts')
         .select('id, text, author_user_id, created_at, media_urls, like_count, comment_count, ticket_tier_id');
 
-      if (singleMode && postId) {
-        postQuery = postQuery.eq('id', postId); // ✅ just this post
+      if (singleMode) {
+        if (!resolvedPostId) { setLoading(false); return; } // wait until we can resolve
+        postQuery = postQuery.eq('id', resolvedPostId); // ✅ just this post
       } else {
         postQuery = postQuery.eq('event_id', eventId).order('created_at', { ascending: false }).range(from, to);
       }
@@ -303,14 +348,14 @@ export default function CommentModal({ isOpen, onClose, eventId, eventTitle, pos
       }));
 
       // 🛡️ enforce single-post mode
-      const finalMapped = singleMode && postId
-        ? mapped.filter(p => p.id === postId)
+      const finalMapped = singleMode && resolvedPostId
+        ? mapped.filter(p => p.id === resolvedPostId)
         : mapped;
 
       setPosts((prev) => (reset ? finalMapped : [...prev, ...finalMapped]));
 
       // In single-mode, auto-select this post for the composer
-      if (singleMode && finalMapped[0]?.id) setSelectedPostId(finalMapped[0].id);
+      if (singleMode && resolvedPostId) setSelectedPostId(resolvedPostId);
 
       if (!singleMode) setPageFrom(to + 1);
     } catch (e: any) {
