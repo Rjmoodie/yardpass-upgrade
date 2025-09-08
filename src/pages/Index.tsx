@@ -75,13 +75,13 @@ interface IndexProps {
 // ————————————————————————————————————————
 // PostHero Component for Full-Screen User Posts
 // ————————————————————————————————————————
-function PostHero({ post, event, navigate, requireAuth, setShowTicketModal }: { 
+function PostHero({ post, event }: { 
   post: EventPost | undefined; 
   event: Event;
-  navigate: any;
-  requireAuth: any;
-  setShowTicketModal: any;
 }) {
+  const navigate = useNavigate();
+  const { requireAuth } = useAuthGuard();
+  const [showTicketModal, setShowTicketModal] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [muted, setMuted] = useState(true);
 
@@ -552,7 +552,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           return (
             <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
               {heroPost ? (
-                <PostHero post={heroPost} event={ev} navigate={navigate} requireAuth={requireAuth} setShowTicketModal={setShowTicketModal} />
+                <PostHero post={heroPost} event={ev} />
               ) : (
                 <>
                   <ImageWithFallback src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover" />
