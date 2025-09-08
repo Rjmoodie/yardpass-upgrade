@@ -116,9 +116,12 @@ function PostHero({
 
   const src = useMemo(() => {
     if (!post?.mediaUrl) return undefined;
-    return post.mediaUrl.startsWith('mux:')
+    console.log('🎥 PostHero mediaUrl:', post.mediaUrl, 'mediaType:', post.mediaType);
+    const muxUrl = post.mediaUrl.startsWith('mux:')
       ? `https://stream.mux.com/${post.mediaUrl.replace('mux:', '')}.m3u8`
       : post.mediaUrl;
+    console.log('🎥 PostHero constructed src:', muxUrl);
+    return muxUrl;
   }, [post?.mediaUrl]);
 
   useEffect(() => {
@@ -818,6 +821,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         style={{ transform: `translateY(-${currentIndex * 100}%)` }}
       >
         {events.map((ev, i) => {
+          console.log('🎯 Event posts:', ev.title, ev.posts?.map(p => ({ id: p.id, mediaType: p.mediaType, mediaUrl: p.mediaUrl })));
           const heroPost = (ev.posts || []).find((p) => !!p.mediaUrl) || (ev.posts || [])[0];
           return (
             <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
