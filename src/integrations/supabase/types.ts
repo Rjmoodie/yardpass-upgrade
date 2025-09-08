@@ -1943,6 +1943,22 @@ export type Database = {
           units: number
         }[]
       }
+      get_event_posts: {
+        Args: { p_event_ids: string[]; p_k?: number }
+        Returns: {
+          author_display_name: string
+          author_is_organizer: boolean
+          author_user_id: string
+          comment_count: number
+          created_at: string
+          event_id: string
+          id: string
+          like_count: number
+          media_urls: string[]
+          text: string
+          ticket_tier_id: string
+        }[]
+      }
       get_event_scans_daily: {
         Args: { p_event_ids: string[]; p_from_date: string; p_to_date: string }
         Returns: {
