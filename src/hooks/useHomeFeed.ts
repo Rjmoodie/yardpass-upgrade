@@ -161,10 +161,19 @@ export function useHomeFeed(postLimit = 3) {
 
             // Badge / tier from RPC if present
             const ticketBadge =
+              safeString(authorObj?.badge_label) ||
               safeString(p?.tier_badge_label) ||
               safeString(p?.ticket_badge_label) ||
               '';
             const ticketTierId = safeString(p?.ticket_tier_id);
+
+            console.log('🎯 Processing post for', authorName, {
+              badge_label: authorObj?.badge_label,
+              tier_badge_label: p?.tier_badge_label,
+              ticket_badge_label: p?.ticket_badge_label,
+              finalTicketBadge: ticketBadge,
+              isOrganizer: !!authorObj?.is_organizer
+            });
 
             return {
               id: safeString(p?.id),
