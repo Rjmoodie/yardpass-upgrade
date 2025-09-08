@@ -116,9 +116,12 @@ function PostHero({
 
   const src = useMemo(() => {
     if (!post?.mediaUrl) return undefined;
-    return post.mediaUrl.startsWith('mux:')
+    console.log('🎥 PostHero mediaUrl:', post.mediaUrl, 'mediaType:', post.mediaType);
+    const muxUrl = post.mediaUrl.startsWith('mux:')
       ? `https://stream.mux.com/${post.mediaUrl.replace('mux:', '')}.m3u8`
       : post.mediaUrl;
+    console.log('🎥 PostHero constructed src:', muxUrl);
+    return muxUrl;
   }, [post?.mediaUrl]);
 
   useEffect(() => {
@@ -540,17 +543,29 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   // ✅ Initial posts loader — fetch top posts for all currently loaded events
   useEffect(() => {
     (async () => {
-      if (!events.length) return;
+      console.log('🎯 Initial posts loader - events:', events.map(e => ({ id: e.id, title: e.title, postsCount: e.posts?.length })));
+      
+      if (!events.length) {
+        console.log('🎯 No events loaded yet');
+        return;
+      }
 
       // Only fetch for events that don't have posts yet
       const ids = events.filter((e) => !e.posts || e.posts.length === 0).map((e) => e.id);
-      if (!ids.length) return;
+      console.log('🎯 Events without posts:', ids);
+      if (!ids.length) {
+        console.log('🎯 All events already have posts');
+        return;
+      }
 
       // Use the new RPC function for efficient post fetching
+      console.log('🎯 Fetching posts for event IDs:', ids);
       const { data, error } = await supabase.rpc('get_event_posts', {
         p_event_ids: ids,
         p_k: 3
       });
+
+      console.log('🎯 Posts fetched:', { data, error, count: data?.length });
 
       if (error) {
         console.error('Initial posts fetch failed:', error);
@@ -582,6 +597,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         arr.push(mapped); // RPC already returns top 3 per event
         grouped.set(p.event_id, arr);
       }
+
+      console.log('🎯 Grouped posts by event:', Array.from(grouped.entries()).map(([eventId, posts]) => ({ eventId, postCount: posts.length })));
 
       setEvents((prev) =>
         prev.map((ev) => (grouped.has(ev.id) ? { ...ev, posts: grouped.get(ev.id) } : ev))
@@ -711,6 +728,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(events.length - 1, i))), [events.length]);
   const currentEvent = events[Math.max(0, Math.min(currentIndex, events.length - 1))];
+  
+  console.log('🎯 Current event:', { currentIndex, event: currentEvent ? { id: currentEvent.id, title: currentEvent.title, postsCount: currentEvent.posts?.length } : null });
 
   const openCommentsForPost = useCallback(
     withAuth((pid?: string, post?: any) => {
@@ -802,6 +821,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         style={{ transform: `translateY(-${currentIndex * 100}%)` }}
       >
         {events.map((ev, i) => {
+          console.log('🎯 Event posts:', ev.title, ev.posts?.map(p => ({ id: p.id, mediaType: p.mediaType, mediaUrl: p.mediaUrl })));
           const heroPost = (ev.posts || []).find((p) => !!p.mediaUrl) || (ev.posts || [])[0];
           return (
             <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
