@@ -749,7 +749,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           <IconButton ariaLabel="Comments" count={commentCount} onClick={() => handleComment()}>
             <MessageCircle className="w-6 h-6 text-white" />
           </IconButton>
-          <IconButton ariaLabel="Create post" onClick={() => requireAuth(() => setPostCreatorOpen(true), 'Please sign in to create posts')}>
+          <IconButton ariaLabel="Create post" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}>
             <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200 shadow-lg">
               <Plus className="w-6 h-6 text-white" />
             </div>
