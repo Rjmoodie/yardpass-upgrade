@@ -1,6 +1,6 @@
 // src/components/TicketsPage.tsx
-
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { copyQRDataToClipboard, shareQRData, generateQRData } from '@/lib/qrCode';
 import { QRCodeModal } from '@/components/QRCodeModal';
 import { useTicketAnalytics } from '@/hooks/useTicketAnalytics';
+import { routes } from '@/lib/routes';
 import {
   ArrowLeft,
   Ticket as TicketIcon,
@@ -24,7 +25,8 @@ import {
   RefreshCw,
   AlertCircle,
   Share2,
-  CalendarPlus
+  CalendarPlus,
+  ExternalLink
 } from 'lucide-react';
 
 interface User {
@@ -41,37 +43,52 @@ interface TicketsPageProps {
 const formatUSD = (n: number) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n || 0);
 
+// Format helpers for ICS
+const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+const toICSUTC = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(
+    d.getUTCHours()
+  )}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+};
+const escapeICS = (s: string) =>
+  (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+
 export function TicketsPage({ user, onBack }: TicketsPageProps) {
-  const [selectedTab, setSelectedTab] = useState('upcoming');
+  const navigate = useNavigate();
+  const [selectedTab, setSelectedTab] = useState<'upcoming' | 'past'>('upcoming');
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { tickets, upcomingTickets, pastTickets, loading, error, isOffline, refreshTickets, forceRefreshTickets } =
-    useTickets();
-  const { trackTicketView, trackQRCodeView, trackTicketShare, trackTicketCopy, trackWalletDownload } =
-    useTicketAnalytics();
+  const {
+    tickets,
+    upcomingTickets,
+    pastTickets,
+    loading,
+    error,
+    isOffline,
+    refreshTickets,
+    forceRefreshTickets,
+  } = useTickets();
 
-  // ——————————————————————————————————
-  // ICS helpers
-  // ——————————————————————————————————
-  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
-  const toICSUTC = (iso: string) => {
-    const d = new Date(iso);
-    return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(
-      d.getUTCHours()
-    )}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
-  };
+  const {
+    trackTicketView,
+    trackQRCodeView,
+    trackTicketShare,
+    trackTicketCopy,
+    trackWalletDownload,
+  } = useTicketAnalytics();
 
-  const escapeICS = (s: string) =>
-    (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  const totalCount = useMemo(() => tickets.length, [tickets]);
 
+  // Build ICS content
   const buildICS = (ticket: UserTicket) => {
     const dtStart = toICSUTC(ticket.startAtISO);
     const dtEnd = toICSUTC(ticket.endAtISO || ticket.startAtISO);
     const uid = `${ticket.id}@yardpass`;
-    const url = `${window.location.origin}/events/${ticket.eventId}`;
+    const url = `${window.location.origin}${routes.event(ticket.eventId)}`;
     const desc = `Your ticket (${ticket.badge} - ${ticket.ticketType}). Show your QR at entry.\n${url}`;
-    const ics = [
+    return [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//YardPass//Tickets//EN',
@@ -89,7 +106,6 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
       'END:VEVENT',
       'END:VCALENDAR',
     ].join('\r\n');
-    return ics;
   };
 
   const downloadICS = async (ticket: UserTicket) => {
@@ -136,9 +152,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
     }
   };
 
-  // ——————————————————————————————————
   // Ticket actions
-  // ——————————————————————————————————
   const showQRCode = (ticketId: string) => {
     const ticket = tickets.find((t) => t.id === ticketId);
     if (ticket) {
@@ -159,10 +173,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
       await copyQRDataToClipboard(qrData);
       trackTicketCopy(ticket.id, ticket.eventId, user.id);
 
-      toast({
-        title: 'Copied!',
-        description: 'Ticket information copied to clipboard',
-      });
+      toast({ title: 'Copied!', description: 'Ticket information copied to clipboard' });
     } catch {
       toast({
         title: 'Error',
@@ -184,10 +195,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
       await shareQRData(qrData);
       trackTicketShare(ticket.id, ticket.eventId, user.id, 'native_share');
 
-      toast({
-        title: 'Shared!',
-        description: 'Ticket shared successfully',
-      });
+      toast({ title: 'Shared!', description: 'Ticket shared successfully' });
     } catch {
       toast({
         title: 'Error',
@@ -198,28 +206,24 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
   };
 
   const handleDownloadWalletPass = (ticket: UserTicket) => {
-    // Placeholder until native pass is wired up
     trackWalletDownload(ticket.id, ticket.eventId, user.id);
     toast({
       title: 'Wallet Pass',
-      description: 'Wallet integration coming soon! Use Add to Calendar or QR Code meanwhile.',
+      description:
+        'Wallet integration coming soon! Use Add to Calendar or QR Code in the meantime.',
     });
   };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      console.log('🔄 Force refreshing tickets...');
       await forceRefreshTickets();
-      toast({
-        title: 'Tickets Refreshed',
-        description: 'Your tickets have been updated.',
-      });
-    } catch (error) {
-      console.error('❌ Refresh failed:', error);
+      toast({ title: 'Tickets Refreshed', description: 'Your tickets have been updated.' });
+    } catch (err) {
+      console.error('Refresh failed:', err);
       toast({
         title: 'Refresh Failed',
-        description: 'Failed to refresh tickets. Please try again.',
+        description: 'Could not refresh tickets. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -227,10 +231,10 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
     }
   };
 
+  // Prevent inner button clicks from triggering card navigation
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
-  // ——————————————————————————————————
-  // Render
-  // ——————————————————————————————————
+  // Render — loading
   if (loading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
@@ -248,36 +252,65 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
     );
   }
 
+  const errorText =
+    typeof error === 'string'
+      ? error
+      : (error as any)?.message || (error ? 'Something went wrong.' : '');
+
   return (
     <div className="h-full bg-background flex flex-col">
       {/* Header */}
       <div className="border-b bg-card p-4">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors" aria-label="Back">
+          <button
+            onClick={onBack}
+            className="p-2 rounded-full hover:bg-muted transition-colors"
+            aria-label="Back"
+          >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
             <h1>My Tickets</h1>
             <p className="text-sm text-muted-foreground">
-              {tickets.length} ticket{tickets.length !== 1 ? 's' : ''}{' '}
+              {totalCount} ticket{totalCount !== 1 ? 's' : ''}{' '}
               {isOffline && <span className="ml-1">(offline)</span>}
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+              aria-label="Refresh tickets"
+            >
               <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="outline" size="sm" disabled title="Filters coming soon" className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+              title="Filters coming soon"
+              className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+              aria-label="Filter tickets"
+            >
               <Filter className="w-4 h-4 mr-1" />
               Filter
             </Button>
           </div>
         </div>
+
+        {isOffline && (
+          <div className="mt-3 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded px-3 py-2">
+            You’re viewing cached tickets while offline. Some actions may be unavailable.
+          </div>
+        )}
       </div>
 
       {/* Error State */}
-      {error && (
+      {errorText && (
         <div className="p-4">
           <Card className="border-red-200 bg-red-50/50">
             <CardContent className="p-6">
@@ -287,13 +320,13 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                 </div>
                 <div>
                   <h3 className="font-semibold">Error Loading Tickets</h3>
-                  <p className="text-sm text-red-600 mt-1">{error}</p>
+                  <p className="text-sm text-red-600 mt-1">{errorText}</p>
                 </div>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleRefresh} 
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshTickets}
                 className="mt-3 hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-all duration-200"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
@@ -306,17 +339,26 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="h-full">
+        <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)} className="h-full">
           <TabsList className="grid w-full grid-cols-2 sticky top-0 z-10 bg-background border-b">
             <TabsTrigger value="upcoming">Upcoming ({upcomingTickets.length})</TabsTrigger>
             <TabsTrigger value="past">Past ({pastTickets.length})</TabsTrigger>
           </TabsList>
 
-          {/* Upcoming */}
+          {/* UPCOMING */}
           <TabsContent value="upcoming" className="p-4 space-y-4">
             {upcomingTickets.length > 0 ? (
               upcomingTickets.map((ticket) => (
-                <Card key={ticket.id} className="overflow-hidden">
+                <Card
+                  key={ticket.id}
+                  className="overflow-hidden cursor-pointer group"
+                  onClick={() => {
+                    trackTicketView(ticket.id, ticket.eventId, user.id);
+                    navigate(routes.event(ticket.eventId));
+                  }}
+                  role="button"
+                  aria-label={`Open event ${ticket.eventTitle}`}
+                >
                   <div className="flex">
                     <ImageWithFallback
                       src={ticket.coverImage}
@@ -326,12 +368,24 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                     <div className="flex-1 p-4">
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1">
+                          {/* Title & badge are also explicit links */}
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-sm font-medium">{ticket.eventTitle}</h3>
+                            <button
+                              className="text-sm font-medium hover:underline text-left"
+                              onClick={(e) => {
+                                stop(e);
+                                trackTicketView(ticket.id, ticket.eventId, user.id);
+                                navigate(routes.event(ticket.eventId));
+                              }}
+                              aria-label={`Open event ${ticket.eventTitle}`}
+                            >
+                              {ticket.eventTitle}
+                            </button>
                             <Badge variant="outline" className="text-xs">
                               {ticket.badge}
                             </Badge>
                           </div>
+
                           <div className="space-y-1 text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
@@ -347,6 +401,7 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                             </div>
                           </div>
                         </div>
+
                         <div className="text-right">
                           <div className="text-sm font-medium">{formatUSD(ticket.price)}</div>
                           <Badge
@@ -358,13 +413,25 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => showQRCode(ticket.id)}
-                          className="flex-1"
-                        >
+                      {/* Primary actions */}
+                      <div className="grid grid-cols-4 gap-2">
+                        <Button size="sm" variant="outline" onClick={stop}>
+                          {/* explicit “Open Event” that won’t get blocked by other onClicks */}
+                          <span className="sr-only">Open Event</span>
+                          <ExternalLink className="w-3 h-3 mr-1" />
+                          <span
+                            onClick={(e) => {
+                              // nested click to prevent bubbling
+                              e.stopPropagation();
+                              trackTicketView(ticket.id, ticket.eventId, user.id);
+                              navigate(routes.event(ticket.eventId));
+                            }}
+                          >
+                            Event
+                          </span>
+                        </Button>
+
+                        <Button size="sm" variant="outline" onClick={(e) => { stop(e); showQRCode(ticket.id); }}>
                           <QrCode className="w-3 h-3 mr-1" />
                           QR Code
                         </Button>
@@ -372,8 +439,10 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleDownloadWalletPass(ticket)}
-                          className="flex-1"
+                          onClick={(e) => {
+                            stop(e);
+                            handleDownloadWalletPass(ticket);
+                          }}
                         >
                           <Download className="w-3 h-3 mr-1" />
                           Wallet
@@ -382,8 +451,10 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => downloadICS(ticket)}
-                          className="flex-1"
+                          onClick={(e) => {
+                            stop(e);
+                            downloadICS(ticket);
+                          }}
                           title="Add to Calendar (.ics)"
                         >
                           <CalendarPlus className="w-3 h-3 mr-1" />
@@ -391,12 +462,16 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                         </Button>
                       </div>
 
-                      <div className="mt-2 flex gap-2">
+                      <div className="mt-2 flex gap-2 items-center">
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleShareTicket(ticket)}
+                          onClick={(e) => {
+                            stop(e);
+                            handleShareTicket(ticket);
+                          }}
                           className="text-muted-foreground"
+                          aria-label="Share ticket"
                         >
                           <Share2 className="w-3 h-3 mr-1" />
                           Share
@@ -421,11 +496,17 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
             )}
           </TabsContent>
 
-          {/* Past */}
+          {/* PAST */}
           <TabsContent value="past" className="p-4 space-y-4">
             {pastTickets.length > 0 ? (
               pastTickets.map((ticket) => (
-                <Card key={ticket.id} className="overflow-hidden opacity-90">
+                <Card
+                  key={ticket.id}
+                  className="overflow-hidden opacity-90 cursor-pointer"
+                  onClick={() => navigate(routes.event(ticket.eventId))}
+                  role="button"
+                  aria-label={`Open event ${ticket.eventTitle}`}
+                >
                   <div className="flex">
                     <ImageWithFallback
                       src={ticket.coverImage}
@@ -436,7 +517,15 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-sm font-medium">{ticket.eventTitle}</h3>
+                            <button
+                              className="text-sm font-medium hover:underline text-left"
+                              onClick={(e) => {
+                                stop(e);
+                                navigate(routes.event(ticket.eventId));
+                              }}
+                            >
+                              {ticket.eventTitle}
+                            </button>
                             <Badge variant="outline" className="text-xs">
                               {ticket.badge}
                             </Badge>
@@ -462,10 +551,10 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
                       </div>
 
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" disabled className="flex-1">
+                        <Button size="sm" variant="outline" disabled className="flex-1" onClick={stop}>
                           Rate Event
                         </Button>
-                        <Button size="sm" variant="outline" disabled className="flex-1">
+                        <Button size="sm" variant="outline" disabled className="flex-1" onClick={stop}>
                           Share Memory
                         </Button>
                       </div>
