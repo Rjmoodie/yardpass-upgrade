@@ -476,6 +476,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | undefined>(undefined);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sortByActivity, setSortByActivity] = useState(false);
@@ -697,7 +698,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   );
 
   const handleComment = useCallback(
-    withAuth(() => setShowCommentModal(true), 'Please sign in to comment on events'),
+    withAuth((postId?: string) => {
+      setSelectedPostId(postId);
+      setShowCommentModal(true);
+    }, 'Please sign in to comment on events'),
     [withAuth]
   );
 
@@ -847,7 +851,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           <IconButton ariaLabel="Like" active={currentEvent.isLiked} count={currentEvent.likes} onClick={() => handleLike(currentEvent.id)}>
             <Heart className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white text-white' : 'text-white'}`} />
           </IconButton>
-          <IconButton ariaLabel="Comments" count={commentCount} onClick={() => handleComment()}>
+          <IconButton ariaLabel="Comments" count={commentCount} onClick={() => handleComment(currentEvent.posts?.[0]?.id)}>
             <MessageCircle className="w-6 h-6 text-white" />
           </IconButton>
           <IconButton ariaLabel="Create post" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}>
@@ -953,9 +957,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
       <CommentModal
         isOpen={showCommentModal}
-        onClose={() => setShowCommentModal(false)}
+        onClose={() => {
+          setShowCommentModal(false);
+          setSelectedPostId(undefined);
+        }}
         eventId={currentEvent.id}
         eventTitle={currentEvent.title}
+        postId={selectedPostId}
       />
     </div>
   );
