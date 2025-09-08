@@ -1889,6 +1889,10 @@ export type Database = {
         Args: { p_event_id: string; p_user_id: string }
         Returns: string
       }
+      get_user_highest_tier_badge: {
+        Args: { event_id_param: string; user_id_param: string }
+        Returns: string
+      }
       get_user_organizations: {
         Args: { user_uuid: string }
         Returns: {
