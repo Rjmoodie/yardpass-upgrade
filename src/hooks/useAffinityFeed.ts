@@ -36,10 +36,14 @@ export function useAffinityFeed(limit = 8) {
         const { data: ranked, error: rpcError } = await supabase
           .rpc('get_home_feed_ids', { p_user_id: userId, p_limit: limit });
 
+        console.log('🎯 Affinity feed ranked result:', { ranked, rpcError, userId, limit });
+
         if (rpcError) throw rpcError;
 
         const ids: string[] = (ranked || []).map((r: any) => r.event_id);
+        console.log('🎯 Event IDs to fetch:', ids);
         if (ids.length === 0) {
+          console.log('🎯 No event IDs returned from ranking function');
           if (mounted) { setData([]); setLoading(false); }
           return;
         }
@@ -51,9 +55,11 @@ export function useAffinityFeed(limit = 8) {
             id, title, description, start_at, end_at, venue, city, country,
             cover_image_url, owner_context_id, owner_context_type,
             organizations:organizations!events_owner_context_id_fkey(id, name, handle, is_verified),
-            ticket_tiers (price_cents, total_quantity, sold_quantity)
+            ticket_tiers!ticket_tiers_event_id_fkey (price_cents, total_quantity, sold_quantity)
           `)
           .in('id', ids);
+
+        console.log('🎯 Events query result:', { events, evErr, queryIds: ids });
 
         if (evErr) throw evErr;
 

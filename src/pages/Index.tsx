@@ -19,7 +19,7 @@ import {
 import { ShareModal } from '@/components/ShareModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
 import { CommentModal } from '@/components/CommentModal';
-import { PaymentSuccessHelper } from '@/components/PaymentSuccessHelper';
+
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -672,8 +672,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
         <h1 className="text-2xl font-bold mb-2">No Events Found</h1>
         <p className="text-muted-foreground mb-4">There are currently no events to display.</p>
-        <PaymentSuccessHelper />
-        <Button onClick={() => (window.location.href = window.location.href)} className="mt-4">
+        <Button onClick={() => window.location.reload()} className="mt-4">
           Try Again
         </Button>
       </div>
