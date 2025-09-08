@@ -30,7 +30,11 @@ export default function MapCard({
   useEffect(() => {
     (async () => {
       try {
-        const response = await fetch('/api/get-mapbox-token');
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-mapbox-token`, {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          }
+        });
         if (response.ok) {
           const { token } = await response.json();
           setMapboxToken(token);
