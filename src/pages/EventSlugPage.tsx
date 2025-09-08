@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Share2, Users } from 'lucide-react';
+import { Calendar, MapPin, Share2, Users, Ticket, Clock } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { parseEventIdentifier } from '@/lib/eventRouting';
@@ -321,6 +321,21 @@ export default function EventSlugPage() {
               </Button>
             </div>
 
+            {/* GET TICKETS BUTTON */}
+            <div className="mt-5">
+              <Button 
+                className="w-full"
+                size="lg"
+                onClick={() => {
+                  // Will implement ticket modal logic
+                  console.log('Get tickets clicked');
+                }}
+              >
+                <Ticket className="w-5 h-5 mr-2" />
+                Get Tickets
+              </Button>
+            </div>
+
             {/* WHO'S GOING */}
             <div className="mt-5 flex items-center justify-between">
               <div className="flex -space-x-2 overflow-hidden">
@@ -378,6 +393,95 @@ export default function EventSlugPage() {
           </Suspense>
         </div>
       ) : null}
+
+      {/* EVENT DESCRIPTION */}
+      {event.description ? (
+        <div className="max-w-3xl mx-auto px-4 mt-4">
+          <Card>
+            <CardContent className="p-5">
+              <h2 className="text-lg font-semibold mb-3">About this event</h2>
+              <div 
+                className="prose prose-sm max-w-none text-muted-foreground leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: event.description }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {/* EVENT DETAILS */}
+      <div className="max-w-3xl mx-auto px-4 mt-4">
+        <Card>
+          <CardContent className="p-5">
+            <h2 className="text-lg font-semibold mb-4">Event Details</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              {event.start_at && (
+                <div className="flex items-start gap-3">
+                  <Calendar className="w-5 h-5 text-primary mt-0.5" />
+                  <div>
+                    <div className="font-medium">Date & Time</div>
+                    <div className="text-muted-foreground">
+                      {new Date(event.start_at).toLocaleDateString(undefined, {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {new Date(event.start_at).toLocaleTimeString(undefined, {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
+                      {event.end_at && ` - ${new Date(event.end_at).toLocaleTimeString(undefined, {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      })}`}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {fullAddress && (
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-5 h-5 text-primary mt-0.5" />
+                  <div>
+                    <div className="font-medium">Location</div>
+                    <div className="text-muted-foreground">
+                      {event.venue && <div>{event.venue}</div>}
+                      <div>{[event.city, event.country].filter(Boolean).join(', ')}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {event.category && (
+                <div className="flex items-start gap-3">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                  </div>
+                  <div>
+                    <div className="font-medium">Category</div>
+                    <div className="text-muted-foreground">{event.category}</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-start gap-3">
+                <Users className="w-5 h-5 text-primary mt-0.5" />
+                <div>
+                  <div className="font-medium">Attendees</div>
+                  <div className="text-muted-foreground">
+                    {attendeeCount > 0 ? `${attendeeCount} going` : 'Be the first to attend'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

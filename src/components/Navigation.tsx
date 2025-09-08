@@ -146,8 +146,8 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div className="glass-nav px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-white/20 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 shadow-lg shadow-black/5">
-      <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-1 sm:gap-2 w-full max-w-3xl mx-auto">
+    <div className="glass-nav px-2 sm:px-6 py-2 sm:py-4 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-white/20 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 shadow-lg shadow-black/5">
+      <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-0.5 sm:gap-2 w-full max-w-3xl mx-auto justify-evenly">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -222,7 +222,7 @@ function NavButton({ children, label, active, onClick }: { children: React.React
       aria-current={active ? 'page' : undefined}
       role="tab"
       tabIndex={0}
-      className={`group flex flex-col items-center gap-1.5 sm:gap-2 flex-1 max-w-[92px] p-2 sm:p-3 rounded-2xl transition-all duration-300 active:scale-95 min-h-[56px] min-w-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 relative overflow-hidden ${
+      className={`group flex flex-col items-center gap-1 sm:gap-1.5 flex-1 max-w-[80px] sm:max-w-[92px] p-1.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all duration-300 active:scale-95 min-h-[48px] sm:min-h-[56px] min-w-[48px] sm:min-w-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 relative overflow-hidden ${
         active
           ? 'text-primary bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/40 shadow-lg shadow-primary/20 scale-105'
           : 'text-muted-foreground hover:text-primary hover:bg-gradient-to-br hover:from-white/15 hover:to-white/5 hover:backdrop-blur-sm hover:border hover:border-white/30 hover:shadow-md'
@@ -239,7 +239,7 @@ function NavButton({ children, label, active, onClick }: { children: React.React
       </div>
       
       {/* Label with better typography */}
-      <span className={`relative z-10 text-[10px] sm:text-xs font-medium leading-none transition-all duration-300 ${
+      <span className={`relative z-10 text-[9px] sm:text-xs font-medium leading-none transition-all duration-300 truncate max-w-full ${
         active 
           ? 'font-bold text-primary drop-shadow-sm' 
           : 'group-hover:font-semibold group-hover:text-primary'
