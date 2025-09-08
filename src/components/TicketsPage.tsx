@@ -1,32 +1,29 @@
-// src/components/TicketsPage.tsx
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useTickets, UserTicket } from '@/hooks/useTickets';
-import { toast } from '@/hooks/use-toast';
-import { copyQRDataToClipboard, shareQRData, generateQRData } from '@/lib/qrCode';
+import { useState, useEffect } from 'react';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { QRCodeModal } from '@/components/QRCodeModal';
+import { useTickets } from '@/hooks/useTickets';
 import { useTicketAnalytics } from '@/hooks/useTicketAnalytics';
-import { routes } from '@/lib/routes';
+import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft,
-  Ticket as TicketIcon,
   Calendar,
+  Clock,
   MapPin,
-  Users,
-  Star,
-  Filter,
-  Download,
+  Ticket as TicketIcon,
   QrCode,
+  Download,
+  ExternalLink,
   RefreshCw,
   AlertCircle,
-  Share2,
-  CalendarPlus,
-  ExternalLink
+  Wallet,
+  Share,
+  Copy,
+  CheckCircle,
+  XCircle,
+  Globe,
 } from 'lucide-react';
 
 interface User {
@@ -36,7 +33,10 @@ interface User {
 }
 
 interface TicketsPageProps {
-  user: User;
+  user?: User;
+  guestToken?: string;
+  guestScope?: { all?: boolean; eventIds?: string[] };
+  onGuestSignOut?: () => void;
   onBack: () => void;
 }
 
@@ -51,188 +51,189 @@ const toICSUTC = (iso: string) => {
     d.getUTCHours()
   )}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
 };
-const escapeICS = (s: string) =>
-  (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+const escapeICS = (str: string) =>
+  str.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 
-export function TicketsPage({ user, onBack }: TicketsPageProps) {
-  const navigate = useNavigate();
+export default function TicketsPage({ 
+  user, 
+  guestToken, 
+  guestScope, 
+  onGuestSignOut, 
+  onBack 
+}: TicketsPageProps) {
+  const { tickets: userTickets, loading: userLoading, error: userError, refreshTickets } = useTickets();
+  const [guestTickets, setGuestTickets] = useState<any[]>([]);
+  const [guestLoading, setGuestLoading] = useState(false);
+  const [guestError, setGuestError] = useState<Error | null>(null);
+  
+  const tickets = guestToken ? guestTickets : userTickets;
+  const loading = guestToken ? guestLoading : userLoading;
+  const error = guestToken ? guestError : userError;
+
+  const { trackTicketView, trackQRCodeView, trackTicketShare } = useTicketAnalytics();
+
+  // Fetch guest tickets
+  useEffect(() => {
+    if (!guestToken) return;
+    
+    let cancelled = false;
+    setGuestLoading(true);
+    setGuestError(null);
+    
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('tickets-list-guest', {
+          body: { token: guestToken },
+        });
+        
+        if (error) throw error;
+        if (!cancelled) {
+          setGuestTickets(data?.tickets || []);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setGuestError(e as Error);
+        }
+      } finally {
+        if (!cancelled) {
+          setGuestLoading(false);
+        }
+      }
+    })();
+    
+    return () => { cancelled = true; };
+  }, [guestToken]);
+
   const [selectedTab, setSelectedTab] = useState<'upcoming' | 'past'>('upcoming');
-  const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const {
-    tickets,
-    upcomingTickets,
-    pastTickets,
-    loading,
-    error,
-    isOffline,
-    refreshTickets,
-    forceRefreshTickets,
-  } = useTickets();
+  const handleRefresh = () => {
+    if (guestToken) {
+      // Re-fetch guest tickets
+      setGuestLoading(true);
+      setGuestError(null);
+      
+      supabase.functions.invoke('tickets-list-guest', {
+        body: { token: guestToken },
+      }).then(({ data, error }) => {
+        if (error) throw error;
+        setGuestTickets(data?.tickets || []);
+      }).catch((e) => {
+        setGuestError(e as Error);
+      }).finally(() => {
+        setGuestLoading(false);
+      });
+    } else {
+      setIsRefreshing(true);
+      refreshTickets();
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
+  };
 
-  const {
-    trackTicketView,
-    trackQRCodeView,
-    trackTicketShare,
-    trackTicketCopy,
-    trackWalletDownload,
-  } = useTicketAnalytics();
+  // Build ICS calendar content
+  const buildICS = (ticket: any) => {
+    const event = ticket.event;
+    const dtstart = toICSUTC(event.start_at);
+    const dtend = event.end_at ? toICSUTC(event.end_at) : '';
+    const summary = escapeICS(event.title);
+    const description = escapeICS(`Ticket: ${ticket.tier.name}\nEvent: ${event.title}`);
+    const location = escapeICS(event.venue || '');
+    const uid = `ticket-${ticket.id}@yardpass.app`;
 
-  const totalCount = useMemo(() => tickets.length, [tickets]);
-
-  // Build ICS content
-  const buildICS = (ticket: UserTicket) => {
-    const dtStart = toICSUTC(ticket.startAtISO);
-    const dtEnd = toICSUTC(ticket.endAtISO || ticket.startAtISO);
-    const uid = `${ticket.id}@yardpass`;
-    const url = `${window.location.origin}${routes.event(ticket.eventId)}`;
-    const desc = `Your ticket (${ticket.badge} - ${ticket.ticketType}). Show your QR at entry.\n${url}`;
     return [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//YardPass//Tickets//EN',
-      'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
+      'PRODID:-//YardPass//EN',
       'BEGIN:VEVENT',
       `UID:${uid}`,
-      `DTSTAMP:${toICSUTC(new Date().toISOString())}`,
-      `DTSTART:${dtStart}`,
-      `DTEND:${dtEnd}`,
-      `SUMMARY:${escapeICS(ticket.eventTitle)}`,
-      `DESCRIPTION:${escapeICS(desc)}`,
-      `LOCATION:${escapeICS(ticket.eventLocation || '')}`,
-      `URL:${url}`,
+      `DTSTART:${dtstart}`,
+      dtend ? `DTEND:${dtend}` : '',
+      `SUMMARY:${summary}`,
+      `DESCRIPTION:${description}`,
+      location ? `LOCATION:${location}` : '',
+      'STATUS:CONFIRMED',
       'END:VEVENT',
       'END:VCALENDAR',
-    ].join('\r\n');
+    ]
+      .filter(Boolean)
+      .join('\r\n');
   };
 
-  const downloadICS = async (ticket: UserTicket) => {
-    try {
-      const content = buildICS(ticket);
-      const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
-      const fileName = `${ticket.eventTitle.replace(/[^\w\s-]/g, '')}.ics`;
+  // Download ICS file
+  const downloadICS = (ticket: any) => {
+    const icsContent = buildICS(ticket);
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${ticket.event.title.replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
-      // Mobile-native share with a file if available
-      if ((navigator as any).canShare && 'share' in navigator) {
-        const file = new File([blob], fileName, { type: 'text/calendar' });
-        if ((navigator as any).canShare({ files: [file] })) {
-          await (navigator as any).share({
-            title: ticket.eventTitle,
-            text: 'Add to calendar',
-            files: [file],
-          });
-          toast({ title: 'Shared to Calendar apps' });
-          return;
-        }
-      }
-
-      // Fallback: download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: 'ICS downloaded',
-        description: 'Open it to add to your calendar.',
-      });
-    } catch (e) {
-      console.error(e);
-      toast({
-        title: 'Calendar error',
-        description: 'Could not create calendar file.',
-        variant: 'destructive',
-      });
+  // Show QR code modal
+  const showQRCode = (ticket: any) => {
+    setSelectedTicket(ticket);
+    if (user) {
+      trackQRCodeView(ticket.id, ticket.event.id, user.id);
     }
   };
 
-  // Ticket actions
-  const showQRCode = (ticketId: string) => {
-    const ticket = tickets.find((t) => t.id === ticketId);
-    if (ticket) {
-      trackQRCodeView(ticket.id, ticket.eventId, user.id);
-    }
-    setSelectedTicket(ticketId);
-  };
-
-  const handleCopyQRCode = async (ticket: UserTicket) => {
+  // Copy QR code data to clipboard
+  const handleCopyQRCode = async (qrData: string) => {
     try {
-      const qrData = generateQRData({
-        id: ticket.id,
-        eventId: ticket.eventId,
-        qrCode: ticket.qrCode,
-        userId: user.id,
-      });
-
-      await copyQRDataToClipboard(qrData);
-      trackTicketCopy(ticket.id, ticket.eventId, user.id);
-
-      toast({ title: 'Copied!', description: 'Ticket information copied to clipboard' });
-    } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to copy ticket information',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleShareTicket = async (ticket: UserTicket) => {
-    try {
-      const qrData = generateQRData({
-        id: ticket.id,
-        eventId: ticket.eventId,
-        qrCode: ticket.qrCode,
-        userId: user.id,
-      });
-
-      await shareQRData(qrData);
-      trackTicketShare(ticket.id, ticket.eventId, user.id, 'native_share');
-
-      toast({ title: 'Shared!', description: 'Ticket shared successfully' });
-    } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to share ticket',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDownloadWalletPass = (ticket: UserTicket) => {
-    trackWalletDownload(ticket.id, ticket.eventId, user.id);
-    toast({
-      title: 'Wallet Pass',
-      description:
-        'Wallet integration coming soon! Use Add to Calendar or QR Code in the meantime.',
-    });
-  };
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await forceRefreshTickets();
-      toast({ title: 'Tickets Refreshed', description: 'Your tickets have been updated.' });
+      await navigator.clipboard.writeText(qrData);
+      // Success feedback handled by QRCodeModal
     } catch (err) {
-      console.error('Refresh failed:', err);
-      toast({
-        title: 'Refresh Failed',
-        description: 'Could not refresh tickets. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsRefreshing(false);
+      console.error('Failed to copy QR code:', err);
     }
   };
 
-  // Prevent inner button clicks from triggering card navigation
-  const stop = (e: React.MouseEvent) => e.stopPropagation();
+  // Share ticket
+  const handleShareTicket = (ticket: any) => {
+    const shareData = {
+      title: `My ticket to ${ticket.event.title}`,
+      text: `Check out my ticket to ${ticket.event.title}!`,
+      url: window.location.href,
+    };
+
+    if (navigator.share && navigator.canShare(shareData)) {
+      navigator.share(shareData);
+    } else {
+      // Fallback: copy URL to clipboard
+      navigator.clipboard.writeText(window.location.href);
+    }
+
+    if (user) {
+      trackTicketShare(ticket.id, ticket.event.id, user.id, 'share');
+    }
+  };
+
+  // Handle wallet pass download
+  const handleDownloadWalletPass = (ticket: any) => {
+    if (ticket.wallet_pass_url) {
+      window.open(ticket.wallet_pass_url, '_blank');
+    }
+  };
+
+  // Filter tickets
+  const now = new Date();
+  const upcomingTickets = tickets.filter((ticket) => new Date(ticket.event.start_at) > now);
+  const pastTickets = tickets.filter((ticket) => new Date(ticket.event.start_at) <= now);
+  const totalCount = tickets.length;
+  const isOffline = false; // You can implement offline detection if needed
+
+  // Track ticket views
+  useEffect(() => {
+    tickets.forEach((ticket) => {
+      if (user) {
+        trackTicketView(ticket.id, ticket.event.id, user.id);
+      }
+    });
+  }, [tickets, trackTicketView, user]);
 
   // Render — loading
   if (loading) {
@@ -261,6 +262,17 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
     <div className="h-full bg-background flex flex-col">
       {/* Header */}
       <div className="border-b bg-card p-4">
+        {guestToken && (
+          <div className="mb-4 rounded-md border bg-muted/40 p-3 text-sm">
+            Viewing tickets for the verified contact.{" "}
+            {onGuestSignOut && (
+              <button className="underline ml-2" onClick={onGuestSignOut}>
+                Use a different email/phone
+              </button>
+            )}
+          </div>
+        )}
+        
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
@@ -270,10 +282,11 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
-            <h1>My Tickets</h1>
+            <h1 className="text-xl font-bold">
+              {guestToken ? 'Your Tickets' : 'My Tickets'}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              {totalCount} ticket{totalCount !== 1 ? 's' : ''}{' '}
-              {isOffline && <span className="ml-1">(offline)</span>}
+              {guestToken ? 'Tickets for your verified contact' : `Welcome back, ${user?.name}`}
             </p>
           </div>
           <div className="flex gap-2">
@@ -285,29 +298,21 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
               className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
               aria-label="Refresh tickets"
             >
-              <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled
-              title="Filters coming soon"
-              className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
-              aria-label="Filter tickets"
-            >
-              <Filter className="w-4 h-4 mr-1" />
-              Filter
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
-
-        {isOffline && (
-          <div className="mt-3 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded px-3 py-2">
-            You’re viewing cached tickets while offline. Some actions may be unavailable.
-          </div>
-        )}
       </div>
+
+      {/* Offline indicator */}
+      {isOffline && (
+        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2">
+          <div className="flex items-center gap-2 text-yellow-800 text-sm">
+            <Globe className="w-4 h-4" />
+            You're viewing cached tickets while offline. Some actions may be unavailable.
+          </div>
+        </div>
+      )}
 
       {/* Error State */}
       {errorText && (
@@ -325,9 +330,8 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
               </div>
               <Button
                 variant="outline"
-                size="sm"
-                onClick={refreshTickets}
-                className="mt-3 hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-all duration-200"
+                onClick={handleRefresh}
+                className="border-red-300 text-red-700 hover:bg-red-100"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Try Again
@@ -337,254 +341,259 @@ export function TicketsPage({ user, onBack }: TicketsPageProps) {
         </div>
       )}
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto">
-        <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)} className="h-full">
-          <TabsList className="grid w-full grid-cols-2 sticky top-0 z-10 bg-background border-b">
-            <TabsTrigger value="upcoming">Upcoming ({upcomingTickets.length})</TabsTrigger>
-            <TabsTrigger value="past">Past ({pastTickets.length})</TabsTrigger>
-          </TabsList>
+      {/* Main Content */}
+      {!errorText && (
+        <div className="flex-1 p-4">
+          <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="upcoming" className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Upcoming ({upcomingTickets.length})
+              </TabsTrigger>
+              <TabsTrigger value="past" className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                Past ({pastTickets.length})
+              </TabsTrigger>
+            </TabsList>
 
-          {/* UPCOMING */}
-          <TabsContent value="upcoming" className="p-4 space-y-4">
-            {upcomingTickets.length > 0 ? (
-              upcomingTickets.map((ticket) => (
-                <Card
-                  key={ticket.id}
-                  className="overflow-hidden cursor-pointer group"
-                  onClick={() => {
-                    trackTicketView(ticket.id, ticket.eventId, user.id);
-                    navigate(routes.event(ticket.eventId));
-                  }}
-                  role="button"
-                  aria-label={`Open event ${ticket.eventTitle}`}
-                >
-                  <div className="flex">
-                    <ImageWithFallback
-                      src={ticket.coverImage}
-                      alt={ticket.eventTitle}
-                      className="w-24 h-32 object-cover"
-                    />
-                    <div className="flex-1 p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          {/* Title & badge are also explicit links */}
-                          <div className="flex items-center gap-2 mb-1">
-                            <button
-                              className="text-sm font-medium hover:underline text-left"
-                              onClick={(e) => {
-                                stop(e);
-                                trackTicketView(ticket.id, ticket.eventId, user.id);
-                                navigate(routes.event(ticket.eventId));
-                              }}
-                              aria-label={`Open event ${ticket.eventTitle}`}
-                            >
-                              {ticket.eventTitle}
-                            </button>
-                            <Badge variant="outline" className="text-xs">
-                              {ticket.badge}
-                            </Badge>
-                          </div>
-
-                          <div className="space-y-1 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {ticket.eventDate} at {ticket.eventTime}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {ticket.eventLocation}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Users className="w-3 h-3" />
-                              {ticket.organizerName}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="text-sm font-medium">{formatUSD(ticket.price)}</div>
-                          <Badge
-                            variant={ticket.status === 'issued' ? 'secondary' : 'outline'}
-                            className="text-xs"
-                          >
-                            {ticket.status === 'issued' ? 'confirmed' : ticket.status}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      {/* Primary actions */}
-                      <div className="grid grid-cols-4 gap-2">
-                        <Button size="sm" variant="outline" onClick={stop}>
-                          {/* explicit “Open Event” that won’t get blocked by other onClicks */}
-                          <span className="sr-only">Open Event</span>
-                          <ExternalLink className="w-3 h-3 mr-1" />
-                          <span
-                            onClick={(e) => {
-                              // nested click to prevent bubbling
-                              e.stopPropagation();
-                              trackTicketView(ticket.id, ticket.eventId, user.id);
-                              navigate(routes.event(ticket.eventId));
-                            }}
-                          >
-                            Event
-                          </span>
-                        </Button>
-
-                        <Button size="sm" variant="outline" onClick={(e) => { stop(e); showQRCode(ticket.id); }}>
-                          <QrCode className="w-3 h-3 mr-1" />
-                          QR Code
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            stop(e);
-                            handleDownloadWalletPass(ticket);
-                          }}
-                        >
-                          <Download className="w-3 h-3 mr-1" />
-                          Wallet
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            stop(e);
-                            downloadICS(ticket);
-                          }}
-                          title="Add to Calendar (.ics)"
-                        >
-                          <CalendarPlus className="w-3 h-3 mr-1" />
-                          Calendar
-                        </Button>
-                      </div>
-
-                      <div className="mt-2 flex gap-2 items-center">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            stop(e);
-                            handleShareTicket(ticket);
-                          }}
-                          className="text-muted-foreground"
-                          aria-label="Share ticket"
-                        >
-                          <Share2 className="w-3 h-3 mr-1" />
-                          Share
-                        </Button>
-                        <span className="text-xs text-muted-foreground">
-                          Ordered {new Date(ticket.orderDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
+            <TabsContent value="upcoming" className="space-y-4">
+              {upcomingTickets.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <TicketIcon className="w-10 h-10 text-muted-foreground" />
                   </div>
-                </Card>
-              ))
-            ) : (
-              <div className="text-center py-12">
-                <TicketIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg mb-2">No upcoming events</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Discover amazing events and get your tickets!
-                </p>
-                <Button onClick={onBack}>Explore Events</Button>
-              </div>
-            )}
-          </TabsContent>
+                  <h3 className="text-lg font-semibold mb-2">No upcoming events</h3>
+                  <p className="text-muted-foreground">
+                    You don't have any tickets for upcoming events yet.
+                  </p>
+                </div>
+              ) : (
+                upcomingTickets.map((ticket) => (
+                  <TicketCard
+                    key={ticket.id}
+                    ticket={ticket}
+                    onShowQRCode={showQRCode}
+                    onDownloadCalendar={downloadICS}
+                    onDownloadWalletPass={handleDownloadWalletPass}
+                    onShare={handleShareTicket}
+                  />
+                ))
+              )}
+            </TabsContent>
 
-          {/* PAST */}
-          <TabsContent value="past" className="p-4 space-y-4">
-            {pastTickets.length > 0 ? (
-              pastTickets.map((ticket) => (
-                <Card
-                  key={ticket.id}
-                  className="overflow-hidden opacity-90 cursor-pointer"
-                  onClick={() => navigate(routes.event(ticket.eventId))}
-                  role="button"
-                  aria-label={`Open event ${ticket.eventTitle}`}
-                >
-                  <div className="flex">
-                    <ImageWithFallback
-                      src={ticket.coverImage}
-                      alt={ticket.eventTitle}
-                      className="w-24 h-32 object-cover grayscale"
-                    />
-                    <div className="flex-1 p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <button
-                              className="text-sm font-medium hover:underline text-left"
-                              onClick={(e) => {
-                                stop(e);
-                                navigate(routes.event(ticket.eventId));
-                              }}
-                            >
-                              {ticket.eventTitle}
-                            </button>
-                            <Badge variant="outline" className="text-xs">
-                              {ticket.badge}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              <Star className="w-3 h-3 mr-1" />
-                              Attended
-                            </Badge>
-                          </div>
-                          <div className="space-y-1 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {ticket.eventDate}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {ticket.eventLocation}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-medium">{formatUSD(ticket.price)}</div>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" disabled className="flex-1" onClick={stop}>
-                          Rate Event
-                        </Button>
-                        <Button size="sm" variant="outline" disabled className="flex-1" onClick={stop}>
-                          Share Memory
-                        </Button>
-                      </div>
-                    </div>
+            <TabsContent value="past" className="space-y-4">
+              {pastTickets.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <TicketIcon className="w-10 h-10 text-muted-foreground" />
                   </div>
-                </Card>
-              ))
-            ) : (
-              <div className="text-center py-12">
-                <Calendar className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg mb-2">No past events</h3>
-                <p className="text-sm text-muted-foreground">Your attended events will appear here</p>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+                  <h3 className="text-lg font-semibold mb-2">No past events</h3>
+                  <p className="text-muted-foreground">
+                    Your past event tickets will appear here.
+                  </p>
+                </div>
+              ) : (
+                pastTickets.map((ticket) => (
+                  <TicketCard
+                    key={ticket.id}
+                    ticket={ticket}
+                    onShowQRCode={showQRCode}
+                    onDownloadCalendar={downloadICS}
+                    onDownloadWalletPass={handleDownloadWalletPass}
+                    onShare={handleShareTicket}
+                    isPast
+                  />
+                ))
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
 
       {/* QR Code Modal */}
-      {selectedTicket && (
+      {selectedTicket && user && (
         <QRCodeModal
-          ticket={tickets.find((t) => t.id === selectedTicket)!}
+          ticket={selectedTicket}
           user={user}
           onClose={() => setSelectedTicket(null)}
-          onCopy={handleCopyQRCode}
-          onShare={handleShareTicket}
+          onCopy={() => handleCopyQRCode(selectedTicket.qr_code)}
+          onShare={() => handleShareTicket(selectedTicket)}
         />
       )}
     </div>
   );
 }
 
-export default TicketsPage;
+// Ticket Card Component
+function TicketCard({
+  ticket,
+  onShowQRCode,
+  onDownloadCalendar,
+  onDownloadWalletPass,
+  onShare,
+  isPast = false,
+}: {
+  ticket: any;
+  onShowQRCode: (ticket: any) => void;
+  onDownloadCalendar: (ticket: any) => void;
+  onDownloadWalletPass: (ticket: any) => void;
+  onShare: (ticket: any) => void;
+  isPast?: boolean;
+}) {
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const getStatusBadge = (status: string, isRedeemed: boolean) => {
+    if (isPast && isRedeemed) {
+      return <Badge variant="default" className="bg-green-100 text-green-800">Attended</Badge>;
+    }
+    if (isPast && !isRedeemed) {
+      return <Badge variant="secondary">Missed</Badge>;
+    }
+    
+    switch (status) {
+      case 'issued':
+        return <Badge variant="default">Active</Badge>;
+      case 'transferred':
+        return <Badge variant="outline">Transferred</Badge>;
+      case 'redeemed':
+        return <Badge variant="default" className="bg-green-100 text-green-800">Used</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  return (
+    <Card className="overflow-hidden transition-all duration-200 hover:shadow-lg">
+      <CardContent className="p-0">
+        <div className="flex">
+          {/* Event Image */}
+          <div className="w-24 h-24 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0">
+            {ticket.event.cover_image_url ? (
+              <img
+                src={ticket.event.cover_image_url}
+                alt={ticket.event.title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <TicketIcon className="w-8 h-8 text-muted-foreground" />
+            )}
+          </div>
+
+          {/* Ticket Details */}
+          <div className="flex-1 p-4">
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <h3 className="font-semibold text-lg leading-tight mb-1">
+                  {ticket.event.title}
+                </h3>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <Calendar className="w-4 h-4" />
+                  <span>{formatDate(ticket.event.start_at)}</span>
+                  <Clock className="w-4 h-4 ml-2" />
+                  <span>{formatTime(ticket.event.start_at)}</span>
+                </div>
+                {ticket.event.venue && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <MapPin className="w-4 h-4" />
+                    <span className="truncate">{ticket.event.venue}</span>
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                {getStatusBadge(ticket.status, !!ticket.redeemed_at)}
+                <div className="mt-1 text-sm font-medium">
+                  {formatUSD((ticket.tier.price_cents || 0) / 100)}
+                </div>
+              </div>
+            </div>
+
+            {/* Ticket Type */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                  {ticket.tier.name}
+                </Badge>
+                {ticket.tier.badge_label && (
+                  <Badge variant="secondary" className="text-xs">
+                    {ticket.tier.badge_label}
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`/e/${ticket.event.id}`, '_blank')}
+                className="flex-1 min-w-[80px]"
+              >
+                <ExternalLink className="w-4 h-4 mr-1" />
+                Event
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onShowQRCode(ticket)}
+                className="flex-1 min-w-[80px]"
+              >
+                <QrCode className="w-4 h-4 mr-1" />
+                QR Code
+              </Button>
+
+              {ticket.wallet_pass_url && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onDownloadWalletPass(ticket)}
+                  className="flex-1 min-w-[80px]"
+                >
+                  <Wallet className="w-4 h-4 mr-1" />
+                  Wallet
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onDownloadCalendar(ticket)}
+                className="flex-1 min-w-[80px]"
+              >
+                <Download className="w-4 h-4 mr-1" />
+                Calendar
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onShare(ticket)}
+                className="flex-1 min-w-[80px]"
+              >
+                <Share className="w-4 h-4 mr-1" />
+                Share
+              </Button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

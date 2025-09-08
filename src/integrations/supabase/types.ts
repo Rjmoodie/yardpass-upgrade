@@ -691,6 +691,66 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_otp_codes: {
+        Row: {
+          contact: string
+          created_at: string
+          event_id: string | null
+          expires_at: string
+          id: string
+          method: string
+          otp_hash: string
+        }
+        Insert: {
+          contact: string
+          created_at?: string
+          event_id?: string | null
+          expires_at: string
+          id?: string
+          method: string
+          otp_hash: string
+        }
+        Update: {
+          contact?: string
+          created_at?: string
+          event_id?: string | null
+          expires_at?: string
+          id?: string
+          method?: string
+          otp_hash?: string
+        }
+        Relationships: []
+      }
+      guest_ticket_sessions: {
+        Row: {
+          contact: string
+          created_at: string
+          expires_at: string
+          id: string
+          method: string
+          scope: Json
+          token_hash: string
+        }
+        Insert: {
+          contact: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          method: string
+          scope: Json
+          token_hash: string
+        }
+        Update: {
+          contact?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          method?: string
+          scope?: Json
+          token_hash?: string
+        }
+        Relationships: []
+      }
       idempotency_keys: {
         Row: {
           created_at: string | null
@@ -1790,6 +1850,10 @@ export type Database = {
       can_current_user_post: {
         Args: { p_event_id: string }
         Returns: boolean
+      }
+      cleanup_guest_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       cleanup_old_keys: {
         Args: Record<PropertyKey, never>

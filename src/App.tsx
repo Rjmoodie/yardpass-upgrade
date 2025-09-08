@@ -29,7 +29,7 @@ const OrganizationDashboard = lazy(() => import('@/components/OrganizationDashbo
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
 const RefundPolicy = lazy(() => import('@/pages/RefundPolicy'));
-const TicketsPage = lazy(() => import('@/components/TicketsPage'));
+import { TicketsRoute } from '@/components/TicketsRoute';
 const TicketSuccessPage = lazy(() => import('@/components/TicketSuccessPage'));
 const PurchaseSuccessHandler = lazy(() =>
   import('@/components/PurchaseSuccessHandler').then((m) => ({ default: m.PurchaseSuccessHandler })),
@@ -353,25 +353,7 @@ function AppContent() {
                   </AuthGuard>
                 }
               />
-              <Route
-                path="/tickets"
-                element={
-                  <AuthGuard>
-                    <UserDependentRoute>
-                      {(user, profile) => (
-                        <TicketsPage
-                          user={{
-                            id: user.id,
-                            name: profile?.display_name || 'User',
-                            role: (profile?.role as UserRole) || 'attendee',
-                          }}
-                          onBack={() => navigate('/')}
-                        />
-                      )}
-                    </UserDependentRoute>
-                  </AuthGuard>
-                }
-              />
+              <Route path="/tickets" element={<TicketsRoute />} />
               <Route
                 path="/scanner"
                 element={
