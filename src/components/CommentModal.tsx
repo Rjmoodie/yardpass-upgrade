@@ -160,8 +160,8 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
         .select(`
           id, text, author_user_id, created_at, media_urls,
           like_count, comment_count,
-          user_profiles ( display_name, photo_url ),
-          ticket_tiers ( badge_label )
+          user_profiles!author_user_id ( display_name, photo_url ),
+          ticket_tiers!ticket_tier_id ( badge_label )
         `)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false })
@@ -177,7 +177,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
         .from('event_comments')
         .select(`
           id, text, author_user_id, created_at, post_id,
-          user_profiles ( display_name, photo_url )
+          user_profiles!author_user_id ( display_name, photo_url )
         `)
         .in('post_id', postIds.length ? postIds : ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: true });
