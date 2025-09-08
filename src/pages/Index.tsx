@@ -719,9 +719,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   );
 
   const handleComment = useCallback(() => {
+    if (!currentEvent) return;
     const heroPost = (currentEvent.posts || []).find(p => !!p.mediaUrl) || (currentEvent.posts || [])[0];
     openCommentsForPost(heroPost?.id);
-  }, [currentEvent.posts, openCommentsForPost]);
+  }, [currentEvent, openCommentsForPost]);
 
   const handleMore = useCallback(
     withAuth(() => toast({ title: 'More Options', description: 'Additional options coming soon…' }), 'Please sign in to access more options'),
@@ -755,7 +756,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   const commentCount =
     ((currentEvent as any)?.totalComments) ??
-    (currentEvent.posts?.reduce((s, p) => s + (p.commentCount ?? 0), 0) ?? 0);
+    (currentEvent?.posts?.reduce((s, p) => s + (p.commentCount ?? 0), 0) ?? 0);
 
   return (
     <div className="h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
@@ -864,8 +865,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       {/* Action rail */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 pointer-events-auto">
         <div className="flex flex-col items-center gap-4 text-white select-none">
-          <IconButton ariaLabel="Like" active={currentEvent.isLiked} count={currentEvent.likes} onClick={() => handleLike(currentEvent.id)}>
-            <Heart className={`w-6 h-6 ${currentEvent.isLiked ? 'fill-white text-white' : 'text-white'}`} />
+          <IconButton ariaLabel="Like" active={currentEvent?.isLiked} count={currentEvent?.likes} onClick={() => currentEvent && handleLike(currentEvent.id)}>
+            <Heart className={`w-6 h-6 ${currentEvent?.isLiked ? 'fill-white text-white' : 'text-white'}`} />
           </IconButton>
           <IconButton ariaLabel="Comments" count={commentCount} onClick={() => handleComment()}>
             <MessageCircle className="w-6 h-6 text-white" />
@@ -880,7 +881,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             <Share className="w-6 h-6 text-white" />
           </IconButton>
           <div className="pointer-events-auto">
-            <ReportButton targetType="event" targetId={currentEvent.id} />
+            <ReportButton targetType="event" targetId={currentEvent?.id || ''} />
           </div>
         </div>
       </div>
@@ -925,19 +926,19 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       <AttendeeListModal
         isOpen={showAttendeeModal}
         onClose={() => setShowAttendeeModal(false)}
-        eventTitle={currentEvent.title}
-        attendeeCount={currentEvent.attendeeCount}
+        eventTitle={currentEvent?.title || ''}
+        attendeeCount={currentEvent?.attendeeCount || 0}
         attendees={[]}
       />
 
       <EventTicketModal
         event={{
-          id: currentEvent.id,
-          title: currentEvent.title,
-          start_at: currentEvent.startAtISO,
-          venue: currentEvent.location,
-          address: currentEvent.location,
-          description: currentEvent.description,
+          id: currentEvent?.id || '',
+          title: currentEvent?.title || '',
+          start_at: currentEvent?.startAtISO || '',
+          venue: currentEvent?.location || '',
+          address: currentEvent?.location || '',
+          description: currentEvent?.description || '',
         }}
         isOpen={showTicketModal}
         onClose={() => setShowTicketModal(false)}
@@ -951,7 +952,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
         payload={
-          showShareModal
+          showShareModal && currentEvent
             ? {
                 title: currentEvent.title,
                 text: `Check out ${currentEvent.title} - ${currentEvent.description}`,
@@ -968,7 +969,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           setPostCreatorOpen(false);
           toast({ title: 'Success', description: 'Your post has been created!' });
         }}
-        preselectedEventId={currentEvent.id}
+        preselectedEventId={currentEvent?.id}
       />
 
       <CommentModal
@@ -977,8 +978,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           setShowCommentModal(false); 
           setCommentPostId(undefined); 
         }}
-        eventId={currentEvent.id}
-        eventTitle={currentEvent.title}
+        eventId={currentEvent?.id || ''}
+        eventTitle={currentEvent?.title || ''}
         postId={commentPostId}
       />
     </div>
