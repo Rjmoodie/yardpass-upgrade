@@ -7,9 +7,13 @@ type OnInsert = (payload: {
   text: string | null;
   media_urls: string[] | null;
   author_user_id: string;
+  author_display_name?: string;
+  author_is_organizer?: boolean;
+  author_id?: string;
   created_at: string;
   like_count: number;
   comment_count: number;
+  ticket_tier_id?: string;
 }) => void;
 
 export function useRealtimePosts(eventIds: string[], onInsert: OnInsert) {
@@ -42,9 +46,13 @@ export function useRealtimePosts(eventIds: string[], onInsert: OnInsert) {
             text: r.text ?? null,
             media_urls: r.media_urls ?? null,
             author_user_id: r.author_user_id,
+            author_display_name: r.author_display_name,
+            author_is_organizer: r.author_is_organizer,
+            author_id: r.author_user_id, // Use author_user_id as the profile ID
             created_at: r.created_at,
             like_count: r.like_count ?? 0,
             comment_count: r.comment_count ?? 0,
+            ticket_tier_id: r.ticket_tier_id,
           });
         }
       )

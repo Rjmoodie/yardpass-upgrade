@@ -224,7 +224,7 @@ function PostHero({
                   onClick={(e) => {
                     e.stopPropagation();
                     goToAuthor();
-                  })}
+                  }}
                   className="hover:text-primary transition-colors cursor-pointer underline"
                   title="View profile"
                 >
@@ -538,7 +538,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             authorName: p.author_display_name || 'Someone',
             authorBadge: p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE',
             isOrganizer: !!p.author_is_organizer,
-            authorId: p.author_id || undefined,            // <-- make profile link work
+            authorId: p.author_id || p.author_user_id,            // <-- make profile link work
             content: p.text || '',
             timestamp: new Date(p.created_at).toLocaleDateString(),
             likes: p.like_count || 0,

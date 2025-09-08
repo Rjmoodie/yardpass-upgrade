@@ -84,7 +84,7 @@ serve(async (req) => {
       likedMap = Object.fromEntries((likes || []).map(l => [l.post_id, true]));
     }
 
-    // Transform data to include liked_by_me
+    // Transform data to include liked_by_me and author profile fields
     const transformedPosts = page.map(post => ({
       ...post,
       liked_by_me: !!likedMap[post.id],
@@ -93,7 +93,11 @@ serve(async (req) => {
         post.author_is_organizer ? 'HOST' : null
       ),
       // Include computed fields for compatibility
-      is_organizer: post.author_is_organizer
+      is_organizer: post.author_is_organizer,
+      // Add author fields for profile routing
+      author_id: post.author_user_id,
+      author_display_name: post.author_name,
+      author_is_organizer: post.author_is_organizer
     }));
 
     console.log('🎯 Transformed posts with badges:', transformedPosts.map(p => ({ 
