@@ -29,10 +29,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [profile, setProfile] = React.useState<UserProfile | null>(null);
-  const [session, setSession] = React.useState<Session | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     const { data, error } = await supabase
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
