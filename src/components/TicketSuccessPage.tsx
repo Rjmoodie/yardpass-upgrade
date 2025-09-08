@@ -223,13 +223,10 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
       const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
 
       // Prefer native share with file if supported
-      // @ts-expect-error: canShare not in TypeScript lib yet for all targets
       if (typeof navigator !== 'undefined' && navigator.canShare && 'share' in navigator) {
         const file = new File([blob], fileName, { type: 'text/calendar' });
-        // @ts-expect-error
-        if (navigator.canShare({ files: [file] })) {
-          // @ts-expect-error
-          await navigator.share({ title: eventMeta.title, text: 'Add to calendar', files: [file] });
+        if ((navigator as any).canShare({ files: [file] })) {
+          await (navigator as any).share({ title: eventMeta.title, text: 'Add to calendar', files: [file] });
           toast({ title: 'Shared to Calendar apps' });
           return;
         }

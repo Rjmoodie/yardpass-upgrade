@@ -131,13 +131,10 @@ export function PayoutDashboard() {
       const filename = `payouts_${new Date().toISOString().slice(0, 10)}.csv`;
 
       // Prefer native share if possible
-      // @ts-expect-error: canShare not in all TS libs
       if (navigator?.canShare && 'share' in navigator) {
         const file = new File([blob], filename, { type: 'text/csv' });
-        // @ts-expect-error
-        if (navigator.canShare({ files: [file] })) {
-          // @ts-expect-error
-          await navigator.share({ title: 'Payout Export', files: [file] });
+        if ((navigator as any).canShare({ files: [file] })) {
+          await (navigator as any).share({ title: 'Payout Export', files: [file] });
           toast({ title: 'Export shared' });
           return;
         }
