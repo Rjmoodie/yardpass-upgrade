@@ -95,7 +95,7 @@ export function useAffinityFeed(limit = 8) {
 
         if (mounted) setData(mapped);
       } catch (err) {
-        console.error(err);
+        console.error('🚨 Affinity feed error:', err);
         if (mounted) setErr(err);
       } finally {
         if (mounted) setLoading(false);

@@ -512,6 +512,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const { data: feed, loading: feedLoading, error, setData: setFeed } = useAffinityFeed(8);
 
   useEffect(() => {
+    console.log('🎯 Index page feed effect triggered:', { feed, feedLoading, error });
+    
     // Convert FeedEventLite to Event format
     const mappedEvents: Event[] = (feed || []).map((ev) => ({
       id: ev.id,
@@ -536,6 +538,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       minPrice: ev.minPrice,
       remaining: ev.remaining
     }));
+    
+    console.log('🎯 Mapped events for display:', mappedEvents);
     
     setEvents(mappedEvents);
     setLoading(feedLoading);
