@@ -96,6 +96,13 @@ serve(async (req) => {
       is_organizer: post.author_is_organizer
     }));
 
+    console.log('🎯 Transformed posts with badges:', transformedPosts.map(p => ({ 
+      author: p.author_name, 
+      badge_label: p.badge_label, 
+      author_badge_label: p.author_badge_label,
+      is_organizer: p.is_organizer 
+    })));
+
     return createResponse({
       data: transformedPosts,
       next_cursor: nextCursor,

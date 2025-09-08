@@ -167,6 +167,12 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
         liked_by_me: r.liked_by_me ?? false, // Add this field for consistency
       }));
 
+      console.log('🎯 Mapped posts with badges:', mapped.map(p => ({ 
+        name: p.user_profiles.display_name, 
+        badge: p.badge_label, 
+        isOrganizer: p.is_organizer 
+      })));
+
       setPosts(mapped);
 
       // Prefetch user's likes
