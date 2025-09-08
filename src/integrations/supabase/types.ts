@@ -652,6 +652,30 @@ export type Database = {
           },
         ]
       }
+      follows: {
+        Row: {
+          created_at: string
+          follower_user_id: string
+          id: string
+          target_id: string
+          target_type: Database["public"]["Enums"]["follow_target"]
+        }
+        Insert: {
+          created_at?: string
+          follower_user_id: string
+          id?: string
+          target_id: string
+          target_type: Database["public"]["Enums"]["follow_target"]
+        }
+        Update: {
+          created_at?: string
+          follower_user_id?: string
+          id?: string
+          target_id?: string
+          target_type?: Database["public"]["Enums"]["follow_target"]
+        }
+        Relationships: []
+      }
       guest_codes: {
         Row: {
           code: string
@@ -971,6 +995,7 @@ export type Database = {
           created_by: string
           handle: string | null
           id: string
+          is_verified: boolean | null
           logo_url: string | null
           name: string
           verification_status:
@@ -982,6 +1007,7 @@ export type Database = {
           created_by: string
           handle?: string | null
           id?: string
+          is_verified?: boolean | null
           logo_url?: string | null
           name: string
           verification_status?:
@@ -993,6 +1019,7 @@ export type Database = {
           created_by?: string
           handle?: string | null
           id?: string
+          is_verified?: boolean | null
           logo_url?: string | null
           name?: string
           verification_status?:
@@ -1177,6 +1204,33 @@ export type Database = {
           },
         ]
       }
+      reports: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string | null
+          reported_by: string | null
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reported_by?: string | null
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reported_by?: string | null
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: []
+      }
       scan_logs: {
         Row: {
           created_at: string | null
@@ -1344,8 +1398,10 @@ export type Database = {
           quantity: number | null
           sales_end: string | null
           sales_start: string | null
+          sold_quantity: number | null
           sort_index: number | null
           status: string | null
+          total_quantity: number | null
         }
         Insert: {
           badge_label?: string | null
@@ -1359,8 +1415,10 @@ export type Database = {
           quantity?: number | null
           sales_end?: string | null
           sales_start?: string | null
+          sold_quantity?: number | null
           sort_index?: number | null
           status?: string | null
+          total_quantity?: number | null
         }
         Update: {
           badge_label?: string | null
@@ -1374,8 +1432,10 @@ export type Database = {
           quantity?: number | null
           sales_end?: string | null
           sales_start?: string | null
+          sold_quantity?: number | null
           sort_index?: number | null
           status?: string | null
+          total_quantity?: number | null
         }
         Relationships: [
           {
@@ -1896,6 +1956,13 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
         Returns: Database["public"]["CompositeTypes"]["home_feed_row"][]
       }
+      get_home_feed_ids: {
+        Args: { p_limit?: number; p_user_id: string }
+        Returns: {
+          event_id: string
+          score: number
+        }[]
+      }
       get_org_analytics: {
         Args: { p_org_id: string }
         Returns: {
@@ -2005,6 +2072,7 @@ export type Database = {
     }
     Enums: {
       event_visibility: "public" | "unlisted" | "private"
+      follow_target: "organizer" | "event"
       order_status: "pending" | "paid" | "refunded" | "canceled"
       org_role: "viewer" | "editor" | "admin" | "owner"
       owner_context: "individual" | "organization"
@@ -2154,6 +2222,7 @@ export const Constants = {
   public: {
     Enums: {
       event_visibility: ["public", "unlisted", "private"],
+      follow_target: ["organizer", "event"],
       order_status: ["pending", "paid", "refunded", "canceled"],
       org_role: ["viewer", "editor", "admin", "owner"],
       owner_context: ["individual", "organization"],

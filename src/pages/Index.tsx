@@ -26,8 +26,13 @@ import { useNavigate } from 'react-router-dom';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
-import { useHomeFeed } from '@/hooks/useHomeFeed';
+import { useAffinityFeed } from '@/hooks/useAffinityFeed';
 import { useRealtimePosts } from '@/hooks/useRealtimePosts';
+import { OrganizerChip } from '@/components/OrganizerChip';
+import { EventCTA } from '@/components/EventCTA';
+import { FollowButton } from '@/components/follow/FollowButton';
+import { AddToCalendar } from '@/components/AddToCalendar';
+import { ReportButton } from '@/components/ReportButton';
 
 // ---------- Types ----------
 interface EventPost {
@@ -74,6 +79,10 @@ interface Event {
   shares: number;
   isLiked?: boolean;
   posts?: EventPost[];
+  // New fields for enhanced features
+  organizerVerified?: boolean;
+  minPrice?: number | null;
+  remaining?: number | null;
 }
 
 interface IndexProps {
@@ -241,50 +250,41 @@ function PostHero({
               )}
             </div>
 
-            {/* Event CTA row */}
-            <div className="pointer-events-auto mt-3 flex items-center justify-between bg-black/40 backdrop-blur-sm rounded-lg p-3">
-              <div className="min-w-0">
-                <button
-                  className="text-left"
-                  onClick={() => navigate(routes.event(event.id))}
-                  title="Open event"
-                >
-                  <h3 className="font-semibold text-sm truncate">{event.title}</h3>
-                  <p className="text-xs text-gray-300 truncate">
-                    {event.dateLabel} • {event.location}
-                  </p>
-                </button>
-                {event.organizer && event.organizerId && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goToOrganizer();
-                    }}
-                    className="mt-1 text-[11px] text-gray-200 underline hover:text-white"
-                    title="View organizer"
-                  >
-                    by {event.organizer}
-                  </button>
+            {/* Event CTA row - Enhanced */}
+            <div className="pointer-events-auto mt-3">
+              <EventCTA
+                eventTitle={event.title}
+                startAtISO={event.startAtISO}
+                attendeeCount={event.attendeeCount}
+                minPrice={event.minPrice}
+                remaining={event.remaining}
+                onDetails={() => navigate(routes.event(event.id))}
+                onGetTickets={() => requireAuth(() => onOpenTickets(), 'Please sign in to purchase tickets')}
+              />
+              
+              {/* Organizer info and follow button */}
+              <div className="flex items-center justify-between mt-2">
+                {event.organizerId && event.organizer && (
+                  <OrganizerChip
+                    organizerId={event.organizerId}
+                    name={event.organizer}
+                    verified={!!event.organizerVerified}
+                  />
+                )}
+                {event.organizerId && (
+                  <FollowButton targetType="organizer" targetId={event.organizerId} />
                 )}
               </div>
-
-              <div className="flex gap-2 flex-shrink-0">
-                <Button
-                  size="sm"
-                  variant="glass"
-                  onClick={() => navigate(routes.event(event.id))}
-                  className="bg-white/20 text-white border-white/30 hover:bg-white/30 text-xs"
-                >
-                  Details
-                </Button>
-                <Button
-                  size="sm"
-                  variant="premium"
-                  onClick={() => requireAuth(() => onOpenTickets(), 'Please sign in to purchase tickets')}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs"
-                >
-                  Get Tickets
-                </Button>
+              
+              {/* Add to calendar */}
+              <div className="mt-2">
+                <AddToCalendar
+                  title={event.title}
+                  description={event.description}
+                  location={event.location}
+                  startISO={event.startAtISO}
+                  endISO={event.endAtISO}
+                />
               </div>
             </div>
           </div>
@@ -508,11 +508,36 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
 
-  // Feed via RPC
-  const { data: feed, loading: feedLoading, error, setData: setFeed } = useHomeFeed(3);
+  // Feed via RPC - upgraded to affinity feed
+  const { data: feed, loading: feedLoading, error, setData: setFeed } = useAffinityFeed(8);
 
   useEffect(() => {
-    setEvents(feed || []);
+    // Convert FeedEventLite to Event format
+    const mappedEvents: Event[] = (feed || []).map((ev) => ({
+      id: ev.id,
+      title: ev.title,
+      description: ev.description || '',
+      organizer: ev.organizerName || 'Unknown',
+      organizerId: ev.organizerId || '',
+      category: 'General', // Add category logic if needed
+      startAtISO: ev.startAtISO || new Date().toISOString(),
+      endAtISO: undefined,
+      dateLabel: ev.startAtISO ? new Date(ev.startAtISO).toLocaleDateString() : 'TBD',
+      location: ev.location || '',
+      coverImage: ev.coverImage || DEFAULT_EVENT_COVER,
+      ticketTiers: [], // Add ticket tier mapping if needed
+      attendeeCount: ev.attendeeCount || 0,
+      likes: 0,
+      shares: 0,
+      isLiked: false,
+      posts: [],
+      // Add new fields for EventCTA
+      organizerVerified: ev.organizerVerified,
+      minPrice: ev.minPrice,
+      remaining: ev.remaining
+    }));
+    
+    setEvents(mappedEvents);
     setLoading(feedLoading);
     if (error) {
       console.error('Home feed error:', error);
@@ -728,23 +753,30 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                         </button>
                       )}
                       <p className="text-sm text-gray-300 mb-3">{ev.description}</p>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="glass"
-                          onClick={() => navigate(routes.event(ev.id))}
-                          className="bg-white/20 text-white border-white/30 hover:bg-white/30"
-                        >
-                          Details
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="premium"
-                          onClick={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')}
-                          className="bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          Get Tickets
-                        </Button>
+                      
+                      {/* Enhanced CTA for fallback card */}
+                      <EventCTA
+                        eventTitle={ev.title}
+                        startAtISO={ev.startAtISO}
+                        attendeeCount={ev.attendeeCount}
+                        minPrice={ev.minPrice}
+                        remaining={ev.remaining}
+                        onDetails={() => navigate(routes.event(ev.id))}
+                        onGetTickets={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')}
+                      />
+                      
+                      {/* Organizer info and follow for fallback */}
+                      <div className="flex items-center justify-between mt-2">
+                        {ev.organizerId && ev.organizer && (
+                          <OrganizerChip
+                            organizerId={ev.organizerId}
+                            name={ev.organizer}
+                            verified={!!ev.organizerVerified}
+                          />
+                        )}
+                        {ev.organizerId && (
+                          <FollowButton targetType="organizer" targetId={ev.organizerId} />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -773,9 +805,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           <IconButton ariaLabel="Share" count={currentEvent.shares} onClick={() => setShowShareModal(true)}>
             <Share className="w-6 h-6 text-white" />
           </IconButton>
-          <IconButton ariaLabel="More" onClick={() => handleMore()}>
-            <MoreVertical className="w-6 h-6 text-white" />
-          </IconButton>
+          <div className="pointer-events-auto">
+            <ReportButton targetType="event" targetId={currentEvent.id} />
+          </div>
         </div>
       </div>
 
