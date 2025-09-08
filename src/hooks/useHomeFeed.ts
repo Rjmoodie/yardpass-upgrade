@@ -1,23 +1,25 @@
-import { useEffect, useState, useCallback } from 'react';
+// src/hooks/useHomeFeed.ts
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 
-type MediaKind = 'image' | 'video' | 'none';
-
+/** ---------- Types returned to the page (aligns with Index.tsx expectations) ---------- */
 type EventPost = {
   id: string;
-  authorId?: string; // NEW
   authorName: string;
   authorBadge: 'ORGANIZER' | 'ATTENDEE';
   isOrganizer?: boolean;
   content: string;
   timestamp: string;
   likes: number;
-  mediaType?: MediaKind;
+  mediaType?: 'image' | 'video' | 'none';
   mediaUrl?: string;
   thumbnailUrl?: string;
   commentCount?: number;
-  ticketBadge?: string; // optional if your RPC returns tier badge
+  /** extras needed for deep linking / clicks */
+  authorId?: string;
+  ticketTierId?: string;
+  ticketBadge?: string;
 };
 
 type TicketTier = {
@@ -47,21 +49,37 @@ export type HomeFeedEvent = {
   shares: number;
   isLiked?: boolean;
   posts?: EventPost[];
-  totalComments?: number;
 };
 
-function firstUrl(arr: string[] | null | undefined): string | undefined {
-  if (!arr?.length) return undefined;
-  return arr[0] || undefined;
+/** ---------- Helpers ---------- */
+function firstUrl(arr: unknown): string | undefined {
+  if (!Array.isArray(arr) || arr.length === 0) return undefined;
+  const v = arr[0];
+  return typeof v === 'string' && v.length > 0 ? v : undefined;
 }
-function inferMediaType(url?: string): MediaKind {
+
+function inferMediaType(url?: string): 'image' | 'video' | 'none' {
   if (!url) return 'none';
   const lower = url.toLowerCase();
-  if (lower.includes('mux') || lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.m3u8')) return 'video';
-  if (/\.(jpe?g|png|webp|gif)$/i.test(lower)) return 'image';
+  if (lower.includes('mux') || lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.m3u8')) {
+    return 'video';
+  }
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.webp') || lower.endsWith('.gif')) {
+    return 'image';
+  }
+  // default to image so we at least show something if it's a thumbnail-like URL
   return 'image';
 }
 
+function safeNumber(n: unknown, fallback = 0): number {
+  return typeof n === 'number' && Number.isFinite(n) ? n : fallback;
+}
+
+function safeString(s: unknown, fallback = ''): string {
+  return typeof s === 'string' ? s : fallback;
+}
+
+/** ---------- Hook ---------- */
 export function useHomeFeed(postLimit = 3) {
   const [data, setData] = useState<HomeFeedEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,72 +92,122 @@ export function useHomeFeed(postLimit = 3) {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth?.user?.id ?? null;
 
+      // RPC signature: get_home_feed(p_user_id, p_limit, p_offset)
       const { data: rows, error: rpcErr } = await supabase.rpc('get_home_feed', {
         p_user_id: userId,
         p_limit: 20,
         p_offset: 0,
       });
+
       if (rpcErr) throw rpcErr;
 
-      const events: HomeFeedEvent[] = (rows || []).map((row: any) => {
-        const startISO: string = row.start_at;
-        const dateLabel = new Date(startISO).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      const events: HomeFeedEvent[] = (rows ?? []).map((row: any) => {
+        // Accept either event_id or id from RPC
+        const eventId: string = (row?.event_id ?? row?.id) as string;
 
-        const tiersArray = Array.isArray(row.ticket_tiers) ? row.ticket_tiers : [];
+        const startISO: string = safeString(row?.start_at);
+        const endISO: string | undefined = (row?.end_at as string | null) ?? undefined;
+
+        const dateLabel: string =
+          startISO && !Number.isNaN(Date.parse(startISO))
+            ? new Date(startISO).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+            : '';
+
+        // Normalize organizer fields
+        const organizerDisplay: string =
+          safeString(row?.organizer_display_name) ||
+          safeString(row?.organizer) ||
+          'Organizer';
+
+        const organizerId: string = safeString(row?.created_by);
+
+        // Ticket tiers
+        const tiersArray: any[] = Array.isArray(row?.ticket_tiers) ? row.ticket_tiers : [];
         const tiers: TicketTier[] = tiersArray.map((t: any) => ({
-          id: t.id,
-          name: t.name,
-          price: (t.price_cents || 0) / 100,
-          badge: t.badge_label || '',
-          available: t.quantity ?? 0,
-          total: t.quantity ?? 0,
+          id: safeString(t?.id),
+          name: safeString(t?.name),
+          price: safeNumber(t?.price_cents, 0) / 100,
+          badge: safeString(t?.badge_label),
+          available: safeNumber(t?.quantity, 0),
+          total: safeNumber(t?.quantity, 0),
         }));
 
-        const postsArray = Array.isArray(row.recent_posts) ? row.recent_posts : [];
-        const posts: EventPost[] = postsArray.slice(0, postLimit).map((p: any) => {
-          const url = firstUrl(p.media_urls);
-          const mediaType = inferMediaType(url);
-          return {
-            id: p.id,
-            authorId: p.author?.user_id ?? p.author?.id, // NEW
-            authorName: p.author?.display_name || 'Anonymous',
-            authorBadge: p.author?.is_organizer ? 'ORGANIZER' : 'ATTENDEE',
-            isOrganizer: !!p.author?.is_organizer,
-            content: p.text || '',
-            timestamp: new Date(p.created_at).toLocaleDateString(),
-            likes: p.like_count || 0,
-            mediaType,
-            mediaUrl: url,
-            thumbnailUrl: mediaType === 'image' ? url : undefined,
-            commentCount: p.comment_count || 0,
-            ticketBadge: p.tier_badge ?? undefined, // if your RPC returns it
-          };
-        });
+        // Posts (accept recent_posts or posts)
+        const postsArray: any[] = Array.isArray(row?.recent_posts)
+          ? row.recent_posts
+          : Array.isArray(row?.posts)
+          ? row.posts
+          : [];
+
+        const posts: EventPost[] = postsArray
+          .slice(0, postLimit) // soft limit client-side
+          .map((p: any) => {
+            // Media
+            const rawUrl =
+              firstUrl(p?.media_urls) ??
+              safeString(p?.media_url) ??
+              safeString(p?.thumbnail_url) ??
+              undefined;
+            const mediaType = inferMediaType(rawUrl);
+
+            // Author
+            const authorObj = p?.author ?? p?.user ?? null;
+            const authorName =
+              safeString(authorObj?.display_name) ||
+              safeString(p?.authorName) ||
+              safeString(p?.author_name) ||
+              'Anonymous';
+            const authorId = safeString(authorObj?.id ?? p?.author_user_id);
+
+            // Badge / tier from RPC if present
+            const ticketBadge =
+              safeString(p?.tier_badge_label) ||
+              safeString(p?.ticket_badge_label) ||
+              '';
+            const ticketTierId = safeString(p?.ticket_tier_id);
+
+            return {
+              id: safeString(p?.id),
+              authorName,
+              authorBadge: authorObj?.is_organizer ? 'ORGANIZER' : 'ATTENDEE',
+              isOrganizer: !!authorObj?.is_organizer,
+              content: safeString(p?.text),
+              timestamp: new Date(safeString(p?.created_at) || Date.now()).toLocaleDateString(),
+              likes: safeNumber(p?.like_count),
+              mediaType,
+              mediaUrl: rawUrl,
+              thumbnailUrl: mediaType === 'image' ? rawUrl : undefined,
+              commentCount: safeNumber(p?.comment_count),
+              authorId: authorId || undefined,
+              ticketTierId: ticketTierId || undefined,
+              ticketBadge: ticketBadge || undefined,
+            };
+          });
 
         return {
-          id: row.event_id,
-          title: row.title,
-          description: row.description || '',
-          organizer: row.organizer_display_name || 'Organizer',
-          organizerId: row.created_by,
-          category: row.category || 'Event',
-          startAtISO: row.start_at,
-          endAtISO: row.end_at ?? undefined,
+          id: eventId,
+          title: safeString(row?.title),
+          description: safeString(row?.description),
+          organizer: organizerDisplay,
+          organizerId,
+          category: safeString(row?.category) || 'Event',
+          startAtISO: startISO,
+          endAtISO: endISO,
           dateLabel,
-          location: row.city || row.venue || 'TBA',
-          coverImage: row.cover_image_url || DEFAULT_EVENT_COVER,
+          location: safeString(row?.city) || safeString(row?.venue) || 'TBA',
+          coverImage: safeString(row?.cover_image_url) || DEFAULT_EVENT_COVER,
           ticketTiers: tiers,
-          attendeeCount: Math.floor(Math.random() * 1000) + 50,
+          attendeeCount: Math.floor(Math.random() * 1000) + 50, // TODO: replace with real count if available
           likes: Math.floor(Math.random() * 500) + 10,
           shares: Math.floor(Math.random() * 100) + 5,
           isLiked: false,
           posts,
-          totalComments: row.total_comments ?? undefined,
         };
       });
 
       setData(events);
     } catch (err) {
+      console.error('[useHomeFeed] error:', err);
       setError(err);
       setData([]);
     } finally {
@@ -147,7 +215,9 @@ export function useHomeFeed(postLimit = 3) {
     }
   }, [postLimit]);
 
-  useEffect(() => { fetchFeed(); }, [fetchFeed]);
+  useEffect(() => {
+    fetchFeed();
+  }, [fetchFeed]);
 
   return { data, loading, error, refresh: fetchFeed, setData };
 }
