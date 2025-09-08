@@ -566,7 +566,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         };
 
         const arr = grouped.get(p.event_id) ?? [];
-        if (arr.length < 3) arr.push(mapped); // top-3 per event
+        arr.push(mapped); // RPC already returns top 3 per event
         grouped.set(p.event_id, arr);
       }
 
