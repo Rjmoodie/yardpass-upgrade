@@ -221,12 +221,12 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
     );
   }
 
-  /** Fetch tickets & events user can post to */
+  /** Fetch tickets & events user can post to based on their current mode */
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        // Get events where user has tickets
+        // Always get events where user has tickets (attendee events)
         const { data: ticketsData, error: ticketsError } = await supabase
           .from('tickets')
           .select(`
@@ -241,56 +241,7 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
 
         if (ticketsError) throw ticketsError;
 
-        // Get events where user is organizer
-        const { data: organizerEvents, error: orgError } = await supabase
-          .from('events')
-          .select(`
-            id,
-            title,
-            cover_image_url,
-            start_at,
-            owner_context_type,
-            owner_context_id,
-            created_by
-          `)
-          .or(`created_by.eq.${user.id},owner_context_id.eq.${user.id}`);
-
-        if (orgError) throw orgError;
-
-        // Also get events where user is an organization member with posting rights
-        const { data: orgMemberships, error: memberError } = await supabase
-          .from('org_memberships')
-          .select('org_id')
-          .eq('user_id', user.id)
-          .in('role', ['owner', 'admin', 'editor']);
-
-        if (memberError) throw memberError;
-
-        const orgIds = (orgMemberships || []).map(m => m.org_id);
-        let orgEvents: any[] = [];
-        
-        if (orgIds.length > 0) {
-          const { data: orgEventsData, error: orgEventsError } = await supabase
-            .from('events')
-            .select(`
-              id,
-              title,
-              cover_image_url,
-              start_at
-            `)
-            .eq('owner_context_type', 'organization')
-            .in('owner_context_id', orgIds);
-
-          if (orgEventsError) throw orgEventsError;
-          orgEvents = orgEventsData || [];
-        }
-
-        // Combine direct organizer events and organization events
-        const allOrganizerEvents = [...(organizerEvents || []), ...orgEvents];
-
-        if (!mounted) return;
-
-        // Combine tickets and organizer events
+        // Format ticket events (attendee events)
         const ticketEvents = (ticketsData || []).map((t: any) => ({
           id: t.id,
           event_id: t.event_id,
@@ -300,17 +251,80 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
           isOrganizer: false
         }));
 
-        const organizerEventsFormatted = allOrganizerEvents.map((e: any) => ({
-          id: `organizer-${e.id}`,
-          event_id: e.id,
-          tier_id: null,
-          events: e,
-          ticket_tiers: { badge_label: 'ORGANIZER', name: 'Organizer' },
-          isOrganizer: true
-        }));
+        let organizerEventsFormatted: any[] = [];
+
+        // If user is in organizer mode, also get events where they are organizers
+        if (user.role === 'organizer') {
+          // Get events where user is organizer
+          const { data: organizerEvents, error: orgError } = await supabase
+            .from('events')
+            .select(`
+              id,
+              title,
+              cover_image_url,
+              start_at,
+              owner_context_type,
+              owner_context_id,
+              created_by
+            `)
+            .or(`created_by.eq.${user.id},owner_context_id.eq.${user.id}`);
+
+          if (orgError) throw orgError;
+
+          // Also get events where user is an organization member with posting rights
+          const { data: orgMemberships, error: memberError } = await supabase
+            .from('org_memberships')
+            .select('org_id')
+            .eq('user_id', user.id)
+            .in('role', ['owner', 'admin', 'editor']);
+
+          if (memberError) throw memberError;
+
+          const orgIds = (orgMemberships || []).map(m => m.org_id);
+          let orgEvents: any[] = [];
+          
+          if (orgIds.length > 0) {
+            const { data: orgEventsData, error: orgEventsError } = await supabase
+              .from('events')
+              .select(`
+                id,
+                title,
+                cover_image_url,
+                start_at
+              `)
+              .eq('owner_context_type', 'organization')
+              .in('owner_context_id', orgIds);
+
+            if (orgEventsError) throw orgEventsError;
+            orgEvents = orgEventsData || [];
+          }
+
+          // Combine direct organizer events and organization events
+          const allOrganizerEvents = [...(organizerEvents || []), ...orgEvents];
+
+          organizerEventsFormatted = allOrganizerEvents.map((e: any) => ({
+            id: `organizer-${e.id}`,
+            event_id: e.id,
+            tier_id: null,
+            events: e,
+            ticket_tiers: { badge_label: 'ORGANIZER', name: 'Organizer' },
+            isOrganizer: true
+          }));
+        }
+
+        if (!mounted) return;
+
+        // Combine events based on user role
+        let allEvents: any[];
+        if (user.role === 'organizer') {
+          // Organizer mode: show both attendee and organizer events
+          allEvents = [...organizerEventsFormatted, ...ticketEvents];
+        } else {
+          // Attendee mode: only show attendee events
+          allEvents = ticketEvents;
+        }
 
         // Dedupe by event_id, prioritizing organizer status
-        const allEvents = [...organizerEventsFormatted, ...ticketEvents];
         const eventMap = new Map();
         allEvents.forEach((item) => {
           const existing = eventMap.get(item.event_id);
@@ -342,7 +356,7 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
     return () => {
       mounted = false;
     };
-  }, [user.id, toast]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user.id, user.role, toast]); // Added user.role to dependencies
 
   /** Draft: load on mount, save on changes (debounced) */
   useEffect(() => {
@@ -827,6 +841,12 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
               <Tag className="w-4 h-4" />
               Tag Event *
             </CardTitle>
+            <div className="text-xs text-muted-foreground">
+              {user.role === 'organizer' 
+                ? "Post to events you're attending or organizing" 
+                : "Post to events you're attending"
+              }
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <Select
@@ -839,7 +859,11 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select an event to post to" />
+                <SelectValue placeholder={
+                  user.role === 'organizer' 
+                    ? "Select an event to post to" 
+                    : "Select an event you're attending"
+                } />
               </SelectTrigger>
               <SelectContent>
                 {userTickets.map((ticket) => (
