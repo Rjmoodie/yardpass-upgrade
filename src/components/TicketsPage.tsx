@@ -477,16 +477,19 @@ function TicketCard({
     }
   };
 
+  // Debug logging
+  console.log('🎫 TicketCard ticket structure:', JSON.stringify(ticket, null, 2));
+
   return (
     <Card className="overflow-hidden transition-all duration-200 hover:shadow-lg">
       <CardContent className="p-0">
         <div className="flex">
           {/* Event Image */}
           <div className="w-24 h-24 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0">
-            {ticket.coverImage ? (
+            {ticket?.coverImage ? (
               <img
                 src={ticket.coverImage}
-                alt={ticket.eventTitle}
+                alt={ticket.eventTitle || 'Event'}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -499,15 +502,15 @@ function TicketCard({
             <div className="flex justify-between items-start mb-2">
               <div>
                 <h3 className="font-semibold text-lg leading-tight mb-1">
-                  {ticket.eventTitle}
+                  {ticket?.eventTitle || 'Event Title'}
                 </h3>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                   <Calendar className="w-4 h-4" />
-                  <span>{ticket.eventDate}</span>
+                  <span>{ticket?.eventDate || 'Date'}</span>
                   <Clock className="w-4 h-4 ml-2" />
-                  <span>{ticket.eventTime}</span>
+                  <span>{ticket?.eventTime || 'Time'}</span>
                 </div>
-                {ticket.venue && (
+                {ticket?.venue && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4" />
                     <span className="truncate">{ticket.venue}</span>
@@ -515,9 +518,9 @@ function TicketCard({
                 )}
               </div>
               <div className="text-right">
-                {getStatusBadge(ticket.status, !!ticket.redeemed_at)}
+                {getStatusBadge(ticket?.status || 'issued', !!ticket?.redeemed_at)}
                 <div className="mt-1 text-sm font-medium">
-                  {formatUSD(ticket.price)}
+                  {formatUSD(ticket?.price || 0)}
                 </div>
               </div>
             </div>
@@ -526,9 +529,9 @@ function TicketCard({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
-                  {ticket.ticketType}
+                  {ticket?.ticketType || 'General'}
                 </Badge>
-                {ticket.badge && (
+                {ticket?.badge && (
                   <Badge variant="secondary" className="text-xs">
                     {ticket.badge}
                   </Badge>
@@ -541,7 +544,7 @@ function TicketCard({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => window.open(`/e/${ticket.eventId}`, '_blank')}
+                onClick={() => window.open(`/e/${ticket?.eventId || ''}`, '_blank')}
                 className="flex-1 min-w-[80px]"
               >
                 <ExternalLink className="w-4 h-4 mr-1" />
