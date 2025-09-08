@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Share2, Users } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
-import { parseEventIdentifier, getEventShareUrl } from '@/lib/eventRouting';
+import { parseEventIdentifier } from '@/lib/eventRouting';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { sharePayload } from '@/lib/share';
 import { buildShareUrl, getShareTitle, getShareText } from '@/lib/shareLinks';
+
+const MapCard = lazy(() => import('@/components/maps/MapCard'));
 
 type EventRow = {
   id: string;
@@ -29,6 +32,41 @@ type EventRow = {
 
 type Attendee = { id: string; display_name: string | null; avatar_url: string | null };
 
+// ----------------- small helpers -----------------
+const safeOrigin =
+  typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'https://yardpass.app'; // fallback to your prod origin if SSR or during build
+
+function stripHtml(input: string | null | undefined) {
+  if (!input) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = input;
+  return (tmp.textContent || tmp.innerText || '').trim();
+}
+
+function truncate(s: string, n = 160) {
+  if (!s) return '';
+  return s.length <= n ? s : `${s.slice(0, n - 1)}…`;
+}
+
+function buildMeta(ev: EventRow, whenText: string | null, canonical: string) {
+  const title = ev?.title ? `${ev.title}${ev.city ? ` — ${ev.city}` : ''}` : 'Event';
+  const loc = [ev.venue, ev.city, ev.country].filter(Boolean).join(', ');
+  const baseDesc =
+    stripHtml(ev.description) ||
+    [whenText || 'Date TBA', loc || 'Location TBA'].filter(Boolean).join(' • ');
+  const description = truncate(baseDesc, 180);
+
+  return {
+    title,
+    description,
+    canonical,
+    ogType: 'website' as const,
+    image: ev.cover_image_url || undefined,
+  };
+}
+
 export default function EventSlugPage() {
   const { identifier: rawParam } = useParams() as { identifier: string };
   const navigate = useNavigate();
@@ -37,6 +75,7 @@ export default function EventSlugPage() {
   const [event, setEvent] = useState<EventRow | null>(null);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [attendeeCount, setAttendeeCount] = useState<number>(0);
+  const [geoReady, setGeoReady] = useState(false); // for JSON-LD enhancement later if you add coords
 
   // Fetch event by slug OR id
   useEffect(() => {
@@ -45,7 +84,7 @@ export default function EventSlugPage() {
       setLoading(true);
 
       // 1) event by slug
-      let query = supabase
+      let { data, error } = await supabase
         .from('events')
         .select(`
           id, slug, title, description, category, start_at, end_at, venue, city, country, cover_image_url,
@@ -54,8 +93,6 @@ export default function EventSlugPage() {
         `)
         .eq('slug', identifier)
         .limit(1);
-
-      let { data, error } = await query;
 
       // if not found and looks like UUID, try by id
       if ((!data || !data.length) && /^[0-9a-f-]{36}$/i.test(identifier)) {
@@ -83,31 +120,35 @@ export default function EventSlugPage() {
 
       if (ev) {
         // attendees preview (first 12) + total count
-        const { data: atts } = await supabase
-          .from('tickets')
-          .select('owner_user_id, user_profiles!inner(id, display_name, avatar_url)')
-          .eq('event_id', ev.id)
-          .in('status', ['issued', 'transferred', 'redeemed'])
-          .limit(12);
-
-        const { count } = await supabase
-          .from('tickets')
-          .select('id', { count: 'exact', head: true })
-          .eq('event_id', ev.id)
-          .in('status', ['issued', 'transferred', 'redeemed']);
+        const [{ data: atts }, { count }] = await Promise.all([
+          supabase
+            .from('tickets')
+            .select('owner_user_id, user_profiles!inner(id, display_name, avatar_url)')
+            .eq('event_id', ev.id)
+            .in('status', ['issued', 'transferred', 'redeemed'])
+            .limit(12),
+          supabase
+            .from('tickets')
+            .select('id', { count: 'exact', head: true })
+            .eq('event_id', ev.id)
+            .in('status', ['issued', 'transferred', 'redeemed']),
+        ]);
 
         setAttendees(
           (atts || []).map((t: any) => ({
             id: t.user_profiles.id,
             display_name: t.user_profiles.display_name,
-            avatar_url: t.user_profiles.avatar_url
+            avatar_url: t.user_profiles.avatar_url,
           }))
         );
         setAttendeeCount(count || 0);
       }
       setLoading(false);
     })();
-    return () => { isMounted = false; };
+
+    return () => {
+      isMounted = false;
+    };
   }, [identifier]);
 
   const when = useMemo(() => {
@@ -115,10 +156,15 @@ export default function EventSlugPage() {
     try {
       const start = new Date(event.start_at);
       return start.toLocaleString(undefined, {
-        weekday: 'short', month: 'short', day: 'numeric',
-        hour: 'numeric', minute: '2-digit'
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
       });
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }, [event?.start_at]);
 
   if (loading) {
@@ -140,11 +186,72 @@ export default function EventSlugPage() {
   const shareUrl = buildShareUrl({
     type: 'event',
     slug: event.slug ?? event.id,
-    title: event.title || ''
+    title: event.title || '',
   });
+
+  const fullAddress =
+    [event.venue, event.city, event.country].filter(Boolean).join(', ') || undefined;
+
+  const meta = buildMeta(event, when, `${safeOrigin}${shareUrl}`);
+
+  // Build JSON-LD
+  const jsonLd: Record<string, any> = {
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: event.title,
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    startDate: event.start_at || undefined,
+    endDate: event.end_at || undefined,
+    image: event.cover_image_url ? [event.cover_image_url] : undefined,
+    description: stripHtml(event.description),
+    location: fullAddress
+      ? {
+          '@type': 'Place',
+          name: event.venue || undefined,
+          address: {
+            '@type': 'PostalAddress',
+            streetAddress: event.venue || undefined,
+            addressLocality: event.city || undefined,
+            addressCountry: event.country || undefined,
+          },
+        }
+      : undefined,
+    organizer: event.organizations
+      ? {
+          '@type': 'Organization',
+          name: event.organizations.name,
+          url: `${safeOrigin}/org/${event.organizations.handle ?? event.organizations.id}`,
+        }
+      : undefined,
+    url: `${safeOrigin}${shareUrl}`,
+  };
 
   return (
     <div className="pb-20">
+      {/* SEO + preload hero */}
+      <Helmet prioritizeSeoTags>
+        <title>{meta.title}</title>
+        {meta.canonical && <link rel="canonical" href={meta.canonical} />}
+        <meta name="description" content={meta.description} />
+        {/* Open Graph */}
+        <meta property="og:type" content={meta.ogType} />
+        <meta property="og:title" content={meta.title} />
+        <meta property="og:description" content={meta.description} />
+        <meta property="og:url" content={meta.canonical} />
+        {meta.image && <meta property="og:image" content={meta.image} />}
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={meta.title} />
+        <meta name="twitter:description" content={meta.description} />
+        {meta.image && <meta name="twitter:image" content={meta.image} />}
+        {/* Preload hero image for better LCP */}
+        {event.cover_image_url ? (
+          <link rel="preload" as="image" href={event.cover_image_url} />
+        ) : null}
+        {/* JSON-LD */}
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+      </Helmet>
+
       {/* COVER */}
       {event.cover_image_url ? (
         <div className="relative">
@@ -152,6 +259,7 @@ export default function EventSlugPage() {
             src={event.cover_image_url}
             alt={event.title}
             className="w-full h-64 object-cover"
+            fetchPriority="high"
           />
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
         </div>
@@ -164,7 +272,9 @@ export default function EventSlugPage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 {event.category ? (
-                  <Badge variant="secondary" className="mb-2">{event.category}</Badge>
+                  <Badge variant="secondary" className="mb-2">
+                    {event.category}
+                  </Badge>
                 ) : null}
                 <h1 className="text-xl md:text-2xl font-semibold leading-tight">
                   {event.title}
@@ -176,9 +286,7 @@ export default function EventSlugPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
-                    <span>
-                      {[event.venue, event.city, event.country].filter(Boolean).join(' • ') || 'Location TBA'}
-                    </span>
+                    <span>{fullAddress || 'Location TBA'}</span>
                   </div>
                 </div>
               </div>
@@ -188,15 +296,23 @@ export default function EventSlugPage() {
                 size="sm"
                 onClick={() => {
                   sharePayload({
-                    title: getShareTitle({ type: 'event', slug: event.slug ?? event.id, title: event.title }),
+                    title: getShareTitle({
+                      type: 'event',
+                      slug: event.slug ?? event.id,
+                      title: event.title,
+                    }),
                     text: getShareText({
                       type: 'event',
                       slug: event.slug ?? event.id,
                       title: event.title,
                       city: event.city ?? undefined,
-                      date: when ?? undefined
+                      date: when ?? undefined,
                     }),
-                    url: shareUrl
+                    url: buildShareUrl({
+                      type: 'event',
+                      slug: event.slug ?? event.id,
+                      title: event.title || '',
+                    }),
                   });
                 }}
               >
@@ -214,7 +330,10 @@ export default function EventSlugPage() {
                     src={a.avatar_url || ''}
                     alt={a.display_name || 'attendee'}
                     className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover bg-muted"
-                    onError={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')}
+                    onError={(e) =>
+                      ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')
+                    }
+                    loading="lazy"
                   />
                 ))}
               </div>
@@ -243,6 +362,23 @@ export default function EventSlugPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* MAP */}
+      {fullAddress ? (
+        <div className="max-w-3xl mx-auto px-4 mt-4">
+          <Suspense
+            fallback={<div className="h-64 w-full bg-muted animate-pulse rounded-lg" />}
+          >
+            <MapCard
+              address={fullAddress}
+              title={event.title}
+              height={280}
+              // themeOverride="dark" // optional: force a theme
+              // styleUrl="mapbox://styles/you/your-style" // optional: your custom style
+            />
+          </Suspense>
+        </div>
+      ) : null}
     </div>
   );
 }
