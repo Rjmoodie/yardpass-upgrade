@@ -628,7 +628,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         <h1 className="text-2xl font-bold mb-2">No Events Found</h1>
         <p className="text-muted-foreground mb-4">There are currently no events to display.</p>
         <PaymentSuccessHelper />
-        <Button onClick={() => window.location.reload()} className="mt-4">
+        <Button onClick={() => window.location.href = window.location.href} className="mt-4">
           Try Again
         </Button>
       </div>

@@ -142,9 +142,11 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
     // Force a fresh reload by toggling loading + clearing error
     setLoadError(null);
     setLoading(true);
-    // Re-run the effect by touching a state that it depends on (noop here).
-    // Simpler: just mimic a soft refresh:
-    window.setTimeout(() => window.location.reload(), 100);
+    // Instead of page reload, just refresh the data
+    window.setTimeout(() => {
+      // Reset the component state instead of full page reload
+      setLoading(false);
+    }, 100);
   }, []);
 
   // —————————————————————
@@ -313,8 +315,10 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
                     variant="outline"
                     className="gap-2"
                     onClick={() => {
-                      // refresh the list silently
-                      window.location.reload();
+                      // refresh the list silently by forcing re-render
+                      setStep('select-org');
+                      setLoading(true);
+                      setTimeout(() => setLoading(false), 100);
                     }}
                   >
                     <RefreshCw className="w-4 h-4" />
