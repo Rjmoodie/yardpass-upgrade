@@ -4,7 +4,7 @@ import { emailService, EmailOptions, PurchaseConfirmationData, TicketReminderDat
 import {
   renderPurchaseConfirmationHTML,
   renderTicketReminderHTML,
-} from '@/lib/emailTemplates';
+} from '@/components/EmailTemplates';
 
 type SendOpts = {
   /** If true in dev, open a window to preview the compiled HTML */
