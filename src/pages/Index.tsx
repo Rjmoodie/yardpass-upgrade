@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
-import { CommentModal } from '@/components/CommentModal';
+import CommentModal from '@/components/CommentModal';
 
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { toast } from '@/hooks/use-toast';
