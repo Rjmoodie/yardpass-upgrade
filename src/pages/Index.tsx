@@ -135,9 +135,17 @@ function PostHero({
   const anyRoutes = routes as any;
 
   const goToAuthor = () => {
-    if (post.authorId && typeof anyRoutes.userById === 'function') {
-      navigate(anyRoutes.userById(post.authorId));
+    console.log('🔗 Clicking on author:', { 
+      authorName: post.authorName, 
+      authorId: post.authorId,
+      route: post.authorId ? routes.user(post.authorId) : 'NO_ID'
+    });
+    
+    if (post.authorId) {
+      // Use the user ID directly with the user route
+      navigate(routes.user(post.authorId));
     } else {
+      console.warn('⚠️ No authorId found for post, using fallback');
       // Fallback: go to event posts tab
       navigate(`${routes.eventDetails(event.id)}?tab=posts`);
     }

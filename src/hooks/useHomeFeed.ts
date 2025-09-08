@@ -193,6 +193,13 @@ export function useHomeFeed(postLimit = 3) {
             };
           });
 
+        console.log('🎯 Processed posts for event:', safeString(row?.title), posts.map(p => ({
+          author: p.authorName,
+          authorId: p.authorId,
+          ticketBadge: p.ticketBadge,
+          isOrganizer: p.isOrganizer
+        })));
+
         return {
           id: eventId,
           title: safeString(row?.title),
