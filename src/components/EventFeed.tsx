@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { useVideoAnalytics } from '@/hooks/useVideoAnalytics';
+import { VerificationBadge } from '@/components/VerificationBadge';
 
 interface EventPostRow {
   id: string;
@@ -341,10 +342,14 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                   <div className="flex items-center gap-2">
                     <button
                       className="font-medium hover:underline text-left"
-                      onClick={() => capture('feed_click', { target: 'handle', event_id: post.event_id, post_id: post.id })}
+                      onClick={() => {
+                        capture('feed_click', { target: 'handle', event_id: post.event_id, post_id: post.id });
+                        navigate(routes.user(post.author_user_id));
+                      }}
                     >
                       {post.user_profiles.display_name}
                     </button>
+                    <VerificationBadge status="verified" size="sm" />
                     {post.is_organizer && (
                       <Crown className="w-4 h-4 text-primary" aria-label="Organizer" />
                     )}
@@ -400,6 +405,8 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                           className="w-full max-h-80 object-cover"
                           playsInline
                           preload="metadata"
+                          autoPlay
+                          muted
                           onLoadedData={(e) => {
                             const v = e.currentTarget;
                             const cleanup = trackVideoProgress(post.id, post.event_id, v);
@@ -411,6 +418,10 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                           src={url}
                           controls
                           className="w-full max-h-80 object-cover"
+                          playsInline
+                          preload="metadata"
+                          autoPlay
+                          muted
                           onLoadedData={(e) => {
                             const v = e.currentTarget;
                             const cleanup = trackVideoProgress(post.id, post.event_id, v);

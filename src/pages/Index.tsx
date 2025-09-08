@@ -20,6 +20,7 @@ import { useShare } from '@/hooks/useShare';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { useHomeFeed } from '@/hooks/useHomeFeed';
 import { useRealtimePosts } from '@/hooks/useRealtimePosts';
+import { VerificationBadge } from '@/components/VerificationBadge';
 
 // ---------- Types ----------
 interface EventPost {
@@ -94,18 +95,26 @@ function PostHero({
     if (!v || post?.mediaType !== 'video' || !post.mediaUrl) return;
 
     const url = post.mediaUrl;
-    const isHls = url.endsWith('.m3u8');
+    const isHls = url.endsWith('.m3u8') || url.includes('mux.com') || url.includes('m3u8');
 
-    const tryPlay = () => {
-      v.muted = true; // mobile autoplay requirement
-      v.play().catch(() => void 0);
+    const tryPlay = async () => {
+      try {
+        v.muted = true; // mobile autoplay requirement
+        v.currentTime = 0;
+        await v.play();
+      } catch (error) {
+        console.log('Video autoplay failed:', error);
+      }
     };
 
     // If hls.js is on the page, use it; otherwise rely on native support.
     const win: any = window as any;
     if (isHls && win.Hls?.isSupported?.()) {
       const Hls = win.Hls;
-      const hls = new Hls();
+      const hls = new Hls({
+        enableWorker: false,
+        lowLatencyMode: true,
+      });
       hls.loadSource(url);
       hls.attachMedia(v);
       hls.on(Hls.Events.MANIFEST_PARSED, tryPlay);
@@ -113,11 +122,12 @@ function PostHero({
     }
     if (isHls && v.canPlayType('application/vnd.apple.mpegurl')) {
       v.src = url;
-      tryPlay();
-      return;
+      v.addEventListener('loadedmetadata', tryPlay);
+      return () => v.removeEventListener('loadedmetadata', tryPlay);
     }
     v.src = url;
-    tryPlay();
+    v.addEventListener('loadedmetadata', tryPlay);
+    return () => v.removeEventListener('loadedmetadata', tryPlay);
   }, [post?.id, post?.mediaUrl, post?.mediaType]);
 
   if (!post) return null;
@@ -195,6 +205,7 @@ function PostHero({
               >
                 {post.authorName}
               </button>
+              <VerificationBadge status="verified" size="sm" />
               {post.isOrganizer ? (
                 <Badge variant="secondary" className="text-[10px] tracking-wide">
                   <Crown className="w-3 h-3 mr-1" />
