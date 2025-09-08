@@ -203,14 +203,9 @@ export function OrganizationDashboard({
         org_id: organizationId,
       };
 
+      // For now, just show a toast since org_invitations table doesn't exist
+      // This could be enhanced later with a proper invitations system
       let inserted = false;
-      try {
-        const { error } = await supabase.from('org_invitations').insert(payload);
-        if (error) throw error;
-        inserted = true;
-      } catch {
-        // If org_invitations table isn't available, we just proceed with the UX toast
-      }
 
       // Optional: native share
       const maybeUrl = orgPublicUrl || window.location.origin;

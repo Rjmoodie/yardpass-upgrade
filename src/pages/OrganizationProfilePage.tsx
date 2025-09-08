@@ -66,7 +66,7 @@ export default function OrganizationProfilePage() {
         ? `@${organization.handle} on YardPass — view events and details.`
         : `View ${organization.name} on YardPass.`,
       url: shareUrl,
-      type: 'profile',
+      type: 'website',
       image: organization.logo_url || undefined,
     });
   }, [organization, shareUrl]);
@@ -131,22 +131,15 @@ export default function OrganizationProfilePage() {
           import('@/lib/share'),
           import('@/lib/shareLinks'),
         ]);
+        const shareTarget = {
+          type: 'org' as const,
+          slug: organization?.handle || organization?.id || '',
+          name: organization?.name || '',
+        };
         await sharePayload({
-          title: getShareTitle({
-            type: 'org',
-            handle: organization?.handle || organization?.id || '',
-            name: organization?.name || '',
-          }),
-          text: getShareText({
-            type: 'org',
-            handle: organization?.handle || organization?.id || '',
-            name: organization?.name || '',
-          }),
-          url: buildShareUrl({
-            type: 'org',
-            handle: organization?.handle || organization?.id || '',
-            name: organization?.name || '',
-          }),
+          title: getShareTitle(shareTarget),
+          text: getShareText(shareTarget),
+          url: buildShareUrl(shareTarget),
         });
         toast({ title: 'Link shared' });
         return;
