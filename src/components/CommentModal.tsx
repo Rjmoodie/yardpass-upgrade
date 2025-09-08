@@ -34,7 +34,6 @@ interface PostRow {
   media_urls: string[] | null;
   like_count: number | null;
   comment_count: number | null;
-  author_is_organizer: boolean | null;
   user_profiles: ProfileLite;
   ticket_tiers: { badge_label: string | null } | null;
 }
@@ -137,7 +136,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
         }
       );
 
-    channel.subscribe().catch(() => {});
+    channel.subscribe();
 
     return () => {
       try {
@@ -160,9 +159,9 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
         .from('event_posts')
         .select(`
           id, text, author_user_id, created_at, media_urls,
-          like_count, comment_count, author_is_organizer,
-          user_profiles!event_posts_author_user_id_fkey ( display_name, photo_url ),
-          ticket_tiers!event_posts_ticket_tier_id_fkey ( badge_label )
+          like_count, comment_count,
+          user_profiles ( display_name, photo_url ),
+          ticket_tiers ( badge_label )
         `)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false })
@@ -178,7 +177,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
         .from('event_comments')
         .select(`
           id, text, author_user_id, created_at, post_id,
-          user_profiles!event_comments_author_user_id_fkey ( display_name, photo_url )
+          user_profiles ( display_name, photo_url )
         `)
         .in('post_id', postIds.length ? postIds : ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: true });
@@ -226,7 +225,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
         }
       }
 
-      const commentsByPost = (commentRows || []).reduce((acc: Record<string, Comment[]>, c: CommentRow) => {
+      const commentsByPost = (commentRows || []).reduce((acc: Record<string, Comment[]>, c: any) => {
         const list = acc[c.post_id] || [];
         list.push({
           id: c.id,
@@ -251,7 +250,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
         author_name: p.user_profiles?.display_name ?? 'Anonymous',
         author_avatar: p.user_profiles?.photo_url ?? null,
         author_badge: p.ticket_tiers?.badge_label ?? null,
-        author_is_organizer: !!p.author_is_organizer,
+        author_is_organizer: false, // Remove role check for now
         comments: commentsByPost[p.id] ?? [],
         likes_count: p.like_count ?? 0,
         is_liked: likedPostSet.has(p.id),
@@ -660,13 +659,11 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
                                 </button>
                               )}
 
-                              {/* Report comment (uses your existing component) */}
+                              {/* Report comment */}
                               <div className="inline-flex">
                                 <ReportButton
-                                  size="xs"
                                   targetType="comment"
                                   targetId={comment.id}
-                                  icon={<Flag className="w-3 h-3" />}
                                 />
                               </div>
                             </div>

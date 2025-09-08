@@ -7,7 +7,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
-export function ReportButton({ targetType, targetId }: { targetType: 'post'|'event'|'user'; targetId: string }) {
+export function ReportButton({ targetType, targetId }: { targetType: 'post'|'event'|'user'|'comment'; targetId: string }) {
   const { requireAuth } = useAuthGuard();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
