@@ -1,13 +1,19 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Camera, Keyboard, Ban, QrCode, Volume2, VolumeX } from 'lucide-react';
+import {
+  ArrowLeft, Camera, Keyboard, Ban, QrCode, Volume2, VolumeX,
+  Pause, Play, Flashlight, RefreshCw, Smartphone, Upload, Download
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+/* ------------------------------------------------------------------ */
+/* Types                                                              */
+/* ------------------------------------------------------------------ */
 interface ScannerPageProps {
   eventId: string;
   onBack: () => void;
@@ -44,6 +50,16 @@ const RESULT_LABEL: Record<ScanOutcome, string> = {
   invalid: 'Invalid',
 };
 
+// Shape Detection API TS shim
+declare global {
+  interface Window {
+    BarcodeDetector?: any;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Component                                                          */
+/* ------------------------------------------------------------------ */
 export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -57,26 +73,69 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
   const [event, setEvent] = useState<any>(null);
   const [lastResult, setLastResult] = useState<ScanResult | null>(null);
   const [soundOn, setSoundOn] = useState(true);
+  const [paused, setPaused] = useState(false);
 
+  // Camera / device controls
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+
+  // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const cooldownRef = useRef<number>(0);
-  const lastTokensRef = useRef<Set<string>>(new Set()); // prevent dup in rapid sequence
   const rafRef = useRef<number | null>(null);
+  const cooldownRef = useRef<number>(0);
+  const lastTokensRef = useRef<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard wedge aggregation (hardware scanners)
+  const wedgeBufferRef = useRef<string>('');
+  const wedgeTimerRef = useRef<number | null>(null);
+
+  // Persist history per-event
+  const historyKey = useMemo(() => `scannerHistory:${eventId}`, [eventId]);
+
+  /* ------------------------------ Effects ------------------------------ */
+  useEffect(() => {
+    // Load persisted history
+    try {
+      const raw = localStorage.getItem(historyKey);
+      if (raw) setScanHistory(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, [historyKey]);
+
+  useEffect(() => {
+    localStorage.setItem(historyKey, JSON.stringify(scanHistory.slice(0, 200)));
+  }, [scanHistory, historyKey]);
 
   useEffect(() => {
     checkAuthorization();
     fetchEvent();
-    return () => stopCamera();
+    enumerateVideoDevices();
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('keydown', handleWedgeKeydown, true);
+    window.addEventListener('paste', handlePaste, true);
+    return () => {
+      stopCamera();
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('keydown', handleWedgeKeydown, true);
+      window.removeEventListener('paste', handlePaste, true);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
-  const checkAuthorization = async () => {
-    if (!user) {
-      setAuthorized(false);
-      return;
+  useEffect(() => {
+    // When switching devices while camera mode is active
+    if (scanMode === 'camera') {
+      startCamera();
     }
-    if (!eventId?.trim()) {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDeviceId]);
+
+  /* --------------------------- Authorization --------------------------- */
+  const checkAuthorization = async () => {
+    if (!user || !eventId?.trim()) {
       setAuthorized(false);
       return;
     }
@@ -108,13 +167,40 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     }
   };
 
+  /* ------------------------------ Utilities ---------------------------- */
+  const beep = (ok: boolean) => {
+    if (!soundOn) return;
+    try {
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = ok ? 880 : 220;
+      g.gain.value = 0.03;
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start();
+      setTimeout(() => {
+        o.stop();
+        ctx.close();
+      }, 120);
+    } catch { /* ignore */ }
+  };
+
+  const vibrate = (ok: boolean) => {
+    try {
+      (navigator as any).vibrate?.(ok ? 20 : [10, 60, 10]);
+    } catch { /* ignore */ }
+  };
+
+  /* ------------------------------ Scanning ----------------------------- */
   const validateTicket = useCallback(async (qrToken: string) => {
-    // Cooldown to avoid spamming
     const now = Date.now();
-    if (now - cooldownRef.current < 1200) return; // 1.2s guard
+    if (now - cooldownRef.current < 800) return; // throttle
     cooldownRef.current = now;
 
-    // Prevent same token burst
     if (lastTokensRef.current.has(qrToken)) return;
     lastTokensRef.current.add(qrToken);
     setTimeout(() => lastTokensRef.current.delete(qrToken), 10_000);
@@ -127,32 +213,15 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       if (error) throw error;
 
       const result: ScanResult = {
-        id: Date.now().toString(),
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         ...data,
         timestamp: new Date().toISOString()
       };
 
-      setScanHistory(prev => [result, ...prev.slice(0, 49)]);
+      setScanHistory(prev => [result, ...prev].slice(0, 200));
       setLastResult(result);
-
-      // Feedback
-      if ('vibrate' in navigator) {
-        try { navigator.vibrate?.(result.success ? 20 : [10, 60, 10]); } catch {}
-      }
-      if (soundOn) {
-        // tiny beep using WebAudio
-        try {
-          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const o = ctx.createOscillator();
-          const g = ctx.createGain();
-          o.type = 'sine';
-          o.frequency.value = result.success ? 880 : 220;
-          o.connect(g); g.connect(ctx.destination);
-          g.gain.value = 0.03;
-          o.start();
-          setTimeout(() => { o.stop(); ctx.close(); }, 120);
-        } catch {}
-      }
+      vibrate(result.success);
+      beep(result.success);
 
       toast({
         title: result.success ? '✅ Valid Ticket' : `❗ ${RESULT_LABEL[result.result] || 'Invalid'}`,
@@ -169,7 +238,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     } finally {
       setScanning(false);
     }
-  }, [eventId, soundOn, toast]);
+  }, [eventId, toast, soundOn]);
 
   const handleManualScan = async () => {
     const token = manualCode.trim();
@@ -181,42 +250,87 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     setManualCode('');
   };
 
+  /* --------------------------- Camera Handling ------------------------- */
+  const enumerateVideoDevices = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(t => t.stop());
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      const videoDevs = devs.filter(d => d.kind === 'videoinput');
+      setDevices(videoDevs);
+      // Prefer back camera
+      const back = videoDevs.find(d => /back|rear|environment/i.test(d.label));
+      setSelectedDeviceId(prev => prev ?? back?.deviceId ?? videoDevs[0]?.deviceId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const applyTorch = async (on: boolean) => {
+    try {
+      const track = streamRef.current?.getVideoTracks?.()[0];
+      // @ts-ignore
+      const capabilities = track?.getCapabilities?.();
+      // @ts-ignore
+      const supportsTorch = capabilities?.torch;
+      setTorchSupported(!!supportsTorch);
+      if (!supportsTorch) return;
+      await track?.applyConstraints?.({ advanced: [{ torch: on }] as any });
+      setTorchOn(on);
+    } catch {
+      setTorchOn(false);
+    }
+  };
+
   const startCamera = useCallback(async () => {
     try {
       stopCamera();
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      const constraints: MediaStreamConstraints = {
+        video: {
+          deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
+          facingMode: selectedDeviceId ? undefined : { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        streamRef.current = stream;
         await videoRef.current.play();
-
-        // Try BarcodeDetector first
-        // @ts-ignore
-        const Supported = ('BarcodeDetector' in window);
-        if (Supported) {
-          // @ts-ignore
-          const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-          const detect = async () => {
-            if (!videoRef.current) return;
-            try {
-              // @ts-ignore
-              const codes = await detector.detect(videoRef.current);
-              const qr = codes?.[0]?.rawValue;
-              if (qr) await validateTicket(qr);
-            } catch {}
-            rafRef.current = requestAnimationFrame(detect);
-          };
-          rafRef.current = requestAnimationFrame(detect);
-        } else {
-          // Fallback: manual only (no jsQR dependency here)
-          toast({
-            title: 'Camera scanning not supported',
-            description: 'Your browser lacks QR detection. Use Manual mode.',
-          });
-          setScanMode('manual');
-          stopCamera();
-        }
       }
+
+      // Torch support probe
+      await applyTorch(torchOn);
+
+      // Use BarcodeDetector if available
+      const Supported = 'BarcodeDetector' in window;
+      if (!Supported) {
+        toast({
+          title: 'Camera scanning not supported',
+          description: 'Your browser lacks QR detection. Use Manual mode or Upload Image.',
+        });
+        setScanMode('manual');
+        stopCamera();
+        return;
+      }
+
+      const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+
+      const detect = async () => {
+        if (!videoRef.current || paused) {
+          rafRef.current = requestAnimationFrame(detect);
+          return;
+        }
+        try {
+          const codes = await detector.detect(videoRef.current);
+          const qr = codes?.[0]?.rawValue;
+          if (qr) await validateTicket(qr);
+        } catch { /* ignore frame */ }
+        rafRef.current = requestAnimationFrame(detect);
+      };
+      rafRef.current = requestAnimationFrame(detect);
     } catch (err) {
       console.error('Camera error:', err);
       toast({
@@ -226,7 +340,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       });
       setScanMode('manual');
     }
-  }, [toast, validateTicket]);
+  }, [toast, validateTicket, selectedDeviceId, paused, torchOn]);
 
   const stopCamera = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -235,6 +349,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
+    setTorchOn(false);
   }, []);
 
   const handleModeChange = (mode: 'manual' | 'camera') => {
@@ -243,16 +358,120 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     else stopCamera();
   };
 
-  useEffect(() => {
-    return () => stopCamera();
-  }, [stopCamera]);
+  const handleVisibility = () => {
+    if (document.hidden) {
+      stopCamera();
+    } else if (scanMode === 'camera') {
+      startCamera();
+    }
+  };
 
-  // Stats
+  /* ----------------------- Keyboard Wedge Capture ---------------------- */
+  const handleWedgeKeydown = (e: KeyboardEvent) => {
+    // Ignore if focused in an input/textarea/select
+    const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+    if (['input', 'textarea', 'select'].includes(tag)) return;
+
+    const isChar = e.key.length === 1;
+    if (!isChar && e.key !== 'Enter') return;
+
+    // Start/continue capture window (typical scanners type fast)
+    if (wedgeTimerRef.current) window.clearTimeout(wedgeTimerRef.current);
+    if (isChar) wedgeBufferRef.current += e.key;
+
+    if (e.key === 'Enter') {
+      const token = wedgeBufferRef.current.trim();
+      wedgeBufferRef.current = '';
+      if (token) validateTicket(token);
+      return;
+    }
+
+    wedgeTimerRef.current = window.setTimeout(() => {
+      const token = wedgeBufferRef.current.trim();
+      wedgeBufferRef.current = '';
+      if (token) validateTicket(token);
+    }, 80); // small gap = end of scan
+  };
+
+  /* ------------------------------ Paste Hook --------------------------- */
+  const handlePaste = (e: ClipboardEvent) => {
+    const text = e.clipboardData?.getData('text')?.trim();
+    if (text && scanMode === 'manual' && !document.activeElement) {
+      setManualCode(text);
+    }
+  };
+
+  /* --------------------------- Upload from Image ----------------------- */
+  const scanFromImage = async (file: File) => {
+    try {
+      if (!('BarcodeDetector' in window)) {
+        toast({
+          title: 'QR detection unavailable',
+          description: 'Try manual entry or camera mode in a supported browser.',
+          variant: 'destructive'
+        });
+        return;
+      }
+      const bmp = await createImageBitmap(file);
+      const canvas = document.createElement('canvas');
+      canvas.width = bmp.width;
+      canvas.height = bmp.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas not supported');
+      ctx.drawImage(bmp, 0, 0);
+      const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+      const codes = await detector.detect(canvas as any);
+      const qr = codes?.[0]?.rawValue;
+      if (!qr) {
+        toast({ title: 'No QR found', description: 'Try a clearer image.', variant: 'destructive' });
+        return;
+      }
+      await validateTicket(qr);
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'Scan failed', description: 'Could not read QR from image.', variant: 'destructive' });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  /* ------------------------------ Derived ------------------------------ */
   const totalScans = scanHistory.length;
   const validScans = scanHistory.filter(s => s.result === 'valid').length;
   const duplicateScans = scanHistory.filter(s => s.result === 'duplicate').length;
   const invalidScans = totalScans - validScans - duplicateScans;
 
+  const exportCSV = () => {
+    try {
+      const rows = [
+        ['Time', 'Result', 'Success', 'Attendee', 'Tier', 'TicketID', 'Message'],
+        ...scanHistory.map(s => [
+          new Date(s.timestamp).toISOString(),
+          RESULT_LABEL[s.result] || s.result,
+          s.success ? 'yes' : 'no',
+          s.ticket?.attendee_name || '',
+          s.ticket?.tier_name || '',
+          s.ticket?.id || '',
+          s.message.replace(/\n/g, ' ')
+        ])
+      ];
+      const csv = rows.map(r => r.map(f => `"${String(f).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scan_history_${eventId}_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: 'Export downloaded' });
+    } catch {
+      toast({ title: 'Export failed', description: 'Could not generate CSV file.', variant: 'destructive' });
+    }
+  };
+
+  /* ------------------------------- UI --------------------------------- */
   if (authorized === null) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -293,7 +512,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       {/* Header */}
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-4">
               <Button onClick={onBack} variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -308,26 +527,57 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
               <Badge variant="secondary">
                 {userRole === 'owner' ? 'Organizer' : userRole === 'editor' ? 'Editor' : 'Scanner'}
               </Badge>
+
+              {/* Sound toggle */}
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label={soundOn ? 'Disable sound' : 'Enable sound'}
                 onClick={() => setSoundOn(s => !s)}
+                title={soundOn ? 'Sound on' : 'Sound off'}
               >
                 {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
               </Button>
+
+              {/* Pause/Resume */}
+              {scanMode === 'camera' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setPaused(p => !p)}
+                  title={paused ? 'Resume scanning' : 'Pause scanning'}
+                  aria-pressed={paused}
+                >
+                  {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                </Button>
+              )}
+
+              {/* Torch */}
+              {scanMode === 'camera' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => applyTorch(!torchOn)}
+                  disabled={!torchSupported}
+                  title={!torchSupported ? 'Torch not supported' : torchOn ? 'Turn torch off' : 'Turn torch on'}
+                >
+                  <Flashlight className={`h-4 w-4 ${torchOn ? 'text-yellow-500' : ''}`} />
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {/* Last result banner */}
+        {/* Last Result Banner */}
         {lastResult && (
           <div
             className={`rounded-lg p-3 text-sm ${
               lastResult.success ? 'bg-green-500/15 text-green-200 border border-green-500/30' : 'bg-red-500/15 text-red-200 border border-red-500/30'
             }`}
+            role="status"
+            aria-live="polite"
           >
             <div className="flex justify-between items-center">
               <div>
@@ -346,7 +596,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
         {/* Scanner Interface */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <CardTitle className="flex items-center gap-2">
                 <QrCode className="h-5 w-5" />
                 Scan Tickets
@@ -371,9 +621,9 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {scanMode === 'manual' ? (
-              <div className="space-y-4">
+              <>
                 <div className="flex gap-2">
                   <Input
                     placeholder="Enter ticket code manually"
@@ -386,9 +636,60 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                     {scanning ? 'Validating…' : 'Scan'}
                   </Button>
                 </div>
-              </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Smartphone className="w-3.5 h-3.5" />
+                  Tip: paste a code (Ctrl/Cmd+V) or use a hardware scanner—input is captured automatically.
+                </div>
+              </>
             ) : (
-              <div className="space-y-4">
+              <>
+                {/* Device picker */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    className="border rounded-md px-2 py-1 text-sm"
+                    value={selectedDeviceId}
+                    onChange={(e) => setSelectedDeviceId(e.target.value)}
+                  >
+                    {devices.map(d => (
+                      <option key={d.deviceId} value={d.deviceId}>
+                        {d.label || `Camera ${d.deviceId.slice(-4)}`}
+                      </option>
+                    ))}
+                  </select>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => enumerateVideoDevices().then(() => startCamera())}
+                    title="Refresh cameras"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh Cameras
+                  </Button>
+
+                  <div className="ml-auto flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) scanFromImage(f);
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Scan a QR from an image"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      From Image
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="bg-black rounded-lg aspect-video flex items-center justify-center overflow-hidden">
                   <video
                     ref={videoRef}
@@ -396,12 +697,13 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                     playsInline
                     className="w-full h-full object-cover rounded-lg"
                     muted
+                    aria-label="Camera preview"
                   />
                 </div>
                 <p className="text-sm text-muted-foreground text-center">
                   Point your camera at a QR code to scan.
                 </p>
-              </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -417,7 +719,26 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
         {/* Scan History */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Scans</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Recent Scans</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setScanHistory([]);
+                    localStorage.removeItem(historyKey);
+                  }}
+                  title="Clear history"
+                >
+                  Clear
+                </Button>
+                <Button size="sm" variant="outline" onClick={exportCSV} title="Export CSV">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {scanHistory.length === 0 ? (
@@ -427,7 +748,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
               </div>
             ) : (
               <div className="space-y-3">
-                {scanHistory.slice(0, 10).map((scan) => (
+                {scanHistory.slice(0, 12).map((scan) => (
                   <div key={scan.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
                       <div
@@ -440,13 +761,14 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                             ? 'bg-orange-600'
                             : 'bg-destructive'
                         }`}
+                        aria-hidden
                       />
                       <div>
                         <p className="font-medium">{scan.ticket ? scan.ticket.attendee_name : 'Unknown'}</p>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>{scan.message}</span>
+                          <span className="truncate max-w-[52vw] md:max-w-[38rem]">{scan.message}</span>
                           {scan.ticket?.badge_label && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs whitespace-nowrap">
                               {scan.ticket.badge_label}
                             </Badge>
                           )}
