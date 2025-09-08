@@ -23,7 +23,6 @@ interface CommentRow {
   author_user_id: string;
   created_at: string;
   post_id: string;
-  user_profiles: ProfileLite;
 }
 
 interface PostRow {
@@ -34,8 +33,7 @@ interface PostRow {
   media_urls: string[] | null;
   like_count: number | null;
   comment_count: number | null;
-  user_profiles: ProfileLite;
-  ticket_tiers: { badge_label: string | null } | null;
+  ticket_tier_id: string | null;
 }
 
 interface Comment {
@@ -123,8 +121,8 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
                         text: c.text,
                         author_user_id: c.author_user_id,
                         created_at: c.created_at,
-                        author_name: (c.user_profiles as any)?.display_name ?? 'Anonymous',
-                        author_avatar: (c.user_profiles as any)?.photo_url ?? null,
+                        author_name: 'Anonymous', // We don't have profile data in realtime events
+                        author_avatar: null,
                         likes_count: 0,
                         is_liked: false,
                       },
@@ -154,14 +152,12 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
       const from = reset ? 0 : pageFrom;
       const to = from + PAGE_SIZE - 1;
 
-      // 1) Posts (with counters + role)
+      // 1) Posts (with counters + role) - remove problematic embedded query
       const { data: postRows, error: postsError } = await supabase
         .from('event_posts')
         .select(`
           id, text, author_user_id, created_at, media_urls,
-          like_count, comment_count,
-          user_profiles!author_user_id ( display_name, photo_url ),
-          ticket_tiers!ticket_tier_id ( badge_label )
+          like_count, comment_count, ticket_tier_id
         `)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false })
@@ -172,17 +168,59 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
       const postIds = (postRows || []).map((p) => p.id);
       setHasMore((postRows || []).length === PAGE_SIZE);
 
+      // Fetch user profiles for post authors
+      const authorIds = [...new Set((postRows || []).map(p => p.author_user_id))];
+      let authorProfiles: Record<string, any> = {};
+      if (authorIds.length) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, display_name, photo_url')
+          .in('user_id', authorIds);
+        
+        authorProfiles = (profiles || []).reduce((acc: Record<string, any>, p: any) => {
+          acc[p.user_id] = p;
+          return acc;
+        }, {});
+      }
+
+      // Fetch ticket tiers for badges
+      const tierIds = [...new Set((postRows || []).map(p => p.ticket_tier_id).filter(Boolean))];
+      let ticketTiers: Record<string, any> = {};
+      if (tierIds.length) {
+        const { data: tiers } = await supabase
+          .from('ticket_tiers')
+          .select('id, badge_label')
+          .in('id', tierIds);
+        
+        ticketTiers = (tiers || []).reduce((acc: Record<string, any>, t: any) => {
+          acc[t.id] = t;
+          return acc;
+        }, {});
+      }
+
       // 2) Comments for these posts
       const { data: commentRows, error: commentsError } = await supabase
         .from('event_comments')
-        .select(`
-          id, text, author_user_id, created_at, post_id,
-          user_profiles!author_user_id ( display_name, photo_url )
-        `)
+        .select('id, text, author_user_id, created_at, post_id')
         .in('post_id', postIds.length ? postIds : ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: true });
 
       if (commentsError) throw commentsError;
+
+      // Fetch user profiles for comment authors
+      const commentAuthorIds = [...new Set((commentRows || []).map(c => c.author_user_id))];
+      let commentAuthorProfiles: Record<string, any> = {};
+      if (commentAuthorIds.length) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, display_name, photo_url')
+          .in('user_id', commentAuthorIds);
+        
+        commentAuthorProfiles = (profiles || []).reduce((acc: Record<string, any>, p: any) => {
+          acc[p.user_id] = p;
+          return acc;
+        }, {});
+      }
 
       const commentIds = (commentRows || []).map((c) => c.id);
 
@@ -232,8 +270,8 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
           text: c.text,
           author_user_id: c.author_user_id,
           created_at: c.created_at,
-          author_name: c.user_profiles?.display_name ?? 'Anonymous',
-          author_avatar: c.user_profiles?.photo_url ?? null,
+          author_name: commentAuthorProfiles[c.author_user_id]?.display_name ?? 'Anonymous',
+          author_avatar: commentAuthorProfiles[c.author_user_id]?.photo_url ?? null,
           likes_count: commentLikeCounts[c.id] ?? 0,
           is_liked: likedCommentSet.has(c.id),
         });
@@ -241,15 +279,15 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
         return acc;
       }, {});
 
-      const mapped = (postRows as unknown as PostRow[]).map<Post>((p) => ({
+      const mapped = (postRows as any[]).map<Post>((p) => ({
         id: p.id,
         text: p.text,
         author_user_id: p.author_user_id,
         created_at: p.created_at,
         media_urls: p.media_urls ?? [],
-        author_name: p.user_profiles?.display_name ?? 'Anonymous',
-        author_avatar: p.user_profiles?.photo_url ?? null,
-        author_badge: p.ticket_tiers?.badge_label ?? null,
+        author_name: authorProfiles[p.author_user_id]?.display_name ?? 'Anonymous',
+        author_avatar: authorProfiles[p.author_user_id]?.photo_url ?? null,
+        author_badge: p.ticket_tier_id ? (ticketTiers[p.ticket_tier_id]?.badge_label ?? null) : null,
         author_is_organizer: false, // Remove role check for now
         comments: commentsByPost[p.id] ?? [],
         likes_count: p.like_count ?? 0,
