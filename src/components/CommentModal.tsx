@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, Send, X, Play, ExternalLink, Trash2, Flag } from 'lucide-react';
+import { Heart, Send, X, Play, ExternalLink, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -13,9 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { routes } from '@/lib/routes';
 import { ReportButton } from '@/components/ReportButton';
 
-const PAGE_SIZE = 10; // posts per page
-
-type ProfileLite = { display_name: string | null; photo_url: string | null } | null;
+const PAGE_SIZE = 10; // used only in multi-post mode
 
 interface CommentRow {
   id: string;
@@ -43,7 +41,6 @@ interface Comment {
   created_at: string;
   author_name?: string | null;
   author_avatar?: string | null;
-  /** NEW: reactions */
   likes_count: number;
   is_liked: boolean;
 }
@@ -57,7 +54,7 @@ interface Post {
   author_name?: string | null;
   author_avatar?: string | null;
   author_badge?: string | null;     // ticket tier label
-  author_is_organizer?: boolean;    // organizer role flag
+  author_is_organizer?: boolean;    // reserved for future
   comments: Comment[];
   likes_count: number;
   is_liked: boolean;
@@ -68,10 +65,11 @@ interface CommentModalProps {
   onClose: () => void;
   eventId: string;
   eventTitle: string;
-  postId?: string; // Optional: auto-select a specific post
+  /** If provided, the modal locks to this single post (no other posts, no pagination) */
+  postId?: string;
 }
 
-export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: CommentModalProps) {
+export default function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: CommentModalProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -81,35 +79,45 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // pagination
+  // pagination (used only in multi-post mode)
   const [pageFrom, setPageFrom] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
-  // derived: ids of loaded posts for realtime filtering
+  const singleMode = !!postId; // 🔒 when true, we only show the clicked post
+
+  // derived: ids of loaded posts for realtime filter
   const postIdSet = useMemo(() => new Set(posts.map((p) => p.id)), [posts]);
 
-  // reset + first page when modal opens or event changes
+  // reset & load when opened
   useEffect(() => {
     if (!isOpen) return;
     setPosts([]);
     setPageFrom(0);
-    setHasMore(true);
-    setSelectedPostId(postId || null); // Auto-select the specified post
+    setHasMore(!singleMode);
+    setSelectedPostId(postId ?? null);
     void loadPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId, postId]);
 
-  // Realtime: new comments (live append when they target a loaded post)
+  // --- Realtime: only subscribe to the target (post or event) ---
   useEffect(() => {
     if (!isOpen) return;
+
+    // Prefer row-level filter when we know the postId to reduce traffic
     const channel = supabase
-      .channel(`comments-${eventId}`)
+      .channel(`comments-${singleMode ? postId : eventId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'event_comments' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'event_comments',
+          ...(singleMode ? { filter: `post_id=eq.${postId}` } : {}), // ✅ only this post in single-mode
+        },
         (payload) => {
           const c = payload.new as CommentRow;
-          if (!c?.post_id || !postIdSet.has(c.post_id)) return;
+          // If multi-mode: ensure we only append to posts we loaded
+          if (!singleMode && !postIdSet.has(c.post_id)) return;
 
           setPosts((prev) =>
             prev.map((p) =>
@@ -123,7 +131,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
                         text: c.text,
                         author_user_id: c.author_user_id,
                         created_at: c.created_at,
-                        author_name: 'Anonymous', // We don't have profile data in realtime events
+                        author_name: 'Anonymous', // could be enriched via another fetch if needed
                         author_avatar: null,
                         likes_count: 0,
                         is_liked: false,
@@ -137,15 +145,14 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
       );
 
     channel.subscribe();
-
     return () => {
       try {
         supabase.removeChannel(channel);
       } catch {}
     };
-  }, [isOpen, eventId, postIdSet]);
+  }, [isOpen, eventId, singleMode, postId, postIdSet]);
 
-  // Load a page of posts + their comments + current-user likes + comment like counts
+  // Load posts (+ comments, likes, profiles). In singleMode we load only that one post.
   const loadPage = async (reset = false) => {
     if (loading) return;
     setLoading(true);
@@ -154,53 +161,54 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
       const from = reset ? 0 : pageFrom;
       const to = from + PAGE_SIZE - 1;
 
-      // 1) Posts (with counters + role) - remove problematic embedded query
-      const { data: postRows, error: postsError } = await supabase
+      // 1) Fetch posts
+      let postQuery = supabase
         .from('event_posts')
-        .select(`
-          id, text, author_user_id, created_at, media_urls,
-          like_count, comment_count, ticket_tier_id
-        `)
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        .select('id, text, author_user_id, created_at, media_urls, like_count, comment_count, ticket_tier_id');
 
+      if (singleMode && postId) {
+        postQuery = postQuery.eq('id', postId); // ✅ just this post
+      } else {
+        postQuery = postQuery.eq('event_id', eventId).order('created_at', { ascending: false }).range(from, to);
+      }
+
+      const { data: postRows, error: postsError } = await postQuery;
       if (postsError) throw postsError;
 
       const postIds = (postRows || []).map((p) => p.id);
-      setHasMore((postRows || []).length === PAGE_SIZE);
+      setHasMore(!singleMode && (postRows || []).length === PAGE_SIZE); // no load more in single-mode
 
-      // Fetch user profiles for post authors
-      const authorIds = [...new Set((postRows || []).map(p => p.author_user_id))];
+      // 2) Profiles for post authors
+      const authorIds = [...new Set((postRows || []).map((p) => p.author_user_id))];
       let authorProfiles: Record<string, any> = {};
       if (authorIds.length) {
         const { data: profiles } = await supabase
           .from('user_profiles')
           .select('user_id, display_name, photo_url')
           .in('user_id', authorIds);
-        
+
         authorProfiles = (profiles || []).reduce((acc: Record<string, any>, p: any) => {
           acc[p.user_id] = p;
           return acc;
         }, {});
       }
 
-      // Fetch ticket tiers for badges
-      const tierIds = [...new Set((postRows || []).map(p => p.ticket_tier_id).filter(Boolean))];
+      // 3) Ticket tiers for badges
+      const tierIds = [...new Set((postRows || []).map((p) => p.ticket_tier_id).filter(Boolean))];
       let ticketTiers: Record<string, any> = {};
       if (tierIds.length) {
         const { data: tiers } = await supabase
           .from('ticket_tiers')
           .select('id, badge_label')
-          .in('id', tierIds);
-        
+          .in('id', tierIds as string[]);
+
         ticketTiers = (tiers || []).reduce((acc: Record<string, any>, t: any) => {
           acc[t.id] = t;
           return acc;
         }, {});
       }
 
-      // 2) Comments for these posts
+      // 4) Comments for these posts
       const { data: commentRows, error: commentsError } = await supabase
         .from('event_comments')
         .select('id, text, author_user_id, created_at, post_id')
@@ -209,15 +217,15 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
 
       if (commentsError) throw commentsError;
 
-      // Fetch user profiles for comment authors
-      const commentAuthorIds = [...new Set((commentRows || []).map(c => c.author_user_id))];
+      // 5) Profiles for comment authors
+      const commentAuthorIds = [...new Set((commentRows || []).map((c) => c.author_user_id))];
       let commentAuthorProfiles: Record<string, any> = {};
       if (commentAuthorIds.length) {
         const { data: profiles } = await supabase
           .from('user_profiles')
           .select('user_id, display_name, photo_url')
           .in('user_id', commentAuthorIds);
-        
+
         commentAuthorProfiles = (profiles || []).reduce((acc: Record<string, any>, p: any) => {
           acc[p.user_id] = p;
           return acc;
@@ -226,7 +234,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
 
       const commentIds = (commentRows || []).map((c) => c.id);
 
-      // 3) Current user's likes for these posts
+      // 6) Current user's likes for these posts
       let likedPostSet = new Set<string>();
       if (user && postIds.length) {
         const { data: myLikes } = await supabase
@@ -239,12 +247,10 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
         likedPostSet = new Set((myLikes ?? []).map((r: any) => r.post_id));
       }
 
-      // 4) Comment like counts & which comments the user liked
+      // 7) Comment like counts & which comments the user liked
       let commentLikeCounts: Record<string, number> = {};
       let likedCommentSet = new Set<string>();
-
       if (commentIds.length) {
-        // Count all reactions for these comments
         const { data: allCR } = await supabase
           .from('event_comment_reactions')
           .select('comment_id')
@@ -281,7 +287,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
         return acc;
       }, {});
 
-      const mapped = (postRows as any[]).map<Post>((p) => ({
+      const mapped = (postRows as PostRow[]).map<Post>((p) => ({
         id: p.id,
         text: p.text,
         author_user_id: p.author_user_id,
@@ -290,19 +296,18 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
         author_name: authorProfiles[p.author_user_id]?.display_name ?? 'Anonymous',
         author_avatar: authorProfiles[p.author_user_id]?.photo_url ?? null,
         author_badge: p.ticket_tier_id ? (ticketTiers[p.ticket_tier_id]?.badge_label ?? null) : null,
-        author_is_organizer: false, // Remove role check for now
+        author_is_organizer: false,
         comments: commentsByPost[p.id] ?? [],
         likes_count: p.like_count ?? 0,
         is_liked: likedPostSet.has(p.id),
       }));
 
       setPosts((prev) => (reset ? mapped : [...prev, ...mapped]));
-      setPageFrom(to + 1);
-      
-      // Auto-select first post if none selected and posts are available
-      if (reset && mapped.length > 0 && !selectedPostId && !postId) {
-        setSelectedPostId(mapped[0].id);
-      }
+
+      // In single-mode, auto-select this post for the composer
+      if (singleMode && mapped[0]?.id) setSelectedPostId(mapped[0].id);
+
+      if (!singleMode) setPageFrom(to + 1);
     } catch (e: any) {
       console.error(e);
       toast({ title: 'Error', description: e.message || 'Failed to load comments', variant: 'destructive' });
@@ -325,10 +330,9 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
         author_user_id: user.id,
         text: newComment.trim(),
       });
-
       if (error) throw error;
 
-      // optimistic UI (append to selected post)
+      // optimistic append
       setPosts((prev) =>
         prev.map((p) =>
           p.id === selectedPostId
@@ -353,7 +357,9 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
       );
 
       setNewComment('');
-      setSelectedPostId(null);
+      // In single-mode, keep the selection on this post
+      if (!singleMode) setSelectedPostId(null);
+
       toast({ title: 'Success', description: 'Comment added successfully!' });
     } catch (e: any) {
       console.error(e);
@@ -363,21 +369,21 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
     }
   };
 
-  const toggleLikePost = async (postId: string) => {
+  const toggleLikePost = async (postIdToToggle: string) => {
     if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to like posts', variant: 'destructive' });
       return;
     }
 
-    const post = posts.find((p) => p.id === postId);
+    const post = posts.find((p) => p.id === postIdToToggle);
     if (!post) return;
 
     const optimistic = !post.is_liked;
 
-    // optimistic UI
+    // optimistic
     setPosts((prev) =>
       prev.map((p) =>
-        p.id === postId ? { ...p, is_liked: optimistic, likes_count: p.likes_count + (optimistic ? 1 : -1) } : p
+        p.id === postIdToToggle ? { ...p, is_liked: optimistic, likes_count: p.likes_count + (optimistic ? 1 : -1) } : p
       )
     );
 
@@ -385,59 +391,55 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
       if (optimistic) {
         const { error } = await supabase
           .from('event_reactions')
-          .insert({ post_id: postId, user_id: user.id, kind: 'like' });
-        if (error && (error as any).code !== '23505') throw error; // ignore duplicate like
+          .insert({ post_id: postIdToToggle, user_id: user.id, kind: 'like' });
+        if (error && (error as any).code !== '23505') throw error;
       } else {
         const { error } = await supabase
           .from('event_reactions')
           .delete()
-          .eq('post_id', postId)
+          .eq('post_id', postIdToToggle)
           .eq('user_id', user.id)
           .eq('kind', 'like');
         if (error) throw error;
       }
     } catch (e) {
       console.error(e);
-      // rollback UI
+      // rollback
       setPosts((prev) =>
         prev.map((p) =>
-          p.id === postId ? { ...p, is_liked: !optimistic, likes_count: p.likes_count + (optimistic ? -1 : 1) } : p
+          p.id === postIdToToggle
+            ? { ...p, is_liked: !optimistic, likes_count: p.likes_count + (optimistic ? -1 : 1) }
+            : p
         )
       );
       toast({ title: 'Error', description: 'Failed to update like', variant: 'destructive' });
     }
   };
 
-  /** NEW: like/unlike a comment */
   const toggleLikeComment = async (commentId: string) => {
     if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to like comments', variant: 'destructive' });
       return;
     }
 
-    // find comment + current state
+    // find current state
     let isLiked = false;
-    setPosts((prev) => {
-      for (const p of prev) {
-        const c = p.comments.find((cc) => cc.id === commentId);
-        if (c) {
-          isLiked = c.is_liked;
-          break;
-        }
+    for (const p of posts) {
+      const c = p.comments.find((cc) => cc.id === commentId);
+      if (c) {
+        isLiked = c.is_liked;
+        break;
       }
-      return prev;
-    });
+    }
 
     const optimistic = !isLiked;
 
-    // optimistic UI
+    // optimistic
     setPosts((prev) =>
       prev.map((p) => ({
         ...p,
         comments: p.comments.map((c) =>
-          c.id === commentId
-            ? { ...c, is_liked: optimistic, likes_count: Math.max(0, c.likes_count + (optimistic ? 1 : -1)) }
-            : c
+          c.id === commentId ? { ...c, is_liked: optimistic, likes_count: Math.max(0, c.likes_count + (optimistic ? 1 : -1)) } : c
         ),
       }))
     );
@@ -447,7 +449,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
         const { error } = await supabase
           .from('event_comment_reactions')
           .insert({ comment_id: commentId, user_id: user.id, kind: 'like' });
-        if (error && (error as any).code !== '23505') throw error; // ignore duplicate like
+        if (error && (error as any).code !== '23505') throw error;
       } else {
         const { error } = await supabase
           .from('event_comment_reactions')
@@ -474,25 +476,21 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
     }
   };
 
-  /** NEW: delete own comment */
   const deleteComment = async (commentId: string) => {
     if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to delete comments', variant: 'destructive' });
       return;
     }
 
-    // find comment author
+    // find author
     let authorId: string | null = null;
-    setPosts((prev) => {
-      for (const p of prev) {
-        const c = p.comments.find((cc) => cc.id === commentId);
-        if (c) {
-          authorId = c.author_user_id;
-          break;
-        }
+    for (const p of posts) {
+      const c = p.comments.find((cc) => cc.id === commentId);
+      if (c) {
+        authorId = c.author_user_id;
+        break;
       }
-      return prev;
-    });
+    }
 
     if (!authorId) return;
     if (authorId !== user.id) {
@@ -500,16 +498,11 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
       return;
     }
 
-    // optimistic remove
     const snapshot = posts;
     setPosts((prev) => prev.map((p) => ({ ...p, comments: p.comments.filter((c) => c.id !== commentId) })));
 
     try {
-      const { error } = await supabase
-        .from('event_comments')
-        .delete()
-        .eq('id', commentId)
-        .eq('author_user_id', user.id); // safety
+      const { error } = await supabase.from('event_comments').delete().eq('id', commentId).eq('author_user_id', user.id);
       if (error) throw error;
 
       toast({ title: 'Deleted', description: 'Your comment was removed.' });
@@ -520,8 +513,8 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
     }
   };
 
-  const openPost = (postId: string) => {
-    navigate(`${routes.event(eventId)}?tab=posts&post=${postId}`);
+  const openPost = (id: string) => {
+    navigate(`${routes.event(eventId)}?tab=posts&post=${id}`);
   };
 
   const mediaThumb = (urls: string[]) => {
@@ -551,7 +544,9 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-background border shadow-xl">
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">Posts & Comments • {eventTitle}</DialogTitle>
+            <DialogTitle className="text-lg font-semibold">
+              {singleMode ? 'Comments' : 'Posts & Comments'} • {eventTitle}
+            </DialogTitle>
             <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0" aria-label="Close">
               <X className="h-4 w-4" />
             </Button>
@@ -565,12 +560,16 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
             </div>
           ) : posts.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
-              <p className="font-medium">No posts yet for this event.</p>
-              <p className="text-sm">Be the first to share something!</p>
+              <p className="font-medium">No {singleMode ? 'comments' : 'posts'} yet.</p>
             </div>
           ) : (
             posts.map((post) => (
-              <div key={post.id} className={`border rounded-lg p-4 space-y-3 transition-all ${selectedPostId === post.id ? 'ring-2 ring-primary border-primary' : ''}`}>
+              <div
+                key={post.id}
+                className={`border rounded-lg p-4 space-y-3 transition-all ${
+                  selectedPostId === post.id ? 'ring-2 ring-primary border-primary' : ''
+                }`}
+              >
                 {/* Post Header */}
                 <div className="flex items-start gap-3">
                   <button
@@ -624,7 +623,9 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <button
                     onClick={() => toggleLikePost(post.id)}
-                    className={`flex items-center gap-1 hover:text-foreground transition-colors ${post.is_liked ? 'text-red-500' : ''}`}
+                    className={`flex items-center gap-1 hover:text-foreground transition-colors ${
+                      post.is_liked ? 'text-red-500' : ''
+                    }`}
                     aria-label={post.is_liked ? 'Unlike post' : 'Like post'}
                     title={post.is_liked ? 'Unlike' : 'Like'}
                   >
@@ -680,11 +681,13 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
                             </div>
                             <p className="text-xs leading-relaxed">{comment.text}</p>
 
-                            {/* NEW: comment action row */}
+                            {/* Comment action row */}
                             <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
                               <button
                                 onClick={() => toggleLikeComment(comment.id)}
-                                className={`flex items-center gap-1 hover:text-foreground transition-colors ${comment.is_liked ? 'text-red-500' : ''}`}
+                                className={`flex items-center gap-1 hover:text-foreground transition-colors ${
+                                  comment.is_liked ? 'text-red-500' : ''
+                                }`}
                                 aria-label={comment.is_liked ? 'Unlike comment' : 'Like comment'}
                                 title={comment.is_liked ? 'Unlike' : 'Like'}
                               >
@@ -704,12 +707,8 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
                                 </button>
                               )}
 
-                              {/* Report comment */}
                               <div className="inline-flex">
-                                <ReportButton
-                                  targetType="comment"
-                                  targetId={comment.id}
-                                />
+                                <ReportButton targetType="comment" targetId={comment.id} />
                               </div>
                             </div>
                           </div>
@@ -727,21 +726,21 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
                         {user.user_metadata?.display_name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
-                     <div className="flex-1 space-y-2">
-                       {selectedPostId === post.id && (
-                         <div className="text-xs text-primary font-medium flex items-center gap-1">
-                           <div className="w-2 h-2 bg-primary rounded-full"></div>
-                           Commenting on this post
-                         </div>
-                       )}
-                       <Textarea
-                         placeholder={selectedPostId === post.id ? "Write your comment..." : "Click to comment on this post..."}
-                         value={selectedPostId === post.id ? newComment : ''}
-                         onChange={(e) => {
-                           setNewComment(e.target.value);
-                           setSelectedPostId(post.id);
-                         }}
-                         onFocus={() => setSelectedPostId(post.id)}
+                    <div className="flex-1 space-y-2">
+                      {selectedPostId === post.id && (
+                        <div className="text-xs text-primary font-medium flex items-center gap-1">
+                          <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          Commenting on this post
+                        </div>
+                      )}
+                      <Textarea
+                        placeholder="Write your comment…"
+                        value={selectedPostId === post.id ? newComment : ''}
+                        onChange={(e) => {
+                          setNewComment(e.target.value);
+                          setSelectedPostId(post.id); // lock to this post
+                        }}
+                        onFocus={() => setSelectedPostId(post.id)} // lock to this post
                         className="min-h-[60px] resize-none text-sm"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
@@ -758,7 +757,7 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
                           className="h-8 px-3"
                         >
                           <Send className="w-3 h-3 mr-1" />
-                          {submitting && selectedPostId === post.id ? 'Posting...' : 'Post'}
+                          {submitting && selectedPostId === post.id ? 'Posting…' : 'Post'}
                         </Button>
                       </div>
                     </div>
@@ -768,8 +767,8 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
             ))
           )}
 
-          {/* Pagination control */}
-          {hasMore && (
+          {/* Load more (hidden in single-post mode) */}
+          {!singleMode && hasMore && (
             <div className="flex justify-center py-3">
               <Button variant="outline" onClick={() => loadPage(false)} disabled={loading}>
                 {loading ? 'Loading…' : 'Load more'}
@@ -787,5 +786,3 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle, postId }: C
     </Dialog>
   );
 }
-
-export default CommentModal;
