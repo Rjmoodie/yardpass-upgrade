@@ -81,54 +81,108 @@ function PostHero({
   post,
   event,
   onOpenTickets,
+  isActive
 }: {
   post: EventPost | undefined;
   event: Event;
   onOpenTickets: () => void;
+  isActive: boolean;
 }) {
   const navigate = useNavigate();
+  const { requireAuth } = useAuthGuard();
+  
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hlsRef = useRef<any>(null);
   const [muted, setMuted] = useState(true);
+  const [ready, setReady] = useState(false);
 
+  // Build a playable src (Mux playback id or direct URL)
+  const src = post?.mediaUrl
+    ? post.mediaUrl.startsWith('mux:')
+      ? `https://stream.mux.com/${post.mediaUrl.replace('mux:', '')}.m3u8`
+      : post.mediaUrl
+    : undefined;
+
+  // Init HLS / attach media
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || post?.mediaType !== 'video' || !post.mediaUrl) return;
+    if (!v || !post || post.mediaType !== 'video' || !src) return;
 
-    const url = post.mediaUrl;
-    const isHls = url.endsWith('.m3u8') || url.includes('mux.com') || url.includes('m3u8');
+    // Reset previous
+    setReady(false);
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    v.src = ''; // detach old
+    v.load();
 
-    const tryPlay = async () => {
+    const isHls = src.endsWith('.m3u8');
+    const canPlayNative = v.canPlayType('application/vnd.apple.mpegurl') !== '';
+
+    // Dynamic import HLS.js
+    const initHls = async () => {
       try {
-        v.muted = true; // mobile autoplay requirement
-        v.currentTime = 0;
-        await v.play();
+        const Hls = (await import('hls.js')).default;
+        if (isHls && !canPlayNative && Hls.isSupported()) {
+          const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+          hlsRef.current = hls;
+          hls.loadSource(src);
+          hls.attachMedia(v);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => setReady(true));
+          hls.on(Hls.Events.ERROR, () => setReady(true)); // still try to play
+        } else {
+          v.src = src;
+          // When metadata is ready, mark ready
+          v.onloadedmetadata = () => setReady(true);
+        }
       } catch (error) {
-        console.log('Video autoplay failed:', error);
+        console.error('Failed to load HLS.js:', error);
+        v.src = src;
+        v.onloadedmetadata = () => setReady(true);
       }
     };
 
-    // If hls.js is on the page, use it; otherwise rely on native support.
-    const win: any = window as any;
-    if (isHls && win.Hls?.isSupported?.()) {
-      const Hls = win.Hls;
-      const hls = new Hls({
-        enableWorker: false,
-        lowLatencyMode: true,
-      });
-      hls.loadSource(url);
-      hls.attachMedia(v);
-      hls.on(Hls.Events.MANIFEST_PARSED, tryPlay);
-      return () => hls.destroy();
+    initHls();
+
+    // iOS autoplay requires muted + playsInline
+    v.muted = true;
+    v.playsInline = true;
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      v.pause();
+    };
+  }, [post?.id, src, post?.mediaType]);
+
+  // Play only when this slide is active
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || post?.mediaType !== 'video') return;
+
+    if (isActive && ready) {
+      // Try autoplay (muted inline)
+      v.play().catch(() => {/* user gesture required; keep overlay */});
+    } else {
+      v.pause();
+      v.currentTime = 0; // rewind for that snappy TikTok feel
     }
-    if (isHls && v.canPlayType('application/vnd.apple.mpegurl')) {
-      v.src = url;
-      v.addEventListener('loadedmetadata', tryPlay);
-      return () => v.removeEventListener('loadedmetadata', tryPlay);
+  }, [isActive, ready, post?.mediaType]);
+
+  // Tap anywhere toggles mute (unmute needs user gesture)
+  const handleToggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    const next = !muted;
+    setMuted(next);
+    v.muted = next;
+    if (!next) {
+      v.play().catch(() => {/* ignore */});
     }
-    v.src = url;
-    v.addEventListener('loadedmetadata', tryPlay);
-    return () => v.removeEventListener('loadedmetadata', tryPlay);
-  }, [post?.id, post?.mediaUrl, post?.mediaType]);
+  };
 
   if (!post) return null;
 
@@ -164,99 +218,65 @@ function PostHero({
     navigate(`${routes.eventDetails(event.id)}?tab=tickets${tierParam}`);
   };
 
-  return (
-    <div className="absolute inset-0">
-      {post.mediaType === 'video' && post.mediaUrl ? (
-        <>
-          <video
-            ref={videoRef}
-            className="w-full h-full object-cover"
-            autoPlay
-            muted={muted}
-            loop
-            playsInline
-            controls={false}
-            preload="metadata"
-            disablePictureInPicture
-            controlsList="nodownload noplaybackrate nofullscreen"
-          />
+  if (!post) return null;
+
+  // VIDEO
+  if (post.mediaType === 'video' && src) {
+    return (
+      <div className="absolute inset-0">
+        <video
+          ref={videoRef}
+          className="w-full h-full object-cover"
+          loop
+          muted={muted}
+          playsInline
+          preload="metadata"
+          controls={false}
+          disablePictureInPicture
+          controlsList="nodownload noplaybackrate nofullscreen"
+          onClick={handleToggleMute} // TikTok-like: tap video to unmute/mute
+        />
+
+        {/* Unmute hint */}
+        {muted && (
           <button
-            type="button"
-            onClick={() => setMuted((m) => !m)}
-            className="absolute top-16 right-4 z-30 bg-black/60 text-white rounded-full px-3 py-1 text-xs"
+            onClick={handleToggleMute}
+            className="absolute top-16 right-4 bg-black/60 text-white rounded-full px-3 py-1 text-xs"
           >
-            {muted ? 'Tap for sound' : 'Mute'}
+            Tap for sound
           </button>
-        </>
-      ) : (
-        <>
-          <ImageWithFallback
-            src={post.mediaUrl || post.thumbnailUrl || DEFAULT_EVENT_COVER}
-            alt="Post media"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
-        </>
-      )}
+        )}
 
-      {/* Overlay (clickable) */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-auto">
-        <div className="bg-gradient-to-t from-black/80 to-transparent p-4">
-          {/* Author + caption */}
-          <div className="text-white text-sm">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={goToAuthor}
-                className="font-semibold hover:underline"
-                aria-label="View author profile"
-              >
-                {post.authorName}
-              </button>
-              {/* Remove VerificationBadge from here - it's causing the error */}
-              {post.isOrganizer ? (
-                <Badge variant="secondary" className="text-[10px] tracking-wide">
-                  <Crown className="w-3 h-3 mr-1" />
+        {/* Gradient + captions + actions footer */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent">
+          <div className="p-4 text-white">
+            <div className="text-sm font-semibold">
+              {post.authorName}{' '}
+              {post.isOrganizer && (
+                <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
                   ORGANIZER
-                </Badge>
-              ) : post.ticketBadge ? (
-                <Badge
-                  variant="secondary"
-                  className="text-[10px] tracking-wide hover:opacity-90"
-                  onClick={goToTicketsTab}
-                >
-                  {post.ticketBadge}
-                </Badge>
-              ) : null}
+                </span>
+              )}
             </div>
-            {post.content && <div className="opacity-90 line-clamp-2 mt-1">{post.content}</div>}
-          </div>
+            {post.content && (
+              <div className="text-sm opacity-90 line-clamp-2">{post.content}</div>
+            )}
 
-          {/* Event context + actions */}
-          <div className="bg-black/40 backdrop-blur-sm rounded-lg p-3 mt-3">
-            <div className="flex items-center justify-between gap-3">
+            {/* Event CTA row — keep clickable */}
+            <div className="pointer-events-auto mt-3 flex items-center justify-between bg-black/40 backdrop-blur-sm rounded-lg p-3">
               <div className="min-w-0">
                 <button
-                  type="button"
+                  className="text-left"
                   onClick={() => navigate(routes.eventDetails(event.id))}
-                  className="font-semibold text-sm text-white hover:underline truncate"
-                  title={event.title}
+                  title="Open event"
                 >
-                  {event.title}
-                </button>
-                <div className="text-xs text-gray-300 truncate">
-                  {event.dateLabel} • {event.location}
-                </div>
-                <button
-                  type="button"
-                  onClick={goToOrganizer}
-                  className="text-xs text-gray-300 hover:underline mt-0.5"
-                  title={`@${event.organizer}`}
-                >
-                  @{event.organizer.replace(/\s+/g, '').toLowerCase()}
+                  <h3 className="font-semibold text-sm truncate">{event.title}</h3>
+                  <p className="text-xs text-gray-300 truncate">
+                    {event.dateLabel} • {event.location}
+                  </p>
                 </button>
               </div>
-              <div className="flex gap-2 shrink-0">
+              <div className="flex gap-2 flex-shrink-0">
                 <Button
                   size="sm"
                   variant="glass"
@@ -268,7 +288,9 @@ function PostHero({
                 <Button
                   size="sm"
                   variant="premium"
-                  onClick={onOpenTickets}
+                  onClick={() =>
+                    requireAuth(() => onOpenTickets(), 'Please sign in to purchase tickets')
+                  }
                   className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs"
                 >
                   Get Tickets
@@ -277,6 +299,31 @@ function PostHero({
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // IMAGE fallback
+  return (
+    <div className="absolute inset-0">
+      <ImageWithFallback
+        src={post.mediaUrl || post.thumbnailUrl || DEFAULT_EVENT_COVER}
+        alt=""
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
+
+      {/* Minimal footer for images */}
+      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+        <div className="text-sm font-semibold">
+          {post.authorName}{' '}
+          {post.isOrganizer && (
+            <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
+              ORGANIZER
+            </span>
+          )}
+        </div>
+        {post.content && <div className="text-sm opacity-90 line-clamp-2">{post.content}</div>}
       </div>
     </div>
   );
@@ -647,6 +694,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                   post={heroPost}
                   event={ev}
                   onOpenTickets={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')}
+                  isActive={i === safeIndex}
                 />
               ) : (
                 <>

@@ -12,6 +12,87 @@ import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { useVideoAnalytics } from '@/hooks/useVideoAnalytics';
 
+// Video Player Component with HLS support
+function VideoPlayer({ 
+  src, 
+  post, 
+  onLoadedData 
+}: { 
+  src: string; 
+  post: EventPost; 
+  onLoadedData?: (video: HTMLVideoElement) => void; 
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<any>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !src) return;
+
+    setReady(false);
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    v.src = '';
+    v.load();
+
+    const isHls = src.endsWith('.m3u8');
+    const canPlayNative = v.canPlayType('application/vnd.apple.mpegurl') !== '';
+
+    const initHls = async () => {
+      try {
+        const Hls = (await import('hls.js')).default;
+        if (isHls && !canPlayNative && Hls.isSupported()) {
+          const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+          hlsRef.current = hls;
+          hls.loadSource(src);
+          hls.attachMedia(v);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            setReady(true);
+            onLoadedData?.(v);
+          });
+          hls.on(Hls.Events.ERROR, () => setReady(true));
+        } else {
+          v.src = src;
+          v.onloadedmetadata = () => {
+            setReady(true);
+            onLoadedData?.(v);
+          };
+        }
+      } catch (error) {
+        console.error('Failed to load HLS.js:', error);
+        v.src = src;
+        v.onloadedmetadata = () => {
+          setReady(true);
+          onLoadedData?.(v);
+        };
+      }
+    };
+
+    initHls();
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [src, onLoadedData]);
+
+  return (
+    <video
+      ref={videoRef}
+      controls
+      className="w-full max-h-80 object-cover"
+      playsInline
+      preload="metadata"
+      muted
+    />
+  );
+}
+
 interface EventPostRow {
   id: string;
   text: string;
@@ -403,31 +484,19 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                   return (
                     <div key={idx} className="relative rounded-lg overflow-hidden">
                       {isMux ? (
-                        <video
+                        <VideoPlayer
                           src={`https://stream.mux.com/${url.replace('mux:', '')}.m3u8`}
-                          controls
-                          className="w-full max-h-80 object-cover"
-                          playsInline
-                          preload="metadata"
-                          autoPlay
-                          muted
-                          onLoadedData={(e) => {
-                            const v = e.currentTarget;
+                          post={post}
+                          onLoadedData={(v) => {
                             const cleanup = trackVideoProgress(post.id, post.event_id, v);
                             v.addEventListener('unload', cleanup);
                           }}
                         />
                       ) : isVideo ? (
-                        <video
+                        <VideoPlayer
                           src={url}
-                          controls
-                          className="w-full max-h-80 object-cover"
-                          playsInline
-                          preload="metadata"
-                          autoPlay
-                          muted
-                          onLoadedData={(e) => {
-                            const v = e.currentTarget;
+                          post={post}
+                          onLoadedData={(v) => {
                             const cleanup = trackVideoProgress(post.id, post.event_id, v);
                             v.addEventListener('unload', cleanup);
                           }}
