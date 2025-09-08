@@ -11,7 +11,6 @@ import { toast } from '@/hooks/use-toast';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { useVideoAnalytics } from '@/hooks/useVideoAnalytics';
-import { VerificationBadge } from '@/components/VerificationBadge';
 
 interface EventPostRow {
   id: string;
@@ -349,10 +348,6 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                     >
                       {post.user_profiles.display_name}
                     </button>
-                    <VerificationBadge status="verified" size="sm" />
-                    {post.is_organizer && (
-                      <Crown className="w-4 h-4 text-primary" aria-label="Organizer" />
-                    )}
                     {post.badge_label && (
                       <Badge
                         variant="secondary"
@@ -361,6 +356,9 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                       >
                         {post.badge_label}
                       </Badge>
+                    )}
+                    {post.is_organizer && (
+                      <Crown className="w-4 h-4 text-primary" aria-label="Organizer" />
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground">
