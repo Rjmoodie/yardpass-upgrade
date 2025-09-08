@@ -2,6 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { PostHogProvider } from 'posthog-js/react'
+import { HelmetProvider } from 'react-helmet-async'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AnalyticsWrapper } from '@/components/AnalyticsWrapper'
 import App from './App.tsx'
@@ -27,16 +28,18 @@ const postHogOptions = {
 const postHogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY || 'phc_PLACEHOLDER_KEY';
 
 createRoot(document.getElementById("root")!).render(
-  <BrowserRouter>
-    <PostHogProvider 
-      apiKey={postHogKey}
-      options={postHogOptions}
-    >
-      <AuthProvider>
-        <AnalyticsWrapper trackScrollDepth trackTimeOnPage>
-          <App />
-        </AnalyticsWrapper>
-      </AuthProvider>
-    </PostHogProvider>
-  </BrowserRouter>
+  <HelmetProvider>
+    <BrowserRouter>
+      <PostHogProvider 
+        apiKey={postHogKey}
+        options={postHogOptions}
+      >
+        <AuthProvider>
+          <AnalyticsWrapper trackScrollDepth trackTimeOnPage>
+            <App />
+          </AnalyticsWrapper>
+        </AuthProvider>
+      </PostHogProvider>
+    </BrowserRouter>
+  </HelmetProvider>
 );
