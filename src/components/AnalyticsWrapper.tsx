@@ -19,13 +19,16 @@ type UTM = Partial<{
   utm_content: string;
 }>;
 
-const DNT = () =>
-  typeof window !== 'undefined' &&
-  (window.doNotTrack === '1' ||
-    // @ts-ignore
-    navigator.doNotTrack === '1' ||
-    // @ts-ignore
-    navigator.msDoNotTrack === '1');
+const DNT = () => {
+  if (typeof window === 'undefined') return false;
+  
+  // Check standard doNotTrack properties
+  return (
+    window.navigator?.doNotTrack === '1' ||
+    (window.navigator as any)?.msDoNotTrack === '1' ||
+    (window as any)?.doNotTrack === '1'
+  );
+};
 
 const getSessionId = () => {
   const key = 'analytics.sid';
