@@ -61,18 +61,42 @@ export const useBatchedAnalytics = () => {
   // Flush on page unload
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (queueRef.current.length > 0 && navigator.sendBeacon) {
-        // Use sendBeacon for best-effort delivery
-        navigator.sendBeacon(
-          '/api/analytics',
-          JSON.stringify(queueRef.current)
-        );
+      if (queueRef.current.length > 0) {
+        // Attempt immediate flush with Supabase
+        flushQueue();
+      }
+    };
+
+    const handleUnload = () => {
+      if (queueRef.current.length > 0) {
+        // Final attempt to save data
+        try {
+          localStorage.setItem('yardpass_pending_analytics', JSON.stringify(queueRef.current));
+        } catch (e) {
+          console.warn('Could not save analytics to localStorage:', e);
+        }
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleUnload);
+    
+    // Load any pending analytics on mount
+    try {
+      const pending = localStorage.getItem('yardpass_pending_analytics');
+      if (pending) {
+        const events = JSON.parse(pending);
+        queueRef.current.push(...events);
+        localStorage.removeItem('yardpass_pending_analytics');
+        scheduleFlush();
+      }
+    } catch (e) {
+      console.warn('Could not load pending analytics from localStorage:', e);
+    }
+    
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', handleUnload);
       if (flushTimeoutRef.current) {
         clearTimeout(flushTimeoutRef.current);
       }
