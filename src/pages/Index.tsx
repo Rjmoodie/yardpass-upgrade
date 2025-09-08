@@ -536,9 +536,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       // Pull a pool of latest posts across those events, then group client-side (top 3 per event)
       // Tune limit: 60 = (approx 20 events * 3 posts)
       const { data, error } = await supabase
-        .from('posts')
+        .from('event_posts_with_meta')
         .select(
-          'id,event_id,text,created_at,media_urls,like_count,comment_count,author_user_id,author_display_name,author_is_organizer,ticket_tier_id'
+          'id,event_id,text,created_at,media_urls,like_count,comment_count,author_user_id,author_name,author_is_organizer,ticket_tier_id'
         )
         .in('event_id', ids)
         .order('created_at', { ascending: false })
@@ -555,13 +555,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         const isVideo = url ? /mux|\.mp4$|\.mov$|\.m3u8$/i.test(url) : false;
 
         const mapped: EventPost = {
-          id: p.id,
-          authorName: p.author_display_name || 'Someone',
+          id: p.id!,
+          authorName: p.author_name || 'Someone',
           authorBadge: p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE',
           isOrganizer: !!p.author_is_organizer,
           authorId: p.author_user_id || undefined,
           content: p.text || '',
-          timestamp: new Date(p.created_at).toLocaleDateString(),
+          timestamp: new Date(p.created_at!).toLocaleDateString(),
           likes: p.like_count || 0,
           mediaType: isVideo ? 'video' : url ? 'image' : 'none',
           mediaUrl: url,
@@ -570,9 +570,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           ticketTierId: p.ticket_tier_id || undefined,
         };
 
-        const arr = grouped.get(p.event_id) ?? [];
+        const arr = grouped.get(p.event_id!) ?? [];
         if (arr.length < 3) arr.push(mapped); // top-3 per event
-        grouped.set(p.event_id, arr);
+        grouped.set(p.event_id!, arr);
       }
 
       setEvents((prev) =>
