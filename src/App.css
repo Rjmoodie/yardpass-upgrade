@@ -1,42 +1,56 @@
+/* ---- Brandable logo helpers ---- */
+:root {
+  --brand-color: #0ea5e9;                 /* change to your brand */
+  --glow-color: color-mix(in srgb, var(--brand-color) 80%, transparent);
+  --spin-duration: 20s;
+}
+
+/* Remove the demo-wide centering if you don't want it globally */
 #root {
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
-  text-align: center;
+  /* text-align: center;  <-- delete this if it gets in your way */
 }
 
 .logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+  inline-size: clamp(64px, 12vw, 120px); /* responsive size */
+  aspect-ratio: 1 / 1;
+  display: inline-block;
+  vertical-align: middle;
+  will-change: transform, filter;
+  transition: filter .2s ease, transform .2s ease;
+  /* If your SVG uses currentColor, this will tint it */
+  color: var(--brand-color);
 }
 
+/* Optional: glow on hover */
+.logo.glow:hover {
+  filter: drop-shadow(0 0 1.6rem var(--glow-color));
+}
+
+/* Optional: explicit spin (no more nth-of-type hacks) */
+.logo.spin {
+  animation: logo-spin var(--spin-duration) linear infinite;
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .logo.spin { animation: none; }
+}
+
+/* Dark mode tweak (optional) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand-color: #22d3ee;
+  }
+}
+
+/* The keyframes */
 @keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(1turn); }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
+/* Keep anything else from the starter you still need… */
+.card { padding: 2em; }
+.read-the-docs { color: #888; }
