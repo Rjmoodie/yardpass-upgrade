@@ -373,8 +373,7 @@ export default function EventSlugPage() {
               address={fullAddress}
               title={event.title}
               height={280}
-              // themeOverride="dark" // optional: force a theme
-              // styleUrl="mapbox://styles/you/your-style" // optional: your custom style
+              showControls={false}
             />
           </Suspense>
         </div>

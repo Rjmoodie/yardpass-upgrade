@@ -316,7 +316,8 @@ export function PostCreatorModal({
 
       const next: QueuedFile[] = [];
 
-      for (const f of slice) {
+      for (let i = 0; i < slice.length; i++) {
+        let f = slice[i];
         const kind: FileKind = isVideoFile(f) ? 'video' : isImageFile(f) ? 'image' : 'image';
         const sizeMB = bytesToMB(f.size);
 

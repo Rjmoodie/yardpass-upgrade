@@ -12,6 +12,7 @@ interface MapCardProps {
   height?: number;
   themeOverride?: 'light' | 'dark';
   styleUrl?: string;
+  showControls?: boolean;
 }
 
 export default function MapCard({ 
@@ -19,7 +20,8 @@ export default function MapCard({
   title, 
   height = 280, 
   themeOverride,
-  styleUrl 
+  styleUrl,
+  showControls = false
 }: MapCardProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -105,19 +107,21 @@ export default function MapCard({
             .setLngLat([lng, lat])
             .addTo(map.current);
 
-          // Add custom navigation controls with your theme
-          const nav = new mapboxgl.NavigationControl({
-            showCompass: true,
-            showZoom: true,
-            visualizePitch: true
-          });
-          map.current.addControl(nav, 'top-right');
+          // Add custom navigation controls with your theme (optional)
+          if (showControls) {
+            const nav = new mapboxgl.NavigationControl({
+              showCompass: true,
+              showZoom: true,
+              visualizePitch: true
+            });
+            map.current.addControl(nav, 'top-right');
 
-          // Add scale control
-          map.current.addControl(new mapboxgl.ScaleControl({
-            maxWidth: 100,
-            unit: 'metric'
-          }), 'bottom-left');
+            // Add scale control
+            map.current.addControl(new mapboxgl.ScaleControl({
+              maxWidth: 100,
+              unit: 'metric'
+            }), 'bottom-left');
+          }
 
           // Smooth flyTo animation on load
           setTimeout(() => {
