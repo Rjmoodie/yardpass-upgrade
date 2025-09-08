@@ -1,53 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Switch } from './ui/switch';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useTickets, UserTicket } from '@/hooks/useTickets';
+import { useTickets } from '@/hooks/useTickets';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
-
-interface UserPost {
-  id: string;
-  content: string;
-  event_id: string;
-  tier_id: string;
-  created_at: string;
-  events: {
-    title: string;
-    date: string;
-  };
-  ticket_tiers: {
-    name: string;
-  };
-}
-
-interface UserBadge {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  earned_at: string;
-}
-import { 
-  ArrowLeft, 
-  Settings, 
-  Shield, 
-  Ticket, 
+import {
+  ArrowLeft,
+  Shield,
+  Ticket,
   Calendar,
   MapPin,
   Users,
   Star,
   Edit,
-  Share,
-  RefreshCw,
-  AlertCircle,
-  LogOut
+  Share as ShareIcon,
 } from 'lucide-react';
+import { routes } from '@/lib/routes';
+
+type UserPost = {
+  id: string;
+  content: string;
+  created_at: string;
+  eventId: string | null;
+  eventTitle: string | null;
+  eventCover: string | null;
+  tierBadge: string | null;
+};
+
+type UserBadge = {
+  name: string;
+  count: number;
+  description: string;
+};
 
 interface User {
   id: string;
@@ -63,156 +53,160 @@ interface UserProfileProps {
   onBack: () => void;
 }
 
-
 function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
-  const [isEditing, setIsEditing] = useState(false);
   const [userPosts, setUserPosts] = useState<UserPost[]>([]);
   const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingPosts, setLoadingPosts] = useState(false);
   const { tickets, loading: ticketsLoading } = useTickets();
+  const navigate = useNavigate();
 
-  const totalSpent = tickets.reduce((sum, ticket) => sum + ticket.price, 0);
+  const initials = useMemo(
+    () =>
+      user.name
+        .split(' ')
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase(),
+    [user.name]
+  );
+
+  const totalSpent = tickets.reduce((sum, t) => sum + (t.price || 0), 0);
   const eventsAttended = tickets.length;
 
-  // Fetch user's posts and badges
   useEffect(() => {
-    if (user.id) {
-      fetchUserData();
-    }
+    if (!user.id) return;
+    fetchUserData();
   }, [user.id]);
 
-  const fetchUserData = async () => {
-    setLoading(true);
+  async function fetchUserData() {
+    setLoadingPosts(true);
     try {
-      // Fetch user's posts with better error handling
+      // Posts (normalized -> UserPost)
       const { data: posts, error: postsError } = await supabase
         .from('event_posts')
         .select(`
           id,
           text,
           created_at,
-          events!event_posts_event_id_fkey (
+          events:events!event_posts_event_id_fkey (
             id,
             title,
             cover_image_url
           ),
-          ticket_tiers!event_posts_ticket_tier_id_fkey (
+          ticket_tiers:ticket_tiers!event_posts_ticket_tier_id_fkey (
             badge_label
           )
         `)
         .eq('author_user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
-      if (postsError) {
-        console.error('Error fetching posts:', postsError);
-        toast({
-          title: "Warning",
-          description: "Could not load your posts",
-          variant: "destructive",
-        });
-        setUserPosts([]);
-      } else {
-        // Use mock data for now since schema isn't fully compatible
-        setUserPosts([]);
-      }
+      if (postsError) throw postsError;
 
-      // Calculate badges from ticket tiers with better error handling
-      try {
-        const badgeCounts = new Map();
-        tickets.forEach(ticket => {
-          const badge = ticket.badge || 'GA';
-          badgeCounts.set(badge, (badgeCounts.get(badge) || 0) + 1);
-        });
+      const normalized: UserPost[] = (posts || []).map((p: any) => ({
+        id: p.id,
+        content: p.text || '',
+        created_at: p.created_at,
+        eventId: p.events?.id ?? null,
+        eventTitle: p.events?.title ?? null,
+        eventCover: p.events?.cover_image_url ?? null,
+        tierBadge: p.ticket_tiers?.badge_label ?? null,
+      }));
 
-        const badges = Array.from(badgeCounts.entries()).map(([name, count]) => ({
-          name,
-          count,
-          description: `${name} tier attendee`
-        }));
+      setUserPosts(normalized);
 
-        // Skip badges for now since schema isn't compatible
-        setUserBadges([]);
-      } catch (badgeError) {
-        console.error('Error calculating badges:', badgeError);
-        setUserBadges([]);
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load profile data. Please try refreshing the page.",
-        variant: "destructive",
+      // Simple “earned badges” rollup from tickets
+      const badgeCounts = new Map<string, number>();
+      tickets.forEach((t: any) => {
+        const name = t.badge || 'GA';
+        badgeCounts.set(name, (badgeCounts.get(name) || 0) + 1);
       });
-      // Set empty states to prevent UI crashes
+      const badges: UserBadge[] = Array.from(badgeCounts, ([name, count]) => ({
+        name,
+        count,
+        description: `${name} tier attendee`,
+      }));
+      setUserBadges(badges);
+    } catch (err) {
+      console.error('Profile fetch error', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to load profile data.',
+        variant: 'destructive',
+      });
       setUserPosts([]);
       setUserBadges([]);
     } finally {
-      setLoading(false);
+      setLoadingPosts(false);
     }
+  }
+
+  const onShare = async () => {
+    try {
+      const [{ sharePayload }, { buildShareUrl, getShareTitle, getShareText }] =
+        await Promise.all([import('@/lib/share'), import('@/lib/shareLinks')]);
+      sharePayload({
+        title: getShareTitle({ type: 'user', handle: user.id, name: user.name }),
+        text: getShareText({ type: 'user', handle: user.id, name: user.name }),
+        url: buildShareUrl({ type: 'user', handle: user.id, name: user.name }),
+      });
+    } catch {
+      // graceful no-op
+    }
+  };
+
+  const openEvent = (eventId?: string | null) => {
+    if (!eventId) return;
+    navigate(routes.eventDetails(eventId));
+  };
+
+  const openEventPost = (eventId?: string | null, postId?: string) => {
+    if (!eventId || !postId) return;
+    navigate(`${routes.eventDetails(eventId)}?tab=posts&post=${postId}`);
   };
 
   return (
     <div className="h-full bg-background flex flex-col">
       {/* Header */}
       <div className="border-b bg-card p-4">
-        <div className="flex items-center gap-4 mb-4">
-          <button
-            onClick={onBack}
-            className="p-2 rounded-full hover:bg-muted transition-colors"
-          >
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors" aria-label="Back">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
             <h1>Profile</h1>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => {
-                import('@/lib/share').then(({ sharePayload }) => {
-                  import('@/lib/shareLinks').then(({ buildShareUrl, getShareTitle, getShareText }) => {
-                    sharePayload({
-                      title: getShareTitle({ type: 'user', handle: user.id, name: user.name }),
-                      text: getShareText({ type: 'user', handle: user.id, name: user.name }),
-                      url: buildShareUrl({ type: 'user', handle: user.id, name: user.name })
-                    });
-                  });
-                });
-              }}
-            >
-              <Share className="w-4 h-4" />
+            <Button variant="ghost" size="sm" onClick={onShare} aria-label="Share profile">
+              <ShareIcon className="w-4 h-4" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => {
-                window.location.href = '/edit-profile';
-              }}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/edit-profile')}
+              aria-label="Edit profile"
             >
               <Edit className="w-4 h-4" />
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={async () => {
                 try {
                   await supabase.auth.signOut();
+                  toast({ title: 'Signed out', description: 'You have been signed out.' });
+                } catch {
                   toast({
-                    title: "Signed out",
-                    description: "You have been signed out successfully."
-                  });
-                } catch (error) {
-                  toast({
-                    title: "Error",
-                    description: "Failed to sign out. Please try again.",
-                    variant: "destructive"
+                    title: 'Error',
+                    description: 'Failed to sign out. Please try again.',
+                    variant: 'destructive',
                   });
                 }
               }}
               className="min-h-[36px] min-w-[80px] transition-all duration-200 hover:bg-red-50 hover:border-red-200 hover:text-red-700 active:scale-95"
-              aria-label="Sign out of your account"
+              aria-label="Sign out"
             >
               Sign Out
             </Button>
@@ -226,12 +220,12 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
         <div className="p-6 text-center border-b">
           <Avatar className="w-20 h-20 mx-auto mb-4">
             <AvatarFallback className="text-xl bg-gradient-to-br from-primary/20 to-accent/20">
-              {user.name.split(' ').map(n => n[0]).join('')}
+              {initials || 'U'}
             </AvatarFallback>
           </Avatar>
-          
+
           <h2 className="mb-1">{user.name}</h2>
-          
+
           <div className="flex items-center justify-center gap-2 mb-4">
             {user.isVerified && (
               <Badge variant="secondary" className="text-xs">
@@ -244,35 +238,36 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             </Badge>
           </div>
 
-          {/* Role Toggle - Debug Visible */}
+          {/* Role toggle */}
           <Card className="max-w-sm mx-auto border-2 border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="text-left flex-1">
                   <div className="text-sm font-medium">Organizer Mode</div>
                   <div className="text-xs text-muted-foreground">
-                    {user.role === 'organizer' ? 'Create and manage events' : 'Switch to organize events'}
+                    {user.role === 'organizer'
+                      ? 'Create and manage events'
+                      : 'Switch to organize events'}
                   </div>
-                  <div className="text-xs text-red-500 mt-1">
-                    Current role: {user.role}
-                  </div>
+                  <div className="text-xs text-red-500 mt-1">Current role: {user.role}</div>
                 </div>
                 <div className="flex-shrink-0">
                   <Button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('TOGGLE BUTTON CLICKED! Current role:', user.role);
+                    onClick={() => {
                       onRoleToggle();
                       toast({
-                        title: "Role Switched",
-                        description: `Switched to ${user.role === 'organizer' ? 'Attendee' : 'Organizer'} mode`,
+                        title: 'Role Switched',
+                        description: `Switched to ${
+                          user.role === 'organizer' ? 'Attendee' : 'Organizer'
+                        } mode`,
                       });
                     }}
                     variant={user.role === 'organizer' ? 'default' : 'outline'}
                     size="sm"
                     className="min-w-[80px] min-h-[32px] transition-all duration-200 hover:scale-105 active:scale-95"
-                    aria-label={`Switch to ${user.role === 'organizer' ? 'Attendee' : 'Organizer'} mode`}
+                    aria-label={`Switch to ${
+                      user.role === 'organizer' ? 'Attendee' : 'Organizer'
+                    } mode`}
                   >
                     {user.role === 'organizer' ? 'Attendee' : 'Organizer'}
                   </Button>
@@ -301,39 +296,21 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
         {/* Tabs */}
         <Tabs defaultValue="tickets" className="flex-1">
           <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10 bg-background border-b">
-            <TabsTrigger 
-              value="tickets"
-              className="min-h-[44px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
-            >
-              Tickets
-            </TabsTrigger>
-            <TabsTrigger 
-              value="badges"
-              className="min-h-[44px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
-            >
-              Badges
-            </TabsTrigger>
-            <TabsTrigger 
-              value="posts"
-              className="min-h-[44px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
-            >
-              Posts
-            </TabsTrigger>
+            <TabsTrigger value="tickets" className="min-h-[44px]">Tickets</TabsTrigger>
+            <TabsTrigger value="badges" className="min-h-[44px]">Badges</TabsTrigger>
+            <TabsTrigger value="posts" className="min-h-[44px]">Posts</TabsTrigger>
           </TabsList>
 
+          {/* Tickets */}
           <TabsContent value="tickets" className="p-4 space-y-4">
             <div className="flex justify-between items-center">
               <h3>Your Tickets</h3>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
-                onClick={() => {
-                  // TODO: Implement ticket filtering
-                  toast({
-                    title: "Filter Feature",
-                    description: "Ticket filtering will be available soon!",
-                  });
-                }}
+                onClick={() =>
+                  toast({ title: 'Filter', description: 'Ticket filtering coming soon!' })
+                }
                 className="min-h-[32px] min-w-[60px]"
               >
                 Filter
@@ -343,50 +320,57 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             <div className="space-y-3">
               {ticketsLoading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
                   <p className="text-sm text-muted-foreground mt-2">Loading tickets...</p>
                 </div>
               ) : tickets.length > 0 ? (
-                tickets.slice(0, 5).map((ticket) => (
-                <Card key={ticket.id} className="overflow-hidden">
-                  <div className="flex">
-                    <ImageWithFallback
-                      src={ticket.coverImage}
-                      alt={ticket.eventTitle}
-                      className="w-20 h-20 object-cover"
-                    />
-                    <CardContent className="flex-1 p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="text-sm mb-1">{ticket.eventTitle}</h4>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                            <Calendar className="w-3 h-3" />
-                            {ticket.eventDate}
+                tickets.slice(0, 8).map((ticket: any) => (
+                  <Card
+                    key={ticket.id}
+                    className="overflow-hidden cursor-pointer transition hover:shadow-md"
+                    onClick={() => openEvent(ticket.eventId || ticket.event_id)}
+                    aria-label={`Open ${ticket.eventTitle} details`}
+                  >
+                    <div className="flex">
+                      <ImageWithFallback
+                        src={ticket.coverImage || DEFAULT_EVENT_COVER}
+                        alt={ticket.eventTitle}
+                        className="w-20 h-20 object-cover"
+                      />
+                      <CardContent className="flex-1 p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h4 className="text-sm mb-1">{ticket.eventTitle}</h4>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                              <Calendar className="w-3 h-3" />
+                              {ticket.eventDate}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <MapPin className="w-3 h-3" />
+                              {ticket.eventLocation}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <MapPin className="w-3 h-3" />
-                            {ticket.eventLocation}
+                          <div className="text-right">
+                            <Badge variant="outline" className="text-xs mb-1">
+                              {ticket.badge || 'GA'}
+                            </Badge>
+                            <div className="text-sm">${ticket.price}</div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <Badge variant="outline" className="text-xs mb-1">
-                            {ticket.badge}
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">
+                            {ticket.ticketType || 'General Admission'}
+                          </span>
+                          <Badge
+                            variant={ticket.status === 'issued' ? 'secondary' : 'outline'}
+                            className="text-xs"
+                          >
+                            {ticket.status === 'issued' ? 'confirmed' : ticket.status}
                           </Badge>
-                          <div className="text-sm">${ticket.price}</div>
                         </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-muted-foreground">{ticket.ticketType}</span>
-                        <Badge 
-                          variant={ticket.status === 'issued' ? 'secondary' : 'outline'}
-                          className="text-xs"
-                        >
-                          {ticket.status === 'issued' ? 'confirmed' : ticket.status}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </div>
-                </Card>
+                      </CardContent>
+                    </div>
+                  </Card>
                 ))
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -398,30 +382,31 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             </div>
           </TabsContent>
 
+          {/* Badges */}
           <TabsContent value="badges" className="p-4 space-y-4">
             <div className="flex justify-between items-center">
               <h3>Your Badges</h3>
               <span className="text-sm text-muted-foreground">
-                0 total
+                {userBadges.reduce((s, b) => s + b.count, 0)} total
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              {userBadges.length > 0 ? userBadges.map((badge) => (
-                <Card key={badge.name}>
-                  <CardContent className="p-4 text-center">
-                    <div className="mb-2">
-                      <Badge variant="outline" className="text-sm">
-                        {badge.name}
-                      </Badge>
-                    </div>
-                    <div className="text-2xl mb-1">0</div>
-                    <p className="text-xs text-muted-foreground">
-                      {badge.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              )) : (
+              {userBadges.length > 0 ? (
+                userBadges.map((badge) => (
+                  <Card key={badge.name}>
+                    <CardContent className="p-4 text-center">
+                      <div className="mb-2">
+                        <Badge variant="outline" className="text-sm">
+                          {badge.name}
+                        </Badge>
+                      </div>
+                      <div className="text-2xl mb-1">{badge.count}</div>
+                      <p className="text-xs text-muted-foreground">{badge.description}</p>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
                 <div className="col-span-2 text-center py-8 text-muted-foreground">
                   <Star className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No badges yet</p>
@@ -451,19 +436,16 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             </Card>
           </TabsContent>
 
+          {/* Posts */}
           <TabsContent value="posts" className="p-4 space-y-4">
             <div className="flex justify-between items-center">
               <h3>Your Posts</h3>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
-                onClick={() => {
-                  // TODO: Implement post creation from profile
-                  toast({
-                    title: "Create Post",
-                    description: "Post creation from profile will be available soon!",
-                  });
-                }}
+                onClick={() =>
+                  toast({ title: 'Create Post', description: 'Coming soon!' })
+                }
                 className="min-h-[32px] min-w-[80px]"
               >
                 Create Post
@@ -471,36 +453,52 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             </div>
 
             <div className="space-y-3">
-              {loading ? (
+              {loadingPosts ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
                   <p className="text-sm text-muted-foreground mt-2">Loading posts...</p>
                 </div>
               ) : userPosts.length > 0 ? (
                 userPosts.map((post) => (
-                <Card key={post.id}>
-                  <CardContent className="p-4">
-                    <div className="flex gap-3">
-                      <ImageWithFallback
-                        src={DEFAULT_EVENT_COVER}
-                        alt={post.events?.title || 'Event'}
-                        className="w-12 h-12 rounded object-cover"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm">{post.events?.title || 'Event'}</span>
-                          <Badge variant="outline" className="text-xs">
-                            GA
-                          </Badge>
-                        </div>
-                        <p className="text-sm mb-2">{post.content}</p>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                  <Card
+                    key={post.id}
+                    className="cursor-pointer transition hover:shadow-md"
+                    onClick={() => openEventPost(post.eventId, post.id)}
+                    aria-label={`Open post in ${post.eventTitle ?? 'event'}`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex gap-3">
+                        <ImageWithFallback
+                          src={post.eventCover || DEFAULT_EVENT_COVER}
+                          alt={post.eventTitle || 'Event'}
+                          className="w-12 h-12 rounded object-cover"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm truncate max-w-[60%]">
+                              {post.eventTitle || 'Event'}
+                            </span>
+                            {post.tierBadge && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEvent(post.eventId);
+                                }}
+                              >
+                                {post.tierBadge}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm mb-2 line-clamp-3">{post.content}</p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
                 ))
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
