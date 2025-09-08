@@ -1,5 +1,5 @@
 // src/pages/Index.tsx
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
@@ -24,7 +24,6 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '@/lib/routes';
-import { capture } from '@/lib/analytics';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { useAffinityFeed } from '@/hooks/useAffinityFeed';
 import { useRealtimePosts } from '@/hooks/useRealtimePosts';
@@ -33,6 +32,7 @@ import { EventCTA } from '@/components/EventCTA';
 import { FollowButton } from '@/components/follow/FollowButton';
 import { AddToCalendar } from '@/components/AddToCalendar';
 import { ReportButton } from '@/components/ReportButton';
+import { supabase } from '@/integrations/supabase/client';
 
 // ---------- Types ----------
 interface EventPost {
@@ -79,7 +79,6 @@ interface Event {
   shares: number;
   isLiked?: boolean;
   posts?: EventPost[];
-  // New fields for enhanced features
   organizerVerified?: boolean;
   minPrice?: number | null;
   remaining?: number | null;
@@ -192,7 +191,6 @@ function PostHero({
     if (post?.authorId) {
       navigate(routes.user(post.authorId));
     } else {
-      // fallback: event posts tab
       navigate(`${routes.event(event.id)}?tab=posts`);
     }
   };
@@ -224,7 +222,7 @@ function PostHero({
           onClick={handleToggleMute}
         />
 
-        {/* Footer overlay (clickable areas opt back into pointer events) */}
+        {/* Footer overlay */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent">
           <div className="p-4 text-white">
             <div className="pointer-events-auto">
@@ -261,7 +259,7 @@ function PostHero({
                 onDetails={() => navigate(routes.event(event.id))}
                 onGetTickets={() => requireAuth(() => onOpenTickets(), 'Please sign in to purchase tickets')}
               />
-              
+
               {/* Organizer info and follow button */}
               <div className="flex items-center justify-between mt-2">
                 {event.organizerId && event.organizer && (
@@ -275,7 +273,7 @@ function PostHero({
                   <FollowButton targetType="organizer" targetId={event.organizerId} />
                 )}
               </div>
-              
+
               {/* Add to calendar */}
               <div className="mt-2">
                 <AddToCalendar
@@ -350,30 +348,7 @@ function PostHero({
   );
 }
 
-// ---------- Mock fallback ----------
-const mockEvents: Event[] = [
-  {
-    id: '1',
-    title: 'Sample Event',
-    description: 'Demo event when feed is empty.',
-    organizer: 'Demo Org',
-    organizerId: '101',
-    category: 'Other',
-    startAtISO: '2026-07-04T18:00:00Z',
-    endAtISO: '2026-07-05T03:00:00Z',
-    dateLabel: 'July 4, 2026',
-    location: 'New York',
-    coverImage: DEFAULT_EVENT_COVER,
-    ticketTiers: [{ id: 't1', name: 'GA', price: 30, badge: 'GA', available: 100, total: 100 }],
-    attendeeCount: 647,
-    likes: 266,
-    shares: 78,
-    isLiked: false,
-    posts: [],
-  },
-];
-
-// ---------- RecentPostsRail ----------
+// ---------- RecentPostsRail (kept, optional to render) ----------
 function RecentPostsRail({
   posts,
   eventId,
@@ -504,6 +479,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sortByActivity, setSortByActivity] = useState(false);
+
   const trackRef = useRef<HTMLDivElement>(null);
   const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
@@ -511,36 +487,31 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   // Feed via RPC - upgraded to affinity feed
   const { data: feed, loading: feedLoading, error, setData: setFeed } = useAffinityFeed(8);
 
+  // Map feed to local Event shape
   useEffect(() => {
-    console.log('🎯 Index page feed effect triggered:', { feed, feedLoading, error });
-    
-    // Convert FeedEventLite to Event format
     const mappedEvents: Event[] = (feed || []).map((ev) => ({
       id: ev.id,
       title: ev.title,
       description: ev.description || '',
       organizer: ev.organizerName || 'Unknown',
       organizerId: ev.organizerId || '',
-      category: 'General', // Add category logic if needed
+      category: 'General',
       startAtISO: ev.startAtISO || new Date().toISOString(),
       endAtISO: undefined,
       dateLabel: ev.startAtISO ? new Date(ev.startAtISO).toLocaleDateString() : 'TBD',
       location: ev.location || '',
       coverImage: ev.coverImage || DEFAULT_EVENT_COVER,
-      ticketTiers: [], // Add ticket tier mapping if needed
+      ticketTiers: [],
       attendeeCount: ev.attendeeCount || 0,
       likes: 0,
       shares: 0,
       isLiked: false,
       posts: [],
-      // Add new fields for EventCTA
       organizerVerified: ev.organizerVerified,
       minPrice: ev.minPrice,
-      remaining: ev.remaining
+      remaining: ev.remaining,
     }));
-    
-    console.log('🎯 Mapped events for display:', mappedEvents);
-    
+
     setEvents(mappedEvents);
     setLoading(feedLoading);
     if (error) {
@@ -553,12 +524,99 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     }
   }, [feed, feedLoading, error]);
 
-  // Realtime posts
+  // ✅ Initial posts loader — fetch top posts for all currently loaded events
+  useEffect(() => {
+    (async () => {
+      if (!events.length) return;
+
+      // Only fetch for events that don't have posts yet
+      const ids = events.filter((e) => !e.posts || e.posts.length === 0).map((e) => e.id);
+      if (!ids.length) return;
+
+      // Pull a pool of latest posts across those events, then group client-side (top 3 per event)
+      // Tune limit: 60 = (approx 20 events * 3 posts)
+      const { data, error } = await supabase
+        .from('posts')
+        .select(
+          'id,event_id,text,created_at,media_urls,like_count,comment_count,author_user_id,author_display_name,author_is_organizer,ticket_tier_id'
+        )
+        .in('event_id', ids)
+        .order('created_at', { ascending: false })
+        .limit(60);
+
+      if (error) {
+        console.error('Initial posts fetch failed:', error);
+        return;
+      }
+
+      const grouped = new Map<string, EventPost[]>();
+      for (const p of (data || [])) {
+        const url: string | undefined = Array.isArray(p.media_urls) ? p.media_urls[0] : undefined;
+        const isVideo = url ? /mux|\.mp4$|\.mov$|\.m3u8$/i.test(url) : false;
+
+        const mapped: EventPost = {
+          id: p.id,
+          authorName: p.author_display_name || 'Someone',
+          authorBadge: p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE',
+          isOrganizer: !!p.author_is_organizer,
+          authorId: p.author_user_id || undefined,
+          content: p.text || '',
+          timestamp: new Date(p.created_at).toLocaleDateString(),
+          likes: p.like_count || 0,
+          mediaType: isVideo ? 'video' : url ? 'image' : 'none',
+          mediaUrl: url,
+          thumbnailUrl: !isVideo ? url : undefined,
+          commentCount: p.comment_count || 0,
+          ticketTierId: p.ticket_tier_id || undefined,
+        };
+
+        const arr = grouped.get(p.event_id) ?? [];
+        if (arr.length < 3) arr.push(mapped); // top-3 per event
+        grouped.set(p.event_id, arr);
+      }
+
+      setEvents((prev) =>
+        prev.map((ev) => (grouped.has(ev.id) ? { ...ev, posts: grouped.get(ev.id) } : ev))
+      );
+    })();
+  }, [events.map((e) => e.id).join('|')]); // run when the set of event IDs changes
+
+  // Realtime posts — prepend newest into event.posts
   useRealtimePosts(
     events.map((e) => e.id),
     (p) => {
       setFeed((prev) => {
         const next = (prev || []).map((ev: any) => {
+          if (ev.id !== p.event_id) return ev;
+
+          const url = (p.media_urls && p.media_urls[0]) || undefined;
+          const isVideo = url ? /mux|\.mp4$|\.mov$|\.m3u8$/i.test(url) : false;
+
+          const newPost: EventPost = {
+            id: p.id,
+            authorName: p.author_display_name || 'Someone',
+            authorBadge: p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE',
+            isOrganizer: !!p.author_is_organizer,
+            authorId: p.author_id || p.author_user_id,
+            content: p.text || '',
+            timestamp: new Date(p.created_at).toLocaleDateString(),
+            likes: p.like_count || 0,
+            mediaType: isVideo ? 'video' : url ? 'image' : 'none',
+            mediaUrl: url,
+            thumbnailUrl: !isVideo ? url : undefined,
+            commentCount: p.comment_count || 0,
+            ticketTierId: p.ticket_tier_id || undefined,
+          };
+
+          const posts = [newPost, ...(ev.posts || [])].slice(0, 3);
+          return { ...ev, posts };
+        });
+        return next;
+      });
+
+      // Also reflect into local `events` so the UI updates immediately
+      setEvents((prev) =>
+        prev.map((ev) => {
           if (ev.id !== p.event_id) return ev;
           const url = (p.media_urls && p.media_urls[0]) || undefined;
           const isVideo = url ? /mux|\.mp4$|\.mov$|\.m3u8$/i.test(url) : false;
@@ -567,7 +625,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             authorName: p.author_display_name || 'Someone',
             authorBadge: p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE',
             isOrganizer: !!p.author_is_organizer,
-            authorId: p.author_id || p.author_user_id,            // <-- make profile link work
+            authorId: p.author_id || p.author_user_id,
             content: p.text || '',
             timestamp: new Date(p.created_at).toLocaleDateString(),
             likes: p.like_count || 0,
@@ -579,15 +637,28 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           };
           const posts = [newPost, ...(ev.posts || [])].slice(0, 3);
           return { ...ev, posts };
-        });
-        return next;
-      });
+        })
+      );
     }
   );
 
-  // Clamp index
-  const safeIndex = Math.max(0, Math.min(currentIndex, events.length - 1));
-  const currentEvent = events[safeIndex];
+  // Sort toggle: ranked (default) vs activity (light heuristic)
+  useEffect(() => {
+    if (!sortByActivity) return; // default order is from RPC
+    setEvents((prev) => {
+      const score = (ev: Event) => {
+        const postAgg = (ev.posts || []).reduce(
+          (s, p) => s + (p.likes || 0) + (p.commentCount || 0),
+          0
+        );
+        const att = ev.attendeeCount || 0;
+        return postAgg * 2 + att; // simple heuristic
+      };
+      const copy = [...prev];
+      copy.sort((a, b) => score(b) - score(a));
+      return copy;
+    });
+  }, [sortByActivity]);
 
   // Meta
   useEffect(() => {
@@ -606,7 +677,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [events.length]);
 
-  // Preload neighbors
+  // Preload neighbor covers (keeps scrolling snappy)
   useEffect(() => {
     const next = events[currentIndex + 1]?.coverImage;
     const prev = events[currentIndex - 1]?.coverImage;
@@ -630,11 +701,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     [withAuth]
   );
 
-  const handleShare = useCallback((ev: Event) => {
-    capture('share_click', { event_id: ev.id });
-    setShowShareModal(true);
-  }, []);
-
   const handleComment = useCallback(
     withAuth(() => setShowCommentModal(true), 'Please sign in to comment on events'),
     [withAuth]
@@ -646,17 +712,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   );
 
   const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(events.length - 1, i))), [events.length]);
-
-  const handlePostClick = useCallback(
-    (postId: string) => {
-      if (currentEvent?.id) navigate(`${routes.event(currentEvent.id)}?tab=posts&post=${postId}`);
-    },
-    [navigate, currentEvent?.id]
-  );
-
-  const handleViewAllPosts = useCallback(() => {
-    if (currentEvent?.id) navigate(`${routes.event(currentEvent.id)}?tab=posts`);
-  }, [navigate, currentEvent?.id]);
+  const currentEvent = events[Math.max(0, Math.min(currentIndex, events.length - 1))];
 
   if (loading) {
     return (
@@ -756,7 +812,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                         </button>
                       )}
                       <p className="text-sm text-gray-300 mb-3">{ev.description}</p>
-                      
+
                       {/* Enhanced CTA for fallback card */}
                       <EventCTA
                         eventTitle={ev.title}
@@ -767,7 +823,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                         onDetails={() => navigate(routes.event(ev.id))}
                         onGetTickets={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')}
                       />
-                      
+
                       {/* Organizer info and follow for fallback */}
                       <div className="flex items-center justify-between mt-2">
                         {ev.organizerId && ev.organizer && (
@@ -805,7 +861,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             </div>
             <span className="text-xs font-medium text-white drop-shadow-lg">Post</span>
           </IconButton>
-          <IconButton ariaLabel="Share" count={currentEvent.shares} onClick={() => setShowShareModal(true)}>
+          <IconButton ariaLabel="Share" onClick={() => setShowShareModal(true)}>
             <Share className="w-6 h-6 text-white" />
           </IconButton>
           <div className="pointer-events-auto">
