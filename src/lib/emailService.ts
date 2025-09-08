@@ -15,7 +15,7 @@ export interface PurchaseConfirmationData {
   eventLocation: string;
   ticketType: string;
   quantity: number;
-  totalAmount: number;
+  totalAmount: number; // cents by default
   orderId: string;
   ticketIds: string[];
   qrCodeUrl?: string;
@@ -31,63 +31,80 @@ export interface TicketReminderData {
   qrCodeUrl?: string;
 }
 
+type Result = { success: boolean; error?: string };
+
+const FROM_DEFAULT = 'YardPass <noreply@yardpass.com>';
+
+function logDev(label: string, payload: unknown) {
+  if (import.meta.env.DEV) {
+    // Avoid logging huge HTML; trim if needed
+    if (typeof payload === 'string' && payload.length > 1000) {
+      console.debug(`[EmailService] ${label}:`, payload.slice(0, 1000) + '…');
+    } else {
+      console.debug(`[EmailService] ${label}:`, payload);
+    }
+  }
+}
+
 export class EmailService {
-  async sendEmail(options: EmailOptions): Promise<{ success: boolean; error?: string }> {
+  async sendEmail(options: EmailOptions): Promise<Result> {
     try {
-      const { data, error } = await supabase.functions.invoke('send-email', {
+      if (!options.to || !options.subject || !options.html) {
+        return { success: false, error: 'Missing to/subject/html' };
+      }
+
+      logDev('sendEmail (to/subject)', { to: options.to, subject: options.subject });
+
+      const { error } = await supabase.functions.invoke('send-email', {
         body: {
           to: options.to,
           subject: options.subject,
           html: options.html,
-          from: options.from || 'YardPass <noreply@yardpass.com>'
-        }
+          from: options.from || FROM_DEFAULT,
+        },
       });
 
       if (error) {
-        console.error('Email sending failed:', error);
-        return { success: false, error: error.message };
+        console.error('[EmailService] send-email error:', error);
+        return { success: false, error: error.message || 'send-email failed' };
       }
 
       return { success: true };
-    } catch (error) {
-      console.error('Email service error:', error);
-      return { success: false, error: 'Failed to send email' };
+    } catch (err: any) {
+      console.error('[EmailService] sendEmail exception:', err);
+      return { success: false, error: err?.message || 'Failed to send email' };
     }
   }
 
-  async sendPurchaseConfirmation(data: PurchaseConfirmationData): Promise<{ success: boolean; error?: string }> {
+  async sendPurchaseConfirmation(data: PurchaseConfirmationData): Promise<Result> {
     try {
-      const { data: result, error } = await supabase.functions.invoke('send-purchase-confirmation', {
-        body: data
+      const { error } = await supabase.functions.invoke('send-purchase-confirmation', {
+        body: data,
       });
-
       if (error) {
-        console.error('Purchase confirmation email failed:', error);
-        return { success: false, error: error.message };
+        console.warn('[EmailService] send-purchase-confirmation error:', error);
+        return { success: false, error: error.message || 'send-purchase-confirmation failed' };
       }
-
       return { success: true };
-    } catch (error) {
-      console.error('Purchase confirmation error:', error);
-      return { success: false, error: 'Failed to send purchase confirmation' };
+    } catch (err: any) {
+      console.error('[EmailService] sendPurchaseConfirmation exception:', err);
+      return { success: false, error: err?.message || 'Failed to send purchase confirmation' };
     }
   }
 
-  async sendTicketReminder(data: TicketReminderData): Promise<{ success: boolean; error?: string }> {
+  async sendTicketReminder(data: TicketReminderData): Promise<Result> {
     try {
-      const { data: result, error } = await supabase.functions.invoke('send-ticket-reminder', {
-        body: data
+      const { error } = await supabase.functions.invoke('send-ticket-reminder', {
+        body: data,
       });
-
       if (error) {
-        console.error('Ticket reminder email failed:', error);
-        return { success: false, error: error.message };
+        console.warn('[EmailService] send-ticket-reminder error:', error);
+        return { success: false, error: error.message || 'send-ticket-reminder failed' };
       }
-
       return { success: true };
-    } catch (error) {
-      console.error('Ticket reminder error:', error);
-      return { success: false, error: 'Failed to send ticket reminder' };
+    } catch (err: any) {
+      console.error('[EmailService] sendTicketReminder exception:', err);
+      return { success: false, error: err?.message || 'Failed to send ticket reminder' };
     }
   }
 }
