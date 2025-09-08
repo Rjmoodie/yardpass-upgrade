@@ -1,14 +1,24 @@
-import { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Upload, X, Video } from 'lucide-react';
+import {
+  Upload,
+  X,
+  Video as VideoIcon,
+  Image as ImageIcon,
+  RefreshCw,
+  Trash2,
+  Ban,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+// Optional: if you have analytics
+// import { useAnalytics } from '@/hooks/useAnalytics';
 
 interface Event {
   id: string;
@@ -34,35 +44,51 @@ interface PostCreatorModalProps {
   preselectedEventId?: string;
 }
 
+/** ---------- Config ---------- */
+const IMAGE_BUCKET = 'event-media';
+const MAX_FILES = 6;
+const MAX_IMAGE_MB = 8;  // hard cap for images
+const MAX_VIDEO_MB = 512; // hard cap for videos (Mux accepts large uploads; tune to your plan)
+const ACCEPT = 'video/*,image/*';
+const DRAFT_KEY = (uid?: string) => `yardpass-post-draft:${uid || 'anon'}`;
+const LAST_EVENT_KEY = (uid?: string) => `yardpass-last-event:${uid || 'anon'}`;
+
+type FileKind = 'image' | 'video';
+type FileStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'error' | 'canceled';
+
 type QueuedFile = {
   file: File;
-  kind: 'image' | 'video';
-  status: 'queued' | 'uploading' | 'processing' | 'done' | 'error';
-  remoteUrl?: string;          // image public URL OR mux:playback_id
+  kind: FileKind;
+  status: FileStatus;
+  remoteUrl?: string;           // image public URL OR mux:playback_id
   errorMsg?: string;
   name: string;
   size: number;
+  previewUrl?: string;          // object URL for local preview
+  controller?: AbortController; // can cancel uploads
 };
 
-const IMAGE_BUCKET = 'event-media';
+const bytesToMB = (b: number) => +(b / (1024 * 1024)).toFixed(2);
+const isImageFile = (f: File) =>
+  f.type.startsWith('image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(f.name);
+const isVideoFile = (f: File) =>
+  f.type.startsWith('video') || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
 
-async function uploadImageToSupabase(file: File): Promise<string> {
+async function uploadImageToSupabase(file: File, signal?: AbortSignal): Promise<string> {
   const ext = file.name.split('.').pop() || 'jpg';
   const path = `posts/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error } = await supabase
-    .storage
-    .from(IMAGE_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+  // supabase-js doesn't support fetch signal in storage API yet; we still pass best effort
+  const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  });
   if (error) throw error;
 
   const { data } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
 
-/**
- * Ask your edge function to create a Mux Direct Upload and return:
- * { upload_id, upload_url }
- */
+/** Ask your edge function to create a Mux Direct Upload and return: { upload_id, upload_url } */
 async function createMuxDirectUpload(eventId: string): Promise<{ upload_id: string; upload_url: string }> {
   const { data, error } = await supabase.functions.invoke('mux-create-direct-upload', {
     body: { event_id: eventId },
@@ -71,12 +97,17 @@ async function createMuxDirectUpload(eventId: string): Promise<{ upload_id: stri
   return data;
 }
 
-/**
- * Poll your edge function to resolve a Mux upload into a playback_id.
- * Returns string playback_id when ready, or throws if failed/timeout.
- */
-async function resolveMuxUploadToPlaybackId(upload_id: string, maxAttempts = 12, intervalMs = 1500): Promise<string> {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+/** Poll your edge function to resolve a Mux upload into a playback_id with backoff. */
+async function resolveMuxUploadToPlaybackId(
+  upload_id: string,
+  opts: { attempts?: number; baseMs?: number; maxMs?: number } = {}
+): Promise<string> {
+  const attempts = opts.attempts ?? 15;
+  const base = opts.baseMs ?? 1200;
+  const max = opts.maxMs ?? 5000;
+
+  let wait = base;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     const { data, error } = await supabase.functions.invoke('resolve-mux-upload', {
       body: { upload_id },
     });
@@ -88,169 +119,366 @@ async function resolveMuxUploadToPlaybackId(upload_id: string, maxAttempts = 12,
     if (data?.status === 'errored') {
       throw new Error(data?.message || 'Mux processing failed');
     }
-    // wait a bit then try again
-    await new Promise((r) => setTimeout(r, intervalMs));
+    // backoff
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((r) => setTimeout(r, wait));
+    wait = Math.min(max, Math.ceil(wait * 1.4));
   }
   throw new Error('Mux processing timed out');
 }
 
-export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventId }: PostCreatorModalProps) {
+export function PostCreatorModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  preselectedEventId,
+}: PostCreatorModalProps) {
   const { user, profile } = useAuth();
+  // const { track } = useAnalytics?.() ?? { track: () => {} };
+
   const [content, setContent] = useState('');
   const [selectedEventId, setSelectedEventId] = useState(preselectedEventId || '');
   const [userTickets, setUserTickets] = useState<UserTicket[]>([]);
   const [loading, setLoading] = useState(false);
-
   const [queue, setQueue] = useState<QueuedFile[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const dropRef = useRef<HTMLDivElement | null>(null);
+
+  // Load draft + last-event (if no preselect)
+  useEffect(() => {
+    if (!isOpen) return;
+    const key = DRAFT_KEY(user?.id);
+    const last = LAST_EVENT_KEY(user?.id);
+
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const draft = JSON.parse(saved) as { content?: string; eventId?: string };
+        if (draft.content) setContent(draft.content);
+        if (!preselectedEventId && draft.eventId) setSelectedEventId(draft.eventId);
+      }
+      if (!preselectedEventId && !selectedEventId) {
+        const lastEventId = localStorage.getItem(last || '');
+        if (lastEventId) setSelectedEventId(lastEventId);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Persist draft
+  useEffect(() => {
+    if (!isOpen) return;
+    const payload = JSON.stringify({ content, eventId: selectedEventId });
+    try {
+      localStorage.setItem(DRAFT_KEY(user?.id), payload);
+    } catch {}
+  }, [content, selectedEventId, isOpen, user?.id]);
 
   // Fetch user's tickets
   useEffect(() => {
-    if (isOpen && user) {
-      fetchUserTickets();
-    }
-  }, [isOpen, user]);
+    if (!isOpen || !user) return;
+    let mounted = true;
 
-  const fetchUserTickets = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('tickets')
-        .select(`
-          id,
-          event_id,
-          tier_id,
-          events!fk_tickets_event_id (
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tickets')
+          .select(`
             id,
-            title,
-            cover_image_url
-          ),
-          ticket_tiers!fk_tickets_tier_id (
-            badge_label,
-            name
-          )
-        `)
-        .eq('owner_user_id', user.id)
-        .in('status', ['issued', 'transferred', 'redeemed']);
+            event_id,
+            tier_id,
+            events!fk_tickets_event_id (
+              id,
+              title,
+              cover_image_url
+            ),
+            ticket_tiers!fk_tickets_tier_id (
+              badge_label,
+              name
+            )
+          `)
+          .eq('owner_user_id', user.id)
+          .in('status', ['issued', 'transferred', 'redeemed']);
 
-      if (error) throw error;
-      setUserTickets(data || []);
+        if (error) throw error;
+        if (!mounted) return;
 
-      if (preselectedEventId) {
-        setSelectedEventId(preselectedEventId);
-      } else if (data && data.length === 1) {
-        setSelectedEventId(data[0].event_id);
+        const dedupByEvent = Array.from(
+          new Map((data || []).map((t: UserTicket) => [t.event_id, t])).values()
+        );
+
+        setUserTickets(dedupByEvent);
+
+        if (preselectedEventId) {
+          setSelectedEventId(preselectedEventId);
+        } else if (!selectedEventId && dedupByEvent.length === 1) {
+          setSelectedEventId(dedupByEvent[0].event_id);
+        }
+      } catch (err) {
+        console.error('Error fetching user tickets:', err);
+        toast({
+          title: 'Error',
+          description: 'Failed to load your events',
+          variant: 'destructive',
+        });
       }
-    } catch (err) {
-      console.error('Error fetching user tickets:', err);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, user, preselectedEventId, selectedEventId]);
+
+  // Revoke object URLs on unmount
+  useEffect(() => {
+    return () => {
+      queue.forEach((q) => q.previewUrl && URL.revokeObjectURL(q.previewUrl));
+    };
+  }, [queue]);
+
+  const selectedTicket = useMemo(
+    () => userTickets.find((t) => t.event_id === selectedEventId),
+    [userTickets, selectedEventId]
+  );
+
+  /** -------------- File intake -------------- */
+  const addFiles = useCallback((files: File[]) => {
+    if (!files.length) return;
+
+    const existingCount = queue.length;
+    const allowed = Math.max(0, MAX_FILES - existingCount);
+    const slice = files.slice(0, allowed);
+    const rejected = files.slice(allowed);
+
+    if (rejected.length) {
       toast({
-        title: "Error",
-        description: "Failed to load your events",
-        variant: "destructive",
+        title: 'Too many files',
+        description: `You can attach up to ${MAX_FILES} items per post.`,
+        variant: 'destructive',
       });
     }
-  };
+
+    const next: QueuedFile[] = [];
+
+    for (const f of slice) {
+      const kind: FileKind = isVideoFile(f) ? 'video' : isImageFile(f) ? 'image' : 'image';
+      const sizeMB = bytesToMB(f.size);
+
+      if (kind === 'image' && sizeMB > MAX_IMAGE_MB) {
+        toast({
+          title: 'Image too large',
+          description: `${f.name} is ${sizeMB}MB (limit ${MAX_IMAGE_MB}MB).`,
+          variant: 'destructive',
+        });
+        continue;
+      }
+      if (kind === 'video' && sizeMB > MAX_VIDEO_MB) {
+        toast({
+          title: 'Video too large',
+          description: `${f.name} is ${sizeMB}MB (limit ${MAX_VIDEO_MB}MB).`,
+          variant: 'destructive',
+        });
+        continue;
+      }
+
+      // de-dupe by name+size
+      if (queue.some((q) => q.name === f.name && q.size === f.size)) {
+        continue;
+      }
+
+      next.push({
+        file: f,
+        kind,
+        status: 'queued',
+        name: f.name,
+        size: f.size,
+        previewUrl: kind === 'image' ? URL.createObjectURL(f) : undefined,
+      });
+    }
+
+    if (next.length) setQueue((q) => [...q, ...next]);
+  }, [queue]);
 
   const handleFilePick = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(ev.target.files || []);
-    if (!files.length) return;
-
-    const next: QueuedFile[] = files.map((f) => ({
-      file: f,
-      kind: f.type.startsWith('video') || /\.(mp4|webm|mov)$/i.test(f.name) ? 'video' : 'image',
-      status: 'queued',
-      name: f.name,
-      size: f.size,
-    }));
-
-    setQueue((q) => [...q, ...next]);
-    // reset input so selecting the same file again works
-    ev.currentTarget.value = '';
+    addFiles(files);
+    ev.currentTarget.value = ''; // allow reselecting same file
   };
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      const files = Array.from(e.dataTransfer.files || []);
+      addFiles(files);
+    },
+    [addFiles]
+  );
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const onPaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const items = Array.from(e.clipboardData?.items || []);
+      const files: File[] = [];
+      for (const it of items) {
+        if (!it.type) continue;
+        if (it.kind === 'file') {
+          const f = it.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length) {
+        addFiles(files);
+        e.preventDefault();
+      }
+    },
+    [addFiles]
+  );
 
   const removeQueued = (name: string) => {
-    setQueue((q) => q.filter((f) => f.name !== name));
+    setQueue((q) => {
+      const target = q.find((f) => f.name === name);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return q.filter((f) => f.name !== name);
+    });
   };
 
+  const cancelUpload = (name: string) => {
+    setQueue((q) => {
+      const idx = q.findIndex((f) => f.name === name);
+      if (idx === -1) return q;
+      try {
+        q[idx].controller?.abort();
+      } catch {}
+      return q.map((f, i) => (i === idx ? { ...f, status: 'canceled', controller: undefined } : f));
+    });
+  };
+
+  const retryUpload = (name: string) => {
+    setQueue((q) =>
+      q.map((f) =>
+        f.name === name ? { ...f, status: 'queued', errorMsg: undefined, remoteUrl: undefined } : f
+      )
+    );
+  };
+
+  /** -------------- Upload pipeline -------------- */
   const uploadQueue = async (): Promise<string[]> => {
-    // returns array of media_urls to include with post
     const urls: string[] = [];
     const updates = [...queue];
 
+    // sequential keeps it simple (max concurrency can be added if needed)
     for (let i = 0; i < updates.length; i++) {
       const item = updates[i];
+
+      // skip finished or canceled
       if (item.status === 'done' && item.remoteUrl) {
         urls.push(item.remoteUrl);
         continue;
       }
+      if (item.status === 'canceled') continue;
 
       try {
-        // mark uploading
-        updates[i] = { ...item, status: 'uploading', errorMsg: undefined };
+        const controller = new AbortController();
+        updates[i] = { ...item, status: 'uploading', controller, errorMsg: undefined };
         setQueue([...updates]);
 
         if (item.kind === 'image') {
-          const publicUrl = await uploadImageToSupabase(item.file);
-          updates[i] = { ...item, status: 'done', remoteUrl: publicUrl };
+          const publicUrl = await uploadImageToSupabase(item.file, controller.signal);
+          updates[i] = { ...updates[i], status: 'done', remoteUrl: publicUrl, controller: undefined };
           urls.push(publicUrl);
           setQueue([...updates]);
         } else {
           // VIDEO → Mux Direct Upload
+          if (!selectedEventId) throw new Error('Select an event before uploading video');
+
           const { upload_id, upload_url } = await createMuxDirectUpload(selectedEventId);
 
-          // PUT binary to Mux upload URL
-          await fetch(upload_url, {
+          // PUT binary to Mux upload URL (fetch has no progress; use AbortController only)
+          const putResp = await fetch(upload_url, {
             method: 'PUT',
             headers: { 'Content-Type': item.file.type || 'application/octet-stream' },
             body: item.file,
+            signal: controller.signal,
           });
 
+          if (!putResp.ok) {
+            const text = await putResp.text().catch(() => '');
+            throw new Error(`Mux upload failed (${putResp.status}) ${text}`);
+          }
+
           // now video is processing on Mux
-          updates[i] = { ...item, status: 'processing' };
+          updates[i] = { ...updates[i], status: 'processing', controller: undefined };
           setQueue([...updates]);
 
           // Poll until we get a playback_id
           const playback_id = await resolveMuxUploadToPlaybackId(upload_id);
 
           const muxUrl = `mux:${playback_id}`;
-          updates[i] = { ...item, status: 'done', remoteUrl: muxUrl };
+          updates[i] = { ...updates[i], status: 'done', remoteUrl: muxUrl };
           urls.push(muxUrl);
           setQueue([...updates]);
         }
       } catch (err: any) {
-        console.error('❌ Upload error for item:', item.name, err);
-        updates[i] = { ...item, status: 'error', errorMsg: err?.message || 'Upload failed' };
+        console.error('Upload error:', err);
+        updates[i] = {
+          ...updates[i],
+          status: updates[i].status === 'canceled' ? 'canceled' : 'error',
+          controller: undefined,
+          errorMsg: err?.message || 'Upload failed',
+        };
         setQueue([...updates]);
-        
-        // Show specific error toast
-        toast({
-          title: "Upload Failed",
-          description: `Failed to upload ${item.name}: ${err?.message || 'Unknown error'}`,
-          variant: "destructive",
-        });
-        
-        throw err; // bubble up to stop submission
+
+        if (updates[i].status !== 'canceled') {
+          toast({
+            title: 'Upload Failed',
+            description: `Failed to upload ${updates[i].name}: ${updates[i].errorMsg}`,
+            variant: 'destructive',
+          });
+          // stop entire submission pipeline on first failure
+          throw err;
+        }
       }
     }
+
     return urls;
   };
+
+  /** -------------- Submit -------------- */
+  const canPost = !!selectedEventId && content.trim().length > 0 && !loading;
 
   const handleSubmit = async () => {
     if (!selectedEventId || !content.trim()) {
       toast({
-        title: "Missing Information",
-        description: "Please select an event and add content",
-        variant: "destructive",
+        title: 'Missing Information',
+        description: 'Please select an event and add content',
+        variant: 'destructive',
       });
       return;
     }
 
     setLoading(true);
     try {
+      // Remember user’s last used event
+      try {
+        localStorage.setItem(LAST_EVENT_KEY(user?.id), selectedEventId);
+      } catch {}
+
       const media_urls = await uploadQueue();
 
-      // Find the ticket tier for this event (for badge)
-      const userTicket = userTickets.find(t => t.event_id === selectedEventId);
+      const userTicket = userTickets.find((t) => t.event_id === selectedEventId);
 
       const { data: result, error } = await supabase.functions.invoke('posts-create', {
         body: {
@@ -262,45 +490,58 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
       });
       if (error) throw error;
 
-      console.log('✅ Post created successfully:', result);
-      
+      // track?.('post_created', { event_id: selectedEventId, media_count: media_urls.length });
+
       toast({
-        title: "Posted Successfully!",
+        title: 'Posted Successfully!',
         description: `Your post has been shared to ${result?.data?.event_title || 'the event'}`,
       });
 
-      // Trigger global post refresh event with more details
-      window.dispatchEvent(new CustomEvent('postCreated', { 
-        detail: { 
-          eventId: selectedEventId, 
-          postId: result?.data?.id,
-          eventTitle: result?.data?.event_title,
-          timestamp: new Date().toISOString()
-        } 
-      }));
-      
-      console.log('📢 Post creation event dispatched');
+      window.dispatchEvent(
+        new CustomEvent('postCreated', {
+          detail: {
+            eventId: selectedEventId,
+            postId: result?.data?.id,
+            eventTitle: result?.data?.event_title,
+            timestamp: new Date().toISOString(),
+          },
+        })
+      );
 
       // reset
       setContent('');
-      setQueue([]);
+      setQueue((q) => {
+        q.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
+        return [];
+      });
       if (!preselectedEventId) setSelectedEventId('');
+
+      // clear draft
+      try {
+        localStorage.removeItem(DRAFT_KEY(user?.id));
+      } catch {}
 
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      console.error('❌ Post creation failed:', err);
+      console.error('Post creation failed:', err);
       toast({
-        title: "Post Failed",
+        title: 'Post Failed',
         description: err?.message || 'Unable to create post. Please try again.',
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const selectedTicket = userTickets.find(t => t.event_id === selectedEventId);
+  // keyboard: Ctrl/Cmd + Enter
+  const onKeyDownComposer = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canPost) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -309,19 +550,17 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
           <DialogTitle>Create Post</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4" onPaste={onPaste}>
           {/* User Profile */}
           <div className="flex items-center gap-3">
             <Avatar className="w-10 h-10">
               <AvatarImage src={profile?.photo_url || ''} />
-              <AvatarFallback>
-                {profile?.display_name?.charAt(0) || 'U'}
-              </AvatarFallback>
+              <AvatarFallback>{profile?.display_name?.charAt(0) || 'U'}</AvatarFallback>
             </Avatar>
             <div>
-              <div className="font-medium">{profile?.display_name}</div>
+              <div className="font-medium">{profile?.display_name || 'You'}</div>
               {selectedTicket && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-xs" title={selectedTicket.ticket_tiers.name}>
                   {selectedTicket.ticket_tiers.badge_label}
                 </Badge>
               )}
@@ -331,21 +570,16 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
           {/* Event Selection */}
           {!preselectedEventId && (
             <div>
-              <label className="text-sm font-medium mb-2 block">
-                Select Event
-              </label>
+              <label className="text-sm font-medium mb-2 block">Select Event</label>
               <Select value={selectedEventId} onValueChange={setSelectedEventId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choose an event to post to" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.from(new Map(userTickets.map(ticket => [
-                    ticket.event_id, 
-                    ticket
-                  ])).values()).map((ticket) => (
+                  {userTickets.map((ticket) => (
                     <SelectItem key={ticket.event_id} value={ticket.event_id}>
                       <div className="flex items-center gap-2">
-                        <span>{ticket.events.title}</span>
+                        <span className="truncate max-w-[240px]">{ticket.events.title}</span>
                         <Badge variant="outline" className="text-xs">
                           {ticket.ticket_tiers.badge_label}
                         </Badge>
@@ -360,26 +594,38 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
           {/* Content */}
           <div>
             <Textarea
-              placeholder="Share your thoughts about this event..."
+              placeholder="Share your thoughts about this event…"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="min-h-[100px] resize-none"
+              className="min-h-[110px] resize-none"
               maxLength={2000}
+              onKeyDown={onKeyDownComposer}
+              aria-label="Post content"
             />
-            <div className="text-right text-xs text-muted-foreground mt-1">
-              {content.length}/2000
+            <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
+              <span>Press ⌘/Ctrl + Enter to post</span>
+              <span>{content.length}/2000</span>
             </div>
           </div>
 
-          {/* Media Upload */}
+          {/* Media Upload (drag & drop + click + paste) */}
           <div>
-            <label className="text-sm font-medium mb-2 block">
-              Add Media (Images → Supabase, Videos → Mux)
-            </label>
-            <div className="border-2 border-dashed border-border rounded-lg p-4">
+            <label className="text-sm font-medium mb-2 block">Add Media</label>
+
+            <div
+              ref={dropRef}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              className={[
+                'border-2 border-dashed rounded-lg p-4 transition-colors',
+                isDragging ? 'border-primary bg-primary/5' : 'border-border',
+              ].join(' ')}
+              aria-label="Drop media here"
+            >
               <input
                 type="file"
-                accept="video/*,image/*"
+                accept={ACCEPT}
                 multiple
                 onChange={handleFilePick}
                 className="hidden"
@@ -389,8 +635,13 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
                 htmlFor="media-upload"
                 className="flex flex-col items-center gap-2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
               >
-                <Video className="w-8 h-8" />
-                <span className="text-sm">Upload video or photos</span>
+                <Upload className="w-6 h-6" />
+                <span className="text-sm">
+                  Drag & drop, paste, or <span className="underline">browse</span> (images • videos)
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Up to {MAX_FILES} files · Images ≤ {MAX_IMAGE_MB}MB · Videos ≤ {MAX_VIDEO_MB}MB
+                </span>
               </label>
             </div>
 
@@ -398,22 +649,59 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
             {queue.length > 0 && (
               <div className="mt-3 space-y-2">
                 {queue.map((q) => (
-                  <div key={q.name} className="flex items-center justify-between bg-muted rounded-lg p-2">
-                    <div className="min-w-0">
-                      <div className="text-xs font-medium truncate">{q.name}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {q.kind.toUpperCase()} • {(q.size / (1024 * 1024)).toFixed(1)} MB • {q.status}
-                        {q.errorMsg ? ` — ${q.errorMsg}` : ''}
+                  <div
+                    key={q.name + q.size}
+                    className="flex items-center justify-between gap-3 bg-muted rounded-lg p-2"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded overflow-hidden flex items-center justify-center bg-background border">
+                        {q.kind === 'image' ? (
+                          q.previewUrl ? (
+                            <img src={q.previewUrl} className="w-full h-full object-cover" alt="" />
+                          ) : (
+                            <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                          )
+                        ) : (
+                          <VideoIcon className="w-5 h-5 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium truncate" title={q.name}>
+                          {q.name}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {q.kind.toUpperCase()} • {bytesToMB(q.size)} MB • {q.status}
+                          {q.errorMsg ? ` — ${q.errorMsg}` : ''}
+                        </div>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => removeQueued(q.name)}
-                      disabled={q.status === 'uploading' || q.status === 'processing'}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      {q.status === 'error' && (
+                        <Button size="icon" variant="ghost" onClick={() => retryUpload(q.name)} title="Retry">
+                          <RefreshCw className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {(q.status === 'uploading' || q.status === 'processing') && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => cancelUpload(q.name)}
+                          title="Cancel"
+                        >
+                          <Ban className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeQueued(q.name)}
+                        title="Remove"
+                        disabled={q.status === 'uploading' || q.status === 'processing'}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -425,15 +713,11 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
             <Button variant="outline" onClick={onClose} className="flex-1">
               Cancel
             </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={loading || !selectedEventId || !content.trim()}
-              className="flex-1"
-            >
+            <Button onClick={handleSubmit} disabled={!canPost} className="flex-1">
               {loading ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Posting...
+                  Posting…
                 </div>
               ) : (
                 'Post'
@@ -445,3 +729,5 @@ export function PostCreatorModal({ isOpen, onClose, onSuccess, preselectedEventI
     </Dialog>
   );
 }
+
+export default PostCreatorModal;
