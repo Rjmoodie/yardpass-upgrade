@@ -9,6 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { routes } from '@/lib/routes';
 
 interface CommentRow {
   id: string;
@@ -60,6 +62,7 @@ interface CommentModalProps {
 
 export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentModalProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
@@ -249,7 +252,12 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-sm">{post.author_name}</span>
+                      <button 
+                        onClick={() => navigate(routes.user(post.author_user_id))}
+                        className="font-medium text-sm hover:text-primary transition-colors cursor-pointer"
+                      >
+                        {post.author_name}
+                      </button>
                       {post.author_badge && (
                         <Badge variant="outline" className="text-xs">
                           {post.author_badge}
@@ -288,7 +296,12 @@ export function CommentModal({ isOpen, onClose, eventId, eventTitle }: CommentMo
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-xs">{comment.author_name}</span>
+                            <button 
+                              onClick={() => navigate(routes.user(comment.author_user_id))}
+                              className="font-medium text-xs hover:text-primary transition-colors cursor-pointer"
+                            >
+                              {comment.author_name}
+                            </button>
                             <span className="text-xs text-muted-foreground">
                               {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                             </span>

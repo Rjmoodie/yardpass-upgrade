@@ -250,14 +250,19 @@ function PostHero({
         {/* Gradient + captions + actions footer */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent">
           <div className="p-4 text-white">
-            <div className="text-sm font-semibold">
-              {post.authorName}{' '}
-              {post.isOrganizer && (
-                <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
-                  ORGANIZER
-                </span>
-              )}
-            </div>
+        <div className="text-sm font-semibold">
+          <button 
+            onClick={goToAuthor}
+            className="hover:text-primary transition-colors cursor-pointer"
+          >
+            {post.authorName}
+          </button>{' '}
+          {post.isOrganizer && (
+            <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
+              ORGANIZER
+            </span>
+          )}
+        </div>
             {post.content && (
               <div className="text-sm opacity-90 line-clamp-2">{post.content}</div>
             )}
@@ -316,7 +321,12 @@ function PostHero({
       {/* Minimal footer for images */}
       <div className="absolute inset-x-0 bottom-0 p-4 text-white">
         <div className="text-sm font-semibold">
-          {post.authorName}{' '}
+          <button 
+            onClick={goToAuthor}
+            className="hover:text-primary transition-colors cursor-pointer"
+          >
+            {post.authorName}
+          </button>{' '}
           {post.isOrganizer && (
             <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
               ORGANIZER
