@@ -5,6 +5,7 @@ export interface EventPost {
   authorName: string; 
   authorBadge: 'ORGANIZER' | 'ATTENDEE'; 
   isOrganizer?: boolean; 
+  authorId?: string;
   content: string; 
   timestamp: string; 
   likes: number; 
@@ -12,6 +13,7 @@ export interface EventPost {
   mediaUrl?: string;
   thumbnailUrl?: string;
   commentCount?: number;
+  ticketTierId?: string;
 }
 
 export interface TicketTier {
@@ -45,6 +47,9 @@ export interface Event {
   slug?: string; // for URL routing
   videoUrl?: string; // for video content
   totalComments?: number; // total comment count for the event
+  organizerVerified?: boolean;
+  minPrice?: number;
+  remaining?: number;
 }
 
 // Database-specific interfaces (for Supabase queries)
