@@ -26,9 +26,11 @@ serve(async (req) => {
 
     const { type, data } = await req.json();
 
-    const clientIP = req.headers.get('x-forwarded-for') || 
-                    req.headers.get('x-real-ip') || 
-                    'unknown';
+    // Handle multiple IPs in x-forwarded-for header (take the first one)
+    const forwardedFor = req.headers.get('x-forwarded-for');
+    const clientIP = forwardedFor 
+      ? forwardedFor.split(',')[0].trim() 
+      : req.headers.get('x-real-ip') || 'unknown';
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
     if (type === 'view') {
