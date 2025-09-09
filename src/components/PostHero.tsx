@@ -262,9 +262,9 @@ function BottomPanel({
           <div className="border-b border-white/15 pb-2 mb-2">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-semibold text-xs">{post.authorName}</span>
-              {post.isOrganizer && (
+              {post.authorBadge && post.authorBadge !== 'ATTENDEE' && (
                 <span className="text-[9px] bg-primary px-1.5 py-0.5 rounded-full font-bold text-white shadow-sm">
-                  ORGANIZER
+                  {post.authorBadge}
                 </span>
               )}
             </div>

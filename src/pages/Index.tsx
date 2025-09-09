@@ -152,7 +152,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           const mapped: EventPost = {
             id: p.id,
             authorName: p.author_display_name || 'Someone',
-            authorBadge: p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE',
+            authorBadge: p.author_badge_label || (p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE'),
             isOrganizer: !!p.author_is_organizer,
             authorId: p.author_user_id || undefined,
             content: p.text || '',
@@ -197,7 +197,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           const newPost: EventPost = {
             id: p.id,
             authorName: p.author_display_name || 'Someone',
-            authorBadge: p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE',
+            authorBadge: (p as any).author_badge_label || (p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE'),
             isOrganizer: !!p.author_is_organizer,
             authorId: p.author_id || p.author_user_id,
             content: p.text || '',
@@ -224,7 +224,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           const newPost: EventPost = {
             id: p.id,
             authorName: p.author_display_name || 'Someone',
-            authorBadge: p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE',
+            authorBadge: (p as any).author_badge_label || (p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE'),
             isOrganizer: !!p.author_is_organizer,
             authorId: p.author_id || p.author_user_id,
             content: p.text || '',

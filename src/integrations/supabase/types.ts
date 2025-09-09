@@ -1978,6 +1978,7 @@ export type Database = {
       get_event_posts: {
         Args: { p_event_ids: string[]; p_k?: number }
         Returns: {
+          author_badge_label: string
           author_display_name: string
           author_is_organizer: boolean
           author_user_id: string
