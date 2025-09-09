@@ -387,7 +387,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                       <div className="pointer-events-auto">
                         <RecentPostsRail
                           posts={ev.posts}
-                          eventId={ev.id}
                           onPostClick={(pid) => openCommentsForPost(pid)}
                           onViewAllClick={() => navigate(`${routes.event(ev.id)}?tab=posts`)}
                         />
