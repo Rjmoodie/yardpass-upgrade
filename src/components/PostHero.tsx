@@ -1,7 +1,6 @@
-// src/components/PostHero.tsx
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, MessageCircle, Play } from 'lucide-react';
+import { Heart, MessageCircle } from 'lucide-react';
 
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { OrganizerChip } from '@/components/OrganizerChip';
@@ -17,11 +16,8 @@ import type { Event, EventPost } from '@/types/events';
 type PostHeroProps = {
   post?: EventPost;
   event: Event;
-  /** Show video autoplay only when slide is active */
   isActive: boolean;
-  /** Opens ticket modal – already wrapped with auth by parent */
   onOpenTickets: () => void;
-  /** When user taps “Recent posts” or comments elsewhere */
   onPostClick: (postId: string) => void;
 };
 
@@ -39,7 +35,6 @@ export function PostHero({
   event,
   isActive,
   onOpenTickets,
-  onPostClick,
 }: PostHeroProps) {
   const navigate = useNavigate();
   const { requireAuth } = useAuthGuard();
@@ -53,7 +48,7 @@ export function PostHero({
   const isVideo = post?.mediaType === 'video';
   const mediaSrc = useMemo(() => toMuxOrDirect(post?.mediaUrl), [post?.mediaUrl]);
 
-  /** Init / teardown HLS */
+  // Init / teardown HLS
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo || !mediaSrc) return;
@@ -102,7 +97,7 @@ export function PostHero({
     };
   }, [isVideo, mediaSrc]);
 
-  /** Autoplay only when active & ready */
+  // Autoplay only when active & ready
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo) return;
@@ -126,12 +121,11 @@ export function PostHero({
 
   const goToEvent = () => navigate(routes.event(event.id));
   const goToAuthor = () => {
-    // If you add authorId to EventPost later, prefer that deep link.
     navigate(`${routes.event(event.id)}?tab=posts`);
   };
 
   // ---------- RENDER ----------
-  // No post: show a clean fallback with the cover + CTA (keeps layout consistent).
+  // No post: clean fallback with the cover + CTA.
   if (!post) {
     return (
       <div className="absolute inset-0">
@@ -141,7 +135,6 @@ export function PostHero({
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-
         <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} />
       </div>
     );
@@ -151,6 +144,7 @@ export function PostHero({
   if (isVideo && mediaSrc) {
     return (
       <div className="absolute inset-0">
+        {/* Click-through goes to event details */}
         <button
           onClick={goToEvent}
           aria-label={`Open ${event.title}`}
@@ -168,7 +162,6 @@ export function PostHero({
           disablePictureInPicture
           controls={false}
           controlsList="nodownload noplaybackrate nofullscreen"
-          // prevent click-through when interacting with overlays
           onClick={(e) => {
             e.stopPropagation();
             toggleMute();
@@ -212,7 +205,7 @@ export function PostHero({
         {/* Bottom panel with CTAs */}
         <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} />
 
-        {/* Unmute hint – small and unobtrusive */}
+        {/* Unmute hint */}
         {muted && (
           <button
             onClick={(e) => {
@@ -284,7 +277,7 @@ function BottomPanel({
 }) {
   return (
     <div className="absolute inset-x-0 bottom-0 p-4 text-white pointer-events-none">
-      <div className="pointer-events-auto">
+      <div className="mx-auto max-w-md md:max-w-lg rounded-2xl bg-black/55 backdrop-blur-md border border-white/10 p-3 space-y-2 pointer-events-auto">
         <EventCTA
           eventTitle={event.title}
           startAtISO={event.startAtISO}
@@ -295,7 +288,7 @@ function BottomPanel({
           onGetTickets={onOpenTickets}
         />
 
-        <div className="mt-2 flex items-center justify-between">
+        <div className="flex items-center justify-between">
           {event.organizerId && event.organizer && (
             <OrganizerChip
               organizerId={event.organizerId}
@@ -306,7 +299,7 @@ function BottomPanel({
           {event.organizerId && <FollowButton targetType="organizer" targetId={event.organizerId} />}
         </div>
 
-        <div className="mt-2">
+        <div className="mt-1">
           <AddToCalendar
             title={event.title}
             description={event.description}
@@ -319,5 +312,3 @@ function BottomPanel({
     </div>
   );
 }
-
-export default PostHero;

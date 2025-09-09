@@ -1,4 +1,3 @@
-// src/pages/Index.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
@@ -19,7 +18,7 @@ import { extractMuxPlaybackId } from '@/utils/mux';
 import { ReportButton } from '@/components/ReportButton';
 import { supabase } from '@/integrations/supabase/client';
 
-import { Event, EventPost } from '@/types/events';
+import type { Event, EventPost } from '@/types/events';
 import { PostHero } from '@/components/PostHero';
 import { RecentPostsRail } from '@/components/RecentPostsRail';
 
@@ -87,12 +86,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       id: ev.id,
       title: ev.title,
       description: ev.description || '',
-      organizer: ev.organizerName || 'Unknown',
+      organizer: ev.organizerName || '',
       organizerId: ev.organizerId || '',
       category: 'General',
       startAtISO: ev.startAtISO || new Date().toISOString(),
       endAtISO: undefined,
-      dateLabel: ev.startAtISO ? new Date(ev.startAtISO).toLocaleDateString() : 'TBD',
+      dateLabel: ev.startAtISO ? new Date(ev.startAtISO).toLocaleDateString() : '',
       location: ev.location || '',
       coverImage: ev.coverImage || DEFAULT_EVENT_COVER,
       ticketTiers: [],
@@ -132,7 +131,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           p_event_ids: idsNeedingPosts,
           p_k: 3,
         });
-
         if (error) throw error;
 
         const grouped = new Map<string, EventPost[]>();
@@ -330,7 +328,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     (currentEvent?.posts?.reduce((s, p) => s + (p.commentCount ?? 0), 0) ?? 0);
 
   return (
-    <div className="h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
+    <div
+      className="h-screen relative overflow-hidden bg-black pb-[calc(86px+env(safe-area-inset-bottom))]"
+      style={{ touchAction: 'pan-y' }}
+    >
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/60 to-transparent p-4 pointer-events-auto">
         <div className="flex items-center justify-between text-white">
@@ -341,7 +342,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSortByActivity(!sortByActivity)}
-              className="flex items-center gap-1 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg border border-white/20 transition-all duration-200 backdrop-blur-sm"
+              className="flex items-center gap-1 px-3 py-2 bg-white/10 hover:bg:white/20 rounded-lg border border-white/20 transition-all duration-200 backdrop-blur-sm"
               title={sortByActivity ? 'Sort by event date' : 'Sort by activity'}
             >
               {sortByActivity ? (
@@ -379,13 +380,15 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                     isActive={i === Math.max(0, Math.min(currentIndex, events.length - 1))}
                     onPostClick={(pid) => openCommentsForPost(pid, heroPost)}
                   />
-                  {/* Recent rail only for image slides / below overlay in your original — optional: place under header */}
-                  {ev.posts?.length ? (
-                    <div className="absolute inset-x-0 bottom-0 p-4 pointer-events-none">
+
+                  {/* Recent posts rail — show only for image hero */}
+                  {heroPost.mediaType !== 'video' && ev.posts?.length ? (
+                    <div className="absolute inset-x-0 bottom-[11rem] px-4 pointer-events-none">
                       <div className="pointer-events-auto">
                         <RecentPostsRail
                           posts={ev.posts}
-                          onPostClick={(pid, p) => openCommentsForPost(pid, p)}
+                          eventId={ev.id}
+                          onPostClick={(pid) => openCommentsForPost(pid)}
                           onViewAllClick={() => navigate(`${routes.event(ev.id)}?tab=posts`)}
                         />
                       </div>
@@ -403,8 +406,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         })}
       </div>
 
-      {/* Action rail */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 pointer-events-auto">
+      {/* Action rail (bottom-right, above tab bar) */}
+      <div className="absolute right-3 sm:right-4 bottom-[calc(120px+env(safe-area-inset-bottom))] z-30 pointer-events-auto">
         <div className="flex flex-col items-center gap-4 text-white select-none">
           <IconButton ariaLabel="Like" active={currentEvent?.isLiked} count={currentEvent?.likes} onClick={() => currentEvent && handleLike(currentEvent.id)}>
             <Heart className={`w-6 h-6 ${currentEvent?.isLiked ? 'fill-white text-white' : 'text-white'}`} />
@@ -442,7 +445,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       {/* Swipe zone */}
       <div
         className="absolute z-10"
-        style={{ pointerEvents: 'auto', touchAction: 'pan-y', top: '12%', bottom: '32%', left: 0, right: '20%' }}
+        style={{ pointerEvents: 'auto', touchAction: 'pan-y', top: '12%', bottom: '34%', left: 0, right: '26%' }}
         onTouchStart={(e) => { (e.currentTarget as any).__startY = e.touches[0].clientY; }}
         onTouchEnd={(e) => {
           const startY = (e.currentTarget as any).__startY as number | undefined;
@@ -484,7 +487,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         onClose={() => setShowShareModal(false)}
         payload={
           showShareModal && currentEvent
-            ? { title: currentEvent.title, text: `Check out ${currentEvent.title} - ${currentEvent.description}`, url: typeof window !== 'undefined' ? window.location.href : '' }
+            ? { title: currentEvent.title, text: `Check out ${currentEvent.title}${currentEvent.description ? ` - ${currentEvent.description}` : ''}`, url: typeof window !== 'undefined' ? window.location.href : '' }
             : null
         }
       />
