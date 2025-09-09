@@ -255,54 +255,57 @@ function BottomPanel({
   post?: EventPost;
 }) {
   return (
-    <div className="absolute inset-x-0 bottom-0 p-3 text-white pointer-events-none">
-      <div className="mx-auto max-w-sm rounded-2xl bg-black/60 backdrop-blur-md border border-white/15 p-3 space-y-2.5 pointer-events-auto">
-        {/* Post author and caption */}
+    <div className="absolute inset-x-0 bottom-0 p-2 text-white pointer-events-none">
+      <div className="mx-auto max-w-sm rounded-xl bg-black/65 backdrop-blur-md border border-white/15 p-2.5 space-y-2 pointer-events-auto">
+        {/* Post author and caption - More compact */}
         {post && (
-          <div className="border-b border-white/20 pb-2.5 mb-2.5">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="font-semibold text-sm">{post.authorName}</span>
+          <div className="border-b border-white/15 pb-2 mb-2">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="font-semibold text-xs">{post.authorName}</span>
               {post.isOrganizer && (
-                <span className="text-[9px] bg-primary/80 px-1.5 py-0.5 rounded-full font-medium">
+                <span className="text-[8px] bg-primary/80 px-1 py-0.5 rounded-full font-medium">
                   ORGANIZER
                 </span>
               )}
             </div>
             {post.content && (
-              <p className="text-sm opacity-95 leading-relaxed line-clamp-3">
+              <p className="text-xs opacity-90 leading-snug line-clamp-2">
                 {post.content}
               </p>
             )}
           </div>
         )}
 
-        <EventCTA
-          eventTitle={event.title}
-          startAtISO={event.startAtISO}
-          attendeeCount={event.attendeeCount}
-          minPrice={event.minPrice}
-          remaining={event.remaining}
-          onDetails={goToEvent}
-          onGetTickets={onOpenTickets}
-        />
+        {/* Compact Event CTA */}
+        <div className="space-y-1.5">
+          <EventCTA
+            eventTitle={event.title}
+            startAtISO={event.startAtISO}
+            attendeeCount={event.attendeeCount}
+            minPrice={event.minPrice}
+            remaining={event.remaining}
+            onDetails={goToEvent}
+            onGetTickets={onOpenTickets}
+          />
 
-        <div className="flex items-center justify-between gap-2">
-          {event.organizerId && event.organizer && (
-            <OrganizerChip
-              organizerId={event.organizerId}
-              name={event.organizer}
-              verified={!!event.organizerVerified}
-            />
-          )}
-          {event.organizerId && (
-            <FollowButton 
-              targetType="organizer" 
-              targetId={event.organizerId} 
-            />
-          )}
-        </div>
+          {/* Compact organizer and follow row */}
+          <div className="flex items-center justify-between gap-2">
+            {event.organizerId && event.organizer && (
+              <OrganizerChip
+                organizerId={event.organizerId}
+                name={event.organizer}
+                verified={!!event.organizerVerified}
+              />
+            )}
+            {event.organizerId && (
+              <FollowButton 
+                targetType="organizer" 
+                targetId={event.organizerId} 
+              />
+            )}
+          </div>
 
-        <div className="mt-2">
+          {/* Compact calendar button */}
           <AddToCalendar
             title={event.title}
             description={event.description}

@@ -17,7 +17,7 @@ export function OrganizerChip({
 
   return (
     <button
-      className="inline-flex items-center gap-1 text-sm hover:underline"
+      className="inline-flex items-center gap-1 text-xs hover:underline"
       onClick={(e) => {
         e.stopPropagation();
         navigate(routes.org(organizerId)); // ensure routes.org exists
@@ -25,8 +25,8 @@ export function OrganizerChip({
     >
       <span className="font-medium">{name}</span>
       {verified && (
-        <Badge variant="outline" className="gap-1">
-          <ShieldCheck className="w-3 h-3" /> Verified
+        <Badge variant="outline" className="gap-1 h-5 px-1.5 text-[9px]">
+          <ShieldCheck className="w-2.5 h-2.5" /> Verified
         </Badge>
       )}
     </button>
