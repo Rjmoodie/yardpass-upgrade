@@ -260,10 +260,10 @@ function BottomPanel({
         {/* Post author and caption - More compact */}
         {post && (
           <div className="border-b border-white/15 pb-2 mb-2">
-            <div className="flex items-center gap-1.5 mb-1">
+            <div className="flex items-center gap-2 mb-1">
               <span className="font-semibold text-xs">{post.authorName}</span>
               {post.isOrganizer && (
-                <span className="text-[8px] bg-primary/80 px-1 py-0.5 rounded-full font-medium">
+                <span className="text-[9px] bg-primary px-1.5 py-0.5 rounded-full font-bold text-white shadow-sm">
                   ORGANIZER
                 </span>
               )}
