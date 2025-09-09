@@ -1,3 +1,4 @@
+// src/pages/Index.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
@@ -19,8 +20,7 @@ import { ReportButton } from '@/components/ReportButton';
 import { supabase } from '@/integrations/supabase/client';
 
 import type { Event, EventPost } from '@/types/events';
-import { PostHero } from '@/components/PostHero';
-import { RecentPostsRail } from '@/components/RecentPostsRail';
+import PostCarousel from '@/components/PostCarousel';
 
 interface IndexProps {
   onEventSelect: (event: Event) => void;
@@ -70,6 +70,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [loading, setLoading] = useState(true);
   const [sortByActivity, setSortByActivity] = useState(false);
 
+  // per-event horizontal index (for the post carousel)
+  const [postIndexByEvent, setPostIndexByEvent] = useState<Record<string, number>>({});
+  const getPostIndex = (id: string) => postIndexByEvent[id] ?? 0;
+  const setPostIndex = (id: string, idx: number) =>
+    setPostIndexByEvent((s) => ({ ...s, [id]: idx }));
+
   const trackRef = useRef<HTMLDivElement>(null);
   const fetchedFor = useRef<Set<string>>(new Set()); // prevents refetch loops
   const isMounted = useRef(true);
@@ -86,12 +92,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       id: ev.id,
       title: ev.title,
       description: ev.description || '',
-      organizer: ev.organizerName || '',
+      organizer: ev.organizerName || 'Unknown',
       organizerId: ev.organizerId || '',
       category: 'General',
       startAtISO: ev.startAtISO || new Date().toISOString(),
       endAtISO: undefined,
-      dateLabel: ev.startAtISO ? new Date(ev.startAtISO).toLocaleDateString() : '',
+      dateLabel: ev.startAtISO ? new Date(ev.startAtISO).toLocaleDateString() : 'TBD',
       location: ev.location || '',
       coverImage: ev.coverImage || DEFAULT_EVENT_COVER,
       ticketTiers: [],
@@ -131,6 +137,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           p_event_ids: idsNeedingPosts,
           p_k: 3,
         });
+
         if (error) throw error;
 
         const grouped = new Map<string, EventPost[]>();
@@ -152,7 +159,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             thumbnailUrl: !isVideo ? url : undefined,
             commentCount: p.comment_count || 0,
             ticketTierId: p.ticket_tier_id || undefined,
-          };
+          } as any;
 
           const arr = grouped.get(p.event_id) ?? [];
           arr.push(mapped);
@@ -197,7 +204,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             thumbnailUrl: !isVideo ? url : undefined,
             commentCount: p.comment_count || 0,
             ticketTierId: p.ticket_tier_id || undefined,
-          };
+          } as any;
 
           const posts = [newPost, ...(ev.posts || [])].slice(0, 3);
           return { ...ev, posts };
@@ -224,7 +231,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             thumbnailUrl: !isVideo ? url : undefined,
             commentCount: p.comment_count || 0,
             ticketTierId: p.ticket_tier_id || undefined,
-          };
+          } as any;
           const posts = [newPost, ...(ev.posts || [])].slice(0, 3);
           return { ...ev, posts };
         })
@@ -237,7 +244,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     if (!sortByActivity) return;
     setEvents((prev) => {
       const score = (ev: Event) => {
-        const postAgg = (ev.posts || []).reduce((s, p) => s + (p.likes || 0) + (p.commentCount || 0), 0);
+        const postAgg = (ev.posts || []).reduce((s, p: any) => s + (p.likes || 0) + (p.commentCount || 0), 0);
         const att = ev.attendeeCount || 0;
         return postAgg * 2 + att;
       };
@@ -296,9 +303,11 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   const handleComment = useCallback(() => {
     if (!currentEvent) return;
-    const heroPost = (currentEvent.posts || []).find((p) => !!p.mediaUrl) || (currentEvent.posts || [])[0];
-    openCommentsForPost(heroPost?.id, heroPost);
-  }, [currentEvent, openCommentsForPost]);
+    const idx = getPostIndex(currentEvent.id);
+    const heroPost = (currentEvent.posts || [])[idx] || (currentEvent.posts || [])[0];
+    if (!heroPost) return;
+    openCommentsForPost(heroPost.id, heroPost);
+  }, [currentEvent, openCommentsForPost, postIndexByEvent]);
 
   if (loading) {
     return (
@@ -323,15 +332,15 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     );
   }
 
+  const activePostIdx = getPostIndex(currentEvent.id);
+  const activePost = currentEvent.posts?.[activePostIdx];
   const commentCount =
+    activePost?.commentCount ??
     ((currentEvent as any)?.totalComments) ??
     (currentEvent?.posts?.reduce((s, p) => s + (p.commentCount ?? 0), 0) ?? 0);
 
   return (
-    <div
-      className="h-screen relative overflow-hidden bg-black pb-[calc(86px+env(safe-area-inset-bottom))]"
-      style={{ touchAction: 'pan-y' }}
-    >
+    <div className="h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/60 to-transparent p-4 pointer-events-auto">
         <div className="flex items-center justify-between text-white">
@@ -342,7 +351,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSortByActivity(!sortByActivity)}
-              className="flex items-center gap-1 px-3 py-2 bg-white/10 hover:bg:white/20 rounded-lg border border-white/20 transition-all duration-200 backdrop-blur-sm"
+              className="flex items-center gap-1 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg border border-white/20 transition-all duration-200 backdrop-blur-sm"
               title={sortByActivity ? 'Sort by event date' : 'Sort by activity'}
             >
               {sortByActivity ? (
@@ -361,52 +370,31 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         </div>
       </div>
 
-      {/* Slides */}
+      {/* Slides (vertical) */}
       <div
         ref={trackRef}
         className="h-full w-full relative transition-transform duration-300 ease-out"
         style={{ transform: `translateY(-${currentIndex * 100}%)` }}
       >
-        {events.map((ev, i) => {
-          const heroPost = (ev.posts || []).find((p) => !!p.mediaUrl) || (ev.posts || [])[0];
-          return (
-            <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
-              {heroPost ? (
-                <>
-                  <PostHero
-                    post={heroPost}
-                    event={ev}
-                    onOpenTickets={() => requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')}
-                    isActive={i === Math.max(0, Math.min(currentIndex, events.length - 1))}
-                    onPostClick={(pid) => openCommentsForPost(pid, heroPost)}
-                  />
-
-                  {/* Recent posts rail — show only for image hero */}
-                  {heroPost.mediaType !== 'video' && ev.posts?.length ? (
-                    <div className="absolute inset-x-0 bottom-[11rem] px-4 pointer-events-none">
-                      <div className="pointer-events-auto">
-                        <RecentPostsRail
-                          posts={ev.posts}
-                          onPostClick={(pid) => openCommentsForPost(pid)}
-                          onViewAllClick={() => navigate(`${routes.event(ev.id)}?tab=posts`)}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <img src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
-                </>
-              )}
-            </div>
-          );
-        })}
+        {events.map((ev, i) => (
+          <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
+            <PostCarousel
+              event={ev}
+              posts={ev.posts}
+              isActiveSlide={i === Math.max(0, Math.min(currentIndex, events.length - 1))}
+              index={getPostIndex(ev.id)}
+              onIndexChange={(idx) => setPostIndex(ev.id, idx)}
+              onOpenTickets={() =>
+                requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')
+              }
+              onPostClick={(pid, p) => openCommentsForPost(pid, p)}
+            />
+          </div>
+        ))}
       </div>
 
-      {/* Action rail (bottom-right, above tab bar) */}
-      <div className="absolute right-3 sm:right-4 bottom-[calc(120px+env(safe-area-inset-bottom))] z-30 pointer-events-auto">
+      {/* Right action rail */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 pointer-events-auto">
         <div className="flex flex-col items-center gap-4 text-white select-none">
           <IconButton ariaLabel="Like" active={currentEvent?.isLiked} count={currentEvent?.likes} onClick={() => currentEvent && handleLike(currentEvent.id)}>
             <Heart className={`w-6 h-6 ${currentEvent?.isLiked ? 'fill-white text-white' : 'text-white'}`} />
@@ -429,7 +417,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         </div>
       </div>
 
-      {/* Dots */}
+      {/* Vertical dots (events) */}
       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1 z-20">
         {events.map((_, i) => (
           <button
@@ -441,10 +429,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         ))}
       </div>
 
-      {/* Swipe zone */}
+      {/* Swipe zone for vertical navigation */}
       <div
         className="absolute z-10"
-        style={{ pointerEvents: 'auto', touchAction: 'pan-y', top: '12%', bottom: '34%', left: 0, right: '26%' }}
+        style={{ pointerEvents: 'auto', touchAction: 'pan-y', top: '12%', bottom: '32%', left: 0, right: '20%' }}
         onTouchStart={(e) => { (e.currentTarget as any).__startY = e.touches[0].clientY; }}
         onTouchEnd={(e) => {
           const startY = (e.currentTarget as any).__startY as number | undefined;
@@ -486,7 +474,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         onClose={() => setShowShareModal(false)}
         payload={
           showShareModal && currentEvent
-            ? { title: currentEvent.title, text: `Check out ${currentEvent.title}${currentEvent.description ? ` - ${currentEvent.description}` : ''}`, url: typeof window !== 'undefined' ? window.location.href : '' }
+            ? { title: currentEvent.title, text: `Check out ${currentEvent.title} - ${currentEvent.description}`, url: typeof window !== 'undefined' ? window.location.href : '' }
             : null
         }
       />
