@@ -172,32 +172,34 @@ export function PostHero({
         <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/60 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black/80 to-transparent" />
 
-        {/* Header (author + tiny stats) */}
-        <div className="absolute left-0 right-0 top-0 p-4 flex items-center justify-between text-white">
-          <div className="pointer-events-auto">
+        {/* Header (author + tiny stats) - Mobile optimized */}
+        <div className="absolute left-0 right-0 top-0 p-4 flex items-start justify-between text-white">
+          <div className="pointer-events-auto flex-1 min-w-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 goToAuthor();
               }}
-              className="text-sm font-semibold underline hover:text-primary transition-colors"
+              className="text-sm font-semibold hover:text-primary transition-colors touch-manipulation"
               title="View posts"
             >
               {post.authorName}
             </button>
             {post.isOrganizer && (
-              <span className="ml-2 text-[10px] bg-white/20 px-1.5 py-0.5 rounded align-middle">ORGANIZER</span>
+              <span className="ml-2 text-[9px] bg-white/25 px-1.5 py-0.5 rounded-full font-medium backdrop-blur-sm">
+                ORGANIZER
+              </span>
             )}
           </div>
 
-          <div className="flex items-center gap-3 text-xs opacity-90">
+          <div className="flex items-center gap-2 text-xs opacity-90 bg-black/40 backdrop-blur-sm rounded-full px-2 py-1">
             <div className="flex items-center gap-1">
-              <Heart className="w-3.5 h-3.5" />
-              {post.likes ?? 0}
+              <Heart className="w-3 h-3" />
+              <span className="font-medium">{post.likes ?? 0}</span>
             </div>
             <div className="flex items-center gap-1">
-              <MessageCircle className="w-3.5 h-3.5" />
-              {post.commentCount ?? 0}
+              <MessageCircle className="w-3 h-3" />
+              <span className="font-medium">{post.commentCount ?? 0}</span>
             </div>
           </div>
         </div>
@@ -205,16 +207,16 @@ export function PostHero({
         {/* Bottom panel with CTAs */}
         <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} />
 
-        {/* Unmute hint */}
+        {/* Unmute hint - Mobile optimized */}
         {muted && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               toggleMute();
             }}
-            className="absolute top-16 right-4 bg-black/60 text-white rounded-full px-3 py-1 text-xs"
+            className="absolute top-16 right-4 bg-black/70 text-white rounded-full px-3 py-1.5 text-xs font-medium backdrop-blur-sm border border-white/20 touch-manipulation"
           >
-            Tap for sound
+            🔊 Tap for sound
           </button>
         )}
       </div>
@@ -237,7 +239,7 @@ export function PostHero({
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-      {/* Author & text */}
+      {/* Author & text - Mobile optimized */}
       <div className="absolute left-0 right-0 top-0 p-4 text-white">
         <div className="pointer-events-auto">
           <button
@@ -245,18 +247,22 @@ export function PostHero({
               e.stopPropagation();
               goToAuthor();
             }}
-            className="text-sm font-semibold underline hover:text-primary transition-colors"
+            className="text-sm font-semibold hover:text-primary transition-colors touch-manipulation"
             title="View posts"
           >
             {post.authorName}
           </button>
           {post.isOrganizer && (
-            <span className="ml-2 text-[10px] bg-white/20 px-1.5 py-0.5 rounded align-middle">ORGANIZER</span>
+            <span className="ml-2 text-[9px] bg-white/25 px-1.5 py-0.5 rounded-full font-medium backdrop-blur-sm">
+              ORGANIZER
+            </span>
           )}
         </div>
 
         {post.content && (
-          <div className="mt-1 text-sm opacity-90 line-clamp-2 max-w-[85%]">{post.content}</div>
+          <div className="mt-2 text-sm opacity-95 line-clamp-2 max-w-[75%] leading-relaxed">
+            {post.content}
+          </div>
         )}
       </div>
 
@@ -276,8 +282,8 @@ function BottomPanel({
   goToEvent: () => void;
 }) {
   return (
-    <div className="absolute inset-x-0 bottom-0 p-4 text-white pointer-events-none">
-      <div className="mx-auto max-w-md md:max-w-lg rounded-2xl bg-black/55 backdrop-blur-md border border-white/10 p-3 space-y-2 pointer-events-auto">
+    <div className="absolute inset-x-0 bottom-0 p-3 text-white pointer-events-none">
+      <div className="mx-auto max-w-sm rounded-2xl bg-black/60 backdrop-blur-md border border-white/15 p-3 space-y-2.5 pointer-events-auto">
         <EventCTA
           eventTitle={event.title}
           startAtISO={event.startAtISO}
@@ -288,7 +294,7 @@ function BottomPanel({
           onGetTickets={onOpenTickets}
         />
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           {event.organizerId && event.organizer && (
             <OrganizerChip
               organizerId={event.organizerId}
@@ -296,10 +302,15 @@ function BottomPanel({
               verified={!!event.organizerVerified}
             />
           )}
-          {event.organizerId && <FollowButton targetType="organizer" targetId={event.organizerId} />}
+          {event.organizerId && (
+            <FollowButton 
+              targetType="organizer" 
+              targetId={event.organizerId} 
+            />
+          )}
         </div>
 
-        <div className="mt-1">
+        <div className="mt-2">
           <AddToCalendar
             title={event.title}
             description={event.description}

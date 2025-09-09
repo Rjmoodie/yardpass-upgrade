@@ -42,17 +42,21 @@ function IconButton({
     <button
       aria-label={ariaLabel}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
-      className="flex flex-col items-center gap-1 transition-transform active:scale-95 min-h-[56px] min-w-[56px] p-2 touch-manipulation"
+      className="flex flex-col items-center gap-1 transition-transform active:scale-95 min-h-[48px] min-w-[48px] p-2 touch-manipulation"
       style={{ backgroundColor: 'transparent' }}
     >
       <div
-        className={`p-3 rounded-full transition-all duration-200 ${
-          active ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-110' : 'bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20'
+        className={`p-2.5 rounded-full transition-all duration-200 ${
+          active ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-105' : 'bg-black/50 backdrop-blur-sm border border-white/25 hover:bg-white/20'
         }`}
       >
         {children}
       </div>
-      {typeof count !== 'undefined' && <span className="text-xs font-medium text-white drop-shadow-lg">{count}</span>}
+      {typeof count !== 'undefined' && (
+        <span className="text-[10px] font-medium text-white drop-shadow-lg px-1.5 py-0.5 bg-black/60 rounded-full min-w-[20px] text-center">
+          {count > 999 ? '999+' : count}
+        </span>
+      )}
     </button>
   );
 }
@@ -341,32 +345,30 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   return (
     <div className="h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/60 to-transparent p-4 pointer-events-auto">
-        <div className="flex items-center justify-between text-white">
+      {/* Header - Optimized for mobile */}
+      <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/70 to-transparent pointer-events-auto">
+        <div className="flex items-center justify-between p-4 pb-2">
           <div className="flex items-center gap-2">
-            <img src="/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png" alt="YardPass" className="w-8 h-8" />
-            <span className="font-bold text-lg">YardPass</span>
+            <img src="/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png" alt="YardPass" className="w-7 h-7" />
+            <span className="font-bold text-base text-white">YardPass</span>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSortByActivity(!sortByActivity)}
-              className="flex items-center gap-1 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg border border-white/20 transition-all duration-200 backdrop-blur-sm"
-              title={sortByActivity ? 'Sort by event date' : 'Sort by activity'}
-            >
-              {sortByActivity ? (
-                <>
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="text-xs font-medium">Active</span>
-                </>
-              ) : (
-                <>
-                  <Clock className="w-4 h-4" />
-                  <span className="text-xs font-medium">Upcoming</span>
-                </>
-              )}
-            </button>
-          </div>
+          <button
+            onClick={() => setSortByActivity(!sortByActivity)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-full border border-white/20 transition-all duration-200 backdrop-blur-sm min-h-[44px]"
+            title={sortByActivity ? 'Sort by event date' : 'Sort by activity'}
+          >
+            {sortByActivity ? (
+              <>
+                <TrendingUp className="w-4 h-4 text-white" />
+                <span className="text-xs font-medium text-white">Active</span>
+              </>
+            ) : (
+              <>
+                <Clock className="w-4 h-4 text-white" />
+                <span className="text-xs font-medium text-white">Upcoming</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
@@ -393,23 +395,27 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         ))}
       </div>
 
-      {/* Right action rail */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 pointer-events-auto">
-        <div className="flex flex-col items-center gap-4 text-white select-none">
-          <IconButton ariaLabel="Like" active={currentEvent?.isLiked} count={currentEvent?.likes} onClick={() => currentEvent && handleLike(currentEvent.id)}>
-            <Heart className={`w-6 h-6 ${currentEvent?.isLiked ? 'fill-white text-white' : 'text-white'}`} />
+      {/* Right action rail - Optimized for mobile touch */}
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 pointer-events-auto">
+        <div className="flex flex-col items-center gap-3 text-white select-none">
+          <IconButton ariaLabel="Like event" active={currentEvent?.isLiked} count={currentEvent?.likes} onClick={() => currentEvent && handleLike(currentEvent.id)}>
+            <Heart className={`w-5 h-5 ${currentEvent?.isLiked ? 'fill-white text-white' : 'text-white'}`} />
           </IconButton>
-          <IconButton ariaLabel="Comments" count={commentCount} onClick={() => handleComment()}>
-            <MessageCircle className="w-6 h-6 text-white" />
+          <IconButton ariaLabel="View comments" count={commentCount} onClick={() => handleComment()}>
+            <MessageCircle className="w-5 h-5 text-white" />
           </IconButton>
-          <IconButton ariaLabel="Create post" onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}>
-            <div className="p-3 rounded-full bg-primary/80 backdrop-blur-sm border border-primary/50 hover:bg-primary transition-all duration-200 shadow-lg">
-              <Plus className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-xs font-medium text-white drop-shadow-lg">Post</span>
-          </IconButton>
-          <IconButton ariaLabel="Share" onClick={() => setShowShareModal(true)}>
-            <Share className="w-6 h-6 text-white" />
+          <div className="flex flex-col items-center">
+            <button
+              onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
+              className="p-3 rounded-full bg-primary/90 backdrop-blur-sm border border-primary/60 hover:bg-primary transition-all duration-200 shadow-lg min-h-[48px] min-w-[48px] touch-manipulation"
+              aria-label="Create post"
+            >
+              <Plus className="w-5 h-5 text-white" />
+            </button>
+            <span className="text-[10px] font-medium text-white drop-shadow-lg mt-1">Post</span>
+          </div>
+          <IconButton ariaLabel="Share event" onClick={() => setShowShareModal(true)}>
+            <Share className="w-5 h-5 text-white" />
           </IconButton>
           <div className="pointer-events-auto">
             <ReportButton targetType="event" targetId={currentEvent?.id || ''} />
@@ -417,14 +423,18 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         </div>
       </div>
 
-      {/* Vertical dots (events) */}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1 z-20">
+      {/* Vertical dots (events) - Mobile optimized */}
+      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-20">
         {events.map((_, i) => (
           <button
             key={i}
             aria-label={`Go to event ${i + 1}`}
             onClick={() => goTo(i)}
-            className={`w-1.5 h-8 rounded-full transition-colors ${i === currentIndex ? 'bg-white' : 'bg-white/30 hover:bg-white/50'}`}
+            className={`w-1 h-6 rounded-full transition-all duration-200 touch-manipulation ${
+              i === currentIndex 
+                ? 'bg-white shadow-sm' 
+                : 'bg-white/40 hover:bg-white/60 active:bg-white/70'
+            }`}
           />
         ))}
       </div>
