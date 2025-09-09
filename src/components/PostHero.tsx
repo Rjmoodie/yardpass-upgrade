@@ -72,13 +72,25 @@ export function PostHero({
           hlsRef.current = hls;
           hls.loadSource(mediaSrc);
           hls.attachMedia(video);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => setReady(true));
-          hls.on(Hls.Events.ERROR, () => setReady(true));
+          console.log('🎥 HLS setup for Mux video:', mediaSrc);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            console.log('✅ HLS manifest parsed successfully');
+            setReady(true);
+          });
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('❌ HLS error:', event, data);
+            setReady(true);
+          });
         } else {
+          console.log('🎥 Setting up native video playback:', mediaSrc);
           video.src = mediaSrc;
-          video.onloadedmetadata = () => setReady(true);
+          video.onloadedmetadata = () => {
+            console.log('✅ Native video metadata loaded');
+            setReady(true);
+          };
         }
-      } catch {
+      } catch (err) {
+        console.error('❌ Video setup error:', err);
         video.src = mediaSrc;
         video.onloadedmetadata = () => setReady(true);
       }

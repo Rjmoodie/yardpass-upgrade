@@ -137,10 +137,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
     (async () => {
       try {
+        console.log('🔍 Fetching posts for event IDs:', idsNeedingPosts);
         const { data, error } = await supabase.rpc('get_event_posts', {
           p_event_ids: idsNeedingPosts,
           p_k: 3,
         });
+
+        console.log('📄 Posts RPC response:', { data, error });
 
         if (error) throw error;
 
@@ -171,6 +174,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         }
 
         if (!isMounted.current) return;
+        console.log('📊 Setting posts for events. Grouped data:', grouped);
         setEvents((prev) =>
           prev.map((ev) => (grouped.has(ev.id) ? { ...ev, posts: grouped.get(ev.id) } : ev))
         );
