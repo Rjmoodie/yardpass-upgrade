@@ -172,26 +172,8 @@ export function PostHero({
         <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/60 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black/80 to-transparent" />
 
-        {/* Header (author + tiny stats) - Mobile optimized */}
-        <div className="absolute left-0 right-0 top-0 p-4 flex items-start justify-between text-white">
-          <div className="pointer-events-auto flex-1 min-w-0">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                goToAuthor();
-              }}
-              className="text-sm font-semibold hover:text-primary transition-colors touch-manipulation"
-              title="View posts"
-            >
-              {post.authorName}
-            </button>
-            {post.isOrganizer && (
-              <span className="ml-2 text-[9px] bg-white/25 px-1.5 py-0.5 rounded-full font-medium backdrop-blur-sm">
-                ORGANIZER
-              </span>
-            )}
-          </div>
-
+        {/* Header (engagement stats only for videos) - Mobile optimized */}
+        <div className="absolute left-0 right-0 top-0 p-4 flex items-start justify-end text-white">
           <div className="flex items-center gap-2 text-xs opacity-90 bg-black/40 backdrop-blur-sm rounded-full px-2 py-1">
             <div className="flex items-center gap-1">
               <Heart className="w-3 h-3" />
@@ -205,7 +187,7 @@ export function PostHero({
         </div>
 
         {/* Bottom panel with CTAs */}
-        <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} />
+        <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} post={post} />
 
         {/* Unmute hint - Mobile optimized */}
         {muted && (
@@ -239,34 +221,23 @@ export function PostHero({
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-      {/* Author & text - Mobile optimized */}
+      {/* Minimal header for images - author info moved to bottom panel */}
       <div className="absolute left-0 right-0 top-0 p-4 text-white">
-        <div className="pointer-events-auto">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              goToAuthor();
-            }}
-            className="text-sm font-semibold hover:text-primary transition-colors touch-manipulation"
-            title="View posts"
-          >
-            {post.authorName}
-          </button>
-          {post.isOrganizer && (
-            <span className="ml-2 text-[9px] bg-white/25 px-1.5 py-0.5 rounded-full font-medium backdrop-blur-sm">
-              ORGANIZER
-            </span>
-          )}
-        </div>
-
-        {post.content && (
-          <div className="mt-2 text-sm opacity-95 line-clamp-2 max-w-[75%] leading-relaxed">
-            {post.content}
+        <div className="flex justify-end">
+          <div className="flex items-center gap-2 text-xs opacity-90 bg-black/40 backdrop-blur-sm rounded-full px-2 py-1">
+            <div className="flex items-center gap-1">
+              <Heart className="w-3 h-3" />
+              <span className="font-medium">{post.likes ?? 0}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <MessageCircle className="w-3 h-3" />
+              <span className="font-medium">{post.commentCount ?? 0}</span>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
-      <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} />
+      <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} post={post} />
     </div>
   );
 }
@@ -276,14 +247,35 @@ function BottomPanel({
   event,
   onOpenTickets,
   goToEvent,
+  post,
 }: {
   event: Event;
   onOpenTickets: () => void;
   goToEvent: () => void;
+  post?: EventPost;
 }) {
   return (
     <div className="absolute inset-x-0 bottom-0 p-3 text-white pointer-events-none">
       <div className="mx-auto max-w-sm rounded-2xl bg-black/60 backdrop-blur-md border border-white/15 p-3 space-y-2.5 pointer-events-auto">
+        {/* Post author and caption */}
+        {post && (
+          <div className="border-b border-white/20 pb-2.5 mb-2.5">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="font-semibold text-sm">{post.authorName}</span>
+              {post.isOrganizer && (
+                <span className="text-[9px] bg-primary/80 px-1.5 py-0.5 rounded-full font-medium">
+                  ORGANIZER
+                </span>
+              )}
+            </div>
+            {post.content && (
+              <p className="text-sm opacity-95 leading-relaxed line-clamp-3">
+                {post.content}
+              </p>
+            )}
+          </div>
+        )}
+
         <EventCTA
           eventTitle={event.title}
           startAtISO={event.startAtISO}
