@@ -41,21 +41,32 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
         setInvites(inviteData || []);
       }
 
-      // Get current members
+      // Get current members - fix relationship issue by fetching separately
       const { data: memberData, error: memberError } = await supabase
         .from('event_roles')
-        .select(`
-          id,
-          user_id,
-          role,
-          status,
-          created_by,
-          created_at,
-          event_id,
-          user_profiles!inner(display_name)
-        `)
+        .select('*')
         .eq('event_id', eventId)
         .eq('status', 'active');
+
+      if (memberData && !memberError) {
+        // Get user profiles separately
+        const userIds = memberData.map(m => m.user_id);
+        if (userIds.length > 0) {
+          const { data: profileData } = await supabase
+            .from('user_profiles')
+            .select('user_id, display_name')
+            .in('user_id', userIds);
+          
+          // Combine the data
+          const membersWithProfiles = memberData.map(member => ({
+            ...member,
+            user_profiles: profileData?.find(p => p.user_id === member.user_id)
+          }));
+          setMembers(membersWithProfiles);
+        } else {
+          setMembers(memberData);
+        }
+      }
 
       if (memberError) {
         console.error('Error fetching members:', memberError);
