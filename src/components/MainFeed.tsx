@@ -219,7 +219,7 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
         preselectedEventId={current?.id}
         onSuccess={() => toast({ title: 'Posted', description: 'Your post has been created!' })}
       />
-    </div>
+          </div>
   );
 };
 
@@ -238,33 +238,33 @@ function Header({ onCreatePost }: { onCreatePost: () => void }) {
           <span className="text-lg">🎪</span>
           <span>YardPass</span>
         </div>
-        <Button
+          <Button
           size="lg"
           variant="glass"
           onClick={() => requireAuth(onCreatePost, 'Sign in to create')}
           className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[44px] px-4 font-semibold backdrop-blur-md shadow-lg"
         >
           + Create Event
-        </Button>
+          </Button>
+        </div>
       </div>
-    </div>
   );
 }
 
 function MediaContainer({ events, currentIndex, scrollRef }: any) {
   return (
-    <div
-      ref={scrollRef}
+      <div 
+        ref={scrollRef}
       className="h-full w-full relative transition-transform duration-300 ease-out"
-      style={{ transform: `translateY(-${currentIndex * 100}%)` }}
-    >
+        style={{ transform: `translateY(-${currentIndex * 100}%)` }}
+      >
       {events.map((e: Event, i: number) => (
         <div key={e.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
           <ImageWithFallback src={e.coverImage} alt={e.title} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
-        </div>
-      ))}
-    </div>
+          </div>
+        ))}
+      </div>
   );
 }
 
@@ -286,7 +286,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
             <Badge
               variant="outline"
               className="border-white/30 text-white cursor-pointer hover:bg-white/10"
-              onClick={() => {
+                onClick={() => {
                 capture('feed_click', { target: 'attending', event_id: event.id });
                 setShowAttendeeModal(true);
               }}
@@ -328,13 +328,13 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
           <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
             <Avatar className="w-6 h-6">
               <AvatarFallback className="text-xs bg-white/20 text-white">{event.organizer.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <button
+              </Avatar>
+              <button 
               onClick={() => capture('feed_click', { target: 'handle', event_id: event.id })}
               className="cursor-pointer hover:text-white"
-            >
+              >
               @{event.organizer.replaceAll(' ', '').toLowerCase()}
-            </button>
+              </button>
             <Badge variant="secondary" className="text-xs">
               <Crown className="w-3 h-3 mr-1" />
               ORGANIZER
@@ -346,7 +346,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
               {event.dateLabel}
             </div>
             <div className="flex items-center gap-1">
-              <MapPin className="w-4 h-4" />
+                <MapPin className="w-4 h-4" />
               {event.location}
             </div>
             <div className="flex items-center gap-1">
@@ -356,9 +356,9 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
           </div>
           <p className="text-sm text-gray-300 line-clamp-2 max-w-xs">{event.description}</p>
           <div className="flex gap-3">
-            <Button
-              size="lg"
-              variant="premium"
+              <Button 
+                size="lg" 
+                variant="premium"
               onClick={() =>
                 requireAuth(() => {
                   capture('feed_click', { target: 'tickets', event_id: event.id });
@@ -366,22 +366,22 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
                 }, 'Sign in to buy tickets')
               }
               className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[48px] px-6 font-bold shadow-lg"
-            >
-              Get Tickets
-            </Button>
-            <Button
-              size="lg"
-              variant="glass"
+              >
+                Get Tickets
+              </Button>
+              <Button 
+                size="lg" 
+                variant="glass"
               onClick={() => {
                 capture('feed_click', { target: 'details', event_id: event.id });
                 navigate(routes.event(event.id));
               }}
               className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[48px] px-6 font-semibold backdrop-blur-md"
-            >
-              Details
-            </Button>
+              >
+                Details
+              </Button>
+            </div>
           </div>
-        </div>
         <div className="flex flex-col items-center gap-4 text-white relative z-20">
           <ActionButton
             icon={<Heart className={event.isLiked ? 'fill-white text-white' : 'text-white'} />}
@@ -392,7 +392,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
           <ActionButton
             icon={<MessageCircle className="text-white" />}
             label={event.posts?.length || 0}
-            onClick={() => {
+              onClick={() => {
               capture('feed_click', { target: 'comment', event_id: event.id });
               navigate(routes.event(event.id));
             }}
@@ -424,7 +424,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
 
 function ActionButton({ icon, label, onClick, active }: any) {
   return (
-    <button
+          <button
       onClick={onClick}
       className="flex flex-col items-center gap-1 transition-transform active:scale-95 min-h-[56px] min-w-[56px] p-2"
     >
@@ -448,29 +448,29 @@ function ScrollDots({ events, currentIndex, setCurrentIndex }: any) {
           key={i}
           onClick={() => setCurrentIndex(i)}
           className={`w-1 h-8 rounded-full transition-colors ${i === currentIndex ? 'bg-white' : 'bg-white/30'}`}
-        />
-      ))}
-    </div>
+          />
+        ))}
+      </div>
   );
 }
 
 function SwipeArea({ handleScroll }: { handleScroll: (dir: 'up' | 'down') => void }) {
   return (
-    <div
-      className="absolute inset-0 z-10"
+      <div 
+        className="absolute inset-0 z-10"
       style={{ pointerEvents: 'auto', touchAction: 'pan-y', clipPath: 'polygon(0% 15%, 80% 15%, 80% 100%, 0% 100%)' }}
-      onTouchStart={(e) => {
+        onTouchStart={(e) => {
         e.currentTarget.dataset.startY = e.touches[0].clientY.toString();
-      }}
-      onTouchEnd={(e) => {
+        }}
+        onTouchEnd={(e) => {
         const startY = parseInt(e.currentTarget.dataset.startY || '0', 10);
-        const endY = e.changedTouches[0].clientY;
-        const diff = startY - endY;
-        if (Math.abs(diff) > 50) {
+          const endY = e.changedTouches[0].clientY;
+          const diff = startY - endY;
+          if (Math.abs(diff) > 50) {
           handleScroll(diff > 0 ? 'down' : 'up');
-        }
-      }}
-    />
+          }
+        }}
+      />
   );
 }
 

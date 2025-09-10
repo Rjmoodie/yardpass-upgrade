@@ -377,7 +377,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       </div>
 
       {/* Slides (vertical) */}
-      <div
+      <div 
         ref={trackRef}
         className="h-full w-full relative transition-transform duration-300 ease-out"
         style={{ transform: `translateY(-${currentIndex * 100}%)` }}
@@ -417,7 +417,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
               <Plus className="w-5 h-5 text-white" />
             </button>
             <span className="text-[10px] font-medium text-white drop-shadow-lg mt-1">Post</span>
-          </div>
+              </div>
           <IconButton ariaLabel="Share event" onClick={() => setShowShareModal(true)}>
             <Share className="w-5 h-5 text-white" />
           </IconButton>
@@ -493,11 +493,11 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         }
       />
 
-      <PostCreatorModal
-        isOpen={postCreatorOpen}
-        onClose={() => setPostCreatorOpen(false)}
-        onSuccess={() => {
-          setPostCreatorOpen(false);
+        <PostCreatorModal
+          isOpen={postCreatorOpen}
+          onClose={() => setPostCreatorOpen(false)}
+          onSuccess={() => {
+            setPostCreatorOpen(false);
           toast({ title: 'Success', description: 'Your post has been created!' });
         }}
         preselectedEventId={currentEvent?.id}
@@ -510,7 +510,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         eventTitle={currentEvent?.title || ''}
         postId={commentPostId}
         mediaPlaybackId={commentMediaId}
-      />
+        />
     </div>
   );
 }

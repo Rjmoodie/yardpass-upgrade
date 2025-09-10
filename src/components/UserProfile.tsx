@@ -10,10 +10,10 @@ import { useTickets } from '@/hooks/useTickets';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
-import {
-  ArrowLeft,
-  Shield,
-  Ticket,
+import { 
+  ArrowLeft, 
+  Shield, 
+  Ticket, 
   Calendar,
   MapPin,
   Users,
@@ -182,8 +182,8 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             <Button variant="ghost" size="sm" onClick={onShare} aria-label="Share profile">
               <ShareIcon className="w-4 h-4" />
             </Button>
-            <Button
-              variant="ghost"
+            <Button 
+              variant="ghost" 
               size="sm"
               onClick={() => navigate('/edit-profile')}
               aria-label="Edit profile"
@@ -223,9 +223,9 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
               {initials || 'U'}
             </AvatarFallback>
           </Avatar>
-
+          
           <h2 className="mb-1">{user.name}</h2>
-
+          
           <div className="flex items-center justify-center gap-2 mb-4">
             {user.isVerified && (
               <Badge variant="secondary" className="text-xs">
@@ -331,54 +331,54 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                     onClick={() => openEvent(ticket.eventId || ticket.event_id)}
                     aria-label={`Open ${ticket.eventTitle} details`}
                   >
-                    <div className="flex">
-                      <ImageWithFallback
+                  <div className="flex">
+                    <ImageWithFallback
                         src={ticket.coverImage || DEFAULT_EVENT_COVER}
-                        alt={ticket.eventTitle}
-                        className="w-20 h-20 object-cover"
-                      />
-                      <CardContent className="flex-1 p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h4 className="text-sm mb-1">{ticket.eventTitle}</h4>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                              <Calendar className="w-3 h-3" />
-                              {ticket.eventDate}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <MapPin className="w-3 h-3" />
-                              {ticket.eventLocation}
-                            </div>
+                      alt={ticket.eventTitle}
+                      className="w-20 h-20 object-cover"
+                    />
+                    <CardContent className="flex-1 p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="text-sm mb-1">{ticket.eventTitle}</h4>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                            <Calendar className="w-3 h-3" />
+                            {ticket.eventDate}
                           </div>
-                          <div className="text-right">
-                            <Badge variant="outline" className="text-xs mb-1">
-                              {ticket.badge || 'GA'}
-                            </Badge>
-                            <div className="text-sm">${ticket.price}</div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <MapPin className="w-3 h-3" />
+                            {ticket.eventLocation}
                           </div>
                         </div>
-                        <div className="flex justify-between items-center">
+                        <div className="text-right">
+                          <Badge variant="outline" className="text-xs mb-1">
+                              {ticket.badge || 'GA'}
+                          </Badge>
+                          <div className="text-sm">${ticket.price}</div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
                           <span className="text-xs text-muted-foreground">
                             {ticket.ticketType || 'General Admission'}
                           </span>
-                          <Badge
+                        <Badge 
                             variant={ticket.status === 'issued' ? 'secondary' : 'outline'}
-                            className="text-xs"
-                          >
+                          className="text-xs"
+                        >
                             {ticket.status === 'issued' ? 'confirmed' : ticket.status}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </div>
-                  </Card>
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </div>
+                </Card>
                 ))
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Ticket className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No tickets yet</p>
-                  <p className="text-sm">Discover and attend amazing events!</p>
-                </div>
-              )}
+              <div className="text-center py-8 text-muted-foreground">
+                <Ticket className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No tickets yet</p>
+                <p className="text-sm">Discover and attend amazing events!</p>
+              </div>
+            )}
             </div>
           </TabsContent>
 
@@ -394,17 +394,17 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             <div className="grid grid-cols-2 gap-4">
               {userBadges.length > 0 ? (
                 userBadges.map((badge) => (
-                  <Card key={badge.name}>
-                    <CardContent className="p-4 text-center">
-                      <div className="mb-2">
-                        <Badge variant="outline" className="text-sm">
-                          {badge.name}
-                        </Badge>
-                      </div>
-                      <div className="text-2xl mb-1">{badge.count}</div>
+                <Card key={badge.name}>
+                  <CardContent className="p-4 text-center">
+                    <div className="mb-2">
+                      <Badge variant="outline" className="text-sm">
+                        {badge.name}
+                      </Badge>
+                    </div>
+                    <div className="text-2xl mb-1">{badge.count}</div>
                       <p className="text-xs text-muted-foreground">{badge.description}</p>
-                    </CardContent>
-                  </Card>
+                  </CardContent>
+                </Card>
                 ))
               ) : (
                 <div className="col-span-2 text-center py-8 text-muted-foreground">
@@ -466,15 +466,15 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                     onClick={() => openEventPost(post.eventId, post.id)}
                     aria-label={`Open post in ${post.eventTitle ?? 'event'}`}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex gap-3">
-                        <ImageWithFallback
+                  <CardContent className="p-4">
+                    <div className="flex gap-3">
+                      <ImageWithFallback
                           src={post.eventCover || DEFAULT_EVENT_COVER}
                           alt={post.eventTitle || 'Event'}
-                          className="w-12 h-12 rounded object-cover"
-                        />
+                        className="w-12 h-12 rounded object-cover"
+                      />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm truncate max-w-[60%]">
                               {post.eventTitle || 'Event'}
                             </span>
@@ -488,25 +488,25 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                                 }}
                               >
                                 {post.tierBadge}
-                              </Badge>
+                          </Badge>
                             )}
-                          </div>
+                        </div>
                           <p className="text-sm mb-2 line-clamp-3">{post.content}</p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span>{new Date(post.created_at).toLocaleDateString()}</span>
                           </div>
-                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </CardContent>
+                </Card>
                 ))
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No posts yet</p>
-                  <p className="text-sm">Share your event experiences!</p>
-                </div>
-              )}
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No posts yet</p>
+                <p className="text-sm">Share your event experiences!</p>
+              </div>
+            )}
             </div>
           </TabsContent>
         </Tabs>
