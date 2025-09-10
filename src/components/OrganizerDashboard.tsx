@@ -204,21 +204,21 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
   return (
     <div className="min-h-0 flex flex-col w-full">
       {/* Header */}
-      <div className="border-b bg-card p-4 flex-shrink-0">
+      <div className="border-b border-accent bg-card p-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1>Organizer Dashboard</h1>
+              <h1 className="text-accent">Organizer Dashboard</h1>
               <VerificationBadge status={(profile?.verification_status as any) || 'none'} />
             </div>
-            <p className="text-sm text-muted-foreground">Welcome back, {user.name}</p>
+            <p className="text-sm text-accent-muted">Welcome back, {user.name}</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="btn-enhanced border-accent">
               <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button onClick={onCreateEvent}>
+            <Button onClick={onCreateEvent} className="btn-enhanced">
               <Plus className="w-4 h-4 mr-1" />
               Create Event
             </Button>
@@ -229,64 +229,64 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
       {/* Content */}
       <div className="flex-1 min-h-0 p-4">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="h-full flex flex-col min-h-0">
-          {/* Sticky tablist to avoid overlay issues */}
+          {/* Enhanced mobile-optimized tablist */}
           <div className="relative z-20 sticky top-0 bg-background pb-2">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="events">Events ({totalEvents})</TabsTrigger>
-              <TabsTrigger value="sales">Sales</TabsTrigger>
-              <TabsTrigger value="engagement">Engagement</TabsTrigger>
-              <TabsTrigger value="payouts">Payouts</TabsTrigger>
-            </TabsList>
+            <div className="tabs-mobile">
+              <TabsTrigger value="overview" className="tab-enhanced">Overview</TabsTrigger>
+              <TabsTrigger value="events" className="tab-enhanced">Events ({totalEvents})</TabsTrigger>
+              <TabsTrigger value="sales" className="tab-enhanced">Sales</TabsTrigger>
+              <TabsTrigger value="engagement" className="tab-enhanced">Engagement</TabsTrigger>
+              <TabsTrigger value="payouts" className="tab-enhanced">Payouts</TabsTrigger>
+            </div>
           </div>
 
           {/* OVERVIEW */}
           <TabsContent value="overview" className="space-y-6">
-            {/* Stats */}
+            {/* Enhanced Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
+              <Card className="card-enhanced">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">Total Revenue</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm text-accent">Total Revenue</CardTitle>
+                  <DollarSign className="h-4 w-4 text-accent-muted" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl">{formatUSD(totalRevenue)}</div>
-                  <p className="text-xs text-muted-foreground">All-time</p>
+                  <div className="text-2xl text-accent">{formatUSD(totalRevenue)}</div>
+                  <p className="text-xs text-accent-muted">All-time</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="card-enhanced">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">Total Attendees</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm text-accent">Total Attendees</CardTitle>
+                  <Users className="h-4 w-4 text-accent-muted" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl">{formatInt(totalAttendees)}</div>
-                  <p className="text-xs text-muted-foreground">{formatInt(completedEvents)} completed events</p>
+                  <div className="text-2xl text-accent">{formatInt(totalAttendees)}</div>
+                  <p className="text-xs text-accent-muted">{formatInt(completedEvents)} completed events</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="card-enhanced">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">Total Events</CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm text-accent">Total Events</CardTitle>
+                  <Calendar className="h-4 w-4 text-accent-muted" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl">{formatInt(totalEvents)}</div>
-                  <p className="text-xs text-muted-foreground">
+                  <div className="text-2xl text-accent">{formatInt(totalEvents)}</div>
+                  <p className="text-xs text-accent-muted">
                     {formatInt(totalEvents - completedEvents)} active
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="card-enhanced">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">Total Views</CardTitle>
-                  <Eye className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm text-accent">Total Views</CardTitle>
+                  <Eye className="h-4 w-4 text-accent-muted" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl">{formatInt(totalViews)}</div>
-                  <p className="text-xs text-muted-foreground">Across all events</p>
+                  <div className="text-2xl text-accent">{formatInt(totalViews)}</div>
+                  <p className="text-xs text-accent-muted">Across all events</p>
                 </CardContent>
               </Card>
             </div>

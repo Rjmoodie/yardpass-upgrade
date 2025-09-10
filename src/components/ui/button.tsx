@@ -9,19 +9,19 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105",
-        premium: "rounded-full brand-gradient text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105 golden-glow",
+        default: "rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105 border border-primary/20",
+        premium: "rounded-full brand-gradient text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105 golden-glow border border-primary/30",
         destructive:
-          "rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-lg hover:shadow-xl transform hover:-translate-y-1",
+          "rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-lg hover:shadow-xl transform hover:-translate-y-1 border border-destructive/20",
         outline:
-          "rounded-full border-2 border-primary/20 bg-transparent text-primary hover:bg-primary/10 backdrop-blur-sm shadow-lg hover:shadow-xl transform hover:-translate-y-1",
+          "rounded-full border-2 border-accent bg-transparent text-accent hover:bg-accent/10 backdrop-blur-sm shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:border-strong",
         secondary:
-          "rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-lg hover:shadow-xl transform hover:-translate-y-1",
-        ghost: "rounded-full hover:bg-accent/50 hover:text-accent-foreground backdrop-blur-sm",
+          "rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-lg hover:shadow-xl transform hover:-translate-y-1 border border-secondary/20",
+        ghost: "rounded-full hover:bg-accent/50 hover:text-accent-foreground backdrop-blur-sm border border-transparent hover:border-accent",
         link: "text-primary underline-offset-4 hover:underline",
         glass: "rounded-full glass-effect text-white hover:bg-white/20 shadow-lg backdrop-blur-lg border border-white/20",
         pill: "pill-button hover:pill-button-active",
-        tiktok: "rounded-full bg-gradient-to-r from-primary to-accent text-white font-bold shadow-xl hover:shadow-2xl transform hover:-translate-y-2 hover:scale-105 transition-all duration-300",
+        tiktok: "rounded-full bg-gradient-to-r from-primary to-accent text-white font-bold shadow-xl hover:shadow-2xl transform hover:-translate-y-2 hover:scale-105 transition-all duration-300 border border-primary/30",
         tiktokSecondary: "rounded-full bg-white/15 text-white border border-white/30 backdrop-blur-md shadow-lg hover:bg-white/25 hover:border-white/40 transform hover:-translate-y-1 hover:scale-105 transition-all duration-300",
       },
       size: {
