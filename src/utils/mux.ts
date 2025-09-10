@@ -1,7 +1,16 @@
-// Utility for extracting Mux playback IDs from various formats
-export function extractMuxPlaybackId(input?: string | null): string | null {
-  if (!input) return null;
-  if (input.startsWith('mux:')) return input.slice(4);
-  const m = input.match(/stream\.mux\.com\/([^/?\.]+)/i);
-  return m?.[1] ?? null;
-}
+export const isVideoUrl = (u?: string | null) =>
+  !!u && /mux:|\.m3u8$|\.mp4$|\.mov$|\.webm$/i.test(u);
+
+export const buildMuxUrl = (u?: string | null) => {
+  if (!u) return undefined;
+  if (u.startsWith('mux:')) return `https://stream.mux.com/${u.slice(4)}.m3u8`;
+  return u;
+};
+
+export const extractMuxPlaybackId = (u?: string | null) => {
+  if (!u) return null;
+  const m = u.match(/mux:([a-zA-Z0-9]+)/);
+  if (m) return m[1];
+  const m2 = u.match(/stream\.mux\.com\/([a-zA-Z0-9]+)/);
+  return m2 ? m2[1] : null;
+};

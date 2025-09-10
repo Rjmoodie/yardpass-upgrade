@@ -20,6 +20,7 @@ export function FollowButton({
       size={size}
       disabled={loading}
       onClick={() => requireAuth(() => toggle(), 'Please sign in to follow')}
+      className="h-6 px-2 text-xs"
     >
       {isFollowing ? 'Following' : 'Follow'}
     </Button>

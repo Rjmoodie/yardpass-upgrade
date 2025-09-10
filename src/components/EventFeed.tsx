@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Share, Crown, MoreVertical } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Heart, MessageCircle, Share as ShareIcon, Crown, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,106 +11,11 @@ import { toast } from '@/hooks/use-toast';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { useVideoAnalytics } from '@/hooks/useVideoAnalytics';
+import { useHlsVideo } from '@/hooks/useHlsVideo';
+import { muxToHls } from '@/utils/media';
 
-// Video Player Component with HLS support
-function VideoPlayer({ 
-  src, 
-  post, 
-  onLoadedData 
-}: { 
-  src: string; 
-  post: EventPost; 
-  onLoadedData?: (video: HTMLVideoElement) => void; 
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<any>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v || !src) return;
-
-    setReady(false);
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
-    v.src = '';
-    v.load();
-
-    const isHls = src.endsWith('.m3u8');
-    const canPlayNative = v.canPlayType('application/vnd.apple.mpegurl') !== '';
-
-    const initHls = async () => {
-      try {
-        const Hls = (await import('hls.js')).default;
-        if (isHls && !canPlayNative && Hls.isSupported()) {
-          const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-          hlsRef.current = hls;
-          hls.loadSource(src);
-          hls.attachMedia(v);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            setReady(true);
-            onLoadedData?.(v);
-          });
-          hls.on(Hls.Events.ERROR, () => setReady(true));
-        } else {
-          v.src = src;
-          v.onloadedmetadata = () => {
-            setReady(true);
-            onLoadedData?.(v);
-          };
-        }
-      } catch (error) {
-        console.error('Failed to load HLS.js:', error);
-        v.src = src;
-        v.onloadedmetadata = () => {
-          setReady(true);
-          onLoadedData?.(v);
-        };
-      }
-    };
-
-    initHls();
-
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
-  }, [src, onLoadedData]);
-
-  return (
-    <video
-      ref={videoRef}
-      controls
-      className="w-full max-h-80 object-cover"
-      playsInline
-      preload="metadata"
-      muted
-    />
-  );
-}
-
-interface EventPostRow {
-  id: string;
-  text: string;
-  media_urls: string[] | null;
-  created_at: string;
-  author_user_id: string;
-  event_id: string;
-  likes?: number;
-  shares?: number;
-  comments?: number;
-  author?: { name: string | null; avatar: string | null };
-  badge?: string | null;
-  tier_name?: string | null;
-}
-
-interface EventTitleRow { id: string; title: string }
-
-interface EventPost {
+/** Shape returned by posts-list Edge Function after mapping */
+interface FeedPost {
   id: string;
   text: string;
   media_urls: string[];
@@ -126,24 +31,65 @@ interface EventPost {
     display_name: string;
     photo_url?: string | null;
   };
-  events: {
-    title: string;
-  };
+  events: { title: string };
 }
 
 interface EventFeedProps {
   eventId?: string;
   userId?: string;
   onEventClick?: (eventId: string) => void;
-  refreshTrigger?: number; // Add this to trigger refresh from parent
+  refreshTrigger?: number;
+}
+
+/** Video tile that reuses the shared HLS hook + analytics */
+function VideoMedia({
+  url,
+  post,
+  onAttachAnalytics,
+}: {
+  url: string;
+  post: FeedPost;
+  onAttachAnalytics?: (v: HTMLVideoElement) => VoidFunction | void;
+}) {
+  const src = useMemo(() => muxToHls(url), [url]);
+  const { videoRef, ready } = useHlsVideo(src);
+  const cleanupRef = useRef<VoidFunction | null>(null);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !ready) return;
+    // Attach analytics once the element is ready
+    cleanupRef.current?.();
+    cleanupRef.current = (onAttachAnalytics?.(v) as VoidFunction) ?? null;
+    return () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, videoRef]);
+
+  return (
+    <video
+      ref={videoRef}
+      controls
+      className="w-full max-h-80 object-cover"
+      playsInline
+      preload="metadata"
+      muted
+      aria-label={`Video in post by ${post.user_profiles.display_name}`}
+    />
+  );
 }
 
 export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: EventFeedProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { trackClick, startViewTracking, stopViewTracking, trackVideoProgress } = useVideoAnalytics();
+
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const [posts, setPosts] = useState<EventPost[]>([]);
+  const isMounted = useRef(true);
+
+  const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
@@ -165,7 +111,6 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       },
       { threshold: [0.25, 0.75] }
     );
-
     return () => observerRef.current?.disconnect();
   }, [startViewTracking, stopViewTracking]);
 
@@ -175,9 +120,9 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
+    isMounted.current = true;
+
     try {
-      console.log('🔄 Fetching posts for:', { eventId, userId });
-      
       // Build GET to Edge Function (uses auth header)
       const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const url = new URL(`${baseUrl}/functions/v1/posts-list`);
@@ -186,50 +131,30 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       url.searchParams.append('limit', '20');
 
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
-        console.warn('⚠️ No session found, skipping posts fetch');
         setPosts([]);
+        setLikedPosts(new Set());
         return;
       }
 
-      const res = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const res = await fetch(url.toString(), { method: 'GET', headers: { Authorization: `Bearer ${session.access_token}` } });
+      if (!res.ok) throw new Error(`Failed to fetch posts: ${res.status} ${await res.text()}`);
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('❌ Posts fetch failed:', res.status, errorText);
-        throw new Error(`Failed to fetch posts: ${res.status} ${errorText}`);
-      }
-      
       const payload = await res.json();
-      console.log('📝 Posts API response:', payload);
-      
-      const rows: EventPostRow[] = payload.data ?? [];
-      console.log('📋 Raw posts data:', rows);
+      const rows: any[] = payload.data ?? [];
 
-      // fetch event titles for mapping
+      // fetch event titles if any are missing (defensive)
       const uniqueEventIds = [...new Set(rows.map((r) => r.event_id))].filter(Boolean);
       let titles: Record<string, string> = {};
       if (uniqueEventIds.length) {
-        const { data: eventsRows, error } = await supabase
-          .from('events')
-          .select('id,title')
-          .in('id', uniqueEventIds);
-
-        if (!error && eventsRows) {
-          titles = (eventsRows as EventTitleRow[]).reduce((acc, r) => {
-            acc[r.id] = r.title;
-            return acc;
-          }, {} as Record<string, string>);
-        }
+        const { data: eventsRows } = await supabase.from('events').select('id,title').in('id', uniqueEventIds);
+        titles = (eventsRows ?? []).reduce((acc: Record<string, string>, r: { id: string; title: string }) => {
+          acc[r.id] = r.title;
+          return acc;
+        }, {});
       }
 
-      const mapped: EventPost[] = rows.map((r: any) => ({
+      const mapped: FeedPost[] = rows.map((r) => ({
         id: r.id,
         text: r.text,
         media_urls: r.media_urls ?? [],
@@ -240,20 +165,12 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
         comment_count: r.comment_count ?? 0,
         is_organizer: r.author_is_organizer ?? false,
         badge_label: r.author_badge_label ?? null,
-        user_profiles: {
-          display_name: r.author_name ?? 'User',
-          photo_url: r.author_photo_url ?? null,
-        },
+        liked_by_me: r.liked_by_me ?? false,
+        user_profiles: { display_name: r.author_name ?? 'User', photo_url: r.author_photo_url ?? null },
         events: { title: r.event_title ?? titles[r.event_id] ?? 'Event' },
-        liked_by_me: r.liked_by_me ?? false, // Add this field for consistency
       }));
 
-      console.log('🎯 Mapped posts with badges:', mapped.map(p => ({ 
-        name: p.user_profiles.display_name, 
-        badge: p.badge_label, 
-        isOrganizer: p.is_organizer 
-      })));
-
+      if (!isMounted.current) return;
       setPosts(mapped);
 
       // Prefetch user's likes
@@ -264,64 +181,46 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
           .eq('user_id', user.id)
           .eq('kind', 'like')
           .in('post_id', mapped.map((p) => p.id));
-
-        const likedSet = new Set((reactions ?? []).map((r) => r.post_id));
-        setLikedPosts(likedSet);
+        if (!isMounted.current) return;
+        setLikedPosts(new Set((reactions ?? []).map((r) => r.post_id)));
+      } else {
+        setLikedPosts(new Set());
       }
     } catch (e: any) {
       console.error('❌ Error fetching posts:', e);
-      toast({ 
-        title: 'Error Loading Posts', 
-        description: e.message || 'Failed to load posts. Please try again.', 
-        variant: 'destructive' 
-      });
-      setPosts([]); // Clear posts on error
+      if (isMounted.current) {
+        toast({ title: 'Error Loading Posts', description: e.message || 'Failed to load posts. Please try again.', variant: 'destructive' });
+        setPosts([]);
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   }, [eventId, userId, user]);
 
   useEffect(() => {
     fetchPosts();
-  }, [fetchPosts, refreshTrigger]); // Add refreshTrigger to dependencies
+    return () => { isMounted.current = false; };
+  }, [fetchPosts, refreshTrigger]);
 
-  // Listen for global post creation events
+  // Global "postCreated" -> refresh with small delay
   useEffect(() => {
-    const handlePostCreated = (event: any) => {
-      console.log('📢 Post created event received, refreshing posts...', event.detail);
-      
-      // Add a small delay to ensure the database has been updated
-      setTimeout(() => {
-        fetchPosts();
-      }, 1000);
-    };
-
+    const handlePostCreated = () => setTimeout(fetchPosts, 1000);
     window.addEventListener('postCreated', handlePostCreated);
     return () => window.removeEventListener('postCreated', handlePostCreated);
   }, [fetchPosts]);
 
-  // Add retry function
-  const retryFetch = useCallback(() => {
-    console.log('🔄 Retrying posts fetch...');
-    fetchPosts();
-  }, [fetchPosts]);
-
+  const retryFetch = useCallback(() => fetchPosts(), [fetchPosts]);
 
   const handleLike = async (postId: string) => {
     if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to like posts', variant: 'destructive' });
       return;
     }
-
     const isLiked = likedPosts.has(postId);
     try {
       if (isLiked) {
         await supabase.from('event_reactions').delete().eq('post_id', postId).eq('user_id', user.id).eq('kind', 'like');
-        setLikedPosts((prev) => {
-          const next = new Set(prev);
-          next.delete(postId);
-          return next;
-        });
+        setLikedPosts((prev) => { const next = new Set(prev); next.delete(postId); return next; });
         setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, like_count: Math.max(0, p.like_count - 1) } : p)));
       } else {
         await supabase.from('event_reactions').insert({ post_id: postId, user_id: user.id, kind: 'like' });
@@ -334,31 +233,24 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     }
   };
 
-  const handleShare = (post: EventPost) => {
+  const handleShare = (post: FeedPost) => {
     trackClick({ post_id: post.id, event_id: post.event_id, target: 'share' });
     capture('feed_click', { target: 'share', event_id: post.event_id, post_id: post.id });
+    const url = `${location.origin}/post/${post.id}`;
     if (navigator.share) {
-      navigator
-        .share({
-          title: post.events.title,
-          text: post.text,
-          url: `${location.origin}/post/${post.id}`,
-        })
-        .catch(() => {});
+      navigator.share({ title: post.events.title, text: post.text, url }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(`${location.origin}/post/${post.id}`).then(() =>
-        toast({ title: 'Link copied' })
-      );
+      navigator.clipboard.writeText(url).then(() => toast({ title: 'Link copied' }));
     }
   };
 
-  const handleComment = (post: EventPost) => {
+  const handleComment = (post: FeedPost) => {
     trackClick({ post_id: post.id, event_id: post.event_id, target: 'comment' });
     capture('feed_click', { target: 'comment', event_id: post.event_id, post_id: post.id });
     navigate(routes.post(post.id));
   };
 
-  const handlePostMenu = (post: EventPost) => {
+  const handlePostMenu = (post: FeedPost) => {
     console.log('Post menu', post.id);
   };
 
@@ -388,18 +280,13 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     );
   }
 
-  if (!posts.length && !loading) {
+  if (!posts.length) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
         <p>No posts yet</p>
         <p className="text-sm">Be the first to share something!</p>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={retryFetch}
-          className="mt-4"
-        >
+        <Button variant="outline" size="sm" onClick={retryFetch} className="mt-4">
           Refresh
         </Button>
       </div>
@@ -444,9 +331,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                         {post.badge_label}
                       </Badge>
                     )}
-                    {post.is_organizer && (
-                      <Crown className="w-4 h-4 text-primary" aria-label="Organizer" />
-                    )}
+                    {post.is_organizer && <Crown className="w-4 h-4 text-primary" aria-label="Organizer" />}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {new Date(post.created_at).toLocaleString()}
@@ -476,33 +361,22 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
             {post.text && <div className="text-sm leading-relaxed">{post.text}</div>}
 
             {/* Media */}
-            {post.media_urls.length > 0 && (
+            {!!post.media_urls.length && (
               <div className="grid gap-2">
                 {post.media_urls.map((url, idx) => {
                   const isMux = url.startsWith('mux:');
-                  const isVideo = isMux || /\.(mp4|webm|mov)$/i.test(url);
+                  const isVideo = isMux || /\.(mp4|webm|mov|m3u8)$/i.test(url);
                   return (
                     <div key={idx} className="relative rounded-lg overflow-hidden">
-                      {isMux ? (
-                        <VideoPlayer
-                          src={`https://stream.mux.com/${url.replace('mux:', '')}.m3u8`}
+                      {isVideo ? (
+                        <VideoMedia
+                          url={isMux ? `mux:${url.replace('mux:', '')}` : url}
                           post={post}
-                          onLoadedData={(v) => {
-                            const cleanup = trackVideoProgress(post.id, post.event_id, v);
-                            v.addEventListener('unload', cleanup);
-                          }}
-                        />
-                      ) : isVideo ? (
-                        <VideoPlayer
-                          src={url}
-                          post={post}
-                          onLoadedData={(v) => {
-                            const cleanup = trackVideoProgress(post.id, post.event_id, v);
-                            v.addEventListener('unload', cleanup);
-                          }}
+                          onAttachAnalytics={(v) => trackVideoProgress(post.id, post.event_id, v)}
                         />
                       ) : (
-                        <img src={url} alt="Post media" className="w-full max-h-80 object-cover" />
+                        // eslint-disable-next-line jsx-a11y/alt-text
+                        <img src={url} alt="" className="w-full max-h-80 object-cover" />
                       )}
                     </div>
                   );
@@ -546,7 +420,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                 className="gap-2"
                 aria-label="Share post"
               >
-                <Share className="w-4 h-4" />
+                <ShareIcon className="w-4 h-4" />
                 Share
               </Button>
             </div>
@@ -556,3 +430,5 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     </div>
   );
 }
+
+export default EventFeed;

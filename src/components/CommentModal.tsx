@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,8 +12,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '@/lib/routes';
 import { ReportButton } from '@/components/ReportButton';
+import { muxToHls } from '@/utils/media';
 
-const PAGE_SIZE = 10; // used only in multi-post mode
+const PAGE_SIZE = 10;
 
 interface CommentRow {
   id: string;
@@ -54,7 +55,7 @@ interface Post {
   author_name?: string | null;
   author_avatar?: string | null;
   author_badge?: string | null;     // ticket tier label
-  author_is_organizer?: boolean;    // reserved for future
+  author_is_organizer?: boolean;    // reserved
   comments: Comment[];
   likes_count: number;
   is_liked: boolean;
@@ -71,11 +72,12 @@ interface CommentModalProps {
   mediaPlaybackId?: string;
 }
 
-export default function CommentModal({ 
-  isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId 
+export default function CommentModal({
+  isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId,
 }: CommentModalProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMounted = useRef(true);
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,28 +89,22 @@ export default function CommentModal({
   const [pageFrom, setPageFrom] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
-  const singleMode = !!postId || !!mediaPlaybackId; // 🔒 when true, we only show the clicked post
+  const singleMode = !!postId || !!mediaPlaybackId;
   const [resolvedPostId, setResolvedPostId] = useState<string | null>(postId ?? null);
 
   // derived: ids of loaded posts for realtime filter
   const postIdSet = useMemo(() => new Set(posts.map((p) => p.id)), [posts]);
 
-  // Helper: find the post that contains this playback ID in its media_urls
   async function resolvePostIdFromMedia(eventId: string, playbackId: string): Promise<string | null> {
-    // Pull candidates for this event and scan client-side (robust across array storage variations)
     const { data, error } = await supabase
       .from('event_posts')
       .select('id, media_urls')
       .eq('event_id', eventId);
 
     if (error) return null;
-
     for (const row of data ?? []) {
       const arr: string[] = row.media_urls ?? [];
-      const hit = arr.some(u =>
-        u === `mux:${playbackId}` ||
-        u.includes(playbackId)     // covers https://stream.mux.com/<id>.m3u8 and similar
-      );
+      const hit = arr.some((u) => u === `mux:${playbackId}` || u.includes(playbackId));
       if (hit) return row.id;
     }
     return null;
@@ -117,19 +113,19 @@ export default function CommentModal({
   // When opening, resolve postId if we only have a playback id
   useEffect(() => {
     if (!isOpen) return;
+    isMounted.current = true;
 
     (async () => {
-      if (postId) {
-        setResolvedPostId(postId);
-        return;
-      }
+      if (postId) { setResolvedPostId(postId); return; }
       if (mediaPlaybackId) {
         const id = await resolvePostIdFromMedia(eventId, mediaPlaybackId);
-        setResolvedPostId(id);
+        if (isMounted.current) setResolvedPostId(id);
         return;
       }
       setResolvedPostId(null);
     })();
+
+    return () => { isMounted.current = false; };
   }, [isOpen, eventId, postId, mediaPlaybackId]);
 
   // reset & load when opened
@@ -147,20 +143,18 @@ export default function CommentModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    // Prefer row-level filter when we know the postId to reduce traffic
     const channel = supabase
-      .channel(`comments-${singleMode ? postId : eventId}`)
+      .channel(`comments-${singleMode ? resolvedPostId ?? 'unknown' : eventId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'event_comments',
-          ...(singleMode ? { filter: `post_id=eq.${resolvedPostId}` } : {}), // ✅ only this post in single-mode
+          ...(singleMode && resolvedPostId ? { filter: `post_id=eq.${resolvedPostId}` } : {}),
         },
         (payload) => {
           const c = payload.new as CommentRow;
-          // If multi-mode: ensure we only append to posts we loaded
           if (!singleMode && !postIdSet.has(c.post_id)) return;
 
           setPosts((prev) =>
@@ -175,7 +169,7 @@ export default function CommentModal({
                         text: c.text,
                         author_user_id: c.author_user_id,
                         created_at: c.created_at,
-                        author_name: 'Anonymous', // could be enriched via another fetch if needed
+                        author_name: 'Anonymous',
                         author_avatar: null,
                         likes_count: 0,
                         is_liked: false,
@@ -189,15 +183,11 @@ export default function CommentModal({
       );
 
     channel.subscribe();
-    return () => {
-      try {
-        supabase.removeChannel(channel);
-      } catch {}
-    };
+    return () => { try { supabase.removeChannel(channel); } catch {} };
   }, [isOpen, eventId, singleMode, resolvedPostId, postIdSet]);
 
   // Load posts (+ comments, likes, profiles). In singleMode we load only that one post.
-  const loadPage = async (reset = false) => {
+  async function loadPage(reset = false) {
     if (loading) return;
     setLoading(true);
 
@@ -205,14 +195,13 @@ export default function CommentModal({
       const from = reset ? 0 : pageFrom;
       const to = from + PAGE_SIZE - 1;
 
-      // 1) Fetch posts
       let postQuery = supabase
         .from('event_posts')
         .select('id, text, author_user_id, created_at, media_urls, like_count, comment_count, ticket_tier_id');
 
       if (singleMode) {
-        if (!resolvedPostId) { setLoading(false); return; } // wait until we can resolve
-        postQuery = postQuery.eq('id', resolvedPostId); // ✅ just this post
+        if (!resolvedPostId) { setLoading(false); return; }
+        postQuery = postQuery.eq('id', resolvedPostId);
       } else {
         postQuery = postQuery.eq('event_id', eventId).order('created_at', { ascending: false }).range(from, to);
       }
@@ -221,39 +210,36 @@ export default function CommentModal({
       if (postsError) throw postsError;
 
       const postIds = (postRows || []).map((p) => p.id);
-      setHasMore(!singleMode && (postRows || []).length === PAGE_SIZE); // no load more in single-mode
+      setHasMore(!singleMode && (postRows || []).length === PAGE_SIZE);
 
-      // 2) Profiles for post authors
+      // Profiles for post authors
       const authorIds = [...new Set((postRows || []).map((p) => p.author_user_id))];
-      let authorProfiles: Record<string, any> = {};
+      let authorProfiles: Record<string, { display_name: string; photo_url?: string | null }> = {};
       if (authorIds.length) {
         const { data: profiles } = await supabase
           .from('user_profiles')
           .select('user_id, display_name, photo_url')
           .in('user_id', authorIds);
-
-        authorProfiles = (profiles || []).reduce((acc: Record<string, any>, p: any) => {
+        authorProfiles = (profiles || []).reduce((acc, p: any) => {
           acc[p.user_id] = p;
           return acc;
-        }, {});
+        }, {} as Record<string, any>);
       }
 
-      // 3) Ticket tiers for badges
-      const tierIds = [...new Set((postRows || []).map((p) => p.ticket_tier_id).filter(Boolean))];
-      let ticketTiers: Record<string, any> = {};
+      // Ticket tiers for badges
+      const tierIds = [...new Set((postRows || []).map((p) => p.ticket_tier_id).filter(Boolean))] as string[];
+      let ticketTiers: Record<string, { badge_label?: string | null }> = {};
       if (tierIds.length) {
         const { data: tiers } = await supabase
           .from('ticket_tiers')
           .select('id, badge_label')
-          .in('id', tierIds as string[]);
-
+          .in('id', tierIds);
         ticketTiers = (tiers || []).reduce((acc: Record<string, any>, t: any) => {
-          acc[t.id] = t;
-          return acc;
+          acc[t.id] = t; return acc;
         }, {});
       }
 
-      // 4) Comments for these posts
+      // Comments for these posts
       const { data: commentRows, error: commentsError } = await supabase
         .from('event_comments')
         .select('id, text, author_user_id, created_at, post_id')
@@ -262,7 +248,7 @@ export default function CommentModal({
 
       if (commentsError) throw commentsError;
 
-      // 5) Profiles for comment authors
+      // Profiles for comment authors
       const commentAuthorIds = [...new Set((commentRows || []).map((c) => c.author_user_id))];
       let commentAuthorProfiles: Record<string, any> = {};
       if (commentAuthorIds.length) {
@@ -270,7 +256,6 @@ export default function CommentModal({
           .from('user_profiles')
           .select('user_id, display_name, photo_url')
           .in('user_id', commentAuthorIds);
-
         commentAuthorProfiles = (profiles || []).reduce((acc: Record<string, any>, p: any) => {
           acc[p.user_id] = p;
           return acc;
@@ -279,7 +264,7 @@ export default function CommentModal({
 
       const commentIds = (commentRows || []).map((c) => c.id);
 
-      // 6) Current user's likes for these posts
+      // Post likes (mine)
       let likedPostSet = new Set<string>();
       if (user && postIds.length) {
         const { data: myLikes } = await supabase
@@ -288,11 +273,10 @@ export default function CommentModal({
           .eq('user_id', user.id)
           .eq('kind', 'like')
           .in('post_id', postIds);
-
         likedPostSet = new Set((myLikes ?? []).map((r: any) => r.post_id));
       }
 
-      // 7) Comment like counts & which comments the user liked
+      // Comment like counts & which comments I liked
       let commentLikeCounts: Record<string, number> = {};
       let likedCommentSet = new Set<string>();
       if (commentIds.length) {
@@ -300,7 +284,6 @@ export default function CommentModal({
           .from('event_comment_reactions')
           .select('comment_id')
           .in('comment_id', commentIds);
-
         commentLikeCounts = (allCR ?? []).reduce((acc: Record<string, number>, r: any) => {
           acc[r.comment_id] = (acc[r.comment_id] || 0) + 1;
           return acc;
@@ -337,7 +320,7 @@ export default function CommentModal({
         text: p.text,
         author_user_id: p.author_user_id,
         created_at: p.created_at,
-        media_urls: p.media_urls ?? [],
+        media_urls: (p.media_urls ?? []).map(muxToHls),
         author_name: authorProfiles[p.author_user_id]?.display_name ?? 'Anonymous',
         author_avatar: authorProfiles[p.author_user_id]?.photo_url ?? null,
         author_badge: p.ticket_tier_id ? (ticketTiers[p.ticket_tier_id]?.badge_label ?? null) : null,
@@ -347,16 +330,11 @@ export default function CommentModal({
         is_liked: likedPostSet.has(p.id),
       }));
 
-      // 🛡️ enforce single-post mode
-      const finalMapped = singleMode && resolvedPostId
-        ? mapped.filter(p => p.id === resolvedPostId)
-        : mapped;
+      // Enforce single-post mode
+      const finalMapped = singleMode && resolvedPostId ? mapped.filter((p) => p.id === resolvedPostId) : mapped;
 
       setPosts((prev) => (reset ? finalMapped : [...prev, ...finalMapped]));
-
-      // In single-mode, auto-select this post for the composer
       if (singleMode && resolvedPostId) setSelectedPostId(resolvedPostId);
-
       if (!singleMode) setPageFrom(to + 1);
     } catch (e: any) {
       console.error(e);
@@ -364,7 +342,7 @@ export default function CommentModal({
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !selectedPostId) return;
@@ -382,7 +360,6 @@ export default function CommentModal({
       });
       if (error) throw error;
 
-      // optimistic append
       setPosts((prev) =>
         prev.map((p) =>
           p.id === selectedPostId
@@ -407,9 +384,7 @@ export default function CommentModal({
       );
 
       setNewComment('');
-      // In single-mode, keep the selection on this post
       if (!singleMode) setSelectedPostId(null);
-
       toast({ title: 'Success', description: 'Comment added successfully!' });
     } catch (e: any) {
       console.error(e);
@@ -430,10 +405,11 @@ export default function CommentModal({
 
     const optimistic = !post.is_liked;
 
-    // optimistic
     setPosts((prev) =>
       prev.map((p) =>
-        p.id === postIdToToggle ? { ...p, is_liked: optimistic, likes_count: p.likes_count + (optimistic ? 1 : -1) } : p
+        p.id === postIdToToggle
+          ? { ...p, is_liked: optimistic, likes_count: Math.max(0, p.likes_count + (optimistic ? 1 : -1)) }
+          : p
       )
     );
 
@@ -458,7 +434,7 @@ export default function CommentModal({
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postIdToToggle
-            ? { ...p, is_liked: !optimistic, likes_count: p.likes_count + (optimistic ? -1 : 1) }
+            ? { ...p, is_liked: !optimistic, likes_count: Math.max(0, p.likes_count + (optimistic ? -1 : 1)) }
             : p
         )
       );
@@ -476,20 +452,18 @@ export default function CommentModal({
     let isLiked = false;
     for (const p of posts) {
       const c = p.comments.find((cc) => cc.id === commentId);
-      if (c) {
-        isLiked = c.is_liked;
-        break;
-      }
+      if (c) { isLiked = c.is_liked; break; }
     }
 
     const optimistic = !isLiked;
 
-    // optimistic
     setPosts((prev) =>
       prev.map((p) => ({
         ...p,
         comments: p.comments.map((c) =>
-          c.id === commentId ? { ...c, is_liked: optimistic, likes_count: Math.max(0, c.likes_count + (optimistic ? 1 : -1)) } : c
+          c.id === commentId
+            ? { ...c, is_liked: optimistic, likes_count: Math.max(0, c.likes_count + (optimistic ? 1 : -1)) }
+            : c
         ),
       }))
     );
@@ -536,10 +510,7 @@ export default function CommentModal({
     let authorId: string | null = null;
     for (const p of posts) {
       const c = p.comments.find((cc) => cc.id === commentId);
-      if (c) {
-        authorId = c.author_user_id;
-        break;
-      }
+      if (c) { authorId = c.author_user_id; break; }
     }
 
     if (!authorId) return;
@@ -554,7 +525,6 @@ export default function CommentModal({
     try {
       const { error } = await supabase.from('event_comments').delete().eq('id', commentId).eq('author_user_id', user.id);
       if (error) throw error;
-
       toast({ title: 'Deleted', description: 'Your comment was removed.' });
     } catch (e) {
       console.error(e);
@@ -569,8 +539,9 @@ export default function CommentModal({
 
   const mediaThumb = (urls: string[]) => {
     if (!urls?.length) return null;
-    const url = urls[0];
-    const isVideo = /mux|\.mp4$|\.mov$|\.m3u8$/i.test(url);
+    const raw = urls[0];
+    const url = muxToHls(raw);
+    const isVideo = /\.m3u8$|\.mp4$|\.mov$|\.webm$/i.test(url);
 
     return (
       <div className="relative w-16 h-16 flex-shrink-0 rounded-md overflow-hidden border">
@@ -579,7 +550,7 @@ export default function CommentModal({
             <Play className="w-5 h-5 text-muted-foreground" />
           </div>
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
+          // eslint-disable-next-line jsx-a11y/alt-text
           <img src={url} alt="" className="w-full h-full object-cover" />
         )}
         <div className="absolute bottom-1 right-1 bg-black/60 text-white rounded px-1 py-0.5 text-[10px]">
@@ -788,9 +759,9 @@ export default function CommentModal({
                         value={selectedPostId === post.id ? newComment : ''}
                         onChange={(e) => {
                           setNewComment(e.target.value);
-                          setSelectedPostId(post.id); // lock to this post
+                          setSelectedPostId(post.id);
                         }}
-                        onFocus={() => setSelectedPostId(post.id)} // lock to this post
+                        onFocus={() => setSelectedPostId(post.id)}
                         className="min-h-[60px] resize-none text-sm"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {

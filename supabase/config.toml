@@ -74,3 +74,9 @@ verify_jwt = true
 
 [functions.posts-list]
 verify_jwt = false
+
+[functions.send-role-invite]
+verify_jwt = true
+
+[functions.messaging-queue]
+verify_jwt = true

@@ -23,9 +23,23 @@ interface EventManagementProps {
 }
 
 export default function EventManagement({ event, onBack }: EventManagementProps) {
-  const totalTickets = event.ticketTiers.reduce((sum, tier) => sum + tier.total, 0);
-  const soldTickets = event.ticketTiers.reduce((sum, tier) => sum + (tier.total - tier.available), 0);
-  const revenue = event.ticketTiers.reduce((sum, tier) => sum + (tier.price * (tier.total - tier.available)), 0);
+  // Safety checks for undefined event or ticketTiers
+  if (!event) {
+    return (
+      <div className="h-full bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-2">Event not found</h2>
+          <p className="text-muted-foreground mb-4">The requested event could not be loaded.</p>
+          <Button onClick={onBack}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const ticketTiers = event.ticketTiers || [];
+  const totalTickets = ticketTiers.reduce((sum, tier) => sum + tier.total, 0);
+  const soldTickets = ticketTiers.reduce((sum, tier) => sum + (tier.total - tier.available), 0);
+  const revenue = ticketTiers.reduce((sum, tier) => sum + (tier.price * (tier.total - tier.available)), 0);
   const totalAttendees = mockAttendees.length;
   const checkedInCount = mockAttendees.filter(a => a.checkedIn).length;
 
@@ -150,7 +164,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                 <CardTitle>Ticket Tiers</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {event.ticketTiers.map((tier) => {
+                {ticketTiers.map((tier) => {
                   const sold = tier.total - tier.available;
                   const percentage = Math.round((sold / tier.total) * 100);
                   

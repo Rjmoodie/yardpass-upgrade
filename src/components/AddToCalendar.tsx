@@ -22,8 +22,8 @@ export function AddToCalendar({
   };
 
   return (
-    <Button variant="outline" size="sm" onClick={onDownload}>
-      <Calendar className="w-4 h-4 mr-2" /> Add to Calendar
+    <Button variant="outline" size="sm" onClick={onDownload} className="h-6 px-2 text-xs w-full">
+      <Calendar className="w-3 h-3 mr-1" /> Add to Calendar
     </Button>
   );
 }

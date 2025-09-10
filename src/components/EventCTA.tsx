@@ -41,16 +41,16 @@ export function EventCTA({
     minPrice != null ? `From $${(minPrice / 100).toFixed(0)}` : timeToStart || '';
 
   return (
-    <div className="flex items-center justify-between bg-black/40 backdrop-blur-sm rounded-lg p-3 text-white">
-      <div className="min-w-0">
-        <div className="font-semibold text-sm truncate">{eventTitle}</div>
-        <div className="flex items-center gap-3 text-xs opacity-90">
+    <div className="flex items-center justify-between bg-black/40 backdrop-blur-sm rounded-lg p-2 text-white">
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold text-xs truncate">{eventTitle}</div>
+        <div className="flex items-center gap-2 text-[10px] opacity-90 mt-0.5">
           <span className="inline-flex items-center gap-1">
-            <Users className="w-3 h-3" /> {headline}
+            <Users className="w-2.5 h-2.5" /> {headline}
           </span>
           {timeToStart && (
             <span className="inline-flex items-center gap-1">
-              <Clock className="w-3 h-3" /> {timeToStart}
+              <Clock className="w-2.5 h-2.5" /> {timeToStart}
             </span>
           )}
           {subline && !timeToStart && (
@@ -59,12 +59,12 @@ export function EventCTA({
         </div>
       </div>
 
-      <div className="flex gap-2 flex-shrink-0">
-        <Button size="sm" variant="outline" onClick={onDetails}>
+      <div className="flex gap-1.5 flex-shrink-0 ml-2">
+        <Button size="sm" variant="outline" onClick={onDetails} className="h-7 px-2 text-xs">
           Details
         </Button>
-        <Button size="sm" onClick={onGetTickets}>
-          <Ticket className="w-4 h-4 mr-1" /> Get Tickets
+        <Button size="sm" onClick={onGetTickets} className="h-7 px-2 text-xs">
+          <Ticket className="w-3 h-3 mr-1" /> Get Tickets
         </Button>
       </div>
     </div>

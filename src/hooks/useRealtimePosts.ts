@@ -64,5 +64,5 @@ export function useRealtimePosts(eventIds: string[], onInsert: OnInsert) {
       console.log('🔌 useRealtimePosts: Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
-  }, [filter, onInsert, eventIds]);
+  }, [filter, eventIds]); // Removed onInsert from dependencies
 }
