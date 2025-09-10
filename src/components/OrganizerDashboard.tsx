@@ -100,6 +100,7 @@ type EventAnalyticsRow = {
 export function OrganizerDashboard({ user, onCreateEvent, onEventSelect, selectedEventId }: OrganizerDashboardProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'sales' | 'engagement' | 'payouts' | 'team' | 'communications'>('overview');
+  const [currentEventId, setCurrentEventId] = useState<string | null>(selectedEventId || null);
   const { profile } = useAuth();
 
   const [userEvents, setUserEvents] = useState<any[]>([]);
@@ -634,24 +635,76 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect, selecte
 
           {/* TEAM */}
           <TabsContent value="team" className="space-y-4">
-            {selectedEventId ? (
-              <OrganizerRolesPanel eventId={selectedEventId} />
+            {currentEventId ? (
+              <OrganizerRolesPanel eventId={currentEventId} />
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <UserPlus className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Select an event to manage team roles</p>
+              <div className="text-center py-8">
+                <UserPlus className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-medium mb-2">Select an Event</h3>
+                <p className="text-muted-foreground mb-6">Choose an event to manage team roles and permissions</p>
+                {analytics.length > 0 ? (
+                  <div className="max-w-md mx-auto space-y-2">
+                    {analytics.map((event) => (
+                      <Card key={event.event_id} className="p-3 hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setCurrentEventId(event.event_id)}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
+                            <Calendar className="w-4 h-4 text-primary" />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium text-sm">{event.event_title}</div>
+                            <div className="text-xs text-muted-foreground">{formatInt(event.total_attendees || 0)} attendees</div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-4">No events found. Create an event first.</p>
+                    <Button onClick={onCreateEvent} variant="outline">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Event
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
 
           {/* COMMUNICATIONS */}
           <TabsContent value="communications" className="space-y-4">
-            {selectedEventId ? (
-              <OrganizerCommsPanel eventId={selectedEventId} />
+            {currentEventId ? (
+              <OrganizerCommsPanel eventId={currentEventId} />
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Mail className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Select an event to send messages to attendees</p>
+              <div className="text-center py-8">
+                <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-medium mb-2">Select an Event</h3>
+                <p className="text-muted-foreground mb-6">Choose an event to send messages to attendees</p>
+                {analytics.length > 0 ? (
+                  <div className="max-w-md mx-auto space-y-2">
+                    {analytics.map((event) => (
+                      <Card key={event.event_id} className="p-3 hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setCurrentEventId(event.event_id)}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
+                            <Calendar className="w-4 h-4 text-primary" />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium text-sm">{event.event_title}</div>
+                            <div className="text-xs text-muted-foreground">{formatInt(event.total_attendees || 0)} attendees</div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-4">No events found. Create an event first.</p>
+                    <Button onClick={onCreateEvent} variant="outline">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Event
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
