@@ -17,7 +17,7 @@ interface OrganizerRolesPanelProps {
 }
 
 export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
-  const { sendInvite, revokeInvite, loading } = useRoleInvites();
+  const { sendInvite, revokeInvite, subscribeToUpdates, loading } = useRoleInvites();
   const [role, setRole] = useState<RoleType>('scanner');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -69,7 +69,13 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
 
   useEffect(() => {
     refresh();
-  }, [eventId]);
+    
+    // Subscribe to realtime updates
+    const unsubscribe = subscribeToUpdates(eventId, refresh);
+    return () => {
+      unsubscribe();
+    };
+  }, [eventId, subscribeToUpdates]);
 
   async function onInvite() {
     if (!email && !phone) {

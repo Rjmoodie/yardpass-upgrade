@@ -18,7 +18,7 @@ interface OrganizerCommsPanelProps {
 }
 
 export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
-  const { createJob, loading } = useMessaging();
+  const { createJob, getRecipientCount, loading } = useMessaging();
   const [channel, setChannel] = useState<MessageChannel>('email');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -31,36 +31,16 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   // Load audience count when segment or channel changes
   useEffect(() => {
     async function loadAudienceCount() {
-      try {
-        let count = 0;
-        
-        if (segment === 'all_attendees') {
-          // Count ticket holders
-          const { data } = await supabase
-            .from('tickets')
-            .select('owner_user_id', { count: 'exact', head: true })
-            .eq('event_id', eventId)
-            .eq('status', 'issued');
-          count = data?.length || 0;
-        } else if (segment === 'roles') {
-          // Count users with selected roles
-          const { data } = await supabase
-            .from('event_roles')
-            .select('user_id', { count: 'exact', head: true })
-            .eq('event_id', eventId)
-            .in('role', selectedRoles);
-          count = data?.length || 0;
-        }
-        
-        setAudienceCount(count);
-      } catch (error) {
-        console.error('Error loading audience count:', error);
-        setAudienceCount(0);
-      }
+      const count = await getRecipientCount(eventId, 
+        segment === 'all_attendees' 
+          ? { type: 'all_attendees' } 
+          : { type: 'roles', roles: selectedRoles }
+      );
+      setAudienceCount(count);
     }
 
     loadAudienceCount();
-  }, [eventId, segment, selectedRoles]);
+  }, [eventId, segment, selectedRoles, getRecipientCount]);
 
   // Load recent jobs
   useEffect(() => {

@@ -75,14 +75,22 @@ export default function RoleAcceptPage() {
 
     setLoading(true);
     try {
-      await acceptInvite(token);
+      const result = await acceptInvite(token);
       setAccepted(true);
-      toast({ 
-        title: 'Invite accepted!', 
-        description: `You are now a ${invite.role} for this event.` 
+      
+      const resultData = result as any;
+      const status = resultData?.status || 'accepted';
+      const eventTitle = invite.events?.title || 'the event';
+      const roleLabel = ROLE_MATRIX[invite.role].label;
+      
+      toast({
+        title: status === 'already_accepted' ? "Already Accepted" : "Success!",
+        description: status === 'already_accepted' 
+          ? "You have already accepted this invitation."
+          : `You are now a ${roleLabel} for ${eventTitle}.`,
       });
       
-      // Redirect after a delay
+      // Redirect to dashboard after a short delay
       setTimeout(() => {
         navigate('/dashboard');
       }, 2000);

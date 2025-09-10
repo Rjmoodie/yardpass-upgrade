@@ -1,14 +1,20 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { RoleType } from '@/types/roles';
 
-const EDGE_BASE = import.meta.env.VITE_SUPABASE_URL;
+const EDGE_BASE = "https://yieslxnrfeqchbcmgavz.supabase.co";
 
 function normalizePhone(e164?: string) {
   if (!e164) return undefined;
-  // very light normalization: keep leading + and digits only
+  // E.164 normalization: must start with + and contain only digits
   const cleaned = e164.replace(/[^\d+]/g, '');
-  return cleaned.startsWith('+') ? cleaned : undefined;
+  return cleaned.startsWith('+') && cleaned.length >= 10 ? cleaned : undefined;
+}
+
+function validateEmail(email?: string): boolean {
+  if (!email) return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 }
 
 function asErrorMessage(e: unknown) {
@@ -44,8 +50,17 @@ export function useRoleInvites() {
       if (!params.email && !params.phone) {
         throw new Error('Provide at least an email or phone.');
       }
+      
       const email = params.email?.trim() || undefined;
       const phone = normalizePhone(params.phone);
+      
+      // Input validation
+      if (email && !validateEmail(email)) {
+        throw new Error('Invalid email format.');
+      }
+      if (params.phone && !phone) {
+        throw new Error('Invalid phone format. Use E.164 format (+1234567890).');
+      }
 
       const resp = await fetch(`${EDGE_BASE}/functions/v1/send-role-invite`, {
         method: 'POST',
@@ -72,8 +87,9 @@ export function useRoleInvites() {
   }
 
   async function acceptInvite(token: string) {
-    const { error } = await supabase.rpc('accept_role_invite', { p_token: token });
+    const { data, error } = await supabase.rpc('accept_role_invite', { p_token: token });
     if (error) throw new Error(error.message);
+    return data; // Returns the status info from RPC
   }
 
   async function revokeInvite(inviteId: string) {
@@ -108,12 +124,30 @@ export function useRoleInvites() {
     return data ?? [];
   }
 
+  // Realtime subscription for live updates
+  function subscribeToUpdates(eventId: string, onUpdate: () => void) {
+    const channel = supabase
+      .channel(`role_updates_${eventId}`)
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'role_invites', filter: `event_id=eq.${eventId}` },
+        onUpdate
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'event_roles', filter: `event_id=eq.${eventId}` },
+        onUpdate
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }
+
   return {
     sendInvite,
     acceptInvite,
     revokeInvite,
     listInvites,
     listMembers,
+    subscribeToUpdates,
     loading,
   };
 }

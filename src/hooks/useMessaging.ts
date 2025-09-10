@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MessageChannel, RoleType } from '@/types/roles';
 
+const EDGE_BASE = "https://yieslxnrfeqchbcmgavz.supabase.co";
+
 export function useMessaging() {
   const [loading, setLoading] = useState(false);
 
@@ -64,11 +66,20 @@ export function useMessaging() {
           .eq('event_id', input.eventId)
           .eq('status', 'issued');
 
-        recipients = (tickets || []).map((t: any) => ({
-          user_id: t.owner_user_id,
-          email: t.user_profiles?.email,
-          phone: t.user_profiles?.phone,
-        }));
+        // Dedupe recipients by email/phone
+        const seen = new Set<string>();
+        recipients = (tickets || [])
+          .map((t: any) => ({
+            user_id: t.owner_user_id,
+            email: t.user_profiles?.email,
+            phone: t.user_profiles?.phone,
+          }))
+          .filter(r => {
+            const key = input.channel === 'email' ? r.email : r.phone;
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
       } else if (input.segment.type === 'roles' && input.segment.roles?.length) {
         // Get users with specific roles for this event
         const { data: roleUsers } = await supabase
@@ -117,13 +128,13 @@ export function useMessaging() {
       // 3) Trigger processing
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/messaging-queue`, {
+        fetch(`${EDGE_BASE}/functions/v1/messaging-queue`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ job_id: job.id }),
+          body: JSON.stringify({ job_id: job.id, batch_size: input.batchSize ?? 200 }),
         }).catch(console.error);
       }
 
@@ -133,5 +144,29 @@ export function useMessaging() {
     }
   }
 
-  return { createJob, loading };
+  async function getRecipientCount(eventId: string, segment: { type: 'all_attendees' | 'roles'; roles?: RoleType[] }) {
+    try {
+      if (segment.type === 'all_attendees') {
+        const { count } = await supabase
+          .from('tickets')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_id', eventId)
+          .eq('status', 'issued');
+        return count || 0;
+      } else if (segment.type === 'roles' && segment.roles?.length) {
+        const { count } = await supabase
+          .from('event_roles')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_id', eventId)
+          .in('role', segment.roles);
+        return count || 0;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error getting recipient count:', error);
+      return 0;
+    }
+  }
+
+  return { createJob, getRecipientCount, loading };
 }

@@ -1468,6 +1468,7 @@ export type Database = {
       }
       role_invites: {
         Row: {
+          accepted_at: string | null
           accepted_user_id: string | null
           created_at: string
           email: string | null
@@ -1481,6 +1482,7 @@ export type Database = {
           token: string
         }
         Insert: {
+          accepted_at?: string | null
           accepted_user_id?: string | null
           created_at?: string
           email?: string | null
@@ -1494,6 +1496,7 @@ export type Database = {
           token: string
         }
         Update: {
+          accepted_at?: string | null
           accepted_user_id?: string | null
           created_at?: string
           email?: string | null
@@ -2201,7 +2204,7 @@ export type Database = {
     Functions: {
       accept_role_invite: {
         Args: { p_token: string }
-        Returns: undefined
+        Returns: Json
       }
       can_current_user_post: {
         Args: { p_event_id: string }
