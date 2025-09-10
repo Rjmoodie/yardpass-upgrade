@@ -411,6 +411,51 @@ export type Database = {
           },
         ]
       }
+      event_roles: {
+        Row: {
+          created_at: string
+          created_by: string
+          event_id: string
+          id: string
+          role: Database["public"]["Enums"]["role_type"]
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          event_id: string
+          id?: string
+          role: Database["public"]["Enums"]["role_type"]
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          event_id?: string
+          id?: string
+          role?: Database["public"]["Enums"]["role_type"]
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_roles_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_roles_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_scanners: {
         Row: {
           created_at: string | null
@@ -843,6 +888,164 @@ export type Database = {
         }
         Relationships: []
       }
+      message_job_recipients: {
+        Row: {
+          email: string | null
+          error: string | null
+          id: string
+          job_id: string
+          phone: string | null
+          sent_at: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          email?: string | null
+          error?: string | null
+          id?: string
+          job_id: string
+          phone?: string | null
+          sent_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          email?: string | null
+          error?: string | null
+          id?: string
+          job_id?: string
+          phone?: string | null
+          sent_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_job_recipients_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "message_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_jobs: {
+        Row: {
+          batch_size: number
+          body: string | null
+          channel: Database["public"]["Enums"]["message_channel"]
+          created_at: string
+          created_by: string
+          event_id: string
+          from_email: string | null
+          from_name: string | null
+          id: string
+          scheduled_at: string | null
+          sms_body: string | null
+          status: Database["public"]["Enums"]["job_status"]
+          subject: string | null
+          template_id: string | null
+        }
+        Insert: {
+          batch_size?: number
+          body?: string | null
+          channel: Database["public"]["Enums"]["message_channel"]
+          created_at?: string
+          created_by: string
+          event_id: string
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          scheduled_at?: string | null
+          sms_body?: string | null
+          status?: Database["public"]["Enums"]["job_status"]
+          subject?: string | null
+          template_id?: string | null
+        }
+        Update: {
+          batch_size?: number
+          body?: string | null
+          channel?: Database["public"]["Enums"]["message_channel"]
+          created_at?: string
+          created_by?: string
+          event_id?: string
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          scheduled_at?: string | null
+          sms_body?: string | null
+          status?: Database["public"]["Enums"]["job_status"]
+          subject?: string | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_jobs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_jobs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_jobs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_templates: {
+        Row: {
+          body: string | null
+          channel: Database["public"]["Enums"]["message_channel"]
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          org_id: string
+          sms_body: string | null
+          subject: string | null
+        }
+        Insert: {
+          body?: string | null
+          channel: Database["public"]["Enums"]["message_channel"]
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          org_id: string
+          sms_body?: string | null
+          subject?: string | null
+        }
+        Update: {
+          body?: string | null
+          channel?: Database["public"]["Enums"]["message_channel"]
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          org_id?: string
+          sms_body?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string | null
@@ -1262,6 +1465,63 @@ export type Database = {
           target_type?: string
         }
         Relationships: []
+      }
+      role_invites: {
+        Row: {
+          accepted_user_id: string | null
+          created_at: string
+          email: string | null
+          event_id: string
+          expires_at: string
+          id: string
+          invited_by: string
+          phone: string | null
+          role: Database["public"]["Enums"]["role_type"]
+          status: Database["public"]["Enums"]["invite_status"]
+          token: string
+        }
+        Insert: {
+          accepted_user_id?: string | null
+          created_at?: string
+          email?: string | null
+          event_id: string
+          expires_at: string
+          id?: string
+          invited_by: string
+          phone?: string | null
+          role: Database["public"]["Enums"]["role_type"]
+          status?: Database["public"]["Enums"]["invite_status"]
+          token: string
+        }
+        Update: {
+          accepted_user_id?: string | null
+          created_at?: string
+          email?: string | null
+          event_id?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["role_type"]
+          status?: Database["public"]["Enums"]["invite_status"]
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scan_logs: {
         Row: {
@@ -1939,6 +2199,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_role_invite: {
+        Args: { p_token: string }
+        Returns: undefined
+      }
       can_current_user_post: {
         Args: { p_event_id: string }
         Returns: boolean
@@ -2122,9 +2386,19 @@ export type Database = {
     Enums: {
       event_visibility: "public" | "unlisted" | "private"
       follow_target: "organizer" | "event"
+      invite_status: "pending" | "accepted" | "expired" | "revoked"
+      job_status: "draft" | "queued" | "sending" | "sent" | "failed"
+      message_channel: "email" | "sms"
       order_status: "pending" | "paid" | "refunded" | "canceled"
       org_role: "viewer" | "editor" | "admin" | "owner"
       owner_context: "individual" | "organization"
+      role_type:
+        | "organizer"
+        | "scanner"
+        | "staff"
+        | "volunteer"
+        | "vendor"
+        | "guest"
       ticket_status: "issued" | "transferred" | "refunded" | "redeemed" | "void"
       verification_status: "none" | "pending" | "verified" | "pro"
     }
@@ -2272,9 +2546,20 @@ export const Constants = {
     Enums: {
       event_visibility: ["public", "unlisted", "private"],
       follow_target: ["organizer", "event"],
+      invite_status: ["pending", "accepted", "expired", "revoked"],
+      job_status: ["draft", "queued", "sending", "sent", "failed"],
+      message_channel: ["email", "sms"],
       order_status: ["pending", "paid", "refunded", "canceled"],
       org_role: ["viewer", "editor", "admin", "owner"],
       owner_context: ["individual", "organization"],
+      role_type: [
+        "organizer",
+        "scanner",
+        "staff",
+        "volunteer",
+        "vendor",
+        "guest",
+      ],
       ticket_status: ["issued", "transferred", "refunded", "redeemed", "void"],
       verification_status: ["none", "pending", "verified", "pro"],
     },

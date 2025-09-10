@@ -10,6 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { VerificationBadge } from './VerificationBadge';
 import { PayoutDashboard } from './PayoutDashboard';
+import { OrganizerRolesPanel } from './organizer/OrganizerRolesPanel';
+import { OrganizerCommsPanel } from './organizer/OrganizerCommsPanel';
 import {
   Plus,
   Users,
@@ -22,6 +24,8 @@ import {
   RefreshCw,
   Ticket,
   MessageSquare,
+  UserPlus,
+  Mail,
 } from 'lucide-react';
 
 interface User {
@@ -34,6 +38,7 @@ interface OrganizerDashboardProps {
   user: User;
   onCreateEvent: () => void;
   onEventSelect: (event: any) => void;
+  selectedEventId?: string;
 }
 
 // Placeholder when DB returns none
@@ -92,9 +97,9 @@ type EventAnalyticsRow = {
   // Optional: view_count?: number;
 };
 
-export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: OrganizerDashboardProps) {
+export function OrganizerDashboard({ user, onCreateEvent, onEventSelect, selectedEventId }: OrganizerDashboardProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d'>('30d');
-  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'sales' | 'engagement' | 'payouts'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'sales' | 'engagement' | 'payouts' | 'team' | 'communications'>('overview');
   const { profile } = useAuth();
 
   const [userEvents, setUserEvents] = useState<any[]>([]);
@@ -231,11 +236,13 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="h-full flex flex-col min-h-0">
           {/* Sticky tablist to avoid overlay issues */}
           <div className="relative z-20 sticky top-0 bg-background pb-2">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="events">Events ({totalEvents})</TabsTrigger>
               <TabsTrigger value="sales">Sales</TabsTrigger>
               <TabsTrigger value="engagement">Engagement</TabsTrigger>
+              <TabsTrigger value="team">Team</TabsTrigger>
+              <TabsTrigger value="communications">Comms</TabsTrigger>
               <TabsTrigger value="payouts">Payouts</TabsTrigger>
             </TabsList>
           </div>
@@ -622,6 +629,30 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect }: Organ
                   </div>
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
+
+          {/* TEAM */}
+          <TabsContent value="team" className="space-y-4">
+            {selectedEventId ? (
+              <OrganizerRolesPanel eventId={selectedEventId} />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <UserPlus className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Select an event to manage team roles</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* COMMUNICATIONS */}
+          <TabsContent value="communications" className="space-y-4">
+            {selectedEventId ? (
+              <OrganizerCommsPanel eventId={selectedEventId} />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Mail className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Select an event to send messages to attendees</p>
+              </div>
             )}
           </TabsContent>
 
