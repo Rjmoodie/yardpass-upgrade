@@ -433,6 +433,18 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
     if (selectedOrg) fetchEventAnalytics();
   }, [selectedOrg, dateRange, fetchEventAnalytics]);
 
+  // Always call useMemo before any conditional returns
+  const totals = useMemo(() => {
+    if (!eventData || eventData.length === 0) {
+      return { revenue: 0, tickets: 0, attendees: 0, engagements: 0 };
+    }
+    const revenue = eventData.reduce((sum, e) => sum + (e.revenue || 0), 0);
+    const tickets = eventData.reduce((sum, e) => sum + (e.ticketsSold || 0), 0);
+    const attendees = eventData.reduce((sum, e) => sum + (e.attendees || 0), 0);
+    const engagements = eventData.reduce((sum, e) => sum + (e.engagements || 0), 0);
+    return { revenue, tickets, attendees, engagements };
+  }, [eventData]);
+
   if (loading) return <div className="text-center py-8">Loading event analytics...</div>;
 
   if (!eventData || eventData.length === 0) {
@@ -449,14 +461,6 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
       </Card>
     );
   }
-
-  const totals = useMemo(() => {
-    const revenue = eventData.reduce((sum, e) => sum + (e.revenue || 0), 0);
-    const tickets = eventData.reduce((sum, e) => sum + (e.ticketsSold || 0), 0);
-    const attendees = eventData.reduce((sum, e) => sum + (e.attendees || 0), 0);
-    const engagements = eventData.reduce((sum, e) => sum + (e.engagements || 0), 0);
-    return { revenue, tickets, attendees, engagements };
-  }, [eventData]);
 
   return (
     <>

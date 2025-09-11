@@ -237,14 +237,14 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect, selecte
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="h-full flex flex-col min-h-0">
           {/* Enhanced mobile-optimized tablist */}
           <div className="relative z-20 sticky top-0 bg-background pb-2">
-            <TabsList className="grid w-full grid-cols-7">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="events">Events ({totalEvents})</TabsTrigger>
-              <TabsTrigger value="sales">Sales</TabsTrigger>
-              <TabsTrigger value="engagement">Engagement</TabsTrigger>
-              <TabsTrigger value="team">Team</TabsTrigger>
-              <TabsTrigger value="communications">Comms</TabsTrigger>
-              <TabsTrigger value="payouts">Payouts</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4 md:grid-cols-7 gap-1 p-1 h-auto">
+              <TabsTrigger value="overview" className="text-xs md:text-sm px-1 md:px-3 py-2">Overview</TabsTrigger>
+              <TabsTrigger value="events" className="text-xs md:text-sm px-1 md:px-3 py-2">Events ({totalEvents})</TabsTrigger>
+              <TabsTrigger value="sales" className="text-xs md:text-sm px-1 md:px-3 py-2">Sales</TabsTrigger>
+              <TabsTrigger value="engagement" className="text-xs md:text-sm px-1 md:px-3 py-2">Engage</TabsTrigger>
+              <TabsTrigger value="team" className="text-xs md:text-sm px-1 md:px-3 py-2">Team</TabsTrigger>
+              <TabsTrigger value="communications" className="text-xs md:text-sm px-1 md:px-3 py-2">Comms</TabsTrigger>
+              <TabsTrigger value="payouts" className="text-xs md:text-sm px-1 md:px-3 py-2">Payouts</TabsTrigger>
             </TabsList>
           </div>
 

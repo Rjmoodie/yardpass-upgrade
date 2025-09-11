@@ -77,6 +77,8 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
   }
 
   useEffect(() => {
+    if (!eventId) return;
+    
     refresh();
     
     // Subscribe to realtime updates
@@ -84,7 +86,7 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
     return () => {
       unsubscribe();
     };
-  }, [eventId, subscribeToUpdates]);
+  }, [eventId]);
 
   async function onInvite() {
     if (!email && !phone) {

@@ -301,8 +301,19 @@
   
   .tabs-mobile .tab-enhanced {
     @apply flex-1 min-w-0 text-center;
-    font-size: 0.875rem;
-    padding: 0.75rem 0.5rem;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Mobile responsive tabs - prevent text bleeding */
+  @media (max-width: 768px) {
+    .tabs-mobile .tab-enhanced {
+      font-size: 0.7rem;
+      padding: 0.5rem 0.125rem;
+    }
   }
 
   /* Enhanced input styles */
