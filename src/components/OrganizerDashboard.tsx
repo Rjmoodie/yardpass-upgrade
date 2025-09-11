@@ -237,15 +237,6 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect, selecte
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="h-full flex flex-col min-h-0">
           {/* Enhanced mobile-optimized tablist */}
           <div className="relative z-20 sticky top-0 bg-background pb-2">
-<<<<<<< HEAD
-            <div className="tabs-mobile">
-              <TabsTrigger value="overview" className="tab-enhanced">Overview</TabsTrigger>
-              <TabsTrigger value="events" className="tab-enhanced">Events ({totalEvents})</TabsTrigger>
-              <TabsTrigger value="sales" className="tab-enhanced">Sales</TabsTrigger>
-              <TabsTrigger value="engagement" className="tab-enhanced">Engagement</TabsTrigger>
-              <TabsTrigger value="payouts" className="tab-enhanced">Payouts</TabsTrigger>
-            </div>
-=======
             <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="events">Events ({totalEvents})</TabsTrigger>
@@ -255,7 +246,6 @@ export function OrganizerDashboard({ user, onCreateEvent, onEventSelect, selecte
               <TabsTrigger value="communications">Comms</TabsTrigger>
               <TabsTrigger value="payouts">Payouts</TabsTrigger>
             </TabsList>
->>>>>>> eae30255d6e9929010b50a34b68ae8972fb4f236
           </div>
 
           {/* OVERVIEW */}
