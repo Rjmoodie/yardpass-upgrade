@@ -389,7 +389,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                   </div>
                   <div>
                     <label className="text-sm font-medium text-accent">Status</label>
-                    <Select defaultValue={event.status}>
+                    <Select defaultValue="active">
                       <SelectTrigger className="input-enhanced">
                         <SelectValue />
                       </SelectTrigger>

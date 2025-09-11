@@ -1,14 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useContext } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Minus, Plus, Ticket, CreditCard, X } from 'lucide-react';
+import { Plus, Minus, CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { notify, notifyInfo } from '@/lib/notifications';
+import { toast } from '@/hooks/use-toast';
 
 interface TicketTier {
   id: string;
@@ -23,8 +21,11 @@ interface Event {
   id: string;
   title: string;
   start_at: string;
-  location?: string;
+  startAtISO?: string;
   venue?: string;
+  address?: string;
+  description?: string;
+  location?: string;
 }
 
 interface TicketPurchaseModalProps {
@@ -46,10 +47,36 @@ export function TicketPurchaseModal({
   onClose, 
   onSuccess 
 }: TicketPurchaseModalProps) {
-  const { user } = useAuth();
-  const { toast } = useToast();
   const [selections, setSelections] = useState<TicketSelection>({});
   const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, []);
+
+  const notifyInfo = (message: string) => {
+    toast({
+      title: "Info",
+      description: message,
+    });
+  };
+
+  // Fee calculation function
+  const calculateFees = (faceValue: number) => {
+    // Formula: Total = (F*1.037 + 2.19)/0.971
+    const total = (faceValue * 1.037 + 2.19) / 0.971;
+    const processingFee = total - faceValue;
+    const stripeFee = 0.029 * total + 0.30;
+    const platformComponent = processingFee - stripeFee;
+    
+    return {
+      total: Math.round(total * 100) / 100, // Round to cents
+      processingFee: Math.round(processingFee * 100) / 100,
+      stripeFee: Math.round(stripeFee * 100) / 100,
+      platformComponent: Math.round(platformComponent * 100) / 100
+    };
+  };
 
   const updateSelection = (tierId: string, change: number) => {
     const tier = ticketTiers.find(t => t.id === tierId);
@@ -64,11 +91,36 @@ export function TicketPurchaseModal({
     }));
   };
 
-  const totalTickets = Object.values(selections).reduce((sum, qty) => sum + qty, 0);
-  const totalAmount = Object.entries(selections).reduce((sum, [tierId, qty]) => {
-    const tier = ticketTiers.find(t => t.id === tierId);
-    return sum + (tier?.price_cents || 0) * qty;
-  }, 0);
+  // Calculate totals with fees
+  const summary = useMemo(() => {
+    let subtotal = 0;
+    let totalQuantity = 0;
+    let totalProcessingFee = 0;
+    let grandTotal = 0;
+    
+    Object.entries(selections).forEach(([tierId, quantity]) => {
+      const tier = ticketTiers.find(t => t.id === tierId);
+      if (tier && quantity > 0) {
+        const faceValue = tier.price_cents / 100;
+        const fees = calculateFees(faceValue);
+        
+        subtotal += faceValue * quantity;
+        totalProcessingFee += fees.processingFee * quantity;
+        grandTotal += fees.total * quantity;
+        totalQuantity += quantity;
+      }
+    });
+    
+    return { 
+      subtotal, 
+      totalQuantity, 
+      processingFee: totalProcessingFee,
+      grandTotal
+    };
+  }, [selections, ticketTiers]);
+
+  const totalTickets = summary.totalQuantity;
+  const totalAmount = Math.round(summary.grandTotal * 100); // Convert to cents
 
   const handlePurchase = async () => {
     console.log('🎫 Purchase button clicked!');
@@ -100,7 +152,11 @@ export function TicketPurchaseModal({
     try {
       const ticketSelections = Object.entries(selections)
         .filter(([_, qty]) => qty > 0)
-        .map(([tierId, quantity]) => ({ tierId, quantity }));
+        .map(([tierId, quantity]) => ({ 
+          tierId, 
+          quantity,
+          faceValue: ticketTiers.find(t => t.id === tierId)?.price_cents || 0
+        }));
 
       console.log('🚀 Calling create-checkout with:', {
         eventId: event.id,
@@ -130,32 +186,36 @@ export function TicketPurchaseModal({
       const checkoutWindow = window.open(data.url, '_blank');
       
       if (!checkoutWindow) {
-        // Popup blocked - show fallback message
+        // Fallback for popup blockers
+        console.log('🚨 Popup blocked, showing manual redirect');
         toast({
           title: "Popup Blocked",
-          description: "Please allow popups and try again, or copy this link to complete payment.",
-          variant: "destructive",
+          description: "Please allow popups or click here to continue to checkout.",
+          action: (
+            <Button 
+              size="sm" 
+              onClick={() => window.open(data.url, '_blank')}
+            >
+              Go to Checkout
+            </Button>
+          )
         });
-        
-        // Fallback: redirect in same window
-        setTimeout(() => {
-          window.location.href = data.url;
-        }, 1000);
       } else {
-        // Successfully opened in new tab
-        toast({
-          title: "Payment Window Opened",
-          description: "Complete your payment in the new tab. You'll be redirected after successful payment.",
-        });
+        // Track when user returns to the original tab
+        const checkInterval = setInterval(() => {
+          if (checkoutWindow.closed) {
+            clearInterval(checkInterval);
+            console.log('🔄 User returned from checkout, calling success callback');
+            onSuccess();
+          }
+        }, 1000);
       }
 
-      // Close modal (success will be handled by PurchaseSuccessHandler)
-      onClose();
     } catch (error: any) {
-      console.error('💥 Purchase error:', error);
+      console.error('❌ Purchase error:', error);
       toast({
-        title: "Checkout Error",
-        description: error.message || "Failed to create checkout session",
+        title: "Purchase Failed",
+        description: error.message || "Something went wrong. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -163,13 +223,15 @@ export function TicketPurchaseModal({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[var(--modal-bg)] border-[var(--modal-border)] shadow-[var(--shadow-modal)]">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Ticket className="w-5 h-5" />
-            Get Tickets
+            <CreditCard className="w-5 h-5" />
+            Purchase Tickets
           </DialogTitle>
         </DialogHeader>
 
@@ -238,28 +300,33 @@ export function TicketPurchaseModal({
             ))}
           </div>
 
-          {/* Summary */}
+          {/* Order Summary */}
           {totalTickets > 0 && (
-            <Card className="bg-muted/50">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">Order Summary</p>
-                    <p className="text-sm text-muted-foreground">
-                      {totalTickets} ticket{totalTickets !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold">
-                      ${(totalAmount / 100).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Total (USD)
-                    </p>
-                  </div>
+            <div className="space-y-4">
+              <h3 className="font-semibold">Order Summary</h3>
+              <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+                <div className="flex justify-between">
+                  <span>Tickets ({summary.totalQuantity})</span>
+                  <span>${summary.subtotal.toFixed(2)}</span>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-1">
+                    <span>Processing fee</span>
+                    <div className="relative group">
+                      <span className="text-xs w-3 h-3 rounded-full bg-muted-foreground text-background flex items-center justify-center cursor-help">ⓘ</span>
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-popover text-popover-foreground rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        Includes platform and payment processing costs
+                      </div>
+                    </div>
+                  </div>
+                  <span>${summary.processingFee.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-semibold pt-2 border-t">
+                  <span>Total</span>
+                  <span>${summary.grandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Actions */}
@@ -268,18 +335,11 @@ export function TicketPurchaseModal({
               Cancel
             </Button>
             <Button 
-              onClick={handlePurchase}
-              disabled={totalTickets === 0 || loading}
+              onClick={handlePurchase} 
+              disabled={loading || totalTickets === 0}
               className="flex-1"
             >
-              {loading ? (
-                "Processing..."
-              ) : (
-                <>
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Purchase Tickets
-                </>
-              )}
+              {loading ? 'Processing...' : `Purchase ${totalTickets > 0 ? `(${totalTickets} ticket${totalTickets !== 1 ? 's' : ''})` : 'Tickets'}`}
             </Button>
           </div>
         </div>

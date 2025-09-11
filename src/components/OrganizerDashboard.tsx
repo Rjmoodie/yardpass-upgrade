@@ -1,83 +1,23 @@
-// src/components/OrganizerDashboard.tsx
-import { useState, useEffect, useMemo } from 'react';
-import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Input } from './ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
-import { useOrganizerAnalytics } from '@/hooks/useOrganizerAnalytics';
+import { useState, useEffect, useContext } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { CalendarDays, Users, DollarSign, Eye, Heart, Share2, Plus, ArrowLeft, Settings, MessageSquare, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { VerificationBadge } from './VerificationBadge';
-import { PayoutDashboard } from './PayoutDashboard';
-import { OrganizerRolesPanel } from './organizer/OrganizerRolesPanel';
-import { EventManagement } from './EventManagement';
-import { EventCreator } from './EventCreator';
-import { CreateEventFlow } from './CreateEventFlow';
-import {
-  Plus,
-  Users,
-  DollarSign,
-  Calendar,
-  Eye,
-  Heart,
-  Share,
-  MoreVertical,
-  RefreshCw,
-  Ticket,
-  MessageSquare,
-  UserPlus,
-  Mail,
-  Search,
-  Filter,
-  Download,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Settings,
-  BarChart3,
-  PieChart,
-  Activity,
-  Zap,
-  Target,
-  Award,
-  Star,
-  Globe,
-  Lock,
-  Unlock,
-  Edit,
-  Trash2,
-  Copy,
-  ExternalLink,
-  ChevronRight,
-  ChevronDown,
-  Play,
-  Pause,
-  Square,
-} from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import AnalyticsHub from '@/components/AnalyticsHub';
+import { OrganizerRolesPanel } from '@/components/organizer/OrganizerRolesPanel';
+import { OrganizerCommsPanel } from '@/components/organizer/OrganizerCommsPanel';
+import EventManagement from './EventManagement';
 
-interface User {
-  id: string;
-  name: string;
-  role: 'attendee' | 'organizer';
-}
-
-interface OrganizerDashboardProps {
-  user: User;
-  onCreateEvent: () => void;
-  onEventSelect: (event: any) => void;
-  selectedEventId?: string;
-}
-
-// Enhanced event interface
 interface Event {
   id: string;
   title: string;
-  status: 'draft' | 'published' | 'live' | 'completed' | 'cancelled';
+  status: string;
   date: string;
   attendees: number;
   revenue: number;
@@ -94,733 +34,508 @@ interface Event {
   venue?: string;
   category?: string;
   cover_image_url?: string;
+  description?: string;
+  city?: string;
+  visibility?: string;
 }
 
-// Mock data with enhanced metrics
 const mockEvents: Event[] = [
   {
     id: '1',
-    title: 'Summer Music Festival 2024',
+    title: 'Summer Music Festival',
     status: 'published',
-    date: 'July 15-17, 2024',
-    attendees: 1243,
-    revenue: 89540,
-    views: 15600,
-    likes: 892,
-    shares: 156,
-    tickets_sold: 1243,
-    capacity: 2000,
-    conversion_rate: 7.9,
-    engagement_rate: 6.7,
+    date: '2024-07-15',
+    attendees: 1250,
+    revenue: 125000,
+    views: 45000,
+    likes: 2300,
+    shares: 450,
+    tickets_sold: 1250,
+    capacity: 1500,
+    conversion_rate: 83.3,
+    engagement_rate: 5.1,
     created_at: '2024-01-15T10:00:00Z',
     start_at: '2024-07-15T18:00:00Z',
-    end_at: '2024-07-17T23:00:00Z',
+    end_at: '2024-07-15T23:00:00Z',
     venue: 'Central Park',
     category: 'Music',
-    cover_image_url: '/api/placeholder/400/200'
+    cover_image_url: '',
+    description: 'Annual summer music festival',
+    city: 'New York',
+    visibility: 'public'
   },
   {
     id: '2',
-    title: 'Tech Innovation Summit',
+    title: 'Tech Conference 2024',
     status: 'draft',
-    date: 'August 22, 2024',
-    attendees: 67,
-    revenue: 8940,
-    views: 2300,
-    likes: 45,
-    shares: 12,
-    tickets_sold: 67,
+    date: '2024-09-20',
+    attendees: 350,
+    revenue: 75000,
+    views: 28000,
+    likes: 1800,
+    shares: 320,
+    tickets_sold: 350,
     capacity: 500,
-    conversion_rate: 2.9,
-    engagement_rate: 2.5,
-    created_at: '2024-01-20T14:30:00Z',
-    start_at: '2024-08-22T09:00:00Z',
-    end_at: '2024-08-22T17:00:00Z',
+    conversion_rate: 70.0,
+    engagement_rate: 4.8,
+    created_at: '2024-02-20T14:30:00Z',
+    start_at: '2024-09-20T09:00:00Z',
+    end_at: '2024-09-20T17:00:00Z',
     venue: 'Convention Center',
     category: 'Technology',
-    cover_image_url: '/api/placeholder/400/200'
+    cover_image_url: '',
+    description: 'Leading tech conference',
+    city: 'San Francisco',
+    visibility: 'public'
   },
+  {
+    id: '3',
+    title: 'Art Exhibition',
+    status: 'published',
+    date: '2024-08-05',
+    attendees: 800,
+    revenue: 40000,
+    views: 15000,
+    likes: 950,
+    shares: 180,
+    tickets_sold: 800,
+    capacity: 1000,
+    conversion_rate: 80.0,
+    engagement_rate: 4.5,
+    created_at: '2024-03-10T11:15:00Z',
+    start_at: '2024-08-05T10:00:00Z',
+    end_at: '2024-08-05T18:00:00Z',
+    venue: 'Art Gallery',
+    category: 'Art',
+    cover_image_url: '',
+    description: 'Showcasing local artists',
+    city: 'Los Angeles',
+    visibility: 'public'
+  },
+  {
+    id: '4',
+    title: 'Food Festival',
+    status: 'draft',
+    date: '2024-10-12',
+    attendees: 1500,
+    revenue: 60000,
+    views: 22000,
+    likes: 1200,
+    shares: 250,
+    tickets_sold: 1500,
+    capacity: 2000,
+    conversion_rate: 75.0,
+    engagement_rate: 4.2,
+    created_at: '2024-04-01T09:00:00Z',
+    start_at: '2024-10-12T11:00:00Z',
+    end_at: '2024-10-12T20:00:00Z',
+    venue: 'City Park',
+    category: 'Food',
+    cover_image_url: '',
+    description: 'Celebrating local cuisine',
+    city: 'Chicago',
+    visibility: 'public'
+  }
 ];
 
-const fallbackSalesData = [
-  { name: 'Jan', sales: 4000, attendees: 120, events: 2 },
-  { name: 'Feb', sales: 3000, attendees: 90, events: 1 },
-  { name: 'Mar', sales: 2000, attendees: 60, events: 1 },
-  { name: 'Apr', sales: 2780, attendees: 85, events: 2 },
-  { name: 'May', sales: 1890, attendees: 55, events: 1 },
-  { name: 'Jun', sales: 2390, attendees: 70, events: 1 },
-];
-
-const formatUSD = (n: number) =>
-  new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0);
-const formatInt = (n: number) => new Intl.NumberFormat().format(n || 0);
-const formatPercent = (n: number) => `${n.toFixed(1)}%`;
-
-// Enhanced analytics type
-type EventAnalyticsRow = {
-  event_id: string;
-  event_title: string;
-  ticket_sales?: number;
-  total_revenue?: number;
-  total_attendees?: number;
-  check_ins?: number;
-  engagement_metrics?: {
-    likes?: number;
-    comments?: number;
-    shares?: number;
-    views?: number;
-  };
-  conversion_rate?: number;
-  engagement_rate?: number;
-};
-
-export function OrganizerDashboard({ user, onCreateEvent, onEventSelect, selectedEventId }: OrganizerDashboardProps) {
-  const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
-  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'sales' | 'engagement' | 'payouts' | 'teams' | 'comms'>('overview');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published' | 'live' | 'completed'>('all');
-  const [sortBy, setSortBy] = useState<'date' | 'revenue' | 'attendees' | 'engagement'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [showEventCreator, setShowEventCreator] = useState(false);
-  const [showEventManagement, setShowEventManagement] = useState(false);
-  const { profile } = useAuth();
-
+export function OrganizerDashboard() {
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [userEvents, setUserEvents] = useState<Event[]>([]);
-  const [loadingEvents, setLoadingEvents] = useState(true);
-
-  const { eventAnalytics, overallAnalytics, loading, error, refreshAnalytics } = useOrganizerAnalytics();
-
-  // Enhanced event loading with real data
+  const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [user, setUser] = useState<any>(null);
+  
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setLoadingEvents(true);
-        const { data, error } = await supabase
-          .from('events')
-          .select(`
-            id,
-            title,
-            status,
-            created_at,
-            start_at,
-            end_at,
-            venue,
-            category,
-            cover_image_url,
-            ticket_tiers (
-              id,
-              name,
-              price_cents,
-              quantity,
-              sold_count
-            )
-          `)
-          .eq('created_by', user.id)
-          .order('created_at', { ascending: false });
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, []);
 
-        if (!cancelled) {
-          if (error) {
-            console.error('Error loading user events:', error);
-            setUserEvents(mockEvents);
-          } else {
-            // Transform the data to match our interface
-            const transformedEvents = (data || []).map(event => {
-              const ticketTiers = event.ticket_tiers || [];
-              const totalCapacity = ticketTiers.reduce((sum: number, tier: any) => sum + (tier.quantity || 0), 0);
-              const totalSold = ticketTiers.reduce((sum: number, tier: any) => sum + (tier.sold_count || 0), 0);
-              const totalRevenue = ticketTiers.reduce((sum: number, tier: any) => sum + ((tier.price_cents || 0) * (tier.sold_count || 0)), 0);
-              
-              return {
-                id: event.id,
-                title: event.title,
-                status: event.status || 'draft',
-                date: new Date(event.start_at).toLocaleDateString(),
-                attendees: totalSold,
-                revenue: totalRevenue / 100, // Convert cents to dollars
-                views: Math.floor(Math.random() * 10000) + 1000, // Mock for now
-                likes: Math.floor(Math.random() * 500) + 50,
-                shares: Math.floor(Math.random() * 100) + 10,
-                tickets_sold: totalSold,
-                capacity: totalCapacity,
-                conversion_rate: totalSold > 0 ? (totalSold / totalCapacity) * 100 : 0,
-                engagement_rate: Math.random() * 10 + 2, // Mock for now
-                created_at: event.created_at,
-                start_at: event.start_at,
-                end_at: event.end_at,
-                venue: event.venue,
-                category: event.category,
-                cover_image_url: event.cover_image_url
-              };
-            });
-            
-            setUserEvents(transformedEvents.length ? transformedEvents : mockEvents);
-          }
-        }
-      } catch (e) {
-        if (!cancelled) {
-          console.error('Error fetching user events:', e);
-          setUserEvents(mockEvents);
-        }
-      } finally {
-        if (!cancelled) setLoadingEvents(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user.id]);
-
-  const analytics = (eventAnalytics || []) as EventAnalyticsRow[];
-
-  // Enhanced analytics calculations
-  const totalRevenue = (overallAnalytics as any)?.total_revenue ?? 
-    analytics.reduce((sum, e) => sum + (e.total_revenue || 0), 0) ?? 
-    userEvents.reduce((sum, e) => sum + e.revenue, 0);
-
-  const totalAttendees = (overallAnalytics as any)?.total_attendees ?? 
-    analytics.reduce((sum, e) => sum + (e.total_attendees || 0), 0) ?? 
-    userEvents.reduce((sum, e) => sum + e.attendees, 0);
-
-  const totalEvents = (overallAnalytics as any)?.total_events ?? userEvents.length;
-  const completedEvents = userEvents.filter(e => e.status === 'completed').length;
-  const activeEvents = userEvents.filter(e => ['published', 'live'].includes(e.status)).length;
-
-  const totalViews = analytics.reduce((sum, e) => sum + (e.engagement_metrics?.views ?? 0), 0) || 
-    userEvents.reduce((sum, e) => sum + e.views, 0);
-
-  const likesTotal = analytics.reduce((s, e) => s + (e.engagement_metrics?.likes || 0), 0);
-  const commentsTotal = analytics.reduce((s, e) => s + (e.engagement_metrics?.comments || 0), 0);
-  const sharesTotal = analytics.reduce((s, e) => s + (e.engagement_metrics?.shares || 0), 0);
-  const ticketsTotal = analytics.reduce((s, e) => s + (e.ticket_sales || 0), 0);
-
-  // Enhanced filtering and sorting
-  const filteredEvents = useMemo(() => {
-    let filtered = userEvents;
-
-    // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter(event => 
-        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.venue?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.category?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  // Fetch user's events
+  useEffect(() => {
+    if (user) {
+      fetchUserEvents();
     }
+  }, [user]);
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(event => event.status === statusFilter);
-    }
-
-    // Sort
-    filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
-      
-      switch (sortBy) {
-        case 'revenue':
-          aValue = a.revenue;
-          bValue = b.revenue;
-          break;
-        case 'attendees':
-          aValue = a.attendees;
-          bValue = b.attendees;
-          break;
-        case 'engagement':
-          aValue = a.engagement_rate;
-          bValue = b.engagement_rate;
-          break;
-        default:
-          aValue = new Date(a.start_at).getTime();
-          bValue = new Date(b.start_at).getTime();
-      }
-
-      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-    });
-
-    return filtered;
-  }, [userEvents, searchQuery, statusFilter, sortBy, sortOrder]);
-
-  // Enhanced refresh with period support
-  const handleRefresh = async () => {
+  const fetchUserEvents = async () => {
     try {
-      await (refreshAnalytics?.length ? refreshAnalytics(selectedPeriod) : refreshAnalytics());
-    } catch (e) {
-      console.error('Refresh failed', e);
-    }
-  };
+      console.log('🔍 Fetching events for user:', user?.id);
+      setLoading(true);
 
-  // Enhanced sharing with analytics
-  const shareEvent = async (eventId: string, title: string) => {
-    const url = `${window.location.origin}/event/${eventId}`;
-    try {
-      if ((navigator as any).share) {
-        await (navigator as any).share({ title, text: title, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  // Enhanced sales chart data
-  const salesChartData = useMemo(() => {
-    if (!analytics.length) return fallbackSalesData;
-    return analytics.map((e, idx) => ({
-      name: e.event_title?.slice(0, 10) || `Event ${idx + 1}`,
-      sales: e.total_revenue || 0,
-      attendees: e.total_attendees || 0,
-      events: 1
-    }));
-  }, [analytics]);
-
-  // Event status management
-  const updateEventStatus = async (eventId: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('events')
-        .update({ status: newStatus })
-        .eq('id', eventId);
+        .select(`
+          id,
+          title,
+          start_at,
+          end_at,
+          venue,
+          category,
+          cover_image_url,
+          created_at,
+          description,
+          city,
+          visibility,
+          ticket_tiers (
+            id,
+            name,
+            price_cents,
+            quantity,
+            badge_label
+          )
+        `)
+        .eq('created_by', user?.id)
+        .order('created_at', { ascending: false });
+
+      console.log('📊 Events query result:', { data, error, count: data?.length });
+
+      if (error) {
+        console.error('Error loading user events:', error);
+        setUserEvents(mockEvents);
+      } else {
+        // Transform the data to match our interface
+        const transformedEvents = (data || []).map(event => {
+          const ticketTiers = event.ticket_tiers || [];
+          const totalCapacity = ticketTiers.reduce((sum: number, tier: any) => sum + (tier.quantity || 0), 0);
+          const totalSold = ticketTiers.reduce((sum: number, tier: any) => sum + (tier.sold_count || 0), 0);
+          const totalRevenue = ticketTiers.reduce((sum: number, tier: any) => sum + ((tier.price_cents || 0) * (tier.sold_count || 0)), 0);
+          
+          return {
+            id: event.id,
+            title: event.title,
+            status: 'published',
+            date: new Date(event.start_at).toLocaleDateString(),
+            attendees: totalSold,
+            revenue: totalRevenue / 100, // Convert cents to dollars
+            views: Math.floor(Math.random() * 10000) + 1000, // Mock for now
+            likes: Math.floor(Math.random() * 500) + 50,
+            shares: Math.floor(Math.random() * 100) + 10,
+            tickets_sold: totalSold,
+            capacity: totalCapacity,
+            conversion_rate: totalSold > 0 ? (totalSold / totalCapacity) * 100 : 0,
+            engagement_rate: Math.random() * 10 + 2, // Mock for now
+            created_at: event.created_at || new Date().toISOString(),
+            start_at: event.start_at,
+            end_at: event.end_at,
+            venue: event.venue || '',
+            category: event.category || '',
+            cover_image_url: event.cover_image_url || '',
+            description: event.description || '',
+            city: event.city || '',
+            visibility: event.visibility || 'public'
+          };
+        });
+        
+        setUserEvents(transformedEvents.length ? transformedEvents : mockEvents);
+      }
+    } catch (error) {
+      console.error('Error in fetchUserEvents:', error);
+      setUserEvents(mockEvents);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEventSelect = (event: Event) => {
+    console.log('🎯 Event selected:', event);
+    setSelectedEvent(event);
+  };
+
+  // If an event is selected, show EventManagement
+  if (selectedEvent) {
+    const eventWithDetails = {
+      ...selectedEvent,
+      created_at: selectedEvent.created_at || new Date().toISOString(),
+      start_at: selectedEvent.start_at,
+      end_at: selectedEvent.end_at,
+      venue: selectedEvent.venue || '',
+      category: selectedEvent.category || '',
+      cover_image_url: selectedEvent.cover_image_url || '',
+      description: selectedEvent.description || '',
+      city: selectedEvent.city || '',
+      visibility: selectedEvent.visibility || 'public'
+    };
+
+    return (
+      <div className="container mx-auto p-6">
+        <EventManagement 
+          event={{
+            ...eventWithDetails,
+            organizer: 'User',
+            organizerId: user?.id || '',
+            startAtISO: eventWithDetails.start_at,
+            dateLabel: new Date(eventWithDetails.start_at).toLocaleDateString(),
+            location: eventWithDetails.venue || '',
+            coverImage: eventWithDetails.cover_image_url || '',
+            ticketTiers: [],
+            attendeeCount: eventWithDetails.attendees,
+            likes: eventWithDetails.likes,
+            shares: eventWithDetails.shares,
+            posts: []
+          }} 
+          onBack={() => setSelectedEvent(null)} 
+        />
+      </div>
+    );
+  }
+
+  const calculateTotals = () => {
+    return userEvents.reduce((acc, event) => ({
+      totalRevenue: acc.totalRevenue + event.revenue,
+      totalAttendees: acc.totalAttendees + event.attendees,
+      totalViews: acc.totalViews + event.views,
+      totalLikes: acc.totalLikes + event.likes
+    }), { totalRevenue: 0, totalAttendees: 0, totalViews: 0, totalLikes: 0 });
+  };
+
+  const totals = calculateTotals();
+
+  const createNewEvent = async (values: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .insert({
+          title: values.title,
+          description: values.description,
+          start_at: values.start_at,
+          end_at: values.end_at,
+          venue: values.venue,
+          category: values.category,
+          created_by: user?.id,
+          owner_context_type: 'individual',
+          owner_context_id: user?.id,
+          visibility: 'public'
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
-      // Update local state
-      setUserEvents(prev => prev.map(event => 
-        event.id === eventId ? { ...event, status: newStatus as any } : event
-      ));
-    } catch (error) {
-      console.error('Error updating event status:', error);
+      toast({
+        title: "Success!",
+        description: "Event created successfully."
+      });
+
+      // Refresh events list
+      fetchUserEvents();
+      
+      return data;
+    } catch (error: any) {
+      console.error('Error creating event:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create event.",
+        variant: "destructive"
+      });
+      throw error;
     }
   };
 
-  // Quick actions
-  const quickActions = [
-    { label: 'Create Event', icon: Plus, action: () => setShowEventCreator(true), variant: 'default' as const },
-    { label: 'View Analytics', icon: BarChart3, action: () => setActiveTab('sales'), variant: 'outline' as const },
-    { label: 'Manage Team', icon: Users, action: () => setActiveTab('teams'), variant: 'outline' as const },
-    { label: 'View Payouts', icon: DollarSign, action: () => setActiveTab('payouts'), variant: 'outline' as const },
-  ];
-
-  // Event management handlers
-  const handleEventSelect = (event: Event) => {
-    setSelectedEvent(event);
-    setShowEventManagement(true);
-  };
-
-  const handleBackToDashboard = () => {
-    setShowEventManagement(false);
-    setShowEventCreator(false);
-    setSelectedEvent(null);
-  };
-
-  // If showing event management, render that instead
-  if (showEventManagement && selectedEvent) {
-    return <EventManagement event={selectedEvent} onBack={handleBackToDashboard} />;
-  }
-
-  // If showing event creator, render that instead
-  if (showEventCreator) {
-    return <CreateEventFlow onBack={handleBackToDashboard} onCreate={handleBackToDashboard} />;
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-0 flex flex-col w-full">
-      {/* Enhanced Header */}
-      <div className="border-b border-accent bg-card p-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-accent">Organizer Dashboard</h1>
-              <VerificationBadge status={(profile?.verification_status as any) || 'none'} />
-            </div>
-            <p className="text-sm text-accent-muted">Welcome back, {user.name}</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="btn-enhanced border-accent">
-              <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button onClick={() => setShowEventCreator(true)} className="btn-enhanced">
-              <Plus className="w-4 h-4 mr-1" />
-              Create Event
-            </Button>
-          </div>
+    <div className="container mx-auto p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">Organizer Dashboard</h1>
+          <p className="text-muted-foreground">Manage your events and track performance</p>
         </div>
-
-        {/* Quick Actions */}
-        <div className="flex gap-2 mb-4">
-          {quickActions.map((action, index) => (
-            <Button
-              key={index}
-              variant={action.variant}
-              size="sm"
-              onClick={action.action}
-              className="btn-enhanced"
-            >
-              <action.icon className="w-4 h-4 mr-1" />
-              {action.label}
-            </Button>
-          ))}
-        </div>
+        <Button className="w-full sm:w-auto">
+          <Plus className="mr-2 h-4 w-4" />
+          Create Event
+        </Button>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 min-h-0 p-4">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="h-full flex flex-col min-h-0">
-          {/* Enhanced mobile-optimized tablist */}
-          <div className="relative z-20 sticky top-0 bg-background pb-2">
-            <div className="tabs-mobile">
-              <TabsTrigger value="overview" className="tab-enhanced">Overview</TabsTrigger>
-              <TabsTrigger value="events" className="tab-enhanced">Events ({totalEvents})</TabsTrigger>
-              <TabsTrigger value="sales" className="tab-enhanced">Sales</TabsTrigger>
-              <TabsTrigger value="engagement" className="tab-enhanced">Engagement</TabsTrigger>
-              <TabsTrigger value="payouts" className="tab-enhanced">Payouts</TabsTrigger>
-              <TabsTrigger value="teams" className="tab-enhanced">Teams</TabsTrigger>
-              <TabsTrigger value="comms" className="tab-enhanced">Comms</TabsTrigger>
-            </div>
-          </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabsTrigger value="dashboard" className="flex items-center gap-1 text-xs sm:text-sm">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Dashboard</span>
+          </TabsTrigger>
+          <TabsTrigger value="events" className="flex items-center gap-1 text-xs sm:text-sm">
+            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Events</span>
+          </TabsTrigger>
+          <TabsTrigger value="teams" className="flex items-center gap-1 text-xs sm:text-sm">
+            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Teams</span>
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex items-center gap-1 text-xs sm:text-sm">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Analytics</span>
+          </TabsTrigger>
+        </TabsList>
 
-          {/* OVERVIEW TAB */}
-          <TabsContent value="overview" className="space-y-6">
-            {/* Enhanced Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="card-enhanced">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm text-accent">Total Revenue</CardTitle>
-                  <DollarSign className="h-4 w-4 text-accent-muted" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl text-accent">{formatUSD(totalRevenue)}</div>
-                  <p className="text-xs text-accent-muted">All-time</p>
-                </CardContent>
-              </Card>
-
-              <Card className="card-enhanced">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm text-accent">Total Attendees</CardTitle>
-                  <Users className="h-4 w-4 text-accent-muted" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl text-accent">{formatInt(totalAttendees)}</div>
-                  <p className="text-xs text-accent-muted">{formatInt(completedEvents)} completed events</p>
-                </CardContent>
-              </Card>
-
-              <Card className="card-enhanced">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm text-accent">Active Events</CardTitle>
-                  <Calendar className="h-4 w-4 text-accent-muted" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl text-accent">{formatInt(activeEvents)}</div>
-                  <p className="text-xs text-accent-muted">{formatInt(totalEvents)} total events</p>
-                </CardContent>
-              </Card>
-
-              <Card className="card-enhanced">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm text-accent">Total Views</CardTitle>
-                  <Eye className="h-4 w-4 text-accent-muted" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl text-accent">{formatInt(totalViews)}</div>
-                  <p className="text-xs text-accent-muted">Across all events</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Performance Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="card-enhanced">
-                <CardHeader>
-                  <CardTitle className="text-accent">Engagement Rate</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-accent">
-                    {formatPercent((likesTotal + commentsTotal + sharesTotal) / Math.max(totalViews, 1) * 100)}
-                  </div>
-                  <p className="text-sm text-accent-muted">Likes, comments, shares</p>
-                </CardContent>
-              </Card>
-
-              <Card className="card-enhanced">
-                <CardHeader>
-                  <CardTitle className="text-accent">Conversion Rate</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-accent">
-                    {formatPercent(totalAttendees / Math.max(totalViews, 1) * 100)}
-                  </div>
-                  <p className="text-sm text-accent-muted">Views to attendees</p>
-                </CardContent>
-              </Card>
-
-              <Card className="card-enhanced">
-                <CardHeader>
-                  <CardTitle className="text-accent">Avg Revenue/Event</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-accent">
-                    {formatUSD(totalEvents > 0 ? totalRevenue / totalEvents : 0)}
-                  </div>
-                  <p className="text-sm text-accent-muted">Per event average</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Events */}
-            <Card className="card-enhanced">
-              <CardHeader>
-                <CardTitle className="text-accent">Recent Events</CardTitle>
-                <CardDescription className="text-accent-muted">Your latest event activity</CardDescription>
+        <TabsContent value="dashboard" className="space-y-6">
+          {/* Overview Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                {loadingEvents ? (
-                  <div className="text-center py-4 text-accent-muted">Loading events...</div>
-                ) : filteredEvents.length === 0 ? (
-                  <div className="text-center py-8 text-accent-muted">
-                    <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>No events found.</p>
-                    <p className="text-sm">Create your first event to get started.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredEvents.slice(0, 5).map((event) => (
-                      <div key={event.id} className="flex items-center justify-between p-3 border border-accent rounded-lg hover:border-strong transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center border border-accent">
-                            <Calendar className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <div className="font-medium text-accent">{event.title}</div>
-                            <div className="text-sm text-accent-muted">
-                              {event.date} • {event.venue}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="badge-enhanced">
-                            {event.status}
-                          </Badge>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEventSelect(event)}
-                            className="btn-enhanced border-accent"
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="text-2xl font-bold">{userEvents.length}</div>
+                <p className="text-xs text-muted-foreground">+2 from last month</p>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          {/* EVENTS TAB */}
-          <TabsContent value="events" className="space-y-6">
-            {/* Enhanced Event Management */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
-                  placeholder="Search events..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="input-enhanced w-full sm:w-64"
-                />
-                <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-                  <SelectTrigger className="input-enhanced w-full sm:w-40">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
-                    <SelectItem value="live">Live</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2">
-                <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-                  <SelectTrigger className="input-enhanced w-32">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="date">Date</SelectItem>
-                    <SelectItem value="revenue">Revenue</SelectItem>
-                    <SelectItem value="attendees">Attendees</SelectItem>
-                    <SelectItem value="engagement">Engagement</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="btn-enhanced border-accent"
-                >
-                  {sortOrder === 'asc' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">${totals.totalRevenue.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">+15% from last month</p>
+              </CardContent>
+            </Card>
 
-            {/* Events Grid/List */}
-            <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
-              {filteredEvents.map((event) => (
-                <Card key={event.id} className="card-enhanced hover:shadow-lg transition-all duration-200">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-accent line-clamp-2">{event.title}</CardTitle>
-                        <CardDescription className="text-accent-muted">
-                          {event.date} • {event.venue}
-                        </CardDescription>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Attendees</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totals.totalAttendees.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">+8% from last month</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Views</CardTitle>
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totals.totalViews.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">+12% from last month</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Events */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Events</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {userEvents.slice(0, 5).map((event) => (
+                  <div key={event.id} 
+                       className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                       onClick={() => handleEventSelect(event)}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium">{event.title}</h3>
+                        <p className="text-sm text-muted-foreground">{new Date(event.start_at).toLocaleDateString()}</p>
                       </div>
-                      <Badge variant="secondary" className="badge-enhanced">
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 mt-2 sm:mt-0">
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          <span>{event.attendees}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          <span>${event.revenue.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Eye className="h-3 w-3" />
+                          <span>{event.views.toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <Badge variant={event.status === 'published' ? 'default' : 'secondary'}>
                         {event.status}
                       </Badge>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Event Metrics */}
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <div className="text-accent font-medium">{formatUSD(event.revenue)}</div>
-                        <div className="text-accent-muted">Revenue</div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="events" className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h2 className="text-xl font-semibold">My Events</h2>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Create New Event
+            </Button>
+          </div>
+
+          <div className="grid gap-4">
+            {userEvents.map((event) => (
+              <Card key={event.id} className="hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => handleEventSelect(event)}>
+                <CardContent className="p-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                        <h3 className="text-lg font-semibold">{event.title}</h3>
+                        <Badge variant={event.status === 'published' ? 'default' : 'secondary'}>
+                          {event.status}
+                        </Badge>
                       </div>
-                      <div>
-                        <div className="text-accent font-medium">{formatInt(event.attendees)}</div>
-                        <div className="text-accent-muted">Attendees</div>
-                      </div>
-                      <div>
-                        <div className="text-accent font-medium">{formatInt(event.views)}</div>
-                        <div className="text-accent-muted">Views</div>
-                      </div>
-                      <div>
-                        <div className="text-accent font-medium">{formatPercent(event.conversion_rate)}</div>
-                        <div className="text-accent-muted">Conversion</div>
+                      <p className="text-muted-foreground mb-4">{event.date}</p>
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Attendees</p>
+                          <p className="text-lg font-semibold">{event.attendees}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Revenue</p>
+                          <p className="text-lg font-semibold">${event.revenue.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Views</p>
+                          <p className="text-lg font-semibold">{event.views.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Conversion</p>
+                          <p className="text-lg font-semibold">{event.conversion_rate.toFixed(1)}%</p>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEventSelect(event)}
-                        className="btn-enhanced border-accent flex-1"
-                      >
-                        <Settings className="h-4 w-4 mr-1" />
-                        Manage
+                    
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button variant="outline" size="sm">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Settings
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => shareEvent(event.id, event.title)}
-                        className="btn-enhanced border-accent"
-                      >
-                        <Share className="h-4 w-4" />
+                      <Button variant="outline" size="sm">
+                        <BarChart3 className="mr-2 h-4 w-4" />
+                        Analytics
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* SALES TAB */}
-          <TabsContent value="sales" className="space-y-6">
-            <Card className="card-enhanced">
-              <CardHeader>
-                <CardTitle className="text-accent">Revenue Analytics</CardTitle>
-                <CardDescription className="text-accent-muted">Track your sales performance over time</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={salesChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => [formatUSD(Number(value)), 'Revenue']} />
-                      <Area type="monotone" dataKey="sales" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ENGAGEMENT TAB */}
-          <TabsContent value="engagement" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="card-enhanced">
-                <CardHeader>
-                  <CardTitle className="text-accent">Total Likes</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-accent">{formatInt(likesTotal)}</div>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="card-enhanced">
-                <CardHeader>
-                  <CardTitle className="text-accent">Total Comments</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-accent">{formatInt(commentsTotal)}</div>
-                </CardContent>
-              </Card>
-              <Card className="card-enhanced">
-                <CardHeader>
-                  <CardTitle className="text-accent">Total Shares</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-accent">{formatInt(sharesTotal)}</div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+            ))}
+          </div>
+        </TabsContent>
 
-          {/* PAYOUTS TAB */}
-          <TabsContent value="payouts" className="space-y-6">
-            <PayoutDashboard />
-          </TabsContent>
+        <TabsContent value="teams" className="space-y-6">
+          <OrganizerRolesPanel eventId={userEvents[0]?.id || ''} />
+        </TabsContent>
 
-          {/* TEAMS TAB */}
-          <TabsContent value="teams" className="space-y-6">
-            {selectedEventId ? (
-              <OrganizerRolesPanel eventId={selectedEventId} />
-            ) : (
-              <Card className="card-enhanced">
-                <CardContent className="p-8 text-center">
-                  <Users className="h-12 w-12 mx-auto mb-4 text-accent-muted" />
-                  <h3 className="text-lg font-semibold text-accent mb-2">Select an Event</h3>
-                  <p className="text-accent-muted">Choose an event to manage team members and roles.</p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* COMMS TAB */}
-          <TabsContent value="comms" className="space-y-6">
-            <Card className="card-enhanced">
-              <CardContent className="p-8 text-center">
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-accent-muted" />
-                <h3 className="text-lg font-semibold text-accent mb-2">Communication Center</h3>
-                <p className="text-accent-muted">Send announcements, manage notifications, and communicate with your team.</p>
-                <Button className="btn-enhanced mt-4">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="analytics" className="space-y-6">
+          <AnalyticsHub />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
+export default OrganizerDashboard;
