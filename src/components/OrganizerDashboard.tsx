@@ -355,22 +355,34 @@ export function OrganizerDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-          <TabsTrigger value="dashboard" className="flex items-center gap-1 text-xs sm:text-sm">
-            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Dashboard</span>
+        <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-muted/50 rounded-lg">
+          <TabsTrigger 
+            value="dashboard" 
+            className="flex flex-col items-center gap-1 py-3 px-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span className="text-xs font-medium">Dashboard</span>
           </TabsTrigger>
-          <TabsTrigger value="events" className="flex items-center gap-1 text-xs sm:text-sm">
-            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Events</span>
+          <TabsTrigger 
+            value="events" 
+            className="flex flex-col items-center gap-1 py-3 px-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all"
+          >
+            <CalendarDays className="h-4 w-4" />
+            <span className="text-xs font-medium">Events</span>
           </TabsTrigger>
-          <TabsTrigger value="teams" className="flex items-center gap-1 text-xs sm:text-sm">
-            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Teams</span>
+          <TabsTrigger 
+            value="teams" 
+            className="flex flex-col items-center gap-1 py-3 px-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all"
+          >
+            <Users className="h-4 w-4" />
+            <span className="text-xs font-medium">Teams</span>
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-1 text-xs sm:text-sm">
-            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Analytics</span>
+          <TabsTrigger 
+            value="analytics" 
+            className="flex flex-col items-center gap-1 py-3 px-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span className="text-xs font-medium">Analytics</span>
           </TabsTrigger>
         </TabsList>
 
