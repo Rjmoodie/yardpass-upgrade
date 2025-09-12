@@ -299,26 +299,11 @@ function AppContent() {
                   </AuthGuard>
                 }
               />
-              <Route
+                <Route
                 path="/dashboard"
                 element={
                   <AuthGuard>
-                    <UserDependentRoute>
-                      {(user, profile) => (
-                        <OrganizerDashboard
-                          user={{
-                            id: user.id,
-                            name: profile?.display_name || 'User',
-                            role: (profile?.role as UserRole) || 'attendee',
-                          }}
-                          onCreateEvent={() => navigate('/create-event')}
-                          onEventSelect={(event) => {
-                            setSelectedEvent(event);
-                            navigate('/event-management/' + event.id);
-                          }}
-                        />
-                      )}
-                    </UserDependentRoute>
+                    <OrganizerDashboard />
                   </AuthGuard>
                 }
               />
