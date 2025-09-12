@@ -355,22 +355,22 @@ export function OrganizerDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-muted/50 rounded-lg">
-          <TabsTrigger value="dashboard" className="flex flex-col items-center gap-1 py-3 px-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all min-h-[60px]">
-            <BarChart3 className="h-4 w-4" />
-            <span className="text-xs font-medium">Dashboard</span>
+        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
+          <TabsTrigger value="dashboard" className="flex-col h-auto py-3 px-2">
+            <BarChart3 className="h-4 w-4 mb-1" />
+            <span className="text-xs">Dashboard</span>
           </TabsTrigger>
-          <TabsTrigger value="events" className="flex flex-col items-center gap-1 py-3 px-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all min-h-[60px]">
-            <CalendarDays className="h-4 w-4" />
-            <span className="text-xs font-medium">Events</span>
+          <TabsTrigger value="events" className="flex-col h-auto py-3 px-2">
+            <CalendarDays className="h-4 w-4 mb-1" />
+            <span className="text-xs">Events</span>
           </TabsTrigger>
-          <TabsTrigger value="teams" className="flex flex-col items-center gap-1 py-3 px-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all min-h-[60px]">
-            <Users className="h-4 w-4" />
-            <span className="text-xs font-medium">Teams</span>
+          <TabsTrigger value="teams" className="flex-col h-auto py-3 px-2">
+            <Users className="h-4 w-4 mb-1" />
+            <span className="text-xs">Teams</span>
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex flex-col items-center gap-1 py-3 px-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all min-h-[60px]">
-            <BarChart3 className="h-4 w-4" />
-            <span className="text-xs font-medium">Analytics</span>
+          <TabsTrigger value="analytics" className="flex-col h-auto py-3 px-2">
+            <BarChart3 className="h-4 w-4 mb-1" />
+            <span className="text-xs">Analytics</span>
           </TabsTrigger>
         </TabsList>
 
