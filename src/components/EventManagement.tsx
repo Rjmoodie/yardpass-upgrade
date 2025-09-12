@@ -93,6 +93,39 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     }
   };
 
+  const handleExportAttendees = () => {
+    // Create CSV data
+    const csvData = attendees.map(attendee => ({
+      Name: attendee.name,
+      Email: attendee.email,
+      Phone: attendee.phone,
+      'Ticket Tier': attendee.ticketTier,
+      'Purchase Date': attendee.purchaseDate,
+      'Checked In': attendee.checkedIn ? 'Yes' : 'No'
+    }));
+
+    // Convert to CSV string
+    const headers = Object.keys(csvData[0]);
+    const csvString = [
+      headers.join(','),
+      ...csvData.map(row => headers.map(header => `"${row[header]}"`).join(','))
+    ].join('\n');
+
+    // Download CSV
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${event.title}-attendees.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: "Attendee list has been downloaded.",
+    });
+  };
+
   return (
     <div className="h-full bg-background flex flex-col">
       {/* Enhanced Header */}
@@ -141,13 +174,13 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="tabs-mobile mb-4">
-            <TabsTrigger value="overview" className="tab-enhanced">Overview</TabsTrigger>
-            <TabsTrigger value="attendees" className="tab-enhanced">Attendees</TabsTrigger>
-            <TabsTrigger value="scanner" className="tab-enhanced">Scanner</TabsTrigger>
-            <TabsTrigger value="teams" className="tab-enhanced">Teams</TabsTrigger>
-            <TabsTrigger value="settings" className="tab-enhanced">Settings</TabsTrigger>
-          </div>
+          <TabsList className="w-full grid grid-cols-5 mb-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="attendees">Attendees</TabsTrigger>
+            <TabsTrigger value="scanner">Scanner</TabsTrigger>
+            <TabsTrigger value="teams">Teams</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
             {/* Enhanced Stats Grid */}
@@ -240,19 +273,35 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                 <CardTitle className="text-accent">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Button variant="outline" className="h-auto flex-col gap-2 p-4">
+                <Button 
+                  variant="outline" 
+                  className="h-auto flex-col gap-2 p-4"
+                  onClick={() => setActiveTab('scanner')}
+                >
                   <Scan className="w-6 h-6" />
                   <span>Check-in Scanner</span>
                 </Button>
-                <Button variant="outline" className="h-auto flex-col gap-2 p-4">
+                <Button 
+                  variant="outline" 
+                  className="h-auto flex-col gap-2 p-4"
+                  onClick={handleExportAttendees}
+                >
                   <Download className="w-6 h-6" />
                   <span>Export Guest List</span>
                 </Button>
-                <Button variant="outline" className="h-auto flex-col gap-2 p-4">
+                <Button 
+                  variant="outline" 
+                  className="h-auto flex-col gap-2 p-4"
+                  onClick={() => setActiveTab('attendees')}
+                >
                   <Users className="w-6 h-6" />
                   <span>View Attendees</span>
                 </Button>
-                <Button variant="outline" className="h-auto flex-col gap-2 p-4">
+                <Button 
+                  variant="outline" 
+                  className="h-auto flex-col gap-2 p-4"
+                  onClick={() => setActiveTab('settings')}
+                >
                   <Settings className="w-6 h-6" />
                   <span>Event Settings</span>
                 </Button>
@@ -291,15 +340,12 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
             </Card>
           </TabsContent>
 
-          <TabsContent value="guests" className="space-y-4">
-            <GuestManagement eventId={event.id} />
-          </TabsContent>
 
           <TabsContent value="attendees" className="space-y-4">
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h2>Attendee List</h2>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={handleExportAttendees}>
                   <Download className="w-4 h-4 mr-1" />
                   Export CSV
                 </Button>
@@ -402,7 +448,15 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button className="btn-enhanced w-full">
+                  <Button 
+                    className="btn-enhanced w-full"
+                    onClick={() => {
+                      toast({
+                        title: "Edit Event",
+                        description: "Edit functionality will be implemented soon.",
+                      });
+                    }}
+                  >
                     <Edit className="w-4 h-4 mr-2" />
                     Edit Event
                   </Button>
@@ -419,7 +473,17 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                     <p className="text-sm text-red-600 mb-4">
                       This action cannot be undone. All tickets, attendees, and data will be permanently deleted.
                     </p>
-                    <Button variant="destructive" className="btn-enhanced">
+                    <Button 
+                      variant="destructive" 
+                      className="btn-enhanced"
+                      onClick={() => {
+                        toast({
+                          title: "Delete Event",
+                          description: "Are you sure? This action cannot be undone.",
+                          variant: "destructive",
+                        });
+                      }}
+                    >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Delete Event
                     </Button>

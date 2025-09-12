@@ -175,7 +175,7 @@ export function OrganizerDashboard() {
           description,
           city,
           visibility,
-          ticket_tiers (
+          ticket_tiers!fk_ticket_tiers_event_id (
             id,
             name,
             price_cents,
@@ -348,7 +348,10 @@ export function OrganizerDashboard() {
           <h1 className="text-2xl sm:text-3xl font-bold">Organizer Dashboard</h1>
           <p className="text-muted-foreground">Manage your events and track performance</p>
         </div>
-        <Button className="w-full sm:w-auto">
+        <Button 
+          className="w-full sm:w-auto" 
+          onClick={() => window.location.href = '/create-event'}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Create Event
         </Button>
@@ -468,7 +471,7 @@ export function OrganizerDashboard() {
         <TabsContent value="events" className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h2 className="text-xl font-semibold">My Events</h2>
-            <Button>
+            <Button onClick={() => window.location.href = '/create-event'}>
               <Plus className="mr-2 h-4 w-4" />
               Create New Event
             </Button>
@@ -510,13 +513,31 @@ export function OrganizerDashboard() {
                     </div>
                     
                     <div className="flex flex-col sm:flex-row gap-2">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEventSelect(event);
+                        }}
+                      >
                         <Settings className="mr-2 h-4 w-4" />
-                        Settings
+                        Manage
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(window.location.origin + '/e/' + event.id);
+                          toast({ 
+                            title: "Link copied!", 
+                            description: "Event link copied to clipboard" 
+                          });
+                        }}
+                      >
                         <BarChart3 className="mr-2 h-4 w-4" />
-                        Analytics
+                        Share
                       </Button>
                     </div>
                   </div>
