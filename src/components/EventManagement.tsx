@@ -143,7 +143,14 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
               <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="outline" size="sm" className="btn-enhanced border-accent">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="btn-enhanced border-accent"
+              onClick={() => {
+                window.open(`/e/${event.id}`, '_blank');
+              }}
+            >
               <ExternalLink className="w-4 h-4 mr-1" />
               View Event
             </Button>
@@ -343,16 +350,46 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
 
           <TabsContent value="attendees" className="space-y-4">
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h2>Attendee List</h2>
-                <Button variant="outline" size="sm" onClick={handleExportAttendees}>
-                  <Download className="w-4 h-4 mr-1" />
-                  Export CSV
-                </Button>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Search attendees..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-64"
+                  />
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Attendees</SelectItem>
+                      <SelectItem value="checked-in">Checked In</SelectItem>
+                      <SelectItem value="not-checked-in">Not Checked In</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" onClick={handleExportAttendees}>
+                    <Download className="w-4 h-4 mr-1" />
+                    Export CSV
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-3">
-                {mockAttendees.map((attendee) => (
+                {attendees
+                  .filter(attendee => {
+                    const matchesSearch = attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      attendee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      attendee.ticketTier.toLowerCase().includes(searchQuery.toLowerCase());
+                    
+                    const matchesStatus = statusFilter === 'all' || 
+                      (statusFilter === 'checked-in' && attendee.checkedIn) ||
+                      (statusFilter === 'not-checked-in' && !attendee.checkedIn);
+                    
+                    return matchesSearch && matchesStatus;
+                  })
+                  .map((attendee) => (
                   <Card key={attendee.id}>
                     <CardContent className="p-4">
                       <div className="flex justify-between items-start">
@@ -375,7 +412,17 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                             {attendee.ticketTier} • Purchased {attendee.purchaseDate}
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toast({
+                              title: "Attendee Details",
+                              description: `Viewing details for ${attendee.name}`,
+                            });
+                          }}
+                        >
                           View Details
                         </Button>
                       </div>
@@ -394,8 +441,11 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                 Scan attendee tickets to check them in to your event
               </p>
               <Button size="lg" onClick={() => {
-                // Navigate to full scanner page
-                console.log('Navigate to scanner for event:', event.id);
+                toast({
+                  title: "Scanner Opened",
+                  description: "QR code scanner is now active for check-ins.",
+                });
+                // In a real app, this would open the camera scanner
               }}>
                 <Scan className="w-5 h-5 mr-2" />
                 Start Scanning
