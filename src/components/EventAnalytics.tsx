@@ -1,3 +1,4 @@
+// src/components/EventAnalytics.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,8 +15,14 @@ import {
   Scan as ScanIcon,
   RefreshCw,
   Download,
+  FileJson,
+  Printer,
+  Link as LinkIcon,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+
+/* -------------------------------- Types -------------------------------- */
 
 interface EventKPIs {
   gross_revenue: number;
@@ -70,7 +77,8 @@ interface EventAnalyticsProps {
   eventId?: string;
 }
 
-/** ---------- helpers ---------- */
+/* ------------------------------- Helpers -------------------------------- */
+
 const formatCurrency = (cents: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((cents || 0) / 100);
 
@@ -87,6 +95,13 @@ const getDateFromRange = (range: string): string => {
   const ms = range === '7d' ? 7 : range === '90d' ? 90 : 30;
   return new Date(now.getTime() - ms * 24 * 60 * 60 * 1000).toISOString();
 };
+
+const safeFileName = (s: string) =>
+  (s || 'event')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase();
 
 /** tiny sparkline bars without extra deps */
 const SparkBars: React.FC<{ values: number[] }> = ({ values }) => {
@@ -105,6 +120,8 @@ const SparkBars: React.FC<{ values: number[] }> = ({ values }) => {
   );
 };
 
+/* ---------------------------- Main Component ---------------------------- */
+
 const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId }) => {
   const { user } = useAuth();
   const [selectedEvent, setSelectedEvent] = useState<string>(initialEventId || '');
@@ -113,11 +130,22 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<Array<{ id: string; title: string; start_at: string }>>([]);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ea.autoRefresh') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [realtimeNudge, setRealtimeNudge] = useState(false);
+  const [offline, setOffline] = useState(!navigator.onLine);
 
   // prevent stale responses
   const requestIdRef = useRef(0);
+  const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // hydrate persisted controls
+  /* --------------------------- Persisted controls -------------------------- */
+
   useEffect(() => {
     if (!user) return;
     const savedEvent = localStorage.getItem(keyFor(user.id, 'selectedEvent'));
@@ -126,15 +154,38 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
     if (savedRange) setDateRange(savedRange);
   }, [user, initialEventId]);
 
-  // persist controls
   useEffect(() => {
     if (!user) return;
     if (selectedEvent) localStorage.setItem(keyFor(user.id, 'selectedEvent'), selectedEvent);
   }, [selectedEvent, user]);
+
   useEffect(() => {
     if (!user) return;
     localStorage.setItem(keyFor(user.id, 'dateRange'), dateRange);
   }, [dateRange, user]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ea.autoRefresh', autoRefresh ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }, [autoRefresh]);
+
+  /* -------------------------- Connectivity watcher ------------------------- */
+
+  useEffect(() => {
+    const onOnline = () => setOffline(false);
+    const onOffline = () => setOffline(true);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  /* ------------------------------ Load events ------------------------------ */
 
   useEffect(() => {
     if (user) {
@@ -142,6 +193,8 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  /* --------------------------- Fetch analytics ---------------------------- */
 
   useEffect(() => {
     if (selectedEvent) {
@@ -151,6 +204,41 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEvent, dateRange]);
+
+  // optional auto refresh every 60s
+  useEffect(() => {
+    if (!autoRefresh || !selectedEvent) return;
+    const id = window.setInterval(fetchEventAnalytics, 60_000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh, selectedEvent, dateRange]);
+
+  // realtime “nudge” – if orders or tickets change for this event, prompt to refresh
+  useEffect(() => {
+    if (!selectedEvent) return;
+    try {
+      if (subRef.current) {
+        supabase.removeChannel(subRef.current);
+        subRef.current = null;
+      }
+      const channel = supabase
+        .channel(`ea_${selectedEvent}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `event_id=eq.${selectedEvent}` }, () =>
+          setRealtimeNudge(true)
+        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets', filter: `event_id=eq.${selectedEvent}` }, () =>
+          setRealtimeNudge(true)
+        )
+        .subscribe();
+      subRef.current = channel;
+      return () => {
+        if (subRef.current) supabase.removeChannel(subRef.current);
+        subRef.current = null;
+      };
+    } catch {
+      // silent; RLS or table missing
+    }
+  }, [selectedEvent]);
 
   const fetchUserEvents = async () => {
     try {
@@ -221,16 +309,15 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
 
       if (error) throw error;
 
-      // ignore stale response
-      if (myReqId !== requestIdRef.current) return;
-
+      if (myReqId !== requestIdRef.current) return; // ignore stale response
       setAnalytics(data as EventAnalyticsData);
       setLastUpdated(Date.now());
-    } catch (error) {
+      setRealtimeNudge(false);
+    } catch (error: any) {
       console.error('Error fetching event analytics:', error);
       toast({
         title: 'Error',
-        description: 'Failed to fetch event analytics',
+        description: error?.message || 'Failed to fetch event analytics',
         variant: 'destructive',
       });
     } finally {
@@ -238,10 +325,14 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
     }
   };
 
+  /* --------------------------------- Memos -------------------------------- */
+
   const salesDailyUnits = useMemo(
     () => (analytics?.sales_curve || []).map((d) => d.daily_units ?? 0),
     [analytics?.sales_curve]
   );
+
+  /* ------------------------------ Exporters ------------------------------- */
 
   const tierCsv = () => {
     if (!analytics?.tier_performance?.length) return '';
@@ -257,21 +348,44 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
     return [header, ...rows].map((r) => r.join(',')).join('\n');
   };
 
-  const downloadTiersCSV = () => {
-    const csv = tierCsv();
-    if (!csv) return;
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const fname = `${analytics?.event.title?.replace(/[^\w\s-]/g, '') || 'event'}-tiers.csv`;
+  const download = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = fname;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadTiersCSV = () => {
+    const csv = tierCsv();
+    if (!csv) return;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const fname = `${safeFileName(analytics?.event.title || 'event')}-tiers.csv`;
+    download(blob, fname);
     toast({ title: 'Exported', description: 'Tier performance CSV downloaded.' });
   };
+
+  const downloadJSON = () => {
+    if (!analytics) return;
+    const blob = new Blob([JSON.stringify(analytics, null, 2)], { type: 'application/json' });
+    const fname = `${safeFileName(analytics.event.title)}-analytics.json`;
+    download(blob, fname);
+  };
+
+  const copyShareLink = async () => {
+    try {
+      const url = `${window.location.origin}${window.location.pathname}?event=${selectedEvent}&range=${dateRange}`;
+      await navigator.clipboard.writeText(url);
+      toast({ title: 'Link copied', description: 'Shareable report link copied to clipboard.' });
+    } catch {
+      // ignore
+    }
+  };
+
+  /* --------------------------------- UI ---------------------------------- */
 
   if (!user) {
     return (
@@ -285,15 +399,47 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
     <div className="container mx-auto p-6 max-w-7xl">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-1">Event Analytics</h1>
-        <p className="text-muted-foreground">
-          Detailed performance insights for your events
-          {lastUpdated && (
-            <span className="ml-2 text-xs">
-              • Updated {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
-        </p>
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-3xl font-bold mb-1">Event Analytics</h1>
+            <p className="text-muted-foreground">
+              Detailed performance insights for your events
+              {lastUpdated && (
+                <span className="ml-2 text-xs">
+                  • Updated {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              {offline && (
+                <span className="ml-2 inline-flex items-center gap-1 text-xs text-yellow-700">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Offline
+                </span>
+              )}
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={fetchEventAnalytics} disabled={loading} variant="outline" className="sm:w-auto">
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button variant="outline" onClick={() => window.print()}>
+              <Printer className="h-4 w-4 mr-2" />
+              Print
+            </Button>
+            <Button variant="outline" onClick={copyShareLink}>
+              <LinkIcon className="h-4 w-4 mr-2" />
+              Copy Link
+            </Button>
+            <Button variant="outline" onClick={downloadJSON} disabled={!analytics}>
+              <FileJson className="h-4 w-4 mr-2" />
+              JSON
+            </Button>
+            <Button variant="outline" onClick={downloadTiersCSV} disabled={!analytics?.tier_performance?.length}>
+              <Download className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Controls */}
@@ -325,11 +471,30 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
           </SelectContent>
         </Select>
 
-        <Button onClick={fetchEventAnalytics} disabled={loading} variant="outline" className="sm:w-auto w-full">
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
+        <Button
+          variant={autoRefresh ? 'default' : 'outline'}
+          onClick={() => setAutoRefresh((v) => !v)}
+          className="sm:w-auto w-full"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
+          {autoRefresh ? 'Auto refresh: ON' : 'Auto refresh: OFF'}
         </Button>
       </div>
+
+      {/* Realtime nudge */}
+      {realtimeNudge && (
+        <Card className="mb-6 border-primary/30">
+          <CardContent className="py-3 flex items-center justify-between">
+            <div className="text-sm">
+              New activity detected (orders/tickets). Data may be stale.
+            </div>
+            <Button size="sm" onClick={fetchEventAnalytics}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Update now
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -476,12 +641,11 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
                 <div className="space-y-4">
                   {analytics.tier_performance.map((tier) => {
                     const soldPct =
-                      (tier.quantity && tier.quantity > 0) ? clampPct((tier.sold / tier.quantity) * 100) : clampPct(tier.sell_through);
+                      tier.quantity && tier.quantity > 0
+                        ? clampPct((tier.sold / tier.quantity) * 100)
+                        : clampPct(tier.sell_through);
                     return (
-                      <div
-                        key={tier.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                      >
+                      <div key={tier.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex-1 pr-4">
                           <h4 className="font-medium">{tier.name}</h4>
                           <p className="text-sm text-muted-foreground">
@@ -521,15 +685,11 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
             <CardContent>
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {analytics.scan_summary.valid_scans}
-                  </div>
+                  <div className="text-2xl font-bold text-green-600">{analytics.scan_summary.valid_scans}</div>
                   <p className="text-sm text-muted-foreground">Valid Scans</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">
-                    {analytics.scan_summary.duplicate_scans}
-                  </div>
+                  <div className="text-2xl font-bold text-yellow-600">{analytics.scan_summary.duplicate_scans}</div>
                   <p className="text-sm text-muted-foreground">Duplicates</p>
                 </div>
                 <div className="text-center">

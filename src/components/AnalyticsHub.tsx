@@ -1,4 +1,13 @@
-/* src/components/AnalyticsHub.tsx */
+/* src/components/AnalyticsHub.tsx
+ *
+ * Enhanced drop-in replacement:
+ * - Auto-refresh toggle (persists to localStorage) + manual refresh
+ * - Optional realtime subscribe (events/orders/tickets/posts/reactions) toggle
+ * - Deep-linking (sync org, dateRange, activeTab to URL) + Share/Copy Link
+ * - CSV/JSON export (overview KPIs, revenue trend, top events, event list, video & audience)
+ * - Better skeletons, error surfaces, resilient fallbacks
+ * - Small UX nice-ties: sticky tablist kept, safe formatting, memoized totals
+ */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,10 +18,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 
-// ✅ Use correct Lucide names (no *Icon suffix in lucide-react)
-import { Calendar as CalendarIcon, TrendingUp as TrendingUpIcon, Users as UsersIcon, DollarSign as DollarSignIcon, Ticket as TicketIcon, Play as PlayIcon } from 'lucide-react';
+// Icons
+import {
+  Calendar as CalendarIcon,
+  TrendingUp as TrendingUpIcon,
+  Users as UsersIcon,
+  DollarSign as DollarSignIcon,
+  Ticket as TicketIcon,
+  Play as PlayIcon,
+  Download as DownloadIcon,
+  RefreshCw as RefreshIcon,
+  Share2 as ShareIcon,
+  Link as LinkIcon,
+  Pause as PauseIcon,
+  Play as ResumeIcon,
+  Radio as RadioIcon,
+} from 'lucide-react';
 
-// Optional charts (tiny area chart for revenue trend)
+// Charts
 import {
   ResponsiveContainer,
   AreaChart,
@@ -22,6 +45,8 @@ import {
   YAxis,
   Tooltip,
 } from 'recharts';
+
+/* ---------------------------- Types ---------------------------- */
 
 interface AnalyticsKPIs {
   gross_revenue: number;   // cents
@@ -54,6 +79,36 @@ const getDateFromRange = (range: string): string => {
   return new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 };
 
+const downloadFile = (filename: string, content: string, type = 'text/plain') => {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+};
+
+const toCSV = <T extends Record<string, any>>(rows: T[]): string => {
+  if (!rows?.length) return '';
+  const headers = Object.keys(rows[0]);
+  const esc = (v: any) => {
+    if (v == null) return '';
+    const s = typeof v === 'string' ? v : JSON.stringify(v);
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+  const head = headers.map(esc).join(',');
+  const body = rows.map(r => headers.map(h => esc(r[h])).join(',')).join('\n');
+  return `${head}\n${body}`;
+};
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast({ title: 'Link copied' });
+  } catch {
+    toast({ title: 'Copy failed', variant: 'destructive' });
+  }
+};
+
 /* ----------------------- Video Analytics ------------------------- */
 
 const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
@@ -65,7 +120,7 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
     try {
       const { data, error } = await supabase.functions.invoke('analytics-video-mux', {
         body: {
-          asset_ids: [], // Plug real Mux asset IDs here
+          asset_ids: [], // wire in real Mux asset IDs if available
           from_date: getDateFromRange(dateRange),
           to_date: new Date().toISOString(),
           org_id: selectedOrg,
@@ -104,10 +159,38 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const exportJSON = () =>
+    downloadFile(
+      `videos_${new Date().toISOString()}.json`,
+      JSON.stringify(videoData || {}, null, 2),
+      'application/json'
+    );
+
+  const exportCSV = () => {
+    const rows = (videoData?.videos || []).map((v: any) => ({
+      title: v.title,
+      plays: v.plays,
+      ctr_percent: v.ctr,
+    }));
+    downloadFile(`videos_${new Date().toISOString()}.csv`, toCSV(rows), 'text/csv');
+  };
+
   if (loading) return <div className="text-center py-8">Loading video analytics...</div>;
 
   return (
     <>
+      <div className="flex items-center justify-between mb-2">
+        <div />
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={exportCSV}>
+            <DownloadIcon className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={exportJSON}>
+            <DownloadIcon className="h-4 w-4 mr-1" /> JSON
+          </Button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -155,8 +238,11 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex items-center justify-between">
           <CardTitle>Top Performing Videos</CardTitle>
+          <span className="text-xs text-muted-foreground">
+            {(videoData?.videos?.length || 0).toLocaleString()} videos
+          </span>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -201,7 +287,6 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
       });
 
       if (error) throw error;
-      // Support older/newer payload shapes
       const responseData = (data && (data.data ?? data)) || {};
       setAudienceData(responseData);
     } catch (err) {
@@ -234,10 +319,52 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
     if (selectedOrg) fetchAudienceAnalytics();
   }, [selectedOrg, dateRange, fetchAudienceAnalytics]);
 
+  const exportJSON = () =>
+    downloadFile(
+      `audience_${new Date().toISOString()}.json`,
+      JSON.stringify(audienceData || {}, null, 2),
+      'application/json'
+    );
+
+  const exportCSV = () => {
+    const rows = [
+      ...(audienceData?.funnel_steps || []).map((s: any) => ({
+        section: 'funnel',
+        event: s.event,
+        count: s.count,
+        conversion_rate: s.conversion_rate,
+      })),
+      ...(audienceData?.acquisition_channels || []).map((a: any) => ({
+        section: 'acquisition',
+        channel: a.channel,
+        visitors: a.visitors,
+        conversions: a.conversions,
+      })),
+      ...(audienceData?.device_breakdown || []).map((d: any) => ({
+        section: 'device',
+        device: d.device,
+        sessions: d.sessions,
+        conversion_rate: d.conversion_rate,
+      })),
+    ];
+    downloadFile(`audience_${new Date().toISOString()}.csv`, toCSV(rows), 'text/csv');
+  };
+
   if (loading) return <div className="text-center py-8">Loading audience analytics...</div>;
 
   return (
     <>
+      <div className="flex items-center justify-end mb-2">
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={exportCSV}>
+            <DownloadIcon className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={exportJSON}>
+            <DownloadIcon className="h-4 w-4 mr-1" /> JSON
+          </Button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {audienceData?.funnel_steps?.map((step: any, index: number) => (
           <Card key={`${step.event}-${index}`}>
@@ -266,8 +393,11 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex items-center justify-between">
             <CardTitle>Acquisition Channels</CardTitle>
+            <span className="text-xs text-muted-foreground">
+              {(audienceData?.acquisition_channels?.length || 0).toLocaleString()} sources
+            </span>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -293,8 +423,11 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex items-center justify-between">
             <CardTitle>Device Breakdown</CardTitle>
+            <span className="text-xs text-muted-foreground">
+              {(audienceData?.device_breakdown?.length || 0).toLocaleString()} devices
+            </span>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -433,9 +566,8 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
     if (selectedOrg) fetchEventAnalytics();
   }, [selectedOrg, dateRange, fetchEventAnalytics]);
 
-  // Always call useMemo before any conditional returns
   const totals = useMemo(() => {
-    if (!eventData || eventData.length === 0) {
+    if (!eventData?.length) {
       return { revenue: 0, tickets: 0, attendees: 0, engagements: 0 };
     }
     const revenue = eventData.reduce((sum, e) => sum + (e.revenue || 0), 0);
@@ -444,6 +576,32 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
     const engagements = eventData.reduce((sum, e) => sum + (e.engagements || 0), 0);
     return { revenue, tickets, attendees, engagements };
   }, [eventData]);
+
+  const exportEventsJSON = () =>
+    downloadFile(
+      `events_${new Date().toISOString()}.json`,
+      JSON.stringify(eventData || [], null, 2),
+      'application/json'
+    );
+
+  const exportEventsCSV = () =>
+    downloadFile(
+      `events_${new Date().toISOString()}.csv`,
+      toCSV(
+        (eventData || []).map(e => ({
+          id: e.id,
+          title: e.title,
+          startDate: e.startDate,
+          endDate: e.endDate,
+          revenue_cents: e.revenue,
+          tickets_sold: e.ticketsSold,
+          attendees: e.attendees,
+          engagements: e.engagements,
+          status: e.status,
+        }))
+      ),
+      'text/csv'
+    );
 
   if (loading) return <div className="text-center py-8">Loading event analytics...</div>;
 
@@ -464,66 +622,85 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
 
   return (
     <>
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Events</CardTitle>
-            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{eventData.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {eventData.filter((e) => e.status === 'completed').length} completed
-            </p>
-          </CardContent>
-        </Card>
+      {/* Summary & Export */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{eventData.length}</div>
+              <p className="text-xs text-muted-foreground">
+                {eventData.filter((e) => e.status === 'completed').length} completed
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSignIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totals.revenue)}</div>
-            <p className="text-xs text-muted-foreground">
-              Avg: {formatCurrency(totals.revenue / Math.max(1, eventData.length))}
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <DollarSignIcon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(totals.revenue)}</div>
+              <p className="text-xs text-muted-foreground">
+                Avg: {formatCurrency(totals.revenue / Math.max(1, eventData.length))}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tickets Sold</CardTitle>
-            <TicketIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.tickets.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              {totals.attendees.toLocaleString()} attended (
-              {totals.tickets > 0 ? ((totals.attendees / totals.tickets) * 100).toFixed(1) : '0.0'}%)
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Tickets Sold</CardTitle>
+              <TicketIcon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totals.tickets.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                {totals.attendees.toLocaleString()} attended (
+                {totals.tickets > 0 ? ((totals.attendees / totals.tickets) * 100).toFixed(1) : '0.0'}%)
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Engagements</CardTitle>
-            <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.engagements.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Avg: {Math.round(totals.engagements / Math.max(1, eventData.length))} per event
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Engagements</CardTitle>
+              <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totals.engagements.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                Avg: {Math.round(totals.engagements / Math.max(1, eventData.length))} per event
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="hidden lg:flex gap-2 ml-4">
+          <Button size="sm" variant="outline" onClick={exportEventsCSV}>
+            <DownloadIcon className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={exportEventsJSON}>
+            <DownloadIcon className="h-4 w-4 mr-1" /> JSON
+          </Button>
+        </div>
       </div>
 
       {/* Events List */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex items-center justify-between">
           <CardTitle>Individual Event Performance</CardTitle>
+          <div className="flex lg:hidden gap-2">
+            <Button size="sm" variant="outline" onClick={exportEventsCSV}>
+              <DownloadIcon className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportEventsJSON}>
+              <DownloadIcon className="h-4 w-4 mr-1" /> JSON
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -571,13 +748,19 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
 
 const AnalyticsHub: React.FC = () => {
   const { user } = useAuth();
-  const [selectedOrg, setSelectedOrg] = useState<string>(() => localStorage.getItem('ah.selectedOrg') || '');
-  const [dateRange, setDateRange] = useState<string>(() => localStorage.getItem('ah.dateRange') || '30d');
+  const [selectedOrg, setSelectedOrg] = useState<string>(() => new URLSearchParams(location.search).get('org') || localStorage.getItem('ah.selectedOrg') || '');
+  const [dateRange, setDateRange] = useState<string>(() => new URLSearchParams(location.search).get('range') || localStorage.getItem('ah.dateRange') || '30d');
   const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
   const [loading, setLoading] = useState(false);
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'videos' | 'audience'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'videos' | 'audience'>(
+    (new URLSearchParams(location.search).get('tab') as any) || 'overview'
+  );
 
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(() => localStorage.getItem('ah.autoRefresh') === 'true');
+  const [realtime, setRealtime] = useState<boolean>(() => localStorage.getItem('ah.realtime') === 'true');
+
+  // Organizations
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -599,6 +782,7 @@ const AnalyticsHub: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // Persist selections
   useEffect(() => {
     if (selectedOrg) localStorage.setItem('ah.selectedOrg', selectedOrg);
   }, [selectedOrg]);
@@ -607,6 +791,27 @@ const AnalyticsHub: React.FC = () => {
     if (dateRange) localStorage.setItem('ah.dateRange', dateRange);
   }, [dateRange]);
 
+  useEffect(() => {
+    localStorage.setItem('ah.autoRefresh', String(autoRefresh));
+  }, [autoRefresh]);
+
+  useEffect(() => {
+    localStorage.setItem('ah.realtime', String(realtime));
+  }, [realtime]);
+
+  // Deep-linking to URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (selectedOrg) params.set('org', selectedOrg); else params.delete('org');
+    if (dateRange) params.set('range', dateRange);
+    if (activeTab) params.set('tab', activeTab);
+    const url = `${location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', url);
+  }, [selectedOrg, dateRange, activeTab]);
+
+  const shareLink = () => copyToClipboard(window.location.href);
+
+  // Analytics fetch
   const fetchAnalytics = useCallback(async () => {
     if (!selectedOrg) return;
     setLoading(true);
@@ -646,6 +851,26 @@ const AnalyticsHub: React.FC = () => {
     if (selectedOrg) fetchAnalytics();
   }, [selectedOrg, dateRange, fetchAnalytics]);
 
+  // Auto-refresh every 60s
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const i = setInterval(fetchAnalytics, 60000);
+    return () => clearInterval(i);
+  }, [autoRefresh, fetchAnalytics]);
+
+  // Optional realtime refresh on db changes (broad but useful)
+  useEffect(() => {
+    if (!realtime || !selectedOrg) return;
+    const ch = supabase
+      .channel('analytics_hub_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchAnalytics)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, fetchAnalytics)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_posts' }, fetchAnalytics)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_reactions' }, fetchAnalytics)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [realtime, selectedOrg, fetchAnalytics]);
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -654,19 +879,95 @@ const AnalyticsHub: React.FC = () => {
     );
   }
 
+  // Derived deltas (overview): simple revenue MoM-ish if series present
+  const revenueDeltaPct = useMemo(() => {
+    const s = analytics?.revenue_trend || [];
+    if (s.length < 2) return null;
+    // Compare last point to first point
+    const first = s[0]?.revenue || 0;
+    const last = s[s.length - 1]?.revenue || 0;
+    if (first === 0) return null;
+    return ((last - first) / Math.max(1, first)) * 100;
+  }, [analytics]);
+
+  const exportOverviewJSON = () =>
+    downloadFile(
+      `overview_${new Date().toISOString()}.json`,
+      JSON.stringify(analytics || {}, null, 2),
+      'application/json'
+    );
+
+  const exportOverviewCSV = () => {
+    const kpis = analytics?.kpis || ({} as AnalyticsKPIs);
+    const rows = [
+      { key: 'gross_revenue_cents', value: kpis.gross_revenue },
+      { key: 'net_revenue_cents', value: kpis.net_revenue },
+      { key: 'platform_fees_cents', value: kpis.platform_fees },
+      { key: 'tickets_sold', value: kpis.tickets_sold },
+      { key: 'refund_rate', value: kpis.refund_rate },
+      { key: 'no_show_rate', value: kpis.no_show_rate },
+      { key: 'unique_buyers', value: kpis.unique_buyers },
+      { key: 'repeat_buyers', value: kpis.repeat_buyers },
+      { key: 'posts_created', value: kpis.posts_created },
+      { key: 'feed_engagements', value: kpis.feed_engagements },
+    ];
+    downloadFile(`overview_${new Date().toISOString()}.csv`, toCSV(rows as any), 'text/csv');
+  };
+
+  const exportRevenueTrendCSV = () =>
+    downloadFile(
+      `revenue_trend_${new Date().toISOString()}.csv`,
+      toCSV(
+        (analytics?.revenue_trend || []).map((d) => ({
+          date: d.date,
+          revenue_cents: d.revenue,
+          event_id: d.event_id,
+        }))
+      ),
+      'text/csv'
+    );
+
+  const exportTopEventsCSV = () =>
+    downloadFile(
+      `top_events_${new Date().toISOString()}.csv`,
+      toCSV(
+        (analytics?.top_events || []).map((e) => ({
+          event_id: e.event_id,
+          title: e.title,
+          revenue_cents: e.revenue,
+        }))
+      ),
+      'text/csv'
+    );
+
   return (
     <div className="min-h-0 w-full">
       <div className="container mx-auto p-6 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">YardPass Analytics Hub</h1>
-          <p className="text-muted-foreground">Comprehensive insights across your events and content</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">YardPass Analytics Hub</h1>
+              <p className="text-muted-foreground">Comprehensive insights across your events and content</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setAutoRefresh((v) => !v)}>
+                {autoRefresh ? <><PauseIcon className="h-4 w-4 mr-1" /> Auto-refresh</> : <><ResumeIcon className="h-4 w-4 mr-1" /> Auto-refresh</>}
+              </Button>
+              <Button variant={realtime ? 'default' : 'outline'} size="sm" onClick={() => setRealtime((v) => !v)}>
+                <RadioIcon className="h-4 w-4 mr-1" /> Realtime
+              </Button>
+              <Button variant="outline" size="sm" onClick={shareLink} title="Copy deep link">
+                <ShareIcon className="h-4 w-4 mr-1" /> Share
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Controls */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <Select value={selectedOrg} onValueChange={setSelectedOrg}>
-            <SelectTrigger className="w-full sm:w-64">
+            <SelectTrigger className="w-full sm:w-64" aria-label="Select organization">
               <SelectValue placeholder={organizations.length ? 'Select organization' : 'No organizations'} />
             </SelectTrigger>
             <SelectContent>
@@ -679,7 +980,7 @@ const AnalyticsHub: React.FC = () => {
           </Select>
 
           <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-full sm:w-40">
+            <SelectTrigger className="w-full sm:w-40" aria-label="Select date range">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -690,7 +991,7 @@ const AnalyticsHub: React.FC = () => {
           </Select>
 
           <Button onClick={fetchAnalytics} disabled={loading} variant="outline">
-            <CalendarIcon className="h-4 w-4 mr-2" />
+            <RefreshIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -746,63 +1047,84 @@ const AnalyticsHub: React.FC = () => {
             ) : analytics ? (
               <>
                 {/* KPI Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
-                      <DollarSignIcon className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{formatCurrency(analytics.kpis.gross_revenue)}</div>
-                      <p className="text-xs text-muted-foreground">
-                        Net: {formatCurrency(analytics.kpis.net_revenue)}
-                      </p>
-                    </CardContent>
-                  </Card>
+                <div className="flex items-center justify-between">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
+                        <DollarSignIcon className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{formatCurrency(analytics.kpis.gross_revenue)}</div>
+                        <p className="text-xs text-muted-foreground">
+                          Net: {formatCurrency(analytics.kpis.net_revenue)}
+                        </p>
+                      </CardContent>
+                    </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Tickets Sold</CardTitle>
-                      <TicketIcon className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{analytics.kpis.tickets_sold.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground">
-                        {analytics.kpis.refund_rate.toFixed(1)}% refund rate
-                      </p>
-                    </CardContent>
-                  </Card>
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Tickets Sold</CardTitle>
+                        <TicketIcon className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{analytics.kpis.tickets_sold.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">
+                          {analytics.kpis.refund_rate.toFixed(1)}% refund rate
+                        </p>
+                      </CardContent>
+                    </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Unique Buyers</CardTitle>
-                      <UsersIcon className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{analytics.kpis.unique_buyers.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground">
-                        {analytics.kpis.no_show_rate.toFixed(1)}% no-show rate
-                      </p>
-                    </CardContent>
-                  </Card>
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Unique Buyers</CardTitle>
+                        <UsersIcon className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{analytics.kpis.unique_buyers.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">
+                          {analytics.kpis.no_show_rate.toFixed(1)}% no-show rate
+                        </p>
+                      </CardContent>
+                    </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Feed Engagement</CardTitle>
-                      <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{analytics.kpis.feed_engagements.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground">{analytics.kpis.posts_created} posts created</p>
-                    </CardContent>
-                  </Card>
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Feed Engagement</CardTitle>
+                        <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{analytics.kpis.feed_engagements.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">{analytics.kpis.posts_created} posts created</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="hidden lg:flex gap-2 ml-4">
+                    <Button size="sm" variant="outline" onClick={exportOverviewCSV}>
+                      <DownloadIcon className="h-4 w-4 mr-1" /> KPIs CSV
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={exportOverviewJSON}>
+                      <DownloadIcon className="h-4 w-4 mr-1" /> KPIs JSON
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Revenue Trend (mini chart) */}
                 {analytics.revenue_trend?.length > 0 && (
                   <Card>
-                    <CardHeader>
+                    <CardHeader className="flex items-center justify-between">
                       <CardTitle>Revenue Trend</CardTitle>
+                      <div className="flex gap-2">
+                        {typeof revenueDeltaPct === 'number' && (
+                          <span className="text-xs text-muted-foreground">
+                            Δ {(revenueDeltaPct > 0 ? '+' : '') + revenueDeltaPct.toFixed(1)}%
+                          </span>
+                        )}
+                        <Button size="sm" variant="outline" onClick={exportRevenueTrendCSV}>
+                          <DownloadIcon className="h-4 w-4 mr-1" /> CSV
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="h-64">
@@ -837,8 +1159,11 @@ const AnalyticsHub: React.FC = () => {
                 {/* Top Events */}
                 {analytics.top_events?.length > 0 && (
                   <Card>
-                    <CardHeader>
+                    <CardHeader className="flex items-center justify-between">
                       <CardTitle>Top Events by Revenue</CardTitle>
+                      <Button size="sm" variant="outline" onClick={exportTopEventsCSV}>
+                        <DownloadIcon className="h-4 w-4 mr-1" /> CSV
+                      </Button>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">

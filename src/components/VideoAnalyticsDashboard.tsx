@@ -1,3 +1,4 @@
+// src/components/VideoAnalyticsDashboard.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,12 @@ import {
   TrendingUp,
   RefreshCw,
   Download,
+  Link as LinkIcon,
+  Printer,
+  FileJson,
+  AlertTriangle,
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { useEventAnalytics, useTopPostsAnalytics } from '@/hooks/useEventAnalytics';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -34,17 +40,49 @@ const getRange = (k: DateRangeKey) => {
   return { from, to };
 };
 
-const safe = (n: any) => (Number.isFinite(n) ? Number(n) : 0);
+const safe = (n: any) => (Number.isFinite(Number(n)) ? Number(n) : 0);
+const pct = (num: number, denom: number) => (safe(denom) <= 0 ? 0 : (safe(num) / safe(denom)) * 100);
+const formatCTR = (num: number, denom: number) => `${pct(num, denom).toFixed(1)}%`;
+const formatDuration = (ms: number) => {
+  const seconds = Math.max(0, Math.floor(safe(ms) / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+const safeFileName = (s: string) =>
+  (s || 'export')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase();
 
 export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsDashboardProps) {
-  const persisted = (localStorage.getItem(keyFor(eventId, 'range')) as DateRangeKey) || '30d';
+  const persisted = (typeof window !== 'undefined'
+    ? (localStorage.getItem(keyFor(eventId, 'range')) as DateRangeKey)
+    : null) || '30d';
   const [rangeKey, setRangeKey] = useState<DateRangeKey>(persisted);
   const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'performance'>('overview');
-  const { analytics, loading: analyticsLoading, refetch: refetchAnalytics } = useEventAnalytics(eventId);
-  const { topPosts, loading: postsLoading, refetch: refetchTopPosts } = useTopPostsAnalytics(eventId);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
-  const reqRef = useRef(0);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(keyFor(eventId, 'autoRefresh')) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [offline, setOffline] = useState<boolean>(() => typeof navigator !== 'undefined' && !navigator.onLine);
+  const [realtimeNudge, setRealtimeNudge] = useState(false);
 
+  const { analytics, loading: analyticsLoading, refetch: refetchAnalytics, error: analyticsError } =
+    useEventAnalytics(eventId);
+  const { topPosts, loading: postsLoading, refetch: refetchTopPosts, error: postsError } =
+    useTopPostsAnalytics(eventId);
+
+  const reqRef = useRef(0);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const heartbeatRef = useRef<number | null>(null);
+
+  // derived
   const counters = analytics?.counters || {
     views_unique: 0,
     views_total: 0,
@@ -57,53 +95,109 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
     comments: 0,
     shares: 0,
   };
-
   const totalEngagement = useMemo(
     () => safe(counters.likes) + safe(counters.comments) + safe(counters.shares),
     [counters]
   );
 
-  const formatDuration = (ms: number) => {
-    const seconds = Math.max(0, Math.floor(safe(ms) / 1000));
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
+  /* ------------------------- persistence & lifecycle ------------------------- */
 
-  const formatCTR = (num: number, denom: number) => {
-    const d = safe(denom);
-    if (d <= 0) return '0%';
-    return `${((safe(num) / d) * 100).toFixed(1)}%`;
-  };
-
-  const doRefresh = async () => {
-    // Try parameterized refetch first, fall back to plain refetch
-    const { from, to } = getRange(rangeKey);
-    reqRef.current += 1;
-    const myReq = reqRef.current;
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await ((refetchAnalytics as any)?.({ from, to }) ?? refetchAnalytics());
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await ((refetchTopPosts as any)?.({ from, to }) ?? refetchTopPosts());
-      if (myReq === reqRef.current) setLastUpdated(Date.now());
-    } catch {
-      // no-op: hooks should surface their own errors if any
-    }
-  };
-
-  // persist range + refresh on change
+  // persist range + auto refresh flag
   useEffect(() => {
-    localStorage.setItem(keyFor(eventId, 'range'), rangeKey);
+    try {
+      localStorage.setItem(keyFor(eventId, 'range'), rangeKey);
+    } catch {
+      /* ignore */
+    }
+    // refresh on range change
     doRefresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey, eventId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(keyFor(eventId, 'autoRefresh'), autoRefresh ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [autoRefresh, eventId]);
 
   // initial stamp when analytics first appear
   useEffect(() => {
     if (analytics && !lastUpdated) setLastUpdated(Date.now());
   }, [analytics, lastUpdated]);
+
+  // online/offline indicator
+  useEffect(() => {
+    const onOnline = () => setOffline(false);
+    const onOffline = () => setOffline(true);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  // optional auto refresh every 60s, pause when tab hidden
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const tick = () => {
+      if (document.visibilityState === 'visible') doRefresh();
+    };
+    heartbeatRef.current = window.setInterval(tick, 60_000);
+    return () => {
+      if (heartbeatRef.current) window.clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh, rangeKey, eventId]);
+
+  // realtime nudge (best effort) – if views/reactions change for this event
+  useEffect(() => {
+    try {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      const ch = supabase
+        .channel(`va_${eventId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'post_views', filter: `event_id=eq.${eventId}` }, () =>
+          setRealtimeNudge(true)
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'event_reactions', filter: `event_id=eq.${eventId}` },
+          () => setRealtimeNudge(true)
+        )
+        .subscribe();
+      channelRef.current = ch;
+      return () => {
+        if (channelRef.current) supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      };
+    } catch {
+      // ignore if RLS/tables differ in env
+    }
+  }, [eventId]);
+
+  /* --------------------------------- actions -------------------------------- */
+
+  const doRefresh = async () => {
+    const { from, to } = getRange(rangeKey);
+    reqRef.current += 1;
+    const myReq = reqRef.current;
+    try {
+      await ((refetchAnalytics as any)?.({ from, to }) ?? refetchAnalytics());
+      await ((refetchTopPosts as any)?.({ from, to }) ?? refetchTopPosts());
+      if (myReq === reqRef.current) {
+        setLastUpdated(Date.now());
+        setRealtimeNudge(false);
+      }
+    } catch {
+      // hooks surface their own errors
+    }
+  };
 
   const exportPostsCSV = () => {
     const rows = (topPosts?.posts || []).map((p) => [
@@ -130,7 +224,7 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
     ];
     const csv = [header, ...rows].map((r) => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const fname = `${eventTitle.replace(/[^\w\s-]/g, '')}-top-posts.csv`;
+    const fname = `${safeFileName(eventTitle)}-top-posts.csv`;
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -141,12 +235,67 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
     URL.revokeObjectURL(url);
   };
 
+  const exportOverviewCSV = () => {
+    const header = ['metric', 'value'];
+    const data = [
+      ['views_unique', counters.views_unique],
+      ['views_total', counters.views_total],
+      ['completions', counters.completions],
+      ['avg_dwell_ms', counters.avg_dwell_ms],
+      ['clicks_tickets', counters.clicks_tickets],
+      ['clicks_share', counters.clicks_share],
+      ['clicks_comment', counters.clicks_comment],
+      ['likes', counters.likes],
+      ['comments', counters.comments],
+      ['shares', counters.shares],
+      ['engagement_total', totalEngagement],
+      ['ticket_ctr', pct(counters.clicks_tickets, counters.views_unique).toFixed(2)],
+      ['completion_rate', pct(counters.completions, counters.views_total).toFixed(2)],
+    ];
+    const csv = [header, ...data].map((r) => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const fname = `${safeFileName(eventTitle)}-video-overview.csv`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportJSON = () => {
+    const payload = { rangeKey, lastUpdated, counters, topPosts: topPosts?.posts || [] };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const fname = `${safeFileName(eventTitle)}-video-analytics.json`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyShareLink = async () => {
+    const url = `${window.location.origin}${window.location.pathname}?event=${eventId}&range=${rangeKey}#video-analytics`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  /* ---------------------------------- UI ----------------------------------- */
+
   if (analyticsLoading && !analytics) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="h-8 bg-muted rounded w-64" />
-          <div className="h-9 bg-muted rounded w-32" />
+          <div className="h-9 bg-muted rounded w-72" />
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
@@ -170,7 +319,7 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
             <h2 className="text-2xl font-bold">Content &amp; Video Analytics</h2>
             <p className="text-muted-foreground">{eventTitle}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {(['7d', '30d', '90d'] as DateRangeKey[]).map((k) => (
               <Button
                 key={k}
@@ -181,24 +330,27 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
                 {k}
               </Button>
             ))}
+            <Button variant="outline" onClick={doRefresh}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
           </div>
         </div>
         <div className="text-center py-10 text-muted-foreground">
           <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>No analytics data available</p>
-          <Button className="mt-4" variant="outline" onClick={doRefresh}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Try Refresh
-          </Button>
+          {(analyticsError || postsError) && (
+            <p className="mt-2 text-xs">{String(analyticsError || postsError)}</p>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div id="video-analytics" className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-2xl font-bold">Content &amp; Video Analytics</h2>
           <p className="text-muted-foreground">
@@ -206,9 +358,15 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
             {lastUpdated && (
               <span className="ml-2 text-xs">• Updated {new Date(lastUpdated).toLocaleTimeString()}</span>
             )}
+            {offline && (
+              <span className="ml-2 inline-flex items-center gap-1 text-xs text-yellow-700">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Offline
+              </span>
+            )}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {(['7d', '30d', '90d'] as DateRangeKey[]).map((k) => (
             <Button
               key={k}
@@ -219,16 +377,49 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
               {k}
             </Button>
           ))}
-          <Button variant="outline" onClick={doRefresh}>
+          <Button variant={autoRefresh ? 'default' : 'outline'} size="sm" onClick={() => setAutoRefresh((v) => !v)}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
+            {autoRefresh ? 'Auto' : 'Manual'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={doRefresh}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="w-4 h-4 mr-2" />
+            Print
+          </Button>
+          <Button variant="outline" size="sm" onClick={copyShareLink}>
+            <LinkIcon className="w-4 h-4 mr-2" />
+            Copy link
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportOverviewCSV}>
+            <Download className="w-4 h-4 mr-2" />
+            Export KPIs
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportJSON}>
+            <FileJson className="w-4 h-4 mr-2" />
+            JSON
           </Button>
         </div>
       </div>
 
+      {/* Realtime nudge */}
+      {realtimeNudge && (
+        <Card className="border-primary/30">
+          <CardContent className="py-3 flex items-center justify-between">
+            <div className="text-sm">New content activity detected. Data may be stale.</div>
+            <Button size="sm" onClick={doRefresh}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Update now
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPI Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card role="region" aria-label="Unique views">
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
               <Eye className="w-4 h-4 text-blue-500" />
@@ -241,7 +432,7 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
           </CardContent>
         </Card>
 
-        <Card>
+        <Card role="region" aria-label="Completions">
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
               <Play className="w-4 h-4 text-green-500" />
@@ -254,22 +445,20 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
           </CardContent>
         </Card>
 
-        <Card>
+        <Card role="region" aria-label="Ticket click-through">
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
               <MousePointer className="w-4 h-4 text-purple-500" />
               <p className="text-sm font-medium text-muted-foreground">Ticket CTR</p>
             </div>
-            <p className="text-2xl font-bold">
-              {formatCTR(counters.clicks_tickets, counters.views_unique)}
-            </p>
+            <p className="text-2xl font-bold">{formatCTR(counters.clicks_tickets, counters.views_unique)}</p>
             <p className="text-xs text-muted-foreground">
               {safe(counters.clicks_tickets).toLocaleString()} ticket clicks
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card role="region" aria-label="Engagement">
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
               <Heart className="w-4 h-4 text-red-500" />
