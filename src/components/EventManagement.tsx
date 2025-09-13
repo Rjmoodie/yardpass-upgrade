@@ -34,6 +34,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [attendees, setAttendees] = useState(mockAttendees);
+  const [realAttendees, setRealAttendees] = useState<any[]>([]);
   const [realTimeStats, setRealTimeStats] = useState({
     totalScans: 0,
     validScans: 0,
@@ -61,20 +62,133 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
   const totalAttendees = attendees.length;
   const checkedInCount = attendees.filter(a => a.checkedIn).length;
 
-  // Real-time updates
+  // Fetch real attendee data
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Simulate real-time scan updates
-      setRealTimeStats(prev => ({
-        ...prev,
-        totalScans: prev.totalScans + Math.floor(Math.random() * 3),
-        validScans: prev.validScans + Math.floor(Math.random() * 2),
-        lastScanTime: new Date()
-      }));
-    }, 5000);
+    if (event?.id) {
+      fetchRealAttendees();
+      fetchRealTimeStats();
+    }
+  }, [event?.id]);
 
-    return () => clearInterval(interval);
-  }, []);
+  const fetchRealAttendees = async () => {
+    try {
+      // Get tickets with proper joins
+      const { data: ticketsData } = await supabase
+        .from('tickets')
+        .select(`
+          id,
+          status,
+          created_at,
+          owner_user_id,
+          tier_id
+        `)
+        .eq('event_id', event.id);
+
+      // Get user profiles separately
+      const userIds = [...new Set((ticketsData || []).map(t => t.owner_user_id))];
+      const { data: profilesData } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name, phone')
+        .in('user_id', userIds);
+
+      // Get ticket tiers separately  
+      const tierIds = [...new Set((ticketsData || []).map(t => t.tier_id))];
+      const { data: tiersData } = await supabase
+        .from('ticket_tiers')
+        .select('id, name, badge_label, price_cents')
+        .in('id', tierIds);
+
+      // Create lookup maps
+      const profilesMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
+      const tiersMap = new Map(tiersData?.map(t => [t.id, t]) || []);
+
+      const transformedAttendees = (ticketsData || []).map(ticket => {
+        const profile = profilesMap.get(ticket.owner_user_id);
+        const tier = tiersMap.get(ticket.tier_id);
+        
+        return {
+          id: ticket.id,
+          name: profile?.display_name || 'Unknown',
+          email: `user${ticket.id.slice(0,8)}@example.com`, // Mock email since not in user_profiles
+          phone: profile?.phone || '',
+          badge: tier?.badge_label || 'GA',
+          ticketTier: tier?.name || 'General',
+          purchaseDate: new Date(ticket.created_at).toLocaleDateString(),
+          checkedIn: false, // Will be updated with scan data
+          price: (tier?.price_cents || 0) / 100
+        };
+      });
+
+      // Get check-in status
+      const { data: scanData } = await supabase
+        .from('scan_logs')
+        .select('ticket_id, result')
+        .eq('event_id', event.id);
+
+      // Update check-in status
+      const checkedInTickets = new Set(
+        scanData?.filter(s => s.result === 'valid').map(s => s.ticket_id) || []
+      );
+
+      const attendeesWithStatus = transformedAttendees.map(attendee => ({
+        ...attendee,
+        checkedIn: checkedInTickets.has(attendee.id)
+      }));
+
+      setRealAttendees(attendeesWithStatus);
+      setAttendees(attendeesWithStatus.length > 0 ? attendeesWithStatus : mockAttendees);
+    } catch (error) {
+      console.error('Error fetching attendees:', error);
+      setAttendees(mockAttendees);
+    }
+  };
+
+  const fetchRealTimeStats = async () => {
+    try {
+      const { data: scanData } = await supabase
+        .from('scan_logs')
+        .select('result, created_at')
+        .eq('event_id', event.id);
+
+      const totalScans = scanData?.length || 0;
+      const validScans = scanData?.filter(s => s.result === 'valid').length || 0;
+      const duplicateScans = scanData?.filter(s => s.result === 'duplicate').length || 0;
+      const lastScan = scanData?.length ? new Date(Math.max(...scanData.map(s => new Date(s.created_at).getTime()))) : null;
+
+      setRealTimeStats({
+        totalScans,
+        validScans,
+        duplicateScans,
+        lastScanTime: lastScan
+      });
+    } catch (error) {
+      console.error('Error fetching scan stats:', error);
+    }
+  };
+
+  // Real-time updates for scans
+  useEffect(() => {
+    const channel = supabase
+      .channel(`event-scans-${event.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'scan_logs',
+          filter: `event_id=eq.${event.id}`
+        },
+        () => {
+          fetchRealTimeStats();
+          fetchRealAttendees();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [event.id]);
 
   const handleRefresh = async () => {
     setLoading(true);

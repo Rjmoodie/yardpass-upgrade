@@ -161,7 +161,8 @@ export function OrganizerDashboard() {
       console.log('🔍 Fetching events for user:', user?.id);
       setLoading(true);
 
-      const { data, error } = await supabase
+      // Fetch events with ticket sales data
+      const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select(`
           id,
@@ -186,47 +187,83 @@ export function OrganizerDashboard() {
         .eq('created_by', user?.id)
         .order('created_at', { ascending: false });
 
-      console.log('📊 Events query result:', { data, error, count: data?.length });
-
-      if (error) {
-        console.error('Error loading user events:', error);
+      if (eventsError) {
+        console.error('Error loading user events:', eventsError);
         setUserEvents(mockEvents);
-      } else {
-        // Transform the data to match our interface
-        const transformedEvents = (data || []).map(event => {
-          const ticketTiers = event.ticket_tiers || [];
-          const totalCapacity = ticketTiers.reduce((sum: number, tier: any) => sum + (tier.quantity || 0), 0);
-          const totalSold = ticketTiers.reduce((sum: number, tier: any) => sum + (tier.sold_count || 0), 0);
-          const totalRevenue = ticketTiers.reduce((sum: number, tier: any) => sum + ((tier.price_cents || 0) * (tier.sold_count || 0)), 0);
-          
-          return {
-            id: event.id,
-            title: event.title,
-            status: 'published',
-            date: new Date(event.start_at).toLocaleDateString(),
-            attendees: totalSold,
-            revenue: totalRevenue / 100, // Convert cents to dollars
-            views: Math.floor(Math.random() * 10000) + 1000, // Mock for now
-            likes: Math.floor(Math.random() * 500) + 50,
-            shares: Math.floor(Math.random() * 100) + 10,
-            tickets_sold: totalSold,
-            capacity: totalCapacity,
-            conversion_rate: totalSold > 0 ? (totalSold / totalCapacity) * 100 : 0,
-            engagement_rate: Math.random() * 10 + 2, // Mock for now
-            created_at: event.created_at || new Date().toISOString(),
-            start_at: event.start_at,
-            end_at: event.end_at,
-            venue: event.venue || '',
-            category: event.category || '',
-            cover_image_url: event.cover_image_url || '',
-            description: event.description || '',
-            city: event.city || '',
-            visibility: event.visibility || 'public'
-          };
-        });
-        
-        setUserEvents(transformedEvents.length ? transformedEvents : mockEvents);
+        return;
       }
+
+      console.log('📊 Events query result:', { data: eventsData, count: eventsData?.length });
+
+      // Fetch actual ticket sales and order data for each event
+      const transformedEvents = await Promise.all((eventsData || []).map(async event => {
+        const ticketTiers = event.ticket_tiers || [];
+        const totalCapacity = ticketTiers.reduce((sum: number, tier: any) => sum + (tier.quantity || 0), 0);
+
+        // Get actual ticket sales data
+        const { data: ticketsData } = await supabase
+          .from('tickets')
+          .select('status, tier_id')
+          .eq('event_id', event.id);
+
+        // Get actual order data for revenue
+        const { data: ordersData } = await supabase
+          .from('orders')
+          .select('total_cents, status')
+          .eq('event_id', event.id)
+          .eq('status', 'paid');
+
+        // Calculate actual metrics
+        const totalSold = ticketsData?.filter(t => t.status === 'issued').length || 0;
+        const totalRevenue = ordersData?.reduce((sum, order) => sum + (order.total_cents || 0), 0) || 0;
+        
+        // Get actual check-ins
+        const { data: checkInsData } = await supabase
+          .from('scan_logs')
+          .select('id')
+          .eq('event_id', event.id)
+          .eq('result', 'valid');
+
+        const checkIns = checkInsData?.length || 0;
+
+        // Get actual engagement metrics
+        const { data: reactionsData } = await supabase
+          .from('event_reactions')
+          .select('kind, event_posts!inner(event_id)')
+          .eq('event_posts.event_id', event.id);
+
+        const likes = reactionsData?.filter(r => r.kind === 'like').length || 0;
+        const totalReactions = reactionsData?.length || 0;
+
+        return {
+          id: event.id,
+          title: event.title,
+          status: new Date(event.start_at) > new Date() ? 'published' : 'completed',
+          date: new Date(event.start_at).toLocaleDateString(),
+          attendees: totalSold,
+          revenue: totalRevenue / 100, // Convert cents to dollars
+          views: Math.floor(Math.random() * 10000) + totalSold * 10, // Better mock based on attendees
+          likes: likes,
+          shares: Math.floor(totalReactions * 0.1), // Estimate shares from reactions
+          tickets_sold: totalSold,
+          capacity: totalCapacity,
+          check_ins: checkIns,
+          conversion_rate: totalCapacity > 0 ? (totalSold / totalCapacity) * 100 : 0,
+          engagement_rate: totalSold > 0 ? (totalReactions / totalSold) * 100 : 0,
+          created_at: event.created_at || new Date().toISOString(),
+          start_at: event.start_at,
+          end_at: event.end_at,
+          venue: event.venue || '',
+          category: event.category || '',
+          cover_image_url: event.cover_image_url || '',
+          description: event.description || '',
+          city: event.city || '',
+          visibility: event.visibility || 'public'
+        };
+      }));
+      
+      setUserEvents(transformedEvents.length ? transformedEvents : mockEvents);
+      
     } catch (error) {
       console.error('Error in fetchUserEvents:', error);
       setUserEvents(mockEvents);
