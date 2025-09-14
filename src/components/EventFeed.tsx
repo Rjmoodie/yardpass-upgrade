@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, MessageCircle, Share as ShareIcon, Crown, MoreVertical } from 'lucide-react';
+import { Heart, MessageCircle, Share as ShareIcon, Crown, MoreVertical, Volume2, VolumeX, Bookmark, ExternalLink, Instagram, Twitter, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +12,8 @@ import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { useVideoAnalytics } from '@/hooks/useVideoAnalytics';
 import { useHlsVideo } from '@/hooks/useHlsVideo';
-import { muxToHls } from '@/utils/media';
+import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
+import { muxToHls, isLikelyVideo } from '@/utils/media';
 
 /** Shape returned by posts-list Edge Function after mapping */
 interface FeedPost {
@@ -30,8 +31,18 @@ interface FeedPost {
   user_profiles: {
     display_name: string;
     photo_url?: string | null;
+    username?: string | null;
+    instagram_handle?: string | null;
+    twitter_handle?: string | null;
+    website_url?: string | null;
   };
-  events: { title: string };
+  events: { 
+    title: string;
+    organizer_name?: string;
+    organizer_instagram?: string;
+    organizer_twitter?: string;
+    organizer_website?: string;
+  };
 }
 
 interface EventFeedProps {
@@ -41,7 +52,7 @@ interface EventFeedProps {
   refreshTrigger?: number;
 }
 
-/** Video tile that reuses the shared HLS hook + analytics */
+/** Video tile with sound controls */
 function VideoMedia({
   url,
   post,
@@ -51,6 +62,7 @@ function VideoMedia({
   post: FeedPost;
   onAttachAnalytics?: (v: HTMLVideoElement) => VoidFunction | void;
 }) {
+  const [muted, setMuted] = useState(true);
   const src = useMemo(() => muxToHls(url), [url]);
   const { videoRef, ready } = useHlsVideo(src);
   const cleanupRef = useRef<VoidFunction | null>(null);
@@ -58,6 +70,8 @@ function VideoMedia({
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !ready) return;
+    v.muted = muted;
+    
     // Attach analytics once the element is ready
     cleanupRef.current?.();
     cleanupRef.current = (onAttachAnalytics?.(v) as VoidFunction) ?? null;
@@ -66,18 +80,47 @@ function VideoMedia({
       cleanupRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, videoRef]);
+  }, [ready, videoRef, muted]);
+
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    const newMuted = !muted;
+    setMuted(newMuted);
+    v.muted = newMuted;
+  };
 
   return (
-    <video
-      ref={videoRef}
-      controls
-      className="w-full max-h-80 object-cover"
-      playsInline
-      preload="metadata"
-      muted
-      aria-label={`Video in post by ${post.user_profiles.display_name}`}
-    />
+    <div className="relative">
+      <video
+        ref={videoRef}
+        controls
+        className="w-full max-h-80 object-cover rounded-lg"
+        playsInline
+        preload="metadata"
+        muted={muted}
+        aria-label={`Video in post by ${post.user_profiles.display_name}`}
+      />
+      <div className="absolute top-2 right-2 flex flex-col gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleMute}
+          className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm rounded-full"
+          aria-label={muted ? 'Unmute video' : 'Mute video'}
+        >
+          {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm rounded-full"
+          aria-label="Bookmark post"
+        >
+          <Bookmark className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -85,13 +128,14 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   const { user } = useAuth();
   const navigate = useNavigate();
   const { trackClick, startViewTracking, stopViewTracking, trackVideoProgress } = useVideoAnalytics();
+  const { toggleLike, getOptimisticData } = useOptimisticReactions();
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isMounted = useRef(true);
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [comments, setComments] = useState<Record<string, any[]>>({});
 
   // Intersection observer for view tracking
   useEffect(() => {
@@ -133,7 +177,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         setPosts([]);
-        setLikedPosts(new Set());
+        setComments({});
         return;
       }
 
@@ -157,7 +201,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       const mapped: FeedPost[] = rows.map((r) => ({
         id: r.id,
         text: r.text,
-        media_urls: r.media_urls ?? [],
+        media_urls: (r.media_urls ?? []).filter(Boolean), // Filter out null/empty URLs
         created_at: r.created_at,
         author_user_id: r.author_user_id,
         event_id: r.event_id,
@@ -166,31 +210,55 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
         is_organizer: r.author_is_organizer ?? false,
         badge_label: r.author_badge_label ?? null,
         liked_by_me: r.liked_by_me ?? false,
-        user_profiles: { display_name: r.author_name ?? 'User', photo_url: r.author_photo_url ?? null },
-        events: { title: r.event_title ?? titles[r.event_id] ?? 'Event' },
+        user_profiles: { 
+          display_name: r.author_name ?? 'User', 
+          photo_url: r.author_photo_url ?? null,
+          username: r.author_username ?? null,
+          instagram_handle: r.author_instagram ?? null,
+          twitter_handle: r.author_twitter ?? null,
+          website_url: r.author_website ?? null,
+        },
+        events: { 
+          title: r.event_title ?? titles[r.event_id] ?? 'Event',
+          organizer_name: r.organizer_name ?? null,
+          organizer_instagram: r.organizer_instagram ?? null,
+          organizer_twitter: r.organizer_twitter ?? null,
+          organizer_website: r.organizer_website ?? null,
+        },
       }));
+
+      // Fetch comments for each post
+      if (mapped.length) {
+        const { data: commentsData } = await supabase
+          .from('event_comments')
+          .select(`
+            id, text, created_at, author_user_id,
+            user_profiles!event_comments_author_user_id_fkey (
+              display_name, photo_url
+            )
+          `)
+          .in('post_id', mapped.map(p => p.id))
+          .order('created_at', { ascending: true });
+
+        const commentsByPost = (commentsData ?? []).reduce((acc: Record<string, any[]>, comment: any) => {
+          const postId = comment.post_id;
+          if (!acc[postId]) acc[postId] = [];
+          acc[postId].push(comment);
+          return acc;
+        }, {});
+
+        if (!isMounted.current) return;
+        setComments(commentsByPost);
+      }
 
       if (!isMounted.current) return;
       setPosts(mapped);
-
-      // Prefetch user's likes
-      if (user && mapped.length) {
-        const { data: reactions } = await supabase
-          .from('event_reactions')
-          .select('post_id')
-          .eq('user_id', user.id)
-          .eq('kind', 'like')
-          .in('post_id', mapped.map((p) => p.id));
-        if (!isMounted.current) return;
-        setLikedPosts(new Set((reactions ?? []).map((r) => r.post_id)));
-      } else {
-        setLikedPosts(new Set());
-      }
     } catch (e: any) {
       console.error('❌ Error fetching posts:', e);
       if (isMounted.current) {
         toast({ title: 'Error Loading Posts', description: e.message || 'Failed to load posts. Please try again.', variant: 'destructive' });
         setPosts([]);
+        setComments({});
       }
     } finally {
       if (isMounted.current) setLoading(false);
@@ -216,21 +284,22 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       toast({ title: 'Sign in required', description: 'Please sign in to like posts', variant: 'destructive' });
       return;
     }
-    const isLiked = likedPosts.has(postId);
-    try {
-      if (isLiked) {
-        await supabase.from('event_reactions').delete().eq('post_id', postId).eq('user_id', user.id).eq('kind', 'like');
-        setLikedPosts((prev) => { const next = new Set(prev); next.delete(postId); return next; });
-        setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, like_count: Math.max(0, p.like_count - 1) } : p)));
-      } else {
-        await supabase.from('event_reactions').insert({ post_id: postId, user_id: user.id, kind: 'like' });
-        setLikedPosts((prev) => new Set([...prev, postId]));
-        setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, like_count: p.like_count + 1 } : p)));
-      }
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Error', description: 'Failed to update like', variant: 'destructive' });
-    }
+
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    await toggleLike(postId, post.liked_by_me ?? false, post.like_count);
+
+    // Update local state optimistically
+    setPosts(prev => prev.map(p => 
+      p.id === postId 
+        ? { 
+            ...p, 
+            liked_by_me: !p.liked_by_me, 
+            like_count: p.liked_by_me ? p.like_count - 1 : p.like_count + 1 
+          } 
+        : p
+    ));
   };
 
   const handleShare = (post: FeedPost) => {
@@ -306,13 +375,13 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
           <CardContent className="p-4 space-y-4">
             {/* Header */}
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-1">
                 <Avatar className="w-10 h-10">
                   <AvatarImage src={post.user_profiles.photo_url || ''} />
                   <AvatarFallback>{post.user_profiles.display_name.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <div>
-                  <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       className="font-medium hover:underline text-left"
                       onClick={() => {
@@ -322,6 +391,11 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                     >
                       {post.user_profiles.display_name}
                     </button>
+                    {post.user_profiles.username && (
+                      <span className="text-sm text-muted-foreground">
+                        @{post.user_profiles.username}
+                      </span>
+                    )}
                     {post.badge_label && (
                       <Badge
                         variant="secondary"
@@ -333,16 +407,97 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                     )}
                     {post.is_organizer && <Crown className="w-4 h-4 text-primary" aria-label="Organizer" />}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(post.created_at).toLocaleString()}
-                    {' • '}
-                    <button
-                      onClick={() => onEventClick?.(post.event_id)}
-                      className="hover:text-foreground hover:underline"
-                    >
-                      {post.events.title}
-                    </button>
+                  
+                  {/* Social Links for Author */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(post.created_at).toLocaleString()}
+                      {' • '}
+                      <button
+                        onClick={() => onEventClick?.(post.event_id)}
+                        className="hover:text-foreground hover:underline"
+                      >
+                        {post.events.title}
+                      </button>
+                    </div>
+                    
+                    {/* Author Social Links */}
+                    <div className="flex items-center gap-1">
+                      {post.user_profiles.instagram_handle && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-5 h-5 p-0 text-muted-foreground hover:text-pink-500"
+                          onClick={() => window.open(`https://instagram.com/${post.user_profiles.instagram_handle}`, '_blank')}
+                          aria-label="Instagram"
+                        >
+                          <Instagram className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {post.user_profiles.twitter_handle && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-5 h-5 p-0 text-muted-foreground hover:text-blue-500"
+                          onClick={() => window.open(`https://twitter.com/${post.user_profiles.twitter_handle}`, '_blank')}
+                          aria-label="Twitter"
+                        >
+                          <Twitter className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {post.user_profiles.website_url && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-5 h-5 p-0 text-muted-foreground hover:text-primary"
+                          onClick={() => window.open(post.user_profiles.website_url!, '_blank')}
+                          aria-label="Website"
+                        >
+                          <Globe className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Organizer Social Links (if user is organizer) */}
+                  {post.is_organizer && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-xs text-muted-foreground">Organizer:</span>
+                      {post.events.organizer_instagram && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-5 h-5 p-0 text-muted-foreground hover:text-pink-500"
+                          onClick={() => window.open(`https://instagram.com/${post.events.organizer_instagram}`, '_blank')}
+                          aria-label="Organizer Instagram"
+                        >
+                          <Instagram className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {post.events.organizer_twitter && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-5 h-5 p-0 text-muted-foreground hover:text-blue-500"
+                          onClick={() => window.open(`https://twitter.com/${post.events.organizer_twitter}`, '_blank')}
+                          aria-label="Organizer Twitter"
+                        >
+                          <Twitter className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {post.events.organizer_website && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-5 h-5 p-0 text-muted-foreground hover:text-primary"
+                          onClick={() => window.open(post.events.organizer_website!, '_blank')}
+                          aria-label="Organizer Website"
+                        >
+                          <Globe className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <Button
@@ -364,23 +519,79 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
             {!!post.media_urls.length && (
               <div className="grid gap-2">
                 {post.media_urls.map((url, idx) => {
-                  const isMux = url.startsWith('mux:');
-                  const isVideo = isMux || /\.(mp4|webm|mov|m3u8)$/i.test(url);
+                  // Better media type detection
+                  const isVideo = isLikelyVideo(url);
+                  const processedUrl = url.startsWith('mux:') ? url : url;
+                  
                   return (
                     <div key={idx} className="relative rounded-lg overflow-hidden">
                       {isVideo ? (
                         <VideoMedia
-                          url={isMux ? `mux:${url.replace('mux:', '')}` : url}
+                          url={processedUrl}
                           post={post}
                           onAttachAnalytics={(v) => trackVideoProgress(post.id, post.event_id, v)}
                         />
                       ) : (
-                        // eslint-disable-next-line jsx-a11y/alt-text
-                        <img src={url} alt="" className="w-full max-h-80 object-cover" />
+                        <div className="relative">
+                          <img 
+                            src={url} 
+                            alt={`Media from ${post.user_profiles.display_name}`}
+                            className="w-full max-h-80 object-cover rounded-lg"
+                            onError={(e) => {
+                              console.warn('Failed to load image:', url);
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                          <div className="absolute top-2 right-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm rounded-full"
+                              aria-label="Bookmark post"
+                            >
+                              <Bookmark className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Comments Section */}
+            {comments[post.id] && comments[post.id].length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border/50">
+                <h4 className="text-sm font-medium">Comments ({post.comment_count})</h4>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {comments[post.id].slice(0, 3).map((comment: any) => (
+                    <div key={comment.id} className="flex gap-2 text-sm">
+                      <Avatar className="w-6 h-6">
+                        <AvatarImage src={comment.user_profiles?.photo_url || ''} />
+                        <AvatarFallback className="text-xs">
+                          {comment.user_profiles?.display_name?.charAt(0) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <span className="font-medium text-xs">
+                          {comment.user_profiles?.display_name || 'User'}:
+                        </span>
+                        <span className="ml-1">{comment.text}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {post.comment_count > 3 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleComment(post)}
+                      className="text-xs text-muted-foreground"
+                    >
+                      View all {post.comment_count} comments
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -394,10 +605,10 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                     capture('feed_click', { target: 'like', event_id: post.event_id, post_id: post.id });
                     handleLike(post.id);
                   }}
-                  className={`gap-2 ${likedPosts.has(post.id) ? 'text-red-500' : ''}`}
-                  aria-label={likedPosts.has(post.id) ? 'Unlike post' : 'Like post'}
+                  className={`gap-2 ${post.liked_by_me ? 'text-red-500' : ''}`}
+                  aria-label={post.liked_by_me ? 'Unlike post' : 'Like post'}
                 >
-                  <Heart className={`w-4 h-4 ${likedPosts.has(post.id) ? 'fill-current' : ''}`} />
+                  <Heart className={`w-4 h-4 ${post.liked_by_me ? 'fill-current' : ''}`} />
                   {post.like_count}
                 </Button>
 

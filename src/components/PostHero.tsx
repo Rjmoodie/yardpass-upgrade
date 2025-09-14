@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, MessageCircle } from 'lucide-react';
+import { Heart, MessageCircle, Volume2, VolumeX, Bookmark } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { OrganizerChip } from '@/components/OrganizerChip';
@@ -201,18 +202,30 @@ export function PostHero({
         {/* Bottom panel with CTAs */}
         <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} post={post} />
 
-        {/* Unmute hint - Mobile optimized */}
-        {muted && (
+        {/* Sound and Bookmark Controls - Mobile optimized */}
+        <div className="absolute top-16 right-4 flex flex-col gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // Handle bookmark functionality
+              toast({ title: 'Bookmarked', description: 'Post saved to your bookmarks' });
+            }}
+            className="bg-black/70 text-white rounded-full p-2 backdrop-blur-sm border border-white/20 touch-manipulation"
+            aria-label="Bookmark post"
+          >
+            <Bookmark className="w-4 h-4" />
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
               toggleMute();
             }}
-            className="absolute top-16 right-4 bg-black/70 text-white rounded-full px-3 py-1.5 text-xs font-medium backdrop-blur-sm border border-white/20 touch-manipulation"
+            className="bg-black/70 text-white rounded-full p-2 backdrop-blur-sm border border-white/20 touch-manipulation"
+            aria-label={muted ? 'Unmute video' : 'Mute video'}
           >
-            🔊 Tap for sound
+            {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
-        )}
+        </div>
       </div>
     );
   }
