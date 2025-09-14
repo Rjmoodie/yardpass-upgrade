@@ -90,14 +90,21 @@ serve(async (req) => {
       liked_by_me: !!likedMap[post.id],
       // Map badge_label for backward compatibility
       badge_label: post.author_badge_label || (
-        post.author_is_organizer ? 'HOST' : null
+        post.author_is_organizer ? 'ORGANIZER' : null
       ),
       // Include computed fields for compatibility
       is_organizer: post.author_is_organizer,
       // Add author fields for profile routing
       author_id: post.author_user_id,
       author_display_name: post.author_name,
-      author_is_organizer: post.author_is_organizer
+      author_is_organizer: post.author_is_organizer,
+      // Ensure media_urls is always an array
+      media_urls: post.media_urls || [],
+      // Map other fields for frontend compatibility
+      author_username: post.author_name,
+      author_instagram: null,
+      author_twitter: null,
+      author_website: null
     }));
 
     console.log('🎯 Transformed posts with badges:', transformedPosts.map(p => ({ 

@@ -172,7 +172,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       const url = new URL(`${baseUrl}/functions/v1/posts-list`);
       if (eventId) url.searchParams.append('event_id', eventId);
       if (userId) url.searchParams.append('user_id', userId);
-      url.searchParams.append('limit', '20');
+      url.searchParams.append('limit', '50'); // Increase limit to show more posts
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -200,18 +200,18 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
 
       const mapped: FeedPost[] = rows.map((r) => ({
         id: r.id,
-        text: r.text,
+        text: r.text || '',
         media_urls: (r.media_urls ?? []).filter(Boolean), // Filter out null/empty URLs
         created_at: r.created_at,
         author_user_id: r.author_user_id,
         event_id: r.event_id,
         like_count: r.like_count ?? 0,
         comment_count: r.comment_count ?? 0,
-        is_organizer: r.author_is_organizer ?? false,
-        badge_label: r.author_badge_label ?? null,
+        is_organizer: r.author_is_organizer ?? r.is_organizer ?? false,
+        badge_label: r.badge_label ?? r.author_badge_label ?? null,
         liked_by_me: r.liked_by_me ?? false,
         user_profiles: { 
-          display_name: r.author_name ?? 'User', 
+          display_name: r.author_name ?? r.author_display_name ?? 'User', 
           photo_url: r.author_photo_url ?? null,
           username: r.author_username ?? null,
           instagram_handle: r.author_instagram ?? null,
@@ -232,7 +232,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
         const { data: commentsData } = await supabase
           .from('event_comments')
           .select(`
-            id, text, created_at, author_user_id,
+            id, text, created_at, author_user_id, post_id,
             user_profiles!event_comments_author_user_id_fkey (
               display_name, photo_url
             )
@@ -560,40 +560,66 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
               </div>
             )}
 
-            {/* Comments Section */}
-            {comments[post.id] && comments[post.id].length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-border/50">
-                <h4 className="text-sm font-medium">Comments ({post.comment_count})</h4>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {comments[post.id].slice(0, 3).map((comment: any) => (
-                    <div key={comment.id} className="flex gap-2 text-sm">
-                      <Avatar className="w-6 h-6">
-                        <AvatarImage src={comment.user_profiles?.photo_url || ''} />
-                        <AvatarFallback className="text-xs">
-                          {comment.user_profiles?.display_name?.charAt(0) || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <span className="font-medium text-xs">
-                          {comment.user_profiles?.display_name || 'User'}:
-                        </span>
-                        <span className="ml-1">{comment.text}</span>
+            {/* Comments Section - Show for all posts */}
+            <div className="space-y-2 pt-2 border-t border-border/50">
+              {comments[post.id] && comments[post.id].length > 0 ? (
+                <>
+                  <h4 className="text-sm font-medium">Comments ({post.comment_count})</h4>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {comments[post.id].slice(0, 3).map((comment: any) => (
+                      <div key={comment.id} className="flex gap-2 text-sm">
+                        <Avatar className="w-6 h-6">
+                          <AvatarImage src={comment.user_profiles?.photo_url || ''} />
+                          <AvatarFallback className="text-xs">
+                            {comment.user_profiles?.display_name?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <span className="font-medium text-xs">
+                            {comment.user_profiles?.display_name || 'User'}:
+                          </span>
+                          <span className="ml-1">{comment.text}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {post.comment_count > 3 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleComment(post)}
-                      className="text-xs text-muted-foreground"
-                    >
-                      View all {post.comment_count} comments
-                    </Button>
-                  )}
+                    ))}
+                    {post.comment_count > 3 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleComment(post)}
+                        className="text-xs text-muted-foreground"
+                      >
+                        View all {post.comment_count} comments
+                      </Button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  No comments yet. Be the first to comment!
                 </div>
-              </div>
-            )}
+              )}
+              
+              {/* Quick comment input for authenticated users */}
+              {user && (
+                <div className="flex gap-2 mt-2">
+                  <Avatar className="w-6 h-6">
+                    <AvatarImage src={user.user_metadata?.photo_url || ''} />
+                    <AvatarFallback className="text-xs">
+                      {user.user_metadata?.display_name?.charAt(0) || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleComment(post)}
+                    className="flex-1 text-left text-xs text-muted-foreground"
+                  >
+                    Add a comment...
+                  </Button>
+                </div>
+              )}
+            </div>
 
             {/* Actions */}
             <div className="flex items-center justify-between pt-2 border-t border-border/50">
