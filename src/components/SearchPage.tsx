@@ -344,7 +344,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
               {results.map((e) => (
-                <EventCard key={e.id} event={e} onClick={() => onEventSelect?.(e)} />
+                <EventCard key={e.id} event={e} onClick={() => onEventSelect?.(e.id)} />
               ))}
             </div>
           )}
