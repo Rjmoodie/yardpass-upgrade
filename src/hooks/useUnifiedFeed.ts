@@ -71,26 +71,29 @@ export function useUnifiedFeed(userId?: string) {
       const newItems: FeedItem[] = (data ?? []) as any[];
       
       // De-dupe by composite key type+id to avoid "override"
-      const seen = new Set(items.map(i => `${i.item_type}:${i.item_id}`));
-      const dedupedItems = newItems.filter(it => {
-        const key = `${it.item_type}:${it.item_id}`;
-        return !seen.has(key);
-      });
+      setPages(prev => {
+        const existingItems = prev.flatMap(p => p.items);
+        const seen = new Set(existingItems.map(i => `${i.item_type}:${i.item_id}`));
+        const dedupedItems = newItems.filter(it => {
+          const key = `${it.item_type}:${it.item_id}`;
+          return !seen.has(key);
+        });
 
-      const last = newItems[newItems.length - 1];
-      setPages(prev => [
-        ...prev,
-        {
-          items: dedupedItems,
-          nextCursor: last ? { ts: last.sort_ts, id: last.item_id } : null,
-        },
-      ]);
+        const last = newItems[newItems.length - 1];
+        return [
+          ...prev,
+          {
+            items: dedupedItems,
+            nextCursor: last ? { ts: last.sort_ts, id: last.item_id } : null,
+          },
+        ];
+      });
     } catch (e: any) {
       if (e.name !== 'AbortError') setError(e.message || 'Failed to load feed');
     } finally {
       setLoading(false);
     }
-  }, [userId, items]);
+  }, [userId]);
 
   const loadMore = useCallback(async () => {
     const lastPage = pages[pages.length - 1];
