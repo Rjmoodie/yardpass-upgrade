@@ -133,9 +133,9 @@ export function AuthScreen({
 
       <Card className="w-full max-w-md glass-card relative z-10">
         <CardHeader className="text-center space-y-6">
-          <div className="mx-auto w-20 h-20 brand-gradient rounded-2xl flex items-center justify-center shadow-xl golden-glow">
-            <img src={logoSrc} alt="Brand" className="w-12 h-12" />
-          </div>
+          <div className="mx-auto w-24 h-24 brand-gradient rounded-2xl flex items-center justify-center shadow-xl golden-glow">
+            <img src={logoSrc} alt="Brand" className="w-16 h-16" />
+          </div>
           <div className="space-y-2">
             <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               {mode === 'guest' ? 'Access Your Tickets' : 'Welcome'}

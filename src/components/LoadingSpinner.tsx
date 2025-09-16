@@ -28,7 +28,7 @@ export function PageLoadingSpinner() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
       <div className="text-center space-y-6">
-        <div className="w-28 h-28 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-2xl animate-pulse p-3">
+        <div className="w-32 h-32 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-2xl animate-pulse p-4">
           <img 
             src="/yardpass-logo.png" 
             alt="YardPass" 
