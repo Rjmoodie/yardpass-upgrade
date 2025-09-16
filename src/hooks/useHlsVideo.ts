@@ -25,19 +25,37 @@ export function useHlsVideo(src?: string) {
 
     (async () => {
       try {
+        console.log('useHlsVideo: Starting video setup for:', src);
         const Hls = (await import('hls.js')).default;
+        console.log('useHlsVideo: HLS.js loaded, isSupported:', Hls.isSupported());
+        
         if (isHls && !canPlayNative && Hls.isSupported()) {
+          console.log('useHlsVideo: Using HLS.js for:', src);
           const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
           hlsRef.current = hls;
           hls.loadSource(src);
           hls.attachMedia(v);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => !disposed && setReady(true));
-          hls.on(Hls.Events.ERROR, () => !disposed && setReady(true));
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            console.log('useHlsVideo: Manifest parsed for:', src);
+            !disposed && setReady(true);
+          });
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('useHlsVideo: HLS error for:', src, event, data);
+            !disposed && setReady(true);
+          });
         } else {
+          console.log('useHlsVideo: Using native video for:', src, 'canPlayNative:', canPlayNative);
           v.src = src;
-          v.onloadedmetadata = () => !disposed && setReady(true);
+          v.onloadedmetadata = () => {
+            console.log('useHlsVideo: Native video metadata loaded for:', src);
+            !disposed && setReady(true);
+          };
+          v.onerror = (e) => {
+            console.error('useHlsVideo: Native video error for:', src, e);
+          };
         }
-      } catch {
+      } catch (e) {
+        console.error('useHlsVideo: Exception loading HLS.js for:', src, e);
         if (v) {
           v.src = src;
           v.onloadedmetadata = () => !disposed && setReady(true);

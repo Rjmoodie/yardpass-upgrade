@@ -24,16 +24,10 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }:
   const likes = item.metrics?.likes || 0;
   const comments = item.metrics?.comments || 0;
 
-  // Log media information for debugging
-  console.log('UserPostCard media:', {
-    postId: item.item_id,
-    hasMediaUrls: !!item.media_urls?.length,
-    mediaUrl,
-    isVideo,
-    videoSrc,
-    ready,
-    mediaError
-  });
+  // Log only when there's actual media
+  if (mediaUrl) {
+    console.log(`Post ${item.item_id}: ${isVideo ? 'Video' : 'Image'} - ${mediaUrl} ${videoSrc ? `-> ${videoSrc}` : ''} (ready: ${ready}, error: ${mediaError})`);
+  }
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'TBA';
