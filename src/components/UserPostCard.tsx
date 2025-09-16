@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Heart, MessageCircle, Share } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
+import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
+import { useHlsVideo } from '@/hooks/useHlsVideo';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
 interface UserPostCardProps {
@@ -16,7 +18,9 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }:
   const [mediaError, setMediaError] = useState(false);
 
   const mediaUrl = item.media_urls?.[0];
-  const isVideo = mediaUrl ? /mux|\.mp4$|\.mov$|\.m3u8$/i.test(mediaUrl) : false;
+  const isVideo = isVideoUrl(mediaUrl);
+  const videoSrc = isVideo ? buildMuxUrl(mediaUrl) : undefined;
+  const { videoRef, ready } = useHlsVideo(videoSrc);
   const likes = item.metrics?.likes || 0;
   const comments = item.metrics?.comments || 0;
 
@@ -47,7 +51,7 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }:
       {mediaUrl && !mediaError ? (
         isVideo ? (
           <video
-            src={mediaUrl}
+            ref={videoRef}
             className="absolute inset-0 w-full h-full object-cover"
             autoPlay
             muted
