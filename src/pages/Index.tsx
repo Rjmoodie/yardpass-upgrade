@@ -156,8 +156,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     return (
       <div className="h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-            <img src="/yardpass-logo.png" alt="YardPass" className="w-10 h-10" />
+          <div className="w-24 h-24 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <img src="/yardpass-logo.png" alt="YardPass" className="w-16 h-16" />
           </div>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
         </div>
@@ -180,9 +180,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/70 to-transparent pointer-events-auto">
         <div className="flex items-center justify-between p-4 pb-2">
-          <div className="flex items-center gap-2">
-            <img src="/yardpass-logo.png" alt="YardPass" className="w-7 h-7" />
-            <span className="font-bold text-base text-white">YardPass</span>
+          <div className="flex items-center gap-3">
+            <img src="/yardpass-logo.png" alt="YardPass" className="w-10 h-10" />
+            <span className="font-bold text-lg text-white drop-shadow-md">YardPass</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-white/80">
