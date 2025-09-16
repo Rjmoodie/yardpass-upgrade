@@ -24,16 +24,6 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }:
   const likes = item.metrics?.likes || 0;
   const comments = item.metrics?.comments || 0;
 
-  // Debug logging
-  console.log('UserPostCard render:', {
-    postId: item.item_id,
-    mediaUrl,
-    isVideo,
-    videoSrc,
-    ready,
-    mediaError
-  });
-
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'TBA';
     try {

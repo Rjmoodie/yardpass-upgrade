@@ -8,4 +8,4 @@ export const DEFAULT_EVENT_COVER = '/images/placeholders/event-cover-fallback.jp
 export const DEFAULT_USER_AVATAR = PLACEHOLDER_IMAGE;
 
 // Default organization logo
-export const DEFAULT_ORG_LOGO = PLACEHOLDER_IMAGE;
+export const DEFAULT_ORG_LOGO = '/yardpass-logo.png';

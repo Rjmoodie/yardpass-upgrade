@@ -28,8 +28,12 @@ export function PageLoadingSpinner() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
       <div className="text-center space-y-6">
-        <div className="w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mx-auto shadow-xl animate-pulse">
-          <span className="text-white font-bold text-2xl">🎪</span>
+        <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto shadow-xl animate-pulse p-2">
+          <img 
+            src="/yardpass-logo.png" 
+            alt="YardPass" 
+            className="w-full h-full object-contain"
+          />
         </div>
         <div className="space-y-3">
           <LoadingSpinner size="lg" />

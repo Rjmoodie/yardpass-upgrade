@@ -31,7 +31,7 @@ export function AuthScreen({
   onVerifyCode,
   mode = 'guest',
   allowEmail = true,
-  logoSrc = '/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png',
+  logoSrc = '/yardpass-logo.png',
 }: AuthScreenProps) {
   const [method, setMethod] = useState<'phone' | 'email'>(allowEmail ? 'phone' : 'phone');
   const [contact, setContact] = useState('');
