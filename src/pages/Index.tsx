@@ -1,4 +1,3 @@
-// src/pages/Index.tsx
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
@@ -11,7 +10,6 @@ import CommentModal from '@/components/CommentModal';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { routes } from '@/lib/routes';
 import { useUnifiedFeed } from '@/hooks/useUnifiedFeed';
 import { EventCard } from '@/components/EventCard';
 import { UserPostCard } from '@/components/UserPostCard';
@@ -24,7 +22,6 @@ interface IndexProps {
   onCategorySelect?: (category: string) => void;
   onOrganizerSelect?: (organizerId: string, organizerName: string) => void;
 }
-
 
 export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -55,7 +52,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       toast({ title: 'Failed to load feed', description: 'Please try refreshing the page.', variant: 'destructive' });
     }
   }, [error]);
-
 
   // Realtime listener for new posts
   useEffect(() => {
@@ -89,7 +85,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           );
 
           if (matchingPost) {
-            prependItem(matchingPost);
+            prependItem(matchingPost as any);
           }
         }
       )
@@ -99,7 +95,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       supabase.removeChannel(channel);
     };
   }, [items, userId, prependItem]);
-
 
   // Meta
   useEffect(() => { updateMetaTags(defaultMeta); }, []);
@@ -150,12 +145,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     onEventSelect(eventId);
   }, [onEventSelect]);
 
-  const handleOpenTickets = useCallback(
-    requireAuth((eventId: string) => {
-      setShowTicketModal(true);
-    }, 'Please sign in to purchase tickets'),
-    [requireAuth]
-  );
+  const handleOpenTickets = useCallback((eventId: string) => {
+    setShowTicketModal(true);
+  }, []);
 
   const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(items.length - 1, i))), [items.length]);
   const currentItem = items[Math.max(0, Math.min(currentIndex, items.length - 1))];
@@ -246,89 +238,88 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       </div>
 
       {/* Navigation controls */}
-      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-20">
-        {events.map((_, i) => (
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-6 z-30 pointer-events-auto">
+        <div className="flex flex-col items-center gap-2">
           <button
-            key={i}
-            aria-label={`Go to event ${i + 1}`}
-            onClick={() => goTo(i)}
-            className={`w-1 h-6 rounded-full transition-all duration-200 touch-manipulation ${
-              i === currentIndex 
-                ? 'bg-white shadow-sm' 
-                : 'bg-white/40 hover:bg-white/60 active:bg-white/70'
-            }`}
-          />
-        ))}
-      </div>
+            onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+            disabled={currentIndex === 0}
+            className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50"
+            aria-label="Previous item"
+          >
+            <ChevronUp className="w-4 h-4" />
+          </button>
+          
+          <div className="flex flex-col items-center gap-1 max-h-32 overflow-y-auto">
+            {items.slice(Math.max(0, currentIndex - 3), currentIndex + 4).map((item, i) => {
+              const actualIndex = Math.max(0, currentIndex - 3) + i;
+              return (
+                <button
+                  key={`${item.item_type}:${item.item_id}`}
+                  aria-label={`Go to ${item.item_type} ${actualIndex + 1}`}
+                  onClick={() => goTo(actualIndex)}
+                  className={`w-1 h-6 rounded-full transition-all duration-200 ${
+                    actualIndex === currentIndex ? 'bg-white shadow-lg' : 'bg-white/40 hover:bg-white/70'
+                  }`}
+                />
+              );
+            })}
+          </div>
 
-      {/* Swipe zone for vertical navigation */}
-      <div
-        className="absolute z-10"
-        style={{ pointerEvents: 'auto', touchAction: 'pan-y', top: '12%', bottom: '32%', left: 0, right: '20%' }}
-        onTouchStart={(e) => { (e.currentTarget as any).__startY = e.touches[0].clientY; }}
-        onTouchEnd={(e) => {
-          const startY = (e.currentTarget as any).__startY as number | undefined;
-          if (startY == null) return;
-          const diff = startY - e.changedTouches[0].clientY;
-          if (Math.abs(diff) > 50) setCurrentIndex((i) => (diff > 0 ? Math.min(events.length - 1, i + 1) : Math.max(0, i - 1)));
-          (e.currentTarget as any).__startY = undefined;
-        }}
-      />
+          <button
+            onClick={() => setCurrentIndex(Math.min(items.length - 1, currentIndex + 1))}
+            disabled={currentIndex === items.length - 1}
+            className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50"
+            aria-label="Next item"
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
 
       {/* Modals */}
       <AttendeeListModal
         isOpen={showAttendeeModal}
         onClose={() => setShowAttendeeModal(false)}
-        eventTitle={currentEvent?.title || ''}
-        attendeeCount={currentEvent?.attendeeCount || 0}
+        eventTitle={currentItem?.event_title || 'Event'}
+        attendeeCount={0}
         attendees={[]}
       />
-
+      
       <EventTicketModal
-        event={{
-          id: currentEvent?.id || '',
-          title: currentEvent?.title || '',
-          start_at: currentEvent?.startAtISO || '',
-          venue: currentEvent?.location || '',
-          address: currentEvent?.location || '',
-          description: currentEvent?.description || '',
-        }}
         isOpen={showTicketModal}
         onClose={() => setShowTicketModal(false)}
-        onSuccess={() => {
-          setShowTicketModal(false);
-          toast({ title: 'Redirecting to Checkout', description: 'Opening Stripe checkout in a new tab…' });
-        }}
+        event={null}
+        onSuccess={() => setShowTicketModal(false)}
       />
-
+      
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        payload={
-          showShareModal && currentEvent
-            ? { title: currentEvent.title, text: `Check out ${currentEvent.title} - ${currentEvent.description}`, url: typeof window !== 'undefined' ? window.location.href : '' }
-            : null
-        }
+        payload={currentItem ? {
+          title: currentItem.event_title,
+          text: `Check out this event: ${currentItem.event_title}`,
+          url: `${window.location.origin}/e/${currentItem.event_id}`
+        } : null}
       />
-
-        <PostCreatorModal
-          isOpen={postCreatorOpen}
-          onClose={() => setPostCreatorOpen(false)}
-          onSuccess={() => {
-            setPostCreatorOpen(false);
-          toast({ title: 'Success', description: 'Your post has been created!' });
-        }}
-        preselectedEventId={currentEvent?.id}
+      
+      <PostCreatorModal
+        isOpen={postCreatorOpen}
+        onClose={() => setPostCreatorOpen(false)}
+        preselectedEventId={currentItem?.event_id}
       />
-
-      <CommentModal
-        isOpen={showCommentModal}
-        onClose={() => { setShowCommentModal(false); setCommentPostId(undefined); setCommentMediaId(undefined); }}
-        eventId={currentEvent?.id || ''}
-        eventTitle={currentEvent?.title || ''}
-        postId={commentPostId}
-        mediaPlaybackId={commentMediaId}
+      
+      {showCommentModal && commentPostId && currentItem && (
+        <CommentModal
+          isOpen={showCommentModal}
+          onClose={() => {
+            setShowCommentModal(false);
+            setCommentPostId(undefined);
+          }}
+          eventId={currentItem.event_id}
+          eventTitle={currentItem.event_title}
+          postId={commentPostId}
         />
+      )}
     </div>
   );
 }

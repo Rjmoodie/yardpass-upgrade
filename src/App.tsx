@@ -156,10 +156,8 @@ function AppContent() {
 
   const userRole: UserRole = (profile?.role as UserRole) || 'attendee';
 
-  const handleEventSelect = (event: Event) => {
-    setSelectedEvent(event);
-    // Use slug if available, otherwise fall back to UUID
-    navigate(getEventRoute(event));
+  const handleEventSelect = (eventId: string) => {
+    navigate(`/e/${eventId}`);
   };
 
   const handleBackToFeed = () => {
