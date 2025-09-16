@@ -24,6 +24,17 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }:
   const likes = item.metrics?.likes || 0;
   const comments = item.metrics?.comments || 0;
 
+  // Log media information for debugging
+  console.log('UserPostCard media:', {
+    postId: item.item_id,
+    hasMediaUrls: !!item.media_urls?.length,
+    mediaUrl,
+    isVideo,
+    videoSrc,
+    ready,
+    mediaError
+  });
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'TBA';
     try {
@@ -49,24 +60,42 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }:
     <div className="w-full h-screen relative overflow-hidden bg-black">
       {/* Background Media */}
       {mediaUrl && !mediaError ? (
-        isVideo ? (
-          <video
-            ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover"
-            autoPlay
-            muted
-            loop
-            playsInline
-            onError={() => setMediaError(true)}
-          />
-        ) : (
-          <img
-            src={mediaUrl}
-            alt="Post media"
-            className="absolute inset-0 w-full h-full object-cover"
-            onError={() => setMediaError(true)}
-          />
-        )
+        <div className="absolute inset-0">
+          {isVideo ? (
+            <>
+              <video
+                ref={videoRef}
+                className="absolute inset-0 w-full h-full object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+                onError={(e) => {
+                  console.error('Video error:', e, 'src:', videoSrc);
+                  setMediaError(true);
+                }}
+                onLoadStart={() => console.log('Video loading:', videoSrc)}
+                onCanPlay={() => console.log('Video can play:', videoSrc)}
+              />
+              {!ready && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+            </>
+          ) : (
+            <img
+              src={mediaUrl}
+              alt="Post media"
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => {
+                console.error('Image error:', e, 'src:', mediaUrl);
+                setMediaError(true);
+              }}
+              onLoad={() => console.log('Image loaded:', mediaUrl)}
+            />
+          )}
+        </div>
       ) : (
         <img
           src={item.event_cover_image || DEFAULT_EVENT_COVER}
