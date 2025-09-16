@@ -44,7 +44,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }, []);
 
   // Unified feed
-  const { items, loading, error, prependItem } = useUnifiedFeed(userId);
+  const { items, loading, error, prependItem, hasMore, loadMore, refresh } = useUnifiedFeed(userId);
 
   useEffect(() => {
     if (error) {
@@ -57,35 +57,35 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   useEffect(() => {
     if (!items.length) return;
 
-    const eventIds = [...new Set(items.map(item => item.event_id))];
+    const uniqIds = Array.from(new Set(items.map(item => item.event_id)));
+    const filter = uniqIds.length 
+      ? `event_id=in.(${uniqIds.map(id => `"${id}"`).join(',')})` 
+      : undefined;
+
+    if (!filter) return;
     
     const channel = supabase
-      .channel('unified-feed-realtime')
+      .channel(`unified-feed-${uniqIds.sort().join('-').slice(0,60)}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'event_posts',
-          filter: `event_id=in.(${eventIds.join(',')})`,
+          filter,
         },
         async (payload) => {
-          const newPost = payload.new as any;
+          const postId = (payload.new as any).id;
           
-          // Fetch complete post data with author info
-          const { data: postData } = await supabase.rpc('get_home_feed_v2', {
+          // Fetch exact item via dedicated RPC
+          const { data } = await supabase.rpc('get_feed_item_for_post', {
             p_user: userId || null,
-            p_limit: 1,
-            p_cursor_ts: null,
-            p_cursor_id: null,
+            p_post_id: postId,
           });
-
-          const matchingPost = postData?.find((item: any) => 
-            item.item_type === 'post' && item.item_id === newPost.id
-          );
-
-          if (matchingPost) {
-            prependItem(matchingPost as any);
+          
+          const item = Array.isArray(data) ? data[0] : data;
+          if (item) {
+            prependItem(item as any);
           }
         }
       )
@@ -94,7 +94,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [items, userId, prependItem]);
+    // Only re-sub when the *identity* of the set changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, prependItem, JSON.stringify([...new Set(items.map(i => i.event_id))].sort())]);
 
   // Meta
   useEffect(() => { updateMetaTags(defaultMeta); }, []);

@@ -2272,6 +2272,28 @@ export type Database = {
           scans: number
         }[]
       }
+      get_feed_item_for_post: {
+        Args: { p_post_id: string; p_user: string }
+        Returns: {
+          author_badge: string
+          author_id: string
+          author_name: string
+          content: string
+          event_cover_image: string
+          event_description: string
+          event_id: string
+          event_location: string
+          event_organizer: string
+          event_organizer_id: string
+          event_starts_at: string
+          event_title: string
+          item_id: string
+          item_type: string
+          media_urls: string[]
+          metrics: Json
+          sort_ts: string
+        }[]
+      }
       get_home_feed: {
         Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
         Returns: Database["public"]["CompositeTypes"]["home_feed_row"][]

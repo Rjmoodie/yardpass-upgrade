@@ -50,6 +50,9 @@ export function useUnifiedFeed(userId?: string) {
   const abortRef = useRef<AbortController | null>(null);
 
   const items = pages.flatMap(p => p.items);
+  
+  // Helper for composite key generation
+  const keyOf = (item: FeedItem) => `${item.item_type}:${item.item_id}`;
 
   const fetchPage = useCallback(async (cursor?: { ts: string; id: string }) => {
     setLoading(true);
@@ -73,9 +76,9 @@ export function useUnifiedFeed(userId?: string) {
       // De-dupe by composite key type+id to avoid "override"
       setPages(prev => {
         const existingItems = prev.flatMap(p => p.items);
-        const seen = new Set(existingItems.map(i => `${i.item_type}:${i.item_id}`));
+        const seen = new Set(existingItems.map(keyOf));
         const dedupedItems = newItems.filter(it => {
-          const key = `${it.item_type}:${it.item_id}`;
+          const key = keyOf(it);
           return !seen.has(key);
         });
 
@@ -100,12 +103,15 @@ export function useUnifiedFeed(userId?: string) {
     await fetchPage(lastPage?.nextCursor ?? undefined);
   }, [pages, fetchPage]);
 
-  const reset = useCallback(() => setPages([]), []);
+  const refresh = useCallback(() => {
+    setPages([]);
+    fetchPage();
+  }, [fetchPage]);
 
   const prependItem = useCallback((newItem: FeedItem) => {
     setPages(prev => {
-      const key = `${newItem.item_type}:${newItem.item_id}`;
-      const seen = new Set(prev.flatMap(p => p.items.map(i => `${i.item_type}:${i.item_id}`)));
+      const key = keyOf(newItem);
+      const seen = new Set(prev.flatMap(p => p.items.map(keyOf)));
       
       if (seen.has(key)) return prev; // already present
 
@@ -127,7 +133,7 @@ export function useUnifiedFeed(userId?: string) {
     loading, 
     error, 
     loadMore, 
-    reset, 
+    refresh, 
     prependItem,
     hasMore: !!pages[pages.length - 1]?.nextCursor 
   };
