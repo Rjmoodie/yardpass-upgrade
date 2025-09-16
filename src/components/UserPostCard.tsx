@@ -66,21 +66,7 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }:
                 playsInline
                 crossOrigin="anonymous"
                 // Don't set src when using HLS.js - let useHlsVideo handle it
-                onError={(e) => {
-                  const error = e.currentTarget.error;
-                  // Only log error if it's not the expected "empty src" error
-                  if (error?.code !== 4) {
-                    console.error('Video load error for:', videoSrc, {
-                      code: error?.code,
-                      message: error?.message,
-                      networkState: e.currentTarget.networkState,
-                      readyState: e.currentTarget.readyState
-                    });
-                    setMediaError(true);
-                  }
-                }}
-                onCanPlay={() => console.log('Video can play:', videoSrc)}
-                onLoadedData={() => console.log('Video data loaded:', videoSrc)}
+                // Let HLS.js handle all video events
               />
               {!ready && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
