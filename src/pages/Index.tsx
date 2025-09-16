@@ -143,6 +143,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     setShowShareModal(true);
   }, []);
 
+  const handleAuthorClick = useCallback((authorId: string) => {
+    navigate(`/profile/${authorId}`);
+  }, [navigate]);
+
   const handleEventClick = useCallback((eventId: string) => {
     onEventSelect(eventId);
   }, [onEventSelect]);
@@ -213,6 +217,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 onComment={handleComment}
                 onShare={handleShare}
                 onEventClick={handleEventClick}
+                onAuthorClick={handleAuthorClick}
               />
             )}
           </div>

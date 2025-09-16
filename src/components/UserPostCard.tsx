@@ -12,9 +12,10 @@ interface UserPostCardProps {
   onComment: (postId: string) => void;
   onShare: (postId: string) => void;
   onEventClick: (eventId: string) => void;
+  onAuthorClick?: (authorId: string) => void;
 }
 
-export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }: UserPostCardProps) {
+export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, onAuthorClick }: UserPostCardProps) {
   const [mediaError, setMediaError] = useState(false);
 
   const mediaUrl = item.media_urls?.[0];
@@ -98,33 +99,63 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }:
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
 
       {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-between p-6">
-        {/* Top: Event Context */}
-        <div className="flex items-center justify-between">
-          <Button
-            onClick={() => onEventClick(item.event_id)}
-            variant="ghost"
-            className="bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-black/60 px-3 py-2 text-sm"
+      <div className="absolute inset-0 flex">
+        {/* Left Side: Action Buttons */}
+        <div className="flex flex-col justify-center items-start pl-6 space-y-6">
+          <button
+            onClick={() => onLike(item.item_id)}
+            className="flex flex-col items-center text-white hover:text-red-400 transition-colors"
           >
-            <span className="truncate max-w-[200px]">{item.event_title}</span>
-            <span className="text-white/60 ml-2">• {formatDate(item.event_starts_at)}</span>
-          </Button>
+            <Heart className="w-7 h-7" />
+            {likes > 0 && <span className="text-xs font-medium mt-1">{likes}</span>}
+          </button>
+
+          <button
+            onClick={() => onComment(item.item_id)}
+            className="flex flex-col items-center text-white hover:text-blue-400 transition-colors"
+          >
+            <MessageCircle className="w-7 h-7" />
+            {comments > 0 && <span className="text-xs font-medium mt-1">{comments}</span>}
+          </button>
+
+          <button
+            onClick={() => onShare(item.item_id)}
+            className="flex flex-col items-center text-white hover:text-green-400 transition-colors"
+          >
+            <Share className="w-7 h-7" />
+          </button>
         </div>
 
-        {/* Bottom: Post Content & Actions */}
-        <div className="space-y-4">
-          {/* Author Info */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-white font-medium">
-                {item.author_name || 'Anonymous'}
-              </span>
-              {item.author_badge && (
-                <span className={`text-xs px-2 py-1 rounded-full text-white font-medium ${getBadgeColor(item.author_badge)}`}>
-                  {item.author_badge}
+        {/* Right Side: Post Content */}
+        <div className="flex-1 flex flex-col justify-end p-6 pl-0">
+          {/* Author Info & Event */}
+          <div className="space-y-3 mb-4">
+            {/* Author Info */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => onAuthorClick?.(item.author_id)}
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              >
+                <span className="text-white font-medium text-lg">
+                  {item.author_name || 'Anonymous'}
                 </span>
-              )}
+                {item.author_badge && (
+                  <span className={`text-xs px-2 py-1 rounded-full text-white font-medium ${getBadgeColor(item.author_badge)}`}>
+                    {item.author_badge}
+                  </span>
+                )}
+              </button>
             </div>
+
+            {/* Event Info */}
+            <Button
+              onClick={() => onEventClick(item.event_id)}
+              variant="ghost"
+              className="bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-black/60 px-3 py-1.5 text-sm w-fit"
+            >
+              <span className="truncate max-w-[200px]">{item.event_title}</span>
+              <span className="text-white/60 ml-2">• {formatDate(item.event_starts_at)}</span>
+            </Button>
           </div>
 
           {/* Post Content */}
@@ -133,32 +164,6 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }:
               {item.content}
             </p>
           )}
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-6">
-            <button
-              onClick={() => onLike(item.item_id)}
-              className="flex items-center gap-2 text-white hover:text-red-400 transition-colors"
-            >
-              <Heart className="w-6 h-6" />
-              {likes > 0 && <span className="text-sm font-medium">{likes}</span>}
-            </button>
-
-            <button
-              onClick={() => onComment(item.item_id)}
-              className="flex items-center gap-2 text-white hover:text-blue-400 transition-colors"
-            >
-              <MessageCircle className="w-6 h-6" />
-              {comments > 0 && <span className="text-sm font-medium">{comments}</span>}
-            </button>
-
-            <button
-              onClick={() => onShare(item.item_id)}
-              className="flex items-center gap-2 text-white hover:text-green-400 transition-colors"
-            >
-              <Share className="w-6 h-6" />
-            </button>
-          </div>
         </div>
       </div>
     </div>
