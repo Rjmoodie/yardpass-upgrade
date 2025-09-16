@@ -1,17 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, MapPin, Calendar as CalendarIcon, Users, Star, X, SlidersHorizontal } from 'lucide-react';
-import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+import { ArrowLeft, Search, X, SlidersHorizontal, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { FilterChip } from './search/FilterChip';
+import { EventCard } from './search/EventCard';
+import { SkeletonGrid, EmptyState } from './search/SearchPageComponents';
 
 interface SearchPageProps {
   onBack: () => void;
@@ -350,83 +350,6 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border px-2 h-8 text-sm">
-      {label}
-      <button onClick={onClear} className="p-1 rounded hover:bg-muted">
-        <X className="w-3 h-3" />
-      </button>
-    </span>
-  );
-}
-
-function EventCard({ event, onClick }: { event: any; onClick: () => void }) {
-  return (
-    <button onClick={onClick} className="group text-left rounded-2xl border overflow-hidden bg-card hover:shadow-xl transition-shadow">
-      <div className="flex">
-        <div className="w-36 h-36 shrink-0 relative">
-          <ImageWithFallback src={event.coverImage} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />
-        </div>
-        <div className="flex-1 p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-base font-semibold line-clamp-1 group-hover:text-primary">{event.title}</h3>
-              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{event.description}</p>
-              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                <Badge variant="secondary" className="px-2 py-0.5 rounded-full">{event.category}</Badge>
-                <span className="inline-flex items-center gap-1"><CalendarIcon className="w-3 h-3" /> {event.date}</span>
-                <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" /> {event.location}</span>
-              </div>
-            </div>
-            <div className="text-right shrink-0">
-              {typeof event.priceFrom === 'number' && (
-                <div className="text-sm">
-                  <div className="text-muted-foreground">From</div>
-                  <div className="font-semibold">${event.priceFrom.toFixed(0)}</div>
-                </div>
-              )}
-              <div className="mt-2 inline-flex items-center text-xs text-muted-foreground">
-                <Star className="w-3 h-3 mr-1 fill-current" /> {(event.rating ?? 4.2).toFixed(1)}
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <Users className="w-3 h-3" /> {event.attendeeCount} attending
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function SkeletonGrid() {
-  return (
-    <div className="grid md:grid-cols-2 gap-4">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="rounded-2xl border overflow-hidden bg-card">
-          <div className="h-36 bg-muted animate-pulse" />
-          <div className="p-3 space-y-2">
-            <div className="h-6 w-1/2 bg-muted rounded animate-pulse" />
-            <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
-            <div className="h-4 w-1/3 bg-muted rounded animate-pulse" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="text-center py-16 border rounded-2xl bg-card">
-      <Search className="w-12 h-12 mx-auto mb-2 text-muted-foreground/70" />
-      <p className="text-xl font-semibold mb-1">No events found</p>
-      <p className="text-muted-foreground">Try different keywords or remove filters.</p>
     </div>
   );
 }
