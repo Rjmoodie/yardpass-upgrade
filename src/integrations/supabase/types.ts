@@ -2210,6 +2210,10 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: boolean
       }
+      can_view_event: {
+        Args: { p_event: string; p_user: string }
+        Returns: boolean
+      }
       cleanup_guest_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -2277,6 +2281,33 @@ export type Database = {
         Returns: {
           event_id: string
           score: number
+        }[]
+      }
+      get_home_feed_v2: {
+        Args: {
+          p_cursor_id?: string
+          p_cursor_ts?: string
+          p_limit?: number
+          p_user?: string
+        }
+        Returns: {
+          author_badge: string
+          author_id: string
+          author_name: string
+          content: string
+          event_cover_image: string
+          event_description: string
+          event_id: string
+          event_location: string
+          event_organizer: string
+          event_organizer_id: string
+          event_starts_at: string
+          event_title: string
+          item_id: string
+          item_type: string
+          media_urls: string[]
+          metrics: Json
+          sort_ts: string
         }[]
       }
       get_org_analytics: {

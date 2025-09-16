@@ -1,10 +1,10 @@
 // src/pages/Index.tsx
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
-import { Heart, MessageCircle, Share, TrendingUp, Clock, Plus } from 'lucide-react';
+import { Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
 import CommentModal from '@/components/CommentModal';
@@ -12,255 +12,94 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '@/lib/routes';
-import { DEFAULT_EVENT_COVER } from '@/lib/constants';
-import { useAffinityFeed } from '@/hooks/useAffinityFeed';
-import { useRealtimePosts } from '@/hooks/useRealtimePosts';
-import { extractMuxPlaybackId } from '@/utils/mux';
+import { useUnifiedFeed } from '@/hooks/useUnifiedFeed';
+import { EventCard } from '@/components/EventCard';
+import { UserPostCard } from '@/components/UserPostCard';
 import { ReportButton } from '@/components/ReportButton';
 import { supabase } from '@/integrations/supabase/client';
 
-import type { Event, EventPost } from '@/types/events';
-import PostCarousel from '@/components/PostCarousel';
-
 interface IndexProps {
-  onEventSelect: (event: Event) => void;
+  onEventSelect: (eventId: string) => void;
   onCreatePost: () => void;
   onCategorySelect?: (category: string) => void;
   onOrganizerSelect?: (organizerId: string, organizerName: string) => void;
 }
 
-function IconButton({
-  children, onClick, count, active, ariaLabel,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  count?: number;
-  active?: boolean;
-  ariaLabel: string;
-}) {
-  return (
-    <button
-      aria-label={ariaLabel}
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
-      className="flex flex-col items-center gap-1 transition-transform active:scale-95 min-h-[48px] min-w-[48px] p-2 touch-manipulation"
-      style={{ backgroundColor: 'transparent' }}
-    >
-      <div
-        className={`p-2.5 rounded-full transition-all duration-200 ${
-          active ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-105' : 'bg-black/50 backdrop-blur-sm border border-white/25 hover:bg-white/20'
-        }`}
-      >
-        {children}
-      </div>
-      {typeof count !== 'undefined' && (
-        <span className="text-[10px] font-medium text-white drop-shadow-lg px-1.5 py-0.5 bg-black/60 rounded-full min-w-[20px] text-center">
-          {count > 999 ? '999+' : count}
-        </span>
-      )}
-    </button>
-  );
-}
 
 export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
-  const [events, setEvents] = useState<Event[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAttendeeModal, setShowAttendeeModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
-  const [commentMediaId, setCommentMediaId] = useState<string | undefined>(undefined);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [sortByActivity, setSortByActivity] = useState(false);
-
-  // per-event horizontal index (for the post carousel)
-  const [postIndexByEvent, setPostIndexByEvent] = useState<Record<string, number>>({});
-  const getPostIndex = (id: string) => postIndexByEvent[id] ?? 0;
-  const setPostIndex = (id: string, idx: number) =>
-    setPostIndexByEvent((s) => ({ ...s, [id]: idx }));
-
-  const trackRef = useRef<HTMLDivElement>(null);
-  const fetchedFor = useRef<Set<string>>(new Set()); // prevents refetch loops
-  const isMounted = useRef(true);
 
   const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
 
-  // Feed via RPC - affinity feed
-  const { data: feed, loading: feedLoading, error, setData: setFeed } = useAffinityFeed(8);
-
-  // Map feed -> Event[]
-  const mappedEvents: Event[] = useMemo(() => {
-    return (feed || []).map((ev: any) => ({
-      id: ev.id,
-      title: ev.title,
-      description: ev.description || '',
-      organizer: ev.organizerName || 'Unknown',
-      organizerId: ev.organizerId || '',
-      category: 'General',
-      startAtISO: ev.startAtISO || new Date().toISOString(),
-      endAtISO: undefined,
-      dateLabel: ev.startAtISO ? new Date(ev.startAtISO).toLocaleDateString() : 'TBD',
-      location: ev.location || '',
-      coverImage: ev.coverImage || DEFAULT_EVENT_COVER,
-      ticketTiers: [],
-      attendeeCount: ev.attendeeCount || 0,
-      likes: 0,
-      shares: 0,
-      isLiked: false,
-      posts: [],
-      organizerVerified: ev.organizerVerified,
-      minPrice: ev.minPrice,
-      remaining: ev.remaining,
-    }));
-  }, [feed]);
-
-  // set events from feed
+  // Get current user for feed
+  const [userId, setUserId] = useState<string | undefined>();
   useEffect(() => {
-    setEvents(mappedEvents);
-    setLoading(feedLoading);
-    if (error) {
-      console.error('Home feed error:', error);
-      toast({ title: 'Failed to load events', description: 'Please try refreshing the page.', variant: 'destructive' });
-    }
-  }, [mappedEvents, feedLoading, error]);
-
-  // Initial posts loader — only for new, unseen event IDs
-  useEffect(() => {
-    isMounted.current = true;
-    const idsNeedingPosts = events
-      .filter((e) => !fetchedFor.current.has(e.id))
-      .map((e) => e.id);
-
-    if (!idsNeedingPosts.length) return;
-
-    (async () => {
-      try {
-        console.log('🔍 Fetching posts for event IDs:', idsNeedingPosts);
-        const { data, error } = await supabase.rpc('get_event_posts', {
-          p_event_ids: idsNeedingPosts,
-          p_k: 3,
-        });
-
-        console.log('📄 Posts RPC response:', { data, error });
-
-        if (error) throw error;
-
-        const grouped = new Map<string, EventPost[]>();
-        for (const p of (data || [])) {
-          const url: string | undefined = Array.isArray(p.media_urls) ? p.media_urls[0] : undefined;
-          const isVideo = url ? /mux|\.mp4$|\.mov$|\.m3u8$/i.test(url) : false;
-
-          const mapped: EventPost = {
-            id: p.id,
-            authorName: p.author_display_name || 'Someone',
-            authorBadge: p.author_badge_label || (p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE'),
-            isOrganizer: !!p.author_is_organizer,
-            authorId: p.author_user_id || undefined,
-            content: p.text || '',
-            timestamp: new Date(p.created_at).toLocaleDateString(),
-            likes: p.like_count || 0,
-            mediaType: isVideo ? 'video' : url ? 'image' : 'none',
-            mediaUrl: url,
-            thumbnailUrl: !isVideo ? url : undefined,
-            commentCount: p.comment_count || 0,
-            ticketTierId: p.ticket_tier_id || undefined,
-          } as any;
-
-          const arr = grouped.get(p.event_id) ?? [];
-          arr.push(mapped);
-          grouped.set(p.event_id, arr);
-        }
-
-        if (!isMounted.current) return;
-        console.log('📊 Setting posts for events. Grouped data:', grouped);
-        setEvents((prev) =>
-          prev.map((ev) => (grouped.has(ev.id) ? { ...ev, posts: grouped.get(ev.id) } : ev))
-        );
-
-        idsNeedingPosts.forEach((id) => fetchedFor.current.add(id));
-      } catch (err) {
-        console.error('Initial posts fetch failed:', err);
-      }
-    })();
-
-    return () => { isMounted.current = false; };
-  }, [events]);
-
-  // Realtime posts — prepend newest into event.posts
-  useRealtimePosts(
-    events.map((e) => e.id),
-    (p) => {
-      setFeed((prev: any[]) => {
-        const next = (prev || []).map((ev: any) => {
-          if (ev.id !== p.event_id) return ev;
-          const url = (p.media_urls && p.media_urls[0]) || undefined;
-          const isVideo = url ? /mux|\.mp4$|\.mov$|\.m3u8$/i.test(url) : false;
-
-          const newPost: EventPost = {
-            id: p.id,
-            authorName: p.author_display_name || 'Someone',
-            authorBadge: (p as any).author_badge_label || (p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE'),
-            isOrganizer: !!p.author_is_organizer,
-            authorId: p.author_id || p.author_user_id,
-            content: p.text || '',
-            timestamp: new Date(p.created_at).toLocaleDateString(),
-            likes: p.like_count || 0,
-            mediaType: isVideo ? 'video' : url ? 'image' : 'none',
-            mediaUrl: url,
-            thumbnailUrl: !isVideo ? url : undefined,
-            commentCount: p.comment_count || 0,
-            ticketTierId: p.ticket_tier_id || undefined,
-          } as any;
-
-          const posts = [newPost, ...(ev.posts || [])].slice(0, 3);
-          return { ...ev, posts };
-        });
-        return next;
-      });
-
-      setEvents((prev) =>
-        prev.map((ev) => {
-          if (ev.id !== p.event_id) return ev;
-          const url = (p.media_urls && p.media_urls[0]) || undefined;
-          const isVideo = url ? /mux|\.mp4$|\.mov$|\.m3u8$/i.test(url) : false;
-          const newPost: EventPost = {
-            id: p.id,
-            authorName: p.author_display_name || 'Someone',
-            authorBadge: (p as any).author_badge_label || (p.author_is_organizer ? 'ORGANIZER' : 'ATTENDEE'),
-            isOrganizer: !!p.author_is_organizer,
-            authorId: p.author_id || p.author_user_id,
-            content: p.text || '',
-            timestamp: new Date(p.created_at).toLocaleDateString(),
-            likes: p.like_count || 0,
-            mediaType: isVideo ? 'video' : url ? 'image' : 'none',
-            mediaUrl: url,
-            thumbnailUrl: !isVideo ? url : undefined,
-            commentCount: p.comment_count || 0,
-            ticketTierId: p.ticket_tier_id || undefined,
-          } as any;
-          const posts = [newPost, ...(ev.posts || [])].slice(0, 3);
-          return { ...ev, posts };
-        })
-      );
-    }
-  );
-
-  // Sort toggle: ranked vs activity
-  useEffect(() => {
-    if (!sortByActivity) return;
-    setEvents((prev) => {
-      const score = (ev: Event) => {
-        const postAgg = (ev.posts || []).reduce((s, p: any) => s + (p.likes || 0) + (p.commentCount || 0), 0);
-        const att = ev.attendeeCount || 0;
-        return postAgg * 2 + att;
-      };
-      const copy = [...prev];
-      copy.sort((a, b) => score(b) - score(a));
-      return copy;
+    supabase.auth.getUser().then(({ data }) => {
+      setUserId(data.user?.id);
     });
-  }, [sortByActivity]);
+  }, []);
+
+  // Unified feed
+  const { items, loading, error, prependItem } = useUnifiedFeed(userId);
+
+  useEffect(() => {
+    if (error) {
+      console.error('Feed error:', error);
+      toast({ title: 'Failed to load feed', description: 'Please try refreshing the page.', variant: 'destructive' });
+    }
+  }, [error]);
+
+
+  // Realtime listener for new posts
+  useEffect(() => {
+    if (!items.length) return;
+
+    const eventIds = [...new Set(items.map(item => item.event_id))];
+    
+    const channel = supabase
+      .channel('unified-feed-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'event_posts',
+          filter: `event_id=in.(${eventIds.join(',')})`,
+        },
+        async (payload) => {
+          const newPost = payload.new as any;
+          
+          // Fetch complete post data with author info
+          const { data: postData } = await supabase.rpc('get_home_feed_v2', {
+            p_user: userId || null,
+            p_limit: 1,
+            p_cursor_ts: null,
+            p_cursor_id: null,
+          });
+
+          const matchingPost = postData?.find((item: any) => 
+            item.item_type === 'post' && item.item_id === newPost.id
+          );
+
+          if (matchingPost) {
+            prependItem(matchingPost);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [items, userId, prependItem]);
+
 
   // Meta
   useEffect(() => { updateMetaTags(defaultMeta); }, []);
@@ -269,53 +108,57 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp' || e.key === 'PageUp') setCurrentIndex((i) => Math.max(0, i - 1));
-      if (e.key === 'ArrowDown' || e.key === 'PageDown') setCurrentIndex((i) => Math.min(events.length - 1, i + 1));
+      if (e.key === 'ArrowDown' || e.key === 'PageDown') setCurrentIndex((i) => Math.min(items.length - 1, i + 1));
       if (e.key === 'Home') setCurrentIndex(0);
-      if (e.key === 'End') setCurrentIndex(Math.max(0, events.length - 1));
+      if (e.key === 'End') setCurrentIndex(Math.max(0, items.length - 1));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [events.length]);
-
-  // Preload neighbor covers
-  useEffect(() => {
-    const next = events[currentIndex + 1]?.coverImage;
-    const prev = events[currentIndex - 1]?.coverImage;
-    [next, prev].filter(Boolean).forEach((src) => { const img = new Image(); img.src = src as string; });
-  }, [currentIndex, events]);
+  }, [items.length]);
 
   // Actions
   const handleLike = useCallback(
-    withAuth((eventId: string) => {
-      setEvents((prev) =>
-        prev.map((ev) =>
-          ev.id === eventId ? { ...ev, isLiked: !ev.isLiked, likes: ev.isLiked ? ev.likes - 1 : ev.likes + 1 } : ev
-        )
-      );
-    }, 'Please sign in to like events'),
+    withAuth(async (postId: string) => {
+      try {
+        // Toggle reaction
+        const { error } = await supabase.functions.invoke('reactions-toggle', {
+          body: { post_id: postId, kind: 'like' }
+        });
+        if (error) throw error;
+        toast({ title: 'Liked!', description: 'Your reaction has been added.' });
+      } catch (error) {
+        console.error('Like error:', error);
+        toast({ title: 'Error', description: 'Failed to like post', variant: 'destructive' });
+      }
+    }, 'Please sign in to like posts'),
     [withAuth]
   );
 
-  const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(events.length - 1, i))), [events.length]);
-  const currentEvent = events[Math.max(0, Math.min(currentIndex, events.length - 1))];
-
-  const openCommentsForPost = useCallback(
-    withAuth((pid?: string, post?: EventPost) => {
-      setCommentPostId(pid);
-      const playbackId = extractMuxPlaybackId(post?.mediaUrl);
-      setCommentMediaId(playbackId ?? undefined);
+  const handleComment = useCallback(
+    withAuth((postId: string) => {
+      setCommentPostId(postId);
       setShowCommentModal(true);
-    }, 'Please sign in to comment on events'),
+    }, 'Please sign in to comment'),
     [withAuth]
   );
 
-  const handleComment = useCallback(() => {
-    if (!currentEvent) return;
-    const idx = getPostIndex(currentEvent.id);
-    const heroPost = (currentEvent.posts || [])[idx] || (currentEvent.posts || [])[0];
-    if (!heroPost) return;
-    openCommentsForPost(heroPost.id, heroPost);
-  }, [currentEvent, openCommentsForPost, postIndexByEvent]);
+  const handleShare = useCallback((postId: string) => {
+    setShowShareModal(true);
+  }, []);
+
+  const handleEventClick = useCallback((eventId: string) => {
+    onEventSelect(eventId);
+  }, [onEventSelect]);
+
+  const handleOpenTickets = useCallback(
+    requireAuth((eventId: string) => {
+      setShowTicketModal(true);
+    }, 'Please sign in to purchase tickets'),
+    [requireAuth]
+  );
+
+  const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(items.length - 1, i))), [items.length]);
+  const currentItem = items[Math.max(0, Math.min(currentIndex, items.length - 1))];
 
   if (loading) {
     return (
@@ -330,104 +173,79 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     );
   }
 
-  if (!currentEvent) {
+  if (!currentItem) {
     return (
       <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
-        <h1 className="text-2xl font-bold mb-2">No Events Found</h1>
-        <p className="text-muted-foreground mb-4">There are currently no events to display.</p>
+        <h1 className="text-2xl font-bold mb-2">No Content Found</h1>
+        <p className="text-muted-foreground mb-4">There are currently no posts or events to display.</p>
         <Button onClick={() => window.location.reload()} className="mt-4">Try Again</Button>
       </div>
     );
   }
 
-  const activePostIdx = getPostIndex(currentEvent.id);
-  const activePost = currentEvent.posts?.[activePostIdx];
-  const commentCount =
-    activePost?.commentCount ??
-    ((currentEvent as any)?.totalComments) ??
-    (currentEvent?.posts?.reduce((s, p) => s + (p.commentCount ?? 0), 0) ?? 0);
-
   return (
     <div className="h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
-      {/* Header - Optimized for mobile */}
+      {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/70 to-transparent pointer-events-auto">
         <div className="flex items-center justify-between p-4 pb-2">
           <div className="flex items-center gap-2">
             <img src="/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png" alt="YardPass" className="w-7 h-7" />
             <span className="font-bold text-base text-white">YardPass</span>
           </div>
-          <button
-            onClick={() => setSortByActivity(!sortByActivity)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-full border border-white/20 transition-all duration-200 backdrop-blur-sm min-h-[44px]"
-            title={sortByActivity ? 'Sort by event date' : 'Sort by activity'}
-          >
-            {sortByActivity ? (
-              <>
-                <TrendingUp className="w-4 h-4 text-white" />
-                <span className="text-xs font-medium text-white">Active</span>
-              </>
-            ) : (
-              <>
-                <Clock className="w-4 h-4 text-white" />
-                <span className="text-xs font-medium text-white">Upcoming</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-white/80">
+              {currentIndex + 1} of {items.length}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Slides (vertical) */}
+      {/* Feed Items */}
       <div 
-        ref={trackRef}
         className="h-full w-full relative transition-transform duration-300 ease-out"
         style={{ transform: `translateY(-${currentIndex * 100}%)` }}
       >
-        {events.map((ev, i) => (
-          <div key={ev.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
-            <PostCarousel
-              event={ev}
-              posts={ev.posts}
-              isActiveSlide={i === Math.max(0, Math.min(currentIndex, events.length - 1))}
-              index={getPostIndex(ev.id)}
-              onIndexChange={(idx) => setPostIndex(ev.id, idx)}
-              onOpenTickets={() =>
-                requireAuth(() => setShowTicketModal(true), 'Please sign in to purchase tickets')
-              }
-              onPostClick={(pid, p) => openCommentsForPost(pid, p)}
-            />
+        {items.map((item, i) => (
+          <div key={`${item.item_type}:${item.item_id}`} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
+            {item.item_type === 'event' ? (
+              <EventCard
+                item={item}
+                onOpenTickets={handleOpenTickets}
+                onEventClick={handleEventClick}
+              />
+            ) : (
+              <UserPostCard
+                item={item}
+                onLike={handleLike}
+                onComment={handleComment}
+                onShare={handleShare}
+                onEventClick={handleEventClick}
+              />
+            )}
           </div>
         ))}
       </div>
 
-      {/* Right action rail - Optimized for mobile touch */}
+      {/* Right action rail */}
       <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 pointer-events-auto">
         <div className="flex flex-col items-center gap-3 text-white select-none">
-          <IconButton ariaLabel="Like event" active={currentEvent?.isLiked} count={currentEvent?.likes} onClick={() => currentEvent && handleLike(currentEvent.id)}>
-            <Heart className={`w-5 h-5 ${currentEvent?.isLiked ? 'fill-white text-white' : 'text-white'}`} />
-          </IconButton>
-          <IconButton ariaLabel="View comments" count={commentCount} onClick={() => handleComment()}>
-            <MessageCircle className="w-5 h-5 text-white" />
-          </IconButton>
-          <div className="flex flex-col items-center">
-            <button
-              onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
-              className="p-3 rounded-full bg-primary/90 backdrop-blur-sm border border-primary/60 hover:bg-primary transition-all duration-200 shadow-lg min-h-[48px] min-w-[48px] touch-manipulation"
-              aria-label="Create post"
-            >
-              <Plus className="w-5 h-5 text-white" />
-            </button>
-            <span className="text-[10px] font-medium text-white drop-shadow-lg mt-1">Post</span>
-              </div>
-          <IconButton ariaLabel="Share event" onClick={() => setShowShareModal(true)}>
-            <Share className="w-5 h-5 text-white" />
-          </IconButton>
+          <button
+            onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
+            className="p-3 rounded-full bg-primary/90 backdrop-blur-sm border border-primary/60 hover:bg-primary transition-all duration-200 shadow-lg min-h-[48px] min-w-[48px] touch-manipulation"
+            aria-label="Create post"
+          >
+            <Plus className="w-5 h-5 text-white" />
+          </button>
           <div className="pointer-events-auto">
-            <ReportButton targetType="event" targetId={currentEvent?.id || ''} />
+            <ReportButton 
+              targetType={currentItem.item_type === 'event' ? 'event' : 'post'} 
+              targetId={currentItem.item_type === 'event' ? currentItem.event_id : currentItem.item_id} 
+            />
           </div>
         </div>
       </div>
 
-      {/* Vertical dots (events) - Mobile optimized */}
+      {/* Navigation controls */}
       <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-20">
         {events.map((_, i) => (
           <button
