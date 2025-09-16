@@ -64,12 +64,26 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick }:
                 muted
                 loop
                 playsInline
+                crossOrigin="anonymous"
                 onError={(e) => {
-                  console.error('Video error:', e, 'src:', videoSrc);
+                  const error = e.currentTarget.error;
+                  console.error('Video load error for:', videoSrc, {
+                    code: error?.code,
+                    message: error?.message,
+                    networkState: e.currentTarget.networkState,
+                    readyState: e.currentTarget.readyState
+                  });
                   setMediaError(true);
                 }}
-                onLoadStart={() => console.log('Video loading:', videoSrc)}
+                onLoadStart={() => console.log('Video load start:', videoSrc)}
                 onCanPlay={() => console.log('Video can play:', videoSrc)}
+                onLoadedData={() => console.log('Video data loaded:', videoSrc)}
+                onPlay={() => console.log('Video playing:', videoSrc)}
+                onStalled={() => console.log('Video stalled:', videoSrc)}
+                onSuspend={() => console.log('Video suspended:', videoSrc)}
+                onAbort={() => console.log('Video aborted:', videoSrc)}
+                onEmptied={() => console.log('Video emptied:', videoSrc)}
+                onWaiting={() => console.log('Video waiting:', videoSrc)}
               />
               {!ready && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
