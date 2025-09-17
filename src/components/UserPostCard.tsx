@@ -387,25 +387,36 @@ export function UserPostCard({
       <div className="absolute left-4 right-4 bottom-6 z-30 pointer-events-none">
         <div className="bg-black/80 backdrop-blur-md rounded-full px-4 py-3 flex items-center justify-between shadow-2xl border border-white/10 pointer-events-auto">
           {/* Left - Username */}
-          <Link
-            to={`/u/${item.author_id}`}
-            className="text-white font-bold hover:underline text-base flex-shrink-0"
-            onClick={handleAuthorClick}
-            title={item.author_name || 'User'}
-          >
-            {item.author_name || 'User'}
-          </Link>
-
-          {/* VIP / ORGANIZER badge */}
-          {item.author_badge && (
-            <span
-              className={`text-xs px-2 py-1 rounded-full text-white font-medium ml-1 flex-shrink-0 ${getBadgeColor(item.author_badge as AuthorBadge)}`}
-              aria-label={String(item.author_badge)}
-              title={String(item.author_badge)}
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/u/${item.author_id}`}
+              className="text-white font-bold hover:underline text-base flex-shrink-0"
+              onClick={handleAuthorClick}
+              title={item.author_name || 'User'}
             >
-              {item.author_badge}
-            </span>
-          )}
+              {item.author_name || 'User'}
+            </Link>
+
+            {/* VIP / ORGANIZER badge */}
+            {item.author_badge && (
+              <span
+                className={`text-xs px-2 py-1 rounded-full text-white font-medium flex-shrink-0 ${getBadgeColor(item.author_badge as AuthorBadge)}`}
+                aria-label={String(item.author_badge)}
+                title={String(item.author_badge)}
+              >
+                {item.author_badge}
+              </span>
+            )}
+
+            {/* Primary Social Link */}
+            {item.author_social_links && Array.isArray(item.author_social_links) && (
+              <SocialLinkDisplay 
+                socialLinks={item.author_social_links} 
+                showPrimaryOnly={true} 
+                className="text-white/80 hover:text-white"
+              />
+            )}
+          </div>
 
           {/* Right - Event link */}
           <Link

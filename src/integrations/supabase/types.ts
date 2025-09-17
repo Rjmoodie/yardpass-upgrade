@@ -2346,6 +2346,7 @@ export type Database = {
           author_badge: string
           author_id: string
           author_name: string
+          author_social_links: Json
           content: string
           event_cover_image: string
           event_description: string

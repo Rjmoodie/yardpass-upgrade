@@ -36,6 +36,7 @@ export type FeedItem =
       author_id: string | null;
       author_name: string | null;
       author_badge: string | null;
+      author_social_links: any[] | null;
       media_urls: string[] | null;
       content: string | null;
       metrics: Record<string, any>;
