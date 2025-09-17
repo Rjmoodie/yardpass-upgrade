@@ -1,10 +1,15 @@
 // src/components/QRCodeModal.tsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Copy, Share, Loader2, Download } from 'lucide-react';
-import { generateQRData, generateQRCodeDataURLWithLogo } from '@/lib/qrCode';
+import {
+  generateQRData,
+  generateQRCodeDataURLWithLogo,
+  generateQRCodeDataURL,
+  type LogoOptions,
+} from '@/lib/qrCode';
 import { UserTicket } from '@/hooks/useTickets';
 import { toast } from '@/hooks/use-toast';
 
@@ -20,25 +25,57 @@ interface QRCodeModalProps {
   onClose: () => void;
   onCopy: (ticket: UserTicket) => void;
   onShare: (ticket: UserTicket) => void;
+  /** Optional brand logo override (URL or data URI). Defaults to YardPass mark. */
+  logoUrl?: string;
+  /** Optional QR visual overrides */
+  qrOptions?: Partial<LogoOptions>;
 }
 
-export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeModalProps) {
-  const [qrCodeSVG, setQrCodeSVG] = useState<string>('');
+export function QRCodeModal({
+  ticket,
+  user,
+  onClose,
+  onCopy,
+  onShare,
+  logoUrl = '/yardpass-logo.png',
+  qrOptions,
+}: QRCodeModalProps) {
+  const [qrPngDataUrl, setQrPngDataUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
-  // Trap close on ESC / backdrop click
+  // Combine defaults with any overrides coming from props
+  const opts = useMemo<LogoOptions>(() => {
+    const dpr = typeof window !== 'undefined' ? Math.max(1, Math.min(window.devicePixelRatio || 1, 3)) : 1;
+    // Render at higher internal resolution for crisper PNGs (downscaled by <img />)
+    const baseSize = 256;
+    return {
+      size: Math.floor(baseSize * dpr),
+      logoUrl,
+      logoSizeRatio: 0.22,
+      logoShape: 'circle',
+      logoBorder: 2,
+      logoBorderColor: '#000000',
+      logoBackerColor: '#ffffff',
+      darkColor: '#000000',
+      lightColor: '#FFFFFF',
+      errorCorrectionLevel: 'H',
+      ...qrOptions,
+    };
+  }, [logoUrl, qrOptions]);
+
+  // Close on ESC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // subtle haptic for mobile when opening
   useEffect(() => {
-    // subtle haptic for mobile when opening
-    if ('vibrate' in navigator) {
-      try { (navigator as any).vibrate?.(10); } catch {}
-    }
+    try {
+      (navigator as any)?.vibrate?.(10);
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -52,72 +89,62 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
           id: ticket.id,
           eventId: ticket.eventId,
           qrCode: ticket.qrCode,
-          userId: user.id
+          userId: user.id,
         });
 
-        const dataUrl = await generateQRCodeDataURLWithLogo(qrData, {
-          size: 256,
-          logoUrl: '/yardpass-logo.png',
-          logoSizeRatio: 0.22,
-          logoShape: 'circle',
-          logoBorder: 2,
-          logoBorderColor: '#000000',
-          logoBackerColor: '#ffffff'
-        });
-        if (!cancelled) setQrCodeSVG(dataUrl);
+        // Try with logo; if any CORS/logo issue, gracefully fall back to plain QR
+        let dataUrl = await generateQRCodeDataURLWithLogo(qrData, opts);
+        if (!dataUrl?.startsWith('data:image/')) {
+          // unexpected shape, fallback
+          dataUrl = await generateQRCodeDataURL(qrData, opts.size ?? 256);
+        }
+
+        if (!cancelled) setQrPngDataUrl(dataUrl);
       } catch (err) {
         console.error('Failed to generate QR code:', err);
-        if (!cancelled) setFailed(true);
+        try {
+          // final safety fallback – plain QR
+          const qrData = generateQRData({
+            id: ticket.id,
+            eventId: ticket.eventId,
+            qrCode: ticket.qrCode,
+            userId: user.id,
+          });
+          const fallback = await generateQRCodeDataURL(qrData, opts.size ?? 256);
+          if (!cancelled) setQrPngDataUrl(fallback);
+        } catch {
+          if (!cancelled) setFailed(true);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
     run();
-    return () => { cancelled = true; };
-  }, [ticket, user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [ticket, user, opts]);
 
   const downloadPng = useCallback(async () => {
     try {
-      if (!qrCodeSVG) return;
-      // Create image from SVG
-      const svgBlob = new Blob([qrCodeSVG], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(svgBlob);
-      const img = new Image();
-      const size = 512;
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = reject;
-        img.src = url;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas not supported');
-
-      // White bg so dark mode prints well
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, size, size);
-      ctx.drawImage(img, 0, 0, size, size);
-
-      const pngUrl = canvas.toDataURL('image/png');
+      if (!qrPngDataUrl) return;
       const a = document.createElement('a');
-      a.href = pngUrl;
+      a.href = qrPngDataUrl;
       a.download = `ticket-${ticket.id}.png`;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
       a.click();
-
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (e) {
       console.error(e);
       toast({
         title: 'Download failed',
         description: 'Could not export PNG. Try again.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
-  }, [qrCodeSVG, ticket.id]);
+  }, [qrPngDataUrl, ticket.id]);
 
   return (
     <div
@@ -132,7 +159,7 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
       <Card className="w-full max-w-md relative animate-in fade-in zoom-in duration-300 shadow-2xl border-0 bg-white">
         <CardHeader className="text-center pb-4">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center" aria-hidden>
               <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM16 13h2v2h-2v-2zM16 17h2v2h-2v-2zM20 13h2v2h-2v-2zM20 17h2v2h-2v-2z"/>
               </svg>
@@ -153,7 +180,6 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
         <CardContent className="space-y-4">
           <div className="text-center space-y-2">
             <h3 className="font-semibold leading-tight">{ticket.eventTitle}</h3>
-            {/* Use the already formatted strings instead of reparsing */}
             <p className="text-sm text-muted-foreground">
               {ticket.eventDate} at {ticket.eventTime}
             </p>
@@ -184,10 +210,12 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
 
             {!loading && !failed && (
               <div className="w-[240px] h-[240px] select-none flex items-center justify-center">
-                <img 
-                  src={qrCodeSVG} 
+                {/* We render at higher internal resolution (opts.size); <img> downscales crisply */}
+                <img
+                  src={qrPngDataUrl}
                   alt="Ticket QR code"
                   className="w-full h-full object-contain"
+                  draggable={false}
                 />
               </div>
             )}
