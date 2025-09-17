@@ -24,6 +24,7 @@ export function PurchaseSuccessHandler() {
   const [timeoutReached, setTimeoutReached] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [processing, setProcessing] = useState(false);
+  const [hasProcessedPayment, setHasProcessedPayment] = useState(false);
 
   // Handle successful payment
   useEffect(() => {
@@ -80,51 +81,64 @@ export function PurchaseSuccessHandler() {
     }
 
     // If order status is pending and not already processing, try to process the payment
-    if (orderStatus?.status === 'pending' && !processing && !statusLoading) {
+    if (orderStatus?.status === 'pending' && !processing && !statusLoading && !hasProcessedPayment) {
       console.log('🔄 Order is pending, attempting to process payment...');
       processPayment();
+      return; // Don't set timeout if we're processing payment
     }
     
-    // If order status loading has been too long, try processing payment
-    if (!orderStatus && statusLoading && !processing && retryCount === 0) {
+    // If we have a successful order, don't start any timeouts
+    if (orderStatus?.status === 'paid') {
+      return;
+    }
+    
+    // If we have an order error, don't keep retrying
+    if (orderError) {
+      return;
+    }
+    
+    // If order status loading has been too long, try processing payment (only once)
+    if (!orderStatus && statusLoading && !processing && retryCount === 0 && !hasProcessedPayment) {
       console.log('🔄 Order status taking too long, attempting to process payment...');
       processPayment();
+      return;
     }
 
-    // Set a timeout for order status checking
-    const timeoutId = setTimeout(() => {
-      if (!orderStatus && !statusLoading) {
-        console.log('⏰ Timeout reached, attempting retry...');
-        setTimeoutReached(true);
-        
-        if (retryCount < 3) {
+    // Set a timeout for order status checking (only if not already processing)
+    if (!processing && retryCount < 3) {
+      const timeoutId = setTimeout(() => {
+        if (!orderStatus && !statusLoading && !processing) {
+          console.log('⏰ Timeout reached, attempting retry...');
+          setTimeoutReached(true);
           setRetryCount(prev => prev + 1);
           refetch();
-        } else {
-          // After 3 retries, assume payment was successful and redirect
-          console.log('🔄 Max retries reached, assuming payment successful...');
-          toast({
-            title: 'Payment Processing',
-            description: 'Your payment is being processed. You can check your tickets in the tickets section.',
-            variant: 'default',
-          });
-          setTimeout(() => navigate('/tickets', { replace: true }), 2000);
         }
-      }
-    }, 10000); // 10 second timeout
+      }, 8000); // 8 second timeout
 
-    return () => clearTimeout(timeoutId);
-  }, [sessionId, orderStatus, statusLoading, retryCount, processing, refetch, toast, navigate]);
+      return () => clearTimeout(timeoutId);
+    } else if (retryCount >= 3 && !orderStatus) {
+      // After 3 retries, assume payment was successful and redirect
+      console.log('🔄 Max retries reached, assuming payment successful...');
+      toast({
+        title: 'Payment Processing',
+        description: 'Your payment is being processed. You can check your tickets in the tickets section.',
+        variant: 'default',
+      });
+      setTimeout(() => navigate('/tickets', { replace: true }), 2000);
+    }
+  }, [sessionId, orderStatus, statusLoading, retryCount, processing, orderError, refetch, toast, navigate]);
 
   const processPayment = async () => {
-    if (!sessionId || processing) return;
+    if (!sessionId || processing || hasProcessedPayment) return;
     
     setProcessing(true);
+    setHasProcessedPayment(true); // Prevent multiple payment processing attempts
+    
     try {
       console.log('💳 Processing payment for session:', sessionId);
       
       const { data, error } = await supabase.functions.invoke('process-payment', {
-        body: { sessionId }
+        body: { sessionId }  // Keep original parameter name
       });
       
       if (error) {
@@ -135,10 +149,13 @@ export function PurchaseSuccessHandler() {
       console.log('✅ Payment processed successfully:', data);
       
       // Refresh order status after processing
-      refetch();
+      setTimeout(() => {
+        refetch();
+      }, 1000); // Give a small delay for database to update
       
     } catch (error) {
       console.error('❌ Failed to process payment:', error);
+      setHasProcessedPayment(false); // Allow retry on error
       toast({
         title: 'Payment Processing Error',
         description: 'There was an issue processing your payment. Please contact support if this persists.',
