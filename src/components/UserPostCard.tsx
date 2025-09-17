@@ -4,7 +4,7 @@ import { Play, Pause } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
 import { useHlsVideo } from '@/hooks/useHlsVideo';
-import { useAnalytics } from '@/hooks/useAnalytics';
+import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import ActionRail from './ActionRail';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
@@ -50,7 +50,7 @@ export function UserPostCard({
   soundEnabled = true,
   isVideoPlaying = false,
 }: UserPostCardProps) {
-  const { trackVideoInteraction, trackEngagement, trackConversion } = useAnalytics();
+  const { trackVideoEvent, trackEvent } = useAnalyticsIntegration();
   const [mediaError, setMediaError] = useState(false);
 
   // Derived values memoized for small perf wins
@@ -124,7 +124,7 @@ export function UserPostCard({
         
         // Track progress milestones
         if (percentage >= 25 && lastProgress < 25) {
-          trackVideoInteraction('progress_25', {
+          trackEvent('video_progress_25', {
             post_id: item.item_id,
             event_id: item.event_id,
             duration,
@@ -132,7 +132,7 @@ export function UserPostCard({
           });
           lastProgress = 25;
         } else if (percentage >= 50 && lastProgress < 50) {
-          trackVideoInteraction('progress_50', {
+          trackEvent('video_progress_50', {
             post_id: item.item_id,
             event_id: item.event_id,
             duration,
@@ -140,7 +140,7 @@ export function UserPostCard({
           });
           lastProgress = 50;
         } else if (percentage >= 75 && lastProgress < 75) {
-          trackVideoInteraction('progress_75', {
+          trackEvent('video_progress_75', {
             post_id: item.item_id,
             event_id: item.event_id,
             duration,
@@ -148,7 +148,7 @@ export function UserPostCard({
           });
           lastProgress = 75;
         } else if (percentage >= 95) {
-          trackVideoInteraction('complete', {
+          trackEvent('video_complete', {
             post_id: item.item_id,
             event_id: item.event_id,
             duration,
@@ -160,7 +160,7 @@ export function UserPostCard({
 
       const handlePlay = () => {
         viewStartTime = Date.now();
-        trackVideoInteraction('play', {
+        trackEvent('video_play', {
           post_id: item.item_id,
           event_id: item.event_id,
           current_time: video.currentTime
@@ -168,7 +168,7 @@ export function UserPostCard({
       };
 
       const handlePause = () => {
-        trackVideoInteraction('pause', {
+        trackEvent('video_pause', {
           post_id: item.item_id,
           event_id: item.event_id,
           current_time: video.currentTime,
@@ -186,7 +186,7 @@ export function UserPostCard({
         video.removeEventListener('pause', handlePause);
       };
     }
-  }, [isVideo, videoRef, isVideoPlaying, item.item_id, item.event_id, trackVideoInteraction]);
+  }, [isVideo, videoRef, isVideoPlaying, item.item_id, item.event_id, trackEvent]);
 
   // Update muted state when soundEnabled changes
   useEffect(() => {

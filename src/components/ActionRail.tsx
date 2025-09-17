@@ -1,6 +1,6 @@
 import React from 'react';
 import { Heart, MessageCircle, Share2, Plus, Flag, Volume2, VolumeX } from 'lucide-react';
-import { useAnalytics } from '@/hooks/useAnalytics';
+import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 
 type Countable = number | undefined | null;
 
@@ -40,7 +40,7 @@ export const ActionRail: React.FC<ActionRailProps> = ({
   soundEnabled = true,
   enablePointerEvents = true,
 }) => {
-  const { trackEngagement } = useAnalytics();
+  const { trackEvent } = useAnalyticsIntegration();
   const pe = enablePointerEvents ? 'pointer-events-auto' : 'pointer-events-none';
   return (
     <div
@@ -51,9 +51,9 @@ export const ActionRail: React.FC<ActionRailProps> = ({
         onClick={(e) => { 
           e.stopPropagation(); 
           onLike?.();
-          trackEngagement('like', {
-            contentType: 'post',
-            contentId: postId,
+          trackEvent('engagement_like', {
+            content_type: 'post',
+            content_id: postId,
             event_id: eventId,
             liked: !liked
           });
@@ -69,9 +69,9 @@ export const ActionRail: React.FC<ActionRailProps> = ({
         onClick={(e) => { 
           e.stopPropagation(); 
           onComment?.();
-          trackEngagement('comment_open', {
-            contentType: 'post',
-            contentId: postId,
+          trackEvent('engagement_comment', {
+            content_type: 'post',
+            content_id: postId,
             event_id: eventId
           });
         }}
@@ -86,9 +86,9 @@ export const ActionRail: React.FC<ActionRailProps> = ({
         onClick={(e) => { 
           e.stopPropagation(); 
           onShare?.();
-          trackEngagement('share_open', {
-            contentType: 'post',
-            contentId: postId,
+          trackEvent('engagement_share', {
+            content_type: 'post',
+            content_id: postId,
             event_id: eventId
           });
         }}
@@ -103,7 +103,7 @@ export const ActionRail: React.FC<ActionRailProps> = ({
         onClick={(e) => { 
           e.stopPropagation(); 
           onCreatePost?.();
-          trackEngagement('create_post_cta', {
+          trackEvent('engagement_create_post_cta', {
             event_id: eventId,
             source: 'action_rail'
           });

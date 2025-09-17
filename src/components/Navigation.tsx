@@ -1,6 +1,6 @@
 import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAnalytics } from '@/hooks/useAnalytics';
+import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useCallback, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AuthModal from './AuthModal';
@@ -51,7 +51,7 @@ const AUTH_REQUIRED: Record<string, Screen> = {
 
 export default function Navigation({ userRole }: NavigationProps) {
   const { user } = useAuth();
-  const { trackEngagement } = useAnalytics();
+  const { trackEvent } = useAnalyticsIntegration();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -97,7 +97,7 @@ export default function Navigation({ userRole }: NavigationProps) {
     console.log('handleCreatePost called, user:', user?.id);
     
     // Track create post intent
-    trackEngagement('create_post_intent', {
+    trackEvent('engagement_create_post_intent', {
       user_role: userRole,
       source: 'navigation'
     });
@@ -110,14 +110,14 @@ export default function Navigation({ userRole }: NavigationProps) {
     
     // Always open post creator for authenticated users
     setPostCreatorOpen(true);
-  }, [user, userRole, trackEngagement]);
+  }, [user, userRole, trackEvent]);
 
   const handleNavigation = useCallback(
     (path: string, screen: Screen) => {
       console.log('handleNavigation called with:', { path, screen, user: user?.id, userRole });
       
       // Track navigation click
-      trackEngagement('navigation_click', {
+      trackEvent('engagement_navigation_click', {
         destination: screen,
         path: path,
         user_role: userRole
@@ -135,7 +135,7 @@ export default function Navigation({ userRole }: NavigationProps) {
       }
       navigate(path);
     },
-    [navigate, requiresAuth, user, userRole, handleCreatePost, trackEngagement]
+    [navigate, requiresAuth, user, userRole, handleCreatePost, trackEvent]
   );
 
   const handleAuthSuccess = useCallback(() => {

@@ -1,7 +1,7 @@
 // src/components/AnalyticsWrapper.tsx
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAnalytics } from '@/hooks/useAnalytics';
+import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 
 interface AnalyticsWrapperProps {
   children: React.ReactNode;
@@ -104,7 +104,7 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
   trackClientErrors = true,
   trackPageLoad = true,
 }) => {
-  const { track } = useAnalytics();
+  const { trackEvent } = useAnalyticsIntegration();
   const location = useLocation();
 
   const sidRef = useRef<string>('');
@@ -146,34 +146,34 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
             }
           : undefined;
 
-        track('page_load', {
-          session_id: sidRef.current,
-          ua: navigator.userAgent,
-          lang: navigator.language,
-          viewport_w: window.innerWidth,
-          viewport_h: window.innerHeight,
-          dpr: window.devicePixelRatio || 1,
-          ...timingPayload,
-        });
+        trackEvent('page_load', {
+          session_id: sidRef.current,
+          ua: navigator.userAgent,
+          lang: navigator.language,
+          viewport_w: window.innerWidth,
+          viewport_h: window.innerHeight,
+          dpr: window.devicePixelRatio || 1,
+          ...timingPayload,
+        });
       } catch {
         // ignore
       }
     }
 
-    // Session start marker (first mount)
-    track('session_start', {
-      session_id: sidRef.current,
-      lang: navigator.language,
-    });
-    // Session end marker (best-effort)
-    const onBeforeUnload = () => {
-      if (DNT()) return;
-      track('session_end', { session_id: sidRef.current });
-    };
+    // Session start marker (first mount)
+    trackEvent('session_start', {
+      session_id: sidRef.current,
+      lang: navigator.language,
+    });
+    // Session end marker (best-effort)
+    const onBeforeUnload = () => {
+      if (DNT()) return;
+      trackEvent('session_end', { session_id: sidRef.current });
+    };
     window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackEvent]);
 
   // Track page views on route change
   useEffect(() => {
@@ -206,11 +206,11 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
       if (!trackTimeOnPage) return;
       const spent = engagedMsRef.current;
       if (spent > 0 && prevPathRef.current) {
-        track('time_on_page', {
-          path: prevPathRef.current,
-          ms: spent,
-          session_id: sidRef.current,
-        });
+        trackEvent('time_on_page', {
+          path: prevPathRef.current,
+          ms: spent,
+          session_id: sidRef.current,
+        });
       }
     };
 
@@ -228,11 +228,11 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
 
     // Route change event (SPA)
     if (prevPathRef.current && prevPathRef.current !== meta.pathname) {
-      track('route_change', {
-        from: prevPathRef.current,
-        to: meta.pathname,
-        session_id: sidRef.current,
-      });
+      trackEvent('route_change', {
+        from: prevPathRef.current,
+        to: meta.pathname,
+        session_id: sidRef.current,
+      });
     }
 
     prevPathRef.current = meta.pathname;
@@ -249,18 +249,18 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
       }
     }
 
-    // Page view
-    track('page_view', {
-      path: meta.pathname,
-      url: meta.url,
-      title: document.title,
-      referrer,
-      session_id: sidRef.current,
-      landing_path: sessionStorage.getItem(landingKey) || undefined,
-      ...(utm_first ? { utm_first } : {}),
-      ...(utm_last ? { utm_last } : {}),
-      ...(hadUTM ? meta.utm : {}),
-    });
+    // Page view
+    trackEvent('page_view', {
+      path: meta.pathname,
+      url: meta.url,
+      title: document.title,
+      referrer,
+      session_id: sidRef.current,
+      landing_path: sessionStorage.getItem(landingKey) || undefined,
+      ...(utm_first ? { utm_first } : {}),
+      ...(utm_last ? { utm_last } : {}),
+      ...(hadUTM ? meta.utm : {}),
+    });
 
     // Heartbeat for engaged time (counts only while visible)
     if (trackTimeOnPage) {
@@ -281,11 +281,11 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
       if (trackTimeOnPage) {
         const spent = engagedMsRef.current;
         if (spent > 0) {
-          track('time_on_page', {
-            path: meta.pathname,
-            ms: spent,
-            session_id: sidRef.current,
-          });
+          trackEvent('time_on_page', {
+            path: meta.pathname,
+            ms: spent,
+            session_id: sidRef.current,
+          });
         }
       }
     };
@@ -314,18 +314,18 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
         path: prevPathRef.current || window.location.pathname,
       };
 
-      if (trackDownloads && isFileDownload(anchor)) {
-        track('file_download', props);
-        return;
-      }
-      if (trackOutboundLinks && isExternal(anchor)) {
-        track('external_link_click', props);
-      }
+      if (trackDownloads && isFileDownload(anchor)) {
+        trackEvent('file_download', props);
+        return;
+      }
+      if (trackOutboundLinks && isExternal(anchor)) {
+        trackEvent('external_link_click', props);
+      }
     };
 
-    document.addEventListener('click', onClick, { capture: true });
-    return () => document.removeEventListener('click', onClick, { capture: true } as any);
-  }, [trackOutboundLinks, trackDownloads, track]);
+    document.addEventListener('click', onClick, { capture: true });
+    return () => document.removeEventListener('click', onClick, { capture: true } as any);
+  }, [trackOutboundLinks, trackDownloads, trackEvent]);
 
   // Optional: scroll depth tracking
   useEffect(() => {
@@ -349,11 +349,11 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
       thresholds.forEach(t => {
         if (pct >= t && !firedDepthsRef.current.has(t)) {
           firedDepthsRef.current.add(t);
-          track('scroll_depth', {
-            path: prevPathRef.current || window.location.pathname,
-            percent: t,
-            session_id: sidRef.current,
-          });
+          trackEvent('scroll_depth', {
+            path: prevPathRef.current || window.location.pathname,
+            percent: t,
+            session_id: sidRef.current,
+          });
         }
       });
       tickingRef.current = false;
@@ -369,34 +369,34 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
     // fire once in case content is short
     onScroll();
 
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [trackScrollDepth, track]);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [trackScrollDepth, trackEvent]);
 
   // Optional: focus/blur tracking
   useEffect(() => {
     if (!trackFocus || DNT()) return;
-    const onFocus = () => track('page_focus', { path: window.location.pathname, session_id: sidRef.current });
-    const onBlur = () => track('page_blur', { path: window.location.pathname, session_id: sidRef.current });
+    const onFocus = () => trackEvent('page_focus', { path: window.location.pathname, session_id: sidRef.current });
+    const onBlur = () => trackEvent('page_blur', { path: window.location.pathname, session_id: sidRef.current });
     window.addEventListener('focus', onFocus);
     window.addEventListener('blur', onBlur);
     return () => {
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('blur', onBlur);
-    };
-  }, [trackFocus, track]);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [trackFocus, trackEvent]);
 
   // Optional: connectivity tracking
   useEffect(() => {
     if (!trackConnectivity || DNT()) return;
-    const onOnline = () => track('online', { session_id: sidRef.current });
-    const onOffline = () => track('offline', { session_id: sidRef.current });
+    const onOnline = () => trackEvent('online', { session_id: sidRef.current });
+    const onOffline = () => trackEvent('offline', { session_id: sidRef.current });
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-    };
-  }, [trackConnectivity, track]);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [trackConnectivity, trackEvent]);
 
   // Optional: client error tracking
   useEffect(() => {
@@ -404,15 +404,15 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
 
     const onError = (event: ErrorEvent) => {
       try {
-        track('client_error', {
-          message: event.message,
-          source: event.filename,
-          lineno: event.lineno,
-          colno: event.colno,
-          stack: event.error?.stack?.slice(0, 8000),
-          session_id: sidRef.current,
-          path: window.location.pathname,
-        });
+        trackEvent('client_error', {
+          message: event.message,
+          source: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+          stack: event.error?.stack?.slice(0, 8000),
+          session_id: sidRef.current,
+          path: window.location.pathname,
+        });
       } catch {
         // ignore
       }
@@ -421,12 +421,12 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
       try {
         const reason = (event.reason && (event.reason.message || String(event.reason))) || 'unhandledrejection';
-        track('client_unhandled_rejection', {
-          reason,
-          stack: event.reason?.stack?.slice(0, 8000),
-          session_id: sidRef.current,
-          path: window.location.pathname,
-        });
+        trackEvent('client_unhandled_rejection', {
+          reason,
+          stack: event.reason?.stack?.slice(0, 8000),
+          session_id: sidRef.current,
+          path: window.location.pathname,
+        });
       } catch {
         // ignore
       }
@@ -436,10 +436,10 @@ export const AnalyticsWrapper: React.FC<AnalyticsWrapperProps> = ({
     window.addEventListener('unhandledrejection', onUnhandledRejection as any);
 
     return () => {
-      window.removeEventListener('error', onError);
-      window.removeEventListener('unhandledrejection', onUnhandledRejection as any);
-    };
-  }, [trackClientErrors, track]);
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onUnhandledRejection as any);
+    };
+  }, [trackClientErrors, trackEvent]);
 
   return <>{children}</>;
 };
