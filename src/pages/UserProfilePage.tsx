@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, MapPin, Calendar, Users, Crown, Ticket, Share } from 'lucide-react';
 import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
 import { EventFeed } from '@/components/EventFeed';
+import { PayoutPanel } from '@/components/PayoutPanel';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
@@ -334,10 +335,11 @@ export default function UserProfilePage() {
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10 bg-background border-b">
+          <TabsList className="grid w-full grid-cols-4 sticky top-0 z-10 bg-background border-b">
             <TabsTrigger value="posts" className="min-h-[44px]">Posts</TabsTrigger>
             <TabsTrigger value="tickets" className="min-h-[44px]">Tickets</TabsTrigger>
             <TabsTrigger value="events" className="min-h-[44px]">Events</TabsTrigger>
+            <TabsTrigger value="payouts" className="min-h-[44px]">Payouts</TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-y-auto">
@@ -476,6 +478,11 @@ export default function UserProfilePage() {
                   <p className="text-sm">This user hasn't organized any events yet.</p>
                 </div>
               )}
+            </TabsContent>
+
+            {/* PAYOUTS */}
+            <TabsContent value="payouts" className="p-4 m-0">
+              <PayoutPanel contextType="individual" contextId={profile.user_id} />
             </TabsContent>
           </div>
         </Tabs>
