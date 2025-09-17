@@ -241,7 +241,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         <img
           src="/yardpass-logo.png"
           alt="YardPass"
-          className="w-[8vw] h-[8vw] min-w-[32px] min-h-[32px] max-w-[80px] max-h-[80px] object-contain"
+          className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 object-contain"
         />
       </div>
 
