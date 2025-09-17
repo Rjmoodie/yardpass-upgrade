@@ -172,12 +172,22 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     // Update playing state first
     setPlayingVideos(prev => {
       const next = new Set<number>();
+      // Check if the set has actually changed to prevent unnecessary updates
+      const currentArray = Array.from(prev);
+      const newArray: number[] = [];
+      
       indices.forEach(idx => {
         if (idx === currentIndex) {
-          next.add(idx);
+          newArray.push(idx);
         }
       });
-      return next;
+      
+      // Only update if the arrays are different
+      if (currentArray.length !== newArray.length || 
+          !currentArray.every(item => newArray.includes(item))) {
+        return new Set(newArray);
+      }
+      return prev;
     });
 
     // Then control actual video elements
@@ -197,7 +207,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         videoElement.pause();
       }
     });
-  }, [currentIndex, soundEnabled, items]);
+  }, [currentIndex, soundEnabled, items.length]); // Use items.length instead of items to prevent infinite loops
 
   // Actions
   const handleLike = useCallback(

@@ -23,6 +23,7 @@ export type Database = {
           metadata: Json
           path: string | null
           referrer: string | null
+          session_id: string | null
           source: string | null
           ticket_id: string | null
           url: string | null
@@ -41,6 +42,7 @@ export type Database = {
           metadata?: Json
           path?: string | null
           referrer?: string | null
+          session_id?: string | null
           source?: string | null
           ticket_id?: string | null
           url?: string | null
@@ -59,6 +61,7 @@ export type Database = {
           metadata?: Json
           path?: string | null
           referrer?: string | null
+          session_id?: string | null
           source?: string | null
           ticket_id?: string | null
           url?: string | null
