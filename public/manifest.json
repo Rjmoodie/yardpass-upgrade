@@ -1,0 +1,76 @@
+{
+  "name": "YardPass - Discover Amazing Events",
+  "short_name": "YardPass",
+  "description": "Video-first event discovery and ticketing platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f23",
+  "theme_color": "#f59e0b",
+  "orientation": "portrait-primary",
+  "categories": ["entertainment", "social", "lifestyle"],
+  "lang": "en-US",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/yardpass-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/yardpass-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Discover Events",
+      "short_name": "Discover",
+      "description": "Browse trending events",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/yardpass-logo.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "My Tickets",
+      "short_name": "Tickets",
+      "description": "View your event tickets",
+      "url": "/tickets",
+      "icons": [
+        {
+          "src": "/yardpass-logo.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Organizer Dashboard",
+      "short_name": "Dashboard",
+      "description": "Manage your events",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/yardpass-logo.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=app.lovable.f63ed2d9b24c482abacd65518a3b8e6f"
+    },
+    {
+      "platform": "itunes",
+      "url": "https://apps.apple.com/app/yardpass/id1234567890"
+    }
+  ],
+  "prefer_related_applications": false
+}

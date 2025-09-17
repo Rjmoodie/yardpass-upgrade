@@ -29,6 +29,7 @@ const OrganizationDashboard = lazy(() => import('@/components/OrganizationDashbo
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
 const RefundPolicy = lazy(() => import('@/pages/RefundPolicy'));
+const DeploymentReadinessPage = lazy(() => import('@/pages/DeploymentReadinessPage'));
 import { TicketsRoute } from '@/components/TicketsRoute';
 const TicketSuccessPage = lazy(() => import('@/components/TicketSuccessPage'));
 const PurchaseSuccessHandler = lazy(() =>
@@ -261,6 +262,7 @@ function AppContent() {
               <Route path="/privacy-policy" element={<PrivacyPolicy onBack={() => navigate('/')} />} />
               <Route path="/terms-of-service" element={<TermsOfService onBack={() => navigate('/')} />} />
               <Route path="/refund-policy" element={<RefundPolicy onBack={() => navigate('/')} />} />
+              <Route path="/deployment-readiness" element={<DeploymentReadinessPage onBack={() => navigate('/')} />} />
 
               {/* Protected Routes */}
               <Route

@@ -2,23 +2,54 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Permissions-Policy" content="vr=(), ambient-light-sensor=(), battery=(), payment=()" />
-    <title>YardPass - Discover Amazing Events</title>
-    <meta name="description" content="Experience events like never before with YardPass - Your gateway to unforgettable moments" />
+    
+    <!-- PWA and Mobile App Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="YardPass" />
+    <meta name="theme-color" content="#f59e0b" />
+    <meta name="msapplication-TileColor" content="#f59e0b" />
+    <meta name="msapplication-navbutton-color" content="#f59e0b" />
+    
+    <!-- SEO Meta Tags -->
+    <title>YardPass - Discover Amazing Events Near You</title>
+    <meta name="description" content="Join the hottest events in your area. Discover, attend, and share unforgettable experiences with YardPass - the video-first event platform." />
+    <meta name="keywords" content="events, tickets, video, discovery, entertainment, parties, concerts, social, yard pass" />
     <meta name="author" content="YardPass" />
+    
+    <!-- Icons -->
     <link rel="icon" href="/yardpass-logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="/yardpass-logo.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/yardpass-logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/yardpass-logo.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/yardpass-logo.png" />
+    
+    <!-- Performance Optimizations -->
     <link rel="dns-prefetch" href="//stream.mux.com">
     <link rel="preconnect" href="https://stream.mux.com" crossorigin>
+    <link rel="dns-prefetch" href="//yieslxnrfeqchbcmgavz.supabase.co">
+    <link rel="preconnect" href="https://yieslxnrfeqchbcmgavz.supabase.co" crossorigin>
 
+    <!-- Open Graph Meta Tags -->
     <meta property="og:title" content="YardPass - Discover Amazing Events" />
-    <meta property="og:description" content="Experience events like never before with YardPass - Your gateway to unforgettable moments" />
+    <meta property="og:description" content="Join the hottest events in your area. Discover, attend, and share unforgettable experiences." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/yardpass-logo.png" />
+    <meta property="og:url" content="https://yardpass.com" />
+    <meta property="og:image" content="https://yardpass.com/yardpass-logo.png" />
+    <meta property="og:site_name" content="YardPass" />
+    <meta property="og:locale" content="en_US" />
 
+    <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="/yardpass-logo.png" />
+    <meta name="twitter:title" content="YardPass - Discover Amazing Events" />
+    <meta name="twitter:description" content="Join the hottest events in your area. Discover, attend, and share unforgettable experiences." />
+    <meta name="twitter:image" content="https://yardpass.com/yardpass-logo.png" />
+    <meta name="twitter:site" content="@yardpass" />
+    <meta name="twitter:creator" content="@yardpass" />
   </head>
 
   <body>

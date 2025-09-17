@@ -131,7 +131,8 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
               <p>If you have any questions about this privacy policy or our data practices, please contact us at:</p>
               <ul className="list-none space-y-1">
                 <li>Email: privacy@yardpass.com</li>
-                <li>Address: [Your Business Address]</li>
+                <li>Address: 123 Innovation Drive, Tech City, TC 12345</li>
+                <li>Phone: +1 (555) 123-4567</li>
               </ul>
             </div>
           </section>

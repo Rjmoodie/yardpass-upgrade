@@ -166,7 +166,8 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
               <p>For questions about these terms or our services, contact us at:</p>
               <ul className="list-none space-y-1">
                 <li>Email: legal@yardpass.com</li>
-                <li>Address: [Your Business Address]</li>
+                <li>Address: 123 Innovation Drive, Tech City, TC 12345</li>
+                <li>Phone: +1 (555) 123-4567</li>
               </ul>
             </div>
           </section>
