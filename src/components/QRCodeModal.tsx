@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Copy, Share, Loader2, Download } from 'lucide-react';
-import { generateQRData, generateQRCodeSVG } from '@/lib/qrCode';
+import { generateQRData, generateQRCodeWithLogo } from '@/lib/qrCode';
 import { UserTicket } from '@/hooks/useTickets';
 import { toast } from '@/hooks/use-toast';
 
@@ -55,7 +55,7 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
           userId: user.id
         });
 
-        const svg = await generateQRCodeSVG(qrData, 256);
+        const svg = await generateQRCodeWithLogo(qrData, 256);
         if (!cancelled) setQrCodeSVG(svg);
       } catch (err) {
         console.error('Failed to generate QR code:', err);
