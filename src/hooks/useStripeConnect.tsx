@@ -74,6 +74,12 @@ export function useStripeConnect(contextType: 'individual' | 'organization' = 'i
       }
 
       console.log('Payout account data:', data);
+      console.log('Account setup status:', {
+        charges_enabled: data?.charges_enabled,
+        payouts_enabled: data?.payouts_enabled,
+        details_submitted: data?.details_submitted,
+        isFullySetup: data?.charges_enabled && data?.payouts_enabled && data?.details_submitted
+      });
       setAccount(data);
 
       // If account exists and is set up, fetch balance
