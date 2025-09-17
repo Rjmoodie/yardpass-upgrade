@@ -1886,6 +1886,7 @@ export type Database = {
           phone: string | null
           photo_url: string | null
           role: string | null
+          social_links: Json | null
           updated_at: string | null
           user_id: string
           verification_status:
@@ -1898,6 +1899,7 @@ export type Database = {
           phone?: string | null
           photo_url?: string | null
           role?: string | null
+          social_links?: Json | null
           updated_at?: string | null
           user_id: string
           verification_status?:
@@ -1910,6 +1912,7 @@ export type Database = {
           phone?: string | null
           photo_url?: string | null
           role?: string | null
+          social_links?: Json | null
           updated_at?: string | null
           user_id?: string
           verification_status?:
@@ -2464,6 +2467,10 @@ export type Database = {
         Returns: {
           event_id: string
         }[]
+      }
+      validate_social_links: {
+        Args: { links: Json }
+        Returns: boolean
       }
     }
     Enums: {

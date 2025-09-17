@@ -5,6 +5,7 @@ import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
 import { useHlsVideo } from '@/hooks/useHlsVideo';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
+import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
 import ActionRail from './ActionRail';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 

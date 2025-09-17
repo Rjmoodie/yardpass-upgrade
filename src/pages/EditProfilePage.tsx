@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProfilePictureUpload } from '@/components/ProfilePictureUpload';
+import { SocialLinkManager, SocialLink } from '@/components/SocialLinkManager';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -16,11 +17,22 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
 
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.display_name || '');
       setPhotoUrl(profile.photo_url || '');
+      // Parse social_links from JSON
+      try {
+        const profileWithSocial = profile as any;
+        const links = Array.isArray(profileWithSocial.social_links) 
+          ? profileWithSocial.social_links as SocialLink[]
+          : [];
+        setSocialLinks(links);
+      } catch {
+        setSocialLinks([]);
+      }
     }
   }, [profile]);
 
@@ -41,7 +53,8 @@ export default function EditProfilePage() {
         .from('user_profiles')
         .update({ 
           display_name: displayName.trim(),
-          photo_url: photoUrl || null 
+          photo_url: photoUrl || null,
+          social_links: JSON.parse(JSON.stringify(socialLinks)) // Ensure it's proper JSON
         })
         .eq('user_id', user.id);
 
@@ -164,6 +177,13 @@ export default function EditProfilePage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Social Links Section */}
+        <SocialLinkManager
+          socialLinks={socialLinks}
+          onChange={setSocialLinks}
+          maxLinks={3}
+        />
 
         {/* Privacy Note */}
         <Card className="bg-muted/50">
