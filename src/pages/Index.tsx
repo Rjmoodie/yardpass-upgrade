@@ -252,22 +252,16 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const currentItem = items[Math.max(0, Math.min(currentIndex, items.length - 1))];
 
   const handleVideoToggle = useCallback((index: number) => {
-    const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${index}"] video`);
-    if (!el) return;
-    const isPlaying = playingVideos.has(index);
-    if (isPlaying) {
-      el.pause();
-      setPlayingVideos(prev => {
-        const next = new Set(prev);
+    setPlayingVideos(prev => {
+      const next = new Set(prev);
+      if (prev.has(index)) {
         next.delete(index);
-        return next;
-      });
-    } else {
-      el.play().then(() => {
-        setPlayingVideos(prev => new Set(prev).add(index));
-      }).catch(() => {/* ignore */});
-    }
-  }, [playingVideos]);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }, []);
 
   const handleSoundToggle = useCallback(() => {
     setSoundEnabled((prev) => {
