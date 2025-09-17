@@ -316,7 +316,7 @@ export function UserPostCard({
           {/* VIP / ORGANIZER badge */}
           {item.author_badge && (
             <span
-              className={`text-xs px-2 py-1 rounded-full text-white font-medium ml-2 flex-shrink-0 ${getBadgeColor(item.author_badge as AuthorBadge)}`}
+              className={`text-xs px-2 py-1 rounded-full text-white font-medium ml-1 flex-shrink-0 ${getBadgeColor(item.author_badge as AuthorBadge)}`}
               aria-label={String(item.author_badge)}
               title={String(item.author_badge)}
             >
