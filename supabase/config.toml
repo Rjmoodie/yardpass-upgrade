@@ -101,3 +101,6 @@ verify_jwt = true
 
 [functions.get-stripe-balance]
 verify_jwt = true
+
+[functions.enhanced-checkout]
+verify_jwt = false

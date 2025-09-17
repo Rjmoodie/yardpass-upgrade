@@ -19,6 +19,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { useStripeConnect } from '@/hooks/useStripeConnect';
+import { StripeConnectOnboarding } from './StripeConnectOnboarding';
+import { PayoutManager } from './PayoutManager';
 
 type PayoutStatus = 'pending' | 'processing' | 'completed' | 'failed';
 type PayoutMethod = 'bank_transfer' | 'paypal' | 'stripe';
@@ -45,13 +48,25 @@ const formatUSD = (n?: number) =>
 
 const safePercent = (num: number, den: number) => (den > 0 ? (num / den) * 100 : 0);
 
-export function PayoutDashboard() {
+interface PayoutDashboardProps {
+  contextType?: 'individual' | 'organization';
+  contextId?: string;
+}
+
+export function PayoutDashboard({ contextType = 'individual', contextId }: PayoutDashboardProps) {
   const { user } = useAuth();
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [stats, setStats] = useState<PayoutStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'all' | PayoutStatus>('all');
   const [refreshing, setRefreshing] = useState(false);
+
+  const effectiveContextId = contextId || user?.id || '';
+  const {
+    account,
+    balance,
+    isFullySetup
+  } = useStripeConnect(contextType, effectiveContextId);
 
   useEffect(() => {
     if (user?.id) fetchPayoutData();
@@ -62,28 +77,26 @@ export function PayoutDashboard() {
     if (!user) return;
     setLoading(true);
     try {
-      // Replace with real query when your payouts table exists.
-      // const { data: payoutsRaw, error } = await supabase.from('payouts').select('*').eq('user_id', user.id);
-      // if (error) throw error;
+      // Use real balance data when available
+      if (balance) {
+        setStats({
+          total_earned: balance.available + balance.pending,
+          total_paid: 0, // Would need historical data
+          pending_amount: balance.pending,
+          next_payout_date: getNextPayoutDate()
+        });
+      } else {
+        // Fallback to mock data for demo
+        const mockStats = getMockStats();
+        setStats(mockStats);
+      }
 
-      // Mock path:
-      const transformed = getMockPayouts().sort(
+      // TODO: Replace with real payout history from Stripe webhooks
+      const mockPayouts = getMockPayouts().sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-      setPayouts(transformed);
+      setPayouts(mockPayouts);
 
-      const totalEarned = transformed.reduce((s, p) => s + p.amount, 0);
-      const totalPaid = transformed.filter(p => p.status === 'completed').reduce((s, p) => s + p.amount, 0);
-      const pendingAmount = transformed
-        .filter(p => p.status === 'pending' || p.status === 'processing')
-        .reduce((s, p) => s + p.amount, 0);
-
-      setStats({
-        total_earned: totalEarned,
-        total_paid: totalPaid,
-        pending_amount: pendingAmount,
-        next_payout_date: getNextPayoutDate()
-      });
     } catch (error) {
       console.error('Error fetching payout data:', error);
       toast({
@@ -248,6 +261,22 @@ export function PayoutDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Stripe Connect Setup */}
+      {!isFullySetup && (
+        <StripeConnectOnboarding
+          contextType={contextType}
+          contextId={effectiveContextId}
+        />
+      )}
+
+      {/* Payout Manager */}
+      {isFullySetup && (
+        <PayoutManager
+          contextType={contextType}
+          contextId={effectiveContextId}
+        />
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -256,8 +285,10 @@ export function PayoutDashboard() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatUSD(stats?.total_earned)}</div>
-            <p className="text-xs text-muted-foreground">All time earnings</p>
+            <div className="text-2xl font-bold">
+              {balance ? formatUSD(balance.available / 100) : formatUSD(stats?.total_earned)}
+            </div>
+            <p className="text-xs text-muted-foreground">Available balance</p>
           </CardContent>
         </Card>
 
@@ -267,8 +298,12 @@ export function PayoutDashboard() {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatUSD(stats?.total_paid)}</div>
-            <p className="text-xs text-muted-foreground">Successfully paid out</p>
+            <div className="text-2xl font-bold">
+              {balance ? formatUSD(balance.pending / 100) : formatUSD(stats?.total_paid)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {balance ? "Pending payout" : "Successfully paid out"}
+            </p>
           </CardContent>
         </Card>
 
