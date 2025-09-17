@@ -185,6 +185,7 @@ export function UserPostCard({
                 muted={!soundEnabled}
                 loop
                 playsInline
+                preload="metadata"
                 crossOrigin="anonymous"
                 onClick={handleVideoClick}
                 aria-label={isVideoPlaying ? 'Pause video' : 'Play video'}

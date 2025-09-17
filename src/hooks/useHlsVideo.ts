@@ -31,7 +31,16 @@ export function useHlsVideo(src?: string) {
         
         if (isHls && !canPlayNative && Hls.isSupported()) {
           console.log('useHlsVideo: Using HLS.js for:', src);
-          const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+          const hls = new Hls({ 
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 90,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
+            startFragPrefetch: true,
+            testBandwidth: false,
+            progressive: true
+          });
           hlsRef.current = hls;
           hls.loadSource(src);
           hls.attachMedia(v);
