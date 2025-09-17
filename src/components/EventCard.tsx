@@ -50,7 +50,7 @@ export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onR
       />
 
       {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-end p-6">
+      <div className="absolute inset-0 flex flex-col justify-end p-6 pb-24">
         <div className="space-y-4">
           {/* Event Info */}
           <div className="space-y-2">
@@ -78,7 +78,7 @@ export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onR
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 z-40 relative">
             <Button
               onClick={() => onOpenTickets(item.event_id)}
               className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold py-3 shadow-lg"
