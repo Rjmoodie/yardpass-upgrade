@@ -11,38 +11,41 @@ interface PayoutAccount {
   details_submitted: boolean;
   context_type: 'individual' | 'organization';
   context_id: string;
+  created_at: string;
 }
 
-export function useStripeConnect() {
+export function useStripeConnect(contextType: 'individual' | 'organization' = 'individual', contextId?: string) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<PayoutAccount | null>(null);
+  const [balance, setBalance] = useState<{available: number, pending: number, currency: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user || !profile) {
+    if (!user) {
       setLoading(false);
       return;
     }
 
-    fetchPayoutAccount();
-  }, [user, profile]);
+    const effectiveContextId = contextId || user.id;
+    fetchPayoutAccount(effectiveContextId);
+  }, [user, contextId, contextType]);
 
-  const fetchPayoutAccount = async () => {
+  const fetchPayoutAccount = async (effectiveContextId: string) => {
     if (!user) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching payout account for user:', user.id);
+      console.log('Fetching payout account for:', { contextType, contextId: effectiveContextId });
 
       const { data, error: fetchError } = await supabase
         .from('payout_accounts')
         .select('*')
-        .eq('context_type', 'individual')
-        .eq('context_id', user.id)
+        .eq('context_type', contextType)
+        .eq('context_id', effectiveContextId)
         .maybeSingle();
 
       if (fetchError) {
@@ -52,6 +55,11 @@ export function useStripeConnect() {
 
       console.log('Payout account data:', data);
       setAccount(data);
+
+      // If account exists and is set up, fetch balance
+      if (data?.stripe_connect_id) {
+        await fetchBalance(effectiveContextId);
+      }
     } catch (err) {
       console.error('Error fetching payout account:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch payout account');
@@ -60,18 +68,43 @@ export function useStripeConnect() {
     }
   };
 
+  const fetchBalance = async (effectiveContextId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-stripe-balance', {
+        body: {
+          context_type: contextType,
+          context_id: effectiveContextId
+        }
+      });
+
+      if (error) {
+        console.error('Balance fetch error:', error);
+      } else {
+        setBalance({
+          available: data.available || 0,
+          pending: data.pending || 0,
+          currency: data.currency || 'usd'
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching balance:', err);
+    }
+  };
+
   const createStripeConnectAccount = async () => {
     if (!user) return;
+
+    const effectiveContextId = contextId || user.id;
 
     try {
       setLoading(true);
       
-      console.log('Creating Stripe Connect account for user:', user.id);
+      console.log('Creating Stripe Connect account for:', { contextType, contextId: effectiveContextId });
       
       const { data, error } = await supabase.functions.invoke('create-stripe-connect', {
         body: {
-          context_type: 'individual',
-          context_id: user.id,
+          context_type: contextType,
+          context_id: effectiveContextId,
           return_url: `${window.location.origin}/dashboard?tab=payouts`,
           refresh_url: `${window.location.origin}/dashboard?tab=payouts`
         }
@@ -90,7 +123,7 @@ export function useStripeConnect() {
       }
 
       // Refresh account data
-      await fetchPayoutAccount();
+      await fetchPayoutAccount(effectiveContextId);
 
       toast({
         title: "Stripe Connect Setup",
@@ -104,6 +137,49 @@ export function useStripeConnect() {
         description: err instanceof Error ? err.message : 'Failed to setup Stripe Connect',
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestPayout = async (amountCents: number) => {
+    if (!user) return;
+
+    const effectiveContextId = contextId || user.id;
+
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('create-payout', {
+        body: {
+          context_type: contextType,
+          context_id: effectiveContextId,
+          amount_cents: amountCents
+        }
+      });
+
+      if (error) {
+        console.error('Payout request error:', error);
+        throw error;
+      }
+
+      toast({
+        title: "Payout Requested",
+        description: `Payout of $${(amountCents / 100).toFixed(2)} has been requested successfully.`,
+      });
+
+      // Refresh balance
+      await fetchBalance(effectiveContextId);
+
+      return data;
+    } catch (err) {
+      console.error('Error requesting payout:', err);
+      toast({
+        title: "Payout Failed",
+        description: err instanceof Error ? err.message : 'Failed to request payout',
+        variant: "destructive",
+      });
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -148,19 +224,24 @@ export function useStripeConnect() {
   };
 
   const refreshAccount = () => {
-    console.log('Refreshing payout account...');
-    fetchPayoutAccount();
+    const effectiveContextId = contextId || user?.id;
+    if (effectiveContextId) {
+      console.log('Refreshing payout account...');
+      fetchPayoutAccount(effectiveContextId);
+    }
   };
 
   const isFullySetup = account?.charges_enabled && account?.payouts_enabled && account?.details_submitted;
 
   return {
     account,
+    balance,
     loading,
     error,
     isFullySetup,
     createStripeConnectAccount,
     openStripePortal,
+    requestPayout,
     refreshAccount
   };
 }

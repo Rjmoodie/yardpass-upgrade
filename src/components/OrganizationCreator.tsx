@@ -7,10 +7,11 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { ArrowLeft, Upload, Users, Building2, Shield, Check, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Upload, Users, Building2, Shield, Check, X, Loader2, CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { StripeConnectOnboarding } from './StripeConnectOnboarding';
 
 interface OrganizationCreatorProps {
   onBack: () => void;

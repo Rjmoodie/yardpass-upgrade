@@ -161,6 +161,58 @@ serve(async (req) => {
       if (updateError) {
         logStep("Failed to update failed order", { error: updateError.message });
       }
+
+    } else if (event.type === "account.updated") {
+      const account = event.data.object as Stripe.Account;
+      logStep("Processing account.updated", { accountId: account.id });
+
+      // Update payout account status
+      const { error: updateError } = await supabaseService
+        .from("payout_accounts")
+        .update({
+          charges_enabled: account.charges_enabled,
+          payouts_enabled: account.payouts_enabled,
+          details_submitted: account.details_submitted
+        })
+        .eq("stripe_connect_id", account.id);
+
+      if (updateError) {
+        logStep("Failed to update payout account", { error: updateError.message });
+      } else {
+        logStep("Payout account updated successfully", { 
+          accountId: account.id,
+          charges_enabled: account.charges_enabled,
+          payouts_enabled: account.payouts_enabled,
+          details_submitted: account.details_submitted
+        });
+      }
+
+    } else if (event.type === "payout.paid") {
+      const payout = event.data.object as Stripe.Payout;
+      logStep("Processing payout.paid", { payoutId: payout.id, amount: payout.amount });
+
+      // Log successful payout (you can extend this to update your payouts table)
+      // For now, just log it
+      logStep("Payout completed successfully", {
+        payoutId: payout.id,
+        amount: payout.amount,
+        destination: payout.destination
+      });
+
+    } else if (event.type === "payout.failed") {
+      const payout = event.data.object as Stripe.Payout;
+      logStep("Processing payout.failed", { payoutId: payout.id, failureCode: payout.failure_code });
+
+      // Log failed payout
+      logStep("Payout failed", {
+        payoutId: payout.id,
+        amount: payout.amount,
+        failureCode: payout.failure_code,
+        failureMessage: payout.failure_message
+      });
+
+    } else {
+      logStep("Unhandled webhook event", { type: event.type });
     }
 
     return createResponse({ received: true });

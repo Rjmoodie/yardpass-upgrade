@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { OrganizationCreator } from './OrganizationCreator';
 import { EventCreator } from './EventCreator';
+import { OrganizationSuccess } from './OrganizationSuccess';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -28,7 +29,8 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [step, setStep] = useState<'select-org' | 'create-org' | 'create-event'>('select-org');
+  const [step, setStep] = useState<'select-org' | 'create-org' | 'org-success' | 'create-event'>('select-org');
+  const [newOrgData, setNewOrgData] = useState<{ id: string; name: string; handle: string } | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [loading, setLoading] = useState(true);

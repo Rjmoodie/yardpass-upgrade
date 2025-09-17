@@ -92,3 +92,12 @@ verify_jwt = true
 
 [functions.analytics-posthog-funnel]
 verify_jwt = true
+
+[functions.refresh-stripe-accounts]
+verify_jwt = true
+
+[functions.create-payout]
+verify_jwt = true
+
+[functions.get-stripe-balance]
+verify_jwt = true
