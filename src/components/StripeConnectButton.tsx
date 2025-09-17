@@ -74,7 +74,7 @@ export function StripeConnectButton({
 
     return (
       <Badge variant="outline" className="border-yellow-300 text-yellow-700 ml-2">
-        Setup Required
+        Setup Pending
       </Badge>
     );
   };

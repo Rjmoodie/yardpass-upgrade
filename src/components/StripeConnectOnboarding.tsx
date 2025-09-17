@@ -73,7 +73,7 @@ export function StripeConnectOnboarding({
     return (
       <Badge variant="outline" className="border-yellow-300 text-yellow-700 gap-1">
         <AlertCircle className="w-3 h-3" />
-        Setup Required
+        Setup Pending
       </Badge>
     );
   };
@@ -91,6 +91,10 @@ export function StripeConnectOnboarding({
     if (!account.details_submitted) issues.push("complete verification");
     if (!account.charges_enabled) issues.push("enable charges");
     if (!account.payouts_enabled) issues.push("enable payouts");
+
+    if (account.stripe_connect_id && issues.length > 0) {
+      return "Stripe is processing your account setup. This usually takes a few minutes. Click refresh to check status.";
+    }
 
     return `Please ${issues.join(", ")} to start receiving payouts.`;
   };
