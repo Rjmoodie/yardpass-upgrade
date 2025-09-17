@@ -28,7 +28,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { routes } from '@/lib/routes';
-import { StripeConnectButton } from './StripeConnectButton';
+// import { StripeConnectButton } from './StripeConnectButton';
 
 type UserPost = {
   id: string;
@@ -215,7 +215,8 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             <Button variant="ghost" size="sm" onClick={onShare} aria-label="Share profile">
               <ShareIcon className="w-4 h-4" />
             </Button>
-            {user.role === 'organizer' && (
+            {/* Temporarily disabled Stripe Connect button */}
+            {/* {user.role === 'organizer' && (
               <StripeConnectButton
                 contextType="individual"
                 contextId={user.id}
@@ -223,7 +224,7 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                 size="sm"
                 showStatus={false}
               />
-            )}
+            )} */}
             <Button 
               variant="ghost" 
               size="sm"
