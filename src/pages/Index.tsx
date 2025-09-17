@@ -33,6 +33,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false); // Videos start muted
+  const [playingVideos, setPlayingVideos] = useState<Set<number>>(new Set());
 
   const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
@@ -124,14 +125,20 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         const video = videoContainer as HTMLVideoElement;
         
         if (index === currentIndex) {
-          // Current video: apply sound state and ensure it plays
+          // Current video: apply sound state and autoplay
           video.muted = !soundEnabled;
-          // Don't call play() or reset currentTime as it interferes with HLS.js
-          console.log(`Index ${currentIndex}: current video, sound ${soundEnabled ? 'enabled' : 'disabled'}`);
+          video.play().catch(e => console.log('Autoplay failed:', e));
+          setPlayingVideos(prev => new Set(prev).add(currentIndex));
+          console.log(`Index ${currentIndex}: autoplay started, sound ${soundEnabled ? 'enabled' : 'disabled'}`);
         } else {
-          // Other videos: always muted and paused
+          // Other videos: mute and pause
           video.muted = true;
           video.pause();
+          setPlayingVideos(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(index);
+            return newSet;
+          });
         }
       }
     });
@@ -234,6 +241,28 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     handleShare(postId);
   }, [handleShare, trackPostHogEvent]);
 
+  const handleVideoToggle = useCallback((index: number) => {
+    const videoContainer = document.querySelector(`[data-feed-index="${index}"] video`);
+    if (videoContainer) {
+      const video = videoContainer as HTMLVideoElement;
+      const isCurrentlyPlaying = playingVideos.has(index);
+      
+      if (isCurrentlyPlaying) {
+        video.pause();
+        setPlayingVideos(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(index);
+          return newSet;
+        });
+        console.log(`Video ${index} paused`);
+      } else {
+        video.play().catch(e => console.log('Play failed:', e));
+        setPlayingVideos(prev => new Set(prev).add(index));
+        console.log(`Video ${index} playing`);
+      }
+    }
+  }, [playingVideos]);
+
   const handleSoundToggle = useCallback(() => {
     const newSoundEnabled = !soundEnabled;
     setSoundEnabled(newSoundEnabled);
@@ -304,6 +333,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 onReport={() => {}}
                 onSoundToggle={handleSoundToggle}
                 soundEnabled={soundEnabled}
+                onVideoToggle={() => handleVideoToggle(i)}
+                isVideoPlaying={playingVideos.has(i)}
               />
             ) : (
               <UserPostCard
@@ -317,6 +348,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 onReport={() => {}}
                 onSoundToggle={handleSoundToggle}
                 soundEnabled={soundEnabled}
+                onVideoToggle={() => handleVideoToggle(i)}
+                isVideoPlaying={playingVideos.has(i)}
               />
             )}
           </div>

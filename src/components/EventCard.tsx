@@ -13,10 +13,12 @@ interface EventCardProps {
   onCreatePost?: () => void;
   onReport?: () => void;
   onSoundToggle?: () => void;
+  onVideoToggle?: () => void;
   soundEnabled?: boolean;
+  isVideoPlaying?: boolean;
 }
 
-export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onReport, onSoundToggle, soundEnabled }: EventCardProps) {
+export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onReport, onSoundToggle, onVideoToggle, soundEnabled, isVideoPlaying }: EventCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const formatDate = (dateStr: string | null) => {

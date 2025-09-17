@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Play, Pause } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
 import { useHlsVideo } from '@/hooks/useHlsVideo';
@@ -16,10 +17,12 @@ interface UserPostCardProps {
   onCreatePost?: () => void;
   onReport?: () => void;
   onSoundToggle?: () => void;
+  onVideoToggle?: () => void;
   soundEnabled?: boolean;
+  isVideoPlaying?: boolean;
 }
 
-export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, onAuthorClick, onCreatePost, onReport, onSoundToggle, soundEnabled }: UserPostCardProps) {
+export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, onAuthorClick, onCreatePost, onReport, onSoundToggle, onVideoToggle, soundEnabled, isVideoPlaying }: UserPostCardProps) {
   const [mediaError, setMediaError] = useState(false);
 
   const mediaUrl = item.media_urls?.[0];
@@ -65,14 +68,14 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
               <video
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-cover cursor-pointer"
-                autoPlay
+                autoPlay={false}
                 muted
                 loop
                 playsInline
                 crossOrigin="anonymous"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSoundToggle?.();
+                  onVideoToggle?.();
                 }}
                 // Don't set src when using HLS.js - let useHlsVideo handle it
                 // Let HLS.js handle all video events
@@ -80,6 +83,21 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
               {!ready && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+              
+              {/* Play/Pause Overlay */}
+              {ready && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                    <div className="bg-black/60 rounded-full p-4">
+                      {isVideoPlaying ? (
+                        <Pause className="w-8 h-8 text-white" />
+                      ) : (
+                        <Play className="w-8 h-8 text-white" />
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </>
