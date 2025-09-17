@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+
+type ContextType = 'individual' | 'organization';
 
 interface PayoutAccount {
   id: string;
@@ -9,305 +11,363 @@ interface PayoutAccount {
   charges_enabled: boolean;
   payouts_enabled: boolean;
   details_submitted: boolean;
-  context_type: 'individual' | 'organization';
+  context_type: ContextType;
   context_id: string;
   created_at: string;
 }
 
-export function useStripeConnect(contextType: 'individual' | 'organization' = 'individual', contextId?: string) {
-  const { user, profile } = useAuth();
+interface Balance {
+  available: number;   // cents
+  pending: number;     // cents
+  currency: string;    // e.g. 'usd'
+}
+
+type FnResult<T> = { data: T | null; error: string | null };
+
+function normalizeErr(e: unknown): string {
+  if (!e) return 'Unknown error';
+  if (typeof e === 'string') return e;
+  if (e instanceof Error) return e.message;
+  try {
+    // Supabase Functions often return { error: { message } } or { message }
+    const msg = (e as any)?.error?.message ?? (e as any)?.message;
+    return typeof msg === 'string' ? msg : JSON.stringify(e);
+  } catch {
+    return 'Unexpected error';
+  }
+}
+
+export function useStripeConnect(
+  contextType: ContextType = 'individual',
+  contextId?: string,
+  opts?: {
+    // allow callers to override where Stripe sends users back
+    returnUrl?: string;
+    refreshUrl?: string;
+    // auto-refresh from Stripe on first load (default true)
+    autoRefresh?: boolean;
+  }
+) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<PayoutAccount | null>(null);
-  const [balance, setBalance] = useState<{available: number, pending: number, currency: string} | null>(null);
+  const [balance, setBalance] = useState<Balance | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const mountedRef = useRef(true);
+  const opLockRef = useRef(false);
+
+  const effectiveContextId = useMemo(
+    () => contextId || user?.id || '',
+    [contextId, user?.id]
+  );
+
+  const returnUrl = useMemo(
+    () => opts?.returnUrl ?? `${window.location.origin}/dashboard?tab=payouts`,
+    [opts?.returnUrl]
+  );
+  const refreshUrl = useMemo(
+    () => opts?.refreshUrl ?? `${window.location.origin}/dashboard?tab=payouts`,
+    [opts?.refreshUrl]
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const safeSetState = useCallback(<T,>(setter: (v: T) => void, value: T) => {
+    if (mountedRef.current) setter(value);
+  }, []);
+
+  const lock = useCallback(async <T,>(fn: () => Promise<T>): Promise<T> => {
+    if (opLockRef.current) {
+      // prevent double-clicks / concurrent operations
+      throw new Error('Another operation is in progress, please wait a moment.');
+    }
+    opLockRef.current = true;
+    try {
+      return await fn();
+    } finally {
+      opLockRef.current = false;
+    }
+  }, []);
+
+  const fetchPayoutAccount = useCallback(
+    async (id = effectiveContextId): Promise<FnResult<PayoutAccount | null>> => {
+      if (!user || !id) return { data: null, error: null };
+      try {
+        safeSetState(setLoading, true);
+        safeSetState(setError, null);
+
+        const { data, error: fetchError } = await supabase
+          .from('payout_accounts')
+          .select('*')
+          .eq('context_type', contextType)
+          .eq('context_id', id)
+          .maybeSingle();
+
+        if (fetchError) throw fetchError;
+        safeSetState(setAccount, data);
+
+        // Fetch balance only if we have a connected account
+        if (data?.stripe_connect_id) {
+          const balRes = await supabase.functions.invoke('get-stripe-balance', {
+            body: { context_type: contextType, context_id: id }
+          });
+
+          if (!balRes.error) {
+            const d = balRes.data ?? {};
+            safeSetState(setBalance, {
+              available: Number(d.available || 0),
+              pending: Number(d.pending || 0),
+              currency: (d.currency || 'usd').toLowerCase()
+            });
+          }
+        } else {
+          safeSetState(setBalance, null);
+        }
+
+        return { data, error: null };
+      } catch (e) {
+        const msg = normalizeErr(e);
+        console.error('fetchPayoutAccount error:', e);
+        safeSetState(setError, msg);
+        return { data: null, error: msg };
+      } finally {
+        safeSetState(setLoading, false);
+      }
+    },
+    [contextType, effectiveContextId, safeSetState, user]
+  );
+
+  const refreshFromStripe = useCallback(
+    async () => {
+      try {
+        const { error } = await supabase.functions.invoke('refresh-stripe-accounts', {});
+        if (error) {
+          console.warn('refresh-stripe-accounts error:', error);
+        }
+      } catch (e) {
+        console.warn('refresh-stripe-accounts failed:', e);
+      }
+    },
+    []
+  );
+
+  // Initial load
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
-
-    const effectiveContextId = contextId || user.id;
-    
-    // Initial fetch
-    const initializeAccount = async () => {
+    (async () => {
       await fetchPayoutAccount(effectiveContextId);
-      
-      // Auto-refresh from Stripe API on first load only
+      if (opts?.autoRefresh ?? true) {
+        await refreshFromStripe();
+        await fetchPayoutAccount(effectiveContextId);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, effectiveContextId, contextType]);
+
+  const createStripeConnectAccount = useCallback(async () => {
+    if (!user || !effectiveContextId) return;
+    return lock(async () => {
+      safeSetState(setLoading, true);
       try {
-        const { data: refreshData, error: refreshError } = await supabase.functions.invoke('refresh-stripe-accounts', {});
-        if (refreshError) {
-          console.warn('Failed to refresh from Stripe API:', refreshError);
-        } else {
-          console.log('Auto-refresh result:', refreshData);
-          // Fetch again after refresh
-          await fetchPayoutAccount(effectiveContextId);
-        }
-      } catch (err) {
-        console.warn('Auto-refresh failed:', err);
-      }
-    };
-    
-    initializeAccount();
-  }, [user, contextId, contextType]);
-
-  const fetchPayoutAccount = async (effectiveContextId: string) => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      console.log('Fetching payout account for:', { contextType, contextId: effectiveContextId });
-
-      const { data, error: fetchError } = await supabase
-        .from('payout_accounts')
-        .select('*')
-        .eq('context_type', contextType)
-        .eq('context_id', effectiveContextId)
-        .maybeSingle();
-
-      if (fetchError) {
-        console.error('Payout account fetch error:', fetchError);
-        throw fetchError;
-      }
-
-      console.log('Payout account data:', data);
-      console.log('Account setup status:', {
-        charges_enabled: data?.charges_enabled,
-        payouts_enabled: data?.payouts_enabled,
-        details_submitted: data?.details_submitted,
-        isFullySetup: data?.charges_enabled && data?.payouts_enabled && data?.details_submitted
-      });
-      setAccount(data);
-
-      // If account exists and is set up, fetch balance
-      if (data?.stripe_connect_id) {
-        await fetchBalance(effectiveContextId);
-      }
-    } catch (err) {
-      console.error('Error fetching payout account:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch payout account');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchBalance = async (effectiveContextId: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('get-stripe-balance', {
-        body: {
-          context_type: contextType,
-          context_id: effectiveContextId
-        }
-      });
-
-      if (error) {
-        console.error('Balance fetch error:', error);
-      } else {
-        setBalance({
-          available: data.available || 0,
-          pending: data.pending || 0,
-          currency: data.currency || 'usd'
+        const { data, error } = await supabase.functions.invoke('create-stripe-connect', {
+          body: {
+            context_type: contextType,
+            context_id: effectiveContextId,
+            return_url: returnUrl,
+            refresh_url: refreshUrl
+          }
         });
-      }
-    } catch (err) {
-      console.error('Error fetching balance:', err);
-    }
-  };
+        if (error) throw error;
 
-  const createStripeConnectAccount = async () => {
-    if (!user) return;
-
-    const effectiveContextId = contextId || user.id;
-
-    try {
-      setLoading(true);
-      
-      console.log('Creating Stripe Connect account for:', { contextType, contextId: effectiveContextId });
-      
-      const { data, error } = await supabase.functions.invoke('create-stripe-connect', {
-        body: {
-          context_type: contextType,
-          context_id: effectiveContextId,
-          return_url: `${window.location.origin}/dashboard?tab=payouts`,
-          refresh_url: `${window.location.origin}/dashboard?tab=payouts`
+        if (data?.account_link_url) {
+          // Stripe recommends top-level navigation for onboarding (avoids popup blockers)
+          window.location.href = data.account_link_url;
         }
-      });
 
-      if (error) {
-        console.error('Stripe Connect creation error:', error);
-        throw error;
+        await fetchPayoutAccount(effectiveContextId);
+        toast({
+          title: 'Stripe Connect',
+          description: 'Finish onboarding to enable payouts.'
+        });
+      } catch (e) {
+        const msg = normalizeErr(e);
+        toast({ title: 'Setup Failed', description: msg, variant: 'destructive' });
+        throw e;
+      } finally {
+        safeSetState(setLoading, false);
       }
+    });
+  }, [user, effectiveContextId, contextType, fetchPayoutAccount, lock, refreshUrl, returnUrl, safeSetState, toast]);
 
-      console.log('Stripe Connect response:', data);
+  // Useful when an account exists but requirements are past_due / needs more info
+  const resumeOnboarding = useCallback(async () => {
+    if (!user || !effectiveContextId) return;
+    return lock(async () => {
+      safeSetState(setLoading, true);
+      try {
+        const { data, error } = await supabase.functions.invoke('create-stripe-connect', {
+          body: {
+            context_type: contextType,
+            context_id: effectiveContextId,
+            return_url: returnUrl,
+            refresh_url: refreshUrl,
+            // backend can branch: if account exists -> create account_link for updates
+            mode: 'refresh_or_update'
+          }
+        });
+        if (error) throw error;
 
-      if (data?.account_link_url) {
-        // Redirect to Stripe onboarding
-        window.open(data.account_link_url, '_blank');
-      }
-
-      // Refresh account data
-      await fetchPayoutAccount(effectiveContextId);
-
-      toast({
-        title: "Stripe Connect Setup",
-        description: "Complete the setup process in the new tab to enable payouts.",
-      });
-
-    } catch (err) {
-      console.error('Error creating Stripe Connect account:', err);
-      toast({
-        title: "Setup Failed",
-        description: err instanceof Error ? err.message : 'Failed to setup Stripe Connect',
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const requestPayout = async (amountCents: number) => {
-    if (!user) return;
-
-    const effectiveContextId = contextId || user.id;
-
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase.functions.invoke('create-payout', {
-        body: {
-          context_type: contextType,
-          context_id: effectiveContextId,
-          amount_cents: amountCents
+        if (data?.account_link_url) {
+          window.location.href = data.account_link_url;
         }
-      });
-
-      if (error) {
-        console.error('Payout request error:', error);
-        throw error;
+      } catch (e) {
+        const msg = normalizeErr(e);
+        toast({ title: 'Onboarding Error', description: msg, variant: 'destructive' });
+        throw e;
+      } finally {
+        safeSetState(setLoading, false);
       }
+    });
+  }, [user, effectiveContextId, contextType, lock, refreshUrl, returnUrl, safeSetState, toast]);
 
-      toast({
-        title: "Payout Requested",
-        description: `Payout of $${(amountCents / 100).toFixed(2)} has been requested successfully.`,
-      });
-
-      // Refresh balance
-      await fetchBalance(effectiveContextId);
-
-      return data;
-    } catch (err) {
-      console.error('Error requesting payout:', err);
-      toast({
-        title: "Payout Failed",
-        description: err instanceof Error ? err.message : 'Failed to request payout',
-        variant: "destructive",
-      });
-      throw err;
-    } finally {
-      setLoading(false);
+  const requestPayout = useCallback(async (amountCents: number) => {
+    if (!user || !effectiveContextId) return;
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      toast({ title: 'Invalid amount', description: 'Enter a positive payout amount.', variant: 'destructive' });
+      return;
     }
-  };
+    return lock(async () => {
+      safeSetState(setLoading, true);
+      try {
+        const { data, error } = await supabase.functions.invoke('create-payout', {
+          body: {
+            context_type: contextType,
+            context_id: effectiveContextId,
+            amount_cents: Math.floor(amountCents)
+          }
+        });
+        if (error) throw error;
 
-  const openStripePortal = async () => {
+        toast({
+          title: 'Payout Requested',
+          description: `Payout of ${formatMoney(amountCents, balance?.currency || 'usd')} requested.`
+        });
+
+        await fetchPayoutAccount(effectiveContextId);
+        return data;
+      } catch (e) {
+        const msg = normalizeErr(e);
+        toast({ title: 'Payout Failed', description: msg, variant: 'destructive' });
+        throw e;
+      } finally {
+        safeSetState(setLoading, false);
+      }
+    });
+  }, [user, effectiveContextId, contextType, lock, fetchPayoutAccount, toast, safeSetState, balance?.currency]);
+
+  const openStripePortal = useCallback(async () => {
     if (!account?.stripe_connect_id) return;
+    return lock(async () => {
+      safeSetState(setLoading, true);
+      try {
+        const { data, error } = await supabase.functions.invoke('stripe-connect-portal', {
+          body: {
+            account_id: account.stripe_connect_id,
+            return_url: `${window.location.origin}/profile`
+          }
+        });
+        if (error) throw error;
 
-    try {
-      setLoading(true);
-      
-      console.log('Opening Stripe portal for account:', account.stripe_connect_id);
-      
-      const { data, error } = await supabase.functions.invoke('stripe-connect-portal', {
-        body: {
-          account_id: account.stripe_connect_id,
-          return_url: `${window.location.origin}/profile`
+        if (data?.url) {
+          // Express Dashboard login link – popup is okay here; also handle blockers
+          const popup = window.open(
+            data.url,
+            '_blank',
+            'width=800,height=600,scrollbars=yes,resizable=yes,noopener,noreferrer'
+          );
+          if (!popup || popup.closed) {
+            toast({
+              title: 'Popup Blocked',
+              description: 'Please allow popups, then try again. If it persists, copy the URL from console.',
+              variant: 'destructive',
+              duration: 10000
+            });
+            console.info('Stripe portal URL:', data.url);
+          } else {
+            toast({ title: 'Opening Stripe Portal', description: 'Stripe Express Dashboard is opening…' });
+          }
         }
-      });
-
-      if (error) {
-        console.error('Stripe portal error:', error);
-        throw error;
+      } catch (e) {
+        const msg = normalizeErr(e);
+        toast({ title: 'Portal Error', description: msg, variant: 'destructive' });
+      } finally {
+        safeSetState(setLoading, false);
       }
+    });
+  }, [account?.stripe_connect_id, lock, safeSetState, toast]);
 
-      console.log('Stripe portal response:', data);
-
-      if (data?.url) {
-        // Open in popup (required by Stripe's CSP)
-        const popup = window.open(
-          data.url, 
-          '_blank',
-          'width=800,height=600,scrollbars=yes,resizable=yes,noopener,noreferrer'
-        );
-        
-        if (!popup || popup.closed) {
-          // Popup was blocked - show manual instructions
-          toast({
-            title: "Popup Blocked",
-            description: "Please allow popups for this site. Then click 'Manage Payouts' again, or copy this URL to open manually: " + data.url,
-            variant: "destructive",
-            duration: 10000,
-          });
-        } else {
-          toast({
-            title: "Opening Stripe Portal",
-            description: "The Stripe Express Dashboard is opening in a new window.",
-          });
-        }
-      }
-
-    } catch (err) {
-      console.error('Error opening Stripe portal:', err);
-      toast({
-        title: "Portal Error",
-        description: err instanceof Error ? err.message : 'Failed to open Stripe portal',
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const refreshAccount = async () => {
-    const effectiveContextId = contextId || user?.id;
+  const refreshAccount = useCallback(async (forceStripeRefresh = true) => {
     if (!effectiveContextId) return;
-    
-    try {
-      setLoading(true);
-      console.log('Refreshing payout account from Stripe...');
-      
-      // First refresh from Stripe API to get latest status
-      const { data: refreshData, error: refreshError } = await supabase.functions.invoke('refresh-stripe-accounts', {});
-      
-      if (refreshError) {
-        console.warn('Failed to refresh from Stripe API:', refreshError);
-      } else {
-        console.log('Stripe refresh result:', refreshData);
+    return lock(async () => {
+      safeSetState(setLoading, true);
+      try {
+        if (forceStripeRefresh) await refreshFromStripe();
+        await fetchPayoutAccount(effectiveContextId);
+      } catch (e) {
+        const msg = normalizeErr(e);
+        safeSetState(setError, msg);
+      } finally {
+        safeSetState(setLoading, false);
       }
-      
-      // Then fetch updated data from database
-      await fetchPayoutAccount(effectiveContextId);
-      
-    } catch (err) {
-      console.error('Error refreshing account:', err);
-      setError(err instanceof Error ? err.message : 'Failed to refresh account');
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
+  }, [effectiveContextId, fetchPayoutAccount, refreshFromStripe, lock, safeSetState]);
 
-  const isFullySetup = account?.charges_enabled && account?.payouts_enabled && account?.details_submitted;
+  // Derived helpers
+  const isFullySetup = !!(account?.charges_enabled && account?.payouts_enabled && account?.details_submitted);
+  const canRequestPayout = !!(isFullySetup && balance && balance.available > 0);
+
+  const status: 'unlinked' | 'restricted' | 'active' = useMemo(() => {
+    if (!account?.stripe_connect_id) return 'unlinked';
+    return isFullySetup ? 'active' : 'restricted';
+  }, [account?.stripe_connect_id, isFullySetup]);
 
   return {
     account,
     balance,
     loading,
     error,
+    status,
     isFullySetup,
+    canRequestPayout,
+    // actions
     createStripeConnectAccount,
+    resumeOnboarding,
     openStripePortal,
     requestPayout,
-    refreshAccount
+    refreshAccount,
+    // utils
+    formatMoney
   };
+}
+
+// ---------- small utils ----------
+function formatMoney(cents: number, currency = 'usd') {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currency.toUpperCase()
+    }).format((cents ?? 0) / 100);
+  } catch {
+    return `$${((cents ?? 0) / 100).toFixed(2)}`;
+  }
 }
