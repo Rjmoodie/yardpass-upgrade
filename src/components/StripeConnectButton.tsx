@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { CreditCard, CheckCircle, AlertCircle } from 'lucide-react';
@@ -20,6 +21,7 @@ export function StripeConnectButton({
   className = "",
   showStatus = true
 }: StripeConnectButtonProps) {
+  const navigate = useNavigate();
   const {
     account,
     loading,
@@ -83,7 +85,8 @@ export function StripeConnectButton({
     if (!account || !isFullySetup) {
       createStripeConnectAccount();
     } else {
-      openStripePortal();
+      // Redirect to dashboard payouts tab when fully setup
+      navigate('/dashboard?tab=payouts');
     }
   };
 

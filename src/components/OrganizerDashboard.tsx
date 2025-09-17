@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -139,7 +140,9 @@ const mockEvents: Event[] = [
 ];
 
 export function OrganizerDashboard() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') || 'dashboard';
+  const [activeTab, setActiveTab] = useState(tabFromUrl);
   const [userEvents, setUserEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -148,6 +151,12 @@ export function OrganizerDashboard() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, []);
+
+  // Update active tab when URL search params change
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab') || 'dashboard';
+    setActiveTab(tabFromUrl);
+  }, [searchParams]);
 
   // Fetch user's events
   useEffect(() => {
