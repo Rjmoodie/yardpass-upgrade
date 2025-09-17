@@ -61,17 +61,14 @@ export function useOrganizerData(user: any) {
   const { trackEvent } = useAnalyticsIntegration();
 
   const fetchUserEvents = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
 
     try {
       console.log('🔍 Fetching events for user:', user.id);
       setLoading(true);
-
-      // Track analytics event
-      trackEvent('dashboard_events_fetch', {
-        user_id: user.id,
-        timestamp: Date.now()
-      });
 
       // Fetch events with ticket sales data
       const { data: eventsData, error: eventsError } = await supabase
@@ -182,13 +179,11 @@ export function useOrganizerData(user: any) {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, trackEvent]);
+  }, [user?.id]);
 
   useEffect(() => {
-    if (user) {
-      fetchUserEvents();
-    }
-  }, [user, fetchUserEvents]);
+    fetchUserEvents();
+  }, [fetchUserEvents]);
 
   return {
     userEvents,
