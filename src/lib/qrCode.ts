@@ -179,7 +179,7 @@ export async function generateQRCodeWithLogo(
 
   const backer = cfg.logoShape === 'circle'
     ? `<circle cx="${center}" cy="${center}" r="${half + cfg.logoBorder}" fill="${cfg.logoBackerColor}" stroke="${cfg.logoBorderColor}" stroke-width="${cfg.logoBorder}"/>`
-    : `<rect x="${center - half - cfg.logoBorder}" y="${center - half - cfg.logoBorder}" width="${logoSize + cfg.logoBorder * 2}" height="${logoSize + cfg.logoBorder * 2}" rx="${cfg.logoShape === 'circle' ? half + cfg.logoBorder : 4}" fill="${cfg.logoBackerColor}" stroke="${cfg.logoBorderColor}" stroke-width="${cfg.logoBorder}"/>`;
+    : `<rect x="${center - half - cfg.logoBorder}" y="${center - half - cfg.logoBorder}" width="${logoSize + cfg.logoBorder * 2}" height="${logoSize + cfg.logoBorder * 2}" rx="4" fill="${cfg.logoBackerColor}" stroke="${cfg.logoBorderColor}" stroke-width="${cfg.logoBorder}"/>`;
 
   const clipDef = cfg.logoShape === 'circle'
     ? `<clipPath id="${clipId}"><circle cx="${center}" cy="${center}" r="${half}"/></clipPath>`

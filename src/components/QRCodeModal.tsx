@@ -55,7 +55,15 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
           userId: user.id
         });
 
-        const svg = await generateQRCodeWithLogo(qrData, 256);
+        const svg = await generateQRCodeWithLogo(qrData, {
+          size: 256,
+          logoUrl: '/yardpass-logo.png',
+          logoSizeRatio: 0.22,
+          logoShape: 'circle',
+          logoBorder: 2,
+          logoBorderColor: '#000000',
+          logoBackerColor: '#ffffff'
+        });
         if (!cancelled) setQrCodeSVG(svg);
       } catch (err) {
         console.error('Failed to generate QR code:', err);
