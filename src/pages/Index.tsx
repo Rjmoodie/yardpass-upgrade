@@ -164,24 +164,28 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     }
   }, [currentIndex, items.length, hasMore, loadMore, loading]);
 
-  // Video control: only touch the current / prev / next item for perf
+  // Video control: auto-play current video, pause others
   useEffect(() => {
     const indices = new Set([currentIndex - 1, currentIndex, currentIndex + 1].filter(i => i >= 0 && i < items.length));
-    const nextPlaying = new Set<number>(playingVideos);
-
+    
     indices.forEach((idx) => {
       const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${idx}"] video`);
       if (!el) return;
 
       if (idx === currentIndex) {
+        // Auto-play current video
         el.muted = !soundEnabled;
-        el.play().then(() => {
-          nextPlaying.add(idx);
-        }).catch(() => {/* ignore autoplay failures */});
+        setPlayingVideos(prev => new Set(prev).add(idx));
+        el.play().catch(() => {/* ignore autoplay failures */});
       } else {
+        // Pause other videos
         el.muted = true;
         el.pause();
-        nextPlaying.delete(idx);
+        setPlayingVideos(prev => {
+          const next = new Set(prev);
+          next.delete(idx);
+          return next;
+        });
       }
     });
 
@@ -190,15 +194,14 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       if (!indices.has(idx)) {
         const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${idx}"] video`);
         if (el) el.pause();
-        nextPlaying.delete(idx);
+        setPlayingVideos(prev => {
+          const next = new Set(prev);
+          next.delete(idx);
+          return next;
+        });
       }
     });
-
-    if (nextPlaying.size !== playingVideos.size) {
-      setPlayingVideos(nextPlaying);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, soundEnabled, items.length]);
+  }, [currentIndex, soundEnabled, items.length, playingVideos]);
 
   // Actions
   const handleLike = useCallback(
