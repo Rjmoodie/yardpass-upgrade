@@ -204,6 +204,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 item={item}
                 onOpenTickets={handleOpenTickets}
                 onEventClick={handleEventClick}
+                onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
+                onReport={() => {}}
               />
             ) : (
               <UserPostCard
@@ -213,29 +215,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 onShare={handleShare}
                 onEventClick={handleEventClick}
                 onAuthorClick={handleAuthorClick}
+                onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
+                onReport={() => {}}
               />
             )}
           </div>
         ))}
-      </div>
-
-      {/* Right action rail */}
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 pointer-events-auto">
-        <div className="flex flex-col items-center gap-3 text-white select-none">
-          <button
-            onClick={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
-            className="p-3 rounded-full bg-primary/90 backdrop-blur-sm border border-primary/60 hover:bg-primary transition-all duration-200 shadow-lg min-h-[48px] min-w-[48px] touch-manipulation"
-            aria-label="Create post"
-          >
-            <Plus className="w-5 h-5 text-white" />
-          </button>
-          <div className="pointer-events-auto">
-            <ReportButton 
-              targetType={currentItem.item_type === 'event' ? 'event' : 'post'} 
-              targetId={currentItem.item_type === 'event' ? currentItem.event_id : currentItem.item_id} 
-            />
-          </div>
-        </div>
       </div>
 
       {/* Navigation controls */}

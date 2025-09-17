@@ -13,9 +13,11 @@ interface UserPostCardProps {
   onShare: (postId: string) => void;
   onEventClick: (eventId: string) => void;
   onAuthorClick?: (authorId: string) => void;
+  onCreatePost?: () => void;
+  onReport?: () => void;
 }
 
-export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, onAuthorClick }: UserPostCardProps) {
+export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, onAuthorClick, onCreatePost, onReport }: UserPostCardProps) {
   const [mediaError, setMediaError] = useState(false);
 
   const mediaUrl = item.media_urls?.[0];
@@ -106,6 +108,8 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
         onLike={() => onLike(item.item_id)}
         onComment={() => onComment(item.item_id)}
         onShare={() => onShare(item.item_id)}
+        onCreatePost={onCreatePost}
+        onReport={onReport}
       />
 
       {/* BOTTOM META BAR */}

@@ -3,15 +3,18 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Calendar, MapPin } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
+import ActionRail from './ActionRail';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
 interface EventCardProps {
   item: Extract<FeedItem, { item_type: 'event' }>;
   onOpenTickets: (eventId: string) => void;
   onEventClick: (eventId: string) => void;
+  onCreatePost?: () => void;
+  onReport?: () => void;
 }
 
-export function EventCard({ item, onOpenTickets, onEventClick }: EventCardProps) {
+export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onReport }: EventCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const formatDate = (dateStr: string | null) => {
@@ -39,6 +42,12 @@ export function EventCard({ item, onOpenTickets, onEventClick }: EventCardProps)
         onError={() => setImageError(true)}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+      {/* RIGHT ACTION RAIL (TikTok style) */}
+      <ActionRail
+        onCreatePost={onCreatePost}
+        onReport={onReport}
+      />
 
       {/* Content */}
       <div className="absolute inset-0 flex flex-col justify-end p-6">

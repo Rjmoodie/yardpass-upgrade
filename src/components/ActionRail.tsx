@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, MessageCircle, Share2 } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Plus, Flag } from 'lucide-react';
 
 type Countable = number | undefined | null;
 
@@ -8,6 +8,8 @@ export interface ActionRailProps {
   onLike?: () => void;
   onComment?: () => void;
   onShare?: () => void;
+  onCreatePost?: () => void;
+  onReport?: () => void;
   liked?: boolean;
   likeCount?: Countable;
   commentCount?: Countable;
@@ -21,6 +23,8 @@ export const ActionRail: React.FC<ActionRailProps> = ({
   onLike,
   onComment,
   onShare,
+  onCreatePost,
+  onReport,
   liked,
   likeCount = 0,
   commentCount = 0,
@@ -30,7 +34,7 @@ export const ActionRail: React.FC<ActionRailProps> = ({
   const pe = enablePointerEvents ? 'pointer-events-auto' : 'pointer-events-none';
   return (
     <div
-      className={`absolute right-3 md:right-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-5 z-20 ${pe} ${className}`}
+      className={`absolute right-3 md:right-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-20 ${pe} ${className}`}
     >
       <button
         aria-label="Like"
@@ -57,6 +61,22 @@ export const ActionRail: React.FC<ActionRailProps> = ({
       >
         <Share2 className="w-7 h-7" />
         <span className="rail-count">{Number(shareCount || 0).toLocaleString()}</span>
+      </button>
+
+      <button
+        aria-label="Create post"
+        onClick={(e) => { e.stopPropagation(); onCreatePost?.(); }}
+        className="p-3 rounded-full bg-primary/90 backdrop-blur-sm border border-primary/60 hover:bg-primary transition-all duration-200 shadow-lg min-h-[48px] min-w-[48px] touch-manipulation"
+      >
+        <Plus className="w-5 h-5 text-white" />
+      </button>
+
+      <button
+        aria-label="Report"
+        onClick={(e) => { e.stopPropagation(); onReport?.(); }}
+        className="feed-rail-btn"
+      >
+        <Flag className="w-6 h-6" />
       </button>
     </div>
   );
