@@ -223,11 +223,31 @@ export function useStripeConnect(contextType: 'individual' | 'organization' = 'i
     }
   };
 
-  const refreshAccount = () => {
+  const refreshAccount = async () => {
     const effectiveContextId = contextId || user?.id;
-    if (effectiveContextId) {
-      console.log('Refreshing payout account...');
-      fetchPayoutAccount(effectiveContextId);
+    if (!effectiveContextId) return;
+    
+    try {
+      setLoading(true);
+      console.log('Refreshing payout account from Stripe...');
+      
+      // First refresh from Stripe API to get latest status
+      const { data: refreshData, error: refreshError } = await supabase.functions.invoke('refresh-stripe-accounts', {});
+      
+      if (refreshError) {
+        console.warn('Failed to refresh from Stripe API:', refreshError);
+      } else {
+        console.log('Stripe refresh result:', refreshData);
+      }
+      
+      // Then fetch updated data from database
+      await fetchPayoutAccount(effectiveContextId);
+      
+    } catch (err) {
+      console.error('Error refreshing account:', err);
+      setError(err instanceof Error ? err.message : 'Failed to refresh account');
+    } finally {
+      setLoading(false);
     }
   };
 
