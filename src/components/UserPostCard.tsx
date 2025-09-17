@@ -102,7 +102,7 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
 
       {/* RIGHT ACTION RAIL (TikTok style) */}
       <ActionRail
-        liked={false}
+        liked={item.metrics?.viewer_has_liked || false}
         likeCount={likes}
         commentCount={comments}
         onLike={() => onLike(item.item_id)}
