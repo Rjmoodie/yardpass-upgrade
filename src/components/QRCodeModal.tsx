@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Copy, Share, Loader2, Download } from 'lucide-react';
-import { generateQRData, generateQRCodeWithLogo } from '@/lib/qrCode';
+import { generateQRData, generateQRCodeDataURLWithLogo } from '@/lib/qrCode';
 import { UserTicket } from '@/hooks/useTickets';
 import { toast } from '@/hooks/use-toast';
 
@@ -55,7 +55,7 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
           userId: user.id
         });
 
-        const svg = await generateQRCodeWithLogo(qrData, {
+        const dataUrl = await generateQRCodeDataURLWithLogo(qrData, {
           size: 256,
           logoUrl: '/yardpass-logo.png',
           logoSizeRatio: 0.22,
@@ -64,7 +64,7 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
           logoBorderColor: '#000000',
           logoBackerColor: '#ffffff'
         });
-        if (!cancelled) setQrCodeSVG(svg);
+        if (!cancelled) setQrCodeSVG(dataUrl);
       } catch (err) {
         console.error('Failed to generate QR code:', err);
         if (!cancelled) setFailed(true);
@@ -183,11 +183,13 @@ export function QRCodeModal({ ticket, user, onClose, onCopy, onShare }: QRCodeMo
             )}
 
             {!loading && !failed && (
-              <div
-                className="w-[240px] h-[240px] select-none flex items-center justify-center"
-                aria-label="Ticket QR code"
-                dangerouslySetInnerHTML={{ __html: qrCodeSVG }}
-              />
+              <div className="w-[240px] h-[240px] select-none flex items-center justify-center">
+                <img 
+                  src={qrCodeSVG} 
+                  alt="Ticket QR code"
+                  className="w-full h-full object-contain"
+                />
+              </div>
             )}
           </div>
 
