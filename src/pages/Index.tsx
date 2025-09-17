@@ -27,6 +27,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAttendeeModal, setShowAttendeeModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
@@ -152,6 +153,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }, [onEventSelect]);
 
   const handleOpenTickets = useCallback((eventId: string) => {
+    setSelectedEventId(eventId);
     setShowTicketModal(true);
   }, []);
 
@@ -273,9 +275,24 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       
       <EventTicketModal
         isOpen={showTicketModal}
-        onClose={() => setShowTicketModal(false)}
-        event={null}
-        onSuccess={() => setShowTicketModal(false)}
+        onClose={() => {
+          setShowTicketModal(false);
+          setSelectedEventId(null);
+        }}
+        event={selectedEventId ? (() => {
+          const feedItem = items.find(item => item.item_type === 'event' && item.item_id === selectedEventId) as Extract<typeof items[0], { item_type: 'event' }>;
+          return feedItem ? {
+            id: feedItem.event_id,
+            title: feedItem.event_title,
+            start_at: feedItem.event_starts_at,
+            venue: feedItem.event_location,
+            description: feedItem.event_description
+          } : null;
+        })() : null}
+        onSuccess={() => {
+          setShowTicketModal(false);
+          setSelectedEventId(null);
+        }}
       />
       
       <ShareModal
