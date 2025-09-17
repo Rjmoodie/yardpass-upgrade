@@ -32,7 +32,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(false); // Videos start muted
 
   const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
@@ -114,6 +114,16 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [items.length]);
+
+  // Sync sound state when currentIndex changes
+  useEffect(() => {
+    // Ensure only the current video respects the sound state
+    const currentVideoContainer = document.querySelector(`[data-feed-index="${currentIndex}"] video`);
+    if (currentVideoContainer) {
+      (currentVideoContainer as HTMLVideoElement).muted = !soundEnabled;
+      console.log(`Index changed to ${currentIndex}, sound ${soundEnabled ? 'enabled' : 'disabled'}`);
+    }
+  }, [currentIndex, soundEnabled]);
 
   // Actions
   const handleLike = useCallback(
@@ -213,12 +223,16 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }, [handleShare, trackPostHogEvent]);
 
   const handleSoundToggle = useCallback(() => {
-    setSoundEnabled(prev => !prev);
-    // Toggle sound for all video elements
-    document.querySelectorAll('video').forEach(video => {
-      video.muted = soundEnabled; // Will be toggled to opposite
-    });
-  }, [soundEnabled]);
+    const newSoundEnabled = !soundEnabled;
+    setSoundEnabled(newSoundEnabled);
+    
+    // Only control the currently visible video (the one at currentIndex)
+    const currentVideoContainer = document.querySelector(`[data-feed-index="${currentIndex}"] video`);
+    if (currentVideoContainer) {
+      (currentVideoContainer as HTMLVideoElement).muted = !newSoundEnabled;
+      console.log(`Sound ${newSoundEnabled ? 'enabled' : 'disabled'} for video at index ${currentIndex}`);
+    }
+  }, [soundEnabled, currentIndex]);
 
   if (loading) {
     return (
@@ -260,7 +274,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         style={{ transform: `translateY(-${currentIndex * 100}%)` }}
       >
         {items.map((item, i) => (
-          <div key={`${item.item_type}:${item.item_id}`} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
+          <div key={`${item.item_type}:${item.item_id}`} className="h-full w-full absolute" style={{ top: `${i * 100}%` }} data-feed-index={i}>
             {item.item_type === 'event' ? (
               <EventCard
                 item={item}

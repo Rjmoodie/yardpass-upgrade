@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
@@ -28,6 +28,14 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
   const { videoRef, ready } = useHlsVideo(videoSrc);
   const likes = item.metrics?.likes || 0;
   const comments = item.metrics?.comments || 0;
+
+  // Sync video mute state with sound toggle
+  useEffect(() => {
+    if (videoRef.current && ready) {
+      videoRef.current.muted = !soundEnabled;
+      console.log(`Video ${item.item_id} muted state set to:`, !soundEnabled);
+    }
+  }, [soundEnabled, ready, item.item_id]);
 
   // Log only when there's actual media
   if (mediaUrl) {
@@ -64,12 +72,16 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
             <>
               <video
                 ref={videoRef}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover cursor-pointer"
                 autoPlay
                 muted
                 loop
                 playsInline
                 crossOrigin="anonymous"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSoundToggle?.();
+                }}
                 // Don't set src when using HLS.js - let useHlsVideo handle it
                 // Let HLS.js handle all video events
               />
