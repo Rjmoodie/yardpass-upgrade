@@ -31,14 +31,16 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Calculate amounts
-    const subtotalCents = order_data.items.reduce((total: number, item: any) => {
+    // Calculate amounts using your existing fee structure
+    const faceValueCents = order_data.items.reduce((total: number, item: any) => {
       return total + (item.unit_price_cents * item.quantity);
     }, 0);
+    const faceValue = faceValueCents / 100;
 
-    const platformFeeRate = 0.05; // 5% platform fee
-    const applicationFeeCents = Math.round(subtotalCents * platformFeeRate);
-    const totalCents = subtotalCents + applicationFeeCents;
+    // Use same formula as TicketPurchaseModal: Total = (F*1.037 + 2.19)/0.971
+    const totalAmount = (faceValue * 1.037 + 2.19) / 0.971;
+    const totalCents = Math.round(totalAmount * 100);
+    const applicationFeeCents = totalCents - faceValueCents;
 
     // Create checkout session with destination charges if payout account exists
     const sessionConfig: any = {
@@ -73,7 +75,7 @@ serve(async (req) => {
         },
       };
       
-      console.log(`Setting up destination charge: ${subtotalCents}¢ to ${payout_destination.stripe_connect_id}, fee: ${applicationFeeCents}¢`);
+      console.log(`Setting up destination charge: ${faceValueCents}¢ to ${payout_destination.stripe_connect_id}, fee: ${applicationFeeCents}¢`);
     } else {
       console.log("No payout destination configured, processing as regular payment");
     }
@@ -89,7 +91,7 @@ serve(async (req) => {
         stripe_session_id: session.id,
         status: 'pending',
         currency: 'USD',
-        subtotal_cents: subtotalCents,
+        subtotal_cents: faceValueCents,
         fees_cents: applicationFeeCents,
         total_cents: totalCents,
         payout_destination_owner: payout_destination?.context_type,
