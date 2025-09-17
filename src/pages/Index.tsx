@@ -115,13 +115,31 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [items.length]);
 
-  // Sync sound state when currentIndex changes
+  // Sync sound state and video playback when currentIndex changes
   useEffect(() => {
-    // Ensure only the current video respects the sound state
+    // Mute all videos first
+    document.querySelectorAll('video').forEach((video, index) => {
+      video.muted = true;
+      
+      // Pause videos that are not current
+      if (index !== currentIndex) {
+        video.pause();
+      }
+    });
+
+    // Handle the current video
     const currentVideoContainer = document.querySelector(`[data-feed-index="${currentIndex}"] video`);
     if (currentVideoContainer) {
-      (currentVideoContainer as HTMLVideoElement).muted = !soundEnabled;
-      console.log(`Index changed to ${currentIndex}, sound ${soundEnabled ? 'enabled' : 'disabled'}`);
+      const video = currentVideoContainer as HTMLVideoElement;
+      
+      // Set sound state for current video
+      video.muted = !soundEnabled;
+      
+      // Ensure current video plays
+      video.currentTime = 0; // Reset to beginning
+      video.play().catch(e => console.log('Video play failed:', e));
+      
+      console.log(`Index ${currentIndex}: video playing, sound ${soundEnabled ? 'enabled' : 'disabled'}`);
     }
   }, [currentIndex, soundEnabled]);
 
@@ -226,12 +244,20 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     const newSoundEnabled = !soundEnabled;
     setSoundEnabled(newSoundEnabled);
     
-    // Only control the currently visible video (the one at currentIndex)
-    const currentVideoContainer = document.querySelector(`[data-feed-index="${currentIndex}"] video`);
-    if (currentVideoContainer) {
-      (currentVideoContainer as HTMLVideoElement).muted = !newSoundEnabled;
-      console.log(`Sound ${newSoundEnabled ? 'enabled' : 'disabled'} for video at index ${currentIndex}`);
+    // Mute all videos first
+    document.querySelectorAll('video').forEach(video => {
+      video.muted = true;
+    });
+    
+    // Only unmute the currently visible video if sound is being enabled
+    if (newSoundEnabled) {
+      const currentVideoContainer = document.querySelector(`[data-feed-index="${currentIndex}"] video`);
+      if (currentVideoContainer) {
+        (currentVideoContainer as HTMLVideoElement).muted = false;
+      }
     }
+    
+    console.log(`Sound ${newSoundEnabled ? 'enabled' : 'disabled'} for video at index ${currentIndex}`);
   }, [soundEnabled, currentIndex]);
 
   if (loading) {
