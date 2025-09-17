@@ -192,47 +192,47 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Plays</CardTitle>
-            <PlayIcon className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Plays</CardTitle>
+            <PlayIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{videoData?.total_plays?.toLocaleString() || '0'}</div>
+            <div className="text-lg sm:text-2xl font-bold">{videoData?.total_plays?.toLocaleString() || '0'}</div>
             <p className="text-xs text-muted-foreground">+18% from last month</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Watch Time</CardTitle>
-            <PlayIcon className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Avg Watch Time</CardTitle>
+            <PlayIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatTime(videoData?.avg_watch_time || 0)}</div>
+            <div className="text-lg sm:text-2xl font-bold">{formatTime(videoData?.avg_watch_time || 0)}</div>
             <p className="text-xs text-muted-foreground">+12% from last month</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
-            <PlayIcon className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Completion Rate</CardTitle>
+            <PlayIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(videoData?.completion_rate || 0).toFixed(1)}%</div>
+            <div className="text-lg sm:text-2xl font-bold">{(videoData?.completion_rate || 0).toFixed(1)}%</div>
             <p className="text-xs text-muted-foreground">+5.2% from last month</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">CTR to Tickets</CardTitle>
-            <TicketIcon className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">CTR to Tickets</CardTitle>
+            <TicketIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3.4%</div>
+            <div className="text-lg sm:text-2xl font-bold">3.4%</div>
             <p className="text-xs text-muted-foreground">+0.8% from last month</p>
           </CardContent>
         </Card>
@@ -366,24 +366,24 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         {audienceData?.funnel_steps?.map((step: any, index: number) => (
           <Card key={`${step.event}-${index}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-xs sm:text-sm font-medium">
                 {step.event === 'event_view' && 'Event Views'}
                 {step.event === 'ticket_cta_click' && 'Ticket CTAs'}
                 {step.event === 'checkout_started' && 'Checkouts Started'}
                 {step.event === 'checkout_completed' && 'Purchases'}
               </CardTitle>
               {step.event === 'checkout_completed' ? (
-                <DollarSignIcon className="h-4 w-4 text-muted-foreground" />
+                <DollarSignIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               ) : (
-                <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
+                <TrendingUpIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               )}
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{(step.count || 0).toLocaleString()}</div>
+              <div className="text-lg sm:text-2xl font-bold">{(step.count || 0).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 {index === 0 ? 'Funnel start' : `${(step.conversion_rate || 0).toFixed(1)}% conversion`}
               </p>

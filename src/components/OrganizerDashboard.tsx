@@ -396,20 +396,20 @@ export function OrganizerDashboard() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4 h-auto p-1">
-          <TabsTrigger value="dashboard" className="flex-col h-auto py-3 px-2">
-            <BarChart3 className="h-4 w-4 mb-1" />
+          <TabsTrigger value="dashboard" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Dashboard</span>
           </TabsTrigger>
-          <TabsTrigger value="events" className="flex-col h-auto py-3 px-2">
-            <CalendarDays className="h-4 w-4 mb-1" />
+          <TabsTrigger value="events" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
+            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Events</span>
           </TabsTrigger>
-          <TabsTrigger value="teams" className="flex-col h-auto py-3 px-2">
-            <Users className="h-4 w-4 mb-1" />
+          <TabsTrigger value="teams" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
+            <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Teams</span>
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex-col h-auto py-3 px-2">
-            <BarChart3 className="h-4 w-4 mb-1" />
+          <TabsTrigger value="analytics" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Analytics</span>
           </TabsTrigger>
         </TabsList>

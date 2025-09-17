@@ -396,13 +396,13 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <div className="container mx-auto p-3 sm:p-6 max-w-7xl">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-start justify-between flex-wrap gap-3">
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-1">Event Analytics</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-1">Event Analytics</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
               Detailed performance insights for your events
               {lastUpdated && (
                 <span className="ml-2 text-xs">
@@ -417,33 +417,33 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={fetchEventAnalytics} disabled={loading} variant="outline" className="sm:w-auto">
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button onClick={fetchEventAnalytics} disabled={loading} variant="outline" size="sm" className="text-xs">
+              <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button variant="outline" onClick={() => window.print()}>
-              <Printer className="h-4 w-4 mr-2" />
-              Print
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="text-xs">
+              <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              <span className="hidden sm:inline">Print</span>
             </Button>
-            <Button variant="outline" onClick={copyShareLink}>
-              <LinkIcon className="h-4 w-4 mr-2" />
-              Copy Link
+            <Button variant="outline" size="sm" onClick={copyShareLink} className="text-xs">
+              <LinkIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              <span className="hidden sm:inline">Copy Link</span>
             </Button>
-            <Button variant="outline" onClick={downloadJSON} disabled={!analytics}>
-              <FileJson className="h-4 w-4 mr-2" />
-              JSON
+            <Button variant="outline" size="sm" onClick={downloadJSON} disabled={!analytics} className="text-xs">
+              <FileJson className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              <span className="hidden sm:inline">JSON</span>
             </Button>
-            <Button variant="outline" onClick={downloadTiersCSV} disabled={!analytics?.tier_performance?.length}>
-              <Download className="h-4 w-4 mr-2" />
-              CSV
+            <Button variant="outline" size="sm" onClick={downloadTiersCSV} disabled={!analytics?.tier_performance?.length} className="text-xs">
+              <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              <span className="hidden sm:inline">CSV</span>
             </Button>
           </div>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
         <Select value={selectedEvent} onValueChange={setSelectedEvent}>
           <SelectTrigger className="w-full sm:w-80" aria-label="Select event">
             <SelectValue placeholder="Select event" />
@@ -473,11 +473,13 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
 
         <Button
           variant={autoRefresh ? 'default' : 'outline'}
+          size="sm"
           onClick={() => setAutoRefresh((v) => !v)}
-          className="sm:w-auto w-full"
+          className="sm:w-auto w-full text-xs"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
-          {autoRefresh ? 'Auto refresh: ON' : 'Auto refresh: OFF'}
+          <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{autoRefresh ? 'Auto refresh: ON' : 'Auto refresh: OFF'}</span>
+          <span className="sm:hidden">{autoRefresh ? 'Auto ON' : 'Auto OFF'}</span>
         </Button>
       </div>
 
@@ -498,15 +500,15 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
 
       {/* Content */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {[...Array(8)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader className="pb-2">
-                <div className="h-4 bg-muted rounded w-3/4" />
+                <div className="h-3 sm:h-4 bg-muted rounded w-3/4" />
               </CardHeader>
               <CardContent>
-                <div className="h-8 bg-muted rounded w-1/2 mb-2" />
-                <div className="h-3 bg-muted rounded w-full" />
+                <div className="h-6 sm:h-8 bg-muted rounded w-1/2 mb-2" />
+                <div className="h-2 sm:h-3 bg-muted rounded w-full" />
               </CardContent>
             </Card>
           ))}
@@ -526,25 +528,25 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
           </Card>
 
           {/* KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
             <Card role="region" aria-label="Revenue">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-                <DollarSignIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Revenue</CardTitle>
+                <DollarSignIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(analytics.kpis.gross_revenue)}</div>
+                <div className="text-lg sm:text-2xl font-bold">{formatCurrency(analytics.kpis.gross_revenue)}</div>
                 <p className="text-xs text-muted-foreground">Net: {formatCurrency(analytics.kpis.net_revenue)}</p>
               </CardContent>
             </Card>
 
             <Card role="region" aria-label="Tickets sold">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tickets Sold</CardTitle>
-                <TicketIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Tickets Sold</CardTitle>
+                <TicketIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
+                <div className="text-lg sm:text-2xl font-bold">
                   {analytics.kpis.tickets_sold} / {analytics.kpis.capacity || '—'}
                 </div>
                 <div className="mt-2">
@@ -570,11 +572,11 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
 
             <Card role="region" aria-label="Check-ins">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Check-ins</CardTitle>
-                <ScanIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Check-ins</CardTitle>
+                <ScanIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analytics.scan_summary.total_scans}</div>
+                <div className="text-lg sm:text-2xl font-bold">{analytics.scan_summary.total_scans}</div>
                 <div className="mt-2">
                   <div
                     className="h-2 w-full bg-muted rounded-full overflow-hidden"
@@ -599,11 +601,11 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
 
             <Card role="region" aria-label="Engagement">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Engagement</CardTitle>
-                <TrendingUpIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Engagement</CardTitle>
+                <TrendingUpIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analytics.kpis.feed_engagements}</div>
+                <div className="text-lg sm:text-2xl font-bold">{analytics.kpis.feed_engagements}</div>
                 <p className="text-xs text-muted-foreground">{analytics.kpis.posts_created} posts</p>
               </CardContent>
             </Card>
@@ -629,26 +631,26 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
 
           {/* Tier Performance */}
           <Card>
-            <CardHeader className="flex items-center justify-between">
-              <CardTitle>Ticket Tier Performance</CardTitle>
-              <Button variant="outline" size="sm" onClick={downloadTiersCSV} disabled={!analytics.tier_performance?.length}>
-                <Download className="h-4 w-4 mr-2" />
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="text-base sm:text-lg">Ticket Tier Performance</CardTitle>
+              <Button variant="outline" size="sm" onClick={downloadTiersCSV} disabled={!analytics.tier_performance?.length} className="text-xs">
+                <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 Export CSV
               </Button>
             </CardHeader>
             <CardContent>
               {analytics.tier_performance.length ? (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {analytics.tier_performance.map((tier) => {
                     const soldPct =
                       tier.quantity && tier.quantity > 0
                         ? clampPct((tier.sold / tier.quantity) * 100)
                         : clampPct(tier.sell_through);
                     return (
-                      <div key={tier.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1 pr-4">
-                          <h4 className="font-medium">{tier.name}</h4>
-                          <p className="text-sm text-muted-foreground">
+                      <div key={tier.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg space-y-2 sm:space-y-0">
+                        <div className="flex-1 sm:pr-4">
+                          <h4 className="font-medium text-sm sm:text-base">{tier.name}</h4>
+                          <p className="text-xs sm:text-sm text-muted-foreground">
                             {formatCurrency(tier.price_cents)} • {tier.sold}
                             {typeof tier.quantity === 'number' ? ` / ${tier.quantity}` : ''} sold
                           </p>
@@ -663,9 +665,9 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
                             <div className="h-full bg-primary" style={{ width: `${soldPct}%` }} />
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium">{formatCurrency(tier.revenue)}</p>
-                          <p className="text-sm text-muted-foreground">{pctText(soldPct)} sold</p>
+                        <div className="text-left sm:text-right">
+                          <p className="font-medium text-sm sm:text-base">{formatCurrency(tier.revenue)}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{pctText(soldPct)} sold</p>
                         </div>
                       </div>
                     );
@@ -680,21 +682,21 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
           {/* Scan Summary */}
           <Card>
             <CardHeader>
-              <CardTitle>Scan Summary</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Scan Summary</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{analytics.scan_summary.valid_scans}</div>
-                  <p className="text-sm text-muted-foreground">Valid Scans</p>
+                  <div className="text-lg sm:text-2xl font-bold text-green-600">{analytics.scan_summary.valid_scans}</div>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Valid Scans</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">{analytics.scan_summary.duplicate_scans}</div>
-                  <p className="text-sm text-muted-foreground">Duplicates</p>
+                  <div className="text-lg sm:text-2xl font-bold text-yellow-600">{analytics.scan_summary.duplicate_scans}</div>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Duplicates</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{analytics.scan_summary.total_scans}</div>
-                  <p className="text-sm text-muted-foreground">Total Scans</p>
+                  <div className="text-lg sm:text-2xl font-bold">{analytics.scan_summary.total_scans}</div>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Total Scans</p>
                 </div>
               </div>
             </CardContent>
