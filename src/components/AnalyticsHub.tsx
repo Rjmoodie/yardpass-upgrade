@@ -455,6 +455,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
 /* ----------------------- Event Analytics ------------------------ */
 
 const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
+  const { trackEvent } = useAnalyticsIntegration();
   const [eventData, setEventData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -706,9 +707,16 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
         <CardContent>
           <div className="space-y-4">
             {eventData.map((event) => (
-              <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex-1">
-                  <h3 className="font-medium">{event.title}</h3>
+              <div 
+                key={event.id} 
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors cursor-pointer active:scale-[0.98] sm:active:scale-100"
+                onClick={() => {
+                  trackEvent('event_analytics_click', { event_id: event.id, source: 'analytics_hub' });
+                  window.location.href = `/events/${event.id}`;
+                }}
+              >
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium truncate">{event.title}</h3>
                   <p className="text-sm text-muted-foreground">
                     {new Date(event.startDate).toLocaleDateString('en-US', {
                       month: 'short',
@@ -718,21 +726,21 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
                     {event.status === 'completed' ? '• Completed' : '• Upcoming'}
                   </p>
                 </div>
-                <div className="grid grid-cols-4 gap-6 text-right">
-                  <div>
-                    <p className="font-medium">{formatCurrency(event.revenue)}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6 text-right ml-4">
+                  <div className="min-w-0">
+                    <p className="font-medium text-xs sm:text-sm truncate">{formatCurrency(event.revenue)}</p>
                     <p className="text-xs text-muted-foreground">Revenue</p>
                   </div>
-                  <div>
-                    <p className="font-medium">{event.ticketsSold}</p>
-                    <p className="text-xs text-muted-foreground">Tickets Sold</p>
+                  <div className="min-w-0">
+                    <p className="font-medium text-xs sm:text-sm">{event.ticketsSold}</p>
+                    <p className="text-xs text-muted-foreground">Sold</p>
                   </div>
-                  <div>
-                    <p className="font-medium">{event.attendees}</p>
+                  <div className="min-w-0 hidden sm:block">
+                    <p className="font-medium text-xs sm:text-sm">{event.attendees}</p>
                     <p className="text-xs text-muted-foreground">Attended</p>
                   </div>
-                  <div>
-                    <p className="font-medium">{event.engagements}</p>
+                  <div className="min-w-0 hidden sm:block">
+                    <p className="font-medium text-xs sm:text-sm">{event.engagements}</p>
                     <p className="text-xs text-muted-foreground">Engagements</p>
                   </div>
                 </div>

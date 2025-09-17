@@ -65,7 +65,7 @@ export function useEventAnalytics(eventId: string) {
       if (from) params.append('from', from);
       if (to) params.append('to', to);
       
-      const { data, error: fetchError } = await supabase.functions.invoke('analytics-video/event', {
+      const { data, error: fetchError } = await supabase.functions.invoke('analytics-event-overview', {
         body: { event_id: eventId, from, to }
       });
 
@@ -106,8 +106,10 @@ export function useTopPostsAnalytics(eventId: string) {
     setError(null);
     
     try {
-      const { data, error: fetchError } = await supabase.functions.invoke('analytics-video/content', {
-        body: { event_id: eventId, metric, limit }
+      const { data, error: fetchError } = await supabase.rpc('get_top_posts_analytics', {
+        p_event_id: eventId,
+        p_metric: metric,
+        p_limit: limit
       });
 
       if (fetchError) {
