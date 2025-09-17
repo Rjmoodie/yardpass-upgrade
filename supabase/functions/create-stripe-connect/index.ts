@@ -43,8 +43,27 @@ serve(async (req) => {
       throw new Error("Invalid context_type");
     }
 
-    if (context_id !== userData.user.id) {
-      throw new Error("Unauthorized: context_id must match authenticated user");
+    // Validate permissions based on context type
+    if (context_type === 'individual') {
+      if (context_id !== userData.user.id) {
+        throw new Error("Unauthorized: context_id must match authenticated user for individual accounts");
+      }
+    } else if (context_type === 'organization') {
+      // For organizations, verify user has admin/owner role
+      const { data: membership, error: membershipError } = await supabaseService
+        .from('org_memberships')
+        .select('role')
+        .eq('org_id', context_id)
+        .eq('user_id', userData.user.id)
+        .single();
+
+      if (membershipError || !membership) {
+        throw new Error("Unauthorized: not a member of this organization");
+      }
+
+      if (!['owner', 'admin'].includes(membership.role)) {
+        throw new Error("Unauthorized: insufficient permissions for organization");
+      }
     }
 
     // Initialize Stripe
