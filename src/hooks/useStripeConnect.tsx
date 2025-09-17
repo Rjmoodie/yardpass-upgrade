@@ -29,7 +29,27 @@ export function useStripeConnect(contextType: 'individual' | 'organization' = 'i
     }
 
     const effectiveContextId = contextId || user.id;
-    fetchPayoutAccount(effectiveContextId);
+    
+    // Initial fetch
+    const initializeAccount = async () => {
+      await fetchPayoutAccount(effectiveContextId);
+      
+      // Auto-refresh from Stripe API on first load only
+      try {
+        const { data: refreshData, error: refreshError } = await supabase.functions.invoke('refresh-stripe-accounts', {});
+        if (refreshError) {
+          console.warn('Failed to refresh from Stripe API:', refreshError);
+        } else {
+          console.log('Auto-refresh result:', refreshData);
+          // Fetch again after refresh
+          await fetchPayoutAccount(effectiveContextId);
+        }
+      } catch (err) {
+        console.warn('Auto-refresh failed:', err);
+      }
+    };
+    
+    initializeAccount();
   }, [user, contextId, contextType]);
 
   const fetchPayoutAccount = async (effectiveContextId: string) => {
