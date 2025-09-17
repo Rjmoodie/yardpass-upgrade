@@ -222,7 +222,7 @@ export function useStripeConnect(contextType: 'individual' | 'organization' = 'i
       const { data, error } = await supabase.functions.invoke('stripe-connect-portal', {
         body: {
           account_id: account.stripe_connect_id,
-          return_url: `${window.location.origin}/dashboard?tab=payouts`
+          return_url: `${window.location.origin}/profile`
         }
       });
 
@@ -234,14 +234,24 @@ export function useStripeConnect(contextType: 'individual' | 'organization' = 'i
       console.log('Stripe portal response:', data);
 
       if (data?.url) {
-        window.open(data.url, '_blank');
+        // Try opening in same tab to avoid popup blockers
+        try {
+          window.location.href = data.url;
+        } catch (navigationError) {
+          console.warn('Same-tab navigation failed, trying popup:', navigationError);
+          // Fallback to popup with user gesture
+          const popup = window.open(data.url, '_blank', 'noopener,noreferrer');
+          if (!popup) {
+            throw new Error('Popup blocked - please allow popups for this site or copy the URL manually');
+          }
+        }
       }
 
     } catch (err) {
       console.error('Error opening Stripe portal:', err);
       toast({
-        title: "Portal Error",
-        description: err instanceof Error ? err.message : 'Failed to open Stripe portal',
+        title: "Portal Access Issue",
+        description: err instanceof Error ? err.message : 'Failed to access Stripe portal. Please check your browser settings and try again.',
         variant: "destructive",
       });
     } finally {
