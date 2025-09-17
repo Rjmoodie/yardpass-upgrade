@@ -166,42 +166,38 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   // Video control: auto-play current video, pause others
   useEffect(() => {
+    // Find videos in the current and adjacent frames
     const indices = new Set([currentIndex - 1, currentIndex, currentIndex + 1].filter(i => i >= 0 && i < items.length));
     
-    indices.forEach((idx) => {
-      const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${idx}"] video`);
-      if (!el) return;
+    // Update playing state first
+    setPlayingVideos(prev => {
+      const next = new Set<number>();
+      indices.forEach(idx => {
+        if (idx === currentIndex) {
+          next.add(idx);
+        }
+      });
+      return next;
+    });
 
-      if (idx === currentIndex) {
-        // Auto-play current video
-        el.muted = !soundEnabled;
-        setPlayingVideos(prev => new Set(prev).add(idx));
-        el.play().catch(() => {/* ignore autoplay failures */});
+    // Then control actual video elements
+    items.forEach((item, idx) => {
+      const feedElement = document.querySelector(`[data-feed-index="${idx}"]`);
+      const videoElement = feedElement?.querySelector('video') as HTMLVideoElement;
+      
+      if (!videoElement) return;
+
+      if (idx === currentIndex && item.item_type === 'post') {
+        // Auto-play current video post
+        videoElement.muted = !soundEnabled;
+        videoElement.play().catch(() => {/* ignore autoplay failures */});
       } else {
-        // Pause other videos
-        el.muted = true;
-        el.pause();
-        setPlayingVideos(prev => {
-          const next = new Set(prev);
-          next.delete(idx);
-          return next;
-        });
+        // Pause all other videos
+        videoElement.muted = true;
+        videoElement.pause();
       }
     });
-
-    // Pause any previously playing videos outside the window
-    playingVideos.forEach((idx) => {
-      if (!indices.has(idx)) {
-        const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${idx}"] video`);
-        if (el) el.pause();
-        setPlayingVideos(prev => {
-          const next = new Set(prev);
-          next.delete(idx);
-          return next;
-        });
-      }
-    });
-  }, [currentIndex, soundEnabled, items.length, playingVideos]);
+  }, [currentIndex, soundEnabled, items]);
 
   // Actions
   const handleLike = useCallback(

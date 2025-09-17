@@ -176,7 +176,7 @@ export function UserPostCard({
       {!showFallback ? (
         <div className="absolute inset-0">
           {isVideo ? (
-            <>
+            <div className="absolute inset-0">
               <video
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-cover cursor-pointer"
@@ -190,6 +190,7 @@ export function UserPostCard({
                 onClick={handleVideoClick}
                 aria-label={isVideoPlaying ? 'Pause video' : 'Play video'}
               />
+              
               {!ready && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-label="Loading video" />
@@ -210,7 +211,7 @@ export function UserPostCard({
                   </div>
                 </div>
               )}
-            </>
+            </div>
           ) : (
             <img
               src={mediaUrl!}
