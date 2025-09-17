@@ -215,13 +215,13 @@ export default function AuthModal({
 
   const resendDisabled = resendSecs > 0 || guestLoading;
 
-  return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+  return (
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md z-[100]">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
 
         {/* Toggle method (phone/email) shared by SignIn/SignUp; guest tab has its own toggle */}
         <div className="flex justify-center mb-6">

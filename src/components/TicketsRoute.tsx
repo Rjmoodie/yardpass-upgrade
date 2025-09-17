@@ -7,8 +7,9 @@ import AuthModal from '@/components/AuthModal';
 export function TicketsRoute() {
   const { user, profile } = useAuth();
   const { session, isActive, clear } = useGuestTicketSession();
-  const [showAuth, setShowAuth] = useState(!user && !isActive);
+  const [showAuth, setShowAuth] = useState(false);
 
+  // If user is authenticated, show their tickets
   if (user) {
     return (
       <TicketsPage
@@ -22,7 +23,7 @@ export function TicketsRoute() {
     );
   }
 
-  // Guest session
+  // If there's an active guest session, show guest tickets
   if (isActive && session) {
     return (
       <TicketsPage
@@ -34,14 +35,14 @@ export function TicketsRoute() {
     );
   }
 
-  // No session -> open modal in "guest" tab
+  // For unauthenticated users without guest session, show auth modal
   return (
-    <>
+    <div className="min-h-screen flex items-center justify-center p-4">
       <AuthModal
-        isOpen={showAuth}
-        onClose={() => setShowAuth(false)}
+        isOpen={true}
+        onClose={() => (window.location.href = '/')}
         onSuccess={() => {
-          // after guest verifies, this component will re-render and show tickets
+          // Component will re-render with auth state
           setShowAuth(false);
         }}
         title="Access your tickets"
@@ -49,6 +50,6 @@ export function TicketsRoute() {
         allowGuestTicketAccess
         defaultTab="guest"
       />
-    </>
+    </div>
   );
 }
