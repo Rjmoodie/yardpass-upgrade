@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, MapPin, Calendar, Users, Crown, Ticket, Share } from 'lucide-react';
+import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
 import { EventFeed } from '@/components/EventFeed';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
@@ -22,6 +23,11 @@ interface UserProfile {
   verification_status: string;
   photo_url?: string;
   created_at: string;
+  social_links?: Array<{
+    platform: string;
+    url: string;
+    is_primary: boolean;
+  }>;
 }
 
 interface UserEvent {
@@ -94,14 +100,19 @@ export default function UserProfilePage() {
         );
 
       // Profile lookup by id (uuid) or by display_name
-      let q = supabase.from('user_profiles').select('*');
+      let q = supabase.from('user_profiles').select('*, social_links');
       q = isUUID ? q.eq('user_id', identifier) : q.ilike('display_name', `%${identifier}%`);
       const { data: profiles, error: profileError } = await q.limit(1);
 
       if (profileError) throw profileError;
       if (!profiles?.length) throw new Error('User not found');
 
-      const userProfile = profiles[0] as UserProfile;
+      const userProfile = {
+        ...profiles[0],
+        social_links: Array.isArray(profiles[0].social_links) 
+          ? profiles[0].social_links as Array<{platform: string; url: string; is_primary: boolean}>
+          : []
+      } as UserProfile;
       setProfile(userProfile);
 
       // Refine meta with real display name
@@ -250,6 +261,17 @@ export default function UserProfilePage() {
                   })}
                 </span>
               </div>
+              
+              {/* Social Links */}
+              {profile.social_links && Array.isArray(profile.social_links) && profile.social_links.length > 0 && (
+                <div className="mt-2">
+                  <SocialLinkDisplay 
+                    socialLinks={profile.social_links} 
+                    showPrimaryOnly={true}
+                    className="text-muted-foreground hover:text-foreground"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

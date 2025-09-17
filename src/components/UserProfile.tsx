@@ -6,6 +6,7 @@ import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
 import { useTickets } from '@/hooks/useTickets';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -45,6 +46,11 @@ interface User {
   name: string;
   role: 'attendee' | 'organizer';
   isVerified: boolean;
+  socialLinks?: Array<{
+    platform: string;
+    url: string;
+    is_primary: boolean;
+  }>;
 }
 
 interface UserProfileProps {
@@ -56,6 +62,7 @@ interface UserProfileProps {
 function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
   const [userPosts, setUserPosts] = useState<UserPost[]>([]);
   const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
+  const [socialLinks, setSocialLinks] = useState<Array<{platform: string; url: string; is_primary: boolean}>>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const { tickets, loading: ticketsLoading } = useTickets();
   const navigate = useNavigate();
@@ -78,6 +85,7 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
   useEffect(() => {
     if (!user.id) return;
     fetchUserData();
+    fetchUserSocialLinks();
   }, [user.id]);
 
   async function fetchUserData() {
@@ -140,6 +148,25 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
       setUserBadges([]);
     } finally {
       setLoadingPosts(false);
+    }
+  }
+
+  async function fetchUserSocialLinks() {
+    try {
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('social_links')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) throw error;
+      
+      if (profile?.social_links && Array.isArray(profile.social_links)) {
+        setSocialLinks(profile.social_links as Array<{platform: string; url: string; is_primary: boolean}>);
+      }
+    } catch (err) {
+      console.error('Error fetching social links:', err);
+      setSocialLinks([]);
     }
   }
 
@@ -237,6 +264,17 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
               {user.role === 'organizer' ? 'Organizer' : 'Attendee'}
             </Badge>
           </div>
+          
+          {/* Social Links */}
+          {socialLinks.length > 0 && (
+            <div className="mt-3 flex justify-center">
+              <SocialLinkDisplay 
+                socialLinks={socialLinks} 
+                showPrimaryOnly={true}
+                className="text-muted-foreground hover:text-foreground"
+              />
+            </div>
+          )}
 
           {/* Role toggle */}
           <Card className="max-w-sm mx-auto border-2 border-primary/20">
