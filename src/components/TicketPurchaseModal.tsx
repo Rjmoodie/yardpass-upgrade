@@ -6,6 +6,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Plus, Minus, CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { toast } from '@/hooks/use-toast';
 
 interface TicketTier {
@@ -47,6 +48,7 @@ export function TicketPurchaseModal({
   onClose, 
   onSuccess 
 }: TicketPurchaseModalProps) {
+  const { trackEvent } = useAnalyticsIntegration();
   const [selections, setSelections] = useState<TicketSelection>({});
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -84,6 +86,16 @@ export function TicketPurchaseModal({
 
     const currentQty = selections[tierId] || 0;
     const newQty = Math.max(0, Math.min(currentQty + change, tier.max_per_order, tier.quantity));
+    
+    // Track ticket selection changes
+    trackEvent('ticket_selection_change', {
+      event_id: event.id,
+      tier_id: tierId,
+      tier_name: tier.name,
+      previous_quantity: currentQty,
+      new_quantity: newQty,
+      price_cents: tier.price_cents
+    });
     
     setSelections(prev => ({
       ...prev,
@@ -124,12 +136,25 @@ export function TicketPurchaseModal({
 
   const handlePurchase = async () => {
     console.log('🎫 Purchase button clicked!');
+    
+    // Track checkout initiation
+    trackEvent('checkout_started', {
+      event_id: event.id,
+      tier_ids: Object.keys(selections).filter(id => selections[id] > 0),
+      total_cents: totalAmount,
+      total_quantity: totalTickets
+    });
+    
     console.log('User:', user);
     console.log('Total tickets:', totalTickets);
     console.log('Selections:', selections);
     
     if (!user) {
       console.log('❌ User not authenticated');
+      trackEvent('checkout_auth_required', {
+        event_id: event.id,
+        total_cents: totalAmount
+      });
       toast({
         title: "Authentication Required",
         description: "Please sign in to purchase tickets.",
@@ -140,6 +165,9 @@ export function TicketPurchaseModal({
 
     if (totalTickets === 0) {
       console.log('❌ No tickets selected');
+      trackEvent('checkout_no_tickets_selected', {
+        event_id: event.id
+      });
       toast({
         title: "No Tickets Selected",
         description: "Please select at least one ticket.",

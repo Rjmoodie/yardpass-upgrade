@@ -6,6 +6,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { ArrowLeft, Search, X, SlidersHorizontal, Calendar as CalendarIcon } from 'lucide-react';
+import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -72,6 +73,8 @@ const mockSearchResults = [
 ];
 
 export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
+  const { trackEvent } = useAnalyticsIntegration();
+  
   // URL-synced state
   const [params, setParams] = useSearchParams();
   const q = params.get('q') || '';
@@ -194,10 +197,25 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const setParam = (k: string, v?: string) => {
     const next = new URLSearchParams(params);
     if (v && v.length) next.set(k, v); else next.delete(k);
+    
+    // Track search interactions
+    trackEvent('search_filter_change', {
+      filter_type: k,
+      filter_value: v || '',
+      query: q,
+      category: cat,
+      results_count: results.length
+    });
+    
     setParams(next, { replace: true });
   };
 
   const clearAll = () => {
+    trackEvent('search_filters_clear', {
+      previous_query: q,
+      previous_category: cat,
+      results_count: results.length
+    });
     setParams(new URLSearchParams(), { replace: true });
   };
 

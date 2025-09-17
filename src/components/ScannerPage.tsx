@@ -8,6 +8,7 @@ import {
   Pause, Play, Flashlight, RefreshCw, Smartphone, Upload, Download
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -62,6 +63,7 @@ declare global {
 /* ------------------------------------------------------------------ */
 export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
   const { user } = useAuth();
+  const { trackEvent } = useAnalyticsIntegration();
   const { toast } = useToast();
 
   const [scanMode, setScanMode] = useState<'manual' | 'camera'>('manual');

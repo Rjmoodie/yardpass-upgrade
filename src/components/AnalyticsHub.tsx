@@ -11,6 +11,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -748,6 +749,7 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
 
 const AnalyticsHub: React.FC = () => {
   const { user } = useAuth();
+  const { trackEvent } = useAnalyticsIntegration();
   const [selectedOrg, setSelectedOrg] = useState<string>(() => new URLSearchParams(location.search).get('org') || localStorage.getItem('ah.selectedOrg') || '');
   const [dateRange, setDateRange] = useState<string>(() => new URLSearchParams(location.search).get('range') || localStorage.getItem('ah.dateRange') || '30d');
   const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
@@ -966,7 +968,14 @@ const AnalyticsHub: React.FC = () => {
 
         {/* Controls */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          <Select value={selectedOrg} onValueChange={setSelectedOrg}>
+          <Select value={selectedOrg} onValueChange={(orgId) => {
+            setSelectedOrg(orgId);
+            trackEvent('analytics_org_change', {
+              organization_id: orgId,
+              date_range: dateRange,
+              active_tab: activeTab
+            });
+          }}>
             <SelectTrigger className="w-full sm:w-64" aria-label="Select organization">
               <SelectValue placeholder={organizations.length ? 'Select organization' : 'No organizations'} />
             </SelectTrigger>
@@ -979,7 +988,15 @@ const AnalyticsHub: React.FC = () => {
             </SelectContent>
           </Select>
 
-          <Select value={dateRange} onValueChange={setDateRange}>
+          <Select value={dateRange} onValueChange={(range) => {
+            setDateRange(range);
+            trackEvent('analytics_date_range_change', {
+              from_range: dateRange,
+              to_range: range,
+              organization_id: selectedOrg,
+              active_tab: activeTab
+            });
+          }}>
             <SelectTrigger className="w-full sm:w-40" aria-label="Select date range">
               <SelectValue />
             </SelectTrigger>
@@ -990,14 +1007,30 @@ const AnalyticsHub: React.FC = () => {
             </SelectContent>
           </Select>
 
-          <Button onClick={fetchAnalytics} disabled={loading} variant="outline">
+          <Button onClick={() => {
+            trackEvent('analytics_refresh_click', {
+              organization_id: selectedOrg,
+              date_range: dateRange,
+              active_tab: activeTab
+            });
+            fetchAnalytics();
+          }} disabled={loading} variant="outline">
             <RefreshIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
 
         {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full space-y-8">
+        <Tabs value={activeTab} onValueChange={(v) => {
+          const newTab = v as typeof activeTab;
+          setActiveTab(newTab);
+          trackEvent('analytics_tab_change', {
+            from_tab: activeTab,
+            to_tab: newTab,
+            organization_id: selectedOrg,
+            date_range: dateRange
+          });
+        }} className="w-full space-y-8">
           {/* Sticky tablist */}
           <div className="relative z-20">
             <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50 rounded-xl">

@@ -11,6 +11,7 @@ import { ArrowLeft, ArrowRight, Plus, X, Upload, Calendar, MapPin, Shield, Share
 import { MapboxLocationPicker } from './MapboxLocationPicker';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useToast } from '@/hooks/use-toast';
 
 interface EventCreatorProps {
@@ -42,6 +43,7 @@ const categories = [
 
 export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorProps) {
   const { user } = useAuth();
+  const { trackEvent } = useAnalyticsIntegration();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -75,8 +77,26 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
   const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
 
-  const handleNext = () => setStep((s) => Math.min(totalSteps, s + 1));
-  const handlePrevious = () => setStep((s) => Math.max(1, s - 1));
+  const handleNext = () => {
+    const newStep = Math.min(totalSteps, step + 1);
+    trackEvent('event_creation_step', {
+      from_step: step,
+      to_step: newStep,
+      organization_id: organizationId,
+      direction: 'forward'
+    });
+    setStep(newStep);
+  };
+  const handlePrevious = () => {
+    const newStep = Math.max(1, step - 1);
+    trackEvent('event_creation_step', {
+      from_step: step,
+      to_step: newStep,
+      organization_id: organizationId,
+      direction: 'backward'
+    });
+    setStep(newStep);
+  };
 
   const addTicketTier = () => {
     setTicketTiers((prev) => [
@@ -174,6 +194,15 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
   const handleSubmit = async () => {
     if (!user || !location) return;
+    
+    trackEvent('event_creation_submit_start', {
+      organization_id: organizationId,
+      event_title: formData.title,
+      event_category: formData.category,
+      event_visibility: formData.visibility,
+      ticket_tiers_count: ticketTiers.length
+    });
+    
     setLoading(true);
     try {
       const startAt = new Date(`${formData.startDate}T${formData.startTime}`);
@@ -240,6 +269,16 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         if (guideError) throw guideError;
       }
 
+      trackEvent('event_creation_success', {
+        organization_id: organizationId,
+        event_id: event.id,
+        event_title: formData.title,
+        event_category: formData.category,
+        event_visibility: formData.visibility,
+        ticket_tiers_count: ticketTiers.length,
+        has_cultural_guide: !!(formData.culturalGuide.history || formData.culturalGuide.themes.length || formData.culturalGuide.community.length)
+      });
+
       toast({
         title: "Event Created!",
         description: formData.visibility === 'unlisted'
@@ -250,6 +289,12 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       });
       onCreate();
     } catch (err: any) {
+      trackEvent('event_creation_error', {
+        organization_id: organizationId,
+        error_message: err.message,
+        step: step,
+        event_title: formData.title
+      });
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
