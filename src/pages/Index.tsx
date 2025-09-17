@@ -182,19 +182,14 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }
 
   return (
-    <div className="h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/70 to-transparent pointer-events-auto">
-        <div className="flex items-center justify-between p-4 pb-2">
-          <div className="flex items-center justify-center">
-            <img src="/yardpass-logo.png" alt="YardPass" className="w-20 h-16" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-white/80">
-              {currentIndex + 1} of {items.length}
-            </span>
-          </div>
-        </div>
+    <div className="feed-page h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
+      {/* Logo */}
+      <div className="fixed left-3 top-3 z-30">
+        <img
+          src="/yardpass-logo.png"
+          alt="YardPass"
+          className="w-7 h-7 md:w-8 md:h-8 object-contain"
+        />
       </div>
 
       {/* Feed Items */}
@@ -244,12 +239,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       </div>
 
       {/* Navigation controls */}
-      <div className="absolute left-1/2 -translate-x-1/2 bottom-6 z-30 pointer-events-auto">
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-6 z-10 pointer-events-none">
         <div className="flex flex-col items-center gap-2">
           <button
             onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
             disabled={currentIndex === 0}
-            className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50"
+            className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50 pointer-events-auto"
             aria-label="Previous item"
           >
             <ChevronUp className="w-4 h-4" />
@@ -263,7 +258,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                   key={`${item.item_type}:${item.item_id}`}
                   aria-label={`Go to ${item.item_type} ${actualIndex + 1}`}
                   onClick={() => goTo(actualIndex)}
-                  className={`w-1 h-6 rounded-full transition-all duration-200 ${
+                  className={`w-1 h-6 rounded-full transition-all duration-200 pointer-events-auto ${
                     actualIndex === currentIndex ? 'bg-white shadow-lg' : 'bg-white/40 hover:bg-white/70'
                   }`}
                 />
@@ -274,7 +269,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           <button
             onClick={() => setCurrentIndex(Math.min(items.length - 1, currentIndex + 1))}
             disabled={currentIndex === items.length - 1}
-            className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50"
+            className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50 pointer-events-auto"
             aria-label="Next item"
           >
             <ChevronDown className="w-4 h-4" />

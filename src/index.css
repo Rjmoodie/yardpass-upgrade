@@ -470,4 +470,17 @@
   /* Safe-area helpers */
   .safe-bottom-pad { padding-bottom: env(safe-area-inset-bottom); }
   .inset-safe { inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+  /* Feed rail styles */
+  .feed-rail-btn {
+    @apply flex flex-col items-center gap-1 text-white/90 hover:text-white transition;
+  }
+  .rail-count {
+    @apply text-[10px] font-medium opacity-90;
+  }
+
+  /* Ensure vertical swipe feels natural */
+  .feed-page {
+    touch-action: pan-y; /* vertical scroll only */
+  }
 }

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Heart, MessageCircle, Share } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
 import { useHlsVideo } from '@/hooks/useHlsVideo';
+import ActionRail from './ActionRail';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
 interface UserPostCardProps {
@@ -98,73 +98,53 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
       
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
 
-      {/* Content */}
-      <div className="absolute inset-0 flex">
-        {/* Left Side: Action Buttons */}
-        <div className="flex flex-col justify-center items-start pl-6 space-y-6">
-          <button
-            onClick={() => onLike(item.item_id)}
-            className="flex flex-col items-center text-white hover:text-red-400 transition-colors"
+      {/* RIGHT ACTION RAIL (TikTok style) */}
+      <ActionRail
+        liked={false}
+        likeCount={likes}
+        commentCount={comments}
+        onLike={() => onLike(item.item_id)}
+        onComment={() => onComment(item.item_id)}
+        onShare={() => onShare(item.item_id)}
+      />
+
+      {/* BOTTOM META BAR */}
+      <div className="absolute left-3 right-3 bottom-4 z-20">
+        <div className="bg-black/45 backdrop-blur-sm rounded-xl px-3 py-2 flex items-center gap-2">
+          {/* Username (clickable) */}
+          <Link
+            to={`/u/${item.author_id}`}
+            className="text-white font-semibold hover:underline truncate max-w-[40%]"
+            onClick={(e) => e.stopPropagation()}
           >
-            <Heart className="w-7 h-7" />
-            {likes > 0 && <span className="text-xs font-medium mt-1">{likes}</span>}
-          </button>
+            {item.author_name || 'User'}
+          </Link>
 
-          <button
-            onClick={() => onComment(item.item_id)}
-            className="flex flex-col items-center text-white hover:text-blue-400 transition-colors"
-          >
-            <MessageCircle className="w-7 h-7" />
-            {comments > 0 && <span className="text-xs font-medium mt-1">{comments}</span>}
-          </button>
-
-          <button
-            onClick={() => onShare(item.item_id)}
-            className="flex flex-col items-center text-white hover:text-green-400 transition-colors"
-          >
-            <Share className="w-7 h-7" />
-          </button>
-        </div>
-
-        {/* Right Side: Post Content */}
-        <div className="flex-1 flex flex-col justify-end p-6 pl-0">
-          {/* Author Info & Event */}
-          <div className="space-y-3 mb-4">
-            {/* Author Info */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => onAuthorClick?.(item.author_id)}
-                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-              >
-                <span className="text-white font-medium text-lg">
-                  {item.author_name || 'Anonymous'}
-                </span>
-                {item.author_badge && (
-                  <span className={`text-xs px-2 py-1 rounded-full text-white font-medium ${getBadgeColor(item.author_badge)}`}>
-                    {item.author_badge}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Event Info */}
-            <Button
-              onClick={() => onEventClick(item.event_id)}
-              variant="ghost"
-              className="bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-black/60 px-3 py-1.5 text-sm w-fit"
-            >
-              <span className="truncate max-w-[200px]">{item.event_title}</span>
-              <span className="text-white/60 ml-2">• {formatDate(item.event_starts_at)}</span>
-            </Button>
-          </div>
-
-          {/* Post Content */}
-          {item.content && (
-            <p className="text-white text-lg leading-relaxed">
-              {item.content}
-            </p>
+          {/* VIP / ORGANIZER badge */}
+          {item.author_badge && (
+            <span className={`text-xs px-2 py-0.5 rounded-full text-white font-medium ${getBadgeColor(item.author_badge)}`}>
+              {item.author_badge}
+            </span>
           )}
+
+          <span className="mx-2 h-3 w-px bg-white/30" />
+
+          {/* Event chip (clickable) */}
+          <Link
+            to={`/event/${item.event_id}`}
+            className="text-xs text-white/90 hover:text-white underline-offset-2 hover:underline truncate max-w-[45%]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {item.event_title || 'View event'}
+          </Link>
         </div>
+
+        {/* Post Content */}
+        {item.content && (
+          <p className="text-white text-sm leading-relaxed mt-2 bg-black/20 backdrop-blur-sm rounded-lg px-3 py-2">
+            {item.content}
+          </p>
+        )}
       </div>
     </div>
   );

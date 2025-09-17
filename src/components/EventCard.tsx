@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, Users } from 'lucide-react';
+import { Calendar, MapPin } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
@@ -47,12 +48,6 @@ export function EventCard({ item, onOpenTickets, onEventClick }: EventCardProps)
             <h1 className="text-3xl font-bold text-white leading-tight">
               {item.event_title}
             </h1>
-            
-            <div className="flex items-center gap-2 text-white/80">
-              <span className="text-sm font-medium bg-primary/90 px-2 py-1 rounded-full">
-                {item.event_organizer}
-              </span>
-            </div>
 
             <div className="flex flex-col gap-2 text-white/90">
               <div className="flex items-center gap-2">
@@ -89,6 +84,29 @@ export function EventCard({ item, onOpenTickets, onEventClick }: EventCardProps)
               Details
             </Button>
           </div>
+        </div>
+      </div>
+
+      {/* BOTTOM META BAR */}
+      <div className="absolute left-3 right-3 bottom-4 z-20">
+        <div className="bg-black/45 backdrop-blur-sm rounded-xl px-3 py-2 flex items-center gap-2">
+          <Link
+            to={`/u/${item.event_organizer_id || 'organizer'}`}
+            className="text-white font-semibold hover:underline truncate max-w-[40%]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {item.event_organizer || 'Organizer'}
+          </Link>
+
+          <span className="mx-2 h-3 w-px bg-white/30" />
+
+          <Link
+            to={`/event/${item.event_id}`}
+            className="text-xs text-white/90 hover:text-white underline-offset-2 hover:underline truncate max-w-[45%]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {item.event_title}
+          </Link>
         </div>
       </div>
     </div>
