@@ -80,3 +80,15 @@ verify_jwt = true
 
 [functions.messaging-queue]
 verify_jwt = true
+
+[functions.analytics-event-overview]
+verify_jwt = true
+
+[functions.analytics-org-overview]
+verify_jwt = true
+
+[functions.analytics-video-mux]
+verify_jwt = true
+
+[functions.analytics-posthog-funnel]
+verify_jwt = true

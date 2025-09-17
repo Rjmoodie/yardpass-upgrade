@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
-type Row = { user_profiles: { id: string; display_name: string | null; avatar_url: string | null } };
+type Row = { user_profiles: { id: string; display_name: string | null; photo_url: string | null } };
 
 export default function EventAttendeesPage() {
   const { identifier } = useParams() as { identifier: string };
@@ -22,7 +22,7 @@ export default function EventAttendeesPage() {
         setTitle(ev.data.title);
         const { data } = await supabase
           .from('tickets')
-          .select('owner_user_id, user_profiles!tickets_owner_user_id_fkey(id, display_name, avatar_url)')
+          .select('owner_user_id, user_profiles!tickets_owner_user_id_fkey(id, display_name, photo_url)')
           .eq('event_id', ev.data.id)
           .in('status', ['issued','transferred','redeemed'])
           .order('created_at', { ascending: false })
@@ -43,7 +43,7 @@ export default function EventAttendeesPage() {
             className="p-3 border rounded-md flex items-center gap-3 hover:bg-muted"
           >
             <img
-              src={r.user_profiles.avatar_url || ''}
+              src={r.user_profiles.photo_url || ''}
               alt={r.user_profiles.display_name || 'User'}
               className="h-10 w-10 rounded-full object-cover bg-muted"
               onError={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')}

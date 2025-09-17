@@ -31,7 +31,7 @@ type EventRow = {
   organizations?: { id: string; name: string; handle: string | null } | null;
 };
 
-type Attendee = { id: string; display_name: string | null; avatar_url: string | null };
+type Attendee = { id: string; display_name: string | null; photo_url: string | null };
 
 // ----------------- small helpers -----------------
 const safeOrigin =
@@ -125,7 +125,7 @@ export default function EventSlugPage() {
         const [{ data: atts }, { count }] = await Promise.all([
           supabase
             .from('tickets')
-            .select('owner_user_id, user_profiles!inner(id, display_name, avatar_url)')
+            .select('owner_user_id, user_profiles!inner(id, display_name, photo_url)')
             .eq('event_id', ev.id)
             .in('status', ['issued', 'transferred', 'redeemed'])
             .limit(12),
@@ -140,7 +140,7 @@ export default function EventSlugPage() {
           (atts || []).map((t: any) => ({
             id: t.user_profiles.id,
             display_name: t.user_profiles.display_name,
-            avatar_url: t.user_profiles.avatar_url,
+            photo_url: t.user_profiles.photo_url,
           }))
         );
         setAttendeeCount(count || 0);
@@ -344,7 +344,7 @@ export default function EventSlugPage() {
                 {attendees.map((a) => (
                   <img
                     key={a.id}
-                    src={a.avatar_url || ''}
+                    src={a.photo_url || ''}
                     alt={a.display_name || 'attendee'}
                     className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover bg-muted"
                     onError={(e) =>
