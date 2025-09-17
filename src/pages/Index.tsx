@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+// src/pages/Index.tsx
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
-import { Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
 import CommentModal from '@/components/CommentModal';
@@ -13,7 +14,6 @@ import { useNavigate } from 'react-router-dom';
 import { useUnifiedFeed } from '@/hooks/useUnifiedFeed';
 import { EventCard } from '@/components/EventCard';
 import { UserPostCard } from '@/components/UserPostCard';
-import { ReportButton } from '@/components/ReportButton';
 import { supabase } from '@/integrations/supabase/client';
 
 interface IndexProps {
@@ -32,18 +32,28 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(false); // Videos start muted
+
+  // Audio & playback
+  const [soundEnabled, setSoundEnabled] = useState(false); // default muted
   const [playingVideos, setPlayingVideos] = useState<Set<number>>(new Set());
 
   const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
 
-  // Get current user for feed
+  // Keep user id in sync with auth state (handles login/logout while on page)
   const [userId, setUserId] = useState<string | undefined>();
   useEffect(() => {
+    let mounted = true;
     supabase.auth.getUser().then(({ data }) => {
-      setUserId(data.user?.id);
+      if (mounted) setUserId(data.user?.id);
     });
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
+      setUserId(sess?.user?.id);
+    });
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   // Unified feed
@@ -56,110 +66,152 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     }
   }, [error]);
 
-  // Realtime listener for new posts
+  // === Realtime for new posts (INSERT) ===
+  // Subscribes only to the set of event_ids currently on screen.
+  const eventIds = useMemo(
+    () => Array.from(new Set(items.map(i => i.event_id))).sort(),
+    [items]
+  );
+
   useEffect(() => {
-    if (!items.length) return;
+    if (!eventIds.length) return;
 
-    const uniqIds = Array.from(new Set(items.map(item => item.event_id)));
-    const filter = uniqIds.length 
-      ? `event_id=in.(${uniqIds.map(id => `"${id}"`).join(',')})` 
-      : undefined;
+    const filter = `event_id=in.(${eventIds.map(id => `"${id}"`).join(',')})`;
 
-    if (!filter) return;
-    
     const channel = supabase
-      .channel(`unified-feed-${uniqIds.sort().join('-').slice(0,60)}`)
+      .channel(`unified-feed-${eventIds.join('-').slice(0, 60)}`, { config: { broadcast: { ack: true } } })
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'event_posts',
-          filter,
-        },
+        { event: 'INSERT', schema: 'public', table: 'event_posts', filter },
         async (payload) => {
-          const postId = (payload.new as any).id;
-          
-          // Fetch exact item via dedicated RPC
-          const { data } = await supabase.rpc('get_feed_item_for_post', {
-            p_user: userId || null,
-            p_post_id: postId,
-          });
-          
-          const item = Array.isArray(data) ? data[0] : data;
-          if (item) {
-            prependItem(item as any);
+          try {
+            const postId = (payload.new as any).id;
+            // Fetch normalized feed item for this post (server keeps shape consistent)
+            const { data, error } = await supabase.rpc('get_feed_item_for_post', {
+              p_user: userId || null,
+              p_post_id: postId,
+            });
+            if (error) throw error;
+            const item = Array.isArray(data) ? data[0] : data;
+            if (item) prependItem(item as any);
+          } catch (e) {
+            // Soft-fail; realtime is best-effort
+            console.warn('Realtime fetch error:', e);
           }
         }
       )
-      .subscribe();
+      .subscribe(status => {
+        // Optional: console.debug('Realtime status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-    // Only re-sub when the *identity* of the set changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, prependItem, JSON.stringify([...new Set(items.map(i => i.event_id))].sort())]);
+  }, [eventIds.join('|'), prependItem, userId]);
 
-  // Meta
+  // Meta tags
   useEffect(() => { updateMetaTags(defaultMeta); }, []);
 
-  // Keyboard nav
+  // Keep index in bounds if items length changes (e.g., new prepend)
+  useEffect(() => {
+    setCurrentIndex((i) => Math.min(Math.max(0, i), Math.max(0, items.length - 1)));
+  }, [items.length]);
+
+  // Keyboard nav (↑/↓, PgUp/PgDn, Home/End, "s" toggles sound)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' || e.key === 'PageUp') setCurrentIndex((i) => Math.max(0, i - 1));
-      if (e.key === 'ArrowDown' || e.key === 'PageDown') setCurrentIndex((i) => Math.min(items.length - 1, i + 1));
+      if (['ArrowUp', 'PageUp'].includes(e.key)) setCurrentIndex((i) => Math.max(0, i - 1));
+      if (['ArrowDown', 'PageDown'].includes(e.key)) setCurrentIndex((i) => Math.min(items.length - 1, i + 1));
       if (e.key === 'Home') setCurrentIndex(0);
       if (e.key === 'End') setCurrentIndex(Math.max(0, items.length - 1));
+      if (e.key.toLowerCase() === 's') handleSoundToggle();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [items.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Touch swipe (vertical)
+  const touchStartRef = useRef<{ y: number; t: number } | null>(null);
+  useEffect(() => {
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      touchStartRef.current = { y: t.clientY, t: Date.now() };
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      const start = touchStartRef.current;
+      if (!start) return;
+      const dy = (e.changedTouches[0]?.clientY ?? start.y) - start.y;
+      const dt = Date.now() - start.t;
+      // Quick swipe threshold
+      if (dt < 800 && Math.abs(dy) > 50) {
+        if (dy < 0) setCurrentIndex((i) => Math.min(items.length - 1, i + 1));
+        else setCurrentIndex((i) => Math.max(0, i - 1));
+      }
+      touchStartRef.current = null;
+    };
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd);
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart as any);
+      window.removeEventListener('touchend', onTouchEnd as any);
+    };
   }, [items.length]);
 
-  // Sync sound state and video playback when currentIndex changes
+  // Preload next page when we're near the end
   useEffect(() => {
-    // Handle all videos
-    items.forEach((_, index) => {
-      const videoContainer = document.querySelector(`[data-feed-index="${index}"] video`);
-      if (videoContainer) {
-        const video = videoContainer as HTMLVideoElement;
-        
-        if (index === currentIndex) {
-          // Current video: apply sound state and autoplay
-          video.muted = !soundEnabled;
-          video.play().catch(e => console.log('Autoplay failed:', e));
-          setPlayingVideos(prev => new Set(prev).add(currentIndex));
-          console.log(`Index ${currentIndex}: autoplay started, sound ${soundEnabled ? 'enabled' : 'disabled'}`);
-        } else {
-          // Other videos: mute and pause
-          video.muted = true;
-          video.pause();
-          setPlayingVideos(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(index);
-            return newSet;
-          });
-        }
+    if (!loading && hasMore && currentIndex >= items.length - 3) {
+      loadMore().catch(() => {/* surface via hook error if any */});
+    }
+  }, [currentIndex, items.length, hasMore, loadMore, loading]);
+
+  // Video control: only touch the current / prev / next item for perf
+  useEffect(() => {
+    const indices = new Set([currentIndex - 1, currentIndex, currentIndex + 1].filter(i => i >= 0 && i < items.length));
+    const nextPlaying = new Set<number>(playingVideos);
+
+    indices.forEach((idx) => {
+      const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${idx}"] video`);
+      if (!el) return;
+
+      if (idx === currentIndex) {
+        el.muted = !soundEnabled;
+        el.play().then(() => {
+          nextPlaying.add(idx);
+        }).catch(() => {/* ignore autoplay failures */});
+      } else {
+        el.muted = true;
+        el.pause();
+        nextPlaying.delete(idx);
       }
     });
-  }, [currentIndex, soundEnabled, items]);
+
+    // Pause any previously playing videos outside the window
+    playingVideos.forEach((idx) => {
+      if (!indices.has(idx)) {
+        const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${idx}"] video`);
+        if (el) el.pause();
+        nextPlaying.delete(idx);
+      }
+    });
+
+    if (nextPlaying.size !== playingVideos.size) {
+      setPlayingVideos(nextPlaying);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, soundEnabled, items.length]);
 
   // Actions
   const handleLike = useCallback(
     withAuth(async (postId: string) => {
       try {
-        // Toggle reaction
         const { error } = await supabase.functions.invoke('reactions-toggle', {
           body: { post_id: postId, kind: 'like' }
         });
         if (error) throw error;
-        
-        // Refresh the feed to show updated like count and status
         refresh();
-        
         toast({ title: 'Liked!', description: 'Your reaction has been added.' });
-      } catch (error) {
-        console.error('Like error:', error);
+      } catch (err) {
+        console.error('Like error:', err);
         toast({ title: 'Error', description: 'Failed to like post', variant: 'destructive' });
       }
     }, 'Please sign in to like posts'),
@@ -174,7 +226,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     [withAuth]
   );
 
-  const handleShare = useCallback((postId: string) => {
+  const handleShare = useCallback((_postId: string) => {
     setShowShareModal(true);
   }, []);
 
@@ -187,103 +239,51 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }, [onEventSelect]);
 
   const handleOpenTickets = useCallback((eventId: string) => {
-    // Track ticket modal open to PostHog
-    if (typeof window !== 'undefined' && (window as any).posthog) {
-      (window as any).posthog.capture('tickets_modal_opened', {
-        event_id: eventId,
-        user_id: userId
-      });
-    }
-
+    // (Optional) analytics here
     setSelectedEventId(eventId);
     setShowTicketModal(true);
-  }, [userId]);
+  }, []);
 
-  const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(items.length - 1, i))), [items.length]);
+  const goTo = useCallback(
+    (i: number) => setCurrentIndex(Math.max(0, Math.min(items.length - 1, i))),
+    [items.length]
+  );
+
   const currentItem = items[Math.max(0, Math.min(currentIndex, items.length - 1))];
 
-  // PostHog analytics tracking function
-  const trackPostHogEvent = useCallback((eventName: string, postId?: string, properties?: Record<string, any>) => {
-    if (typeof window !== 'undefined' && (window as any).posthog) {
-      (window as any).posthog.capture(eventName, {
-        post_id: postId,
-        event_id: currentItem?.event_id,
-        event_title: currentItem?.event_title,
-        user_id: userId,
-        ...properties
-      });
-    }
-  }, [currentItem, userId]);
-
-  // Update handlers to include analytics
-  const handleLikeWithAnalytics = useCallback(
-    withAuth(async (postId: string) => {
-      try {
-        trackPostHogEvent('post_liked', postId);
-        await handleLike(postId);
-      } catch (error) {
-        console.error('Like error:', error);
-      }
-    }, 'Please sign in to like posts'),
-    [handleLike, trackPostHogEvent, withAuth]
-  );
-
-  const handleCommentWithAnalytics = useCallback(
-    withAuth((postId: string) => {
-      trackPostHogEvent('comment_opened', postId);
-      handleComment(postId);
-    }, 'Please sign in to comment'),
-    [handleComment, trackPostHogEvent, withAuth]
-  );
-
-  const handleShareWithAnalytics = useCallback((postId: string) => {
-    trackPostHogEvent('share_opened', postId);
-    handleShare(postId);
-  }, [handleShare, trackPostHogEvent]);
-
   const handleVideoToggle = useCallback((index: number) => {
-    const videoContainer = document.querySelector(`[data-feed-index="${index}"] video`);
-    if (videoContainer) {
-      const video = videoContainer as HTMLVideoElement;
-      const isCurrentlyPlaying = playingVideos.has(index);
-      
-      if (isCurrentlyPlaying) {
-        video.pause();
-        setPlayingVideos(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(index);
-          return newSet;
-        });
-        console.log(`Video ${index} paused`);
-      } else {
-        video.play().catch(e => console.log('Play failed:', e));
+    const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${index}"] video`);
+    if (!el) return;
+    const isPlaying = playingVideos.has(index);
+    if (isPlaying) {
+      el.pause();
+      setPlayingVideos(prev => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
+    } else {
+      el.play().then(() => {
         setPlayingVideos(prev => new Set(prev).add(index));
-        console.log(`Video ${index} playing`);
-      }
+      }).catch(() => {/* ignore */});
     }
   }, [playingVideos]);
 
   const handleSoundToggle = useCallback(() => {
-    const newSoundEnabled = !soundEnabled;
-    setSoundEnabled(newSoundEnabled);
-    
-    // Mute all videos first
-    document.querySelectorAll('video').forEach(video => {
-      video.muted = true;
-    });
-    
-    // Only unmute the currently visible video if sound is being enabled
-    if (newSoundEnabled) {
-      const currentVideoContainer = document.querySelector(`[data-feed-index="${currentIndex}"] video`);
-      if (currentVideoContainer) {
-        (currentVideoContainer as HTMLVideoElement).muted = false;
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      // Mute all first
+      document.querySelectorAll<HTMLVideoElement>('video').forEach(v => (v.muted = true));
+      // Unmute current if enabling
+      if (next) {
+        const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${currentIndex}"] video`);
+        if (el) el.muted = false;
       }
-    }
-    
-    console.log(`Sound ${newSoundEnabled ? 'enabled' : 'disabled'} for video at index ${currentIndex}`);
-  }, [soundEnabled, currentIndex]);
+      return next;
+    });
+  }, [currentIndex]);
 
-  if (loading) {
+  if (loading && !items.length) {
     return (
       <div className="h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -317,13 +317,19 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         />
       </div>
 
-      {/* Feed Items */}
-      <div 
-        className="h-full w-full relative transition-transform duration-300 ease-out"
+      {/* Feed Items (one-per-screen vertical rail) */}
+      <div
+        className="h-full w-full relative transition-transform duration-300 ease-out will-change-transform"
         style={{ transform: `translateY(-${currentIndex * 100}%)` }}
       >
         {items.map((item, i) => (
-          <div key={`${item.item_type}:${item.item_id}`} className="h-full w-full absolute" style={{ top: `${i * 100}%` }} data-feed-index={i}>
+          <div
+            key={`${item.item_type}:${item.item_id}`}
+            className="h-full w-full absolute"
+            style={{ top: `${i * 100}%` }}
+            data-feed-index={i}
+            aria-label={`Feed item ${i + 1} of ${items.length}`}
+          >
             {item.item_type === 'event' ? (
               <EventCard
                 item={item}
@@ -339,9 +345,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             ) : (
               <UserPostCard
                 item={item}
-                onLike={handleLikeWithAnalytics}
-                onComment={handleCommentWithAnalytics}
-                onShare={handleShareWithAnalytics}
+                onLike={withAuth((postId) => handleLike(postId), 'Please sign in to like posts')}
+                onComment={withAuth((postId) => handleComment(postId), 'Please sign in to comment')}
+                onShare={(postId) => handleShare(postId)}
                 onEventClick={handleEventClick}
                 onAuthorClick={handleAuthorClick}
                 onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
@@ -360,14 +366,14 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       <div className="absolute left-1/2 -translate-x-1/2 bottom-6 z-10 pointer-events-none">
         <div className="flex flex-col items-center gap-2">
           <button
-            onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+            onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
             disabled={currentIndex === 0}
             className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50 pointer-events-auto"
             aria-label="Previous item"
           >
             <ChevronUp className="w-4 h-4" />
           </button>
-          
+
           <div className="flex flex-col items-center gap-1 max-h-32 overflow-y-auto">
             {items.slice(Math.max(0, currentIndex - 3), currentIndex + 4).map((item, i) => {
               const actualIndex = Math.max(0, currentIndex - 3) + i;
@@ -385,7 +391,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           </div>
 
           <button
-            onClick={() => setCurrentIndex(Math.min(items.length - 1, currentIndex + 1))}
+            onClick={() => setCurrentIndex((i) => Math.min(items.length - 1, i + 1))}
             disabled={currentIndex === items.length - 1}
             className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50 pointer-events-auto"
             aria-label="Next item"
@@ -403,7 +409,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         attendeeCount={0}
         attendees={[]}
       />
-      
+
       <EventTicketModal
         isOpen={showTicketModal}
         onClose={() => {
@@ -411,21 +417,26 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           setSelectedEventId(null);
         }}
         event={selectedEventId ? (() => {
-          const feedItem = items.find(item => item.item_type === 'event' && item.item_id === selectedEventId) as Extract<typeof items[0], { item_type: 'event' }>;
-          return feedItem ? {
-            id: feedItem.event_id,
-            title: feedItem.event_title,
-            start_at: feedItem.event_starts_at,
-            venue: feedItem.event_location,
-            description: feedItem.event_description
-          } : null;
+          const feedItem = items.find(
+            it => it.item_type === 'event' && it.item_id === selectedEventId
+          ) as Extract<typeof items[0], { item_type: 'event' }> | undefined;
+
+          return feedItem
+            ? {
+                id: feedItem.event_id,
+                title: feedItem.event_title,
+                start_at: feedItem.event_starts_at,
+                venue: (feedItem as any).event_location ?? undefined,
+                description: (feedItem as any).event_description ?? undefined
+              }
+            : null;
         })() : null}
         onSuccess={() => {
           setShowTicketModal(false);
           setSelectedEventId(null);
         }}
       />
-      
+
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
@@ -435,13 +446,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           url: `${window.location.origin}/e/${currentItem.event_id}`
         } : null}
       />
-      
+
       <PostCreatorModal
         isOpen={postCreatorOpen}
         onClose={() => setPostCreatorOpen(false)}
         preselectedEventId={currentItem?.event_id}
       />
-      
+
       {showCommentModal && commentPostId && currentItem && (
         <CommentModal
           isOpen={showCommentModal}

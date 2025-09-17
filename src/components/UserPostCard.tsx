@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Pause } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
@@ -22,79 +22,163 @@ interface UserPostCardProps {
   isVideoPlaying?: boolean;
 }
 
-export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, onAuthorClick, onCreatePost, onReport, onSoundToggle, onVideoToggle, soundEnabled, isVideoPlaying }: UserPostCardProps) {
+type AuthorBadge = 'ORGANIZER' | 'VIP' | 'EARLY' | (string & {}) | null | undefined;
+
+const BADGE_COLORS: Record<Exclude<AuthorBadge, null | undefined>, string> = {
+  ORGANIZER: 'bg-orange-500',
+  VIP: 'bg-purple-500',
+  EARLY: 'bg-green-500',
+};
+
+function getBadgeColor(badge: AuthorBadge) {
+  if (!badge) return 'bg-blue-500';
+  return BADGE_COLORS[badge as keyof typeof BADGE_COLORS] ?? 'bg-blue-500';
+}
+
+export function UserPostCard({
+  item,
+  onLike,
+  onComment,
+  onShare,
+  onEventClick,
+  onAuthorClick,
+  onCreatePost,
+  onReport,
+  onSoundToggle,
+  onVideoToggle,
+  soundEnabled = true,
+  isVideoPlaying = false,
+}: UserPostCardProps) {
   const [mediaError, setMediaError] = useState(false);
 
-  const mediaUrl = item.media_urls?.[0];
-  const isVideo = isVideoUrl(mediaUrl);
-  const videoSrc = isVideo ? buildMuxUrl(mediaUrl) : undefined;
+  // Derived values memoized for small perf wins
+  const mediaUrl = useMemo(() => item.media_urls?.[0], [item.media_urls]);
+  const isVideo = useMemo(() => Boolean(mediaUrl && isVideoUrl(mediaUrl)), [mediaUrl]);
+  const videoSrc = useMemo(() => (isVideo && mediaUrl ? buildMuxUrl(mediaUrl) : undefined), [isVideo, mediaUrl]);
+  const likes = item.metrics?.likes ?? 0;
+  const comments = item.metrics?.comments ?? 0;
+
   const { videoRef, ready } = useHlsVideo(videoSrc);
-  const likes = item.metrics?.likes || 0;
-  const comments = item.metrics?.comments || 0;
 
-  // Log only when there's actual media
-  if (mediaUrl) {
-    console.log(`Post ${item.item_id}: ${isVideo ? 'Video' : 'Image'} - ${mediaUrl} ${videoSrc ? `-> ${videoSrc}` : ''} (ready: ${ready}, error: ${mediaError})`);
-  }
+  // Keep video element play/pause state in sync with prop
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'TBA';
-    try {
-      return new Date(dateStr).toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
+    // Respect prefers-reduced-motion: reduce autoplay
+    const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+    if (isVideoPlaying && ready && !prefersReduced) {
+      el.play().catch(() => {
+        // Autoplay might be blocked; we silently ignore
       });
-    } catch {
-      return 'TBA';
+    } else {
+      el.pause();
     }
-  };
+  }, [isVideoPlaying, ready, videoRef]);
 
-  const getBadgeColor = (badge: string | null) => {
-    switch (badge) {
-      case 'ORGANIZER': return 'bg-orange-500';
-      case 'VIP': return 'bg-purple-500';
-      case 'EARLY': return 'bg-green-500';
-      default: return 'bg-blue-500';
+  // Update muted state when soundEnabled changes
+  useEffect(() => {
+    const el = videoRef.current;
+    if (el) {
+      el.muted = !soundEnabled;
     }
-  };
+  }, [soundEnabled, videoRef]);
+
+  // Wire minimal video error handling
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+
+    const onError = () => setMediaError(true);
+    el.addEventListener('error', onError);
+    return () => el.removeEventListener('error', onError);
+  }, [videoRef]);
+
+  const handleRootClick = useCallback(() => {
+    // Clicking the background navigates to the event
+    onEventClick(item.event_id);
+  }, [item.event_id, onEventClick]);
+
+  const handleVideoClick: React.MouseEventHandler<HTMLVideoElement> = useCallback(
+    (e) => {
+      e.stopPropagation();
+      onVideoToggle?.();
+    },
+    [onVideoToggle],
+  );
+
+  const handleImageError: React.ReactEventHandler<HTMLImageElement> = useCallback(
+    (e) => {
+      // Keep a concise log and fail over to event cover
+      console.error('Image error src:', (e.target as HTMLImageElement)?.src);
+      setMediaError(true);
+    },
+    [],
+  );
+
+  const handleAuthorClick: React.MouseEventHandler<HTMLAnchorElement> = useCallback(
+    (e) => {
+      e.stopPropagation();
+      onAuthorClick?.(item.author_id);
+    },
+    [item.author_id, onAuthorClick],
+  );
+
+  const handleKeyDownRoot: React.KeyboardEventHandler<HTMLDivElement> = useCallback(
+    (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onEventClick(item.event_id);
+      }
+    },
+    [item.event_id, onEventClick],
+  );
+
+  const showFallback = !mediaUrl || mediaError;
 
   return (
-    <div className="w-full h-screen relative overflow-hidden bg-black">
+    <div
+      className="w-full h-screen relative overflow-hidden bg-black"
+      onClick={handleRootClick}
+      onKeyDown={handleKeyDownRoot}
+      role="button"
+      tabIndex={0}
+      aria-label={item.event_title || 'Open event'}
+      title={item.event_title || 'Open event'}
+    >
       {/* Background Media */}
-      {mediaUrl && !mediaError ? (
+      {!showFallback ? (
         <div className="absolute inset-0">
           {isVideo ? (
             <>
               <video
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-cover cursor-pointer"
+                // We let HLS.js attach the src
                 autoPlay={false}
-                muted
+                muted={!soundEnabled}
                 loop
                 playsInline
                 crossOrigin="anonymous"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onVideoToggle?.();
-                }}
-                // Don't set src when using HLS.js - let useHlsVideo handle it
-                // Let HLS.js handle all video events
+                onClick={handleVideoClick}
+                aria-label={isVideoPlaying ? 'Pause video' : 'Play video'}
               />
               {!ready && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-label="Loading video" />
                 </div>
               )}
-              
-              {/* Play/Pause Overlay */}
+
+              {/* Play/Pause Hover Overlay */}
               {ready && (
                 <div className="absolute inset-0 pointer-events-none">
                   <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                     <div className="bg-black/60 rounded-full p-4">
                       {isVideoPlaying ? (
-                        <Pause className="w-8 h-8 text-white" />
+                        <Pause className="w-8 h-8 text-white" aria-hidden />
                       ) : (
-                        <Play className="w-8 h-8 text-white" />
+                        <Play className="w-8 h-8 text-white" aria-hidden />
                       )}
                     </div>
                   </div>
@@ -103,25 +187,26 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
             </>
           ) : (
             <img
-              src={mediaUrl}
-              alt="Post media"
+              src={mediaUrl!}
+              alt={item.event_title ? `Media for ${item.event_title}` : 'Post media'}
               className="absolute inset-0 w-full h-full object-cover"
-              onError={(e) => {
-                console.error('Image error:', e, 'src:', mediaUrl);
-                setMediaError(true);
-              }}
-              onLoad={() => console.log('Image loaded:', mediaUrl)}
+              loading="lazy"
+              decoding="async"
+              onError={handleImageError}
             />
           )}
         </div>
       ) : (
         <img
           src={item.event_cover_image || DEFAULT_EVENT_COVER}
-          alt={item.event_title}
+          alt={item.event_title ? `Cover for ${item.event_title}` : 'Event cover'}
           className="absolute inset-0 w-full h-full object-cover opacity-40"
+          loading="lazy"
+          decoding="async"
         />
       )}
-      
+
+      {/* Subtle gradient for legibility */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
 
       {/* RIGHT ACTION RAIL (TikTok style) */}
@@ -139,29 +224,35 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
       />
 
       {/* BOTTOM META BAR */}
-      <div className="absolute left-4 right-4 bottom-6 z-30">
-        <div className="bg-black/80 backdrop-blur-md rounded-full px-4 py-3 flex items-center justify-between shadow-2xl border border-white/10">
-          {/* Left side - Username */}
+      <div className="absolute left-4 right-4 bottom-6 z-30 pointer-events-none">
+        <div className="bg-black/80 backdrop-blur-md rounded-full px-4 py-3 flex items-center justify-between shadow-2xl border border-white/10 pointer-events-auto">
+          {/* Left - Username */}
           <Link
             to={`/u/${item.author_id}`}
             className="text-white font-bold hover:underline text-base flex-shrink-0"
-            onClick={(e) => e.stopPropagation()}
+            onClick={handleAuthorClick}
+            title={item.author_name || 'User'}
           >
             {item.author_name || 'User'}
           </Link>
 
           {/* VIP / ORGANIZER badge */}
           {item.author_badge && (
-            <span className={`text-xs px-2 py-1 rounded-full text-white font-medium ml-2 flex-shrink-0 ${getBadgeColor(item.author_badge)}`}>
+            <span
+              className={`text-xs px-2 py-1 rounded-full text-white font-medium ml-2 flex-shrink-0 ${getBadgeColor(item.author_badge as AuthorBadge)}`}
+              aria-label={String(item.author_badge)}
+              title={String(item.author_badge)}
+            >
               {item.author_badge}
             </span>
           )}
 
-          {/* Right side - Event */}
+          {/* Right - Event link */}
           <Link
             to={`/event/${item.event_id}`}
             className="text-white/90 hover:text-white font-medium text-base truncate ml-4"
             onClick={(e) => e.stopPropagation()}
+            title={item.event_title || 'View event'}
           >
             {item.event_title || 'View event'}
           </Link>
@@ -169,7 +260,7 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
 
         {/* Post Content */}
         {item.content && (
-          <p className="text-white text-sm leading-relaxed mt-2 bg-black/20 backdrop-blur-sm rounded-lg px-3 py-2">
+          <p className="text-white text-sm leading-relaxed mt-2 bg-black/20 backdrop-blur-sm rounded-lg px-3 py-2 pointer-events-auto">
             {item.content}
           </p>
         )}
