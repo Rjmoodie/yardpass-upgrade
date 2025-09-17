@@ -711,8 +711,8 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
                 key={event.id} 
                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors cursor-pointer active:scale-[0.98] sm:active:scale-100"
                 onClick={() => {
-                  trackEvent('event_analytics_click', { event_id: event.id, source: 'analytics_hub' });
-                  window.location.href = `/events/${event.id}`;
+                  trackEvent('event_analytics_detail_click', { event_id: event.id, source: 'analytics_hub' });
+                  window.location.href = `/analytics/event/${event.id}`;
                 }}
               >
                 <div className="flex-1 min-w-0">

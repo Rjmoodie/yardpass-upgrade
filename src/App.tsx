@@ -37,6 +37,7 @@ const PurchaseSuccessHandler = lazy(() =>
 const ScannerPage = lazy(() => import('@/components/ScannerPage').then((m) => ({ default: m.ScannerPage })));
 const AnalyticsHub = lazy(() => import('@/components/AnalyticsHub'));
 const EventAnalytics = lazy(() => import('@/components/EventAnalytics'));
+const EventAnalyticsPage = lazy(() => import('@/pages/EventAnalyticsPage'));
 const AnalyticsWrapper = lazy(() =>
   import('@/components/AnalyticsWrapper').then((m) => ({ default: m.AnalyticsWrapper })),
 );
@@ -430,7 +431,7 @@ function AppContent() {
                 path="/analytics/event/:eventId"
                 element={
                   <AuthGuard>
-                    <EventAnalytics />
+                    <EventAnalyticsPage />
                   </AuthGuard>
                 }
               />
