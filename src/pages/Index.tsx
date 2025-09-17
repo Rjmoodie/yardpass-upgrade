@@ -190,22 +190,45 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       return prev;
     });
 
-    // Then control actual video elements
-    items.forEach((item, idx) => {
-      const feedElement = document.querySelector(`[data-feed-index="${idx}"]`);
-      const videoElement = feedElement?.querySelector('video') as HTMLVideoElement;
-      
-      if (!videoElement) return;
+    // Control actual video elements with improved error handling
+    requestAnimationFrame(() => {
+      items.forEach((item, idx) => {
+        const feedElement = document.querySelector(`[data-feed-index="${idx}"]`);
+        const videoElement = feedElement?.querySelector('video') as HTMLVideoElement;
+        
+        if (!videoElement) return;
 
-      if (idx === currentIndex && item.item_type === 'post') {
-        // Auto-play current video post
-        videoElement.muted = !soundEnabled;
-        videoElement.play().catch(() => {/* ignore autoplay failures */});
-      } else {
-        // Pause all other videos
-        videoElement.muted = true;
-        videoElement.pause();
-      }
+        if (idx === currentIndex && item.item_type === 'post') {
+          // Auto-play current video post
+          videoElement.muted = !soundEnabled;
+          
+          // Ensure video is ready before playing
+          if (videoElement.readyState >= 2) {
+            videoElement.currentTime = 0;
+            videoElement.play().catch((err) => {
+              console.log('Index: Video autoplay failed for item', idx, err);
+              // Try muted playback as fallback
+              if (!videoElement.muted) {
+                videoElement.muted = true;
+                videoElement.play().catch(() => {/* ignore second failure */});
+              }
+            });
+          } else {
+            // Wait for video to be ready
+            const handleCanPlay = () => {
+              videoElement.currentTime = 0;
+              videoElement.play().catch(() => {/* ignore failure */});
+              videoElement.removeEventListener('canplay', handleCanPlay);
+            };
+            videoElement.addEventListener('canplay', handleCanPlay);
+          }
+        } else {
+          // Pause all other videos
+          if (!videoElement.paused) {
+            videoElement.pause();
+          }
+        }
+      });
     });
   }, [currentIndex, soundEnabled, items.length]); // Use items.length instead of items to prevent infinite loops
 

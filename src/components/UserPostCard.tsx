@@ -58,7 +58,7 @@ export function UserPostCard({
   const likes = item.metrics?.likes ?? 0;
   const comments = item.metrics?.comments ?? 0;
 
-  const { videoRef, ready } = useHlsVideo(videoSrc);
+  const { videoRef, ready, error } = useHlsVideo(videoSrc);
 
   // Keep video element play/pause state in sync with prop
   useEffect(() => {
@@ -73,20 +73,40 @@ export function UserPostCard({
       ready,
       videoSrc,
       elementVisible: el.offsetWidth > 0 && el.offsetHeight > 0,
-      hasSource: el.src || el.currentSrc
+      hasSource: el.src || el.currentSrc,
+      error
     });
 
     // Respect prefers-reduced-motion: reduce autoplay
     const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-    if (isVideoPlaying && ready && !prefersReduced) {
-      el.play().catch((err) => {
-        console.log('UserPostCard: Video play failed for:', item.item_id, err);
-      });
+    if (isVideoPlaying && ready && !prefersReduced && !error) {
+      // Ensure video is properly prepared for playback
+      if (el.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+        el.currentTime = 0; // Start from beginning
+        el.play().catch((err) => {
+          console.log('UserPostCard: Video play failed for:', item.item_id, err);
+          // Try again after a short delay
+          setTimeout(() => {
+            el.play().catch(console.warn);
+          }, 100);
+        });
+      } else {
+        // Wait for the video to be ready
+        const onCanPlay = () => {
+          el.currentTime = 0;
+          el.play().catch(console.warn);
+          el.removeEventListener('canplay', onCanPlay);
+        };
+        el.addEventListener('canplay', onCanPlay);
+        
+        // Cleanup listener if component unmounts
+        return () => el.removeEventListener('canplay', onCanPlay);
+      }
     } else {
       el.pause();
     }
-  }, [isVideoPlaying, ready, videoRef, item.item_id, videoSrc]);
+  }, [isVideoPlaying, ready, videoRef, item.item_id, videoSrc, error]);
 
   // Update muted state when soundEnabled changes
   useEffect(() => {
@@ -146,7 +166,7 @@ export function UserPostCard({
     [item.event_id, onEventClick],
   );
 
-  const showFallback = !mediaUrl || mediaError;
+  const showFallback = !mediaUrl || mediaError || error;
 
   // Debug logging for video display
   useEffect(() => {
@@ -157,10 +177,11 @@ export function UserPostCard({
         isVideo,
         showFallback,
         ready,
-        mediaError
+        mediaError,
+        hlsError: error
       });
     }
-  }, [isVideo, videoSrc, item.item_id, mediaUrl, showFallback, ready, mediaError]);
+  }, [isVideo, videoSrc, item.item_id, mediaUrl, showFallback, ready, mediaError, error]);
 
   return (
     <div
@@ -180,20 +201,49 @@ export function UserPostCard({
               <video
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-cover cursor-pointer"
-                // We let HLS.js attach the src
+                // Enable better preloading for smoother experience
                 autoPlay={false}
                 muted={!soundEnabled}
                 loop
                 playsInline
-                preload="metadata"
+                preload="auto" 
                 crossOrigin="anonymous"
                 onClick={handleVideoClick}
                 aria-label={isVideoPlaying ? 'Pause video' : 'Play video'}
+                // Add these attributes for better mobile support
+                webkit-playsinline="true"
+                x-webkit-airplay="allow"
+                // Optimize video loading
+                onLoadStart={() => console.log('Video load started for:', item.item_id)}
+                onCanPlay={() => console.log('Video can play for:', item.item_id)}
+                onError={(e) => console.error('Video error for:', item.item_id, e)}
               />
               
-              {!ready && (
+              {(!ready || error) && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-label="Loading video" />
+                  {error ? (
+                    <div className="text-white text-center">
+                      <div className="text-sm">Failed to load video</div>
+                      <div className="text-xs opacity-70 mt-1">{error}</div>
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-label="Loading video" />
+                  )}
+                </div>
+              )}
+
+              {/* Play/Pause Hover Overlay - only show when video is ready */}
+              {ready && !error && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                    <div className="bg-black/60 rounded-full p-4">
+                      {isVideoPlaying ? (
+                        <Pause className="w-8 h-8 text-white" aria-hidden />
+                      ) : (
+                        <Play className="w-8 h-8 text-white" aria-hidden />
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 

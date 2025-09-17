@@ -1,24 +1,47 @@
 // src/hooks/useHlsVideo.ts
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 export function useHlsVideo(src?: string) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cleanup = useCallback(() => {
+    if (hlsRef.current) {
+      try {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      } catch (e) {
+        console.warn('useHlsVideo: Error destroying HLS instance:', e);
+      }
+    }
+    
+    const v = videoRef.current;
+    if (v) {
+      try {
+        v.pause();
+        v.removeAttribute('src');
+        v.load();
+      } catch (e) {
+        console.warn('useHlsVideo: Error cleaning up video element:', e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !src) return;
+    if (!v || !src) {
+      setReady(false);
+      setError(null);
+      return;
+    }
 
     setReady(false);
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
-    v.src = '';
-    v.load();
+    setError(null);
+    cleanup();
 
-    const isHls = src.endsWith('.m3u8');
+    const isHls = src.includes('.m3u8');
     const canPlayNative = v.canPlayType('application/vnd.apple.mpegurl') !== '';
 
     let disposed = false;
@@ -26,61 +49,110 @@ export function useHlsVideo(src?: string) {
     (async () => {
       try {
         console.log('useHlsVideo: Starting video setup for:', src);
-        const Hls = (await import('hls.js')).default;
-        console.log('useHlsVideo: HLS.js loaded, isSupported:', Hls.isSupported());
         
-        if (isHls && !canPlayNative && Hls.isSupported()) {
-          console.log('useHlsVideo: Using HLS.js for:', src);
-          const hls = new Hls({ 
-            enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 90,
-            maxBufferLength: 30,
-            maxMaxBufferLength: 60,
-            startFragPrefetch: true,
-            testBandwidth: false,
-            progressive: true
-          });
-          hlsRef.current = hls;
-          hls.loadSource(src);
-          hls.attachMedia(v);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            console.log('useHlsVideo: Manifest parsed for:', src);
-            !disposed && setReady(true);
-          });
-          hls.on(Hls.Events.ERROR, (event, data) => {
-            console.error('useHlsVideo: HLS error for:', src, event, data);
-            !disposed && setReady(true);
-          });
+        if (isHls && !canPlayNative) {
+          const Hls = (await import('hls.js')).default;
+          console.log('useHlsVideo: HLS.js loaded, isSupported:', Hls.isSupported());
+          
+          if (Hls.isSupported()) {
+            console.log('useHlsVideo: Using HLS.js for:', src);
+            const hls = new Hls({ 
+              enableWorker: false, // Disable worker for better compatibility
+              lowLatencyMode: false,
+              backBufferLength: 30,
+              maxBufferLength: 60,
+              maxMaxBufferLength: 120,
+              startFragPrefetch: true,
+              testBandwidth: false,
+              progressive: false,
+              debug: false,
+              capLevelToPlayerSize: true,
+              startLevel: -1, // Auto quality
+              autoStartLoad: true,
+              maxLoadingDelay: 4,
+              maxBufferHole: 0.5,
+              liveSyncDurationCount: 3,
+              liveMaxLatencyDurationCount: Infinity
+            });
+            
+            hlsRef.current = hls;
+            
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              console.log('useHlsVideo: Manifest parsed for:', src);
+              if (!disposed) setReady(true);
+            });
+            
+            hls.on(Hls.Events.ERROR, (event, data) => {
+              console.error('useHlsVideo: HLS error for:', src, event, data);
+              if (data.fatal) {
+                if (!disposed) {
+                  setError(`HLS fatal error: ${data.type}`);
+                  setReady(false);
+                }
+                switch (data.type) {
+                  case Hls.ErrorTypes.NETWORK_ERROR:
+                    console.log('useHlsVideo: Fatal network error, trying to recover');
+                    hls.startLoad();
+                    break;
+                  case Hls.ErrorTypes.MEDIA_ERROR:
+                    console.log('useHlsVideo: Fatal media error, trying to recover');
+                    hls.recoverMediaError();
+                    break;
+                  default:
+                    console.log('useHlsVideo: Fatal error, cannot recover');
+                    hls.destroy();
+                    break;
+                }
+              }
+            });
+
+            hls.loadSource(src);
+            hls.attachMedia(v);
+          } else {
+            // Fallback to native
+            console.log('useHlsVideo: HLS.js not supported, using native for:', src);
+            v.src = src;
+            v.onloadedmetadata = () => {
+              console.log('useHlsVideo: Native video metadata loaded for:', src);
+              if (!disposed) setReady(true);
+            };
+            v.onerror = (e) => {
+              console.error('useHlsVideo: Native video error for:', src, e);
+              if (!disposed) setError('Native video playback error');
+            };
+          }
         } else {
           console.log('useHlsVideo: Using native video for:', src, 'canPlayNative:', canPlayNative);
           v.src = src;
           v.onloadedmetadata = () => {
             console.log('useHlsVideo: Native video metadata loaded for:', src);
-            !disposed && setReady(true);
+            if (!disposed) setReady(true);
           };
           v.onerror = (e) => {
             console.error('useHlsVideo: Native video error for:', src, e);
+            if (!disposed) setError('Native video playback error');
           };
         }
       } catch (e) {
-        console.error('useHlsVideo: Exception loading HLS.js for:', src, e);
-        if (v) {
-          v.src = src;
-          v.onloadedmetadata = () => !disposed && setReady(true);
+        console.error('useHlsVideo: Exception loading video for:', src, e);
+        if (!disposed) {
+          setError('Failed to load video');
+          // Fallback attempt
+          if (v) {
+            v.src = src;
+            v.onloadedmetadata = () => {
+              if (!disposed) setReady(true);
+            };
+          }
         }
       }
     })();
 
     return () => {
       disposed = true;
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-      try { v?.pause(); } catch {}
+      cleanup();
     };
-  }, [src]);
+  }, [src, cleanup]);
 
-  return { videoRef, ready };
+  return { videoRef, ready, error };
 }
