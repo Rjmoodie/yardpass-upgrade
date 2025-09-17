@@ -410,11 +410,13 @@ export function UserPostCard({
 
             {/* Primary Social Link */}
             {item.author_social_links && Array.isArray(item.author_social_links) && (
-              <SocialLinkDisplay 
-                socialLinks={item.author_social_links} 
-                showPrimaryOnly={true} 
-                className="text-white/80 hover:text-white"
-              />
+              <div className="flex items-center">
+                <SocialLinkDisplay 
+                  socialLinks={item.author_social_links} 
+                  showPrimaryOnly={true} 
+                  className="text-white/80 hover:text-white"
+                />
+              </div>
             )}
           </div>
 
