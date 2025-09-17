@@ -700,14 +700,23 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
       {/* Footer */}
       <div className="border-t bg-card p-4 flex justify-between">
-        <Button variant="outline" onClick={handlePrevious} disabled={step === 1}>Previous</Button>
+        <Button variant="outline" onClick={step === 1 ? onBack : handlePrevious} disabled={loading}>
+          {step === 1 ? 'Cancel' : 'Previous'}
+        </Button>
         {step < totalSteps ? (
-          <Button onClick={handleNext} disabled={!canProceed()}>
+          <Button onClick={handleNext} disabled={!canProceed() || loading}>
             Next <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
         ) : (
-          <Button onClick={handleSubmit} disabled={!canProceed() || loading}>
-            {loading ? 'Creating Event...' : 'Publish Event'}
+          <Button onClick={handleSubmit} disabled={!canProceed() || loading} className="min-w-32">
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                Creating...
+              </>
+            ) : (
+              'Create Event'
+            )}
           </Button>
         )}
       </div>

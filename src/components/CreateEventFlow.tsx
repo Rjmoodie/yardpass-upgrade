@@ -308,21 +308,22 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
                     onClick={handleContinue}
                     disabled={!selectedOrgId}
                   >
-                    Continue
+                    Continue with Selected Org
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
-                    className="gap-2"
+                    size="icon"
+                    className="flex-shrink-0"
                     onClick={() => {
                       // refresh the list silently by forcing re-render
                       setStep('select-org');
                       setLoading(true);
                       setTimeout(() => setLoading(false), 100);
                     }}
+                    title="Refresh organizations list"
                   >
                     <RefreshCw className="w-4 h-4" />
-                    Refresh
                   </Button>
                 </div>
               </CardContent>
