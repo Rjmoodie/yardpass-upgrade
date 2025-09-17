@@ -12,9 +12,11 @@ interface EventCardProps {
   onEventClick: (eventId: string) => void;
   onCreatePost?: () => void;
   onReport?: () => void;
+  onSoundToggle?: () => void;
+  soundEnabled?: boolean;
 }
 
-export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onReport }: EventCardProps) {
+export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onReport, onSoundToggle, soundEnabled }: EventCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const formatDate = (dateStr: string | null) => {
@@ -47,6 +49,8 @@ export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onR
       <ActionRail
         onCreatePost={onCreatePost}
         onReport={onReport}
+        onSoundToggle={onSoundToggle}
+        soundEnabled={soundEnabled}
       />
 
       {/* Content */}

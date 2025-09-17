@@ -32,6 +32,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const { withAuth, requireAuth } = useAuthGuard();
   const navigate = useNavigate();
@@ -211,6 +212,14 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     handleShare(postId);
   }, [handleShare, trackPostHogEvent]);
 
+  const handleSoundToggle = useCallback(() => {
+    setSoundEnabled(prev => !prev);
+    // Toggle sound for all video elements
+    document.querySelectorAll('video').forEach(video => {
+      video.muted = soundEnabled; // Will be toggled to opposite
+    });
+  }, [soundEnabled]);
+
   if (loading) {
     return (
       <div className="h-screen bg-black flex items-center justify-center">
@@ -259,6 +268,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 onEventClick={handleEventClick}
                 onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
                 onReport={() => {}}
+                onSoundToggle={handleSoundToggle}
+                soundEnabled={soundEnabled}
               />
             ) : (
               <UserPostCard
@@ -270,6 +281,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 onAuthorClick={handleAuthorClick}
                 onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
                 onReport={() => {}}
+                onSoundToggle={handleSoundToggle}
+                soundEnabled={soundEnabled}
               />
             )}
           </div>

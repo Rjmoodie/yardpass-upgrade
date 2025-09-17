@@ -15,9 +15,11 @@ interface UserPostCardProps {
   onAuthorClick?: (authorId: string) => void;
   onCreatePost?: () => void;
   onReport?: () => void;
+  onSoundToggle?: () => void;
+  soundEnabled?: boolean;
 }
 
-export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, onAuthorClick, onCreatePost, onReport }: UserPostCardProps) {
+export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, onAuthorClick, onCreatePost, onReport, onSoundToggle, soundEnabled }: UserPostCardProps) {
   const [mediaError, setMediaError] = useState(false);
 
   const mediaUrl = item.media_urls?.[0];
@@ -110,6 +112,8 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
         onShare={() => onShare(item.item_id)}
         onCreatePost={onCreatePost}
         onReport={onReport}
+        onSoundToggle={onSoundToggle}
+        soundEnabled={soundEnabled}
       />
 
       {/* BOTTOM META BAR */}

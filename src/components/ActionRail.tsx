@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, MessageCircle, Share2, Plus, Flag } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Plus, Flag, Volume2, VolumeX } from 'lucide-react';
 
 type Countable = number | undefined | null;
 
@@ -10,10 +10,12 @@ export interface ActionRailProps {
   onShare?: () => void;
   onCreatePost?: () => void;
   onReport?: () => void;
+  onSoundToggle?: () => void;
   liked?: boolean;
   likeCount?: Countable;
   commentCount?: Countable;
   shareCount?: Countable;
+  soundEnabled?: boolean;
   /** when true, prevents rail from intercepting vertical swipes */
   enablePointerEvents?: boolean;
 }
@@ -25,10 +27,12 @@ export const ActionRail: React.FC<ActionRailProps> = ({
   onShare,
   onCreatePost,
   onReport,
+  onSoundToggle,
   liked,
   likeCount = 0,
   commentCount = 0,
   shareCount = 0,
+  soundEnabled = true,
   enablePointerEvents = true,
 }) => {
   const pe = enablePointerEvents ? 'pointer-events-auto' : 'pointer-events-none';
@@ -77,6 +81,14 @@ export const ActionRail: React.FC<ActionRailProps> = ({
         className="feed-rail-btn"
       >
         <Flag className="w-6 h-6" />
+      </button>
+
+      <button
+        aria-label={soundEnabled ? "Mute sound" : "Enable sound"}
+        onClick={(e) => { e.stopPropagation(); onSoundToggle?.(); }}
+        className="feed-rail-btn"
+      >
+        {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
       </button>
     </div>
   );
