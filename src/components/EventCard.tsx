@@ -81,7 +81,7 @@ export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onR
           <div className="flex gap-3">
             <Button
               onClick={() => onOpenTickets(item.event_id)}
-              className="flex-1 bg-primary hover:bg-primary/90 text-white font-medium py-3"
+              className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold py-3 shadow-lg"
             >
               Get Tickets
             </Button>
