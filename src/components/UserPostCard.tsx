@@ -29,21 +29,6 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
   const likes = item.metrics?.likes || 0;
   const comments = item.metrics?.comments || 0;
 
-  // Sync video mute state with sound toggle and ensure proper playback
-  useEffect(() => {
-    if (videoRef.current && ready) {
-      const video = videoRef.current;
-      
-      // Always start muted, let the parent control sound
-      video.muted = true;
-      
-      // Ensure video is ready to play
-      video.load();
-      
-      console.log(`Video ${item.item_id} loaded and ready, muted: ${video.muted}`);
-    }
-  }, [ready, item.item_id]);
-
   // Log only when there's actual media
   if (mediaUrl) {
     console.log(`Post ${item.item_id}: ${isVideo ? 'Video' : 'Image'} - ${mediaUrl} ${videoSrc ? `-> ${videoSrc}` : ''} (ready: ${ready}, error: ${mediaError})`);
@@ -85,13 +70,9 @@ export function UserPostCard({ item, onLike, onComment, onShare, onEventClick, o
                 loop
                 playsInline
                 crossOrigin="anonymous"
-                preload="metadata"
                 onClick={(e) => {
                   e.stopPropagation();
                   onSoundToggle?.();
-                }}
-                onCanPlay={() => {
-                  console.log(`Video ${item.item_id} can play`);
                 }}
                 // Don't set src when using HLS.js - let useHlsVideo handle it
                 // Let HLS.js handle all video events

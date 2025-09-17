@@ -117,31 +117,25 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   // Sync sound state and video playback when currentIndex changes
   useEffect(() => {
-    // Mute all videos first
-    document.querySelectorAll('video').forEach((video, index) => {
-      video.muted = true;
-      
-      // Pause videos that are not current
-      if (index !== currentIndex) {
-        video.pause();
+    // Handle all videos
+    items.forEach((_, index) => {
+      const videoContainer = document.querySelector(`[data-feed-index="${index}"] video`);
+      if (videoContainer) {
+        const video = videoContainer as HTMLVideoElement;
+        
+        if (index === currentIndex) {
+          // Current video: apply sound state and ensure it plays
+          video.muted = !soundEnabled;
+          // Don't call play() or reset currentTime as it interferes with HLS.js
+          console.log(`Index ${currentIndex}: current video, sound ${soundEnabled ? 'enabled' : 'disabled'}`);
+        } else {
+          // Other videos: always muted and paused
+          video.muted = true;
+          video.pause();
+        }
       }
     });
-
-    // Handle the current video
-    const currentVideoContainer = document.querySelector(`[data-feed-index="${currentIndex}"] video`);
-    if (currentVideoContainer) {
-      const video = currentVideoContainer as HTMLVideoElement;
-      
-      // Set sound state for current video
-      video.muted = !soundEnabled;
-      
-      // Ensure current video plays
-      video.currentTime = 0; // Reset to beginning
-      video.play().catch(e => console.log('Video play failed:', e));
-      
-      console.log(`Index ${currentIndex}: video playing, sound ${soundEnabled ? 'enabled' : 'disabled'}`);
-    }
-  }, [currentIndex, soundEnabled]);
+  }, [currentIndex, soundEnabled, items]);
 
   // Actions
   const handleLike = useCallback(
