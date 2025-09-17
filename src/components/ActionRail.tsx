@@ -1,10 +1,13 @@
 import React from 'react';
 import { Heart, MessageCircle, Share2, Plus, Flag, Volume2, VolumeX } from 'lucide-react';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 type Countable = number | undefined | null;
 
 export interface ActionRailProps {
   className?: string;
+  postId?: string;
+  eventId?: string;
   onLike?: () => void;
   onComment?: () => void;
   onShare?: () => void;
@@ -22,6 +25,8 @@ export interface ActionRailProps {
 
 export const ActionRail: React.FC<ActionRailProps> = ({
   className = '',
+  postId,
+  eventId,
   onLike,
   onComment,
   onShare,
@@ -35,6 +40,7 @@ export const ActionRail: React.FC<ActionRailProps> = ({
   soundEnabled = true,
   enablePointerEvents = true,
 }) => {
+  const { trackEngagement } = useAnalytics();
   const pe = enablePointerEvents ? 'pointer-events-auto' : 'pointer-events-none';
   return (
     <div
@@ -42,7 +48,16 @@ export const ActionRail: React.FC<ActionRailProps> = ({
     >
       <button
         aria-label="Like"
-        onClick={(e) => { e.stopPropagation(); onLike?.(); }}
+        onClick={(e) => { 
+          e.stopPropagation(); 
+          onLike?.();
+          trackEngagement('like', {
+            contentType: 'post',
+            contentId: postId,
+            event_id: eventId,
+            liked: !liked
+          });
+        }}
         className={`feed-rail-btn ${liked ? 'text-red-500' : ''}`}
       >
         <Heart className="w-7 h-7" />
@@ -51,7 +66,15 @@ export const ActionRail: React.FC<ActionRailProps> = ({
 
       <button
         aria-label="Comments"
-        onClick={(e) => { e.stopPropagation(); onComment?.(); }}
+        onClick={(e) => { 
+          e.stopPropagation(); 
+          onComment?.();
+          trackEngagement('comment_open', {
+            contentType: 'post',
+            contentId: postId,
+            event_id: eventId
+          });
+        }}
         className="feed-rail-btn"
       >
         <MessageCircle className="w-7 h-7" />
@@ -60,7 +83,15 @@ export const ActionRail: React.FC<ActionRailProps> = ({
 
       <button
         aria-label="Share"
-        onClick={(e) => { e.stopPropagation(); onShare?.(); }}
+        onClick={(e) => { 
+          e.stopPropagation(); 
+          onShare?.();
+          trackEngagement('share_open', {
+            contentType: 'post',
+            contentId: postId,
+            event_id: eventId
+          });
+        }}
         className="feed-rail-btn"
       >
         <Share2 className="w-7 h-7" />
@@ -69,7 +100,14 @@ export const ActionRail: React.FC<ActionRailProps> = ({
 
       <button
         aria-label="Create post"
-        onClick={(e) => { e.stopPropagation(); onCreatePost?.(); }}
+        onClick={(e) => { 
+          e.stopPropagation(); 
+          onCreatePost?.();
+          trackEngagement('create_post_cta', {
+            event_id: eventId,
+            source: 'action_rail'
+          });
+        }}
         className="p-3 rounded-full bg-primary/90 backdrop-blur-sm border border-primary/60 hover:bg-primary transition-all duration-200 shadow-lg min-h-[48px] min-w-[48px] touch-manipulation"
       >
         <Plus className="w-5 h-5 text-white" />

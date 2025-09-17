@@ -4,6 +4,7 @@ import { Play, Pause } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
 import { useHlsVideo } from '@/hooks/useHlsVideo';
+import { useAnalytics } from '@/hooks/useAnalytics';
 import ActionRail from './ActionRail';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
@@ -49,6 +50,7 @@ export function UserPostCard({
   soundEnabled = true,
   isVideoPlaying = false,
 }: UserPostCardProps) {
+  const { trackVideoInteraction, trackEngagement, trackConversion } = useAnalytics();
   const [mediaError, setMediaError] = useState(false);
 
   // Derived values memoized for small perf wins
@@ -107,6 +109,84 @@ export function UserPostCard({
       el.pause();
     }
   }, [isVideoPlaying, ready, videoRef, item.item_id, videoSrc, error]);
+
+  // Track video interactions
+  useEffect(() => {
+    if (isVideo && videoRef.current && isVideoPlaying) {
+      const video = videoRef.current;
+      let viewStartTime = Date.now();
+      let lastProgress = 0;
+
+      const handleTimeUpdate = () => {
+        const currentTime = video.currentTime;
+        const duration = video.duration;
+        const percentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+        
+        // Track progress milestones
+        if (percentage >= 25 && lastProgress < 25) {
+          trackVideoInteraction('progress_25', {
+            post_id: item.item_id,
+            event_id: item.event_id,
+            duration,
+            current_time: currentTime
+          });
+          lastProgress = 25;
+        } else if (percentage >= 50 && lastProgress < 50) {
+          trackVideoInteraction('progress_50', {
+            post_id: item.item_id,
+            event_id: item.event_id,
+            duration,
+            current_time: currentTime
+          });
+          lastProgress = 50;
+        } else if (percentage >= 75 && lastProgress < 75) {
+          trackVideoInteraction('progress_75', {
+            post_id: item.item_id,
+            event_id: item.event_id,
+            duration,
+            current_time: currentTime
+          });
+          lastProgress = 75;
+        } else if (percentage >= 95) {
+          trackVideoInteraction('complete', {
+            post_id: item.item_id,
+            event_id: item.event_id,
+            duration,
+            current_time: currentTime,
+            view_duration: Date.now() - viewStartTime
+          });
+        }
+      };
+
+      const handlePlay = () => {
+        viewStartTime = Date.now();
+        trackVideoInteraction('play', {
+          post_id: item.item_id,
+          event_id: item.event_id,
+          current_time: video.currentTime
+        });
+      };
+
+      const handlePause = () => {
+        trackVideoInteraction('pause', {
+          post_id: item.item_id,
+          event_id: item.event_id,
+          current_time: video.currentTime,
+          view_duration: Date.now() - viewStartTime
+        });
+      };
+
+      video.addEventListener('timeupdate', handleTimeUpdate);
+      video.addEventListener('play', handlePlay);
+      video.addEventListener('pause', handlePause);
+
+      return () => {
+        video.removeEventListener('timeupdate', handleTimeUpdate);
+        video.removeEventListener('play', handlePlay);
+        video.removeEventListener('pause', handlePause);
+      };
+    }
+  }, [isVideo, videoRef, isVideoPlaying, item.item_id, item.event_id, trackVideoInteraction]);
 
   // Update muted state when soundEnabled changes
   useEffect(() => {
@@ -288,6 +368,8 @@ export function UserPostCard({
 
       {/* RIGHT ACTION RAIL (TikTok style) */}
       <ActionRail
+        postId={item.item_id}
+        eventId={item.event_id}
         liked={item.metrics?.viewer_has_liked || false}
         likeCount={likes}
         commentCount={comments}

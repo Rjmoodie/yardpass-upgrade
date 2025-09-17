@@ -143,17 +143,13 @@ export function useAnalytics() {
       return;
     }
 
-    // Only track to Supabase for authenticated users to avoid RLS issues
-    if (!user?.id) {
-      return;
-    }
-
+    // Track for both authenticated and anonymous users, but with different handling
     const utmParams = getUTMParams();
     const sessionId = getSessionId();
 
     const event = {
       event_type,
-      user_id: user.id, // Only authenticated users
+      user_id: user?.id || null, // Allow anonymous tracking
       event_id: payload.event_id || null,
       ticket_id: payload.ticket_id || null,
       source: payload.source || 'web',
@@ -166,14 +162,19 @@ export function useAnalytics() {
       utm_campaign: utmParams.utm_campaign,
       utm_term: utmParams.utm_term,
       utm_content: utmParams.utm_content,
+      session_id: sessionId,
       metadata: {
         ...payload,
-        session_id: sessionId,
         user_agent: navigator.userAgent,
         screen_resolution: `${screen.width}x${screen.height}`,
         viewport: `${window.innerWidth}x${window.innerHeight}`,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        language: navigator.language
+        language: navigator.language,
+        timestamp: Date.now(),
+        // Device information
+        is_mobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+        is_touch: 'ontouchstart' in window,
+        connection_type: (navigator as any).connection?.effectiveType || 'unknown'
       },
       created_at: new Date().toISOString()
     };
@@ -188,5 +189,74 @@ export function useAnalytics() {
     }
   }, [user]);
 
-  return { track };
+  // Specific tracking methods for common events
+  const trackPageView = useCallback((path?: string) => {
+    track('page_view', {
+      path: path || window.location.pathname,
+      title: document.title
+    });
+  }, [track]);
+
+  const trackVideoInteraction = useCallback((action: string, payload: Record<string, any>) => {
+    track(`video_${action}`, {
+      ...payload,
+      current_time: payload.currentTime,
+      duration: payload.duration,
+      percentage: payload.percentage
+    });
+  }, [track]);
+
+  const trackTicketAction = useCallback((action: string, payload: Record<string, any>) => {
+    track(`ticket_${action}`, {
+      ...payload,
+      tier_name: payload.tierName,
+      price_cents: payload.priceCents,
+      quantity: payload.quantity
+    });
+  }, [track]);
+
+  const trackEngagement = useCallback((action: string, payload: Record<string, any>) => {
+    track(`engagement_${action}`, {
+      ...payload,
+      content_type: payload.contentType,
+      content_id: payload.contentId
+    });
+  }, [track]);
+
+  const trackConversion = useCallback((step: string, payload: Record<string, any>) => {
+    track(`conversion_${step}`, {
+      ...payload,
+      funnel_step: step,
+      value_cents: payload.valueCents
+    });
+  }, [track]);
+
+  const trackError = useCallback((error: string, payload: Record<string, any> = {}) => {
+    track('error', {
+      ...payload,
+      error_message: error,
+      error_type: payload.type || 'unknown',
+      stack_trace: payload.stack
+    });
+  }, [track]);
+
+  const trackPerformance = useCallback((metric: string, value: number, payload: Record<string, any> = {}) => {
+    track('performance', {
+      ...payload,
+      metric_name: metric,
+      metric_value: value,
+      measurement_unit: payload.unit || 'ms'
+    });
+  }, [track]);
+
+  return { 
+    track, 
+    trackPageView, 
+    trackVideoInteraction, 
+    trackTicketAction, 
+    trackEngagement, 
+    trackConversion, 
+    trackError, 
+    trackPerformance 
+  };
 }
