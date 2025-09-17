@@ -237,11 +237,11 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   return (
     <div className="feed-page h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
       {/* Logo */}
-      <div className="fixed left-3 top-3 z-30">
+      <div className="fixed left-2 top-2 z-30">
         <img
           src="/yardpass-logo.png"
           alt="YardPass"
-          className="w-70 h-70 md:w-80 md:h-80 object-contain"
+          className="w-35 h-35 md:w-40 md:h-40 object-contain"
         />
       </div>
 
