@@ -63,19 +63,30 @@ export function UserPostCard({
   // Keep video element play/pause state in sync with prop
   useEffect(() => {
     const el = videoRef.current;
-    if (!el) return;
+    if (!el) {
+      console.log('UserPostCard: No video element found for:', item.item_id);
+      return;
+    }
+
+    console.log('UserPostCard: Video element setup for:', item.item_id, {
+      isVideoPlaying,
+      ready,
+      videoSrc,
+      elementVisible: el.offsetWidth > 0 && el.offsetHeight > 0,
+      hasSource: el.src || el.currentSrc
+    });
 
     // Respect prefers-reduced-motion: reduce autoplay
     const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
     if (isVideoPlaying && ready && !prefersReduced) {
-      el.play().catch(() => {
-        // Autoplay might be blocked; we silently ignore
+      el.play().catch((err) => {
+        console.log('UserPostCard: Video play failed for:', item.item_id, err);
       });
     } else {
       el.pause();
     }
-  }, [isVideoPlaying, ready, videoRef]);
+  }, [isVideoPlaying, ready, videoRef, item.item_id, videoSrc]);
 
   // Update muted state when soundEnabled changes
   useEffect(() => {
@@ -136,6 +147,20 @@ export function UserPostCard({
   );
 
   const showFallback = !mediaUrl || mediaError;
+
+  // Debug logging for video display
+  useEffect(() => {
+    if (isVideo && videoSrc) {
+      console.log('UserPostCard: Video display debug for:', item.item_id, {
+        mediaUrl,
+        videoSrc,
+        isVideo,
+        showFallback,
+        ready,
+        mediaError
+      });
+    }
+  }, [isVideo, videoSrc, item.item_id, mediaUrl, showFallback, ready, mediaError]);
 
   return (
     <div
