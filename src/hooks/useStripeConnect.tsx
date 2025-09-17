@@ -234,24 +234,35 @@ export function useStripeConnect(contextType: 'individual' | 'organization' = 'i
       console.log('Stripe portal response:', data);
 
       if (data?.url) {
-        // Try opening in same tab to avoid popup blockers
-        try {
-          window.location.href = data.url;
-        } catch (navigationError) {
-          console.warn('Same-tab navigation failed, trying popup:', navigationError);
-          // Fallback to popup with user gesture
-          const popup = window.open(data.url, '_blank', 'noopener,noreferrer');
-          if (!popup) {
-            throw new Error('Popup blocked - please allow popups for this site or copy the URL manually');
-          }
+        // Open in popup (required by Stripe's CSP)
+        const popup = window.open(
+          data.url, 
+          'stripe-portal', 
+          'width=800,height=600,scrollbars=yes,resizable=yes'
+        );
+        
+        if (!popup) {
+          // Popup was blocked - provide manual URL
+          toast({
+            title: "Popup Blocked",
+            description: "Please allow popups for this site or click here to open Stripe portal manually",
+            action: (
+              <button 
+                onClick={() => window.open(data.url, '_blank')}
+                className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm"
+              >
+                Open Portal
+              </button>
+            ),
+          });
         }
       }
 
     } catch (err) {
       console.error('Error opening Stripe portal:', err);
       toast({
-        title: "Portal Access Issue",
-        description: err instanceof Error ? err.message : 'Failed to access Stripe portal. Please check your browser settings and try again.',
+        title: "Portal Error",
+        description: err instanceof Error ? err.message : 'Failed to open Stripe portal',
         variant: "destructive",
       });
     } finally {
