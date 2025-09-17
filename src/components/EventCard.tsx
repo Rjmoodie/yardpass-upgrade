@@ -97,21 +97,21 @@ export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onR
       </div>
 
       {/* BOTTOM META BAR */}
-      <div className="absolute left-4 right-4 bottom-6 z-20">
-        <div className="bg-black/70 backdrop-blur-md rounded-full px-4 py-2.5 flex items-center gap-3 shadow-lg">
+      <div className="absolute left-4 right-4 bottom-6 z-30">
+        <div className="bg-black/80 backdrop-blur-md rounded-full px-4 py-3 flex items-center justify-between shadow-2xl border border-white/10">
+          {/* Left side - Organizer */}
           <Link
             to={`/u/${item.event_organizer_id || 'organizer'}`}
-            className="text-white font-bold hover:underline truncate max-w-[35%] text-sm"
+            className="text-white font-bold hover:underline text-base flex-shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             {item.event_organizer || 'Organizer'}
           </Link>
 
-          <span className="mx-1 h-3 w-px bg-white/40" />
-
+          {/* Right side - Event */}
           <Link
             to={`/event/${item.event_id}`}
-            className="text-sm text-white/95 hover:text-white font-medium truncate max-w-[50%]"
+            className="text-white/90 hover:text-white font-medium text-base truncate ml-4"
             onClick={(e) => e.stopPropagation()}
           >
             {item.event_title}
