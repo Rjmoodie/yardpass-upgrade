@@ -237,23 +237,22 @@ export function useStripeConnect(contextType: 'individual' | 'organization' = 'i
         // Open in popup (required by Stripe's CSP)
         const popup = window.open(
           data.url, 
-          'stripe-portal', 
-          'width=800,height=600,scrollbars=yes,resizable=yes'
+          '_blank',
+          'width=800,height=600,scrollbars=yes,resizable=yes,noopener,noreferrer'
         );
         
-        if (!popup) {
-          // Popup was blocked - provide manual URL
+        if (!popup || popup.closed) {
+          // Popup was blocked - show manual instructions
           toast({
             title: "Popup Blocked",
-            description: "Please allow popups for this site or click here to open Stripe portal manually",
-            action: (
-              <button 
-                onClick={() => window.open(data.url, '_blank')}
-                className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm"
-              >
-                Open Portal
-              </button>
-            ),
+            description: "Please allow popups for this site. Then click 'Manage Payouts' again, or copy this URL to open manually: " + data.url,
+            variant: "destructive",
+            duration: 10000,
+          });
+        } else {
+          toast({
+            title: "Opening Stripe Portal",
+            description: "The Stripe Express Dashboard is opening in a new window.",
           });
         }
       }
