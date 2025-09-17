@@ -70,10 +70,12 @@ interface CommentModalProps {
   postId?: string;
   /** Fallback: if postId is missing, resolve from this Mux playback ID */
   mediaPlaybackId?: string;
+  /** Called when a comment is successfully added */
+  onSuccess?: () => void;
 }
 
 export default function CommentModal({
-  isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId,
+  isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId, onSuccess,
 }: CommentModalProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -386,6 +388,9 @@ export default function CommentModal({
       setNewComment('');
       if (!singleMode) setSelectedPostId(null);
       toast({ title: 'Success', description: 'Comment added successfully!' });
+      
+      // Call onSuccess callback to refresh parent feed
+      onSuccess?.();
     } catch (e: any) {
       console.error(e);
       toast({ title: 'Error', description: e.message || 'Failed to add comment', variant: 'destructive' });
@@ -428,6 +433,9 @@ export default function CommentModal({
           .eq('kind', 'like');
         if (error) throw error;
       }
+      
+      // Call onSuccess callback to refresh parent feed
+      onSuccess?.();
     } catch (e) {
       console.error(e);
       // rollback

@@ -123,13 +123,17 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           body: { post_id: postId, kind: 'like' }
         });
         if (error) throw error;
+        
+        // Refresh the feed to show updated like count and status
+        refresh();
+        
         toast({ title: 'Liked!', description: 'Your reaction has been added.' });
       } catch (error) {
         console.error('Like error:', error);
         toast({ title: 'Error', description: 'Failed to like post', variant: 'destructive' });
       }
     }, 'Please sign in to like posts'),
-    [withAuth]
+    [withAuth, refresh]
   );
 
   const handleComment = useCallback(
@@ -321,6 +325,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           eventId={currentItem.event_id}
           eventTitle={currentItem.event_title}
           postId={commentPostId}
+          onSuccess={() => {
+            // Refresh feed to show new comment count
+            refresh();
+          }}
         />
       )}
     </div>
