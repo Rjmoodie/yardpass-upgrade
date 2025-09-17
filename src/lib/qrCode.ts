@@ -63,6 +63,8 @@ export async function generateQRCodeSVG(data: QRCodeData, size: number = 200): P
 }
 
 export async function generateQRCodeWithLogo(data: QRCodeData, size: number = 200): Promise<string> {
+  console.log('🔍 Generating QR code with logo, size:', size);
+  
   const qrDataString = JSON.stringify({
     ticketId: data.ticketId,
     eventId: data.eventId,
@@ -82,24 +84,35 @@ export async function generateQRCodeWithLogo(data: QRCodeData, size: number = 20
     }
   });
   
+  console.log('✅ Base QR code generated');
+  
   // Calculate logo size (approximately 20% of QR code size)
   const logoSize = Math.floor(size * 0.2);
   const logoPosition = (size - logoSize) / 2;
+  
+  console.log('📐 Logo dimensions:', { logoSize, logoPosition });
   
   // Create logo SVG element with YardPass logo
   const logoSvg = `
     <g transform="translate(${logoPosition}, ${logoPosition})">
       <!-- White background circle for logo -->
       <circle cx="${logoSize/2}" cy="${logoSize/2}" r="${logoSize/2 + 4}" fill="white" stroke="#000000" stroke-width="2"/>
-      <!-- YardPass logo - embedded as base64 or use the actual logo -->
-      <image x="4" y="4" width="${logoSize - 8}" height="${logoSize - 8}" href="/yardpass-logo.png" 
-             preserveAspectRatio="xMidYMid meet" clip-path="circle(${(logoSize - 8)/2}px at 50% 50%)"/>
+      <!-- YardPass logo with fallback -->
+      <foreignObject x="4" y="4" width="${logoSize - 8}" height="${logoSize - 8}">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden; background: #6366f1;">
+          <img src="/yardpass-logo.png" style="width: 80%; height: 80%; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+          <div style="display: none; color: white; font-weight: bold; font-size: ${Math.floor(logoSize/6)}px;">YP</div>
+        </div>
+      </foreignObject>
     </g>
   `;
+  
+  console.log('🎨 Logo SVG created');
   
   // Insert logo into the QR code SVG
   const svgWithLogo = baseSvg.replace('</svg>', logoSvg + '</svg>');
   
+  console.log('✅ QR code with logo generated successfully');
   return svgWithLogo;
 }
 
