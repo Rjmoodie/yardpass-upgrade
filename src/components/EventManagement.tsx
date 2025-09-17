@@ -5,10 +5,11 @@ import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { ArrowLeft, Calendar, Users, BarChart3, Settings, Scan, Download, ExternalLink, MoreVertical, Search, Filter, RefreshCw, Edit, Trash2, Plus, Eye, Share, MessageSquare, Bell, Mail, QrCode, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, BarChart3, Settings, Scan, Download, ExternalLink, MoreVertical, Search, Filter, RefreshCw, Edit, Trash2, Plus, Eye, Share, MessageSquare, Bell, Mail, QrCode, CheckCircle, Clock, AlertCircle, SortAsc, SortDesc, CheckSquare, Square, UserCheck, UserX, Send, FileText, DollarSign, TrendingUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GuestManagement } from '@/components/GuestManagement';
 import { OrganizerRolesPanel } from './organizer/OrganizerRolesPanel';
+import { EnhancedTicketManagement } from '@/components/EnhancedTicketManagement';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -32,6 +33,10 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [tierFilter, setTierFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [selectedAttendees, setSelectedAttendees] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [attendees, setAttendees] = useState(mockAttendees);
   const [realAttendees, setRealAttendees] = useState<any[]>([]);
@@ -40,6 +45,12 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     validScans: 0,
     duplicateScans: 0,
     lastScanTime: null as Date | null
+  });
+  const [ticketStats, setTicketStats] = useState({
+    totalRevenue: 0,
+    averagePrice: 0,
+    refundRate: 0,
+    conversionRate: 0
   });
 
   // Safety checks for undefined event or ticketTiers
@@ -67,6 +78,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     if (event?.id) {
       fetchRealAttendees();
       fetchRealTimeStats();
+      fetchTicketStats();
     }
   }, [event?.id]);
 
@@ -240,6 +252,131 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     });
   };
 
+  const fetchTicketStats = async () => {
+    try {
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('id, total_cents, status, created_at')
+        .eq('event_id', event.id);
+
+      const orderIds = orders?.map(o => o.id) || [];
+      const { data: refunds } = orderIds.length > 0 ? await supabase
+        .from('refunds')
+        .select('amount_cents')
+        .in('order_id', orderIds) : { data: [] };
+
+      const paidOrders = orders?.filter(o => o.status === 'paid') || [];
+      const totalRevenue = paidOrders.reduce((sum, o) => sum + o.total_cents, 0) / 100;
+      const totalRefunds = (refunds || []).reduce((sum, r) => sum + r.amount_cents, 0) / 100;
+      const averagePrice = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
+      const refundRate = totalRevenue > 0 ? (totalRefunds / totalRevenue) * 100 : 0;
+
+      setTicketStats({
+        totalRevenue: totalRevenue - totalRefunds,
+        averagePrice,
+        refundRate,
+        conversionRate: 85 // Mock conversion rate
+      });
+    } catch (error) {
+      console.error('Error fetching ticket stats:', error);
+    }
+  };
+
+  // Enhanced filtering and sorting
+  const filteredAndSortedAttendees = attendees
+    .filter(attendee => {
+      const matchesSearch = !searchQuery || 
+        attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        attendee.email.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || 
+        (statusFilter === 'checked-in' && attendee.checkedIn) ||
+        (statusFilter === 'not-checked-in' && !attendee.checkedIn);
+      
+      const matchesTier = tierFilter === 'all' || attendee.badge === tierFilter;
+      
+      return matchesSearch && matchesStatus && matchesTier;
+    })
+    .sort((a, b) => {
+      let aValue = a[sortBy];
+      let bValue = b[sortBy];
+      
+      if (sortBy === 'purchaseDate') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      }
+      
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
+      const result = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return sortOrder === 'asc' ? result : -result;
+    });
+
+  // Bulk operations
+  const handleSelectAll = () => {
+    if (selectedAttendees.size === filteredAndSortedAttendees.length) {
+      setSelectedAttendees(new Set());
+    } else {
+      setSelectedAttendees(new Set(filteredAndSortedAttendees.map(a => a.id)));
+    }
+  };
+
+  const handleSelectAttendee = (attendeeId: string) => {
+    const newSelected = new Set(selectedAttendees);
+    if (newSelected.has(attendeeId)) {
+      newSelected.delete(attendeeId);
+    } else {
+      newSelected.add(attendeeId);
+    }
+    setSelectedAttendees(newSelected);
+  };
+
+  const handleBulkCheckIn = async () => {
+    if (selectedAttendees.size === 0) return;
+    
+    try {
+      setLoading(true);
+      // Mock bulk check-in operation
+      const updatedAttendees = attendees.map(attendee => 
+        selectedAttendees.has(attendee.id) 
+          ? { ...attendee, checkedIn: true }
+          : attendee
+      );
+      setAttendees(updatedAttendees);
+      setSelectedAttendees(new Set());
+      
+      toast({
+        title: "Bulk Check-in Complete",
+        description: `${selectedAttendees.size} attendees checked in successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Bulk Check-in Failed",
+        description: "Could not check in selected attendees.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkMessage = () => {
+    if (selectedAttendees.size === 0) return;
+    
+    toast({
+      title: "Message Feature",
+      description: `Preparing to message ${selectedAttendees.size} attendees.`,
+    });
+    // Implement messaging modal
+  };
+
+  const unique = <T,>(arr: T[]): T[] => [...new Set(arr)];
+  const availableTiers = unique(attendees.map(a => a.badge));
+  const toggleSortOrder = () => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+
   return (
     <div className="h-full bg-background flex flex-col">
       {/* Enhanced Header */}
@@ -295,9 +432,10 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-5 mb-4">
+          <TabsList className="w-full grid grid-cols-6 mb-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="attendees">Attendees</TabsTrigger>
+            <TabsTrigger value="tickets">Tickets</TabsTrigger>
             <TabsTrigger value="scanner">Scanner</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -305,7 +443,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
 
           <TabsContent value="overview" className="space-y-4">
             {/* Enhanced Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <Card className="card-enhanced">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
@@ -338,11 +476,11 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center border border-accent">
-                      <BarChart3 className="w-5 h-5 text-blue-500" />
+                      <DollarSign className="w-5 h-5 text-blue-500" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-accent">${revenue.toLocaleString()}</div>
-                      <div className="text-sm text-accent-muted">Revenue</div>
+                      <div className="text-2xl font-bold text-accent">${ticketStats.totalRevenue.toLocaleString()}</div>
+                      <div className="text-sm text-accent-muted">Net Revenue</div>
                     </div>
                   </div>
                 </CardContent>
@@ -357,6 +495,34 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                     <div>
                       <div className="text-2xl font-bold text-accent">{checkedInCount}</div>
                       <div className="text-sm text-accent-muted">Checked In</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="card-enhanced">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center border border-accent">
+                      <TrendingUp className="w-5 h-5 text-orange-500" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-accent">${ticketStats.averagePrice.toFixed(0)}</div>
+                      <div className="text-sm text-accent-muted">Avg Price</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="card-enhanced">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center border border-accent">
+                      <BarChart3 className="w-5 h-5 text-red-500" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-accent">{ticketStats.refundRate.toFixed(1)}%</div>
+                      <div className="text-sm text-accent-muted">Refund Rate</div>
                     </div>
                   </div>
                 </CardContent>
@@ -545,6 +711,10 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                 ))}
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="tickets" className="space-y-4">
+            <EnhancedTicketManagement eventId={event.id} />
           </TabsContent>
 
           <TabsContent value="scanner" className="space-y-4">
