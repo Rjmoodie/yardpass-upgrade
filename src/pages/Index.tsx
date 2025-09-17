@@ -157,12 +157,59 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }, [onEventSelect]);
 
   const handleOpenTickets = useCallback((eventId: string) => {
+    // Track ticket modal open to PostHog
+    if (typeof window !== 'undefined' && (window as any).posthog) {
+      (window as any).posthog.capture('tickets_modal_opened', {
+        event_id: eventId,
+        user_id: userId
+      });
+    }
+
     setSelectedEventId(eventId);
     setShowTicketModal(true);
-  }, []);
+  }, [userId]);
 
   const goTo = useCallback((i: number) => setCurrentIndex(Math.max(0, Math.min(items.length - 1, i))), [items.length]);
   const currentItem = items[Math.max(0, Math.min(currentIndex, items.length - 1))];
+
+  // PostHog analytics tracking function
+  const trackPostHogEvent = useCallback((eventName: string, postId?: string, properties?: Record<string, any>) => {
+    if (typeof window !== 'undefined' && (window as any).posthog) {
+      (window as any).posthog.capture(eventName, {
+        post_id: postId,
+        event_id: currentItem?.event_id,
+        event_title: currentItem?.event_title,
+        user_id: userId,
+        ...properties
+      });
+    }
+  }, [currentItem, userId]);
+
+  // Update handlers to include analytics
+  const handleLikeWithAnalytics = useCallback(
+    withAuth(async (postId: string) => {
+      try {
+        trackPostHogEvent('post_liked', postId);
+        await handleLike(postId);
+      } catch (error) {
+        console.error('Like error:', error);
+      }
+    }, 'Please sign in to like posts'),
+    [handleLike, trackPostHogEvent, withAuth]
+  );
+
+  const handleCommentWithAnalytics = useCallback(
+    withAuth((postId: string) => {
+      trackPostHogEvent('comment_opened', postId);
+      handleComment(postId);
+    }, 'Please sign in to comment'),
+    [handleComment, trackPostHogEvent, withAuth]
+  );
+
+  const handleShareWithAnalytics = useCallback((postId: string) => {
+    trackPostHogEvent('share_opened', postId);
+    handleShare(postId);
+  }, [handleShare, trackPostHogEvent]);
 
   if (loading) {
     return (
@@ -216,9 +263,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             ) : (
               <UserPostCard
                 item={item}
-                onLike={handleLike}
-                onComment={handleComment}
-                onShare={handleShare}
+                onLike={handleLikeWithAnalytics}
+                onComment={handleCommentWithAnalytics}
+                onShare={handleShareWithAnalytics}
                 onEventClick={handleEventClick}
                 onAuthorClick={handleAuthorClick}
                 onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}

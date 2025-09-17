@@ -143,12 +143,17 @@ export function useAnalytics() {
       return;
     }
 
+    // Only track to Supabase for authenticated users to avoid RLS issues
+    if (!user?.id) {
+      return;
+    }
+
     const utmParams = getUTMParams();
     const sessionId = getSessionId();
 
     const event = {
       event_type,
-      user_id: user?.id || null,
+      user_id: user.id, // Only authenticated users
       event_id: payload.event_id || null,
       ticket_id: payload.ticket_id || null,
       source: payload.source || 'web',
