@@ -8,8 +8,20 @@ interface OptimisticReaction {
   likeCount: number;
 }
 
+interface OptimisticComment {
+  postId: string;
+  commentCount: number;
+  newComment?: {
+    id: string;
+    text: string;
+    author_name: string;
+    created_at: string;
+  };
+}
+
 export const useOptimisticReactions = () => {
   const [optimisticState, setOptimisticState] = useState<Record<string, OptimisticReaction>>({});
+  const [optimisticComments, setOptimisticComments] = useState<Record<string, OptimisticComment>>({});
   const { toast } = useToast();
 
   const toggleLike = async (postId: string, currentLiked: boolean, currentCount: number) => {
@@ -27,7 +39,7 @@ export const useOptimisticReactions = () => {
     }));
 
     try {
-      // Call the new idempotent reactions function
+      // Call the idempotent reactions function
       const { data, error } = await supabase.functions.invoke('reactions-toggle', {
         body: { post_id: postId, kind: 'like' }
       });
@@ -63,12 +75,107 @@ export const useOptimisticReactions = () => {
     }
   };
 
+  const addComment = async (postId: string, commentText: string, currentCount: number) => {
+    if (!commentText.trim()) {
+      toast({
+        title: "Empty comment",
+        description: "Please enter a comment",
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+
+    // Get current user
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to comment",
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+
+    const tempId = `temp-${Date.now()}`;
+    const tempComment = {
+      id: tempId,
+      text: commentText.trim(),
+      author_name: userData.user.user_metadata?.display_name || 'You',
+      created_at: new Date().toISOString()
+    };
+
+    // Optimistic update
+    setOptimisticComments(prev => ({
+      ...prev,
+      [postId]: {
+        postId,
+        commentCount: currentCount + 1,
+        newComment: tempComment
+      }
+    }));
+
+    try {
+      const { data, error } = await supabase
+        .from('event_comments')
+        .insert({
+          post_id: postId,
+          author_user_id: userData.user.id,
+          text: commentText.trim()
+        })
+        .select('id, text, created_at')
+        .single();
+
+      if (error) throw error;
+
+      // Update with real comment data
+      setOptimisticComments(prev => ({
+        ...prev,
+        [postId]: {
+          postId,
+          commentCount: currentCount + 1,
+          newComment: {
+            id: data.id,
+            text: data.text,
+            author_name: userData.user.user_metadata?.display_name || 'You',
+            created_at: data.created_at
+          }
+        }
+      }));
+
+      return { success: true, comment: data };
+
+    } catch (error) {
+      // Rollback on error
+      setOptimisticComments(prev => ({
+        ...prev,
+        [postId]: {
+          postId,
+          commentCount: currentCount,
+          newComment: undefined
+        }
+      }));
+      
+      toast({
+        title: "Error",
+        description: "Failed to add comment",
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+  };
+
   const getOptimisticData = (postId: string, fallback: { isLiked: boolean; likeCount: number }) => {
     return optimisticState[postId] || fallback;
   };
 
+  const getOptimisticCommentData = (postId: string, fallback: { commentCount: number }) => {
+    return optimisticComments[postId] || { postId, commentCount: fallback.commentCount };
+  };
+
   return {
     toggleLike,
-    getOptimisticData
+    addComment,
+    getOptimisticData,
+    getOptimisticCommentData
   };
 };
