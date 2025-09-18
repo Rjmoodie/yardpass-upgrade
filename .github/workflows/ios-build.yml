@@ -50,9 +50,9 @@ jobs:
         
     - name: Add iOS platform
       run: |
-        # Add iOS platform - force yes to all prompts
+        # Add iOS platform (will skip if already exists)
         echo "Adding iOS platform..."
-        npx cap add ios --confirm
+        npx cap add ios
         echo "iOS platform added successfully"
         
     - name: Sync Capacitor
