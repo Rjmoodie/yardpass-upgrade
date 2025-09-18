@@ -484,87 +484,248 @@
     touch-action: pan-y; /* vertical scroll only */
   }
 
-  /* ---------- QR visual card (beautified) ---------- */
+  /* ---------- Premium QR Code Visual Styling ---------- */
 
 .qr-card {
   --qr-radius: 18px;
-  background: hsl(var(--card, 0 0% 100%));
-  border-radius: var(--qr-radius);
-  padding: 18px;
-  box-shadow: var(--shadow-card, 0 8px 30px rgba(0,0,0,0.08));
-  border: 1px solid hsl(var(--border, 0 0% 90%));
   position: relative;
+  display: inline-block;
+  background: hsl(var(--card));
+  border-radius: var(--qr-radius);
+  padding: 4px;
+  box-shadow: 
+    0 4px 16px hsl(0 0% 0% / 8%),
+    0 0 0 1px hsl(var(--border-accent));
+  border: 1px solid hsl(var(--border-accent));
+  transition: all 0.3s ease;
 }
 
-/* subtle brand glow ring */
+.qr-card:hover {
+  box-shadow: 
+    0 8px 32px hsl(0 0% 0% / 12%),
+    0 0 0 1px hsl(var(--border-strong));
+  transform: translateY(-1px);
+}
+
+/* Premium brand glow ring */
 .qr-card::before {
-  content: "";
+  content: '';
   position: absolute;
-  inset: -6px;
-  border-radius: calc(var(--qr-radius) + 8px);
+  inset: -3px;
+  border-radius: calc(var(--qr-radius) + 5px);
   pointer-events: none;
-  background:
-    radial-gradient(60% 60% at 50% 50%, hsl(var(--primary-glow, 42 100% 60%) / .15), transparent 60%);
-  filter: blur(8px);
-  opacity: .9;
+  background: linear-gradient(
+    135deg, 
+    hsl(var(--primary)) 0%, 
+    hsl(45 100% 64%) 50%,
+    hsl(var(--primary) / 0.6) 100%
+  );
+  filter: blur(6px);
+  opacity: 0.6;
+  z-index: -1;
 }
 
-/* White inner frame (quiet zone) + grid */
+/* White inner frame (scanner-safe quiet zone) */
 .qr-grid {
   --qr-pad: 24px;
   border-radius: calc(var(--qr-radius) - 2px);
-  background: #fff;
+  background: #ffffff !important; /* Always white for scanner compatibility */
   padding: var(--qr-pad);
-  border: 1px solid rgba(0,0,0,0.06);
+  border: 1px solid hsl(var(--border-accent) / 0.3);
   background-image:
-    linear-gradient(#0000 95%, rgba(0,0,0,.045) 0),
-    linear-gradient(90deg, #0000 95%, rgba(0,0,0,.045) 0);
-  background-size: 10px 10px;
+    linear-gradient(hsl(var(--border-accent) / 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border-accent) / 0.1) 1px, transparent 1px);
+  background-size: 16px 16px;
   position: relative;
 }
 
-/* Crisp container for the image */
+/* Crisp container for the QR image */
 .qr-img-wrap, .qr-box {
   width: 240px;
   height: 240px;
-  display: grid;
-  place-items: center;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  margin: 0 auto;
+  background: transparent;
+  position: relative;
 }
 
-/* Image rendering hints */
+/* Enhanced loading/error state */
+.qr-box {
+  background: linear-gradient(
+    135deg,
+    #fafafa 0%,
+    #f5f5f5 50%,
+    #fafafa 100%
+  );
+  border: 1px dashed hsl(var(--border-accent));
+  border-radius: 8px;
+}
+
+/* Premium image rendering */
 .qr-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
-  border-radius: 10px; /* softly rounds the logo's clip area edges when downscaled */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: pixelated;
+  border-radius: 4px;
+  transition: transform 0.2s ease;
 }
 
-/* Sizes */
-.qr-size-sm .qr-img-wrap, .qr-size-sm .qr-box { width: 200px; height: 200px; }
-.qr-size-md .qr-img-wrap, .qr-size-md .qr-box { width: 240px; height: 240px; }
-.qr-size-lg .qr-img-wrap, .qr-size-lg .qr-box { width: 300px; height: 300px; }
+.qr-img:hover {
+  transform: scale(1.01);
+}
 
-/* Dark mode */
+/* Size variants with proper scaling */
+.qr-size-sm .qr-img-wrap, .qr-size-sm .qr-box { 
+  width: 200px; 
+  height: 200px; 
+}
+
+.qr-size-sm .qr-grid { 
+  --qr-pad: 20px;
+  background-size: 14px 14px; 
+}
+
+.qr-size-md .qr-img-wrap, .qr-size-md .qr-box { 
+  width: 240px; 
+  height: 240px; 
+}
+
+.qr-size-md .qr-grid { 
+  --qr-pad: 24px;
+  background-size: 16px 16px; 
+}
+
+.qr-size-lg .qr-img-wrap, .qr-size-lg .qr-box { 
+  width: 300px; 
+  height: 300px; 
+}
+
+.qr-size-lg .qr-grid { 
+  --qr-pad: 32px;
+  background-size: 20px 20px; 
+}
+
+/* Dark mode - keep QR area white for scanning */
 :root.dark .qr-card {
-  background: #0b0b0c;
-  border-color: rgba(255,255,255,0.08);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.45);
-}
-:root.dark .qr-grid {
-  background: #fff; /* keep white for scanner contrast */
-  border-color: rgba(0,0,0,0.25);
-  background-image:
-    linear-gradient(#0000 95%, rgba(0,0,0,.06) 0),
-    linear-gradient(90deg, #0000 95%, rgba(0,0,0,.06) 0);
+  background: hsl(var(--card));
+  border-color: hsl(var(--border-accent));
+  box-shadow: 
+    0 4px 16px hsl(0 0% 0% / 25%),
+    0 0 0 1px hsl(var(--border-accent));
 }
 
-/* Print: remove shadows, guarantee white background */
+:root.dark .qr-card:hover {
+  box-shadow: 
+    0 8px 32px hsl(0 0% 0% / 35%),
+    0 0 0 1px hsl(var(--border-strong));
+}
+
+:root.dark .qr-grid {
+  background: #ffffff !important; /* Always white for scanner compatibility */
+  border-color: hsl(var(--border-accent) / 0.4);
+  background-image:
+    linear-gradient(hsl(220 13% 91% / 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(220 13% 91% / 0.15) 1px, transparent 1px);
+}
+
+:root.dark .qr-box {
+  background: #ffffff;
+  border-color: hsl(var(--border-accent) / 0.4);
+}
+
+/* Smooth QR appearance animation */
+@keyframes qr-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.qr-img {
+  animation: qr-fade-in 0.4s ease-out;
+}
+
+/* Theme-specific glow effects */
+.qr-card.qr-brand::before {
+  background: linear-gradient(
+    135deg, 
+    #111111 0%, 
+    #ffb400 40%,
+    #ff8c00 60%,
+    #111111 100%
+  );
+}
+
+.qr-card.qr-night::before {
+  background: linear-gradient(
+    135deg, 
+    #ffffff 0%, 
+    #e5e5e5 50%,
+    #ffffff 100%
+  );
+}
+
+/* Print optimization - scanner-friendly */
 @media print {
-  .qr-card { box-shadow: none !important; border: none !important; }
-  .qr-card::before { display: none !important; }
-  .qr-grid { background: #fff !important; border: none !important; }
+  .qr-card { 
+    box-shadow: none !important; 
+    border: 1px solid #ccc !important;
+    background: #fff !important;
+    transform: none !important;
+  }
+  .qr-card::before { 
+    display: none !important; 
+  }
+  .qr-grid { 
+    background: #fff !important; 
+    background-image: none !important;
+    border: none !important; 
+    padding: 16px !important;
+  }
+  .qr-img {
+    image-rendering: auto !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .qr-card {
+    transition: none;
+  }
+  .qr-img {
+    animation: none;
+    transition: none;
+  }
+  .qr-card:hover {
+    transform: none;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .qr-card {
+    border: 2px solid #000 !important;
+    box-shadow: none !important;
+  }
+  .qr-card::before {
+    display: none !important;
+  }
+  .qr-grid {
+    background: #fff !important;
+    background-image: none !important;
+    border: 1px solid #000 !important;
+  }
 }
 }
