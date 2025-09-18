@@ -150,10 +150,12 @@ jobs:
           
           echo "App tested successfully in simulator!"
           
-          # Create downloadable app bundle
+          # Create downloadable app bundle in workspace root
+          echo "Creating app bundle..."
           cd "$BUILT_PRODUCTS_DIR"
-          zip -r /tmp/YardPass-Simulator.zip App.app/
-          cp /tmp/YardPass-Simulator.zip ../../..
+          zip -r "$GITHUB_WORKSPACE/YardPass-Simulator.zip" App.app/
+          echo "App bundle created at: $GITHUB_WORKSPACE/YardPass-Simulator.zip"
+          ls -la "$GITHUB_WORKSPACE/YardPass-Simulator.zip"
           
         else
           echo "Build failed - no .app bundle found"
@@ -170,7 +172,8 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: YardPass-iOS-Simulator-${{ github.sha }}
-        path: YardPass-Simulator.zip
+        path: |
+          build/ios/Build/Products/Debug-iphonesimulator/App.app
         retention-days: 30
         
     - name: Upload Screenshot
