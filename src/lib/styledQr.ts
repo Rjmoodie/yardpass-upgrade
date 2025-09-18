@@ -20,21 +20,79 @@ export type StyledQrOptions = {
   lightColor?: string;
   /** BRAND: module (dots) gradient */
   dotsGradient?: StyledQrGradient;
-  logoUrl?: string;
-  logoMargin?: number;
-  logoSizeRatio?: number;
+  logoUrl?: string;        // your brand mark (PNG/SVG/data URI)
+  logoMargin?: number;     // px "padding" around logo inside badge
+  logoSizeRatio?: number;  // 0.18–0.28 of QR width
   dotsType?: DotType;
   cornersSquareType?: 'dot' | 'square' | 'extra-rounded';
   cornersDotType?: 'dot' | 'square';
   /** Optional corner colors (finder eyes) */
   cornersColor?: string;
   format?: 'png' | 'svg';
+
+  // NEW: backer badge behind logo
+  logoBackerShape?: 'circle' | 'squircle';
+  logoBackerFill?: string;         // default white
+  logoBackerStroke?: string;       // default #0000001A (subtle)
+  logoBackerStrokeWidth?: number;  // default 1.5
+  logoShadow?: boolean;            // soft drop shadow
 };
+
+// Build an SVG badge that contains the logo clipped inside a circle/squircle
+function buildLogoBadgeDataUri(opts: {
+  logoUrl: string;
+  sizePx: number;              // canvas for the badge (we'll scale anyway)
+  marginPx: number;            // inner padding
+  shape: 'circle' | 'squircle';
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  shadow: boolean;
+}) {
+  const { logoUrl, sizePx, marginPx, shape, fill, stroke, strokeWidth, shadow } = opts;
+  const s = sizePx;
+  const inner = s - marginPx * 2;
+  const radius = s / 2;
+
+  const clip =
+    shape === 'circle'
+      ? `<clipPath id="clip"><circle cx="${radius}" cy="${radius}" r="${radius - marginPx}"/></clipPath>`
+      : `<clipPath id="clip"><rect x="${marginPx}" y="${marginPx}" width="${inner}" height="${inner}" rx="${Math.round(inner * 0.22)}"/></clipPath>`;
+
+  const backer =
+    shape === 'circle'
+      ? `<circle cx="${radius}" cy="${radius}" r="${radius - strokeWidth/2}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`
+      : `<rect x="${strokeWidth/2}" y="${strokeWidth/2}" width="${s - strokeWidth}" height="${s - strokeWidth}" rx="${Math.round((s - strokeWidth)*0.25)}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
+
+  const filter = shadow
+    ? `<filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+         <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.2"/>
+       </filter>`
+    : '';
+
+  const filterAttr = shadow ? 'filter="url(#shadow)"' : '';
+
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+    <defs>
+      ${clip}
+      ${filter}
+    </defs>
+    <g ${filterAttr}>
+      ${backer}
+      <image href="${logoUrl}" x="${marginPx}" y="${marginPx}" width="${inner}" height="${inner}" clip-path="url(#clip)" preserveAspectRatio="xMidYMid meet" />
+    </g>
+  </svg>`.trim();
+
+  const encoded = typeof window === 'undefined'
+    ? Buffer.from(svg).toString('base64')
+    : btoa(unescape(encodeURIComponent(svg)));
+  return `data:image/svg+xml;base64,${encoded}`;
+}
 
 function payloadString(d: QRCodeData) {
   return JSON.stringify({ t: d.ticketId, e: d.eventId, ts: d.timestamp, s: d.signature });
 }
-
 /**
  * Generates a styled QR as data URL (PNG or SVG).
  * Falls back to your plain generator if not in browser.
@@ -44,17 +102,23 @@ export async function generateStyledQRDataURL(
   {
     size = 512,
     margin = 16,
-    darkColor = '#000',
+    darkColor = '#111',
     lightColor = '#fff',
     dotsGradient,
     logoUrl,
-    logoMargin = 6,
-    logoSizeRatio = 0.22,
+    logoMargin = 8,           // ↑ give logo more breathing room
+    logoSizeRatio = 0.24,     // ↑ slightly larger but still safe
     dotsType = 'rounded',
     cornersSquareType = 'extra-rounded',
     cornersDotType = 'dot',
     cornersColor,
     format = 'png',
+    // backer defaults
+    logoBackerShape = 'circle',
+    logoBackerFill = '#ffffff',
+    logoBackerStroke = '#0000001A',
+    logoBackerStrokeWidth = 1.5,
+    logoShadow = true,
   }: StyledQrOptions = {}
 ): Promise<string> {
   if (!isBrowser) {
@@ -66,13 +130,27 @@ export async function generateStyledQRDataURL(
   // dynamic import to avoid SSR issues
   const QRCodeStyling = (await import('qr-code-styling')).default;
 
+  // Build a badge-wrapped logo (data URI), so it always has a white backer
+  const badgeDataUri = logoUrl
+    ? buildLogoBadgeDataUri({
+        logoUrl,
+        sizePx: 256,
+        marginPx: logoMargin,
+        shape: logoBackerShape,
+        fill: logoBackerFill,
+        stroke: logoBackerStroke,
+        strokeWidth: logoBackerStrokeWidth,
+        shadow: logoShadow,
+      })
+    : undefined;
+
   const qr = new QRCodeStyling({
     width: size,
     height: size,
     margin,
     // type: format, // 'png' or 'svg' - removed as this conflicts with DrawType
     data: payloadString(data),
-    image: logoUrl,
+    image: badgeDataUri,           // use badge (not raw logo)
     qrOptions: {
       errorCorrectionLevel: 'H',
     },
@@ -94,9 +172,9 @@ export async function generateStyledQRDataURL(
     },
     imageOptions: {
       crossOrigin: 'anonymous',
-      margin: logoMargin,
-      imageSize: logoSizeRatio, // portion of QR width
-      hideBackgroundDots: false // set true if contrast is low
+      margin: 0,                    // padding handled inside badge
+      imageSize: logoSizeRatio,
+      hideBackgroundDots: true,     // ← clear modules behind the logo
     },
   });
 
@@ -104,19 +182,10 @@ export async function generateStyledQRDataURL(
   const el = document.createElement('div');
   await qr.append(el);
 
-  if (format === 'svg') {
-    const blob = await qr.getRawData('svg') as Blob;
-    return await blobToDataUrl(blob);
-  } else {
-    const blob = await qr.getRawData('png') as Blob;
-    return await blobToDataUrl(blob);
-  }
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((res) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result as string);
-    r.readAsDataURL(blob);
+  const blob = (await qr.getRawData(format)) as Blob;
+  return await new Promise<string>((resolve) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result as string);
+    fr.readAsDataURL(blob);
   });
 }
