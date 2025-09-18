@@ -307,7 +307,7 @@ export default function TicketsPage({
         <div className="flex-1 px-3 sm:px-4 pb-3 sm:pb-4 safe-bottom-pad">
           <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)} className="w-full">
             {/* Mobile-optimized tabs */}
-            <div className="tabs-mobile mb-4 sm:mb-6">
+            <TabsList className="tabs-mobile mb-4 sm:mb-6">
               <TabsTrigger value="upcoming" className="tab-enhanced">
                 <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
                 <span className="truncate">Upcoming</span>
@@ -322,7 +322,7 @@ export default function TicketsPage({
                   {pastTickets.length}
                 </span>
               </TabsTrigger>
-            </div>
+            </TabsList>
 
             <TabsContent value="upcoming" className="space-y-4">
               {loading ? (
