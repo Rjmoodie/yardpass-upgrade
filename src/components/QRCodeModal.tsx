@@ -1,11 +1,11 @@
 // src/components/QRCodeModal.tsx
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Copy, Share, Loader2, Download } from 'lucide-react';
 import { generateQRData } from '@/lib/qrCode';
 import { generateStyledQRDataURL } from '@/lib/styledQr';
+import { getQrTheme, type QrThemeName } from '@/lib/qrTheme';
 import { UserTicket } from '@/hooks/useTickets';
 import { toast } from '@/hooks/use-toast';
 
@@ -14,15 +14,15 @@ interface User {
   name: string;
   role: string;
 }
-
 interface QRCodeModalProps {
   ticket: UserTicket;
   user: User;
   onClose: () => void;
   onCopy: (ticket: UserTicket) => void;
   onShare: (ticket: UserTicket) => void;
-  /** Optional brand logo override (URL or data URI). Defaults to YardPass mark. */
   logoUrl?: string;
+  theme?: QrThemeName;     // 'classic' | 'brand' | 'night'
+  brandHex?: string;       // accent color for 'brand' theme
 }
 
 export function QRCodeModal({
@@ -32,11 +32,13 @@ export function QRCodeModal({
   onCopy,
   onShare,
   logoUrl = '/yardpass-logo.png',
+  theme = 'brand',
+  brandHex = '#ff5a3c',
 }: QRCodeModalProps) {
-  const [qrPngDataUrl, setQrPngDataUrl] = useState<string>('');
+  const [qrPng, setQrPng] = useState<string>('');
+  const [qrSvg, setQrSvg] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-
 
   // Close on ESC
   useEffect(() => {
@@ -45,12 +47,11 @@ export function QRCodeModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // subtle haptic for mobile when opening
   useEffect(() => {
-    try {
-      (navigator as any)?.vibrate?.(10);
-    } catch {}
+    try { (navigator as any)?.vibrate?.(10); } catch {}
   }, []);
+
+  const opts = useMemo(() => getQrTheme(theme, brandHex), [theme, brandHex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,22 +67,31 @@ export function QRCodeModal({
           userId: user.id,
         });
 
-        // Generate styled QR code
-        const dataUrl = await generateStyledQRDataURL(qrData, {
-          size: 512,
-          margin: 20,
-          darkColor: '#1a1b3e',
-          lightColor: '#FFFFFF',
-          dotsType: 'rounded',
-          cornersSquareType: 'extra-rounded',
-          cornersDotType: 'dot',
-          logoUrl: '/yardpass-qr-logo.png',
-          logoSizeRatio: 0.26,
-          logoMargin: 8,
-          format: 'png'
+        // PNG (for on-screen display)
+        const pngUrl = await generateStyledQRDataURL(qrData, {
+          ...opts,
+          logoUrl,
+          format: 'png',
+          // If you added dotsOptionsGradient, map it:
+          // @ts-ignore
+          ...(opts as any).dotsOptionsGradient && {
+            // will be read inside generateStyledQRDataURL as gradient
+          },
         });
 
-        if (!cancelled) setQrPngDataUrl(dataUrl);
+        // SVG (optional download)
+        const svgUrl = await generateStyledQRDataURL(qrData, {
+          ...opts,
+          logoUrl,
+          format: 'svg',
+          // @ts-ignore
+          ...(opts as any).dotsOptionsGradient && {},
+        });
+
+        if (!cancelled) {
+          setQrPng(pngUrl);
+          setQrSvg(svgUrl);
+        }
       } catch (err) {
         console.error('Failed to generate QR code:', err);
         if (!cancelled) setFailed(true);
@@ -91,42 +101,29 @@ export function QRCodeModal({
     };
 
     run();
-    return () => {
-      cancelled = true;
-    };
-  }, [ticket, user, logoUrl]);
+    return () => { cancelled = true; };
+  }, [ticket, user, logoUrl, opts]);
 
-  const downloadPng = useCallback(async () => {
-    try {
-      if (!qrPngDataUrl) return;
-      const a = document.createElement('a');
-      a.href = qrPngDataUrl;
-      a.download = `ticket-${ticket.id}.png`;
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (e) {
-      console.error(e);
-      toast({
-        title: 'Download failed',
-        description: 'Could not export PNG. Try again.',
-        variant: 'destructive',
-      });
-    }
-  }, [qrPngDataUrl, ticket.id]);
+  const download = useCallback((dataUrl: string, ext: 'png' | 'svg') => {
+    if (!dataUrl) return;
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `ticket-${ticket.id}.${ext}`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, [ticket.id]);
 
   return (
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="qr-modal-title"
     >
-      <Card className="w-full max-w-md relative animate-in fade-in zoom-in duration-300 shadow-2xl border-0 bg-white">
+      <Card className="w-full max-w-md relative animate-in fade-in zoom-in duration-300 shadow-2xl border-0 bg-white dark:bg-neutral-900">
         <CardHeader className="text-center pb-4">
           <div className="flex items-center justify-center gap-2 mb-2">
             <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center" aria-hidden>
@@ -136,13 +133,7 @@ export function QRCodeModal({
             </div>
             <CardTitle id="qr-modal-title" className="text-lg font-semibold">Event Ticket</CardTitle>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-3 right-3 hover:bg-gray-100 transition-colors"
-            onClick={onClose}
-            aria-label="Close"
-          >
+          <Button variant="ghost" size="icon" className="absolute top-3 right-3 hover:bg-gray-100 dark:hover:bg-neutral-800" onClick={onClose} aria-label="Close">
             <X className="w-5 h-5" />
           </Button>
         </CardHeader>
@@ -150,45 +141,36 @@ export function QRCodeModal({
         <CardContent className="space-y-4">
           <div className="text-center space-y-2">
             <h3 className="font-semibold leading-tight">{ticket.eventTitle}</h3>
-            <p className="text-sm text-muted-foreground">
-              {ticket.eventDate} at {ticket.eventTime}
-            </p>
+            <p className="text-sm text-muted-foreground">{ticket.eventDate} at {ticket.eventTime}</p>
             <p className="text-sm text-muted-foreground">{ticket.eventLocation}</p>
           </div>
 
-          <div className="qr-grid flex justify-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
-            {loading && (
-              <div className="w-[240px] h-[240px] grid place-items-center">
-                <div className="text-center space-y-3">
+          {/* VISUAL WRAPPER */}
+          <div className="qr-card">
+            <div className="qr-grid">
+              {loading && (
+                <div className="qr-box">
                   <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-                  <p className="text-sm text-muted-foreground">Generating QR code...</p>
+                  <p className="text-sm text-muted-foreground mt-3">Generating QR code…</p>
                 </div>
-              </div>
-            )}
+              )}
 
-            {!loading && failed && (
-              <div className="w-[240px] h-[240px] grid place-items-center text-center text-sm text-muted-foreground">
-                <div className="space-y-2">
+              {!loading && failed && (
+                <div className="qr-box">
                   <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto">
                     <X className="w-6 h-6 text-red-500" />
                   </div>
-                  <p>Couldn't render QR code</p>
-                  <p className="text-xs">Please try again</p>
+                  <p className="text-sm text-muted-foreground mt-3">Couldn’t render QR code</p>
+                  <p className="text-xs text-muted-foreground">Please try again</p>
                 </div>
-              </div>
-            )}
+              )}
 
-            {!loading && !failed && (
-              <div className="w-[240px] h-[240px] select-none flex items-center justify-center">
-                {/* We render at higher internal resolution (opts.size); <img> downscales crisply */}
-                <img
-                  src={qrPngDataUrl}
-                  alt="Ticket QR code"
-                  className="w-full h-full object-contain"
-                  draggable={false}
-                />
-              </div>
-            )}
+              {!loading && !failed && (
+                <div className="qr-img-wrap">
+                  <img src={qrPng} alt="Ticket QR code" className="qr-img" draggable={false} />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="text-center text-xs text-muted-foreground">
@@ -197,34 +179,21 @@ export function QRCodeModal({
           </div>
 
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1 h-10 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
-              onClick={() => onCopy(ticket)}
-              disabled={loading || failed}
-            >
-              <Copy className="w-4 h-4 mr-2" />
-              Copy
+            <Button variant="outline" className="flex-1 h-10 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all" onClick={() => onCopy(ticket)} disabled={loading || failed}>
+              <Copy className="w-4 h-4 mr-2" /> Copy
             </Button>
 
-            <Button
-              variant="outline"
-              className="flex-1 h-10 hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-all duration-200"
-              onClick={() => onShare(ticket)}
-              disabled={loading || failed}
-            >
-              <Share className="w-4 h-4 mr-2" />
-              Share
+            <Button variant="outline" className="flex-1 h-10 hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-all" onClick={() => onShare(ticket)} disabled={loading || failed}>
+              <Share className="w-4 h-4 mr-2" /> Share
             </Button>
 
-            <Button
-              variant="outline"
-              className="flex-1 h-10 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all duration-200"
-              onClick={downloadPng}
-              disabled={loading || failed}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              PNG
+            <Button variant="outline" className="flex-1 h-10 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all" onClick={() => download(qrPng, 'png')} disabled={loading || failed}>
+              <Download className="w-4 h-4 mr-2" /> PNG
+            </Button>
+
+            {/* Optional SVG export */}
+            <Button variant="outline" className="flex-1 h-10 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all" onClick={() => download(qrSvg, 'svg')} disabled={loading || failed}>
+              <Download className="w-4 h-4 mr-2" /> SVG
             </Button>
           </div>
         </CardContent>
