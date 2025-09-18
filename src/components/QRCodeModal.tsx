@@ -73,22 +73,13 @@ export function QRCodeModal({
         // PNG (for on-screen display)
         const pngUrl = await generateStyledQRDataURL(qrData, {
           ...opts,
-          logoUrl,
           format: 'png',
-          // If you added dotsOptionsGradient, map it:
-          // @ts-ignore
-          ...(opts as any).dotsOptionsGradient && {
-            // will be read inside generateStyledQRDataURL as gradient
-          },
         });
 
         // SVG (optional download)
         const svgUrl = await generateStyledQRDataURL(qrData, {
           ...opts,
-          logoUrl,
           format: 'svg',
-          // @ts-ignore
-          ...(opts as any).dotsOptionsGradient && {},
         });
 
         if (!cancelled) {
