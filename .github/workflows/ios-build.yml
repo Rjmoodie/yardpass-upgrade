@@ -86,16 +86,23 @@ jobs:
           ls -la ios/App/
         fi
         
+    - name: List Available Simulators
+      run: |
+        echo "Available iOS Simulators:"
+        xcrun simctl list devices ios
+        echo "Available iOS SDKs:"
+        xcodebuild -showsdks | grep ios
+        
     - name: Build iOS app for Simulator
       run: |
         cd ios/App
         echo "Building iOS app for simulator..."
         
-        # Build for iOS Simulator (no signing required)
+        # Build for iOS Simulator with generic destination (no signing required)
         xcodebuild -workspace App.xcworkspace \
                    -scheme App \
                    -configuration Debug \
-                   -destination 'platform=iOS Simulator,name=iPhone 15' \
+                   -destination 'generic/platform=iOS Simulator' \
                    -derivedDataPath ../../build/ios \
                    build
                    
@@ -105,8 +112,15 @@ jobs:
       run: |
         echo "Creating iOS Simulator..."
         
-        # Create and boot simulator
-        SIMULATOR_ID=$(xcrun simctl create "YardPass-Test" "iPhone 15" "iOS-17-5")
+        # Find available iPhone device type and iOS runtime
+        DEVICE_TYPE=$(xcrun simctl list devicetypes | grep iPhone | tail -1 | cut -d'(' -f2 | cut -d')' -f1)
+        IOS_RUNTIME=$(xcrun simctl list runtimes | grep iOS | tail -1 | cut -d'(' -f2 | cut -d')' -f1)
+        
+        echo "Using device type: $DEVICE_TYPE"
+        echo "Using iOS runtime: $IOS_RUNTIME"
+        
+        # Create and boot simulator with available runtime
+        SIMULATOR_ID=$(xcrun simctl create "YardPass-Test" "$DEVICE_TYPE" "$IOS_RUNTIME")
         echo "Created simulator: $SIMULATOR_ID"
         
         # Boot the simulator
