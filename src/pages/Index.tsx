@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, Search } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
 import CommentModal from '@/components/CommentModal';
@@ -15,6 +15,7 @@ import { useUnifiedFeed } from '@/hooks/useUnifiedFeed';
 import { EventCard } from '@/components/EventCard';
 import { UserPostCard } from '@/components/UserPostCard';
 import { supabase } from '@/integrations/supabase/client';
+import { SearchPalette } from '@/components/SearchPalette';
 
 interface IndexProps {
   onEventSelect: (eventId: string) => void;
@@ -32,6 +33,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Audio & playback
   const [soundEnabled, setSoundEnabled] = useState(false); // default muted
@@ -117,18 +119,38 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     setCurrentIndex((i) => Math.min(Math.max(0, i), Math.max(0, items.length - 1)));
   }, [items.length]);
 
-  // Keyboard nav (↑/↓, PgUp/PgDn, Home/End, "s" toggles sound)
+  // Keyboard nav (↑/↓, PgUp/PgDn, Home/End, "s" toggles sound, ⌘/Ctrl+K opens search)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (['ArrowUp', 'PageUp'].includes(e.key)) setCurrentIndex((i) => Math.max(0, i - 1));
-      if (['ArrowDown', 'PageDown'].includes(e.key)) setCurrentIndex((i) => Math.min(items.length - 1, i + 1));
-      if (e.key === 'Home') setCurrentIndex(0);
-      if (e.key === 'End') setCurrentIndex(Math.max(0, items.length - 1));
-      if (e.key.toLowerCase() === 's') handleSoundToggle();
+      // Check for search hotkey first
+      const isMac = navigator.platform.toLowerCase().includes('mac');
+      if ((isMac && e.metaKey && e.key.toLowerCase() === 'k') ||
+          (!isMac && e.ctrlKey && e.key.toLowerCase() === 'k')) {
+        e.preventDefault();
+        setSearchOpen(true);
+        return;
+      }
+      // Quick open with slash if not typing in input
+      if (e.key === '/') {
+        const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+        if (tag !== 'input' && tag !== 'textarea' && !(e.target as HTMLElement).isContentEditable) {
+          e.preventDefault();
+          setSearchOpen(true);
+          return;
+        }
+      }
+      // Regular navigation (only if search is closed)
+      if (!searchOpen) {
+        if (['ArrowUp', 'PageUp'].includes(e.key)) setCurrentIndex((i) => Math.max(0, i - 1));
+        if (['ArrowDown', 'PageDown'].includes(e.key)) setCurrentIndex((i) => Math.min(items.length - 1, i + 1));
+        if (e.key === 'Home') setCurrentIndex(0);
+        if (e.key === 'End') setCurrentIndex(Math.max(0, items.length - 1));
+        if (e.key.toLowerCase() === 's') handleSoundToggle();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [items.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items.length, searchOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Touch swipe (vertical)
   const touchStartRef = useRef<{ y: number; t: number } | null>(null);
@@ -309,6 +331,31 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     });
   }, [currentIndex]);
 
+  // Search navigation handlers
+  const goToEventFromSearch = useCallback((eventId: string) => {
+    onEventSelect(eventId);
+    // Find the event in our feed and navigate to it
+    const eventIndex = items.findIndex(item => 
+      item.item_type === 'event' && item.item_id === eventId
+    );
+    if (eventIndex !== -1) {
+      setCurrentIndex(eventIndex);
+    }
+  }, [onEventSelect, items]);
+
+  const goToPostFromSearch = useCallback((eventId: string, postId: string) => {
+    // Find the post in our feed and navigate to it
+    const postIndex = items.findIndex(item => 
+      item.item_type === 'post' && item.item_id === postId
+    );
+    if (postIndex !== -1) {
+      setCurrentIndex(postIndex);
+    } else {
+      // If post not in current feed, go to the event instead
+      onEventSelect(eventId);
+    }
+  }, [onEventSelect, items]);
+
   if (loading && !items.length) {
     return (
       <div className="h-screen bg-black flex items-center justify-center">
@@ -341,6 +388,20 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           alt="YardPass"
           className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 lg:w-56 lg:h-56 object-contain"
         />
+      </div>
+
+      {/* Search Button */}
+      <div className="fixed right-3 top-3 z-30">
+        <Button 
+          variant="secondary" 
+          size="sm"
+          onClick={() => setSearchOpen(true)}
+          className="bg-black/40 border border-white/20 text-white hover:bg-black/60 transition backdrop-blur-sm"
+        >
+          <Search className="w-4 h-4 mr-2" />
+          Search
+          <kbd className="ml-2 px-1 py-[1px] bg-white/10 rounded text-[10px]">⌘K</kbd>
+        </Button>
       </div>
 
       {/* Feed Items (one-per-screen vertical rail) */}
@@ -495,6 +556,14 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           }}
         />
       )}
+
+      <SearchPalette
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onGoToEvent={goToEventFromSearch}
+        onGoToPost={goToPostFromSearch}
+        categories={['Music', 'Sports', 'Tech', 'Food', 'Arts', 'Business & Professional', 'Community', 'Other']}
+      />
     </div>
   );
 }

@@ -1,0 +1,87 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+export type SearchFilters = {
+  category?: string | null;
+  dateFrom?: string | null; // ISO
+  dateTo?: string | null;   // ISO
+  onlyEvents?: boolean;
+};
+
+export type SearchRow = {
+  kind: 'event' | 'post';
+  item_id: string;
+  post_id: string | null;
+  title: string;
+  snippet: string;
+  starts_at: string | null;
+  category: string | null;
+  location: string | null;
+  score: number;
+};
+
+export function useSmartSearch(initialQ = '') {
+  const [q, setQ] = useState(initialQ);
+  const [filters, setFilters] = useState<SearchFilters>({});
+  const [results, setResults] = useState<SearchRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+
+  // Debounce
+  const tRef = useRef<number | null>(null);
+  const debouncedQ = useMemo(() => q.trim(), [q]);
+
+  const search = useCallback(async (reset = true) => {
+    if (reset) setPage(0);
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.rpc('search_all', {
+        p_user: null,
+        p_q: debouncedQ,
+        p_category: filters.category ?? null,
+        p_date_from: filters.dateFrom ?? null,
+        p_date_to: filters.dateTo ?? null,
+        p_only_events: !!filters.onlyEvents,
+        p_limit: pageSize,
+        p_offset: (reset ? 0 : page * pageSize),
+      });
+      if (error) throw error;
+      const rows = (data ?? []) as SearchRow[];
+      setResults((prev) => (reset ? rows : [...prev, ...rows]));
+    } catch (e) {
+      setError(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedQ, filters, page]);
+
+  // Autosearch after typing pause
+  useEffect(() => {
+    if (tRef.current) window.clearTimeout(tRef.current);
+    tRef.current = window.setTimeout(() => {
+      search(true);
+    }, 200);
+    return () => {
+      if (tRef.current) window.clearTimeout(tRef.current);
+    };
+  }, [debouncedQ, filters, search]);
+
+  const loadMore = useCallback(() => {
+    setPage((p) => p + 1);
+  }, []);
+
+  useEffect(() => {
+    if (page === 0) return;
+    search(false);
+  }, [page, search]);
+
+  return {
+    q, setQ,
+    filters, setFilters,
+    results, loading, error,
+    loadMore, pageSize
+  };
+}

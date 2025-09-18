@@ -2115,6 +2115,35 @@ export type Database = {
           },
         ]
       }
+      search_docs: {
+        Row: {
+          body: string | null
+          category: string | null
+          item_id: string | null
+          kind: string | null
+          location: string | null
+          organizer_id: string | null
+          post_id: string | null
+          starts_at: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
+      search_docs_mv: {
+        Row: {
+          body: string | null
+          category: string | null
+          item_id: string | null
+          kind: string | null
+          location: string | null
+          organizer_id: string | null
+          post_id: string | null
+          starts_at: string | null
+          title: string | null
+          ts: unknown | null
+        }
+        Relationships: []
+      }
       tickets_enhanced: {
         Row: {
           badge: string | null
@@ -2431,6 +2460,26 @@ export type Database = {
           name: string
         }[]
       }
+      gtrgm_compress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_decompress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: { "": unknown }
+        Returns: undefined
+      }
+      gtrgm_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
       is_current_user_org_admin: {
         Args: { p_org_id: string }
         Returns: boolean
@@ -2451,7 +2500,15 @@ export type Database = {
         Args: { p_org_id: string; p_roles: string[] }
         Returns: boolean
       }
+      normalize_text: {
+        Args: { txt: string }
+        Returns: string
+      }
       refresh_analytics_views: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      refresh_search_docs: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
@@ -2462,6 +2519,41 @@ export type Database = {
       refresh_video_analytics: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      search_all: {
+        Args: {
+          p_category?: string
+          p_date_from?: string
+          p_date_to?: string
+          p_limit?: number
+          p_offset?: number
+          p_only_events?: boolean
+          p_q: string
+          p_user: string
+        }
+        Returns: {
+          category: string
+          item_id: string
+          kind: string
+          location: string
+          post_id: string
+          score: number
+          snippet: string
+          starts_at: string
+          title: string
+        }[]
+      }
+      set_limit: {
+        Args: { "": number }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: { "": string }
+        Returns: string[]
       }
       user_related_event_ids: {
         Args: { p_user_id: string }
