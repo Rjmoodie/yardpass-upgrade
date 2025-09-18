@@ -100,11 +100,12 @@ jobs:
         path: ios/App/*.ipa
         retention-days: 30
         
-    - name: Upload to TestFlight (if secrets configured)
-      if: github.ref == 'refs/heads/main' && secrets.APP_STORE_CONNECT_API_KEY_ID != ''
-      run: |
-        xcrun altool --upload-app \
-                     --type ios \
-                     --file ios/App/*.ipa \
-                     --apiKey ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }} \
-                     --apiIssuer ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+    # TestFlight upload disabled - requires Apple Developer account
+    # - name: Upload to TestFlight (requires Apple Developer account)
+    #   if: github.ref == 'refs/heads/main'
+    #   run: |
+    #     xcrun altool --upload-app \
+    #                  --type ios \
+    #                  --file ios/App/*.ipa \
+    #                  --apiKey ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }} \
+    #                  --apiIssuer ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
