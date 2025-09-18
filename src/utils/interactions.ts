@@ -54,42 +54,21 @@ export const handlePurchaseFlow = async (eventId: string, ticketSelections: any[
   }
 };
 
-// Enhanced post interactions (like, comment, share)
+// Enhanced post interactions using optimized reactions endpoint
 export const handlePostLike = async (postId: string, currentlyLiked: boolean) => {
   try {
-    if (currentlyLiked) {
-      // Unlike post - remove reaction
-      const { error } = await supabase
-        .from('event_reactions')
-        .delete()
-        .eq('post_id', postId)
-        .eq('kind', 'like');
+    // Use the reactions-toggle function for idempotent operations
+    const { data, error } = await supabase.functions.invoke('reactions-toggle', {
+      body: { post_id: postId, kind: 'like' }
+    });
 
-      if (error) throw error;
-    } else {
-      // Like post - add reaction (user_id will be automatically set by RLS)
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        toast({
-          title: "Authentication required",
-          description: "Please sign in to like posts",
-          variant: "destructive",
-        });
-        return { success: false };
-      }
+    if (error) throw error;
 
-      const { error } = await supabase
-        .from('event_reactions')
-        .insert({
-          post_id: postId,
-          user_id: userData.user.id,
-          kind: 'like'
-        });
-
-      if (error) throw error;
-    }
-    
-    return { success: true };
+    return { 
+      success: true, 
+      newLikedState: data.liked,
+      newLikeCount: data.like_count 
+    };
   } catch (error) {
     console.error('Like error:', error);
     toast({
@@ -132,11 +111,6 @@ export const handlePostComment = async (postId: string, comment: string) => {
 
     if (error) throw error;
 
-    toast({
-      title: "Comment added",
-      description: "Your comment has been posted",
-    });
-    
     return { success: true };
   } catch (error) {
     console.error('Comment error:', error);
@@ -149,7 +123,7 @@ export const handlePostComment = async (postId: string, comment: string) => {
   }
 };
 
-// Enhanced event actions - using event_reactions table for follows
+// Enhanced event actions using follows table
 export const handleEventFollow = async (eventId: string, currentlyFollowing: boolean) => {
   try {
     const { data: userData } = await supabase.auth.getUser();
@@ -163,13 +137,13 @@ export const handleEventFollow = async (eventId: string, currentlyFollowing: boo
     }
 
     if (currentlyFollowing) {
-      // Unfollow event - remove reaction
+      // Unfollow event
       const { error } = await supabase
-        .from('event_reactions')
+        .from('follows')
         .delete()
-        .eq('post_id', null) // Direct event follow, not post
-        .eq('kind', 'follow')
-        .eq('user_id', userData.user.id);
+        .eq('follower_user_id', userData.user.id)
+        .eq('target_type', 'event')
+        .eq('target_id', eventId);
 
       if (error) throw error;
 
@@ -178,14 +152,13 @@ export const handleEventFollow = async (eventId: string, currentlyFollowing: boo
         description: "You will no longer receive updates",
       });
     } else {
-      // Follow event - add reaction
+      // Follow event
       const { error } = await supabase
-        .from('event_reactions')
+        .from('follows')
         .insert({
-          post_id: null, // Direct event follow, not post
-          user_id: userData.user.id,
-          kind: 'follow',
-          metadata: { event_id: eventId }
+          follower_user_id: userData.user.id,
+          target_type: 'event',
+          target_id: eventId
         });
 
       if (error) throw error;
