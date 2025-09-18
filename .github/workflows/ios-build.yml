@@ -152,7 +152,8 @@ jobs:
           
           # Create downloadable app bundle
           cd "$BUILT_PRODUCTS_DIR"
-          zip -r ../../../YardPass-Simulator.zip App.app/
+          zip -r /tmp/YardPass-Simulator.zip App.app/
+          cp /tmp/YardPass-Simulator.zip ../../..
           
         else
           echo "Build failed - no .app bundle found"
