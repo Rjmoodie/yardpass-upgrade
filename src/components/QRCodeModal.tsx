@@ -69,15 +69,15 @@ export function QRCodeModal({
         // Generate styled QR code
         const dataUrl = await generateStyledQRDataURL(qrData, {
           size: 512,
-          margin: 16,
-          darkColor: '#000000',
+          margin: 20,
+          darkColor: '#1a1b3e',
           lightColor: '#FFFFFF',
           dotsType: 'rounded',
           cornersSquareType: 'extra-rounded',
           cornersDotType: 'dot',
-          logoUrl,
-          logoSizeRatio: 0.22,
-          logoMargin: 6,
+          logoUrl: '/yardpass-qr-logo.png',
+          logoSizeRatio: 0.26,
+          logoMargin: 8,
           format: 'png'
         });
 

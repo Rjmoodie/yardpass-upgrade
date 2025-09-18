@@ -485,9 +485,12 @@
   }
 
   /* QR grid overlay */
-  .qr-grid {
-    background-image: linear-gradient(#0000 95%, rgba(0,0,0,0.04) 0),
-                      linear-gradient(90deg, #0000 95%, rgba(0,0,0,0.04) 0);
-    background-size: 10px 10px;
-  }
+.qr-grid {
+  background-image: linear-gradient(#0000 96%, rgba(0,0,0,0.03) 0),
+                    linear-gradient(90deg, #0000 96%, rgba(0,0,0,0.03) 0);
+  background-size: 8px 8px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05);
+}
 }
