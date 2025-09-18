@@ -7,18 +7,28 @@ type DotType =
   | 'dots' | 'rounded' | 'classy' | 'classy-rounded'
   | 'square' | 'extra-rounded';
 
+export type StyledQrGradient = {
+  type?: 'linear' | 'radial';
+  rotation?: number; // for linear, radians
+  colorStops: { offset: number; color: string }[];
+};
+
 export type StyledQrOptions = {
-  size?: number;              // px
-  margin?: number;            // quiet zone
-  darkColor?: string;         // modules
-  lightColor?: string;        // background
-  logoUrl?: string;           // center icon
-  logoMargin?: number;        // white padding around logo
-  logoSizeRatio?: number;     // 0.18–0.28 is safe
-  dotsType?: DotType;         // 'rounded' matches your example
+  size?: number;
+  margin?: number;
+  darkColor?: string;
+  lightColor?: string;
+  /** BRAND: module (dots) gradient */
+  dotsGradient?: StyledQrGradient;
+  logoUrl?: string;
+  logoMargin?: number;
+  logoSizeRatio?: number;
+  dotsType?: DotType;
   cornersSquareType?: 'dot' | 'square' | 'extra-rounded';
   cornersDotType?: 'dot' | 'square';
-  format?: 'png' | 'svg';     // export format
+  /** Optional corner colors (finder eyes) */
+  cornersColor?: string;
+  format?: 'png' | 'svg';
 };
 
 function payloadString(d: QRCodeData) {
@@ -34,14 +44,16 @@ export async function generateStyledQRDataURL(
   {
     size = 512,
     margin = 16,
-    darkColor = '#000000',
-    lightColor = '#FFFFFF',
+    darkColor = '#000',
+    lightColor = '#fff',
+    dotsGradient,
     logoUrl,
     logoMargin = 6,
     logoSizeRatio = 0.22,
     dotsType = 'rounded',
     cornersSquareType = 'extra-rounded',
     cornersDotType = 'dot',
+    cornersColor,
     format = 'png',
   }: StyledQrOptions = {}
 ): Promise<string> {
@@ -70,14 +82,15 @@ export async function generateStyledQRDataURL(
     dotsOptions: {
       type: dotsType,           // rounded dots
       color: darkColor,
-    },
+      ...(dotsGradient ? { gradient: dotsGradient } : {}),
+    } as any,
     cornersSquareOptions: {
       type: cornersSquareType,  // thick rounded finder squares
-      color: darkColor,
+      color: cornersColor ?? darkColor,
     },
     cornersDotOptions: {
       type: cornersDotType,     // center dot in finder eyes
-      color: darkColor,
+      color: cornersColor ?? darkColor,
     },
     imageOptions: {
       crossOrigin: 'anonymous',

@@ -1,58 +1,42 @@
-// src/lib/qrTheme.ts
-import type { StyledQrOptions } from '@/lib/styledQr';
+import type { StyledQrOptions, StyledQrGradient } from '@/lib/styledQr';
 
-/** High-contrast themes (scanner-safe). Extend as needed. */
 export type QrThemeName = 'classic' | 'brand' | 'night';
 
-export function getQrTheme(
-  theme: QrThemeName,
-  brandHex = '#ff5a3c',   // your accent (orange from screenshot vibe)
-): StyledQrOptions {
-  switch (theme) {
-    case 'brand':
-      return {
-        size: 512,
-        margin: 16,
-        lightColor: '#FFFFFF',
-        darkColor: '#000000',
-        dotsType: 'rounded',
-        cornersSquareType: 'extra-rounded',
-        cornersDotType: 'dot',
-        // nice brand gradient for modules
-        // (supported by qr-code-styling)
-        // If your lib version doesn't support gradients,
-        // comment this gradient block out.
-        // @ts-ignore
-        dotsOptionsGradient: {
-          type: 'linear',
-          rotation: 0, // 0 = left->right; use Math.PI/4 for diagonal
-          colorStops: [
-            { offset: 0, color: '#111111' },
-            { offset: 1, color: brandHex },
-          ],
-        },
-      };
+export function getQrTheme(theme: QrThemeName, brandHex = '#ffb400'): StyledQrOptions {
+  const base: StyledQrOptions = {
+    size: 512,
+    margin: 16,
+    lightColor: '#FFFFFF',
+    darkColor: '#111111',
+    dotsType: 'rounded',
+    cornersSquareType: 'extra-rounded',
+    cornersDotType: 'dot',
+  };
 
-    case 'night':
-      return {
-        size: 512,
-        margin: 18,
-        lightColor: '#0B0B0C', // near-black card
-        darkColor: '#FFFFFF',  // inverted modules
-        dotsType: 'rounded',
-        cornersSquareType: 'extra-rounded',
-        cornersDotType: 'dot',
-      };
-
-    default: // classic
-      return {
-        size: 512,
-        margin: 16,
-        lightColor: '#FFFFFF',
-        darkColor: '#000000',
-        dotsType: 'rounded',
-        cornersSquareType: 'extra-rounded',
-        cornersDotType: 'dot',
-      };
+  if (theme === 'brand') {
+    const gradient: StyledQrGradient = {
+      type: 'linear',
+      rotation: Math.PI / 6, // subtle diagonal
+      colorStops: [
+        { offset: 0,   color: '#111111' },
+        { offset: 1.0, color: brandHex }, // your amber
+      ],
+    };
+    return {
+      ...base,
+      dotsGradient: gradient,
+      cornersColor: '#111111',
+    };
   }
+
+  if (theme === 'night') {
+    return {
+      ...base,
+      lightColor: '#0b0b0c',
+      darkColor: '#FFFFFF',
+      cornersColor: '#FFFFFF',
+    };
+  }
+
+  return base;
 }

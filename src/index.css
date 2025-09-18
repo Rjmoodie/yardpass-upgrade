@@ -484,29 +484,47 @@
     touch-action: pan-y; /* vertical scroll only */
   }
 
-  /* QR visual card */
+  /* ---------- QR visual card (beautified) ---------- */
+
 .qr-card {
-  background: var(--card, #fff);
-  border-radius: 16px;
+  --qr-radius: 18px;
+  background: hsl(var(--card, 0 0% 100%));
+  border-radius: var(--qr-radius);
   padding: 18px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-  border: 1px solid rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-card, 0 8px 30px rgba(0,0,0,0.08));
+  border: 1px solid hsl(var(--border, 0 0% 90%));
+  position: relative;
 }
 
-/* White inner frame so it prints well & works in dark UI */
+/* subtle brand glow ring */
+.qr-card::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: calc(var(--qr-radius) + 8px);
+  pointer-events: none;
+  background:
+    radial-gradient(60% 60% at 50% 50%, hsl(var(--primary-glow, 42 100% 60%) / .15), transparent 60%);
+  filter: blur(8px);
+  opacity: .9;
+}
+
+/* White inner frame (quiet zone) + grid */
 .qr-grid {
-  border-radius: 14px;
+  --qr-pad: 24px;
+  border-radius: calc(var(--qr-radius) - 2px);
   background: #fff;
-  padding: 24px;
+  padding: var(--qr-pad);
   border: 1px solid rgba(0,0,0,0.06);
-  /* subtle grid like your screenshot */
   background-image:
     linear-gradient(#0000 95%, rgba(0,0,0,.045) 0),
     linear-gradient(90deg, #0000 95%, rgba(0,0,0,.045) 0);
   background-size: 10px 10px;
+  position: relative;
 }
 
-.qr-box {
+/* Crisp container for the image */
+.qr-img-wrap, .qr-box {
   width: 240px;
   height: 240px;
   display: grid;
@@ -514,33 +532,39 @@
   text-align: center;
 }
 
-.qr-img-wrap {
-  width: 240px;
-  height: 240px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
+/* Image rendering hints */
 .qr-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
+  border-radius: 10px; /* softly rounds the logo's clip area edges when downscaled */
 }
 
-/* Dark mode support */
+/* Sizes */
+.qr-size-sm .qr-img-wrap, .qr-size-sm .qr-box { width: 200px; height: 200px; }
+.qr-size-md .qr-img-wrap, .qr-size-md .qr-box { width: 240px; height: 240px; }
+.qr-size-lg .qr-img-wrap, .qr-size-lg .qr-box { width: 300px; height: 300px; }
+
+/* Dark mode */
 :root.dark .qr-card {
   background: #0b0b0c;
   border-color: rgba(255,255,255,0.08);
   box-shadow: 0 10px 30px rgba(0,0,0,0.45);
 }
 :root.dark .qr-grid {
-  background: #fff; /* keep the QR backer white for scanners */
+  background: #fff; /* keep white for scanner contrast */
   border-color: rgba(0,0,0,0.25);
   background-image:
     linear-gradient(#0000 95%, rgba(0,0,0,.06) 0),
     linear-gradient(90deg, #0000 95%, rgba(0,0,0,.06) 0);
+}
+
+/* Print: remove shadows, guarantee white background */
+@media print {
+  .qr-card { box-shadow: none !important; border: none !important; }
+  .qr-card::before { display: none !important; }
+  .qr-grid { background: #fff !important; border: none !important; }
 }
 }

@@ -51,7 +51,10 @@ export function QRCodeModal({
     try { (navigator as any)?.vibrate?.(10); } catch {}
   }, []);
 
-  const opts = useMemo(() => getQrTheme(theme, brandHex), [theme, brandHex]);
+  const opts = useMemo(
+    () => ({ ...getQrTheme('brand', '#ffb400'), logoUrl }),
+    [logoUrl]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +149,7 @@ export function QRCodeModal({
           </div>
 
           {/* VISUAL WRAPPER */}
-          <div className="qr-card">
+          <div className="qr-card qr-size-md">
             <div className="qr-grid">
               {loading && (
                 <div className="qr-box">
