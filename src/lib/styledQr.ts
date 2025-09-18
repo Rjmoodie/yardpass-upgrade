@@ -194,7 +194,7 @@ export async function generateStyledQRDataURL(
     dotsGradient,                  // Optional brand gradient
     logoUrl,                       // Brand logo
     logoMargin = 8,                // Breathing room around logo
-    logoSizeRatio = 0.22,          // Safe size ratio
+    logoSizeRatio = 0.28,          // Bigger logo - safe size ratio
     dotsType = 'rounded',          // Premium rounded dots
     cornersSquareType = 'extra-rounded', // Distinctive finder eyes
     cornersDotType = 'dot',        // Clean center dots
