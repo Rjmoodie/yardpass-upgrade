@@ -187,7 +187,7 @@ export async function generateStyledQRDataURL(
 ): Promise<string> {
   // Apply safe defaults optimized for scanability
   const {
-    size = 1024,                   // 2x larger - Ultra high quality
+    size = 512,                    // Retina quality for crisp display
     margin = 16,                   // Adequate quiet zone
     darkColor = '#111111',         // High contrast dark
     lightColor = '#ffffff',        // Pure white background
