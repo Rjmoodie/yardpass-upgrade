@@ -230,43 +230,47 @@ export default function TicketsPage({
 
   // --------------------- UI ---------------------
   return (
-    <div className="h-full bg-background flex flex-col">
-      {/* Sticky header with soft brand gradient */}
-      <div className="sticky top-0 z-10 border-b bg-card/90 backdrop-blur-md">
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Sticky header with mobile-optimized design */}
+      <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur-lg shadow-sm">
         {guestToken && (
-          <div className="px-4 py-2 text-sm bg-amber-50/70 dark:bg-amber-500/10 border-b border-amber-200/60 dark:border-amber-400/20">
-            Viewing tickets for the verified contact.
-            {onGuestSignOut && (
-              <button className="underline ml-2" onClick={onGuestSignOut}>
-                Use a different email/phone
-              </button>
-            )}
+          <div className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-amber-50/70 dark:bg-amber-500/10 border-b border-amber-200/60 dark:border-amber-400/20">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+              <span>Viewing tickets for verified contact</span>
+              {onGuestSignOut && (
+                <button className="underline text-left text-primary hover:text-primary/80 transition-colors" onClick={onGuestSignOut}>
+                  Use different email/phone
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        <div className="p-4 flex items-center gap-4">
+        <div className="p-3 sm:p-4 flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 rounded-full hover:bg-muted transition-colors focus-ring"
+            className="mobile-button flex-shrink-0 p-2 rounded-full hover:bg-muted transition-colors focus-ring touch-manipulation"
             aria-label="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
 
-          <div className="flex-1">
-            <h1 className="text-xl font-bold tracking-tight">{guestToken ? 'Your Tickets' : 'My Tickets'}</h1>
-            <p className="text-sm text-muted-foreground">
-              {guestToken ? 'Tickets for your verified contact' : `Welcome back, ${user?.name || 'there'}`}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate">
+              {guestToken ? 'Your Tickets' : 'My Tickets'}
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+              {guestToken ? 'Verified contact tickets' : `Welcome back, ${user?.name || 'there'}`}
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing || loading}
-              className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200 btn-enhanced"
+              className="mobile-button hover:bg-primary/10 hover:border-primary/30 transition-all duration-200 btn-enhanced touch-manipulation"
               aria-label="Refresh tickets"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -300,24 +304,25 @@ export default function TicketsPage({
 
       {/* Main */}
       {!errorText && (
-        <div className="flex-1 p-4">
+        <div className="flex-1 px-3 sm:px-4 pb-3 sm:pb-4 safe-bottom-pad">
           <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6 rounded-xl bg-muted/50">
+            {/* Mobile-optimized tabs */}
+            <div className="tabs-mobile mb-4 sm:mb-6">
               <TabsTrigger value="upcoming" className="tab-enhanced">
-                <Clock className="w-4 h-4 mr-2" />
-                Upcoming
-                <span className="ml-2 inline-flex h-5 min-w-[20px] px-1 rounded-full bg-secondary text-xs items-center justify-center">
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                <span className="truncate">Upcoming</span>
+                <span className="ml-1 sm:ml-2 inline-flex h-4 min-w-[16px] px-1 rounded-full bg-secondary text-[10px] sm:text-xs items-center justify-center flex-shrink-0">
                   {upcomingTickets.length}
                 </span>
               </TabsTrigger>
               <TabsTrigger value="past" className="tab-enhanced">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Past
-                <span className="ml-2 inline-flex h-5 min-w-[20px] px-1 rounded-full bg-secondary text-xs items-center justify-center">
+                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                <span className="truncate">Past</span>
+                <span className="ml-1 sm:ml-2 inline-flex h-4 min-w-[16px] px-1 rounded-full bg-secondary text-[10px] sm:text-xs items-center justify-center flex-shrink-0">
                   {pastTickets.length}
                 </span>
               </TabsTrigger>
-            </TabsList>
+            </div>
 
             <TabsContent value="upcoming" className="space-y-4">
               {loading ? (
@@ -395,7 +400,7 @@ function SkeletonTickets() {
   return (
     <div className="space-y-3">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-28 skeleton" />
+        <div key={i} className="h-24 sm:h-28 skeleton rounded-lg" />
       ))}
     </div>
   );
@@ -443,103 +448,124 @@ function TicketCard({
   return (
     <Card className="overflow-hidden transition-all duration-200 card-enhanced hover:app-glow">
       <CardContent className="p-0">
-        <div className="flex">
-          {/* Event image */}
-          <div className="w-24 h-24 bg-muted/60 grid place-items-center flex-shrink-0">
+        <div className="flex flex-col sm:flex-row">
+          {/* Event image - mobile full width, desktop left side */}
+          <div className="w-full h-32 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-muted/60 grid place-items-center flex-shrink-0">
             {ticket?.coverImage ? (
-              <img src={ticket.coverImage} alt={ticket?.eventTitle || 'Event cover'} className="w-full h-full object-cover" />
+              <img 
+                src={ticket.coverImage} 
+                alt={ticket?.eventTitle || 'Event cover'} 
+                className="w-full h-full object-cover" 
+              />
             ) : (
               <TicketIcon className="w-8 h-8 text-muted-foreground" aria-hidden />
             )}
           </div>
 
           {/* Details */}
-          <div className="flex-1 p-4">
-            <div className="flex justify-between items-start gap-3">
-              <div className="min-w-0">
-                <h3 className="font-semibold text-lg leading-tight truncate">{ticket?.eventTitle || 'Event'}</h3>
-                <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <div className="flex-1 p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-base sm:text-lg leading-tight truncate">
+                  {ticket?.eventTitle || 'Event'}
+                </h3>
+                <div className="mt-1 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-1 sm:gap-3 text-xs sm:text-sm text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {dateStr || 'Date'}
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="truncate">{dateStr || 'Date'}</span>
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    {timeStr || 'Time'}
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="truncate">{timeStr || 'Time'}</span>
                   </span>
                   {venue && (
-                    <span className="inline-flex items-center gap-1 truncate max-w-[220px]">
-                      <MapPin className="w-4 h-4" />
+                    <span className="inline-flex items-center gap-1 truncate">
+                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                       <span className="truncate">{venue}</span>
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="text-right">
+              <div className="flex sm:flex-col items-start sm:items-end gap-2 sm:text-right">
                 <div>{statusBadge}</div>
-                <div className="mt-1 text-sm font-semibold">{formatUSD(ticket?.price || 0)}</div>
+                <div className="text-sm font-semibold">{formatUSD(ticket?.price || 0)}</div>
               </div>
             </div>
 
             {/* Tags */}
-            <div className="mt-2 flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">{ticket?.ticketType || 'General'}</Badge>
-              {ticket?.badge && <Badge variant="secondary" className="text-xs">{ticket.badge}</Badge>}
+            <div className="mt-2 flex items-center gap-1 sm:gap-2">
+              <Badge variant="outline" className="text-[10px] sm:text-xs px-1 sm:px-2">
+                {ticket?.ticketType || 'General'}
+              </Badge>
+              {ticket?.badge && (
+                <Badge variant="secondary" className="text-[10px] sm:text-xs px-1 sm:px-2">
+                  {ticket.badge}
+                </Badge>
+              )}
             </div>
 
-            {/* Actions */}
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(`/e/${ticket?.eventId || ''}`, '_blank')}
-                className="min-w-[92px] btn-enhanced"
-                aria-label="Open event page"
-              >
-                <ExternalLink className="w-4 h-4 mr-1" /> Event
-              </Button>
-
+            {/* Mobile Actions - Streamlined */}
+            <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row gap-2">
+              {/* Primary action - QR Code */}
               <Button
                 size="sm"
                 onClick={() => onShowQRCode(ticket)}
-                className="min-w-[92px] premium-button !py-2"
+                className="premium-button mobile-button touch-manipulation flex-1 sm:flex-initial"
                 aria-label="Show QR code"
               >
-                <QrCode className="w-4 h-4 mr-1" /> QR Code
+                <QrCode className="w-4 h-4 mr-2" />
+                <span className="font-semibold">Show QR Code</span>
               </Button>
 
-              {ticket?.wallet_pass_url && (
+              {/* Secondary actions - Mobile optimized grid */}
+              <div className="grid grid-cols-2 sm:flex gap-2 flex-1">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onDownloadWalletPass(ticket)}
-                  className="min-w-[92px] btn-enhanced"
-                  aria-label="Add to wallet"
+                  onClick={() => window.open(`/e/${ticket?.eventId || ''}`, '_blank')}
+                  className="btn-enhanced mobile-button touch-manipulation"
+                  aria-label="Open event page"
                 >
-                  <Wallet className="w-4 h-4 mr-1" /> Wallet
+                  <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  <span className="truncate">Event</span>
                 </Button>
-              )}
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onDownloadCalendar(ticket)}
-                className="min-w-[92px] btn-enhanced"
-                aria-label="Download calendar file"
-              >
-                <Download className="w-4 h-4 mr-1" /> Calendar
-              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onDownloadCalendar(ticket)}
+                  className="btn-enhanced mobile-button touch-manipulation"
+                  aria-label="Download calendar file"
+                >
+                  <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  <span className="truncate">Calendar</span>
+                </Button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onShare(ticket)}
-                className="min-w-[92px] btn-enhanced"
-                aria-label="Share ticket"
-              >
-                <Share className="w-4 h-4 mr-1" /> Share
-              </Button>
+                {ticket?.wallet_pass_url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onDownloadWalletPass(ticket)}
+                    className="btn-enhanced mobile-button touch-manipulation"
+                    aria-label="Add to wallet"
+                  >
+                    <Wallet className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                    <span className="truncate">Wallet</span>
+                  </Button>
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onShare(ticket)}
+                  className="btn-enhanced mobile-button touch-manipulation"
+                  aria-label="Share ticket"
+                >
+                  <Share className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  <span className="truncate">Share</span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
