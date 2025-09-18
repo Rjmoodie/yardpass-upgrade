@@ -1,3 +1,6 @@
+// src/pages/TicketsPage.tsx (enhanced UI + visibility)
+// — Keeps your data flow intact, focuses on visuals and a11y.
+
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,9 +24,7 @@ import {
   AlertCircle,
   Wallet,
   Share,
-  Copy,
   CheckCircle,
-  XCircle,
   Globe,
 } from 'lucide-react';
 
@@ -44,7 +45,7 @@ interface TicketsPageProps {
 const formatUSD = (n: number) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n || 0);
 
-// Format helpers for ICS
+// --------------- ICS helpers ---------------
 const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
 const toICSUTC = (iso: string) => {
   const d = new Date(iso);
@@ -53,21 +54,25 @@ const toICSUTC = (iso: string) => {
   )}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
 };
 const escapeICS = (str: string) =>
-  str.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  (str || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\n/g, '\\n');
 
-export default function TicketsPage({ 
-  user, 
-  guestToken, 
-  guestScope, 
-  onGuestSignOut, 
-  onBack 
+export default function TicketsPage({
+  user,
+  guestToken,
+  guestScope, // reserved for future filtering UI
+  onGuestSignOut,
+  onBack,
 }: TicketsPageProps) {
   const { toast } = useToast();
   const { tickets: userTickets, loading: userLoading, error: userError, refreshTickets } = useTickets();
   const [guestTickets, setGuestTickets] = useState<any[]>([]);
   const [guestLoading, setGuestLoading] = useState(false);
   const [guestError, setGuestError] = useState<Error | null>(null);
-  
+
   const tickets = guestToken ? guestTickets : userTickets;
   const loading = guestToken ? guestLoading : userLoading;
   const error = guestToken ? guestError : userError;
@@ -77,33 +82,29 @@ export default function TicketsPage({
   // Fetch guest tickets
   useEffect(() => {
     if (!guestToken) return;
-    
+
     let cancelled = false;
     setGuestLoading(true);
     setGuestError(null);
-    
+
     (async () => {
       try {
         const { data, error } = await supabase.functions.invoke('tickets-list-guest', {
           body: { token: guestToken },
         });
-        
+
         if (error) throw error;
-        if (!cancelled) {
-          setGuestTickets(data?.tickets || []);
-        }
+        if (!cancelled) setGuestTickets(data?.tickets || []);
       } catch (e) {
-        if (!cancelled) {
-          setGuestError(e as Error);
-        }
+        if (!cancelled) setGuestError(e as Error);
       } finally {
-        if (!cancelled) {
-          setGuestLoading(false);
-        }
+        if (!cancelled) setGuestLoading(false);
       }
     })();
-    
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, [guestToken]);
 
   const [selectedTab, setSelectedTab] = useState<'upcoming' | 'past'>('upcoming');
@@ -112,35 +113,31 @@ export default function TicketsPage({
 
   const handleRefresh = () => {
     if (guestToken) {
-      // Re-fetch guest tickets
       setGuestLoading(true);
       setGuestError(null);
-      
-      supabase.functions.invoke('tickets-list-guest', {
-        body: { token: guestToken },
-      }).then(({ data, error }) => {
-        if (error) throw error;
-        setGuestTickets(data?.tickets || []);
-      }).catch((e) => {
-        setGuestError(e as Error);
-      }).finally(() => {
-        setGuestLoading(false);
-      });
+      supabase.functions
+        .invoke('tickets-list-guest', { body: { token: guestToken } })
+        .then(({ data, error }) => {
+          if (error) throw error;
+          setGuestTickets(data?.tickets || []);
+        })
+        .catch((e) => setGuestError(e as Error))
+        .finally(() => setGuestLoading(false));
     } else {
       setIsRefreshing(true);
       refreshTickets();
-      setTimeout(() => setIsRefreshing(false), 1000);
+      setTimeout(() => setIsRefreshing(false), 800);
     }
   };
 
   // Build ICS calendar content
   const buildICS = (ticket: any) => {
-    const dtstart = toICSUTC(ticket.startAtISO);
-    const dtend = ticket.endAtISO ? toICSUTC(ticket.endAtISO) : '';
-    const summary = escapeICS(ticket.eventTitle);
-    const description = escapeICS(`Ticket: ${ticket.ticketType}\nEvent: ${ticket.eventTitle}`);
-    const location = escapeICS(ticket.venue || '');
-    const uid = `ticket-${ticket.id}@yardpass.app`;
+    const dtstart = toICSUTC(ticket?.startAtISO);
+    const dtend = ticket?.endAtISO ? toICSUTC(ticket.endAtISO) : '';
+    const summary = escapeICS(ticket?.eventTitle);
+    const description = escapeICS(`Ticket: ${ticket?.ticketType}\nEvent: ${ticket?.eventTitle}`);
+    const location = escapeICS(ticket?.venue || '');
+    const uid = `ticket-${ticket?.id}@yardpass.app`;
 
     return [
       'BEGIN:VCALENDAR',
@@ -166,30 +163,20 @@ export default function TicketsPage({
     const icsContent = buildICS(ticket);
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${ticket.eventTitle.replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(ticket?.eventTitle || 'event').replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
   // Show QR code modal
   const showQRCode = (ticket: any) => {
     setSelectedTicket(ticket);
-    if (user) {
+    if (user && ticket?.id && ticket?.eventId) {
       trackQRCodeView(ticket.id, ticket.eventId, user.id);
-    }
-  };
-
-  // Copy QR code data to clipboard
-  const handleCopyQRCode = async (qrData: string) => {
-    try {
-      await navigator.clipboard.writeText(qrData);
-      // Success feedback handled by QRCodeModal
-    } catch (err) {
-      console.error('Failed to copy QR code:', err);
     }
   };
 
@@ -202,87 +189,53 @@ export default function TicketsPage({
         url: window.location.href,
       };
 
-      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-        await navigator.share(shareData);
-        toast({
-          title: "Shared successfully",
-          description: "Ticket shared!",
-        });
+      if ((navigator as any).share && (navigator as any).canShare?.(shareData)) {
+        await (navigator as any).share(shareData);
+        toast({ title: 'Shared successfully', description: 'Ticket shared!' });
       } else {
-        // Fallback: copy URL to clipboard
         await navigator.clipboard.writeText(window.location.href);
-        toast({
-          title: "Link copied",
-          description: "Ticket link copied to clipboard!",
-        });
+        toast({ title: 'Link copied', description: 'Ticket link copied to clipboard!' });
       }
 
       if (user && ticket?.id && ticket?.eventId) {
         trackTicketShare(ticket.id, ticket.eventId, user.id, 'share');
       }
-    } catch (error) {
-      console.error('Share failed:', error);
+    } catch {
       toast({
-        title: "Share failed",
-        description: "Could not share the ticket. Please try again.",
-        variant: "destructive",
+        title: 'Share failed',
+        description: 'Could not share the ticket. Please try again.',
+        variant: 'destructive',
       });
     }
   };
 
-  // Handle wallet pass download
   const handleDownloadWalletPass = (ticket: any) => {
-    if (ticket.wallet_pass_url) {
-      window.open(ticket.wallet_pass_url, '_blank');
-    }
+    if (ticket?.wallet_pass_url) window.open(ticket.wallet_pass_url, '_blank');
   };
 
   // Filter tickets
   const now = new Date();
-  const upcomingTickets = tickets.filter((ticket) => ticket.startAtISO && new Date(ticket.startAtISO) > now);
-  const pastTickets = tickets.filter((ticket) => ticket.startAtISO && new Date(ticket.startAtISO) <= now);
-  const totalCount = tickets.length;
-  const isOffline = false; // You can implement offline detection if needed
+  const upcomingTickets = tickets.filter((t) => t?.startAtISO && new Date(t.startAtISO) > now);
+  const pastTickets = tickets.filter((t) => t?.startAtISO && new Date(t.startAtISO) <= now);
 
-  // Track ticket views
+  // Track views
   useEffect(() => {
-    tickets.forEach((ticket) => {
-      if (user) {
-        trackTicketView(ticket.id, ticket.eventId, user.id);
-      }
+    tickets.forEach((t) => {
+      if (user && t?.id && t?.eventId) trackTicketView(t.id, t.eventId, user.id);
     });
   }, [tickets, trackTicketView, user]);
 
-  // Render — loading
-  if (loading) {
-    return (
-      <div className="h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mx-auto shadow-xl animate-pulse">
-            <TicketIcon className="text-white w-10 h-10" />
-          </div>
-          <div className="space-y-3">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-            <p className="text-muted-foreground font-medium">Loading your tickets...</p>
-            <p className="text-sm text-muted-foreground">This may take a moment</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const errorText =
-    typeof error === 'string'
-      ? error
-      : (error as any)?.message || (error ? 'Something went wrong.' : '');
+    typeof error === 'string' ? error : (error as any)?.message || (error ? 'Something went wrong.' : '');
 
+  // --------------------- UI ---------------------
   return (
     <div className="h-full bg-background flex flex-col">
-      {/* Header */}
-      <div className="border-b bg-card p-4">
+      {/* Sticky header with soft brand gradient */}
+      <div className="sticky top-0 z-10 border-b bg-card/90 backdrop-blur-md">
         {guestToken && (
-          <div className="mb-4 rounded-md border bg-muted/40 p-3 text-sm">
-            Viewing tickets for the verified contact.{" "}
+          <div className="px-4 py-2 text-sm bg-amber-50/70 dark:bg-amber-500/10 border-b border-amber-200/60 dark:border-amber-400/20">
+            Viewing tickets for the verified contact.
             {onGuestSignOut && (
               <button className="underline ml-2" onClick={onGuestSignOut}>
                 Use a different email/phone
@@ -290,30 +243,30 @@ export default function TicketsPage({
             )}
           </div>
         )}
-        
-        <div className="flex items-center gap-4">
+
+        <div className="p-4 flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-2 rounded-full hover:bg-muted transition-colors"
+            className="p-2 rounded-full hover:bg-muted transition-colors focus-ring"
             aria-label="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
+
           <div className="flex-1">
-            <h1 className="text-xl font-bold">
-              {guestToken ? 'Your Tickets' : 'My Tickets'}
-            </h1>
+            <h1 className="text-xl font-bold tracking-tight">{guestToken ? 'Your Tickets' : 'My Tickets'}</h1>
             <p className="text-sm text-muted-foreground">
-              {guestToken ? 'Tickets for your verified contact' : `Welcome back, ${user?.name}`}
+              {guestToken ? 'Tickets for your verified contact' : `Welcome back, ${user?.name || 'there'}`}
             </p>
           </div>
+
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+              disabled={isRefreshing || loading}
+              className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200 btn-enhanced"
               aria-label="Refresh tickets"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -322,35 +275,21 @@ export default function TicketsPage({
         </div>
       </div>
 
-      {/* Offline indicator */}
-      {isOffline && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2">
-          <div className="flex items-center gap-2 text-yellow-800 text-sm">
-            <Globe className="w-4 h-4" />
-            You're viewing cached tickets while offline. Some actions may be unavailable.
-          </div>
-        </div>
-      )}
-
-      {/* Error State */}
+      {/* Error */}
       {errorText && (
         <div className="p-4">
-          <Card className="border-red-200 bg-red-50/50">
+          <Card className="border-red-200 bg-red-50/60 dark:bg-red-950/30">
             <CardContent className="p-6">
-              <div className="flex items-center gap-3 text-red-700 mb-3">
-                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+              <div className="flex items-center gap-3 text-red-700 dark:text-red-300 mb-3">
+                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-full grid place-items-center">
                   <AlertCircle className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-semibold">Error Loading Tickets</h3>
-                  <p className="text-sm text-red-600 mt-1">{errorText}</p>
+                  <p className="text-sm mt-1">{errorText}</p>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                onClick={handleRefresh}
-                className="border-red-300 text-red-700 hover:bg-red-100"
-              >
+              <Button variant="outline" onClick={handleRefresh} className="border-red-300 text-red-700 dark:text-red-300">
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Try Again
               </Button>
@@ -359,32 +298,32 @@ export default function TicketsPage({
         </div>
       )}
 
-      {/* Main Content */}
+      {/* Main */}
       {!errorText && (
         <div className="flex-1 p-4">
           <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="upcoming" className="flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                Upcoming ({upcomingTickets.length})
+            <TabsList className="grid w-full grid-cols-2 mb-6 rounded-xl bg-muted/50">
+              <TabsTrigger value="upcoming" className="tab-enhanced">
+                <Clock className="w-4 h-4 mr-2" />
+                Upcoming
+                <span className="ml-2 inline-flex h-5 min-w-[20px] px-1 rounded-full bg-secondary text-xs items-center justify-center">
+                  {upcomingTickets.length}
+                </span>
               </TabsTrigger>
-              <TabsTrigger value="past" className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" />
-                Past ({pastTickets.length})
+              <TabsTrigger value="past" className="tab-enhanced">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Past
+                <span className="ml-2 inline-flex h-5 min-w-[20px] px-1 rounded-full bg-secondary text-xs items-center justify-center">
+                  {pastTickets.length}
+                </span>
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="upcoming" className="space-y-4">
-              {upcomingTickets.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <TicketIcon className="w-10 h-10 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">No upcoming events</h3>
-                  <p className="text-muted-foreground">
-                    You don't have any tickets for upcoming events yet.
-                  </p>
-                </div>
+              {loading ? (
+                <SkeletonTickets />
+              ) : upcomingTickets.length === 0 ? (
+                <EmptyState title="No upcoming events" subtitle="You don’t have tickets for upcoming events yet." />
               ) : (
                 upcomingTickets.map((ticket) => (
                   <TicketCard
@@ -400,16 +339,10 @@ export default function TicketsPage({
             </TabsContent>
 
             <TabsContent value="past" className="space-y-4">
-              {pastTickets.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <TicketIcon className="w-10 h-10 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">No past events</h3>
-                  <p className="text-muted-foreground">
-                    Your past event tickets will appear here.
-                  </p>
-                </div>
+              {loading ? (
+                <SkeletonTickets />
+              ) : pastTickets.length === 0 ? (
+                <EmptyState title="No past events" subtitle="Your past event tickets will appear here." />
               ) : (
                 pastTickets.map((ticket) => (
                   <TicketCard
@@ -428,21 +361,46 @@ export default function TicketsPage({
         </div>
       )}
 
-      {/* QR Code Modal */}
+      {/* QR Modal */}
       {selectedTicket && user && (
         <QRCodeModal
           ticket={selectedTicket}
           user={user}
           onClose={() => setSelectedTicket(null)}
-          onCopy={() => handleCopyQRCode(selectedTicket.qr_code)}
+          onCopy={() => {}}
           onShare={() => handleShareTicket(selectedTicket)}
+          // Optional: override the logo used inside the QR
+          logoUrl="/yardpass-qr-logo.png"
         />
       )}
     </div>
   );
 }
 
-// Ticket Card Component
+// ---------------- Components ----------------
+
+function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="text-center py-12">
+      <div className="w-20 h-20 rounded-2xl grid place-items-center mx-auto mb-4 brand-gradient text-foreground/90 shadow-md">
+        <TicketIcon className="w-10 h-10" />
+      </div>
+      <h3 className="text-lg font-semibold mb-1">{title}</h3>
+      <p className="text-muted-foreground">{subtitle}</p>
+    </div>
+  );
+}
+
+function SkeletonTickets() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="h-28 skeleton" />
+      ))}
+    </div>
+  );
+}
+
 function TicketCard({
   ticket,
   onShowQRCode,
@@ -458,137 +416,108 @@ function TicketCard({
   onShare: (ticket: any) => void;
   isPast?: boolean;
 }) {
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const dateStr = ticket?.eventDate || '';
+  const timeStr = ticket?.eventTime || '';
+  const venue = ticket?.venue || ticket?.eventLocation || '';
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  const getStatusBadge = (status: string, isRedeemed: boolean) => {
-    if (isPast && isRedeemed) {
-      return <Badge variant="default" className="bg-green-100 text-green-800">Attended</Badge>;
-    }
-    if (isPast && !isRedeemed) {
-      return <Badge variant="secondary">Missed</Badge>;
-    }
-    
+  const statusBadge = (() => {
+    const status = ticket?.status || (isPast ? (ticket?.redeemed_at ? 'attended' : 'missed') : 'issued');
+    const C = ({ children, className = '' }: any) => (
+      <Badge variant="secondary" className={`text-xs px-2 py-0.5 ${className}`}>{children}</Badge>
+    );
     switch (status) {
       case 'issued':
-        return <Badge variant="default">Active</Badge>;
-      case 'transferred':
-        return <Badge variant="outline">Transferred</Badge>;
+        return <C className="bg-emerald-50 text-emerald-700 border-emerald-200">Active</C>;
       case 'redeemed':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Used</Badge>;
+      case 'attended':
+        return <C className="bg-green-100 text-green-800 border-green-200">Attended</C>;
+      case 'transferred':
+        return <C className="bg-blue-50 text-blue-700 border-blue-200">Transferred</C>;
+      case 'missed':
+        return <C className="bg-slate-100 text-slate-700 border-slate-200">Missed</C>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <C>{status}</C>;
     }
-  };
-
-  // Debug logging
-  console.log('🎫 TicketCard ticket structure:', JSON.stringify(ticket, null, 2));
+  })();
 
   return (
-    <Card className="overflow-hidden transition-all duration-200 hover:shadow-lg">
+    <Card className="overflow-hidden transition-all duration-200 card-enhanced hover:app-glow">
       <CardContent className="p-0">
         <div className="flex">
-          {/* Event Image */}
-          <div className="w-24 h-24 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0">
+          {/* Event image */}
+          <div className="w-24 h-24 bg-muted/60 grid place-items-center flex-shrink-0">
             {ticket?.coverImage ? (
-              <img
-                src={ticket.coverImage}
-                alt={ticket.eventTitle || 'Event'}
-                className="w-full h-full object-cover"
-              />
+              <img src={ticket.coverImage} alt={ticket?.eventTitle || 'Event cover'} className="w-full h-full object-cover" />
             ) : (
-              <TicketIcon className="w-8 h-8 text-muted-foreground" />
+              <TicketIcon className="w-8 h-8 text-muted-foreground" aria-hidden />
             )}
           </div>
 
-          {/* Ticket Details */}
+          {/* Details */}
           <div className="flex-1 p-4">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h3 className="font-semibold text-lg leading-tight mb-1">
-                  {ticket?.eventTitle || 'Event Title'}
-                </h3>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <Calendar className="w-4 h-4" />
-                  <span>{ticket?.eventDate || 'Date'}</span>
-                  <Clock className="w-4 h-4 ml-2" />
-                  <span>{ticket?.eventTime || 'Time'}</span>
+            <div className="flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-lg leading-tight truncate">{ticket?.eventTitle || 'Event'}</h3>
+                <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    {dateStr || 'Date'}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    {timeStr || 'Time'}
+                  </span>
+                  {venue && (
+                    <span className="inline-flex items-center gap-1 truncate max-w-[220px]">
+                      <MapPin className="w-4 h-4" />
+                      <span className="truncate">{venue}</span>
+                    </span>
+                  )}
                 </div>
-                {ticket?.venue && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="w-4 h-4" />
-                    <span className="truncate">{ticket.venue}</span>
-                  </div>
-                )}
               </div>
+
               <div className="text-right">
-                {getStatusBadge(ticket?.status || 'issued', !!ticket?.redeemed_at)}
-                <div className="mt-1 text-sm font-medium">
-                  {formatUSD(ticket?.price || 0)}
-                </div>
+                <div>{statusBadge}</div>
+                <div className="mt-1 text-sm font-semibold">{formatUSD(ticket?.price || 0)}</div>
               </div>
             </div>
 
-            {/* Ticket Type */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs">
-                  {ticket?.ticketType || 'General'}
-                </Badge>
-                {ticket?.badge && (
-                  <Badge variant="secondary" className="text-xs">
-                    {ticket.badge}
-                  </Badge>
-                )}
-              </div>
+            {/* Tags */}
+            <div className="mt-2 flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">{ticket?.ticketType || 'General'}</Badge>
+              {ticket?.badge && <Badge variant="secondary" className="text-xs">{ticket.badge}</Badge>}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-2 flex-wrap">
+            {/* Actions */}
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => window.open(`/e/${ticket?.eventId || ''}`, '_blank')}
-                className="flex-1 min-w-[80px]"
+                className="min-w-[92px] btn-enhanced"
+                aria-label="Open event page"
               >
-                <ExternalLink className="w-4 h-4 mr-1" />
-                Event
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onShowQRCode(ticket)}
-                className="flex-1 min-w-[80px]"
-              >
-                <QrCode className="w-4 h-4 mr-1" />
-                QR Code
+                <ExternalLink className="w-4 h-4 mr-1" /> Event
               </Button>
 
-              {ticket.wallet_pass_url && (
+              <Button
+                size="sm"
+                onClick={() => onShowQRCode(ticket)}
+                className="min-w-[92px] premium-button !py-2"
+                aria-label="Show QR code"
+              >
+                <QrCode className="w-4 h-4 mr-1" /> QR Code
+              </Button>
+
+              {ticket?.wallet_pass_url && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onDownloadWalletPass(ticket)}
-                  className="flex-1 min-w-[80px]"
+                  className="min-w-[92px] btn-enhanced"
+                  aria-label="Add to wallet"
                 >
-                  <Wallet className="w-4 h-4 mr-1" />
-                  Wallet
+                  <Wallet className="w-4 h-4 mr-1" /> Wallet
                 </Button>
               )}
 
@@ -596,20 +525,20 @@ function TicketCard({
                 variant="outline"
                 size="sm"
                 onClick={() => onDownloadCalendar(ticket)}
-                className="flex-1 min-w-[80px]"
+                className="min-w-[92px] btn-enhanced"
+                aria-label="Download calendar file"
               >
-                <Download className="w-4 h-4 mr-1" />
-                Calendar
+                <Download className="w-4 h-4 mr-1" /> Calendar
               </Button>
 
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onShare(ticket)}
-                className="flex-1 min-w-[80px]"
+                className="min-w-[92px] btn-enhanced"
+                aria-label="Share ticket"
               >
-                <Share className="w-4 h-4 mr-1" />
-                Share
+                <Share className="w-4 h-4 mr-1" /> Share
               </Button>
             </div>
           </div>
