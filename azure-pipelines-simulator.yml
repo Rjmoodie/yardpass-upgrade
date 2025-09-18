@@ -1,0 +1,86 @@
+# Azure DevOps Pipeline for iOS Simulator Build (No Apple Developer Account Needed)
+trigger:
+- main
+- develop
+
+pool:
+  vmImage: 'macOS-latest'
+
+variables:
+  - group: 'YardPass-Secrets'
+
+stages:
+- stage: BuildiOSSimulator
+  displayName: 'Build iOS for Simulator'
+  jobs:
+  - job: Build
+    displayName: 'Build for iOS Simulator'
+    steps:
+    
+    - task: NodeTool@0
+      displayName: 'Use Node.js 18'
+      inputs:
+        versionSpec: '18'
+        
+    - script: |
+        npm ci
+      displayName: 'Install dependencies'
+      
+    - script: |
+        echo "VITE_SUPABASE_URL=$(VITE_SUPABASE_URL)" >> .env.local
+        echo "VITE_SUPABASE_ANON_KEY=$(VITE_SUPABASE_ANON_KEY)" >> .env.local
+        echo "VITE_SUPABASE_FUNCTIONS_URL=$(VITE_SUPABASE_FUNCTIONS_URL)" >> .env.local
+        echo "VITE_STRIPE_PUBLISHABLE_KEY=$(VITE_STRIPE_PUBLISHABLE_KEY)" >> .env.local
+        echo "VITE_MAPBOX_ACCESS_TOKEN=$(VITE_MAPBOX_ACCESS_TOKEN)" >> .env.local
+      displayName: 'Create environment file'
+      
+    - script: |
+        npm run build
+      displayName: 'Build web assets'
+      
+    - script: |
+        npm install -g @capacitor/cli
+        if [ ! -d "ios" ]; then
+          npx cap add ios
+        fi
+        npx cap sync ios
+      displayName: 'Setup Capacitor iOS'
+      
+    - script: |
+        cd ios/App
+        # Build for simulator only (no signing required)
+        xcodebuild -workspace App.xcworkspace \
+                   -scheme App \
+                   -configuration Debug \
+                   -destination 'platform=iOS Simulator,name=iPhone 15' \
+                   -derivedDataPath $(Agent.BuildDirectory)/DerivedData \
+                   build
+      displayName: 'Build for iOS Simulator'
+      
+    - script: |
+        # Create simulator app bundle
+        cd ios/App
+        BUILT_PRODUCTS_DIR="$(Agent.BuildDirectory)/DerivedData/Build/Products/Debug-iphonesimulator"
+        if [ -d "$BUILT_PRODUCTS_DIR/App.app" ]; then
+          # Zip the .app bundle for download
+          cd "$BUILT_PRODUCTS_DIR"
+          zip -r $(Agent.BuildDirectory)/YardPass-Simulator.zip App.app/
+          echo "Simulator app created successfully"
+        else
+          echo "Build failed - no .app bundle found"
+          exit 1
+        fi
+      displayName: 'Package Simulator App'
+      
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Simulator App'
+      inputs:
+        pathToPublish: '$(Agent.BuildDirectory)/YardPass-Simulator.zip'
+        artifactName: 'YardPass-iOS-Simulator'
+        
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Build Logs'
+      inputs:
+        pathToPublish: '$(Agent.BuildDirectory)/DerivedData/Logs'
+        artifactName: 'Build-Logs'
+      condition: always()
