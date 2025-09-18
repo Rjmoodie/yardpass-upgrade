@@ -1,0 +1,84 @@
+# Azure DevOps Pipeline for iOS Build
+trigger:
+- main
+- develop
+
+pool:
+  vmImage: 'macOS-latest'
+
+variables:
+  - group: 'YardPass-Secrets' # Create this variable group in Azure DevOps
+
+stages:
+- stage: BuildiOS
+  displayName: 'Build iOS App'
+  jobs:
+  - job: Build
+    displayName: 'Build and Archive iOS'
+    steps:
+    
+    - task: NodeTool@0
+      displayName: 'Use Node.js 18'
+      inputs:
+        versionSpec: '18'
+        
+    - script: |
+        npm ci
+      displayName: 'Install dependencies'
+      
+    - script: |
+        echo "VITE_SUPABASE_URL=$(VITE_SUPABASE_URL)" >> .env.local
+        echo "VITE_SUPABASE_ANON_KEY=$(VITE_SUPABASE_ANON_KEY)" >> .env.local
+        echo "VITE_SUPABASE_FUNCTIONS_URL=$(VITE_SUPABASE_FUNCTIONS_URL)" >> .env.local
+        echo "VITE_STRIPE_PUBLISHABLE_KEY=$(VITE_STRIPE_PUBLISHABLE_KEY)" >> .env.local
+        echo "VITE_MAPBOX_ACCESS_TOKEN=$(VITE_MAPBOX_ACCESS_TOKEN)" >> .env.local
+      displayName: 'Create environment file'
+      
+    - script: |
+        npm run build
+      displayName: 'Build web assets'
+      
+    - script: |
+        npm install -g @capacitor/cli
+        if [ ! -d "ios" ]; then
+          npx cap add ios
+        fi
+        npx cap sync ios
+      displayName: 'Setup Capacitor iOS'
+      
+    - task: Xcode@5
+      displayName: 'Build iOS Archive'
+      inputs:
+        actions: 'archive'
+        configuration: 'Debug'
+        sdk: 'iphoneos'
+        xcWorkspacePath: 'ios/App/App.xcworkspace'
+        scheme: 'App'
+        archivePath: '$(Agent.BuildDirectory)/App.xcarchive'
+        
+    - script: |
+        cd ios/App
+        cat > ExportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>teamID</key>
+            <string>$(APPLE_TEAM_ID)</string>
+        </dict>
+        </plist>
+        EOF
+        
+        xcodebuild -exportArchive \
+                   -archivePath $(Agent.BuildDirectory)/App.xcarchive \
+                   -exportPath $(Agent.BuildDirectory) \
+                   -exportOptionsPlist ExportOptions.plist
+      displayName: 'Export IPA'
+      
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish IPA'
+      inputs:
+        pathToPublish: '$(Agent.BuildDirectory)/*.ipa'
+        artifactName: 'YardPass-iOS'

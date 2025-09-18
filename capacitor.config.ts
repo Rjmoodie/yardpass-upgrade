@@ -1,8 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.f63ed2d9b24c482abacd65518a3b8e6f',
-  appName: 'yardpass-upgrade',
+  appId: 'com.yardpass.app',
+  appName: 'YardPass',
   webDir: 'dist',
   server: {
     url: 'https://f63ed2d9-b24c-482a-bacd-65518a3b8e6f.lovableproject.com?forceHideBadge=true',

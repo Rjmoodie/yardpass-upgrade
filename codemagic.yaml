@@ -1,0 +1,75 @@
+# Codemagic configuration for YardPass iOS builds
+workflows:
+  ios-workflow:
+    name: iOS Workflow
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    integrations:
+      app_store_connect: YardPass_AppStore # Configure in Codemagic UI
+    environment:
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: com.yardpass.app
+      vars:
+        VITE_SUPABASE_URL: $VITE_SUPABASE_URL
+        VITE_SUPABASE_ANON_KEY: $VITE_SUPABASE_ANON_KEY
+        VITE_SUPABASE_FUNCTIONS_URL: $VITE_SUPABASE_FUNCTIONS_URL
+        VITE_STRIPE_PUBLISHABLE_KEY: $VITE_STRIPE_PUBLISHABLE_KEY
+        VITE_MAPBOX_ACCESS_TOKEN: $VITE_MAPBOX_ACCESS_TOKEN
+      node: 18
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events:
+        - push
+        - tag
+        - pull_request
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+        - pattern: develop
+          include: true
+          source: true
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm ci
+      - name: Create environment file
+        script: |
+          echo "VITE_SUPABASE_URL=$VITE_SUPABASE_URL" >> .env.local
+          echo "VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY" >> .env.local
+          echo "VITE_SUPABASE_FUNCTIONS_URL=$VITE_SUPABASE_FUNCTIONS_URL" >> .env.local
+          echo "VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY" >> .env.local
+          echo "VITE_MAPBOX_ACCESS_TOKEN=$VITE_MAPBOX_ACCESS_TOKEN" >> .env.local
+      - name: Build web assets
+        script: |
+          npm run build
+      - name: Setup Capacitor
+        script: |
+          npm install -g @capacitor/cli
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+          npx cap sync ios
+      - name: Update app configuration
+        script: |
+          # Update bundle ID and app name
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.yardpass.app" ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName YardPass" ios/App/App/Info.plist
+      - name: Build iOS
+        script: |
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme App \
+            --archive-directory $CM_BUILD_DIR/archive
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true
