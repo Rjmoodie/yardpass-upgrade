@@ -4,12 +4,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Copy, Share, Loader2, Download } from 'lucide-react';
-import {
-  generateQRData,
-  generateQRCodeDataURLWithLogo,
-  generateQRCodeDataURL,
-  type LogoOptions,
-} from '@/lib/qrCode';
+import { generateQRData } from '@/lib/qrCode';
+import { generateStyledQRDataURL } from '@/lib/styledQr';
 import { UserTicket } from '@/hooks/useTickets';
 import { toast } from '@/hooks/use-toast';
 
@@ -27,8 +23,6 @@ interface QRCodeModalProps {
   onShare: (ticket: UserTicket) => void;
   /** Optional brand logo override (URL or data URI). Defaults to YardPass mark. */
   logoUrl?: string;
-  /** Optional QR visual overrides */
-  qrOptions?: Partial<LogoOptions>;
 }
 
 export function QRCodeModal({
@@ -38,31 +32,11 @@ export function QRCodeModal({
   onCopy,
   onShare,
   logoUrl = '/yardpass-logo.png',
-  qrOptions,
 }: QRCodeModalProps) {
   const [qrPngDataUrl, setQrPngDataUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
-  // Combine defaults with any overrides coming from props
-  const opts = useMemo<LogoOptions>(() => {
-    const dpr = typeof window !== 'undefined' ? Math.max(1, Math.min(window.devicePixelRatio || 1, 3)) : 1;
-    // Render at higher internal resolution for crisper PNGs (downscaled by <img />)
-    const baseSize = 256;
-    return {
-      size: Math.floor(baseSize * dpr),
-      logoUrl,
-      logoSizeRatio: 0.22,
-      logoShape: 'circle',
-      logoBorder: 2,
-      logoBorderColor: '#000000',
-      logoBackerColor: '#ffffff',
-      darkColor: '#000000',
-      lightColor: '#FFFFFF',
-      errorCorrectionLevel: 'H',
-      ...qrOptions,
-    };
-  }, [logoUrl, qrOptions]);
 
   // Close on ESC
   useEffect(() => {
@@ -92,29 +66,25 @@ export function QRCodeModal({
           userId: user.id,
         });
 
-        // Try with logo; if any CORS/logo issue, gracefully fall back to plain QR
-        let dataUrl = await generateQRCodeDataURLWithLogo(qrData, opts);
-        if (!dataUrl?.startsWith('data:image/')) {
-          // unexpected shape, fallback
-          dataUrl = await generateQRCodeDataURL(qrData, opts.size ?? 256);
-        }
+        // Generate styled QR code
+        const dataUrl = await generateStyledQRDataURL(qrData, {
+          size: 512,
+          margin: 16,
+          darkColor: '#000000',
+          lightColor: '#FFFFFF',
+          dotsType: 'rounded',
+          cornersSquareType: 'extra-rounded',
+          cornersDotType: 'dot',
+          logoUrl,
+          logoSizeRatio: 0.22,
+          logoMargin: 6,
+          format: 'png'
+        });
 
         if (!cancelled) setQrPngDataUrl(dataUrl);
       } catch (err) {
         console.error('Failed to generate QR code:', err);
-        try {
-          // final safety fallback – plain QR
-          const qrData = generateQRData({
-            id: ticket.id,
-            eventId: ticket.eventId,
-            qrCode: ticket.qrCode,
-            userId: user.id,
-          });
-          const fallback = await generateQRCodeDataURL(qrData, opts.size ?? 256);
-          if (!cancelled) setQrPngDataUrl(fallback);
-        } catch {
-          if (!cancelled) setFailed(true);
-        }
+        if (!cancelled) setFailed(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -124,7 +94,7 @@ export function QRCodeModal({
     return () => {
       cancelled = true;
     };
-  }, [ticket, user, opts]);
+  }, [ticket, user, logoUrl]);
 
   const downloadPng = useCallback(async () => {
     try {
@@ -186,7 +156,7 @@ export function QRCodeModal({
             <p className="text-sm text-muted-foreground">{ticket.eventLocation}</p>
           </div>
 
-          <div className="flex justify-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="qr-grid flex justify-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
             {loading && (
               <div className="w-[240px] h-[240px] grid place-items-center">
                 <div className="text-center space-y-3">

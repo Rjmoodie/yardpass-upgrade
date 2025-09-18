@@ -483,4 +483,11 @@
   .feed-page {
     touch-action: pan-y; /* vertical scroll only */
   }
+
+  /* QR grid overlay */
+  .qr-grid {
+    background-image: linear-gradient(#0000 95%, rgba(0,0,0,0.04) 0),
+                      linear-gradient(90deg, #0000 95%, rgba(0,0,0,0.04) 0);
+    background-size: 10px 10px;
+  }
 }

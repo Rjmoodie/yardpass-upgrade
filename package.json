@@ -83,6 +83,7 @@
     "next-themes": "^0.3.0",
     "posthog-js": "^1.261.6",
     "prettier": "^3.6.2",
+    "qr-code-styling": "^1.9.2",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
