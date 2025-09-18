@@ -1,4 +1,4 @@
-# Azure DevOps Pipeline for iOS Build
+# Azure DevOps Pipeline for iOS Simulator Build
 trigger:
 - main
 - develop
@@ -46,39 +46,87 @@ stages:
         npx cap sync ios
       displayName: 'Setup Capacitor iOS'
       
-    - task: Xcode@5
-      displayName: 'Build iOS Archive'
-      inputs:
-        actions: 'archive'
-        configuration: 'Debug'
-        sdk: 'iphoneos'
-        xcWorkspacePath: 'ios/App/App.xcworkspace'
-        scheme: 'App'
-        archivePath: '$(Agent.BuildDirectory)/App.xcarchive'
-        
     - script: |
         cd ios/App
-        cat > ExportOptions.plist << EOF
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>method</key>
-            <string>development</string>
-            <key>teamID</key>
-            <string>$(APPLE_TEAM_ID)</string>
-        </dict>
-        </plist>
-        EOF
+        # List available simulators
+        echo "Available iOS Simulators:"
+        xcrun simctl list devices ios
         
-        xcodebuild -exportArchive \
-                   -archivePath $(Agent.BuildDirectory)/App.xcarchive \
-                   -exportPath $(Agent.BuildDirectory) \
-                   -exportOptionsPlist ExportOptions.plist
-      displayName: 'Export IPA'
+        # Build for iOS Simulator (no signing required)
+        echo "Building for iOS Simulator..."
+        xcodebuild -workspace App.xcworkspace \
+                   -scheme App \
+                   -configuration Debug \
+                   -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+                   -derivedDataPath $(Agent.BuildDirectory)/DerivedData \
+                   build
+                   
+        echo "Build completed successfully!"
+      displayName: 'Build for iOS Simulator'
+      
+    - script: |
+        # Create and boot simulator
+        echo "Creating iOS Simulator..."
+        SIMULATOR_ID=$(xcrun simctl create "YardPass-Test" "iPhone 15" "iOS-17-2")
+        echo "Created simulator: $SIMULATOR_ID"
+        
+        # Boot the simulator
+        echo "Booting simulator..."
+        xcrun simctl boot "$SIMULATOR_ID"
+        
+        # Wait for simulator to boot
+        echo "Waiting for simulator to boot..."
+        sleep 10
+        
+        # Install the app
+        BUILT_PRODUCTS_DIR="$(Agent.BuildDirectory)/DerivedData/Build/Products/Debug-iphonesimulator"
+        if [ -d "$BUILT_PRODUCTS_DIR/App.app" ]; then
+          echo "Installing YardPass app on simulator..."
+          xcrun simctl install "$SIMULATOR_ID" "$BUILT_PRODUCTS_DIR/App.app"
+          
+          # Launch the app
+          echo "Launching YardPass app..."
+          xcrun simctl launch "$SIMULATOR_ID" com.yardpass.app
+          
+          # Take a screenshot
+          echo "Taking screenshot..."
+          xcrun simctl io "$SIMULATOR_ID" screenshot $(Agent.BuildDirectory)/yardpass-screenshot.png
+          
+          # Get app info
+          echo "App installed successfully!"
+          xcrun simctl listapps "$SIMULATOR_ID" | grep -A 5 -B 5 "yardpass\|YardPass"
+          
+          # Create app bundle for download
+          cd "$BUILT_PRODUCTS_DIR"
+          zip -r $(Agent.BuildDirectory)/YardPass-Simulator.zip App.app/
+          
+        else
+          echo "Build failed - no .app bundle found"
+          ls -la "$(Agent.BuildDirectory)/DerivedData/Build/Products/"
+          exit 1
+        fi
+        
+        # Shutdown simulator
+        xcrun simctl shutdown "$SIMULATOR_ID"
+        xcrun simctl delete "$SIMULATOR_ID"
+      displayName: 'Test App in iOS Simulator'
       
     - task: PublishBuildArtifacts@1
-      displayName: 'Publish IPA'
+      displayName: 'Publish Simulator App'
       inputs:
-        pathToPublish: '$(Agent.BuildDirectory)/*.ipa'
-        artifactName: 'YardPass-iOS'
+        pathToPublish: '$(Agent.BuildDirectory)/YardPass-Simulator.zip'
+        artifactName: 'YardPass-iOS-Simulator'
+        
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Screenshot'
+      inputs:
+        pathToPublish: '$(Agent.BuildDirectory)/yardpass-screenshot.png'
+        artifactName: 'App-Screenshot'
+      condition: succeededOrFailed()
+        
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Build Logs'
+      inputs:
+        pathToPublish: '$(Agent.BuildDirectory)/DerivedData/Logs'
+        artifactName: 'Build-Logs'
+      condition: always()
