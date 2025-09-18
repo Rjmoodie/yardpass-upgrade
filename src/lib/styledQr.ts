@@ -180,6 +180,7 @@ export async function generateStyledQRDataURL(
     const QRCodeStyling = (await import('qr-code-styling')).default;
 
     // Generate logo badge if logo URL is provided
+    console.log('🖼️ Logo URL provided:', logoUrl);
     const logoBadge = logoUrl
       ? buildLogoBadgeDataUri({
           logoUrl,
@@ -192,6 +193,8 @@ export async function generateStyledQRDataURL(
           shadow: logoShadow,
         })
       : undefined;
+    
+    console.log('🎨 Badge generated:', !!logoBadge, logoBadge ? 'Successfully created' : 'Failed or no logo');
 
     console.log('🎯 Generating premium QR with options:', {
       size,
@@ -211,7 +214,7 @@ export async function generateStyledQRDataURL(
       data: createQRPayload(data),
       image: logoBadge,                   // Use badge instead of raw logo
       qrOptions: {
-        errorCorrectionLevel: 'H',        // Maximum error correction
+        errorCorrectionLevel: 'H' as const,        // Maximum error correction
       },
       backgroundOptions: {
         color: lightColor,

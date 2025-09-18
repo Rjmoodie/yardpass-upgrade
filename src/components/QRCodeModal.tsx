@@ -77,6 +77,7 @@ export function QRCodeModal({
     let cancelled = false;
 
     const generateQRCodes = async () => {
+      console.log('🎯 Starting QR generation with options:', qrOptions);
       setLoading(true);
       setFailed(false);
 
@@ -272,7 +273,7 @@ export function QRCodeModal({
               {ticket.eventLocation}
             </p>
             <Badge variant="secondary" className="badge-enhanced">
-              {ticket.tierName || 'General Admission'}
+              {ticket.ticketType || 'General Admission'}
             </Badge>
           </div>
 
