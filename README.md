@@ -2,6 +2,8 @@
 
 A premium event ticketing and social platform built with React, TypeScript, and Supabase.
 
+🚀 **iOS Build Ready** - Cloud building configured with GitHub Actions!
+
 ## 🚀 Quick Start
 
 ### Prerequisites
