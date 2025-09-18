@@ -11,8 +11,12 @@ export type RealtimeEventType =
   | 'refund_processed'
   | 'event_updated'
   | 'post_created'
+  | 'post_updated'
   | 'reaction_added'
-  | 'comment_added';
+  | 'reaction_removed'
+  | 'comment_added'
+  | 'comment_removed'
+  | 'follow_updated';
 
 export interface RealtimeEvent {
   type: RealtimeEventType;
@@ -143,57 +147,106 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
       channels.push(ticketChannel);
     }
 
-    // Subscribe to event-specific updates
-    if (eventIds && eventIds.length > 0) {
-      eventIds.forEach(eventId => {
-        // Event posts
-        const postChannel = supabase
-          .channel(`event-posts-${eventId}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'event_posts',
-              filter: `event_id=eq.${eventId}`
-            },
-            (payload) => handleRealtimeEvent(payload, 'post_created')
-          )
-          .subscribe();
+  // Subscribe to event-specific updates
+  if (eventIds && eventIds.length > 0) {
+    eventIds.forEach(eventId => {
+      // Event posts
+      const postChannel = supabase
+        .channel(`event-posts-${eventId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'event_posts',
+            filter: `event_id=eq.${eventId}`
+          },
+          (payload) => handleRealtimeEvent(payload, 'post_created')
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'event_posts',
+            filter: `event_id=eq.${eventId}`
+          },
+          (payload) => handleRealtimeEvent(payload, 'post_updated')
+        )
+        .subscribe();
 
-        // Event reactions
-        const reactionChannel = supabase
-          .channel(`event-reactions-${eventId}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'event_reactions',
-              filter: `post_id=in.(select id from event_posts where event_id='${eventId}')`
-            },
-            (payload) => handleRealtimeEvent(payload, 'reaction_added')
-          )
-          .subscribe();
+      // Event reactions (likes) - track both INSERT and DELETE
+      const reactionChannel = supabase
+        .channel(`event-reactions-${eventId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'event_reactions',
+            filter: `post_id=in.(select id from event_posts where event_id='${eventId}')`
+          },
+          (payload) => handleRealtimeEvent(payload, 'reaction_added')
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'event_reactions',
+            filter: `post_id=in.(select id from event_posts where event_id='${eventId}')`
+          },
+          (payload) => handleRealtimeEvent(payload, 'reaction_removed')
+        )
+        .subscribe();
 
-        // Event comments
-        const commentChannel = supabase
-          .channel(`event-comments-${eventId}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'event_comments',
-              filter: `post_id=in.(select id from event_posts where event_id='${eventId}')`
-            },
-            (payload) => handleRealtimeEvent(payload, 'comment_added')
-          )
-          .subscribe();
+      // Event comments
+      const commentChannel = supabase
+        .channel(`event-comments-${eventId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'event_comments',
+            filter: `post_id=in.(select id from event_posts where event_id='${eventId}')`
+          },
+          (payload) => handleRealtimeEvent(payload, 'comment_added')
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'event_comments',
+            filter: `post_id=in.(select id from event_posts where event_id='${eventId}')`
+          },
+          (payload) => handleRealtimeEvent(payload, 'comment_removed')
+        )
+        .subscribe();
 
-        channels.push(postChannel, reactionChannel, commentChannel);
-      });
-    }
+      channels.push(postChannel, reactionChannel, commentChannel);
+    });
+  }
+
+  // Subscribe to follow updates for the user
+  if (user) {
+    const followChannel = supabase
+      .channel('user-follows')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'follows',
+          filter: `follower_user_id=eq.${user.id}`
+        },
+        (payload) => handleRealtimeEvent(payload, 'follow_updated')
+      )
+      .subscribe();
+
+    channels.push(followChannel);
+  }
 
     return () => {
       channels.forEach(channel => {
