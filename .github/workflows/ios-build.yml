@@ -48,11 +48,10 @@ jobs:
       with:
         xcode-version: latest-stable
         
-    - name: Create iOS project if not exists
+    - name: Create iOS project
       run: |
-        if [ ! -d "ios" ]; then
-          npx cap add ios
-        fi
+        # Force add iOS platform (safe to run multiple times)
+        npx cap add ios --confirm || echo "iOS platform already exists"
         npx cap sync ios
         
     - name: Update iOS project settings
