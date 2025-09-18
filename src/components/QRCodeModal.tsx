@@ -31,7 +31,7 @@ export function QRCodeModal({
   onClose,
   onCopy,
   onShare,
-  logoUrl = '/yardpass-logo.png',
+  logoUrl = '/yardpass-qr-logo.png',
   theme = 'brand',
   brandHex = '#ff5a3c',
 }: QRCodeModalProps) {
