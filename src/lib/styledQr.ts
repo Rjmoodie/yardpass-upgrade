@@ -60,59 +60,98 @@ function buildLogoBadgeDataUri(opts: {
   stroke: string;              // border color
   strokeWidth: number;         // border width
   shadow: boolean;             // drop shadow
-}): string | undefined {
-  try {
-    const { logoUrl, sizePx, marginPx, shape, fill, stroke, strokeWidth, shadow } = opts;
-    const s = sizePx;
-    const inner = s - marginPx * 2;
-    const radius = s / 2;
-    const cornerRadius = shape === 'squircle' ? Math.round(inner * 0.22) : 0;
+}): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    try {
+      const { logoUrl, sizePx, marginPx, shape, fill, stroke, strokeWidth, shadow } = opts;
+      const s = sizePx;
+      const inner = s - marginPx * 2;
+      const radius = s / 2;
+      const cornerRadius = shape === 'squircle' ? Math.round(inner * 0.22) : 0;
 
-    // Clipping path for logo
-    const clipPath = shape === 'circle'
-      ? `<clipPath id="logoClip"><circle cx="${radius}" cy="${radius}" r="${radius - marginPx}"/></clipPath>`
-      : `<clipPath id="logoClip"><rect x="${marginPx}" y="${marginPx}" width="${inner}" height="${inner}" rx="${cornerRadius}"/></clipPath>`;
+      console.log('🔧 Creating badge with:', { logoUrl, sizePx, marginPx, shape });
 
-    // Badge background with border
-    const backgroundShape = shape === 'circle'
-      ? `<circle cx="${radius}" cy="${radius}" r="${radius - strokeWidth/2}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`
-      : `<rect x="${strokeWidth/2}" y="${strokeWidth/2}" width="${s - strokeWidth}" height="${s - strokeWidth}" rx="${Math.round((s - strokeWidth)*0.25)}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
+      // Create a new image to load the logo
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        console.log('📸 Logo image loaded successfully');
+        
+        // Create canvas for the badge
+        const canvas = document.createElement('canvas');
+        canvas.width = s;
+        canvas.height = s;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          console.error('❌ Could not get canvas context');
+          resolve(undefined);
+          return;
+        }
 
-    // Optional drop shadow filter
-    const shadowFilter = shadow
-      ? `<filter id="dropShadow" x="-50%" y="-50%" width="200%" height="200%">
-           <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.15"/>
-         </filter>`
-      : '';
+        // Draw background circle/squircle with border
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = strokeWidth;
 
-    const filterAttr = shadow ? 'filter="url(#dropShadow)"' : '';
+        if (shape === 'circle') {
+          ctx.beginPath();
+          ctx.arc(radius, radius, radius - strokeWidth/2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          // Squircle path
+          const r = Math.round((s - strokeWidth) * 0.25);
+          const x = strokeWidth/2;
+          const y = strokeWidth/2;
+          const w = s - strokeWidth;
+          const h = s - strokeWidth;
+          
+          ctx.beginPath();
+          ctx.roundRect(x, y, w, h, r);
+          ctx.fill();
+          ctx.stroke();
+        }
 
-    // Complete SVG badge
-    const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
-      <defs>
-        ${clipPath}
-        ${shadowFilter}
-      </defs>
-      <g ${filterAttr}>
-        ${backgroundShape}
-        <image href="${logoUrl}" x="${marginPx}" y="${marginPx}" width="${inner}" height="${inner}" 
-               clip-path="url(#logoClip)" preserveAspectRatio="xMidYMid meet" />
-      </g>
-    </svg>`.trim();
+        // Draw logo image centered with clipping
+        ctx.save();
+        
+        // Create clipping path
+        if (shape === 'circle') {
+          ctx.beginPath();
+          ctx.arc(radius, radius, radius - marginPx, 0, Math.PI * 2);
+          ctx.clip();
+        } else {
+          ctx.beginPath();
+          ctx.roundRect(marginPx, marginPx, inner, inner, cornerRadius);
+          ctx.clip();
+        }
 
-    // Encode to base64 data URI
-    const encoded = isBrowser
-      ? btoa(unescape(encodeURIComponent(svg)))
-      : Buffer.from(svg).toString('base64');
-    
-    const dataUri = `data:image/svg+xml;base64,${encoded}`;
-    console.log('✅ Premium QR badge generated successfully');
-    return dataUri;
-  } catch (error) {
-    console.error('❌ Failed to generate QR badge:', error);
-    return undefined;
-  }
+        // Draw the logo image
+        ctx.drawImage(img, marginPx, marginPx, inner, inner);
+        ctx.restore();
+
+        // Convert to data URL
+        const dataUrl = canvas.toDataURL('image/png');
+        console.log('✅ Badge canvas created successfully');
+        resolve(dataUrl);
+      };
+
+      img.onerror = (error) => {
+        console.error('❌ Failed to load logo image:', error);
+        console.error('Logo URL that failed:', logoUrl);
+        resolve(undefined);
+      };
+
+      // Load the image
+      img.src = logoUrl;
+      
+    } catch (error) {
+      console.error('❌ Failed to generate badge:', error);
+      resolve(undefined);
+    }
+  });
 }
 
 /**
@@ -182,7 +221,7 @@ export async function generateStyledQRDataURL(
     // Generate logo badge if logo URL is provided
     console.log('🖼️ Logo URL provided:', logoUrl);
     const logoBadge = logoUrl
-      ? buildLogoBadgeDataUri({
+      ? await buildLogoBadgeDataUri({
           logoUrl,
           sizePx: 256,                    // High resolution badge
           marginPx: logoMargin,
