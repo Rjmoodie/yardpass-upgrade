@@ -49,45 +49,53 @@ function buildLogoBadgeDataUri(opts: {
   strokeWidth: number;
   shadow: boolean;
 }) {
-  const { logoUrl, sizePx, marginPx, shape, fill, stroke, strokeWidth, shadow } = opts;
-  const s = sizePx;
-  const inner = s - marginPx * 2;
-  const radius = s / 2;
+  try {
+    const { logoUrl, sizePx, marginPx, shape, fill, stroke, strokeWidth, shadow } = opts;
+    const s = sizePx;
+    const inner = s - marginPx * 2;
+    const radius = s / 2;
 
-  const clip =
-    shape === 'circle'
-      ? `<clipPath id="clip"><circle cx="${radius}" cy="${radius}" r="${radius - marginPx}"/></clipPath>`
-      : `<clipPath id="clip"><rect x="${marginPx}" y="${marginPx}" width="${inner}" height="${inner}" rx="${Math.round(inner * 0.22)}"/></clipPath>`;
+    const clip =
+      shape === 'circle'
+        ? `<clipPath id="clip"><circle cx="${radius}" cy="${radius}" r="${radius - marginPx}"/></clipPath>`
+        : `<clipPath id="clip"><rect x="${marginPx}" y="${marginPx}" width="${inner}" height="${inner}" rx="${Math.round(inner * 0.22)}"/></clipPath>`;
 
-  const backer =
-    shape === 'circle'
-      ? `<circle cx="${radius}" cy="${radius}" r="${radius - strokeWidth/2}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`
-      : `<rect x="${strokeWidth/2}" y="${strokeWidth/2}" width="${s - strokeWidth}" height="${s - strokeWidth}" rx="${Math.round((s - strokeWidth)*0.25)}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
+    const backer =
+      shape === 'circle'
+        ? `<circle cx="${radius}" cy="${radius}" r="${radius - strokeWidth/2}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`
+        : `<rect x="${strokeWidth/2}" y="${strokeWidth/2}" width="${s - strokeWidth}" height="${s - strokeWidth}" rx="${Math.round((s - strokeWidth)*0.25)}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
 
-  const filter = shadow
-    ? `<filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-         <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.2"/>
-       </filter>`
-    : '';
+    const filter = shadow
+      ? `<filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+           <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.2"/>
+         </filter>`
+      : '';
 
-  const filterAttr = shadow ? 'filter="url(#shadow)"' : '';
+    const filterAttr = shadow ? 'filter="url(#shadow)"' : '';
 
-  const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
-    <defs>
-      ${clip}
-      ${filter}
-    </defs>
-    <g ${filterAttr}>
-      ${backer}
-      <image href="${logoUrl}" x="${marginPx}" y="${marginPx}" width="${inner}" height="${inner}" clip-path="url(#clip)" preserveAspectRatio="xMidYMid meet" />
-    </g>
-  </svg>`.trim();
+    const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+      <defs>
+        ${clip}
+        ${filter}
+      </defs>
+      <g ${filterAttr}>
+        ${backer}
+        <image href="${logoUrl}" x="${marginPx}" y="${marginPx}" width="${inner}" height="${inner}" clip-path="url(#clip)" preserveAspectRatio="xMidYMid meet" />
+      </g>
+    </svg>`.trim();
 
-  const encoded = typeof window === 'undefined'
-    ? Buffer.from(svg).toString('base64')
-    : btoa(unescape(encodeURIComponent(svg)));
-  return `data:image/svg+xml;base64,${encoded}`;
+    const encoded = typeof window === 'undefined'
+      ? Buffer.from(svg).toString('base64')
+      : btoa(unescape(encodeURIComponent(svg)));
+    
+    const result = `data:image/svg+xml;base64,${encoded}`;
+    console.log('✅ Badge generated successfully, length:', result.length);
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to generate badge:', error);
+    return undefined;
+  }
 }
 
 function payloadString(d: QRCodeData) {
@@ -143,6 +151,8 @@ export async function generateStyledQRDataURL(
         shadow: logoShadow,
       })
     : undefined;
+
+  console.log('🎯 QR Badge Debug:', { logoUrl, badgeDataUri: badgeDataUri?.slice(0, 50) + '...' });
 
   const qr = new QRCodeStyling({
     width: size,
