@@ -77,7 +77,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         body,
         smsBody,
         fromName: 'YardPass',
-        fromEmail: 'noreply@yardpass.app',
+        fromEmail: 'onboarding@resend.dev',
         segment: segment === 'all_attendees' 
           ? { type: 'all_attendees' } 
           : { type: 'roles', roles: selectedRoles },

@@ -150,14 +150,20 @@ export function useMessaging() {
       // 3) Trigger processing
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        fetch(`${EDGE_BASE}/functions/v1/messaging-queue`, {
+        const response = await fetch(`${EDGE_BASE}/functions/v1/messaging-queue`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ job_id: job.id, batch_size: input.batchSize ?? 200 }),
-        }).catch(console.error);
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Messaging queue error:', errorText);
+          throw new Error(`Failed to process messages: ${errorText}`);
+        }
       }
 
       return job;
