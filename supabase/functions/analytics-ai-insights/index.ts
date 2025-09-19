@@ -23,96 +23,51 @@ serve(async (req) => {
   }
 
   try {
-    const { analytics_data, action } = await req.json();
+    const { org_id, date_range, kpis, revenue_trend, top_events, question } = await req.json();
 
     const systemPrompt = `You are an AI analytics assistant for YardPass, an event management platform. 
     Analyze the provided analytics data and generate actionable insights for event organizers.
     
     Be specific, data-driven, and focus on actionable recommendations.
-    Return responses in JSON format with relevant fields based on the action type.`;
+    Return responses in JSON format with summary, anomalies, recommended_actions, and notes.`;
+
+    const analyticsData = {
+      org_id,
+      date_range,
+      kpis,
+      revenue_trend,
+      top_events,
+      question
+    };
 
     let userPrompt = "";
-    let responseFormat: any = { type: "json_object" };
-
-    switch (action) {
-      case "generate_insights":
-        userPrompt = `Analyze this event analytics data and generate 3-5 key insights with actionable recommendations:
-        
-        ${JSON.stringify(analytics_data, null, 2)}
-        
-        Return JSON with: {
-          "insights": [
-            {
-              "title": "Brief insight title",
-              "description": "Detailed insight with context",
-              "recommendation": "Specific actionable recommendation",
-              "impact": "high|medium|low",
-              "category": "revenue|attendance|engagement|marketing"
-            }
-          ]
-        }`;
-        break;
-
-      case "predict_performance":
-        userPrompt = `Based on this analytics data, predict likely outcomes and provide forecasts:
-        
-        ${JSON.stringify(analytics_data, null, 2)}
-        
-        Return JSON with: {
-          "predictions": [
-            {
-              "metric": "metric name",
-              "current_value": number,
-              "predicted_value": number,
-              "confidence": "high|medium|low",
-              "reasoning": "explanation of prediction",
-              "timeframe": "next 7/30 days"
-            }
-          ]
-        }`;
-        break;
-
-      case "compare_performance":
-        userPrompt = `Compare performance across events and identify patterns:
-        
-        ${JSON.stringify(analytics_data, null, 2)}
-        
-        Return JSON with: {
-          "comparisons": [
-            {
-              "pattern": "Pattern description",
-              "events": ["event names that fit pattern"],
-              "insight": "What this means",
-              "recommendation": "How to leverage this"
-            }
-          ]
-        }`;
-        break;
-
-      case "optimization_suggestions":
-        userPrompt = `Analyze the data for optimization opportunities:
-        
-        ${JSON.stringify(analytics_data, null, 2)}
-        
-        Return JSON with: {
-          "optimizations": [
-            {
-              "area": "pricing|timing|marketing|content",
-              "current_state": "what's happening now",
-              "suggested_change": "specific recommendation",
-              "expected_impact": "projected improvement",
-              "ease_of_implementation": "easy|medium|hard"
-            }
-          ]
-        }`;
-        break;
-
-      default:
-        return new Response(JSON.stringify({ error: "Unknown action" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    if (question) {
+      userPrompt = `Based on this analytics data, answer this specific question: "${question}"
+      
+      Analytics Data:
+      ${JSON.stringify(analyticsData, null, 2)}
+      
+      Return JSON with: {
+        "summary": "Direct answer to the question",
+        "anomalies": ["any anomalies related to the question"],
+        "recommended_actions": ["specific actions to address the question"],
+        "notes": ["additional context or insights"]
+      }`;
+    } else {
+      userPrompt = `Analyze this event analytics data and provide an overview with insights:
+      
+      Analytics Data:
+      ${JSON.stringify(analyticsData, null, 2)}
+      
+      Return JSON with: {
+        "summary": "Brief overview of performance",
+        "anomalies": ["noteworthy patterns or unusual metrics"],
+        "recommended_actions": ["3-5 specific actionable recommendations"],
+        "notes": ["additional context or insights"]
+      }`;
     }
+
+    const responseFormat: any = { type: "json_object" };
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
