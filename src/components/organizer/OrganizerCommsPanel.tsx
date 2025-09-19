@@ -59,6 +59,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   }, [eventId]);
 
   async function send() {
+    console.log('Send function called', { channel, segment, audienceCount });
+    
     if (channel === 'email' && !subject.trim()) {
       toast({ title: 'Subject is required for email', variant: 'destructive' });
       return;
@@ -69,7 +71,23 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       return;
     }
 
+    if (audienceCount === 0) {
+      toast({ title: 'No recipients found', description: 'Please select a valid audience', variant: 'destructive' });
+      return;
+    }
+
     try {
+      console.log('Creating job with data:', {
+        eventId,
+        channel,
+        subject,
+        body,
+        smsBody,
+        segment: segment === 'all_attendees' 
+          ? { type: 'all_attendees' } 
+          : { type: 'roles', roles: selectedRoles },
+      });
+
       const job = await createJob({
         eventId,
         channel,
@@ -82,6 +100,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
           ? { type: 'all_attendees' } 
           : { type: 'roles', roles: selectedRoles },
       });
+      
+      console.log('Job created successfully:', job);
       
       toast({ 
         title: 'Message queued', 
@@ -103,6 +123,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       setRecentJobs(data || []);
       
     } catch (error: any) {
+      console.error('Error sending message:', error);
       toast({ 
         title: 'Failed to send message', 
         description: error.message, 
