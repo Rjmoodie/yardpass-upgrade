@@ -12,7 +12,6 @@ import {
   LineChart,
   PieChart,
   Table,
-  Copy,
   Download,
   RefreshCw
 } from 'lucide-react';
@@ -86,10 +85,6 @@ export const NaturalLanguageQuery: React.FC<NaturalLanguageQueryProps> = ({ orgI
     }
   };
 
-  const copySQL = (sql: string) => {
-    navigator.clipboard.writeText(sql);
-    toast({ title: "SQL copied to clipboard" });
-  };
 
   const downloadData = (data: any[], filename: string) => {
     const json = JSON.stringify(data, null, 2);
@@ -168,24 +163,14 @@ export const NaturalLanguageQuery: React.FC<NaturalLanguageQueryProps> = ({ orgI
                 <CardTitle className="text-lg">Query Result</CardTitle>
                 <Badge variant="outline">{result.chart_type}</Badge>
               </div>
-              <div className="flex space-x-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => copySQL(result.sql)}
-                >
-                  <Copy className="h-4 w-4 mr-1" />
-                  Copy SQL
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => downloadData(result.data, `query_result_${index + 1}.json`)}
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  Download
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => downloadData(result.data, `query_result_${index + 1}.json`)}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Download
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -247,14 +232,6 @@ export const NaturalLanguageQuery: React.FC<NaturalLanguageQueryProps> = ({ orgI
               )}
             </div>
 
-            <details className="border rounded-md">
-              <summary className="p-3 bg-muted cursor-pointer text-sm font-medium">
-                View SQL Query
-              </summary>
-              <pre className="p-3 text-xs bg-slate-50 overflow-auto">
-                <code>{result.sql}</code>
-              </pre>
-            </details>
           </CardContent>
         </Card>
       ))}
