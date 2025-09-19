@@ -1879,6 +1879,69 @@ export type Database = {
           },
         ]
       }
+      user_embeddings: {
+        Row: {
+          embedding: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          embedding?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          embedding?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_event_interactions: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          id: string
+          interaction_type: string
+          metadata: Json | null
+          user_id: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          id?: string
+          interaction_type: string
+          metadata?: Json | null
+          user_id: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          id?: string
+          interaction_type?: string
+          metadata?: Json | null
+          user_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           created_at: string | null
@@ -1923,6 +1986,44 @@ export type Database = {
       }
     }
     Views: {
+      event_covis: {
+        Row: {
+          covisit_count: number | null
+          covisit_ratio: number | null
+          event_a: string | null
+          event_b: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_a"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_b"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_a"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_b"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_posts_with_meta: {
         Row: {
           author_badge_label: string | null
@@ -2259,11 +2360,40 @@ export type Database = {
           },
         ]
       }
+      user_event_affinity: {
+        Row: {
+          affinity_score: number | null
+          event_id: string | null
+          interaction_count: number | null
+          last_interaction: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_role_invite: {
         Args: { p_token: string }
         Returns: Json
+      }
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
       }
       can_current_user_post: {
         Args: { p_event_id: string }
@@ -2412,6 +2542,14 @@ export type Database = {
           shares: number
         }[]
       }
+      get_recommendations: {
+        Args: { p_limit?: number; p_user_id: string }
+        Returns: {
+          event_id: string
+          reason: string
+          score: number
+        }[]
+      }
       get_top_posts_analytics: {
         Args: { p_event_id: string; p_limit?: number; p_metric?: string }
         Returns: {
@@ -2480,6 +2618,38 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
       is_current_user_org_admin: {
         Args: { p_org_id: string }
         Returns: boolean
@@ -2500,11 +2670,35 @@ export type Database = {
         Args: { p_org_id: string; p_roles: string[] }
         Returns: boolean
       }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: string
+      }
       normalize_text: {
         Args: { txt: string }
         Returns: string
       }
       refresh_analytics_views: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      refresh_covis: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
@@ -2514,6 +2708,14 @@ export type Database = {
       }
       refresh_trending_posts: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      refresh_user_affinity: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      refresh_user_embedding: {
+        Args: { p_user_id: string }
         Returns: undefined
       }
       refresh_video_analytics: {
@@ -2555,6 +2757,25 @@ export type Database = {
         Args: { "": string }
         Returns: string[]
       }
+      similar_events: {
+        Args: { p_event_id: string; p_limit?: number }
+        Returns: {
+          event_id: string
+          similarity_score: number
+        }[]
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
       user_related_event_ids: {
         Args: { p_user_id: string }
         Returns: {
@@ -2564,6 +2785,30 @@ export type Database = {
       validate_social_links: {
         Args: { links: Json }
         Returns: boolean
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
       }
     }
     Enums: {
