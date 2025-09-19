@@ -35,10 +35,13 @@ serve(async (req) => {
       return createErrorResponse("Job not found", 404);
     }
 
-    // Get pending recipients
+    // Get pending recipients with user profile data
     const { data: recipients, error: recipientsError } = await supabase
       .from("message_job_recipients")
-      .select("*")
+      .select(`
+        *,
+        user_profiles(display_name)
+      `)
       .eq("job_id", job_id)
       .eq("status", "pending")
       .limit(batch_size);
@@ -63,10 +66,11 @@ serve(async (req) => {
 
     // Template replacement function
     const renderTemplate = (template: string, recipient: any) => {
+      const firstName = recipient.user_profiles?.display_name?.split(' ')[0] || "there";
       return template
         .replace(/{{event_title}}/g, eventTitle)
         .replace(/{{event_date}}/g, eventDate)
-        .replace(/{{first_name}}/g, recipient.first_name || "there");
+        .replace(/{{first_name}}/g, firstName);
     };
 
     let processed = 0;
@@ -75,7 +79,14 @@ serve(async (req) => {
     // Process each recipient
     for (const recipient of recipients) {
       try {
-        if (job.channel === "email" && recipient.email && RESEND_API_KEY) {
+        // For email channel, get email from auth.users if not provided
+        let recipientEmail = recipient.email;
+        if (job.channel === "email" && !recipientEmail && recipient.user_id) {
+          const { data: userData } = await supabase.auth.admin.getUserById(recipient.user_id);
+          recipientEmail = userData.user?.email;
+        }
+
+        if (job.channel === "email" && recipientEmail && RESEND_API_KEY) {
           const subject = renderTemplate(job.subject || eventTitle, recipient);
           const body = renderTemplate(job.body || "", recipient);
 
@@ -86,8 +97,8 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: job.from_email || "YardPass <noreply@yardpass.app>",
-              to: [recipient.email],
+              from: job.from_email || "YardPass <onboarding@resend.dev>",
+              to: [recipientEmail],
               subject,
               html: body,
             }),

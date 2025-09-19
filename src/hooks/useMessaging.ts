@@ -61,46 +61,68 @@ export function useMessaging() {
           .from('tickets')
           .select(`
             owner_user_id,
-            user_profiles!inner(email, phone)
+            user_profiles!inner(phone)
           `)
           .eq('event_id', input.eventId)
           .eq('status', 'issued');
 
-        // Dedupe recipients by email/phone
-        const seen = new Set<string>();
-        recipients = (tickets || [])
-          .map((t: any) => ({
-            user_id: t.owner_user_id,
-            email: t.user_profiles?.email,
-            phone: t.user_profiles?.phone,
-          }))
-          .filter(r => {
-            const key = input.channel === 'email' ? r.email : r.phone;
-            if (!key || seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
+        // Get unique user IDs
+        const userIds = [...new Set((tickets || []).map(t => t.owner_user_id))];
+        
+        // For email channel, we need to use the Edge Function approach since we can't access auth.users directly
+        if (input.channel === 'email') {
+          // We'll pass the user_ids to the messaging queue and let it handle email lookup
+          recipients = userIds.map(userId => ({
+            user_id: userId,
+            email: null, // Will be resolved in the Edge Function
+            phone: null,
+          }));
+        } else {
+          // For SMS, we can use the phone from user_profiles
+          const seen = new Set<string>();
+          recipients = (tickets || [])
+            .map((t: any) => ({
+              user_id: t.owner_user_id,
+              email: null,
+              phone: t.user_profiles?.phone,
+            }))
+            .filter(r => {
+              if (!r.phone || seen.has(r.phone)) return false;
+              seen.add(r.phone);
+              return true;
+            });
+        }
       } else if (input.segment.type === 'roles' && input.segment.roles?.length) {
         // Get users with specific roles for this event
         const { data: roleUsers } = await supabase
           .from('event_roles')
           .select(`
             user_id,
-            user_profiles!inner(email, phone)
+            user_profiles!inner(phone)
           `)
           .eq('event_id', input.eventId)
           .in('role', input.segment.roles);
 
-        recipients = (roleUsers || []).map((r: any) => ({
-          user_id: r.user_id,
-          email: r.user_profiles?.email,
-          phone: r.user_profiles?.phone,
-        }));
+        if (input.channel === 'email') {
+          // Pass user_ids for email lookup in Edge Function
+          recipients = (roleUsers || []).map((r: any) => ({
+            user_id: r.user_id,
+            email: null, // Will be resolved in the Edge Function
+            phone: null,
+          }));
+        } else {
+          // For SMS, use phone from user_profiles
+          recipients = (roleUsers || []).map((r: any) => ({
+            user_id: r.user_id,
+            email: null,
+            phone: r.user_profiles?.phone,
+          }));
+        }
       }
 
       // Filter recipients based on channel
       const filteredRecipients = recipients.filter(r => {
-        if (input.channel === 'email') return r.email;
+        if (input.channel === 'email') return r.user_id; // For email, we just need user_id
         if (input.channel === 'sms') return r.phone;
         return false;
       });
