@@ -60,9 +60,13 @@ serve(async (req) => {
     logStep("User authenticated", { userId: user.id, email: user.email });
 
     // Service-role client for DB reads/writes (bypass RLS for edge function operations)
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serviceRoleKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+    logStep("Service role key verified");
+
     const supabaseService = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      serviceRoleKey,
       { auth: { persistSession: false } },
     );
 
@@ -92,7 +96,14 @@ serve(async (req) => {
       .eq("id", eventId)
       .single();
 
-    if (eventError || !event) throw new Error(`Event not found`);
+    if (eventError) {
+      logStep("Event query error", { error: eventError.message, code: eventError.code });
+      throw new Error(`Event lookup failed: ${eventError.message}`);
+    }
+    if (!event) {
+      logStep("Event not found in database", { eventId });
+      throw new Error(`Event not found: ${eventId}`);
+    }
     logStep("Event found", { eventTitle: event.title });
 
     // Fetch ticket tiers referenced by the selection (and ensure they belong to the event)
