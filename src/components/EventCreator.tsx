@@ -1,22 +1,28 @@
-import { useState, useRef } from 'react';
+// src/components/EventCreator.tsx
+import { useState, useRef, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { createEventSlug, ensureAvailableSlug } from '@/lib/slugUtils';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import { ArrowLeft, ArrowRight, Plus, X, Upload, Calendar, MapPin, Shield, Share2, Users } from 'lucide-react';
+import {
+  ArrowLeft, ArrowRight, Plus, X, Upload, Calendar,
+  MapPin, Shield, Share2, Users, Sparkles, Wand2, Image as ImageIcon, Lightbulb
+} from 'lucide-react';
 import { MapboxLocationPicker } from './MapboxLocationPicker';
-import { AIWritingAssistant } from './ai/AIWritingAssistant';
-import { AIImageGenerator } from './ai/AIImageGenerator';
-import { AIRecommendations } from './ai/AIRecommendations';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useToast } from '@/hooks/use-toast';
 
+// === AI modules (as in your screenshot) ===
+import { AIWritingAssistant } from '@/components/ai/AIWritingAssistant';
+import { AIImageGenerator } from '@/components/ai/AIImageGenerator';
+import { AIRecommendations } from '@/components/ai/AIRecommendations';
+
+// === Types ===
 interface EventCreatorProps {
   onBack: () => void;
   onCreate: () => void;
@@ -48,7 +54,11 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
   const { user } = useAuth();
   const { trackEvent } = useAnalyticsIntegration();
   const { toast } = useToast();
+
   const [step, setStep] = useState(1);
+  const totalSteps = 4;
+  const progress = (step / totalSteps) * 100;
+
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,54 +74,20 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     venue: '',
     coverImageUrl: '',
-    visibility: 'public' as 'public' | 'unlisted' | 'private',   // NEW
+    visibility: 'public' as 'public' | 'unlisted' | 'private',
     culturalGuide: {
       history: '',
       themes: [] as string[],
-      community: [] as string[]
-    }
+      community: [] as string[],
+    },
   });
 
   const [location, setLocation] = useState<Location | null>(null);
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([
-    { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100 }
+    { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100 },
   ]);
 
-  const totalSteps = 4;
-  const progress = (step / totalSteps) * 100;
-
-  const handleNext = () => {
-    const newStep = Math.min(totalSteps, step + 1);
-    trackEvent('event_creation_step', {
-      from_step: step,
-      to_step: newStep,
-      organization_id: organizationId,
-      direction: 'forward'
-    });
-    setStep(newStep);
-  };
-  const handlePrevious = () => {
-    const newStep = Math.max(1, step - 1);
-    trackEvent('event_creation_step', {
-      from_step: step,
-      to_step: newStep,
-      organization_id: organizationId,
-      direction: 'backward'
-    });
-    setStep(newStep);
-  };
-
-  const addTicketTier = () => {
-    setTicketTiers((prev) => [
-      ...prev,
-      { id: String(Date.now()), name: '', price: 0, badge: '', quantity: 0 }
-    ]);
-  };
-  const updateTicketTier = (id: string, field: keyof TicketTier, value: string | number) => {
-    setTicketTiers((tiers) => tiers.map((t) => (t.id === id ? { ...t, [field]: value } : t)));
-  };
-  const removeTicketTier = (id: string) => setTicketTiers((tiers) => tiers.filter((t) => t.id !== id));
-
+  // ======= Helpers =======
   const canProceed = () => {
     switch (step) {
       case 1:
@@ -125,151 +101,167 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     }
   };
 
+  const handleNext = () => {
+    const newStep = Math.min(totalSteps, step + 1);
+    trackEvent('event_creation_step', { from_step: step, to_step: newStep, organization_id: organizationId, direction: 'forward' });
+    setStep(newStep);
+  };
+  const handlePrevious = () => {
+    const newStep = Math.max(1, step - 1);
+    trackEvent('event_creation_step', { from_step: step, to_step: newStep, organization_id: organizationId, direction: 'backward' });
+    setStep(newStep);
+  };
+
+  const addTier = () =>
+    setTicketTiers((prev) => [...prev, { id: String(Date.now()), name: '', price: 0, badge: '', quantity: 0 }]);
+
+  const updateTier = (id: string, field: keyof TicketTier, value: string | number) =>
+    setTicketTiers((tiers) => tiers.map((t) => (t.id === id ? { ...t, [field]: value } : t)));
+
+  const removeTier = (id: string) => setTicketTiers((tiers) => tiers.filter((t) => t.id !== id));
+
+  // ======= Storage upload =======
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast({
-        title: "Invalid file",
-        description: "Please select an image file",
-        variant: "destructive"
-      });
+      toast({ title: 'Invalid file', description: 'Please select an image file', variant: 'destructive' });
       return;
     }
-
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please select an image smaller than 5MB",
-        variant: "destructive"
-      });
+      toast({ title: 'File too large', description: 'Please select an image smaller than 5MB', variant: 'destructive' });
       return;
     }
 
     setUploadingImage(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `event-cover-${Date.now()}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('event-media')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('event-media')
-        .getPublicUrl(filePath);
-
-      setFormData({ ...formData, coverImageUrl: publicUrl });
-      
-      toast({
-        title: "Image uploaded",
-        description: "Cover image uploaded successfully!"
-      });
-    } catch (error: any) {
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      const ext = file.name.split('.').pop();
+      const filePath = `${user.id}/event-cover-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('event-media').upload(filePath, file);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('event-media').getPublicUrl(filePath);
+      setFormData((f) => ({ ...f, coverImageUrl: publicUrl }));
+      toast({ title: 'Image uploaded', description: 'Cover image uploaded successfully!' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
     } finally {
       setUploadingImage(false);
     }
   };
 
-  // Ensure slug is unique in DB
-  const ensureUniqueEventSlug = async (title: string) => {
-    const desired = title;
-    return await ensureAvailableSlug(desired, async (slug) => {
-      const { data, error } = await supabase
-        .from('events')
-        .select('id', { head: true, count: 'exact' })
-        .eq('slug', slug);
-      if (error) return true; // be safe: treat unknown as exists
-      return (data === null ? false : true); // head=true returns null; rely on count below when possible
-    });
+  // ======= AI: Writing Assistant =======
+  const aiContext = useMemo(() => ({
+    orgId: organizationId,
+    title: formData.title,
+    category: formData.category,
+    city: location?.city,
+    date: formData.startDate,
+    tone: 'friendly',
+  }), [organizationId, formData.title, formData.category, formData.startDate, location?.city]);
+
+  const onAIReplaceDescription = (text: string) => {
+    setFormData((f) => ({ ...f, description: text }));
+    toast({ title: 'Description updated', description: 'AI polished your event copy.' });
+  };
+  const onAIGenerateTitle = (text: string) => {
+    setFormData((f) => ({ ...f, title: text }));
+    toast({ title: 'Title added', description: 'AI generated a catchy title.' });
   };
 
+  // ======= AI: Image Generator =======
+  const onAIImageDone = (url?: string) => {
+    if (!url) return;
+    setFormData((f) => ({ ...f, coverImageUrl: url }));
+    toast({ title: 'Cover updated', description: 'AI image set as event banner.' });
+  };
+
+  // ======= AI: Tier Recommendations (pricing, structure) =======
+  const applyTierSuggestions = (suggestions: Array<{ name: string; price: number; badge: string; quantity: number }>) => {
+    if (!suggestions?.length) return;
+    const mapped: TicketTier[] = suggestions.map((s, i) => ({
+      id: `${Date.now()}-${i}`,
+      name: s.name,
+      price: s.price,
+      badge: s.badge,
+      quantity: s.quantity,
+    }));
+    setTicketTiers(mapped);
+    toast({ title: 'Tiers suggested', description: 'AI proposed ticket tiers & pricing.' });
+  };
+
+  // ======= Submit =======
   const handleSubmit = async () => {
     if (!user || !location) return;
-    
-    trackEvent('event_creation_submit_start', {
-      organization_id: organizationId,
-      event_title: formData.title,
-      event_category: formData.category,
-      event_visibility: formData.visibility,
-      ticket_tiers_count: ticketTiers.length
-    });
-    
+
     setLoading(true);
     try {
       const startAt = new Date(`${formData.startDate}T${formData.startTime}`);
       const endAt = new Date(`${formData.endDate}T${formData.endTime}`);
 
-      // Optional hardened unlisted token (requires DB column "link_token")
-      const linkToken = formData.visibility === 'unlisted' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : null;
+      const linkToken = formData.visibility === 'unlisted' && 'randomUUID' in crypto ? crypto.randomUUID() : null;
 
-      const slug = await ensureUniqueEventSlug(formData.title);
-
-      const insertPayload: any = {
-        title: formData.title,
-        description: formData.description,
-        category: formData.category,
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
-        timezone: formData.timezone,
-        venue: formData.venue,
-        address: location.address,
-        city: location.city,
-        country: location.country,
-        lat: location.lat,
-        lng: location.lng,
-        cover_image_url: formData.coverImageUrl,
-        owner_context_type: 'organization',
-        owner_context_id: organizationId,
-        created_by: user.id,
-        visibility: formData.visibility,
-        slug,
-        link_token: linkToken
-      };
+      // Basic slug (can be improved/uniqueness later)
+      const slug = formData.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 60);
 
       const { data: event, error: eventError } = await supabase
         .from('events')
-        .insert(insertPayload)
+        .insert({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          start_at: startAt.toISOString(),
+          end_at: endAt.toISOString(),
+          timezone: formData.timezone,
+          venue: formData.venue,
+          address: location.address,
+          city: location.city,
+          country: location.country,
+          lat: location.lat,
+          lng: location.lng,
+          cover_image_url: formData.coverImageUrl,
+          owner_context_type: 'organization',
+          owner_context_id: organizationId,
+          created_by: user.id,
+          visibility: formData.visibility,
+          slug,
+          link_token: linkToken,
+        })
         .select('id')
         .single();
 
       if (eventError) throw eventError;
 
-      const tierInserts = ticketTiers.map((tier) => ({
+      const tiersPayload = ticketTiers.map((t) => ({
         event_id: event.id,
-        name: tier.name,
-        price_cents: Math.round(tier.price * 100),
-        quantity: tier.quantity,
-        badge_label: tier.badge,
+        name: t.name,
+        price_cents: Math.round((t.price || 0) * 100),
+        quantity: t.quantity,
+        badge_label: t.badge,
         currency: 'USD',
-        status: 'active'
+        status: 'active',
       }));
-      const { error: tiersError } = await supabase.from('ticket_tiers').insert(tierInserts);
-      if (tiersError) throw tiersError;
+      if (tiersPayload.length) {
+        const { error: tiersErr } = await supabase.from('ticket_tiers').insert(tiersPayload);
+        if (tiersErr) throw tiersErr;
+      }
 
-      if (formData.culturalGuide.history ||
-          formData.culturalGuide.themes.length ||
-          formData.culturalGuide.community.length) {
-        const { error: guideError } = await supabase.from('cultural_guides').insert({
+      if (
+        formData.culturalGuide.history ||
+        formData.culturalGuide.themes.length ||
+        formData.culturalGuide.community.length
+      ) {
+        const { error: cgErr } = await supabase.from('cultural_guides').insert({
           event_id: event.id,
           history_long: formData.culturalGuide.history,
           themes: formData.culturalGuide.themes,
-          community: formData.culturalGuide.community
+          community: formData.culturalGuide.community,
         });
-        if (guideError) throw guideError;
+        if (cgErr) throw cgErr;
       }
 
       trackEvent('event_creation_success', {
@@ -277,28 +269,26 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         event_id: event.id,
         event_title: formData.title,
         event_category: formData.category,
-        event_visibility: formData.visibility,
-        ticket_tiers_count: ticketTiers.length,
-        has_cultural_guide: !!(formData.culturalGuide.history || formData.culturalGuide.themes.length || formData.culturalGuide.community.length)
       });
 
       toast({
-        title: "Event Created!",
-        description: formData.visibility === 'unlisted'
-          ? "Unlisted: share the link with the secret token."
-          : formData.visibility === 'private'
-          ? "Private: only invited users and ticket-holders can view."
-          : "Public: visible in search and feeds."
+        title: 'Event Created!',
+        description:
+          formData.visibility === 'unlisted'
+            ? 'Unlisted: share the link with the secret token.'
+            : formData.visibility === 'private'
+            ? 'Private: only invited users and ticket-holders can view.'
+            : 'Public: visible in search and feeds.',
       });
       onCreate();
     } catch (err: any) {
       trackEvent('event_creation_error', {
         organization_id: organizationId,
         error_message: err.message,
-        step: step,
-        event_title: formData.title
+        step,
+        event_title: formData.title,
       });
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -316,6 +306,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     );
   }
 
+  // ===================== UI =====================
   return (
     <div className="h-full bg-background flex flex-col">
       {/* Header */}
@@ -334,122 +325,171 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
+        {/* STEP 1: BASICS + AI WRITING & IMAGE */}
         {step === 1 && (
           <Card>
             <CardHeader>
-              <CardTitle>Event Basics</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>Event Basics</span>
+                <span className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setFormData((f) => ({
+                        ...f,
+                        title: f.title || 'Untitled Event',
+                        description:
+                          f.description ||
+                          'Add an engaging description so people know why this event is for them.',
+                      }))
+                    }
+                  >
+                    <Lightbulb className="w-4 h-4 mr-1" />
+                    Quick Fill
+                  </Button>
+                </span>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="title">Event Title *</label>
-                <Input id="title" placeholder="Enter event title" value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}/>
+
+            <CardContent className="space-y-6">
+              {/* Title / Description */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="title">Title *</label>
+                  <Input
+                    id="title"
+                    placeholder="Enter event title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label>Category *</label>
+                  <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <AIWritingAssistant
-                currentText={formData.description}
-                onTextChange={(description) => setFormData({ ...formData, description })}
-                placeholder="Tell people what your event is about..."
-                context={{
-                  title: formData.title,
-                  category: formData.category,
-                  venue: formData.venue,
-                  startDate: formData.startDate
-                }}
-              />
-
               <div className="space-y-2">
-                <label>Category *</label>
-                <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <label htmlFor="description">Description *</label>
+                <Textarea
+                  id="description"
+                  placeholder="Tell people what your event is about..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="min-h-28"
+                />
+                {/* AI Writing Assistant inline */}
+                <div className="flex gap-2">
+                  <AIWritingAssistant
+                    context={aiContext}
+                    onImprove={onAIReplaceDescription}
+                    onGenerateTitle={onAIGenerateTitle}
+                    invokePath="ai-writing-assistant"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      const { data, error } = await supabase.functions.invoke('ai-writing-assistant', {
+                        body: { action: 'improve', text: formData.description, context: aiContext }
+                      });
+                      if (!error && data?.text) onAIReplaceDescription(data.text);
+                    }}
+                  >
+                    <Wand2 className="w-4 h-4 mr-1" /> Quick Improve
+                  </Button>
+                </div>
               </div>
 
-              {/* NEW: Visibility */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2">
-                  <Shield className="w-4 h-4" /> Visibility *
-                </label>
-                <Select value={formData.visibility} onValueChange={(v) => setFormData({ ...formData, visibility: v as any })}>
-                  <SelectTrigger><SelectValue placeholder="Choose visibility" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Public — discoverable in feeds & search</SelectItem>
-                    <SelectItem value="unlisted">Unlisted — hidden, link-only access</SelectItem>
-                    <SelectItem value="private">Private — invitees & ticket-holders only</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Unlisted can optionally use a secret token in the URL (<code>?k=…</code>).
-                </p>
-              </div>
+              {/* Visibility */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2">
+                    <Shield className="w-4 h-4" /> Visibility *
+                  </label>
+                  <Select value={formData.visibility} onValueChange={(v) => setFormData({ ...formData, visibility: v as any })}>
+                    <SelectTrigger><SelectValue placeholder="Choose visibility" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="public">Public — discoverable in feeds & search</SelectItem>
+                      <SelectItem value="unlisted">Unlisted — hidden, link-only access</SelectItem>
+                      <SelectItem value="private">Private — invitees & ticket-holders only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-4">
-                <label>Cover Image</label>
-                
-                {/* Current Image Display */}
-                {formData.coverImageUrl && (
-                  <div className="space-y-2">
-                    <img 
-                      src={formData.coverImageUrl} 
-                      alt="Cover preview"
-                      className="w-full h-32 object-cover rounded-lg border"
+                {/* Cover image: upload or AI generate */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" /> Cover Image
+                  </label>
+                  <div className="border-2 border-dashed border-muted rounded-lg p-4 text-center">
+                    {formData.coverImageUrl ? (
+                      <div className="space-y-2">
+                        <img
+                          src={formData.coverImageUrl}
+                          alt="Cover preview"
+                          className="w-full h-32 object-cover rounded-lg mx-auto"
+                        />
+                        <div className="flex gap-2 justify-center">
+                          <Button variant="outline" size="sm" onClick={() => setFormData((f) => ({ ...f, coverImageUrl: '' }))}>
+                            Remove
+                          </Button>
+                          <AIImageGenerator
+                            title={formData.title}
+                            category={formData.category}
+                            city={location?.city}
+                            onDone={onAIImageDone}
+                            invokePath="ai-image-generator"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground mb-2">Upload a cover image or generate one</p>
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploadingImage}
+                          >
+                            {uploadingImage ? 'Uploading...' : 'Choose File'}
+                          </Button>
+                          <AIImageGenerator
+                            title={formData.title}
+                            category={formData.category}
+                            city={location?.city}
+                            onDone={onAIImageDone}
+                            invokePath="ai-image-generator"
+                          />
+                        </div>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      accept="image/*"
+                      className="hidden"
                     />
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setFormData({ ...formData, coverImageUrl: '' })}
-                    >
-                      Remove Image
-                    </Button>
                   </div>
-                )}
-
-                {/* Upload or Generate Options */}
-                {!formData.coverImageUrl && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Traditional Upload */}
-                    <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
-                      <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground mb-2">Upload Image</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingImage}
-                      >
-                        {uploadingImage ? 'Uploading...' : 'Choose File'}
-                      </Button>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
-                        accept="image/*"
-                        className="hidden"
-                      />
-                    </div>
-
-                    {/* AI Generation */}
-                    <div className="border-2 border-dashed border-primary/20 rounded-lg p-4">
-                      <AIImageGenerator
-                        onImageGenerated={(imageUrl) => setFormData({ ...formData, coverImageUrl: imageUrl })}
-                        context={{
-                          title: formData.title,
-                          category: formData.category,
-                          description: formData.description,
-                          venue: formData.venue
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             </CardContent>
           </Card>
         )}
 
+        {/* STEP 2: SCHEDULE & LOCATION */}
         {step === 2 && (
           <Card>
             <CardHeader>
@@ -458,46 +498,58 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Schedule */}
               <div className="space-y-4">
                 <h3 className="text-sm font-medium">Event Schedule</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label>Start Date *</label>
-                    <Input type="date" value={formData.startDate}
+                    <Input
+                      type="date"
+                      value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      min={new Date().toISOString().split('T')[0]}/>
+                      min={new Date().toISOString().split('T')[0]}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label>Start Time *</label>
-                    <Input type="time" value={formData.startTime}
-                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}/>
+                    <Input
+                      type="time"
+                      value={formData.startTime}
+                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label>End Date *</label>
-                    <Input type="date" value={formData.endDate}
+                    <Input
+                      type="date"
+                      value={formData.endDate}
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                      min={formData.startDate || new Date().toISOString().split('T')[0]}/>
+                      min={formData.startDate || new Date().toISOString().split('T')[0]}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label>End Time *</label>
-                    <Input type="time" value={formData.endTime}
-                      onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}/>
+                    <Input
+                      type="time"
+                      value={formData.endTime}
+                      onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <label>Venue Name</label>
-                  <Input placeholder="Enter venue name (optional)"
+                  <Input
+                    placeholder="Enter venue name (optional)"
                     value={formData.venue}
-                    onChange={(e) => setFormData({ ...formData, venue: e.target.value })}/>
+                    onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                  />
                 </div>
               </div>
 
-              {/* Location */}
               <div className="space-y-4">
                 <h3 className="text-sm font-medium flex items-center gap-2">
                   <MapPin className="w-4 h-4" /> Location
@@ -505,12 +557,9 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 <MapboxLocationPicker value={location} onChange={setLocation} />
               </div>
 
-              {/* Cultural Guide (optional) */}
               <div className="space-y-4">
                 <h3 className="text-sm font-medium">Cultural Guide (Optional)</h3>
-                <p className="text-xs text-muted-foreground">
-                  Share the story or meaning behind your event.
-                </p>
+                <p className="text-xs text-muted-foreground">Share the story or meaning behind your event.</p>
                 <div className="space-y-2">
                   <label>Why You Do What You Do</label>
                   <Textarea
@@ -527,14 +576,26 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           </Card>
         )}
 
+        {/* STEP 3: TICKETS + AI RECOMMENDATIONS */}
         {step === 3 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 Ticket Tiers
-                <Button size="sm" onClick={addTicketTier}><Plus className="w-4 h-4 mr-1" />Add Tier</Button>
+                <div className="flex items-center gap-2">
+                  <AIRecommendations
+                    orgId={organizationId}
+                    city={location?.city}
+                    category={formData.category}
+                    eventDate={formData.startDate}
+                    onApplyTiers={applyTierSuggestions}
+                    invokePath="ai-event-recommendations"
+                  />
+                  <Button size="sm" onClick={addTier}><Plus className="w-4 h-4 mr-1" />Add Tier</Button>
+                </div>
               </CardTitle>
             </CardHeader>
+
             <CardContent className="space-y-4">
               {ticketTiers.map((tier, index) => (
                 <Card key={tier.id} className="border-muted">
@@ -542,7 +603,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-sm">Tier {index + 1}</h4>
                       {ticketTiers.length > 1 && (
-                        <Button variant="ghost" size="sm" onClick={() => removeTicketTier(tier.id)}>
+                        <Button variant="ghost" size="sm" onClick={() => removeTier(tier.id)}>
                           <X className="w-4 h-4" />
                         </Button>
                       )}
@@ -551,26 +612,41 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="space-y-2">
                         <label>Tier Name *</label>
-                        <Input placeholder="e.g., General Admission" value={tier.name}
-                          onChange={(e) => updateTicketTier(tier.id, 'name', e.target.value)} />
+                        <Input
+                          placeholder="e.g., General Admission"
+                          value={tier.name}
+                          onChange={(e) => updateTier(tier.id, 'name', e.target.value)}
+                        />
                       </div>
                       <div className="space-y-2">
                         <label>Badge *</label>
-                        <Input placeholder="e.g., GA" value={tier.badge}
-                          onChange={(e) => updateTicketTier(tier.id, 'badge', e.target.value)} />
+                        <Input
+                          placeholder="e.g., GA"
+                          value={tier.badge}
+                          onChange={(e) => updateTier(tier.id, 'badge', e.target.value)}
+                        />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label>Price ($) *</label>
-                        <Input type="number" min="0" step="0.01" value={tier.price}
-                          onChange={(e) => updateTicketTier(tier.id, 'price', parseFloat(e.target.value) || 0)} />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={tier.price}
+                          onChange={(e) => updateTier(tier.id, 'price', parseFloat(e.target.value) || 0)}
+                        />
                       </div>
                       <div className="space-y-2">
                         <label>Quantity *</label>
-                        <Input type="number" min="1" value={tier.quantity}
-                          onChange={(e) => updateTicketTier(tier.id, 'quantity', parseInt(e.target.value) || 0)} />
+                        <Input
+                          type="number"
+                          min="1"
+                          value={tier.quantity}
+                          onChange={(e) => updateTier(tier.id, 'quantity', parseInt(e.target.value) || 0)}
+                        />
                       </div>
                     </div>
 
@@ -587,16 +663,15 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           </Card>
         )}
 
+        {/* STEP 4: PREVIEW */}
         {step === 4 && (
           <div className="space-y-4">
             <div className="text-center">
               <h2 className="text-lg font-semibold mb-2">Event Preview</h2>
               <p className="text-sm text-muted-foreground">This is how your event will appear to users</p>
             </div>
-            
-            {/* EVENT PREVIEW - matches EventSlugPage design */}
+
             <div className="pb-8">
-              {/* COVER IMAGE */}
               {formData.coverImageUrl ? (
                 <div className="relative">
                   <img
@@ -608,7 +683,6 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 </div>
               ) : null}
 
-              {/* HEADER CARD */}
               <div className={`${formData.coverImageUrl ? '-mt-12' : ''} relative`}>
                 <Card className="shadow-lg">
                   <CardContent className="p-5">
@@ -617,17 +691,14 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                         {formData.category ? (
                           <Badge variant="secondary" className="mb-2">{formData.category}</Badge>
                         ) : null}
-                        <h1 className="text-xl md:text-2xl font-semibold leading-tight">
-                          {formData.title}
-                        </h1>
+                        <h1 className="text-xl md:text-2xl font-semibold leading-tight">{formData.title}</h1>
                         <div className="mt-2 text-sm text-muted-foreground space-y-1">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
                             <span>
-                              {formData.startDate && formData.startTime 
+                              {formData.startDate && formData.startTime
                                 ? `${new Date(formData.startDate).toLocaleDateString()} at ${formData.startTime}`
-                                : 'Date TBA'
-                              }
+                                : 'Date TBA'}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -645,56 +716,32 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                       </Button>
                     </div>
 
-                    {/* MOCK ATTENDEES */}
-                    <div className="mt-5 flex items-center justify-between">
-                      <div className="flex -space-x-2 overflow-hidden">
-                        {/* Mock attendee avatars */}
-                        <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-blue-400 to-purple-500" />
-                        <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-green-400 to-blue-500" />
-                        <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-purple-400 to-pink-500" />
-                      </div>
-                      <Button variant="outline" size="sm" disabled>
-                        <Users className="w-4 h-4 mr-2" />
-                        See who's going
-                      </Button>
-                    </div>
-
-                    {/* ORGANIZER */}
                     <div className="mt-4 text-sm">
                       Hosted by{' '}
-                      <span className="font-medium text-primary">
-                        Your Organization
-                      </span>
+                      <span className="font-medium text-primary">Your Organization</span>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* DESCRIPTION */}
               {formData.description && (
                 <Card className="mt-4">
                   <CardContent className="p-5">
                     <h3 className="font-semibold mb-3">About this event</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {formData.description}
-                    </p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{formData.description}</p>
                   </CardContent>
                 </Card>
               )}
 
-              {/* CULTURAL GUIDE */}
               {formData.culturalGuide.history && (
                 <Card className="mt-4">
                   <CardContent className="p-5">
                     <h3 className="font-semibold mb-3">Cultural Guide</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {formData.culturalGuide.history}
-                    </p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{formData.culturalGuide.history}</p>
                   </CardContent>
                 </Card>
               )}
 
-              {/* TICKETS */}
               {ticketTiers.length > 0 && (
                 <Card className="mt-4">
                   <CardContent className="p-5">
