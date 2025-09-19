@@ -13,7 +13,68 @@ serve(async (req) => {
   }
 
   try {
-    const { order_data, payout_destination } = await req.json();
+    const requestBody = await req.json();
+    
+    // Handle both old format (from TicketPurchaseModal) and new format
+    let order_data, payout_destination;
+    
+    if (requestBody.eventId && requestBody.ticketSelections) {
+      // Old format from TicketPurchaseModal - convert to new format
+      const { eventId, ticketSelections } = requestBody;
+      
+      // Get user from auth
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) throw new Error("No authorization header provided");
+      
+      const supabaseClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      );
+      
+      const token = authHeader.replace("Bearer ", "").trim();
+      const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+      if (userError || !userData.user) throw new Error("User not authenticated");
+      
+      // Convert to enhanced-checkout format
+      order_data = {
+        event_id: eventId,
+        user_id: userData.user.id,
+        items: ticketSelections.map((sel: any) => ({
+          tier_id: sel.tierId,
+          quantity: sel.quantity,
+          unit_price_cents: sel.faceValue,
+          name: `Ticket - ${sel.tierId.substring(0, 8)}`,
+          description: `Event ticket`
+        }))
+      };
+      
+      // Get payout destination for the event
+      const supabaseService = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        { auth: { persistSession: false } }
+      );
+      
+      const { data: event } = await supabaseService
+        .from("events")
+        .select("owner_context_type, owner_context_id")
+        .eq("id", eventId)
+        .single();
+        
+      if (event) {
+        const { data: payoutAccount } = await supabaseService
+          .from("payout_accounts")
+          .select("*")
+          .eq("context_type", event.owner_context_type)
+          .eq("context_id", event.owner_context_id)
+          .single();
+        
+        payout_destination = payoutAccount;
+      }
+    } else {
+      // New format
+      ({ order_data, payout_destination } = requestBody);
+    }
 
     if (!order_data) {
       throw new Error("Order data is required");
@@ -48,17 +109,17 @@ serve(async (req) => {
     // Create checkout session with destination charges if payout account exists
     const sessionConfig: any = {
       payment_method_types: ['card'],
-      line_items: order_data.items.map((item: any) => ({
+      line_items: [{
         price_data: {
           currency: 'usd',
           product_data: {
-            name: item.name,
-            description: item.description,
+            name: `${order_data.items.map(i => i.name).join(', ')}`,
+            description: `Event tickets (includes processing fees)`,
           },
-          unit_amount: item.unit_price_cents,
+          unit_amount: totalCents,
         },
-        quantity: item.quantity,
-      })),
+        quantity: 1,
+      }],
       mode: 'payment',
       success_url: `${req.headers.get("origin")}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.get("origin")}/events/${order_data.event_id}`,
