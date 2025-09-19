@@ -7,7 +7,11 @@ export type Rec = {
   category: string | null; 
   starts_at: string; 
   distance_km: number | null; 
-  score: number; 
+  score: number;
+  cover_image_url: string | null;
+  description: string | null;
+  venue: string | null;
+  min_price: number | null;
 };
 
 export function useRecommendations(userId?: string, limit = 8) {
@@ -44,6 +48,10 @@ export function useRecommendations(userId?: string, limit = 8) {
             starts_at: r.starts_at,
             distance_km: typeof r.distance_km === 'number' ? r.distance_km : null,
             score: typeof r.score === 'number' ? r.score : 1,
+            cover_image_url: r.cover_image_url ?? null,
+            description: r.description ?? null,
+            venue: r.venue ?? null,
+            min_price: r.min_price ?? null,
           }));
           safeSet(() => setData(recs));
           return;
@@ -57,7 +65,7 @@ export function useRecommendations(userId?: string, limit = 8) {
       try {
         const { data: rows, error: selError } = await supabase
           .from('events')
-          .select('id, title, category, start_at')
+          .select('id, title, category, start_at, cover_image_url, description, venue')
           .gte('start_at', new Date().toISOString())
           .order('start_at', { ascending: true })
           .limit(limit);
@@ -71,6 +79,10 @@ export function useRecommendations(userId?: string, limit = 8) {
           starts_at: event.start_at,
           distance_km: null,
           score: 1,
+          cover_image_url: event.cover_image_url ?? null,
+          description: event.description ?? null,
+          venue: event.venue ?? null,
+          min_price: null,
         }));
 
         safeSet(() => setData(transformed));

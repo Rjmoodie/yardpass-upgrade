@@ -508,16 +508,16 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                   const eventForCard = {
                     id: rec.event_id,
                     title: rec.title,
-                    description: rec.title ? `Join this ${rec.category || 'event'} and connect with others` : '',
+                    description: rec.description || `Join this ${rec.category || 'event'} and connect with others`,
                     category: rec.category,
                     start_at: rec.starts_at,
                     date: rec.starts_at,
-                    location: rec.distance_km ? `${rec.distance_km.toFixed(1)} km away` : 'Location TBD',
+                    location: rec.venue || (rec.distance_km ? `${rec.distance_km.toFixed(1)} km away` : 'Location TBD'),
                     distance_km: rec.distance_km,
-                    coverImage: `/images/placeholders/event-cover-fallback.jpg`,
-                    priceFrom: Math.floor(Math.random() * 50) + 20, // Mock price since not in rec type
+                    coverImage: rec.cover_image_url || `/images/placeholders/event-cover-fallback.jpg`,
+                    priceFrom: rec.min_price || undefined, // Use actual pricing data
                     rating: 4.2,
-                    attendeeCount: Math.floor(Math.random() * 200) + 50
+                    attendeeCount: undefined // Don't show attending count as requested
                   };
 
                   return (
