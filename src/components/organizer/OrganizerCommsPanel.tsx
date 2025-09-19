@@ -413,63 +413,151 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         </CardContent>
       </Card>
 
-      {/* AI Suggestions Panel */}
+      {/* AI Assistant Panel */}
       {aiPanelOpen && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              AI Suggestions
+              <Sparkles className="h-5 w-5 text-purple-600" />
+              AI Writing Assistant
+              <Badge variant="outline" className="ml-auto text-xs">Powered by GPT-4</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {!aiOutput && (
-              <div className="text-sm text-muted-foreground">
-                Use the AI buttons above to generate subjects, preheaders, CTAs, or improved copy. Suggestions appear here.
+              <div className="text-center py-6 text-muted-foreground">
+                <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Use the AI buttons above to generate subjects, improve copy, adjust tone, or get CTAs.</p>
+                <p className="text-xs mt-1">AI suggestions will appear here instantly.</p>
               </div>
             )}
 
-            {/* Single text suggestion */}
+            {/* Main AI suggestion */}
             {aiOutput?.text && (
-              <div className="border rounded-lg p-3">
-                <div className="text-xs font-medium text-muted-foreground mb-2">Suggestion</div>
-                <pre className="whitespace-pre-wrap text-sm">{aiOutput.text}</pre>
-                <div className="mt-2 flex gap-2">
-                  <Button size="sm" onClick={() => applyText(aiOutput.text)}>Apply to body</Button>
-                  {channel === 'email' && <Button size="sm" variant="outline" onClick={() => applySubject(aiOutput.text)}>Use as subject</Button>}
-                  {channel === 'email' && <Button size="sm" variant="outline" onClick={() => applyPreheader(aiOutput.text)}>Use as preheader</Button>}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Wand2 className="w-4 h-4 text-purple-600" />
+                    AI Suggestion
+                  </div>
+                  <div className="flex gap-1">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => applyText(aiOutput.text)}
+                      className="text-xs"
+                    >
+                      Apply to Body
+                    </Button>
+                    {channel === 'email' && (
+                      <>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => applySubject(aiOutput.text)}
+                          className="text-xs"
+                        >
+                          Use as Subject
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => applyPreheader(aiOutput.text)}
+                          className="text-xs"
+                        >
+                          Use as Preheader
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="p-4 border rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border-purple-200/50">
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap">{aiOutput.text}</div>
                 </div>
               </div>
             )}
 
-            {/* Variants list (subjects or CTAs, or spam alts) */}
-            {aiOutput?.variants?.length ? (
-              <div className="border rounded-lg p-3">
-                <div className="text-xs font-medium text-muted-foreground mb-2">Variants</div>
-                <div className="grid gap-2 sm:grid-cols-2">
+            {/* Multiple variants */}
+            {aiOutput?.variants && aiOutput.variants.length > 0 && (
+              <div className="space-y-3">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <ListChecks className="w-4 h-4 text-blue-600" />
+                  Alternative Options
+                </div>
+                <div className="space-y-3">
                   {aiOutput.variants.map((v, i) => (
-                    <div key={i} className="border rounded p-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="text-sm whitespace-pre-wrap">{v.text}</div>
-                        {typeof v.score === 'number' && (
-                          <Badge variant="secondary" className="ml-2">{v.score}/10</Badge>
-                        )}
-                      </div>
-                      <div className="mt-2 flex gap-2">
-                        <Button size="sm" onClick={() => applyVariant(v.text)}>Apply</Button>
-                        {channel === 'email' && <Button size="sm" variant="outline" onClick={() => applySubject(v.text)}>Use as subject</Button>}
+                    <div key={i} className="group border rounded-lg p-3 hover:border-purple-200 transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm leading-relaxed break-words">{v.text}</div>
+                          {typeof v.score === 'number' && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="secondary" className="text-xs">
+                                Score: {v.score}/10
+                              </Badge>
+                              <div className="h-1 bg-muted rounded-full flex-1 max-w-20">
+                                <div 
+                                  className="h-1 bg-gradient-to-r from-red-400 via-yellow-400 to-green-400 rounded-full transition-all"
+                                  style={{ width: `${(v.score || 0) * 10}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => applyVariant(v.text)}
+                            className="text-xs shrink-0"
+                          >
+                            Apply
+                          </Button>
+                          {channel === 'email' && (
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => applySubject(v.text)}
+                              className="text-xs shrink-0"
+                            >
+                              Subject
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-            ) : null}
+            )}
 
-            {/* Insights */}
+            {/* AI insights */}
             {aiOutput?.insights && (
-              <div className="border rounded-lg p-3 bg-muted/30">
-                <div className="text-xs font-medium text-muted-foreground mb-2">Insights</div>
-                <p className="text-sm">{aiOutput.insights}</p>
+              <div className="space-y-2">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <CheckCheck className="w-4 h-4 text-amber-600" />
+                  AI Insights
+                </div>
+                <div className="p-3 border rounded-lg bg-gradient-to-r from-amber-50/50 to-orange-50/50 border-amber-200/50">
+                  <div className="text-sm text-amber-800 leading-relaxed">{aiOutput.insights}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            {aiOutput && (
+              <div className="pt-3 border-t flex items-center justify-between">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setAiOutput(null)}
+                  className="text-xs text-muted-foreground"
+                >
+                  Clear Results
+                </Button>
+                <div className="text-xs text-muted-foreground">
+                  Tip: Use different tones and actions for varied results
+                </div>
               </div>
             )}
           </CardContent>
