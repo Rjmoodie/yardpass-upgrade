@@ -1239,8 +1239,8 @@ const AnalyticsHub: React.FC = () => {
                           Net: {formatCurrency(analytics.kpis.net_revenue)}
                           <Button
                             variant="ghost" size="sm" className="h-6 px-2"
-                            onClick={() => explainKPI('Explain what's driving net vs gross revenue and list 3 levers to improve net.')}
-                            title="Explain with AI"
+                             onClick={() => explainKPI('Explain what is driving net vs gross revenue and list 3 levers to improve net.')}
+                             title="Explain with AI"
                           >
                             <HelpCircle className="h-3.5 w-3.5 mr-1" />
                             Explain
@@ -1445,14 +1445,6 @@ const AnalyticsHub: React.FC = () => {
             {/* Pass context + helpful starters for less blank-page feel */}
             <NaturalLanguageQuery
               orgId={selectedOrg}
-              dateRange={dateRange}
-              starterQuestions={[
-                'Which 3 events drove most net revenue and why?',
-                'Is our refund rate abnormal vs. previous period?',
-                'What 2 experiments can lift CTA→Checkout conversion?',
-                'Segment buyers vs repeat buyers – where's the growth?',
-                'Correlate video plays with ticket sales this month.'
-              ]}
             />
           </TabsContent>
         </Tabs>
