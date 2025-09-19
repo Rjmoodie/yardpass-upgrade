@@ -14,11 +14,14 @@ serve(async (req) => {
 
   try {
     const requestBody = await req.json();
+    console.log('📥 Request body received:', JSON.stringify(requestBody, null, 2));
     
     // Handle both old format (from TicketPurchaseModal) and new format
     let order_data, payout_destination;
     
+    console.log('🔍 Checking request format...');
     if (requestBody.eventId && requestBody.ticketSelections) {
+      console.log('✅ Old format detected, converting...');
       // Old format from TicketPurchaseModal - convert to new format
       const { eventId, ticketSelections } = requestBody;
       
@@ -72,9 +75,13 @@ serve(async (req) => {
         payout_destination = payoutAccount;
       }
     } else {
+      console.log('🔄 New format detected');
       // New format
       ({ order_data, payout_destination } = requestBody);
     }
+
+    console.log('📊 Final order_data:', JSON.stringify(order_data, null, 2));
+    console.log('💳 Final payout_destination:', JSON.stringify(payout_destination, null, 2));
 
     if (!order_data) {
       throw new Error("Order data is required");
