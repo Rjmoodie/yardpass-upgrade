@@ -150,12 +150,14 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       // Direct edge call with your email/phone (bypassing queue for a one-off test)
       if (channel === 'email') {
         const html = body || `Test email for event {{event_title}} on {{event_date}}`;
-        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-          body: JSON.stringify({ to: user!.email, subject: subject || 'Test Message', html }),
+        const { data, error } = await supabase.functions.invoke('send-email', {
+          body: { 
+            to: user!.email, 
+            subject: subject || 'Test Message', 
+            html 
+          }
         });
-        if (!res.ok) throw new Error(await res.text());
+        if (error) throw new Error(error.message);
       } else {
         toast({ title: 'Use a test phone via the queue or Twilio console.' });
       }
