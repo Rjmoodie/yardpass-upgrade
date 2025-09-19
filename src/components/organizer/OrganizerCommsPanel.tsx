@@ -145,33 +145,51 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       if (status === 'failed') {
         // Retry failed message
         try {
-          const response = await fetch(`https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/messaging-queue`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ job_id: jobId }),
+          const { data, error } = await supabase.functions.invoke('messaging-queue', {
+            body: { job_id: jobId }
           });
           
-          if (response.ok) {
-            toast({ title: 'Message retry initiated' });
-            // Refresh jobs list
-            const { data } = await supabase
-              .from('message_jobs')
-              .select('*')
-              .eq('event_id', eventId)
-              .order('created_at', { ascending: false })
-              .limit(5);
-            setRecentJobs(data || []);
-          } else {
-            throw new Error('Retry failed');
+          if (error) {
+            throw new Error(error.message);
           }
+          
+          toast({ title: 'Message retry initiated' });
+          // Refresh jobs list
+          const { data: jobsData } = await supabase
+            .from('message_jobs')
+            .select('*')
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: false })
+            .limit(5);
+          setRecentJobs(jobsData || []);
         } catch (error) {
+          console.error('Retry error:', error);
           toast({ title: 'Failed to retry message', variant: 'destructive' });
         }
       } else if (status === 'queued') {
-        toast({ title: 'Message is queued for processing', description: 'Please wait, your message will be sent shortly.' });
+        // Retry queued message
+        try {
+          const { data, error } = await supabase.functions.invoke('messaging-queue', {
+            body: { job_id: jobId }
+          });
+          
+          if (error) {
+            throw new Error(error.message);
+          }
+          
+          toast({ title: 'Processing queued message', description: 'Your message is being sent now.' });
+          // Refresh jobs list
+          const { data: jobsData } = await supabase
+            .from('message_jobs')
+            .select('*')
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: false })
+            .limit(5);
+          setRecentJobs(jobsData || []);
+        } catch (error) {
+          console.error('Process queue error:', error);
+          toast({ title: 'Failed to process message', variant: 'destructive' });
+        }
       }
     };
 
