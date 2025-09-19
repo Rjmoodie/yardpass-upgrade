@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { ArrowLeft, Search, X, SlidersHorizontal, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Search, X, SlidersHorizontal, Calendar as CalendarIcon, Star, Sparkles } from 'lucide-react';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
+import { useRecommendations } from '@/hooks/useRecommendations';
+import { useInteractionTracking } from '@/hooks/useInteractionTracking';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow, isSameDay, nextSaturday, nextSunday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { FilterChip } from './search/FilterChip';
 import { EventCard } from './search/EventCard';
@@ -16,7 +19,7 @@ import { SkeletonGrid, EmptyState } from './search/SearchPageComponents';
 
 interface SearchPageProps {
   onBack: () => void;
-  onEventSelect: (event: any) => void;
+  onEventSelect: (eventId: string) => void;
 }
 
 const categories = [
@@ -25,7 +28,7 @@ const categories = [
 ];
 
 // ————————————————————————————————————————
-// Mock fallback
+// Mock fallback (unchanged)
 // ————————————————————————————————————————
 const mockSearchResults = [
   {
@@ -72,9 +75,14 @@ const mockSearchResults = [
   }
 ];
 
+const LOCAL_RECENT_KEY = 'yp_recent_searches';
+
 export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const { trackEvent } = useAnalyticsIntegration();
-  
+  const { user } = useAuth();
+  const { data: recommendations, loading: recLoading, error: recError } = useRecommendations(user?.id, 8);
+  const { trackInteraction } = useInteractionTracking();
+
   // URL-synced state
   const [params, setParams] = useSearchParams();
   const q = params.get('q') || '';
@@ -86,19 +94,41 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const from = params.get('from') || '';
   const to = params.get('to') || '';
 
+  // recent searches
+  const [recent, setRecent] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(LOCAL_RECENT_KEY) || '[]'); } catch { return []; }
+  });
+  const pushRecent = useCallback((s: string) => {
+    if (!s.trim()) return;
+    const next = [s.trim(), ...recent.filter(i => i.trim() !== s.trim())].slice(0, 8);
+    setRecent(next);
+    localStorage.setItem(LOCAL_RECENT_KEY, JSON.stringify(next));
+  }, [recent]);
+  const removeRecent = useCallback((s: string) => {
+    const next = recent.filter(i => i !== s);
+    setRecent(next);
+    localStorage.setItem(LOCAL_RECENT_KEY, JSON.stringify(next));
+  }, [recent]);
+
   // data state
   const [allEvents, setAllEvents] = useState<any[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
 
-  // fetch
+  // paging (client-side for now; easy to migrate to server pages)
+  const PAGE_SIZE = 24;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const loaderRef = useRef<HTMLDivElement | null>(null);
+
+  // fetch (server-side filtering where possible)
   useEffect(() => {
     let canceled = false;
+
     const load = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        const qb = supabase
           .from('events')
           .select(`
             id,
@@ -115,10 +145,22 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               display_name
             )
           `)
-          .eq('visibility', 'public')
-          .order('start_at', { ascending: true })
-          .limit(50);
+          .eq('visibility', 'public');
+
+        // server filters (safe)
+        if (q) {
+          // Use ilike on title/desc/city where possible (cheap-ish)
+          qb.or(`title.ilike.%${q}%,description.ilike.%${q}%,city.ilike.%${q}%`);
+        }
+        if (city) qb.ilike('city', `%${city}%`);
+        if (from) qb.gte('start_at', from);
+        if (to) qb.lte('start_at', to);
+
+        qb.order('start_at', { ascending: true }).limit(200);
+
+        const { data, error } = await qb;
         if (error) throw error;
+
         const transformed = (data || []).map((e: any) => ({
           id: e.id,
           title: e.title,
@@ -127,12 +169,14 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
           organizerId: e.id,
           category: e.category || 'Other',
           date: new Date(e.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+          start_at: e.start_at,
           location: e.city || e.venue || 'TBA',
           coverImage: e.cover_image_url || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
-          attendeeCount: Math.floor(Math.random()*900)+50,
-          priceFrom: Math.floor(Math.random()*100)+15,
+          attendeeCount: Math.floor(Math.random()*900)+50, // replace with real metric when available
+          priceFrom: Math.floor(Math.random()*100)+15,     // replace with real price once added to schema
           rating: 4 + Math.random(),
         }));
+
         if (!canceled) {
           const fallback = transformed.length ? transformed : mockSearchResults;
           setAllEvents(fallback);
@@ -146,28 +190,20 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     };
     load();
     return () => { canceled = true; };
-  }, []);
+  }, [q, city, from, to]);
 
   // apply filters + debounce on url param change
   useEffect(() => {
     const t = setTimeout(() => {
       let filtered = [...allEvents];
 
-      if (q) {
-        const s = q.toLowerCase();
-        filtered = filtered.filter(e =>
-          e.title.toLowerCase().includes(s) ||
-          e.description.toLowerCase().includes(s) ||
-          e.organizer.toLowerCase().includes(s) ||
-          e.location.toLowerCase().includes(s)
-        );
-      }
-
       if (cat !== 'All') filtered = filtered.filter(e => e.category === cat);
-      if (city) filtered = filtered.filter(e => e.location.toLowerCase().includes(city.toLowerCase()));
-      if (min) filtered = filtered.filter(e => (e.priceFrom ?? 0) >= Number(min));
-      if (max) filtered = filtered.filter(e => (e.priceFrom ?? 0) <= Number(max));
 
+      // price filters (client side until price exists server-side)
+      if (min) filtered = filtered.filter(e => (e.priceFrom ?? 0) >= Number(min));
+      if (max) filtered = filtered.filter(e => (e.priceFrom ?? 1e9) <= Number(max));
+
+      // from/to already applied on server; keep guard (for mock data)
       if (from || to) {
         const fromD = from ? new Date(from) : null;
         const toD = to ? new Date(to) : null;
@@ -184,21 +220,35 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
         if (sort === 'price_asc') return (a.priceFrom ?? 1e9) - (b.priceFrom ?? 1e9);
         if (sort === 'price_desc') return (b.priceFrom ?? -1) - (a.priceFrom ?? -1);
         if (sort === 'attendees_desc') return (b.attendeeCount ?? 0) - (a.attendeeCount ?? 0);
-        // date_asc default — assume incoming already ordered
+        // date_asc default; server already ordered
         return 0;
       });
 
       setResults(filtered);
-    }, 200);
+      setVisibleCount(PAGE_SIZE); // reset paging on filter change
+    }, 150);
     return () => clearTimeout(t);
-  }, [allEvents, q, cat, city, sort, min, max, from, to]);
+  }, [allEvents, cat, sort, min, max, from, to]);
+
+  // infinite scroll sentinel
+  useEffect(() => {
+    if (!loaderRef.current) return;
+    const el = loaderRef.current;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some(e => e.isIntersecting)) {
+        setVisibleCount((c) => Math.min(c + PAGE_SIZE, results.length));
+      }
+    }, { rootMargin: '600px' }); // prefetch before hitting bottom
+    io.observe(el);
+    return () => io.disconnect();
+  }, [results.length]);
 
   // helpers to update url params succinctly
   const setParam = (k: string, v?: string) => {
     const next = new URLSearchParams(params);
     if (v && v.length) next.set(k, v); else next.delete(k);
-    
-    // Track search interactions
+
+    // analytics
     trackEvent('search_filter_change', {
       filter_type: k,
       filter_value: v || '',
@@ -206,7 +256,13 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       category: cat,
       results_count: results.length
     });
-    
+
+    // recent searches (when editing the main query)
+    if (k === 'q' && v !== undefined) {
+      // push after small debounce
+      window.setTimeout(() => pushRecent(v), 50);
+    }
+
     setParams(next, { replace: true });
   };
 
@@ -217,15 +273,66 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       results_count: results.length
     });
     setParams(new URLSearchParams(), { replace: true });
+    setVisibleCount(PAGE_SIZE);
   };
+
+  // quick chips
+  const setTonight = () => {
+    const now = new Date();
+    const midnight = new Date(now); midnight.setHours(23,59,59,999);
+    setParam('from', now.toISOString());
+    setParam('to', midnight.toISOString());
+  };
+  const setWeekend = () => {
+    const sat = nextSaturday(new Date());
+    const sun = nextSunday(new Date(sat));
+    const end = new Date(sun); end.setHours(23,59,59,999);
+    setParam('from', sat.toISOString());
+    setParam('to', end.toISOString());
+  };
+  const set30d = () => {
+    const now = new Date();
+    const in30 = new Date(now); in30.setDate(now.getDate() + 30);
+    setParam('from', now.toISOString());
+    setParam('to', in30.toISOString());
+  };
+
+  const handleRecommendationClick = (eventId: string) => {
+    trackInteraction(eventId, 'event_view');
+    onEventSelect(eventId);
+  };
+
+  const handleRecommendationTicketClick = (eventId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    trackInteraction(eventId, 'ticket_open');
+    onEventSelect(eventId);
+  };
+
+  // keyboard shortcut: open focus on query ("/")
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === '/') {
+        const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+        if (tag !== 'input' && tag !== 'textarea' && !(e.target as HTMLElement).isContentEditable) {
+          e.preventDefault();
+          const input = document.getElementById('search-query-input') as HTMLInputElement | null;
+          input?.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // ————————————————————————————————————————
   // Render
   // ————————————————————————————————————————
+  const visible = results.slice(0, visibleCount);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <div className="border-b bg-card">
+      <div className="border-b bg-card/80 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="w-5 h-5" /></Button>
@@ -240,9 +347,10 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
             <div className="relative flex-1 min-w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
+                id="search-query-input"
                 value={q}
                 onChange={(e) => setParam('q', e.target.value)}
-                placeholder="Search events, organizers, locations…"
+                placeholder="Search events, organizers, locations… (press / to focus)"
                 className="pl-10"
               />
             </div>
@@ -278,6 +386,13 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                     </div>
                   </div>
 
+                  {/* Quick date chips */}
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" size="sm" onClick={setTonight}>Tonight</Button>
+                    <Button variant="secondary" size="sm" onClick={setWeekend}>This weekend</Button>
+                    <Button variant="secondary" size="sm" onClick={set30d}>Next 30 days</Button>
+                  </div>
+
                   {/* Price */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -290,7 +405,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                     </div>
                   </div>
 
-                  {/* Date range (two pickers for clarity on mobile) */}
+                  {/* Date range */}
                   <div className="grid grid-cols-2 gap-2">
                     <Popover>
                       <PopoverTrigger asChild>
@@ -349,22 +464,102 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               <Button variant="ghost" size="sm" onClick={clearAll} className="h-8">Reset</Button>
             </div>
           )}
+
+          {/* Recent searches */}
+          {!q && recent.length > 0 && (
+            <div className="mt-2">
+              <div className="text-xs text-muted-foreground mb-1">Recent searches</div>
+              <div className="flex flex-wrap gap-2">
+                {recent.map((r) => (
+                  <button
+                    key={r}
+                    className="px-2 py-1 rounded bg-muted text-foreground/90 hover:bg-muted/80 text-xs"
+                    onClick={() => setParam('q', r)}
+                    aria-label={`Use recent search ${r}`}
+                  >
+                    {r}
+                    <span
+                      className="ml-2 text-foreground/60 hover:text-foreground"
+                      onClick={(e) => { e.stopPropagation(); removeRecent(r); }}
+                    >
+                      ×
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Results */}
       <div className="flex-1 overflow-auto">
         <div className="max-w-6xl mx-auto px-4 py-4">
+          {/* For You Recommendations Section */}
+          {user && !recLoading && recommendations.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Star className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold">For you</h2>
+                <span className="text-sm text-muted-foreground">Based on your activity</span>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {recommendations.slice(0, 6).map(rec => (
+                  <button
+                    key={rec.event_id}
+                    onClick={() => handleRecommendationClick(rec.event_id)}
+                    className="p-4 rounded-lg bg-card hover:bg-card/80 text-left transition-colors border-2 border-primary/20 hover:border-primary/40"
+                  >
+                    <div className="font-medium line-clamp-2 text-sm mb-2">{rec.title}</div>
+                    <div className="text-xs text-muted-foreground mb-3 space-y-1">
+                      {rec.starts_at && (
+                        <div>
+                          {formatDistanceToNow(new Date(rec.starts_at), { addSuffix: true })}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        {rec.category && <span>{rec.category}</span>}
+                        {typeof rec.distance_km === 'number' && (
+                          <span>• {rec.distance_km.toFixed(1)} km away</span>
+                        )}
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      onClick={(e) => handleRecommendationTicketClick(rec.event_id, e)}
+                      className="w-full"
+                    >
+                      Get tickets
+                    </Button>
+                  </button>
+                ))}
+              </div>
+              <div className="border-t mt-6 pt-6 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <h2 className="text-xl font-semibold">All Events</h2>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <SkeletonGrid />
           ) : results.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="grid md:grid-cols-2 gap-4">
-              {results.map((e) => (
-                <EventCard key={e.id} event={e} onClick={() => onEventSelect?.(e.id)} />
-              ))}
-            </div>
+            <>
+              <div className="grid md:grid-cols-2 gap-4">
+                {visible.map((e) => (
+                  <EventCard key={e.id} event={e} onClick={() => onEventSelect?.(e.id)} />
+                ))}
+              </div>
+              {/* sentinel for infinite scroll */}
+              {visibleCount < results.length && (
+                <div ref={loaderRef} className="h-12 flex items-center justify-center text-muted-foreground">
+                  Loading more…
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
