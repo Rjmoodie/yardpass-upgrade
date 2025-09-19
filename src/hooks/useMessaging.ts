@@ -80,7 +80,7 @@ export function useMessaging() {
           .from('tickets')
           .select(`
             owner_user_id,
-            user_profiles!inner(phone)
+            user_profiles(phone)
           `)
           .eq('event_id', input.eventId)
           .eq('status', 'issued');
@@ -102,7 +102,7 @@ export function useMessaging() {
       } else {
         const { data: roleUsers } = await supabase
           .from('event_roles')
-          .select(`user_id, user_profiles!inner(phone)`)
+          .select(`user_id, user_profiles(phone)`)
           .eq('event_id', input.eventId)
           .in('role', input.segment.roles ?? []);
 
