@@ -110,7 +110,7 @@ const handler = async (req: Request): Promise<Response> => {
     const html = generateTicketReminderHtml(data);
 
     const emailResponse = await resend.emails.send({
-      from: "YardPass <noreply@yardpass.com>",
+      from: "YardPass <onboarding@resend.dev>",
       to: [data.customerEmail],
       subject: `Reminder: ${data.eventTitle} is coming up!`,
       html,

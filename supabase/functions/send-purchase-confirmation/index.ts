@@ -121,7 +121,7 @@ const handler = async (req: Request): Promise<Response> => {
     const html = generatePurchaseConfirmationHtml(data);
 
     const emailResponse = await resend.emails.send({
-      from: "YardPass <noreply@yardpass.com>",
+      from: "YardPass <onboarding@resend.dev>",
       to: [data.customerEmail],
       subject: `Ticket Confirmation - ${data.eventTitle}`,
       html,

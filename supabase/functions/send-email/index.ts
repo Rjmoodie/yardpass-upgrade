@@ -35,7 +35,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const emailResponse = await resend.emails.send({
-      from: from || "YardPass <noreply@yardpass.com>",
+      from: from || "YardPass <onboarding@resend.dev>",
       to: [to],
       subject,
       html,

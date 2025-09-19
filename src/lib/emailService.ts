@@ -33,7 +33,7 @@ export interface TicketReminderData {
 
 type Result = { success: boolean; error?: string };
 
-const FROM_DEFAULT = 'YardPass <noreply@yardpass.com>';
+const FROM_DEFAULT = 'YardPass <onboarding@resend.dev>';
 
 function logDev(label: string, payload: unknown) {
   if (import.meta.env.DEV) {
