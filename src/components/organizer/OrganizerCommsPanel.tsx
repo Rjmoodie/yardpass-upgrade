@@ -1,5 +1,5 @@
 // src/components/OrganizerCommsPanel.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -11,24 +11,34 @@ import { useMessaging } from '@/hooks/useMessaging';
 import { toast } from '@/hooks/use-toast';
 import { MessageChannel, RoleType, ROLES, ROLE_MATRIX } from '@/types/roles';
 import { supabase } from '@/integrations/supabase/client';
-import { Mail, MessageSquare, Users, Send, Clock, Beaker, RefreshCw, TestTube2, Sparkles, Wand2, Volume2 } from 'lucide-react';
+import {
+  Mail, MessageSquare, Users, Send, Clock, Beaker, RefreshCw, TestTube2,
+  Sparkles, Wand2, Volume2, Scissors, Expand, ShieldCheck, CheckCheck, ListChecks
+} from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 interface OrganizerCommsPanelProps {
   eventId: string;
 }
 
 const smsLength = (text: string) => {
-  // GSM-7 vs unicode is complex; rough counter is fine
   const len = text?.length ?? 0;
   const segments = Math.ceil(len / 160) || 1;
   return { len, segments };
+};
+
+type AiResult = {
+  text?: string;
+  variants?: { text: string; score?: number }[];
+  insights?: string;
 };
 
 export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const { createJob, getRecipientCount, retryJob, loading } = useMessaging();
   const [channel, setChannel] = useState<MessageChannel>('email');
   const [subject, setSubject] = useState('');
+  const [preheader, setPreheader] = useState(''); // NEW
   const [body, setBody] = useState('');
   const [smsBody, setSmsBody] = useState('');
   const [segment, setSegment] = useState<'all_attendees' | 'roles'>('all_attendees');
@@ -36,11 +46,16 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const [audienceCount, setAudienceCount] = useState<number>(0);
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
   const [sendingTest, setSendingTest] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [eventDetails, setEventDetails] = useState<{ title?: string; date?: string }>({});
+  const [aiPanelOpen, setAiPanelOpen] = useState(true); // NEW
+  const [aiOutput, setAiOutput] = useState<AiResult | null>(null);
 
-  // Load audience count
+  // Derived
+  const currentText = useMemo(() => (channel === 'email' ? body : smsBody), [channel, body, smsBody]);
+  const { len, segments } = smsLength(smsBody);
+
+  // Audience count
   useEffect(() => {
     (async () => {
       const count = await getRecipientCount(
@@ -51,49 +66,33 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     })();
   }, [eventId, segment, selectedRoles, getRecipientCount]);
 
-  // Load event details for AI context
+  // Event details
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select('title, start_at')
-        .eq('id', eventId)
-        .single();
-      
-      if (!error && data) {
-        setEventDetails({ 
-          title: data.title, 
-          date: data.start_at ? new Date(data.start_at).toLocaleDateString() : undefined 
+      const { data } = await supabase.from('events').select('title,start_at').eq('id', eventId).single();
+      if (data) {
+        setEventDetails({
+          title: data.title,
+          date: data.start_at ? new Date(data.start_at).toLocaleDateString() : undefined
         });
       }
     })();
   }, [eventId]);
 
-  // Load recent jobs
+  // Recent jobs
   const refreshRecent = async () => {
-    console.log('[OrganizerCommsPanel] Refreshing recent jobs for event:', eventId);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('message_jobs')
       .select('*')
       .eq('event_id', eventId)
       .order('created_at', { ascending: false })
       .limit(5);
-    
-    if (error) {
-      console.error('[OrganizerCommsPanel] Error loading recent jobs:', error);
-    } else {
-      console.log('[OrganizerCommsPanel] Loaded recent jobs:', data);
-      setRecentJobs(data || []);
-    }
+    setRecentJobs(data || []);
   };
   useEffect(() => { refreshRecent(); }, [eventId]);
 
-  // Auto-refresh disabled
-
+  // --- Sending ---
   async function send(dryRun = false) {
-    console.log('[OrganizerCommsPanel] Starting send with dryRun:', dryRun);
-    console.log('[OrganizerCommsPanel] Current state:', { channel, subject, body, smsBody, segment, selectedRoles, audienceCount });
-    
     if (channel === 'email' && !subject.trim()) {
       toast({ title: 'Subject is required for email', variant: 'destructive' });
       return;
@@ -107,135 +106,34 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       return;
     }
 
-    try {
-      console.log('[OrganizerCommsPanel] Calling createJob...');
-      const jobRes = await createJob({
-        eventId,
-        channel,
-        subject,
-        body,
-        smsBody,
-        fromName: 'YardPass',
-        fromEmail: 'onboarding@resend.dev',
-        segment: segment === 'all_attendees' ? { type: 'all_attendees' } : { type: 'roles', roles: selectedRoles },
-        dryRun,
-      });
+    const jobRes = await createJob({
+      eventId,
+      channel,
+      subject,
+      body: preheader ? `<!-- preheader: ${preheader} -->\n${body}` : body, // embed preheader marker
+      smsBody,
+      fromName: 'YardPass',
+      fromEmail: 'onboarding@resend.dev',
+      segment: segment === 'all_attendees' ? { type: 'all_attendees' } : { type: 'roles', roles: selectedRoles },
+      dryRun,
+    });
 
-      console.log('[OrganizerCommsPanel] Job result:', jobRes);
-
-      if (dryRun) {
-        toast({ 
-          title: 'Dry-run (no messages sent)', 
-          description: `${jobRes.recipientCount} recipients would be targeted.` 
-        });
-        return;
-      }
-
-      toast({
-        title: 'Message queued',
-        description: `Your ${channel} will be sent to ${jobRes.recipientCount} recipients`,
-      });
-      
-      // Clear form
-      setSubject(''); 
-      setBody(''); 
-      setSmsBody('');
-      
-      // Refresh the recent jobs list
-      console.log('[OrganizerCommsPanel] Refreshing recent jobs...');
-      await refreshRecent();
-      
-    } catch (error: any) {
-      console.error('[OrganizerCommsPanel] Send error:', error);
-      toast({ 
-        title: 'Failed to send message', 
-        description: error.message || 'Please try again.', 
-        variant: 'destructive' 
-      });
+    if (dryRun) {
+      toast({ title: 'Dry-run (no messages sent)', description: `${jobRes.recipientCount} recipients would be targeted.` });
+      return;
     }
+
+    toast({ title: 'Message queued', description: `Your ${channel} will be sent to ${jobRes.recipientCount} recipients` });
+    setSubject(''); setPreheader(''); setBody(''); setSmsBody('');
+    await refreshRecent();
   }
-
-  async function useAI(action: 'improve' | 'generate_subject' | 'adjust_tone', tone?: string) {
-    setAiLoading(true);
-    try {
-      const currentText = channel === 'email' ? body : smsBody;
-      const { data, error } = await supabase.functions.invoke('ai-writing-assistant', {
-        body: {
-          action,
-          text: action === 'generate_subject' ? currentText : currentText,
-          eventTitle: eventDetails.title,
-          eventDate: eventDetails.date,
-          tone,
-          messageType: channel,
-          audience: segment === 'all_attendees' ? 'all attendees' : selectedRoles.map(r => ROLE_MATRIX[r].label).join(', ')
-        }
-      });
-
-      if (error) throw new Error(error.message);
-
-      if (action === 'generate_subject') {
-        setSubject(data.text);
-        toast({ title: 'Subject generated!', description: 'AI created a subject line for you.' });
-      } else {
-        if (channel === 'email') {
-          setBody(data.text);
-        } else {
-          setSmsBody(data.text);
-        }
-        toast({ title: 'Message improved!', description: 'AI enhanced your message.' });
-      }
-    } catch (error: any) {
-      toast({ title: 'AI failed', description: error.message, variant: 'destructive' });
-    } finally {
-      setAiLoading(false);
-    }
-  }
-
-  const handleRoleToggle = (role: RoleType) => {
-    setSelectedRoles((prev) => (prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]));
-  };
-
-  const getJobStatusBadge = (status: string, jobId: string) => {
-    const isClickable = status === 'failed' || status === 'queued';
-    const common = "text-xs";
-    
-    switch (status) {
-      case 'draft':   
-        return <Badge variant="secondary" className={common}>Draft</Badge>;
-      case 'queued':  
-        return (
-          <Badge variant="outline" className={`${common} cursor-pointer animate-pulse border-yellow-400 text-yellow-600`} onClick={() => retry(jobId)}>
-            Queued (click to run)
-          </Badge>
-        );
-      case 'sending': 
-        return (
-          <Badge variant="default" className={`${common} bg-blue-500 animate-pulse`}>
-            Sending...
-          </Badge>
-        );
-      case 'sent':    
-        return <Badge variant="default" className={`${common} bg-green-500`}>Sent</Badge>;
-      case 'failed':  
-        return (
-          <Badge variant="destructive" className={`${common} cursor-pointer`} onClick={() => retry(jobId)}>
-            Failed (retry)
-          </Badge>
-        );
-      default:        
-        return <Badge variant="secondary" className={common}>{status}</Badge>;
-    }
-  };
 
   async function retry(jobId: string) {
-    console.log('[OrganizerCommsPanel] Retrying job:', jobId);
     try {
       await retryJob(jobId);
       toast({ title: 'Re-queued', description: 'Processing started.' });
-      console.log('[OrganizerCommsPanel] Job retried successfully, refreshing...');
       await refreshRecent();
     } catch (e: any) {
-      console.error('[OrganizerCommsPanel] Retry failed:', e);
       toast({ title: 'Failed to re-queue', description: e.message || 'Please try again.', variant: 'destructive' });
     }
   }
@@ -248,32 +146,27 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         toast({ title: 'Your account has no email', variant: 'destructive' });
         return;
       }
-      // Create a roles segment with just yourself (draft)
+      // Draft-only job, then direct function for email test
       await createJob({
         eventId,
         channel,
         subject: channel === 'email' ? (subject || 'Test Message') : undefined,
-        body,
+        body: preheader ? `<!-- preheader: ${preheader} -->\n${body}` : body,
         smsBody,
         fromName: 'YardPass',
         fromEmail: 'onboarding@resend.dev',
-        segment: { type: 'roles', roles: [] }, // we won't use recipients list here
+        segment: { type: 'roles', roles: [] },
         dryRun: true,
       });
 
-      // Direct edge call with your email/phone (bypassing queue for a one-off test)
       if (channel === 'email') {
-        const html = body || `Test email for event {{event_title}} on {{event_date}}`;
-        const { data, error } = await supabase.functions.invoke('send-email', {
-          body: { 
-            to: user!.email, 
-            subject: subject || 'Test Message', 
-            html 
-          }
+        const html = (preheader ? `<!-- preheader: ${preheader} -->\n` : '') + (body || `Test email for {{event_title}} on {{event_date}}`);
+        const { error } = await supabase.functions.invoke('send-email', {
+          body: { to: user!.email, subject: subject || 'Test Message', html }
         });
         if (error) throw new Error(error.message);
       } else {
-        toast({ title: 'Use a test phone via the queue or Twilio console.' });
+        toast({ title: 'Use a test phone via queue or Twilio console.' });
       }
       toast({ title: 'Test sent' });
     } catch (e: any) {
@@ -283,7 +176,72 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     }
   }
 
-  const { len, segments } = smsLength(smsBody);
+  // --- AI actions ---
+  async function callAI(action: string, opt?: { tone?: string; maxWords?: number }) {
+    setAiLoading(true);
+    setAiOutput(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-writing-assistant', {
+        body: {
+          action,
+          text: action === 'generate_subject' || action === 'subject_variants' || action === 'generate_preheader'
+            ? (body || smsBody || `Reminder for ${eventDetails.title || 'your event'}`)
+            : currentText,
+          eventTitle: eventDetails.title,
+          eventDate: eventDetails.date,
+          tone: opt?.tone,
+          messageType: channel,
+          audience: segment === 'all_attendees' ? 'all attendees' : selectedRoles.map(r => ROLE_MATRIX[r].label).join(', '),
+          maxWords: opt?.maxWords,
+        }
+      });
+      if (error) throw new Error(error.message);
+      setAiPanelOpen(true);
+      setAiOutput(data as AiResult);
+      return data as AiResult;
+    } catch (e: any) {
+      toast({ title: 'AI request failed', description: e?.message ?? String(e), variant: 'destructive' });
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  // Convenience wrappers
+  const aiGenerateSubject = () => callAI('generate_subject');
+  const aiSubjectVariants = () => callAI('subject_variants');
+  const aiPreheader = () => callAI('generate_preheader');
+  const aiImprove = () => callAI('improve');
+  const aiTone = (tone: string) => callAI('adjust_tone', { tone });
+  const aiShorten = () => callAI('shorten', { maxWords: channel === 'sms' ? 24 : 100 });
+  const aiExpand = () => callAI('expand');
+  const aiCTAs = () => callAI('suggest_cta');
+  const aiSpam = () => callAI('optimize_for_spam');
+  const aiGrammar = () => callAI('grammar_check');
+
+  // Apply helpers
+  function applyText(t?: string) {
+    if (!t) return;
+    if (channel === 'email') setBody(t); else setSmsBody(t);
+    toast({ title: 'Applied', description: 'Suggestion inserted.' });
+  }
+
+  function applyVariant(t?: string) {
+    if (!t) return;
+    if (channel === 'email') setBody(t); else setSmsBody(t);
+    toast({ title: 'Variant applied' });
+  }
+
+  function applySubject(t?: string) {
+    if (!t) return;
+    setSubject(t);
+    toast({ title: 'Subject applied' });
+  }
+
+  function applyPreheader(t?: string) {
+    if (!t) return;
+    setPreheader(t);
+    toast({ title: 'Preheader applied' });
+  }
 
   return (
     <div className="space-y-6">
@@ -293,6 +251,12 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
           <CardTitle className="flex items-center gap-2">
             <Send className="h-5 w-5" />
             Send Message
+            <div className="ml-auto flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setAiPanelOpen((v) => !v)}>
+                <Sparkles className="w-4 h-4 mr-1" />
+                {aiPanelOpen ? 'Hide AI' : 'Show AI'}
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -330,7 +294,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                     key={role}
                     variant={selectedRoles.includes(role) ? "default" : "outline"}
                     className="cursor-pointer"
-                    onClick={() => handleRoleToggle(role)}
+                    onClick={() => setSelectedRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role])}
                   >
                     {ROLE_MATRIX[role].label}
                   </Badge>
@@ -349,44 +313,43 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
             </div>
           </div>
 
-          {/* Subject & Body */}
+          {/* Subject / Preheader */}
           {channel === 'email' && (
-            <div>
+            <>
               <div className="flex items-center justify-between">
                 <Label htmlFor="subject-input">Subject</Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => useAI('generate_subject')}
-                  disabled={aiLoading}
-                  className="text-xs"
-                >
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  AI Generate
-                </Button>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={aiGenerateSubject} disabled={aiLoading} className="text-xs">
+                    <Sparkles className="w-3 h-3 mr-1" /> AI Subject
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={aiSubjectVariants} disabled={aiLoading} className="text-xs">
+                    <ListChecks className="w-3 h-3 mr-1" /> 3 Variants
+                  </Button>
+                </div>
               </div>
               <Input id="subject-input" placeholder="Event update: {{event_title}}" value={subject} onChange={e => setSubject(e.target.value)} />
-            </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="preheader-input">Preheader (optional)</Label>
+                <Button variant="ghost" size="sm" onClick={aiPreheader} disabled={aiLoading} className="text-xs">
+                  <Sparkles className="w-3 h-3 mr-1" /> AI Preheader
+                </Button>
+              </div>
+              <Input id="preheader-input" placeholder="A quick teaser to boost opens…" value={preheader} onChange={e => setPreheader(e.target.value)} />
+            </>
           )}
 
+          {/* Body */}
           <div>
             <div className="flex items-center justify-between">
               <Label htmlFor="body-input">{channel === 'email' ? 'Email Body' : 'SMS Message'}</Label>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => useAI('improve')}
-                  disabled={aiLoading || (!body && !smsBody)}
-                  className="text-xs"
-                >
-                  <Wand2 className="w-3 h-3 mr-1" />
-                  AI Improve
+              <div className="flex flex-wrap gap-1">
+                <Button variant="ghost" size="sm" onClick={aiImprove} disabled={aiLoading || !currentText} className="text-xs">
+                  <Wand2 className="w-3 h-3 mr-1" /> Improve
                 </Button>
-                <Select onValueChange={(tone) => useAI('adjust_tone', tone)} disabled={aiLoading || (!body && !smsBody)}>
+                <Select onValueChange={(tone) => aiTone(tone)} disabled={aiLoading || !currentText}>
                   <SelectTrigger className="w-auto h-8 text-xs">
-                    <Volume2 className="w-3 h-3 mr-1" />
-                    Tone
+                    <Volume2 className="w-3 h-3 mr-1" /> Tone
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="professional">Professional</SelectItem>
@@ -395,8 +358,24 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                     <SelectItem value="casual">Casual</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button variant="ghost" size="sm" onClick={aiShorten} disabled={aiLoading || !currentText} className="text-xs">
+                  <Scissors className="w-3 h-3 mr-1" /> Shorten
+                </Button>
+                <Button variant="ghost" size="sm" onClick={aiExpand} disabled={aiLoading || !currentText} className="text-xs">
+                  <Expand className="w-3 h-3 mr-1" /> Expand
+                </Button>
+                <Button variant="ghost" size="sm" onClick={aiCTAs} disabled={aiLoading} className="text-xs">
+                  <CheckCheck className="w-3 h-3 mr-1" /> CTAs
+                </Button>
+                <Button variant="ghost" size="sm" onClick={aiSpam} disabled={aiLoading || !currentText} className="text-xs">
+                  <ShieldCheck className="w-3 h-3 mr-1" /> Minimize spam
+                </Button>
+                <Button variant="ghost" size="sm" onClick={aiGrammar} disabled={aiLoading || !currentText} className="text-xs">
+                  <CheckCheck className="w-3 h-3 mr-1" /> Grammar
+                </Button>
               </div>
             </div>
+
             <Textarea
               id="body-input"
               rows={channel === 'email' ? 10 : 5}
@@ -424,15 +403,78 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
               <TestTube2 className="w-4 h-4 mr-1" /> Send test to me
             </Button>
           </div>
-          
+
           {aiLoading && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Sparkles className="w-4 h-4 animate-pulse" />
-              AI is working on your message...
+              AI is crafting suggestions…
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* AI Suggestions Panel */}
+      {aiPanelOpen && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              AI Suggestions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!aiOutput && (
+              <div className="text-sm text-muted-foreground">
+                Use the AI buttons above to generate subjects, preheaders, CTAs, or improved copy. Suggestions appear here.
+              </div>
+            )}
+
+            {/* Single text suggestion */}
+            {aiOutput?.text && (
+              <div className="border rounded-lg p-3">
+                <div className="text-xs font-medium text-muted-foreground mb-2">Suggestion</div>
+                <pre className="whitespace-pre-wrap text-sm">{aiOutput.text}</pre>
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" onClick={() => applyText(aiOutput.text)}>Apply to body</Button>
+                  {channel === 'email' && <Button size="sm" variant="outline" onClick={() => applySubject(aiOutput.text)}>Use as subject</Button>}
+                  {channel === 'email' && <Button size="sm" variant="outline" onClick={() => applyPreheader(aiOutput.text)}>Use as preheader</Button>}
+                </div>
+              </div>
+            )}
+
+            {/* Variants list (subjects or CTAs, or spam alts) */}
+            {aiOutput?.variants?.length ? (
+              <div className="border rounded-lg p-3">
+                <div className="text-xs font-medium text-muted-foreground mb-2">Variants</div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {aiOutput.variants.map((v, i) => (
+                    <div key={i} className="border rounded p-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-sm whitespace-pre-wrap">{v.text}</div>
+                        {typeof v.score === 'number' && (
+                          <Badge variant="secondary" className="ml-2">{v.score}/10</Badge>
+                        )}
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        <Button size="sm" onClick={() => applyVariant(v.text)}>Apply</Button>
+                        {channel === 'email' && <Button size="sm" variant="outline" onClick={() => applySubject(v.text)}>Use as subject</Button>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Insights */}
+            {aiOutput?.insights && (
+              <div className="border rounded-lg p-3 bg-muted/30">
+                <div className="text-xs font-medium text-muted-foreground mb-2">Insights</div>
+                <p className="text-sm">{aiOutput.insights}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Messages */}
       <Card>
@@ -467,7 +509,19 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-xs">{job.channel.toUpperCase()}</Badge>
                     <Separator orientation="vertical" className="h-4" />
-                    {getJobStatusBadge(job.status, job.id)}
+                    {(() => {
+                      const common = "text-xs";
+                      const clickable = (label: string, cb: () => void, variant: any, extra = "") =>
+                        <Badge variant={variant} className={cn(common, "cursor-pointer", extra)} onClick={cb}>{label}</Badge>;
+                      switch (job.status) {
+                        case 'draft': return <Badge variant="secondary" className={common}>Draft</Badge>;
+                        case 'queued': return clickable('Queued (run)', () => retry(job.id), "outline", "animate-pulse border-yellow-400 text-yellow-600");
+                        case 'sending': return <Badge variant="default" className={cn(common, "bg-blue-500 animate-pulse")}>Sending…</Badge>;
+                        case 'sent': return <Badge variant="default" className={cn(common, "bg-green-500")}>Sent</Badge>;
+                        case 'failed': return clickable('Failed (retry)', () => retry(job.id), "destructive");
+                        default: return <Badge variant="secondary" className={common}>{job.status}</Badge>;
+                      }
+                    })()}
                   </div>
                 </div>
               ))}
