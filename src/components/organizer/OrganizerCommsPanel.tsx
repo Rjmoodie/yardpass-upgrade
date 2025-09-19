@@ -11,7 +11,7 @@ import { useMessaging } from '@/hooks/useMessaging';
 import { toast } from '@/hooks/use-toast';
 import { MessageChannel, RoleType, ROLES, ROLE_MATRIX } from '@/types/roles';
 import { supabase } from '@/integrations/supabase/client';
-import { Mail, MessageSquare, Users, Send, Clock, Beaker, RefreshCw, TestTube2 } from 'lucide-react';
+import { Mail, MessageSquare, Users, Send, Clock, Beaker, RefreshCw, TestTube2, Sparkles, Wand2, Volume2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 interface OrganizerCommsPanelProps {
@@ -37,6 +37,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
   const [sendingTest, setSendingTest] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [eventDetails, setEventDetails] = useState<{ title?: string; date?: string }>({});
 
   // Load audience count
   useEffect(() => {
@@ -48,6 +50,24 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       setAudienceCount(count);
     })();
   }, [eventId, segment, selectedRoles, getRecipientCount]);
+
+  // Load event details for AI context
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('title, start_at')
+        .eq('id', eventId)
+        .single();
+      
+      if (!error && data) {
+        setEventDetails({ 
+          title: data.title, 
+          date: data.start_at ? new Date(data.start_at).toLocaleDateString() : undefined 
+        });
+      }
+    })();
+  }, [eventId]);
 
   // Load recent jobs
   const refreshRecent = async () => {
@@ -132,6 +152,42 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         description: error.message || 'Please try again.', 
         variant: 'destructive' 
       });
+    }
+  }
+
+  async function useAI(action: 'improve' | 'generate_subject' | 'adjust_tone', tone?: string) {
+    setAiLoading(true);
+    try {
+      const currentText = channel === 'email' ? body : smsBody;
+      const { data, error } = await supabase.functions.invoke('ai-writing-assistant', {
+        body: {
+          action,
+          text: action === 'generate_subject' ? currentText : currentText,
+          eventTitle: eventDetails.title,
+          eventDate: eventDetails.date,
+          tone,
+          messageType: channel,
+          audience: segment === 'all_attendees' ? 'all attendees' : selectedRoles.map(r => ROLE_MATRIX[r].label).join(', ')
+        }
+      });
+
+      if (error) throw new Error(error.message);
+
+      if (action === 'generate_subject') {
+        setSubject(data.text);
+        toast({ title: 'Subject generated!', description: 'AI created a subject line for you.' });
+      } else {
+        if (channel === 'email') {
+          setBody(data.text);
+        } else {
+          setSmsBody(data.text);
+        }
+        toast({ title: 'Message improved!', description: 'AI enhanced your message.' });
+      }
+    } catch (error: any) {
+      toast({ title: 'AI failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setAiLoading(false);
     }
   }
 
@@ -296,13 +352,51 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
           {/* Subject & Body */}
           {channel === 'email' && (
             <div>
-              <Label htmlFor="subject-input">Subject</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="subject-input">Subject</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => useAI('generate_subject')}
+                  disabled={aiLoading}
+                  className="text-xs"
+                >
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  AI Generate
+                </Button>
+              </div>
               <Input id="subject-input" placeholder="Event update: {{event_title}}" value={subject} onChange={e => setSubject(e.target.value)} />
             </div>
           )}
 
           <div>
-            <Label htmlFor="body-input">{channel === 'email' ? 'Email Body' : 'SMS Message'}</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="body-input">{channel === 'email' ? 'Email Body' : 'SMS Message'}</Label>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => useAI('improve')}
+                  disabled={aiLoading || (!body && !smsBody)}
+                  className="text-xs"
+                >
+                  <Wand2 className="w-3 h-3 mr-1" />
+                  AI Improve
+                </Button>
+                <Select onValueChange={(tone) => useAI('adjust_tone', tone)} disabled={aiLoading || (!body && !smsBody)}>
+                  <SelectTrigger className="w-auto h-8 text-xs">
+                    <Volume2 className="w-3 h-3 mr-1" />
+                    Tone
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="professional">Professional</SelectItem>
+                    <SelectItem value="friendly">Friendly</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="casual">Casual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <Textarea
               id="body-input"
               rows={channel === 'email' ? 10 : 5}
@@ -320,16 +414,23 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => send(false)} disabled={loading}>
+            <Button onClick={() => send(false)} disabled={loading || aiLoading}>
               {loading ? 'Sending…' : `Send ${channel === 'email' ? 'Email' : 'SMS'} to ${audienceCount}`}
             </Button>
-            <Button variant="outline" onClick={() => send(true)} disabled={loading}>
+            <Button variant="outline" onClick={() => send(true)} disabled={loading || aiLoading}>
               <Beaker className="w-4 h-4 mr-1" /> Dry-run (no send)
             </Button>
-            <Button variant="secondary" onClick={sendTestToMe} disabled={sendingTest || loading}>
+            <Button variant="secondary" onClick={sendTestToMe} disabled={sendingTest || loading || aiLoading}>
               <TestTube2 className="w-4 h-4 mr-1" /> Send test to me
             </Button>
           </div>
+          
+          {aiLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Sparkles className="w-4 h-4 animate-pulse" />
+              AI is working on your message...
+            </div>
+          )}
         </CardContent>
       </Card>
 
