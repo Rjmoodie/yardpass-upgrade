@@ -1,5 +1,5 @@
 // src/components/EventCreator.tsx
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -55,7 +55,32 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
   const { trackEvent } = useAnalyticsIntegration();
   const { toast } = useToast();
 
-  const [step, setStep] = useState(1);
+  const STORAGE_KEY = `event-creator-draft-${organizationId}`;
+
+  // Load saved draft from localStorage
+  const loadDraft = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          step: parsed.step || 1,
+          formData: { ...formData, ...parsed.formData },
+          location: parsed.location || null,
+          ticketTiers: parsed.ticketTiers || [
+            { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100 },
+          ],
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load event creator draft:', error);
+    }
+    return null;
+  };
+
+  const draft = loadDraft();
+  
+  const [step, setStep] = useState(draft?.step || 1);
   const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
 
@@ -63,7 +88,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(draft?.formData || {
     title: '',
     description: '',
     category: '',
@@ -82,10 +107,40 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     },
   });
 
-  const [location, setLocation] = useState<Location | null>(null);
-  const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([
-    { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100 },
-  ]);
+  const [location, setLocation] = useState<Location | null>(draft?.location || null);
+  const [ticketTiers, setTicketTiers] = useState<TicketTier[]>(
+    draft?.ticketTiers || [
+      { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100 },
+    ]
+  );
+
+  // Auto-save to localStorage whenever form data changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          step,
+          formData,
+          location,
+          ticketTiers,
+          lastSaved: Date.now(),
+        }));
+      } catch (error) {
+        console.warn('Failed to save event creator draft:', error);
+      }
+    }, 1000); // Debounce saves by 1 second
+
+    return () => clearTimeout(timeoutId);
+  }, [step, formData, location, ticketTiers, STORAGE_KEY]);
+
+  // Clear draft when event is successfully created
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.warn('Failed to clear event creator draft:', error);
+    }
+  };
 
   // ======= Helpers =======
   const canProceed = () => {
@@ -271,6 +326,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         event_category: formData.category,
       });
 
+      clearDraft(); // Clear the saved draft
       toast({
         title: 'Event Created!',
         description:
@@ -318,6 +374,10 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           <div className="flex-1">
             <h1>Create Event</h1>
             <p className="text-sm text-muted-foreground">Step {step} of {totalSteps}</p>
+          </div>
+          <div className="text-xs text-muted-foreground flex items-center gap-1">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            Auto-saving
           </div>
         </div>
         <Progress value={progress} className="h-2" />
