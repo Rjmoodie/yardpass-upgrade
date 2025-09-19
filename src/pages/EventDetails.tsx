@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Calendar, MapPin, Users, Share2, ArrowLeft } from 'lucide-react';
+import MapboxEventMap from '@/components/MapboxEventMap';
 import { format } from 'date-fns';
 
 type EventRow = {
@@ -205,9 +206,22 @@ export default function EventDetails() {
                   <h3 className="font-semibold">Location</h3>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
                 {locationText && <p className="font-medium">{locationText}</p>}
                 {event.address && <p className="text-sm text-muted-foreground">{event.address}</p>}
+                
+                {/* Add map if coordinates are available */}
+                {event.lat && event.lng && (
+                  <div className="mt-4">
+                    <MapboxEventMap
+                      lat={event.lat}
+                      lng={event.lng}
+                      venue={event.venue}
+                      address={event.address}
+                      className="w-full h-48 rounded-lg"
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
