@@ -2002,13 +2002,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
-            columns: ["event_a"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_b"]
             isOneToOne: false
             referencedRelation: "events"
@@ -2017,13 +2010,20 @@ export type Database = {
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_a"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_b"]
             isOneToOne: false
             referencedRelation: "events_enhanced"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
-            columns: ["event_b"]
+            columns: ["event_a"]
             isOneToOne: false
             referencedRelation: "events_enhanced"
             referencedColumns: ["id"]
@@ -2233,21 +2233,6 @@ export type Database = {
           post_id: string | null
           starts_at: string | null
           title: string | null
-        }
-        Relationships: []
-      }
-      search_docs_mv: {
-        Row: {
-          body: string | null
-          category: string | null
-          item_id: string | null
-          kind: string | null
-          location: string | null
-          organizer_id: string | null
-          post_id: string | null
-          starts_at: string | null
-          title: string | null
-          ts: unknown | null
         }
         Relationships: []
       }
