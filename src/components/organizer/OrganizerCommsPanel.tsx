@@ -119,14 +119,51 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     );
   };
 
-  const getJobStatusBadge = (status: string) => {
+  const getJobStatusBadge = (status: string, jobId: string) => {
+    const handleStatusClick = async () => {
+      if (status === 'failed') {
+        // Retry failed message
+        try {
+          const response = await fetch(`https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/messaging-queue`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ job_id: jobId }),
+          });
+          
+          if (response.ok) {
+            toast({ title: 'Message retry initiated' });
+            // Refresh jobs list
+            const { data } = await supabase
+              .from('message_jobs')
+              .select('*')
+              .eq('event_id', eventId)
+              .order('created_at', { ascending: false })
+              .limit(5);
+            setRecentJobs(data || []);
+          } else {
+            throw new Error('Retry failed');
+          }
+        } catch (error) {
+          toast({ title: 'Failed to retry message', variant: 'destructive' });
+        }
+      } else if (status === 'queued') {
+        toast({ title: 'Message is queued for processing', description: 'Please wait, your message will be sent shortly.' });
+      }
+    };
+
+    const isClickable = status === 'failed' || status === 'queued';
+    const badgeClass = isClickable ? 'cursor-pointer hover:opacity-80' : '';
+
     switch (status) {
-      case 'draft': return <Badge variant="secondary">Draft</Badge>;
-      case 'queued': return <Badge variant="outline">Queued</Badge>;
-      case 'sending': return <Badge variant="default">Sending</Badge>;
+      case 'draft': return <Badge variant="secondary" className={badgeClass}>Draft</Badge>;
+      case 'queued': return <Badge variant="outline" className={badgeClass} onClick={handleStatusClick}>Queued</Badge>;
+      case 'sending': return <Badge variant="default" className={badgeClass}>Sending</Badge>;
       case 'sent': return <Badge variant="default" className="bg-green-500">Sent</Badge>;
-      case 'failed': return <Badge variant="destructive">Failed</Badge>;
-      default: return <Badge variant="secondary">{status}</Badge>;
+      case 'failed': return <Badge variant="destructive" className={badgeClass} onClick={handleStatusClick}>Failed (Click to retry)</Badge>;
+      default: return <Badge variant="secondary" className={badgeClass}>{status}</Badge>;
     }
   };
 
@@ -294,7 +331,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                       {job.channel.toUpperCase()}
                     </Badge>
                     <Separator orientation="vertical" className="h-4" />
-                    {getJobStatusBadge(job.status)}
+                    {getJobStatusBadge(job.status, job.id)}
                   </div>
                 </div>
               ))}
