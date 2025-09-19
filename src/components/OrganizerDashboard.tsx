@@ -173,7 +173,7 @@ export function OrganizerDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
           <TabsTrigger value="dashboard" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Dashboard</span>
@@ -185,10 +185,6 @@ export function OrganizerDashboard() {
           <TabsTrigger value="teams" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Teams</span>
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Analytics</span>
           </TabsTrigger>
           <TabsTrigger value="payouts" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
@@ -208,9 +204,6 @@ export function OrganizerDashboard() {
           <OrganizerCommsPanel eventId={userEvents[0]?.id || ''} />
         </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-6">
-          <AnalyticsHub />
-        </TabsContent>
 
         <TabsContent value="payouts" className="space-y-6">
           <PayoutPanel contextType="individual" contextId={user?.id} />
