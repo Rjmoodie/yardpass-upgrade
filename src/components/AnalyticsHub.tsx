@@ -15,6 +15,8 @@ import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AIInsightsPanel } from '@/components/ai/AIInsightsPanel';
+import { NaturalLanguageQuery } from '@/components/ai/NaturalLanguageQuery';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -1041,7 +1043,7 @@ const AnalyticsHub: React.FC = () => {
         }} className="w-full space-y-8">
           {/* Sticky tablist */}
           <div className="relative z-20">
-            <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50 rounded-xl">
+            <TabsList className="grid w-full grid-cols-5 h-12 p-1 bg-muted/50 rounded-xl">
               <TabsTrigger
                 className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
                 value="overview"
@@ -1065,6 +1067,12 @@ const AnalyticsHub: React.FC = () => {
                 value="audience"
               >
                 Audience
+              </TabsTrigger>
+              <TabsTrigger
+                className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                value="ai-assistant"
+              >
+                AI Assistant
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1246,6 +1254,11 @@ const AnalyticsHub: React.FC = () => {
           {/* AUDIENCE */}
           <TabsContent value="audience" className="space-y-6">
             <AudienceAnalytics selectedOrg={selectedOrg} dateRange={dateRange} />
+          </TabsContent>
+
+          {/* AI ASSISTANT */}
+          <TabsContent value="ai-assistant" className="space-y-6">
+            <NaturalLanguageQuery orgId={selectedOrg} />
           </TabsContent>
         </Tabs>
       </div>
