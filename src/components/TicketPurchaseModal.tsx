@@ -185,12 +185,12 @@ export function TicketPurchaseModal({
           faceValue: ticketTiers.find(t => t.id === tierId)?.price_cents || 0
         }));
 
-      console.log('🚀 Calling enhanced-checkout with:', {
+      console.log('🚀 Calling create-checkout with:', {
         eventId: event.id,
         ticketSelections
       });
 
-      const { data, error } = await supabase.functions.invoke('enhanced-checkout', {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
           eventId: event.id,
           ticketSelections
