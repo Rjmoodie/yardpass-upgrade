@@ -40,7 +40,10 @@ serve(async (req) => {
     // Use same formula as TicketPurchaseModal: Total = (F*1.037 + 2.19)/0.971
     const totalAmount = (faceValue * 1.037 + 2.19) / 0.971;
     const totalCents = Math.round(totalAmount * 100);
-    const applicationFeeCents = totalCents - faceValueCents;
+    const processingFee = totalAmount - faceValue;
+    const stripeFee = 0.029 * totalAmount + 0.30;
+    const platformComponent = processingFee - stripeFee;
+    const applicationFeeCents = Math.round(processingFee * 100);
 
     // Create checkout session with destination charges if payout account exists
     const sessionConfig: any = {
