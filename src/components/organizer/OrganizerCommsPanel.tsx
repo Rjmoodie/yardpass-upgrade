@@ -367,11 +367,6 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
             <Button variant="ghost" size="icon" onClick={refreshRecent} title="Refresh" className="ml-auto">
               <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'animate-spin text-blue-500' : ''}`} />
             </Button>
-            {autoRefresh && (
-              <Badge variant="outline" className="text-xs">
-                Auto-refreshing
-              </Badge>
-            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
