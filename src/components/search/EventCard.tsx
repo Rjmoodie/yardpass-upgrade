@@ -95,11 +95,7 @@ export function EventCard({ event, onClick, onTicket, onBookmark, onShare, class
               </div>
             </div>
 
-            <div className="mt-3 flex items-center justify-between">
-              <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                <Users className="w-3 h-3" /> {event.attendeeCount ?? '—'} attending
-              </div>
-
+            <div className="mt-3 flex items-center justify-end">
               {/* Quick actions (optional) */}
               <div className="flex items-center gap-1">
                 {onTicket && (
