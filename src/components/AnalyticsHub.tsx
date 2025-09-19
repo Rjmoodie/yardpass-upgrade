@@ -1,12 +1,10 @@
 /* src/components/AnalyticsHub.tsx
- *
- * Enhanced drop-in replacement:
- * - Auto-refresh toggle (persists to localStorage) + manual refresh
- * - Optional realtime subscribe (events/orders/tickets/posts/reactions) toggle
- * - Deep-linking (sync org, dateRange, activeTab to URL) + Share/Copy Link
- * - CSV/JSON export (overview KPIs, revenue trend, top events, event list, video & audience)
- * - Better skeletons, error surfaces, resilient fallbacks
- * - Small UX nice-ties: sticky tablist kept, safe formatting, memoized totals
+ * AI-upgraded Analytics Hub
+ * - Inline AI Insights panel (summaries, anomalies, recommended actions)
+ * - “Explain this KPI” quick prompts
+ * - Ask AI for Insights runs a holistic pass over KPIs + revenue trend + top events
+ * - NLQ tab gets org/date context + starter questions
+ * - Caches insights per org/range; supports refresh + feedback
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -15,8 +13,6 @@ import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AIInsightsPanel } from '@/components/ai/AIInsightsPanel';
-import { NaturalLanguageQuery } from '@/components/ai/NaturalLanguageQuery';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -32,10 +28,14 @@ import {
   Download as DownloadIcon,
   RefreshCw as RefreshIcon,
   Share2 as ShareIcon,
-  Link as LinkIcon,
   Pause as PauseIcon,
   Play as ResumeIcon,
   Radio as RadioIcon,
+  Wand2 as WandIcon,
+  ThumbsUp,
+  ThumbsDown,
+  Lightbulb,
+  HelpCircle,
 } from 'lucide-react';
 
 // Charts
@@ -48,6 +48,10 @@ import {
   YAxis,
   Tooltip,
 } from 'recharts';
+
+// If you already have this component, keep it. Otherwise, you can remove the tab below.
+// It’s passed orgId/dateRange for context + starter questions.
+import { NaturalLanguageQuery } from '@/components/ai/NaturalLanguageQuery';
 
 /* ---------------------------- Types ---------------------------- */
 
@@ -112,6 +116,142 @@ const copyToClipboard = async (text: string) => {
   }
 };
 
+/* ------------------------- AI: Inline Panel ------------------------- */
+/**
+ * Expected Edge Function: ai-analytics-insights
+ * Request body:
+ * {
+ *   org_id: string,
+ *   date_range: "7d" | "30d" | "90d",
+ *   kpis: AnalyticsKPIs,
+ *   revenue_trend: Array<{date: string, revenue: number}>,
+ *   top_events: Array<{event_id: string, title: string, revenue: number}>,
+ *   question?: string // optional for "Explain this KPI"
+ * }
+ *
+ * Response:
+ * {
+ *   summary: string,                     // brief overview
+ *   anomalies?: string[],                // bullet points
+ *   recommended_actions?: string[],      // bullet points
+ *   notes?: string[],                    // extra context
+ * }
+ */
+
+type AIInsights = {
+  summary: string;
+  anomalies?: string[];
+  recommended_actions?: string[];
+  notes?: string[];
+};
+
+const useAIInsights = () => {
+  const [loading, setLoading] = useState(false);
+  const [insights, setInsights] = useState<AIInsights | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = useCallback(async (payload: any) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-analytics-insights', {
+        body: payload,
+      });
+      if (error) throw new Error(error.message);
+      setInsights(data as AIInsights);
+      return data as AIInsights;
+    } catch (e: any) {
+      setError(e?.message || 'AI insights failed');
+      setInsights(null);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { loading, insights, error, run, setInsights };
+};
+
+const InlineAIInsightsPanel: React.FC<{
+  loading: boolean;
+  insights: AIInsights | null;
+  error: string | null;
+  onRefresh: () => void;
+  onFeedback: (helpful: boolean) => void;
+}> = ({ loading, insights, error, onRefresh, onFeedback }) => {
+  return (
+    <Card className="border-primary/30">
+      <CardHeader className="flex items-center justify-between">
+        <CardTitle className="flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-primary" />
+          AI Insights
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={onRefresh}>
+            <WandIcon className="h-4 w-4 mr-1" />
+            Refresh
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading && <div className="text-sm text-muted-foreground">Analyzing your metrics…</div>}
+        {error && <div className="text-sm text-red-500">AI error: {error}</div>}
+
+        {!loading && !error && insights && (
+          <>
+            {insights.summary && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">Summary</div>
+                <p className="text-sm whitespace-pre-wrap">{insights.summary}</p>
+              </div>
+            )}
+
+            {insights.anomalies?.length ? (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">Notable changes</div>
+                <ul className="list-disc pl-5 text-sm space-y-1">
+                  {insights.anomalies.map((a, i) => <li key={i}>{a}</li>)}
+                </ul>
+              </div>
+            ) : null}
+
+            {insights.recommended_actions?.length ? (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">Suggested actions</div>
+                <ul className="list-disc pl-5 text-sm space-y-1">
+                  {insights.recommended_actions.map((a, i) => <li key={i}>{a}</li>)}
+                </ul>
+              </div>
+            ) : null}
+
+            {insights.notes?.length ? (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">Notes</div>
+                <ul className="list-disc pl-5 text-sm space-y-1">
+                  {insights.notes.map((n, i) => <li key={i}>{n}</li>)}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="flex items-center gap-2 pt-2">
+              <Button size="sm" variant="ghost" onClick={() => onFeedback(true)}>
+                <ThumbsUp className="h-4 w-4 mr-1" /> Helpful
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => onFeedback(false)}>
+                <ThumbsDown className="h-4 w-4 mr-1" /> Not helpful
+              </Button>
+            </div>
+          </>
+        )}
+
+        {!loading && !error && !insights && (
+          <div className="text-sm text-muted-foreground">Click “Ask AI for insights” to generate a summary.</div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 /* ----------------------- Video Analytics ------------------------- */
 
 const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
@@ -123,7 +263,7 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
     try {
       const { data, error } = await supabase.functions.invoke('analytics-video-mux', {
         body: {
-          asset_ids: [], // wire in real Mux asset IDs if available
+          asset_ids: [],
           from_date: getDateFromRange(dateRange),
           to_date: new Date().toISOString(),
           org_id: selectedOrg,
@@ -134,7 +274,6 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
       setVideoData(data);
     } catch (err) {
       console.error('Video analytics error:', err);
-      // Fallback sample data
       setVideoData({
         total_plays: 12847,
         avg_watch_time: 272,
@@ -163,11 +302,7 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
   };
 
   const exportJSON = () =>
-    downloadFile(
-      `videos_${new Date().toISOString()}.json`,
-      JSON.stringify(videoData || {}, null, 2),
-      'application/json'
-    );
+    downloadFile(`videos_${new Date().toISOString()}.json`, JSON.stringify(videoData || {}, null, 2), 'application/json');
 
   const exportCSV = () => {
     const rows = (videoData?.videos || []).map((v: any) => ({
@@ -270,7 +405,7 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
   );
 };
 
-/* ---------------------- Audience Analytics ----------------------- */
+/* ----------------------- Audience Analytics ----------------------- */
 
 const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
   const [audienceData, setAudienceData] = useState<any>(null);
@@ -279,7 +414,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
   const fetchAudienceAnalytics = useCallback(async () => {
     setLoading(true);
     try {
-      const eventIds: string[] = []; // Optional: fill with tracked event IDs
+      const eventIds: string[] = [];
       const { data, error } = await supabase.functions.invoke('analytics-posthog-funnel', {
         body: {
           event_ids: eventIds,
@@ -323,11 +458,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
   }, [selectedOrg, dateRange, fetchAudienceAnalytics]);
 
   const exportJSON = () =>
-    downloadFile(
-      `audience_${new Date().toISOString()}.json`,
-      JSON.stringify(audienceData || {}, null, 2),
-      'application/json'
-    );
+    downloadFile(`audience_${new Date().toISOString()}.json`, JSON.stringify(audienceData || {}, null, 2), 'application/json');
 
   const exportCSV = () => {
     const rows = [
@@ -350,7 +481,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
         conversion_rate: d.conversion_rate,
       })),
     ];
-    downloadFile(`audience_${new Date().toISOString()}.csv`, toCSV(rows), 'text/csv');
+    downloadFile(`audience_${new Date().toISOString()}.csv`, toCSV(rows as any), 'text/csv');
   };
 
   if (loading) return <div className="text-center py-8">Loading audience analytics...</div>;
@@ -456,7 +587,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
 
 /* ----------------------- Event Analytics ------------------------ */
 
-const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
+const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string; onExplain: (q: string) => void }> = ({ selectedOrg, dateRange, onExplain }) => {
   const { trackEvent } = useAnalyticsIntegration();
   const [eventData, setEventData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -525,7 +656,6 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
       setEventData(mapped);
     } catch (err) {
       console.error('Event analytics error:', err);
-      // Fallback sample
       setEventData([
         {
           id: '1',
@@ -582,11 +712,7 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
   }, [eventData]);
 
   const exportEventsJSON = () =>
-    downloadFile(
-      `events_${new Date().toISOString()}.json`,
-      JSON.stringify(eventData || [], null, 2),
-      'application/json'
-    );
+    downloadFile(`events_${new Date().toISOString()}.json`, JSON.stringify(eventData || [], null, 2), 'application/json');
 
   const exportEventsCSV = () =>
     downloadFile(
@@ -662,10 +788,20 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totals.tickets.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {totals.attendees.toLocaleString()} attended (
                 {totals.tickets > 0 ? ((totals.attendees / totals.tickets) * 100).toFixed(1) : '0.0'}%)
-              </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2"
+                  onClick={() => onExplain('Explain the gap between tickets sold and attendees, and suggest tactics to reduce no-shows.')}
+                  title="Explain with AI"
+                >
+                  <HelpCircle className="h-3.5 w-3.5 mr-1" />
+                  Explain
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -676,9 +812,19 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totals.engagements.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 Avg: {Math.round(totals.engagements / Math.max(1, eventData.length))} per event
-              </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2"
+                  onClick={() => onExplain('Our feed engagements seem low relative to attendance; propose 3 experiments to lift engagement.')}
+                  title="Explain with AI"
+                >
+                  <HelpCircle className="h-3.5 w-3.5 mr-1" />
+                  Explain
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -713,7 +859,6 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
                 key={event.id} 
                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors cursor-pointer active:scale-[0.98] sm:active:scale-100"
                 onClick={() => {
-                  trackEvent('event_analytics_detail_click', { event_id: event.id, source: 'analytics_hub' });
                   window.location.href = `/analytics/event/${event.id}`;
                 }}
               >
@@ -765,12 +910,18 @@ const AnalyticsHub: React.FC = () => {
   const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
   const [loading, setLoading] = useState(false);
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'videos' | 'audience'>(
+  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'videos' | 'audience' | 'ai-assistant'>(
     (new URLSearchParams(location.search).get('tab') as any) || 'overview'
   );
 
   const [autoRefresh, setAutoRefresh] = useState<boolean>(() => localStorage.getItem('ah.autoRefresh') === 'true');
   const [realtime, setRealtime] = useState<boolean>(() => localStorage.getItem('ah.realtime') === 'true');
+
+  // AI insights hook
+  const { loading: aiLoading, insights, error: aiError, run: runAI, setInsights } = useAIInsights();
+
+  // cache key
+  const aiCacheKey = useMemo(() => (selectedOrg ? `ah.ai.${selectedOrg}.${dateRange}` : ''), [selectedOrg, dateRange]);
 
   // Organizations
   useEffect(() => {
@@ -784,34 +935,19 @@ const AnalyticsHub: React.FC = () => {
         if (!selectedOrg && orgs.length > 0) setSelectedOrg(orgs[0].id);
       } catch (err) {
         console.error('Error fetching organizations:', err);
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch organizations',
-          variant: 'destructive',
-        });
+        toast({ title: 'Error', description: 'Failed to fetch organizations', variant: 'destructive' });
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // Persist selections
-  useEffect(() => {
-    if (selectedOrg) localStorage.setItem('ah.selectedOrg', selectedOrg);
-  }, [selectedOrg]);
+  useEffect(() => { if (selectedOrg) localStorage.setItem('ah.selectedOrg', selectedOrg); }, [selectedOrg]);
+  useEffect(() => { if (dateRange) localStorage.setItem('ah.dateRange', dateRange); }, [dateRange]);
+  useEffect(() => { localStorage.setItem('ah.autoRefresh', String(autoRefresh)); }, [autoRefresh]);
+  useEffect(() => { localStorage.setItem('ah.realtime', String(realtime)); }, [realtime]);
 
-  useEffect(() => {
-    if (dateRange) localStorage.setItem('ah.dateRange', dateRange);
-  }, [dateRange]);
-
-  useEffect(() => {
-    localStorage.setItem('ah.autoRefresh', String(autoRefresh));
-  }, [autoRefresh]);
-
-  useEffect(() => {
-    localStorage.setItem('ah.realtime', String(realtime));
-  }, [realtime]);
-
-  // Deep-linking to URL
+  // Deep-link URL
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (selectedOrg) params.set('org', selectedOrg); else params.delete('org');
@@ -836,28 +972,26 @@ const AnalyticsHub: React.FC = () => {
 
       if (error) {
         console.error('Analytics error:', error);
-        toast({
-          title: 'Error',
-          description: `Failed to fetch analytics: ${error.message || 'Unknown error'}`,
-          variant: 'destructive',
-        });
+        toast({ title: 'Error', description: `Failed to fetch analytics: ${error.message || 'Unknown error'}`, variant: 'destructive' });
         setAnalytics(null);
         return;
       }
 
       setAnalytics(data as OrgAnalytics);
+
+      // Try to hydrate cached AI insights if any
+      const cached = aiCacheKey ? localStorage.getItem(aiCacheKey) : null;
+      if (cached) {
+        try { setInsights(JSON.parse(cached) as AIInsights); } catch {}
+      }
     } catch (err: any) {
       console.error('Analytics invoke failed:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch analytics',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to fetch analytics', variant: 'destructive' });
       setAnalytics(null);
     } finally {
       setLoading(false);
     }
-  }, [selectedOrg, dateRange]);
+  }, [selectedOrg, dateRange, aiCacheKey, setInsights]);
 
   useEffect(() => {
     if (selectedOrg) fetchAnalytics();
@@ -870,7 +1004,7 @@ const AnalyticsHub: React.FC = () => {
     return () => clearInterval(i);
   }, [autoRefresh, fetchAnalytics]);
 
-  // Optional realtime refresh on db changes (broad but useful)
+  // Optional realtime refresh
   useEffect(() => {
     if (!realtime || !selectedOrg) return;
     const ch = supabase
@@ -891,23 +1025,19 @@ const AnalyticsHub: React.FC = () => {
     );
   }
 
-  // Derived deltas (overview): simple revenue MoM-ish if series present
+  // Derived deltas (overview)
   const revenueDeltaPct = useMemo(() => {
     const s = analytics?.revenue_trend || [];
     if (s.length < 2) return null;
-    // Compare last point to first point
     const first = s[0]?.revenue || 0;
     const last = s[s.length - 1]?.revenue || 0;
     if (first === 0) return null;
     return ((last - first) / Math.max(1, first)) * 100;
   }, [analytics]);
 
+  // Exporters
   const exportOverviewJSON = () =>
-    downloadFile(
-      `overview_${new Date().toISOString()}.json`,
-      JSON.stringify(analytics || {}, null, 2),
-      'application/json'
-    );
+    downloadFile(`overview_${new Date().toISOString()}.json`, JSON.stringify(analytics || {}, null, 2), 'application/json');
 
   const exportOverviewCSV = () => {
     const kpis = analytics?.kpis || ({} as AnalyticsKPIs);
@@ -952,6 +1082,53 @@ const AnalyticsHub: React.FC = () => {
       'text/csv'
     );
 
+  // ----- AI: triggers -----
+  const askAIOverview = async () => {
+    if (!analytics || !selectedOrg) return;
+    const payload = {
+      org_id: selectedOrg,
+      date_range: dateRange,
+      kpis: analytics.kpis,
+      revenue_trend: analytics.revenue_trend?.map(d => ({ date: d.date, revenue: d.revenue })) || [],
+      top_events: analytics.top_events || [],
+    };
+    const res = await runAI(payload);
+    if (res && aiCacheKey) {
+      localStorage.setItem(aiCacheKey, JSON.stringify(res));
+    }
+  };
+
+  const explainKPI = async (question: string) => {
+    if (!analytics || !selectedOrg) return;
+    const payload = {
+      org_id: selectedOrg,
+      date_range: dateRange,
+      kpis: analytics.kpis,
+      revenue_trend: analytics.revenue_trend?.map(d => ({ date: d.date, revenue: d.revenue })) || [],
+      top_events: analytics.top_events || [],
+      question,
+    };
+    const res = await runAI(payload);
+    if (res && aiCacheKey) {
+      localStorage.setItem(aiCacheKey, JSON.stringify(res));
+    }
+  };
+
+  const feedbackAI = async (helpful: boolean) => {
+    try {
+      // Optional: store feedback for tuning
+      await supabase.from('ai_insights_feedback').insert({
+        org_id: selectedOrg,
+        date_range: dateRange,
+        helpful,
+        provided_at: new Date().toISOString(),
+      });
+      toast({ title: helpful ? 'Thanks for the feedback!' : 'We’ll improve your insights.' });
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="min-h-0 w-full">
       <div className="container mx-auto p-6 max-w-7xl">
@@ -980,11 +1157,7 @@ const AnalyticsHub: React.FC = () => {
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <Select value={selectedOrg} onValueChange={(orgId) => {
             setSelectedOrg(orgId);
-            trackEvent('analytics_org_change', {
-              organization_id: orgId,
-              date_range: dateRange,
-              active_tab: activeTab
-            });
+            trackEvent('analytics_org_change', { organization_id: orgId, date_range: dateRange, active_tab: activeTab });
           }}>
             <SelectTrigger className="w-full sm:w-64" aria-label="Select organization">
               <SelectValue placeholder={organizations.length ? 'Select organization' : 'No organizations'} />
@@ -1000,12 +1173,7 @@ const AnalyticsHub: React.FC = () => {
 
           <Select value={dateRange} onValueChange={(range) => {
             setDateRange(range);
-            trackEvent('analytics_date_range_change', {
-              from_range: dateRange,
-              to_range: range,
-              organization_id: selectedOrg,
-              active_tab: activeTab
-            });
+            trackEvent('analytics_date_range_change', { from_range: dateRange, to_range: range, organization_id: selectedOrg, active_tab: activeTab });
           }}>
             <SelectTrigger className="w-full sm:w-40" aria-label="Select date range">
               <SelectValue />
@@ -1018,11 +1186,7 @@ const AnalyticsHub: React.FC = () => {
           </Select>
 
           <Button onClick={() => {
-            trackEvent('analytics_refresh_click', {
-              organization_id: selectedOrg,
-              date_range: dateRange,
-              active_tab: activeTab
-            });
+            trackEvent('analytics_refresh_click', { organization_id: selectedOrg, date_range: dateRange, active_tab: activeTab });
             fetchAnalytics();
           }} disabled={loading} variant="outline">
             <RefreshIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -1034,46 +1198,15 @@ const AnalyticsHub: React.FC = () => {
         <Tabs value={activeTab} onValueChange={(v) => {
           const newTab = v as typeof activeTab;
           setActiveTab(newTab);
-          trackEvent('analytics_tab_change', {
-            from_tab: activeTab,
-            to_tab: newTab,
-            organization_id: selectedOrg,
-            date_range: dateRange
-          });
+          trackEvent('analytics_tab_change', { from_tab: activeTab, to_tab: newTab, organization_id: selectedOrg, date_range: dateRange });
         }} className="w-full space-y-8">
-          {/* Sticky tablist */}
           <div className="relative z-20">
             <TabsList className="grid w-full grid-cols-5 h-12 p-1 bg-muted/50 rounded-xl">
-              <TabsTrigger
-                className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-                value="overview"
-              >
-                Overview
-              </TabsTrigger>
-              <TabsTrigger
-                className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-                value="events"
-              >
-                Events
-              </TabsTrigger>
-              <TabsTrigger
-                className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-                value="videos"
-              >
-                Videos
-              </TabsTrigger>
-              <TabsTrigger
-                className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-                value="audience"
-              >
-                Audience
-              </TabsTrigger>
-              <TabsTrigger
-                className="pointer-events-auto font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-                value="ai-assistant"
-              >
-                AI Assistant
-              </TabsTrigger>
+              <TabsTrigger className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="overview">Overview</TabsTrigger>
+              <TabsTrigger className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="events">Events</TabsTrigger>
+              <TabsTrigger className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="videos">Videos</TabsTrigger>
+              <TabsTrigger className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="audience">Audience</TabsTrigger>
+              <TabsTrigger className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="ai-assistant">AI Assistant</TabsTrigger>
             </TabsList>
           </div>
 
@@ -1083,13 +1216,8 @@ const AnalyticsHub: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[...Array(8)].map((_, i) => (
                   <Card key={i} className="animate-pulse">
-                    <CardHeader className="pb-2">
-                      <div className="h-4 bg-muted rounded w-3/4" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-8 bg-muted rounded w-1/2 mb-2" />
-                      <div className="h-3 bg-muted rounded w-full" />
-                    </CardContent>
+                    <CardHeader className="pb-2"><div className="h-4 bg-muted rounded w-3/4" /></CardHeader>
+                    <CardContent><div className="h-8 bg-muted rounded w-1/2 mb-2" /><div className="h-3 bg-muted rounded w-full" /></CardContent>
                   </Card>
                 ))}
               </div>
@@ -1105,9 +1233,17 @@ const AnalyticsHub: React.FC = () => {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">{formatCurrency(analytics.kpis.gross_revenue)}</div>
-                        <p className="text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           Net: {formatCurrency(analytics.kpis.net_revenue)}
-                        </p>
+                          <Button
+                            variant="ghost" size="sm" className="h-6 px-2"
+                            onClick={() => explainKPI('Explain what’s driving net vs gross revenue and list 3 levers to improve net.')}
+                            title="Explain with AI"
+                          >
+                            <HelpCircle className="h-3.5 w-3.5 mr-1" />
+                            Explain
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
 
@@ -1118,9 +1254,17 @@ const AnalyticsHub: React.FC = () => {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">{analytics.kpis.tickets_sold.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground">
-                          {analytics.kpis.refund_rate.toFixed(1)}% refund rate
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          Refunds: {analytics.kpis.refund_rate.toFixed(1)}%
+                          <Button
+                            variant="ghost" size="sm" className="h-6 px-2"
+                            onClick={() => explainKPI('Our refund rate seems elevated; diagnose likely causes and propose fixes.')}
+                            title="Explain with AI"
+                          >
+                            <HelpCircle className="h-3.5 w-3.5 mr-1" />
+                            Explain
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
 
@@ -1131,9 +1275,17 @@ const AnalyticsHub: React.FC = () => {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">{analytics.kpis.unique_buyers.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground">
-                          {analytics.kpis.no_show_rate.toFixed(1)}% no-show rate
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          No-show: {analytics.kpis.no_show_rate.toFixed(1)}%
+                          <Button
+                            variant="ghost" size="sm" className="h-6 px-2"
+                            onClick={() => explainKPI('How can we reduce no-show rate with messaging and incentives?')}
+                            title="Explain with AI"
+                          >
+                            <HelpCircle className="h-3.5 w-3.5 mr-1" />
+                            Explain
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
 
@@ -1144,7 +1296,17 @@ const AnalyticsHub: React.FC = () => {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">{analytics.kpis.feed_engagements.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground">{analytics.kpis.posts_created} posts created</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {analytics.kpis.posts_created} posts
+                          <Button
+                            variant="ghost" size="sm" className="h-6 px-2"
+                            onClick={() => explainKPI('Suggest content/post cadence to increase feed engagement and ticket conversion.')}
+                            title="Explain with AI"
+                          >
+                            <HelpCircle className="h-3.5 w-3.5 mr-1" />
+                            Explain
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   </div>
@@ -1159,12 +1321,12 @@ const AnalyticsHub: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Revenue Trend (mini chart) */}
+                {/* Revenue Trend */}
                 {analytics.revenue_trend?.length > 0 && (
                   <Card>
                     <CardHeader className="flex items-center justify-between">
                       <CardTitle>Revenue Trend</CardTitle>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
                         {typeof revenueDeltaPct === 'number' && (
                           <span className="text-xs text-muted-foreground">
                             Δ {(revenueDeltaPct > 0 ? '+' : '') + revenueDeltaPct.toFixed(1)}%
@@ -1180,10 +1342,7 @@ const AnalyticsHub: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                           <AreaChart
                             data={analytics.revenue_trend.map((d) => ({
-                              date: new Date(d.date).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              }),
+                              date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                               revenueUSD: (d.revenue || 0) / 100,
                             }))}
                           >
@@ -1205,33 +1364,52 @@ const AnalyticsHub: React.FC = () => {
                   </Card>
                 )}
 
-                {/* Top Events */}
-                {analytics.top_events?.length > 0 && (
-                  <Card>
-                    <CardHeader className="flex items-center justify-between">
-                      <CardTitle>Top Events by Revenue</CardTitle>
-                      <Button size="sm" variant="outline" onClick={exportTopEventsCSV}>
-                        <DownloadIcon className="h-4 w-4 mr-1" /> CSV
-                      </Button>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {analytics.top_events.slice(0, 5).map((event, index) => (
-                          <div key={event.event_id} className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="text-sm font-medium text-muted-foreground">#{index + 1}</div>
-                              <div>
-                                <p className="font-medium">{event.title}</p>
+                {/* AI Insights + Top Events */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <InlineAIInsightsPanel
+                    loading={aiLoading}
+                    insights={insights}
+                    error={aiError}
+                    onRefresh={askAIOverview}
+                    onFeedback={feedbackAI}
+                  />
+
+                  {analytics.top_events?.length > 0 && (
+                    <Card>
+                      <CardHeader className="flex items-center justify-between">
+                        <CardTitle>Top Events by Revenue</CardTitle>
+                        <Button size="sm" variant="outline" onClick={exportTopEventsCSV}>
+                          <DownloadIcon className="h-4 w-4 mr-1" /> CSV
+                        </Button>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {analytics.top_events.slice(0, 5).map((event, index) => (
+                            <div key={event.event_id} className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="text-sm font-medium text-muted-foreground">#{index + 1}</div>
+                                <div>
+                                  <p className="font-medium">{event.title}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-medium">{formatCurrency(event.revenue)}</p>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="font-medium">{formatCurrency(event.revenue)}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+
+                {/* CTA to generate insights if empty */}
+                {!insights && (
+                  <div className="flex justify-center">
+                    <Button size="sm" onClick={askAIOverview}>
+                      <WandIcon className="h-4 w-4 mr-1" /> Ask AI for insights
+                    </Button>
+                  </div>
                 )}
               </>
             ) : (
@@ -1243,7 +1421,11 @@ const AnalyticsHub: React.FC = () => {
 
           {/* EVENTS */}
           <TabsContent value="events">
-            <EventAnalyticsComponent selectedOrg={selectedOrg} dateRange={dateRange} />
+            <EventAnalyticsComponent
+              selectedOrg={selectedOrg}
+              dateRange={dateRange}
+              onExplain={explainKPI}
+            />
           </TabsContent>
 
           {/* VIDEOS */}
@@ -1258,7 +1440,18 @@ const AnalyticsHub: React.FC = () => {
 
           {/* AI ASSISTANT */}
           <TabsContent value="ai-assistant" className="space-y-6">
-            <NaturalLanguageQuery orgId={selectedOrg} />
+            {/* Pass context + helpful starters for less blank-page feel */}
+            <NaturalLanguageQuery
+              orgId={selectedOrg}
+              dateRange={dateRange}
+              starterQuestions={[
+                'Which 3 events drove most net revenue and why?',
+                'Is our refund rate abnormal vs. previous period?',
+                'What 2 experiments can lift CTA→Checkout conversion?',
+                'Segment buyers vs repeat buyers – where’s the growth?',
+                'Correlate video plays with ticket sales this month.'
+              ]}
+            />
           </TabsContent>
         </Tabs>
       </div>
