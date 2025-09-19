@@ -26,9 +26,10 @@ serve(async (req) => {
     const { org_id, date_range, kpis, revenue_trend, top_events, question } = await req.json();
 
     const systemPrompt = `You are an AI analytics assistant for YardPass, an event management platform. 
-    Analyze the provided analytics data and generate actionable insights for event organizers.
+    Analyze the provided analytics data for a specific organization and generate actionable insights for that organization's event organizers.
     
-    Be specific, data-driven, and focus on actionable recommendations.
+    IMPORTANT: Focus only on the data provided for this specific organization (org_id: ${org_id}). Do not make general assumptions or provide generic advice.
+    Be specific, data-driven, and focus on actionable recommendations based solely on this organization's performance.
     Return responses in JSON format with summary, anomalies, recommended_actions, and notes.`;
 
     const analyticsData = {
@@ -42,28 +43,32 @@ serve(async (req) => {
 
     let userPrompt = "";
     if (question) {
-      userPrompt = `Based on this analytics data, answer this specific question: "${question}"
+      userPrompt = `Based on this analytics data for organization ${org_id}, answer this specific question: "${question}"
       
-      Analytics Data:
+      Organization-Specific Analytics Data (${date_range}):
       ${JSON.stringify(analyticsData, null, 2)}
       
+      IMPORTANT: Provide insights specific to this organization's performance only. Do not make industry-wide generalizations.
+      
       Return JSON with: {
-        "summary": "Direct answer to the question",
-        "anomalies": ["any anomalies related to the question"],
-        "recommended_actions": ["specific actions to address the question"],
-        "notes": ["additional context or insights"]
+        "summary": "Direct answer to the question based on this organization's data",
+        "anomalies": ["any anomalies specific to this organization"],
+        "recommended_actions": ["specific actions for this organization"],
+        "notes": ["additional context based on this organization's metrics"]
       }`;
     } else {
-      userPrompt = `Analyze this event analytics data and provide an overview with insights:
+      userPrompt = `Analyze this event analytics data for organization ${org_id} and provide an organization-specific overview with insights:
       
-      Analytics Data:
+      Organization-Specific Analytics Data (${date_range}):
       ${JSON.stringify(analyticsData, null, 2)}
       
+      IMPORTANT: Provide insights specific to this organization's performance only. Do not make industry-wide generalizations.
+      
       Return JSON with: {
-        "summary": "Brief overview of performance",
-        "anomalies": ["noteworthy patterns or unusual metrics"],
-        "recommended_actions": ["3-5 specific actionable recommendations"],
-        "notes": ["additional context or insights"]
+        "summary": "Brief overview of this organization's performance",
+        "anomalies": ["noteworthy patterns or unusual metrics specific to this organization"],
+        "recommended_actions": ["3-5 specific actionable recommendations for this organization"],
+        "notes": ["additional context or insights based on this organization's data"]
       }`;
     }
 
