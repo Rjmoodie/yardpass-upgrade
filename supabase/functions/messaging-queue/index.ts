@@ -19,8 +19,10 @@ serve(async (req) => {
 
   try {
     const { job_id, batch_size = 200 } = await req.json();
+    console.log('[messaging-queue] Processing job:', job_id, 'batch size:', batch_size);
 
     if (!job_id) {
+      console.error('[messaging-queue] Missing job_id');
       return createErrorResponse("Missing job_id", 400);
     }
 
@@ -32,8 +34,11 @@ serve(async (req) => {
       .single();
 
     if (jobError || !job) {
+      console.error('[messaging-queue] Job not found:', jobError);
       return createErrorResponse("Job not found", 404);
     }
+
+    console.log('[messaging-queue] Found job:', job.id, 'status:', job.status, 'channel:', job.channel);
 
     // Get pending recipients 
     const { data: recipients, error: recipientsError } = await supabase
@@ -44,10 +49,14 @@ serve(async (req) => {
       .limit(batch_size);
 
     if (recipientsError) {
+      console.error('[messaging-queue] Recipients error:', recipientsError);
       return createErrorResponse(recipientsError.message, 500);
     }
 
+    console.log('[messaging-queue] Found recipients:', recipients?.length || 0);
+
     if (!recipients || recipients.length === 0) {
+      console.log('[messaging-queue] No pending recipients found');
       return createResponse({ message: "No pending recipients", processed: 0 });
     }
 
@@ -87,6 +96,8 @@ serve(async (req) => {
     let processed = 0;
     let errors = 0;
 
+    console.log('[messaging-queue] Starting to process', recipients.length, 'recipients');
+
     // Process each recipient
     for (const recipient of recipients) {
       try {
@@ -116,6 +127,7 @@ serve(async (req) => {
           });
 
           if (emailResponse.ok) {
+            console.log('[messaging-queue] Email sent successfully to:', recipientEmail);
             await supabase
               .from("message_job_recipients")
               .update({
@@ -126,6 +138,7 @@ serve(async (req) => {
             processed++;
           } else {
             const errorText = await emailResponse.text();
+            console.error('[messaging-queue] Email failed for:', recipientEmail, 'Error:', errorText);
             await supabase
               .from("message_job_recipients")
               .update({
@@ -174,6 +187,7 @@ serve(async (req) => {
             errors++;
           }
         } else {
+          console.log('[messaging-queue] Missing contact info or provider not configured for recipient:', recipient.id);
           await supabase
             .from("message_job_recipients")
             .update({
@@ -184,7 +198,7 @@ serve(async (req) => {
           errors++;
         }
       } catch (error) {
-        console.error("Recipient processing error:", error);
+        console.error("[messaging-queue] Recipient processing error:", error);
         await supabase
           .from("message_job_recipients")
           .update({
@@ -196,6 +210,8 @@ serve(async (req) => {
       }
     }
 
+    console.log('[messaging-queue] Processing complete. Processed:', processed, 'Errors:', errors);
+
     // Update job status
     const { data: remainingRecipients } = await supabase
       .from("message_job_recipients")
@@ -204,6 +220,7 @@ serve(async (req) => {
       .eq("status", "pending");
 
     const isComplete = !remainingRecipients || remainingRecipients.length === 0;
+    console.log('[messaging-queue] Job completion check. Remaining recipients:', remainingRecipients?.length || 0, 'Is complete:', isComplete);
 
     await supabase
       .from("message_jobs")
@@ -212,6 +229,8 @@ serve(async (req) => {
       })
       .eq("id", job_id);
 
+    console.log('[messaging-queue] Job status updated to:', isComplete ? "sent" : "sending");
+
     return createResponse({
       message: "Batch processed",
       processed,
@@ -219,7 +238,7 @@ serve(async (req) => {
       completed: isComplete,
     });
   } catch (error) {
-    console.error("Function error:", error);
+    console.error("[messaging-queue] Function error:", error);
     return createErrorResponse(String(error), 500);
   }
 });

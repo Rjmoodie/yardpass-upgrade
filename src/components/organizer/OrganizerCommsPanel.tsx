@@ -36,6 +36,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const [audienceCount, setAudienceCount] = useState<number>(0);
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
   const [sendingTest, setSendingTest] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   // Load audience count
   useEffect(() => {
@@ -50,17 +51,54 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
 
   // Load recent jobs
   const refreshRecent = async () => {
-    const { data } = await supabase
+    console.log('[OrganizerCommsPanel] Refreshing recent jobs for event:', eventId);
+    const { data, error } = await supabase
       .from('message_jobs')
       .select('*')
       .eq('event_id', eventId)
       .order('created_at', { ascending: false })
       .limit(5);
-    setRecentJobs(data || []);
+    
+    if (error) {
+      console.error('[OrganizerCommsPanel] Error loading recent jobs:', error);
+    } else {
+      console.log('[OrganizerCommsPanel] Loaded recent jobs:', data);
+      setRecentJobs(data || []);
+    }
   };
   useEffect(() => { refreshRecent(); }, [eventId]);
 
+  // Auto-refresh for active jobs
+  useEffect(() => {
+    if (!autoRefresh) return;
+    
+    const interval = setInterval(() => {
+      console.log('[OrganizerCommsPanel] Auto-refreshing jobs...');
+      refreshRecent();
+    }, 3000); // Refresh every 3 seconds when active
+    
+    return () => clearInterval(interval);
+  }, [autoRefresh]);
+
+  // Check if there are active jobs and enable auto-refresh
+  useEffect(() => {
+    const hasActiveJobs = recentJobs.some(job => 
+      job.status === 'queued' || job.status === 'sending'
+    );
+    
+    if (hasActiveJobs && !autoRefresh) {
+      console.log('[OrganizerCommsPanel] Enabling auto-refresh for active jobs');
+      setAutoRefresh(true);
+    } else if (!hasActiveJobs && autoRefresh) {
+      console.log('[OrganizerCommsPanel] Disabling auto-refresh, no active jobs');
+      setAutoRefresh(false);
+    }
+  }, [recentJobs, autoRefresh]);
+
   async function send(dryRun = false) {
+    console.log('[OrganizerCommsPanel] Starting send with dryRun:', dryRun);
+    console.log('[OrganizerCommsPanel] Current state:', { channel, subject, body, smsBody, segment, selectedRoles, audienceCount });
+    
     if (channel === 'email' && !subject.trim()) {
       toast({ title: 'Subject is required for email', variant: 'destructive' });
       return;
@@ -74,29 +112,52 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       return;
     }
 
-    const jobRes = await createJob({
-      eventId,
-      channel,
-      subject,
-      body,
-      smsBody,
-      fromName: 'YardPass',
-      fromEmail: 'onboarding@resend.dev',
-      segment: segment === 'all_attendees' ? { type: 'all_attendees' } : { type: 'roles', roles: selectedRoles },
-      dryRun,
-    });
+    try {
+      console.log('[OrganizerCommsPanel] Calling createJob...');
+      const jobRes = await createJob({
+        eventId,
+        channel,
+        subject,
+        body,
+        smsBody,
+        fromName: 'YardPass',
+        fromEmail: 'onboarding@resend.dev',
+        segment: segment === 'all_attendees' ? { type: 'all_attendees' } : { type: 'roles', roles: selectedRoles },
+        dryRun,
+      });
 
-    if (dryRun) {
-      toast({ title: 'Dry-run (no messages sent)', description: `${jobRes.recipientCount} recipients would be targeted.` });
-      return;
+      console.log('[OrganizerCommsPanel] Job result:', jobRes);
+
+      if (dryRun) {
+        toast({ 
+          title: 'Dry-run (no messages sent)', 
+          description: `${jobRes.recipientCount} recipients would be targeted.` 
+        });
+        return;
+      }
+
+      toast({
+        title: 'Message queued',
+        description: `Your ${channel} will be sent to ${jobRes.recipientCount} recipients`,
+      });
+      
+      // Clear form
+      setSubject(''); 
+      setBody(''); 
+      setSmsBody('');
+      
+      // Refresh the recent jobs list
+      console.log('[OrganizerCommsPanel] Refreshing recent jobs...');
+      await refreshRecent();
+      
+    } catch (error: any) {
+      console.error('[OrganizerCommsPanel] Send error:', error);
+      toast({ 
+        title: 'Failed to send message', 
+        description: error.message || 'Please try again.', 
+        variant: 'destructive' 
+      });
     }
-
-    toast({
-      title: 'Message queued',
-      description: `Your ${channel} will be sent to ${jobRes.recipientCount} recipients`,
-    });
-    setSubject(''); setBody(''); setSmsBody('');
-    await refreshRecent();
   }
 
   const handleRoleToggle = (role: RoleType) => {
@@ -106,23 +167,45 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const getJobStatusBadge = (status: string, jobId: string) => {
     const isClickable = status === 'failed' || status === 'queued';
     const common = "text-xs";
+    
     switch (status) {
-      case 'draft':   return <Badge variant="secondary" className={common}>Draft</Badge>;
-      case 'queued':  return <Badge variant="outline" className={`${common} cursor-pointer`} onClick={() => retry(jobId)}>Queued (click to run)</Badge>;
-      case 'sending': return <Badge variant="default" className={common}>Sending</Badge>;
-      case 'sent':    return <Badge variant="default" className={`${common} bg-green-500`}>Sent</Badge>;
-      case 'failed':  return <Badge variant="destructive" className={`${common} cursor-pointer`} onClick={() => retry(jobId)}>Failed (retry)</Badge>;
-      default:        return <Badge variant="secondary" className={common}>{status}</Badge>;
+      case 'draft':   
+        return <Badge variant="secondary" className={common}>Draft</Badge>;
+      case 'queued':  
+        return (
+          <Badge variant="outline" className={`${common} cursor-pointer animate-pulse border-yellow-400 text-yellow-600`} onClick={() => retry(jobId)}>
+            Queued (click to run)
+          </Badge>
+        );
+      case 'sending': 
+        return (
+          <Badge variant="default" className={`${common} bg-blue-500 animate-pulse`}>
+            Sending...
+          </Badge>
+        );
+      case 'sent':    
+        return <Badge variant="default" className={`${common} bg-green-500`}>Sent</Badge>;
+      case 'failed':  
+        return (
+          <Badge variant="destructive" className={`${common} cursor-pointer`} onClick={() => retry(jobId)}>
+            Failed (retry)
+          </Badge>
+        );
+      default:        
+        return <Badge variant="secondary" className={common}>{status}</Badge>;
     }
   };
 
   async function retry(jobId: string) {
+    console.log('[OrganizerCommsPanel] Retrying job:', jobId);
     try {
       await retryJob(jobId);
       toast({ title: 'Re-queued', description: 'Processing started.' });
+      console.log('[OrganizerCommsPanel] Job retried successfully, refreshing...');
       await refreshRecent();
-    } catch (e) {
-      toast({ title: 'Failed to re-queue', variant: 'destructive' });
+    } catch (e: any) {
+      console.error('[OrganizerCommsPanel] Retry failed:', e);
+      toast({ title: 'Failed to re-queue', description: e.message || 'Please try again.', variant: 'destructive' });
     }
   }
 
@@ -282,8 +365,13 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
             <Clock className="h-5 w-5" />
             Recent Messages
             <Button variant="ghost" size="icon" onClick={refreshRecent} title="Refresh" className="ml-auto">
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'animate-spin text-blue-500' : ''}`} />
             </Button>
+            {autoRefresh && (
+              <Badge variant="outline" className="text-xs">
+                Auto-refreshing
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
