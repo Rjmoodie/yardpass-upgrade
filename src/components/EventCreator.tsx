@@ -9,6 +9,9 @@ import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { ArrowLeft, ArrowRight, Plus, X, Upload, Calendar, MapPin, Shield, Share2, Users } from 'lucide-react';
 import { MapboxLocationPicker } from './MapboxLocationPicker';
+import { AIWritingAssistant } from './ai/AIWritingAssistant';
+import { AIImageGenerator } from './ai/AIImageGenerator';
+import { AIRecommendations } from './ai/AIRecommendations';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
@@ -343,13 +346,17 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}/>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="description">Description *</label>
-                <Textarea id="description" placeholder="Tell people what your event is about..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="min-h-24"/>
-              </div>
+              <AIWritingAssistant
+                currentText={formData.description}
+                onTextChange={(description) => setFormData({ ...formData, description })}
+                placeholder="Tell people what your event is about..."
+                context={{
+                  title: formData.title,
+                  category: formData.category,
+                  venue: formData.venue,
+                  startDate: formData.startDate
+                }}
+              />
 
               <div className="space-y-2">
                 <label>Category *</label>
@@ -379,28 +386,34 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 </p>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <label>Cover Image</label>
-                <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
-                  {formData.coverImageUrl ? (
-                    <div className="space-y-2">
-                      <img 
-                        src={formData.coverImageUrl} 
-                        alt="Cover preview"
-                        className="w-full h-32 object-cover rounded-lg mx-auto"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setFormData({ ...formData, coverImageUrl: '' })}
-                      >
-                        Remove Image
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground mb-2">Upload a cover image</p>
+                
+                {/* Current Image Display */}
+                {formData.coverImageUrl && (
+                  <div className="space-y-2">
+                    <img 
+                      src={formData.coverImageUrl} 
+                      alt="Cover preview"
+                      className="w-full h-32 object-cover rounded-lg border"
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setFormData({ ...formData, coverImageUrl: '' })}
+                    >
+                      Remove Image
+                    </Button>
+                  </div>
+                )}
+
+                {/* Upload or Generate Options */}
+                {!formData.coverImageUrl && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Traditional Upload */}
+                    <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
+                      <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground mb-2">Upload Image</p>
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -409,16 +422,29 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                       >
                         {uploadingImage ? 'Uploading...' : 'Choose File'}
                       </Button>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                </div>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                    </div>
+
+                    {/* AI Generation */}
+                    <div className="border-2 border-dashed border-primary/20 rounded-lg p-4">
+                      <AIImageGenerator
+                        onImageGenerated={(imageUrl) => setFormData({ ...formData, coverImageUrl: imageUrl })}
+                        context={{
+                          title: formData.title,
+                          category: formData.category,
+                          description: formData.description,
+                          venue: formData.venue
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
