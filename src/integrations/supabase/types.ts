@@ -2718,26 +2718,40 @@ export type Database = {
         Returns: undefined
       }
       search_all: {
-        Args: {
-          p_category?: string
-          p_date_from?: string
-          p_date_to?: string
-          p_limit?: number
-          p_offset?: number
-          p_only_events?: boolean
-          p_q: string
-          p_user: string
-        }
+        Args:
+          | {
+              p_category?: string
+              p_date_from?: string
+              p_date_to?: string
+              p_limit?: number
+              p_offset?: number
+              p_only_events?: boolean
+              p_q: string
+              p_user: string
+            }
+          | {
+              p_category?: string
+              p_date_from?: string
+              p_date_to?: string
+              p_limit?: number
+              p_offset?: number
+              p_only_events?: boolean
+              p_q?: string
+              p_user?: string
+            }
         Returns: {
           category: string
+          content: string
+          cover_image_url: string
+          created_at: string
+          description: string
           item_id: string
-          kind: string
+          item_type: string
           location: string
-          post_id: string
-          score: number
-          snippet: string
-          starts_at: string
+          organizer_name: string
+          start_at: string
           title: string
+          visibility: string
         }[]
       }
       set_limit: {
