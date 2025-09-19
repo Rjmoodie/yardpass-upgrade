@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import posthog from 'posthog-js';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Interaction weights as specified
 export const INTERACTION_WEIGHTS = {
   event_view: 1,
   video_watch: 2, // ≥40% watch time
@@ -12,19 +11,34 @@ export const INTERACTION_WEIGHTS = {
   share: 5,
   ticket_open: 6,
   ticket_purchase: 10,
-};
+} as const;
+
+type InteractionKind = keyof typeof INTERACTION_WEIGHTS;
+
+const VIEW_CACHE_KEY = 'yp_viewed_events_session';
+
+function getViewedCache(): Record<string, true> {
+  try { return JSON.parse(sessionStorage.getItem(VIEW_CACHE_KEY) || '{}'); } catch { return {}; }
+}
+function setViewedCache(cache: Record<string, true>) {
+  sessionStorage.setItem(VIEW_CACHE_KEY, JSON.stringify(cache));
+}
 
 export function useInteractionTracking() {
   const { user } = useAuth();
 
   const trackInteraction = useCallback(async (
     eventId: string, 
-    kind: keyof typeof INTERACTION_WEIGHTS, 
-    additionalData?: any
+    kind: InteractionKind, 
+    additionalData?: Record<string, any>
   ) => {
     if (!user?.id || !eventId) return;
 
     const weight = INTERACTION_WEIGHTS[kind];
+    const now = new Date().toISOString();
+
+    // (Optional) de-dupe super-chatty events on client side (e.g., rapid likes)
+    // Keep as-is; we’ll focus de-dupe on views with the helper below.
 
     try {
       // Store in Supabase for recommendations
@@ -35,6 +49,7 @@ export function useInteractionTracking() {
           event_id: eventId,
           interaction_type: kind,
           weight,
+          created_at: now,
           metadata: additionalData || {}
         });
 
@@ -55,6 +70,7 @@ export function useInteractionTracking() {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
+            // If you’ve protected the function with JWT verification, pass a service token from server instead.
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({ userId: user.id })
@@ -66,5 +82,21 @@ export function useInteractionTracking() {
     }
   }, [user?.id]);
 
-  return { trackInteraction };
+  /**
+   * Track a view only once per session per event (prevents noise).
+   */
+  const trackViewOnce = useCallback(async (eventId: string, extra?: Record<string, any>) => {
+    if (!user?.id || !eventId) return;
+
+    const cache = getViewedCache();
+    const key = `${user.id}:${eventId}`;
+    if (cache[key]) return;
+
+    cache[key] = true;
+    setViewedCache(cache);
+
+    await trackInteraction(eventId, 'event_view', extra);
+  }, [user?.id, trackInteraction]);
+
+  return { trackInteraction, trackViewOnce };
 }
