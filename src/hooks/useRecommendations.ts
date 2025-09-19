@@ -32,7 +32,7 @@ export function useRecommendations(userId?: string, limit = 8) {
       // 1) Try RPC (personalized)
       try {
         const { data: rpcData, error: rpcError } = await supabase
-          .rpc('get_recommendations', { p_user: userId, p_limit: limit });
+          .rpc('get_recommendations', { p_user_id: userId, p_limit: limit });
 
         if (rpcError) throw rpcError;
 
