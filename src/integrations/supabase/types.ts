@@ -2420,6 +2420,10 @@ export type Database = {
         }
         Returns: string
       }
+      execute_sql: {
+        Args: { sql_query: string }
+        Returns: Json
+      }
       get_current_user_org_role: {
         Args: { p_org_id: string }
         Returns: string
