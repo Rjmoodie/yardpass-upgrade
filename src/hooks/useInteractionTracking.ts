@@ -27,14 +27,15 @@ export function useInteractionTracking() {
     const weight = INTERACTION_WEIGHTS[kind];
 
     try {
-      // Store in Supabase for recommendations (via analytics_events table for now)
+      // Store in Supabase for recommendations
       const { error } = await supabase
-        .from('analytics_events')
+        .from('user_event_interactions')
         .insert({
           user_id: user.id,
           event_id: eventId,
-          event_type: kind,
-          metadata: { weight, interaction_type: kind }
+          interaction_type: kind,
+          weight,
+          metadata: additionalData || {}
         });
 
       if (error) {
