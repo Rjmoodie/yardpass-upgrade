@@ -59,6 +59,13 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // Service-role client for DB reads/writes (bypass RLS for edge function operations)
+    const supabaseService = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } },
+    );
+
     let parsed: CheckoutRequest | null = null;
     try {
       parsed = await req.json();
@@ -78,8 +85,8 @@ serve(async (req) => {
       if (!Number.isFinite(s?.quantity) || s.quantity <= 0) throw new Error("Invalid quantity in selection");
     }
 
-    // Fetch event details
-    const { data: event, error: eventError } = await supabaseClient
+    // Fetch event details using service role to bypass RLS
+    const { data: event, error: eventError } = await supabaseService
       .from("events")
       .select("*")
       .eq("id", eventId)
@@ -90,7 +97,7 @@ serve(async (req) => {
 
     // Fetch ticket tiers referenced by the selection (and ensure they belong to the event)
     const tierIds = ticketSelections.map((sel) => sel.tierId);
-    const { data: tiers, error: tiersError } = await supabaseClient
+    const { data: tiers, error: tiersError } = await supabaseService
       .from("ticket_tiers")
       .select("*")
       .in("id", tierIds)
@@ -176,13 +183,6 @@ serve(async (req) => {
     );
 
     logStep("Checkout session created", { sessionId: session.id, url: session.url });
-
-    // Service-role client for DB writes
-    const supabaseService = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } },
-    );
 
     const totalAmount = lineItems.reduce(
       (sum, item) => sum + (item.price_data.unit_amount * (item.quantity || 0)),

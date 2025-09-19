@@ -67,8 +67,8 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
   };
 
   const groups = useMemo(() => {
-    const ev = results.filter(r => r.kind === 'event');
-    const posts = results.filter(r => r.kind === 'post');
+    const ev = results.filter(r => r.item_type === 'event');
+    const posts = results.filter(r => r.item_type === 'post');
     return { ev, posts };
   }, [results]);
 
@@ -203,7 +203,7 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
                           <div className="flex-1">
                             <div className="font-medium">{row.title}</div>
                             <div className="text-xs text-white/60 flex items-center gap-2">
-                              {row.starts_at && <span>{new Date(row.starts_at).toLocaleString()}</span>}
+                              {row.start_at && <span>{new Date(row.start_at).toLocaleString()}</span>}
                               {row.location && (<span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3"/>{row.location}</span>)}
                               {row.category && (<span className="inline-flex items-center gap-1"><Tag className="w-3 h-3"/>{row.category}</span>)}
                             </div>
@@ -225,7 +225,7 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
                 {groups.posts.map((row) => {
                   const isH = results.indexOf(row) === hover;
                   return (
-                    <li key={`post-${row.post_id}`}>
+                    <li key={`post-${row.item_id}`}>
                       <button
                         onMouseEnter={() => setHover(results.indexOf(row))}
                         onClick={() => handleNavigate(row)}
@@ -234,7 +234,7 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
                         }`}
                       >
                         <div className="font-medium">{row.title}</div>
-                        <div className="text-xs text-white/60 line-clamp-2">{row.snippet}</div>
+                        <div className="text-xs text-white/60 line-clamp-2">{row.description}</div>
                       </button>
                     </li>
                   );

@@ -9,15 +9,18 @@ export type SearchFilters = {
 };
 
 export type SearchRow = {
-  kind: 'event' | 'post';
+  item_type: string;
   item_id: string;
-  post_id: string | null;
   title: string;
-  snippet: string;
-  starts_at: string | null;
+  description: string;
+  content: string;
   category: string | null;
-  location: string | null;
-  score: number;
+  created_at: string;
+  cover_image_url: string | null;
+  organizer_name: string;
+  location: string;
+  start_at: string | null;
+  visibility: string;
 };
 
 export function useSmartSearch(initialQ = '') {
