@@ -40,7 +40,7 @@ serve(async (req) => {
       .from("message_job_recipients")
       .select(`
         *,
-        user_profiles(display_name)
+        user_profiles!inner(display_name)
       `)
       .eq("job_id", job_id)
       .eq("status", "pending")
