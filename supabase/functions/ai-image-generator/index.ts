@@ -1,5 +1,5 @@
 // supabase/functions/ai-image-generator/index.ts
-// Deno + Supabase Edge Function
+// Deno + Supabase Edge Function - Updated deployment
 // Env vars required:
 // - OPENAI_API_KEY
 // - SUPABASE_URL
