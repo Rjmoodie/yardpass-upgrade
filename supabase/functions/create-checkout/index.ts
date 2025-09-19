@@ -142,7 +142,17 @@ serve(async (req) => {
       const faceValue = faceValueCents / 100;
       const processingFee = faceValue * 0.066 + 2.19;
       const total = faceValue + processingFee;
-      return Math.round(total * 100); // Convert back to cents
+      const totalCents = Math.round(total * 100);
+      
+      logStep("Fee calculation", { 
+        faceValueCents, 
+        faceValue, 
+        processingFee, 
+        total, 
+        totalCents 
+      });
+      
+      return totalCents; // Convert back to cents
     };
 
     // Calculate Stripe line items with fees included
@@ -150,6 +160,12 @@ serve(async (req) => {
       const tier = tiers.find((t) => t.id === selection.tierId)!;
       const currency = (tier.currency || "USD").toLowerCase();
       const totalWithFees = calculateTotal(tier.price_cents);
+      
+      logStep("Creating line item", { 
+        tierName: tier.name, 
+        originalPrice: tier.price_cents, 
+        totalWithFees 
+      });
       
       return {
         price_data: {
