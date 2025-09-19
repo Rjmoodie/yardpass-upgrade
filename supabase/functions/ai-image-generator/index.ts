@@ -50,7 +50,7 @@ serve(async (req) => {
     ].filter(Boolean).join(", ");
 
     // OpenAI Images API (gpt-image-1)
-    const gen = await fetch("https://api.openai.com/v1/images", {
+    const gen = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
