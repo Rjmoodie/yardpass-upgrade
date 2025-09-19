@@ -5,10 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { ArrowLeft, Search, X, SlidersHorizontal, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Search, X, SlidersHorizontal, Calendar as CalendarIcon, Star } from 'lucide-react';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
+import { useRecommendations } from '@/hooks/useRecommendations';
+import { useInteractionTracking } from '@/hooks/useInteractionTracking';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { FilterChip } from './search/FilterChip';
 import { EventCard } from './search/EventCard';
@@ -74,6 +77,9 @@ const mockSearchResults = [
 
 export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const { trackEvent } = useAnalyticsIntegration();
+  const { user } = useAuth();
+  const { data: recommendations, loading: recLoading } = useRecommendations(user?.id, 8);
+  const { trackInteraction } = useInteractionTracking();
   
   // URL-synced state
   const [params, setParams] = useSearchParams();
@@ -219,6 +225,17 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     setParams(new URLSearchParams(), { replace: true });
   };
 
+  const handleRecommendationClick = (eventId: string) => {
+    trackInteraction(eventId, 'event_view');
+    onEventSelect(eventId);
+  };
+
+  const handleRecommendationTicketClick = (eventId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    trackInteraction(eventId, 'ticket_open');
+    onEventSelect(eventId);
+  };
+
   // ————————————————————————————————————————
   // Render
   // ————————————————————————————————————————
@@ -355,6 +372,52 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       {/* Results */}
       <div className="flex-1 overflow-auto">
         <div className="max-w-6xl mx-auto px-4 py-4">
+          {/* For You Recommendations Section */}
+          {user && !recLoading && recommendations.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Star className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold">For you</h2>
+                <span className="text-sm text-muted-foreground">Based on your activity</span>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {recommendations.slice(0, 6).map(rec => (
+                  <button
+                    key={rec.event_id}
+                    onClick={() => handleRecommendationClick(rec.event_id)}
+                    className="p-4 rounded-lg bg-card hover:bg-card/80 text-left transition-colors border-2 border-primary/20 hover:border-primary/40"
+                  >
+                    <div className="font-medium line-clamp-2 text-sm mb-2">{rec.title}</div>
+                    <div className="text-xs text-muted-foreground mb-3 space-y-1">
+                      {rec.starts_at && (
+                        <div>
+                          {formatDistanceToNow(new Date(rec.starts_at), { addSuffix: true })}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        {rec.category && <span>{rec.category}</span>}
+                        {typeof rec.distance_km === 'number' && (
+                          <span>• {rec.distance_km.toFixed(1)} km away</span>
+                        )}
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      onClick={(e) => handleRecommendationTicketClick(rec.event_id, e)}
+                      className="w-full"
+                    >
+                      Get tickets
+                    </Button>
+                  </button>
+                ))}
+              </div>
+              <div className="border-t mt-6 pt-6">
+                <h2 className="text-xl font-semibold mb-4">All Events</h2>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <SkeletonGrid />
           ) : results.length === 0 ? (
