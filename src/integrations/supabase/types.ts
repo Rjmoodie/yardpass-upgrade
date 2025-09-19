@@ -2697,10 +2697,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
-      refresh_search_docs: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
       refresh_trending_posts: {
         Args: Record<PropertyKey, never>
         Returns: undefined
