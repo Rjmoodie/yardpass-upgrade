@@ -1,3 +1,4 @@
+// src/lib/emailService.ts
 import { supabase } from '@/integrations/supabase/client';
 
 export interface EmailOptions {
@@ -15,7 +16,7 @@ export interface PurchaseConfirmationData {
   eventLocation: string;
   ticketType: string;
   quantity: number;
-  totalAmount: number; // cents by default
+  totalAmount: number;
   orderId: string;
   ticketIds: string[];
   qrCodeUrl?: string;
@@ -31,20 +32,9 @@ export interface TicketReminderData {
   qrCodeUrl?: string;
 }
 
-type Result = { success: boolean; error?: string };
+type Result = { success: boolean; error?: string; provider?: string; id?: string };
 
-const FROM_DEFAULT = 'YardPass <onboarding@resend.dev>';
-
-function logDev(label: string, payload: unknown) {
-  if (import.meta.env.DEV) {
-    // Avoid logging huge HTML; trim if needed
-    if (typeof payload === 'string' && payload.length > 1000) {
-      console.debug(`[EmailService] ${label}:`, payload.slice(0, 1000) + '…');
-    } else {
-      console.debug(`[EmailService] ${label}:`, payload);
-    }
-  }
-}
+const FROM_DEFAULT = (import.meta as any)?.env?.VITE_EMAIL_FROM ?? 'YardPass <onboarding@resend.dev>';
 
 export class EmailService {
   async sendEmail(options: EmailOptions): Promise<Result> {
@@ -53,9 +43,7 @@ export class EmailService {
         return { success: false, error: 'Missing to/subject/html' };
       }
 
-      logDev('sendEmail (to/subject)', { to: options.to, subject: options.subject });
-
-      const { error } = await supabase.functions.invoke('send-email', {
+      const { data, error } = await supabase.functions.invoke('send-email', {
         body: {
           to: options.to,
           subject: options.subject,
@@ -69,7 +57,8 @@ export class EmailService {
         return { success: false, error: error.message || 'send-email failed' };
       }
 
-      return { success: true };
+      // surface provider details (if any)
+      return { success: true, provider: data?.provider, id: data?.result?.id };
     } catch (err: any) {
       console.error('[EmailService] sendEmail exception:', err);
       return { success: false, error: err?.message || 'Failed to send email' };
@@ -78,32 +67,24 @@ export class EmailService {
 
   async sendPurchaseConfirmation(data: PurchaseConfirmationData): Promise<Result> {
     try {
-      const { error } = await supabase.functions.invoke('send-purchase-confirmation', {
-        body: data,
-      });
+      const { data: res, error } = await supabase.functions.invoke('send-purchase-confirmation', { body: data });
       if (error) {
-        console.warn('[EmailService] send-purchase-confirmation error:', error);
         return { success: false, error: error.message || 'send-purchase-confirmation failed' };
       }
-      return { success: true };
+      return { success: true, provider: res?.provider, id: res?.id };
     } catch (err: any) {
-      console.error('[EmailService] sendPurchaseConfirmation exception:', err);
       return { success: false, error: err?.message || 'Failed to send purchase confirmation' };
     }
   }
 
   async sendTicketReminder(data: TicketReminderData): Promise<Result> {
     try {
-      const { error } = await supabase.functions.invoke('send-ticket-reminder', {
-        body: data,
-      });
+      const { data: res, error } = await supabase.functions.invoke('send-ticket-reminder', { body: data });
       if (error) {
-        console.warn('[EmailService] send-ticket-reminder error:', error);
         return { success: false, error: error.message || 'send-ticket-reminder failed' };
       }
-      return { success: true };
+      return { success: true, provider: res?.provider, id: res?.id };
     } catch (err: any) {
-      console.error('[EmailService] sendTicketReminder exception:', err);
       return { success: false, error: err?.message || 'Failed to send ticket reminder' };
     }
   }
