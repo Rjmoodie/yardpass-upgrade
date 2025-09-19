@@ -35,13 +35,10 @@ serve(async (req) => {
       return createErrorResponse("Job not found", 404);
     }
 
-    // Get pending recipients with user profile data
+    // Get pending recipients 
     const { data: recipients, error: recipientsError } = await supabase
       .from("message_job_recipients")
-      .select(`
-        *,
-        user_profiles!inner(display_name)
-      `)
+      .select("*")
       .eq("job_id", job_id)
       .eq("status", "pending")
       .limit(batch_size);
@@ -65,8 +62,22 @@ serve(async (req) => {
     const eventDate = event?.start_at ? new Date(event.start_at).toLocaleDateString() : "";
 
     // Template replacement function
-    const renderTemplate = (template: string, recipient: any) => {
-      const firstName = recipient.user_profiles?.display_name?.split(' ')[0] || "there";
+    const renderTemplate = async (template: string, recipient: any) => {
+      let firstName = "there";
+      
+      // Get user profile data if needed for templating
+      if (recipient.user_id) {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("display_name")
+          .eq("user_id", recipient.user_id)
+          .single();
+        
+        if (profile?.display_name) {
+          firstName = profile.display_name.split(' ')[0];
+        }
+      }
+      
       return template
         .replace(/{{event_title}}/g, eventTitle)
         .replace(/{{event_date}}/g, eventDate)
@@ -87,8 +98,8 @@ serve(async (req) => {
         }
 
         if (job.channel === "email" && recipientEmail && RESEND_API_KEY) {
-          const subject = renderTemplate(job.subject || eventTitle, recipient);
-          const body = renderTemplate(job.body || "", recipient);
+          const subject = await renderTemplate(job.subject || eventTitle, recipient);
+          const body = await renderTemplate(job.body || "", recipient);
 
           const emailResponse = await fetch("https://api.resend.com/emails", {
             method: "POST",
@@ -125,7 +136,7 @@ serve(async (req) => {
             errors++;
           }
         } else if (job.channel === "sms" && recipient.phone && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER) {
-          const body = renderTemplate(job.sms_body || job.body || "", recipient);
+          const body = await renderTemplate(job.sms_body || job.body || "", recipient);
 
           const smsBody = new URLSearchParams({
             To: recipient.phone,
