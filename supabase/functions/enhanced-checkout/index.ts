@@ -92,18 +92,17 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Calculate amounts using your existing fee structure
+    // Calculate amounts using the specified fee structure
     const faceValueCents = order_data.items.reduce((total: number, item: any) => {
       return total + (item.unit_price_cents * item.quantity);
     }, 0);
     const faceValue = faceValueCents / 100;
 
-    // Use same formula as TicketPurchaseModal: Total = (F*1.037 + 2.19)/0.971
-    const totalAmount = (faceValue * 1.037 + 2.19) / 0.971;
+    // Fee formula: processingFee = (faceValue * 0.037) + 1.89 + (faceValue * 0.029) + 0.30
+    // Simplified: processingFee = faceValue * 0.066 + 2.19
+    const processingFee = faceValue * 0.066 + 2.19;
+    const totalAmount = faceValue + processingFee;
     const totalCents = Math.round(totalAmount * 100);
-    const processingFee = totalAmount - faceValue;
-    const stripeFee = 0.029 * totalAmount + 0.30;
-    const platformComponent = processingFee - stripeFee;
     const applicationFeeCents = Math.round(processingFee * 100);
 
     // Create checkout session with destination charges if payout account exists

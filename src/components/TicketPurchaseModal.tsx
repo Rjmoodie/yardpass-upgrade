@@ -66,17 +66,16 @@ export function TicketPurchaseModal({
 
   // Fee calculation function
   const calculateFees = (faceValue: number) => {
-    // Formula: Total = (F*1.037 + 2.19)/0.971
-    const total = (faceValue * 1.037 + 2.19) / 0.971;
-    const processingFee = total - faceValue;
-    const stripeFee = 0.029 * total + 0.30;
-    const platformComponent = processingFee - stripeFee;
+    // processingFee = (faceValue * 0.037) + 1.89 + (faceValue * 0.029) + 0.30
+    // which simplifies to: faceValue * 0.066 + 2.19
+    const processingFee = faceValue * 0.066 + 2.19;
+    const total = faceValue + processingFee;
     
     return {
       total: Math.round(total * 100) / 100, // Round to cents
       processingFee: Math.round(processingFee * 100) / 100,
-      stripeFee: Math.round(stripeFee * 100) / 100,
-      platformComponent: Math.round(platformComponent * 100) / 100
+      stripeFee: 0, // Not needed for display
+      platformComponent: 0 // Not needed for display
     };
   };
 
