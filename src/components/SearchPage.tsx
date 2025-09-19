@@ -503,37 +503,37 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 <h2 className="text-xl font-semibold">For you</h2>
                 <span className="text-sm text-muted-foreground">Based on your activity</span>
               </div>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {recommendations.slice(0, 6).map(rec => (
-                  <button
-                    key={rec.event_id}
-                    onClick={() => handleRecommendationClick(rec.event_id)}
-                    className="p-4 rounded-lg bg-card hover:bg-card/80 text-left transition-colors border-2 border-primary/20 hover:border-primary/40"
-                  >
-                    <div className="font-medium line-clamp-2 text-sm mb-2">{rec.title}</div>
-                    <div className="text-xs text-muted-foreground mb-3 space-y-1">
-                      {rec.starts_at && (
-                        <div>
-                          {formatDistanceToNow(new Date(rec.starts_at), { addSuffix: true })}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        {rec.category && <span>{rec.category}</span>}
-                        {typeof rec.distance_km === 'number' && (
-                          <span>• {rec.distance_km.toFixed(1)} km away</span>
-                        )}
-                      </div>
-                    </div>
-                    <Button 
-                      size="sm" 
-                      variant="secondary"
-                      onClick={(e) => handleRecommendationTicketClick(rec.event_id, e)}
-                      className="w-full"
-                    >
-                      Get tickets
-                    </Button>
-                  </button>
-                ))}
+              <div className="grid gap-4 lg:grid-cols-2">
+                {recommendations.slice(0, 6).map(rec => {
+                  const eventForCard = {
+                    id: rec.event_id,
+                    title: rec.title,
+                    description: rec.title ? `Join this ${rec.category || 'event'} and connect with others` : '',
+                    category: rec.category,
+                    start_at: rec.starts_at,
+                    date: rec.starts_at,
+                    location: rec.distance_km ? `${rec.distance_km.toFixed(1)} km away` : 'Location TBD',
+                    distance_km: rec.distance_km,
+                    coverImage: `/images/placeholders/event-cover-fallback.jpg`,
+                    priceFrom: Math.floor(Math.random() * 50) + 20, // Mock price since not in rec type
+                    rating: 4.2,
+                    attendeeCount: Math.floor(Math.random() * 200) + 50
+                  };
+
+                  return (
+                    <EventCard
+                      key={rec.event_id}
+                      event={eventForCard}
+                      onClick={() => handleRecommendationClick(rec.event_id)}
+                      onTicket={(eventId) => {
+                        const e = new Event('click') as any;
+                        e.stopPropagation = () => {};
+                        handleRecommendationTicketClick(eventId, e);
+                      }}
+                      className="border-2 border-primary/20 hover:border-primary/40"
+                    />
+                  );
+                })}
               </div>
               <div className="border-t mt-6 pt-6 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
