@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
 import { EventTicketModal } from '@/components/EventTicketModal';
+import { ForYouStrip } from '@/components/ForYouStrip';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
 import { ChevronUp, ChevronDown, Search } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
@@ -381,8 +382,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   return (
     <div className="feed-page h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
+      {/* Recommendations Strip */}
+      <div className="fixed top-0 left-0 right-0 z-20">
+        <ForYouStrip onEventClick={handleEventClick} />
+      </div>
+
       {/* Logo */}
-      <div className="fixed left-2 top-2 z-30">
+      <div className="fixed left-2 top-20 z-30">
         <img
           src="/yardpass-logo.png"
           alt="YardPass"
