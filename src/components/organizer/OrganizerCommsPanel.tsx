@@ -68,32 +68,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   };
   useEffect(() => { refreshRecent(); }, [eventId]);
 
-  // Auto-refresh for active jobs
-  useEffect(() => {
-    if (!autoRefresh) return;
-    
-    const interval = setInterval(() => {
-      console.log('[OrganizerCommsPanel] Auto-refreshing jobs...');
-      refreshRecent();
-    }, 3000); // Refresh every 3 seconds when active
-    
-    return () => clearInterval(interval);
-  }, [autoRefresh]);
-
-  // Check if there are active jobs and enable auto-refresh
-  useEffect(() => {
-    const hasActiveJobs = recentJobs.some(job => 
-      job.status === 'queued' || job.status === 'sending'
-    );
-    
-    if (hasActiveJobs && !autoRefresh) {
-      console.log('[OrganizerCommsPanel] Enabling auto-refresh for active jobs');
-      setAutoRefresh(true);
-    } else if (!hasActiveJobs && autoRefresh) {
-      console.log('[OrganizerCommsPanel] Disabling auto-refresh, no active jobs');
-      setAutoRefresh(false);
-    }
-  }, [recentJobs, autoRefresh]);
+  // Auto-refresh disabled
 
   async function send(dryRun = false) {
     console.log('[OrganizerCommsPanel] Starting send with dryRun:', dryRun);
@@ -365,7 +340,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
             <Clock className="h-5 w-5" />
             Recent Messages
             <Button variant="ghost" size="icon" onClick={refreshRecent} title="Refresh" className="ml-auto">
-              <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'animate-spin text-blue-500' : ''}`} />
+              <RefreshCw className="h-4 w-4" />
             </Button>
           </CardTitle>
         </CardHeader>
