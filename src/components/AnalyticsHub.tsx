@@ -1,7 +1,7 @@
 /* src/components/AnalyticsHub.tsx
  * AI-upgraded Analytics Hub
  * - Inline AI Insights panel (summaries, anomalies, recommended actions)
- * - “Explain this KPI” quick prompts
+ * - "Explain this KPI" quick prompts
  * - Ask AI for Insights runs a holistic pass over KPIs + revenue trend + top events
  * - NLQ tab gets org/date context + starter questions
  * - Caches insights per org/range; supports refresh + feedback
@@ -50,7 +50,7 @@ import {
 } from 'recharts';
 
 // If you already have this component, keep it. Otherwise, you can remove the tab below.
-// It’s passed orgId/dateRange for context + starter questions.
+// It's passed orgId/dateRange for context + starter questions.
 import { NaturalLanguageQuery } from '@/components/ai/NaturalLanguageQuery';
 
 /* ---------------------------- Types ---------------------------- */
@@ -154,7 +154,7 @@ const useAIInsights = () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase.functions.invoke('ai-analytics-insights', {
+      const { data, error } = await supabase.functions.invoke('analytics-ai-insights', {
         body: payload,
       });
       if (error) throw new Error(error.message);
@@ -245,7 +245,7 @@ const InlineAIInsightsPanel: React.FC<{
         )}
 
         {!loading && !error && !insights && (
-          <div className="text-sm text-muted-foreground">Click “Ask AI for insights” to generate a summary.</div>
+          <div className="text-sm text-muted-foreground">Click "Ask AI for insights" to generate a summary.</div>
         )}
       </CardContent>
     </Card>
@@ -1117,13 +1117,15 @@ const AnalyticsHub: React.FC = () => {
   const feedbackAI = async (helpful: boolean) => {
     try {
       // Optional: store feedback for tuning
-      await supabase.from('ai_insights_feedback').insert({
-        org_id: selectedOrg,
-        date_range: dateRange,
-        helpful,
-        provided_at: new Date().toISOString(),
+      await supabase.from('analytics_events').insert({
+        event_type: 'ai_insights_feedback',
+        metadata: {
+          org_id: selectedOrg,
+          date_range: dateRange,
+          helpful,
+        },
       });
-      toast({ title: helpful ? 'Thanks for the feedback!' : 'We’ll improve your insights.' });
+      toast({ title: helpful ? 'Thanks for the feedback!' : "We'll improve your insights." });
     } catch {
       // ignore
     }
@@ -1237,7 +1239,7 @@ const AnalyticsHub: React.FC = () => {
                           Net: {formatCurrency(analytics.kpis.net_revenue)}
                           <Button
                             variant="ghost" size="sm" className="h-6 px-2"
-                            onClick={() => explainKPI('Explain what’s driving net vs gross revenue and list 3 levers to improve net.')}
+                            onClick={() => explainKPI('Explain what's driving net vs gross revenue and list 3 levers to improve net.')}
                             title="Explain with AI"
                           >
                             <HelpCircle className="h-3.5 w-3.5 mr-1" />
@@ -1448,7 +1450,7 @@ const AnalyticsHub: React.FC = () => {
                 'Which 3 events drove most net revenue and why?',
                 'Is our refund rate abnormal vs. previous period?',
                 'What 2 experiments can lift CTA→Checkout conversion?',
-                'Segment buyers vs repeat buyers – where’s the growth?',
+                'Segment buyers vs repeat buyers – where's the growth?',
                 'Correlate video plays with ticket sales this month.'
               ]}
             />
