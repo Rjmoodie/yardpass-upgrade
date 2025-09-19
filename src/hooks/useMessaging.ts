@@ -1,11 +1,25 @@
+// src/hooks/useMessaging.ts
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MessageChannel, RoleType } from '@/types/roles';
 
-const EDGE_BASE = "https://yieslxnrfeqchbcmgavz.supabase.co";
+type Segment = { type: 'all_attendees' | 'roles'; roles?: RoleType[] };
 
 export function useMessaging() {
   const [loading, setLoading] = useState(false);
+
+  function validateVars(text?: string) {
+    if (!text) return { ok: true };
+    // sanity-check unreplaced handlebars (optional)
+    const leftover = text.match(/{{\s*[^}]+\s*}}/g);
+    // Allow our known variables, warn on others
+    const allowed = new Set(['{{event_title}}','{{event_date}}','{{first_name}}']);
+    const unknown = (leftover ?? []).filter(v => !allowed.has(v));
+    if (unknown.length) {
+      console.warn('[useMessaging] Unknown template vars:', unknown);
+    }
+    return { ok: true };
+  }
 
   async function createJob(input: {
     eventId: string;
@@ -17,12 +31,22 @@ export function useMessaging() {
     fromName?: string;
     fromEmail?: string;
     scheduledAt?: string | null;
-    segment: { type: 'all_attendees' | 'roles'; roles?: RoleType[] };
+    segment: Segment;
     batchSize?: number;
+    dryRun?: boolean; // if true, don't hit the queue—return counts only
   }) {
     setLoading(true);
     try {
-      // Get current user for created_by
+      // basic validation
+      if (input.channel === 'email' && !input.subject?.trim()) {
+        throw new Error('Subject is required for email');
+      }
+      if (!(input.body?.trim() || input.smsBody?.trim())) {
+        throw new Error('Message body is required');
+      }
+      validateVars(input.body);
+      validateVars(input.smsBody);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -33,13 +57,13 @@ export function useMessaging() {
           event_id: input.eventId,
           channel: input.channel,
           template_id: input.templateId ?? null,
-          subject: input.subject,
-          body: input.body,
-          sms_body: input.smsBody,
-          from_name: input.fromName,
-          from_email: input.fromEmail,
+          subject: input.subject ?? null,
+          body: input.body ?? null,
+          sms_body: input.smsBody ?? null,
+          from_name: input.fromName ?? null,
+          from_email: input.fromEmail ?? null,
           batch_size: input.batchSize ?? 200,
-          status: 'queued',
+          status: input.dryRun ? 'draft' : 'queued',
           scheduled_at: input.scheduledAt ?? null,
           created_by: user.id,
         })
@@ -48,15 +72,10 @@ export function useMessaging() {
 
       if (error) throw error;
 
-      // 2) Build recipient rows
-      let recipients: Array<{ 
-        user_id?: string | null; 
-        email?: string | null; 
-        phone?: string | null; 
-      }> = [];
+      // 2) Build recipients
+      let recipients: Array<{ user_id?: string | null; email?: string | null; phone?: string | null }> = [];
 
       if (input.segment.type === 'all_attendees') {
-        // Get all ticket holders for this event
         const { data: tickets } = await supabase
           .from('tickets')
           .select(`
@@ -66,106 +85,69 @@ export function useMessaging() {
           .eq('event_id', input.eventId)
           .eq('status', 'issued');
 
-        // Get unique user IDs
         const userIds = [...new Set((tickets || []).map(t => t.owner_user_id))];
-        
-        // For email channel, we need to use the Edge Function approach since we can't access auth.users directly
+
         if (input.channel === 'email') {
-          // We'll pass the user_ids to the messaging queue and let it handle email lookup
-          recipients = userIds.map(userId => ({
-            user_id: userId,
-            email: null, // Will be resolved in the Edge Function
-            phone: null,
-          }));
+          recipients = userIds.map(userId => ({ user_id: userId, email: null, phone: null }));
         } else {
-          // For SMS, we can use the phone from user_profiles
           const seen = new Set<string>();
           recipients = (tickets || [])
-            .map((t: any) => ({
-              user_id: t.owner_user_id,
-              email: null,
-              phone: t.user_profiles?.phone,
-            }))
+            .map((t: any) => ({ user_id: t.owner_user_id, email: null, phone: t.user_profiles?.phone }))
             .filter(r => {
               if (!r.phone || seen.has(r.phone)) return false;
               seen.add(r.phone);
               return true;
             });
         }
-      } else if (input.segment.type === 'roles' && input.segment.roles?.length) {
-        // Get users with specific roles for this event
+      } else {
         const { data: roleUsers } = await supabase
           .from('event_roles')
-          .select(`
-            user_id,
-            user_profiles!inner(phone)
-          `)
+          .select(`user_id, user_profiles!inner(phone)`)
           .eq('event_id', input.eventId)
-          .in('role', input.segment.roles);
+          .in('role', input.segment.roles ?? []);
 
         if (input.channel === 'email') {
-          // Pass user_ids for email lookup in Edge Function
-          recipients = (roleUsers || []).map((r: any) => ({
-            user_id: r.user_id,
-            email: null, // Will be resolved in the Edge Function
-            phone: null,
-          }));
+          recipients = (roleUsers || []).map((r: any) => ({ user_id: r.user_id, email: null, phone: null }));
         } else {
-          // For SMS, use phone from user_profiles
-          recipients = (roleUsers || []).map((r: any) => ({
-            user_id: r.user_id,
-            email: null,
-            phone: r.user_profiles?.phone,
-          }));
+          recipients = (roleUsers || []).map((r: any) => ({ user_id: r.user_id, email: null, phone: r.user_profiles?.phone }));
         }
       }
 
-      // Filter recipients based on channel
-      const filteredRecipients = recipients.filter(r => {
-        if (input.channel === 'email') return r.user_id; // For email, we just need user_id
-        if (input.channel === 'sms') return r.phone;
-        return false;
-      });
+      // Filter: email needs user_id (email resolved in edge); sms needs phone
+      const filtered = recipients.filter(r => input.channel === 'email' ? !!r.user_id : !!r.phone);
 
-      // Insert recipients in chunks
-      if (filteredRecipients.length) {
-        const chunks: typeof filteredRecipients[] = [];
+      if (filtered.length) {
+        // Chunk inserts
         const size = 1000;
-        for (let i = 0; i < filteredRecipients.length; i += size) {
-          chunks.push(filteredRecipients.slice(i, i + size));
-        }
-        
-        for (const chunk of chunks) {
-          const payload = chunk.map(r => ({
+        for (let i = 0; i < filtered.length; i += size) {
+          const chunk = filtered.slice(i, i + size).map(r => ({
             job_id: job.id,
             user_id: r.user_id ?? null,
             email: r.email ?? null,
             phone: r.phone ?? null,
           }));
-          
-          await supabase.from('message_job_recipients').insert(payload);
+          await supabase.from('message_job_recipients').insert(chunk);
         }
       }
 
+      if (input.dryRun) {
+        // Do not enqueue
+        return { job, enqueued: false, recipientCount: filtered.length };
+      }
+
       // 3) Trigger processing
-      const { data: queueData, error: queueError } = await supabase.functions.invoke('messaging-queue', {
+      const { error: queueError } = await supabase.functions.invoke('messaging-queue', {
         body: { job_id: job.id, batch_size: input.batchSize ?? 200 }
       });
-      
-      if (queueError) {
-        console.error('Messaging queue error:', queueError);
-        throw new Error(`Failed to process messages: ${queueError.message}`);
-      }
-      
-      console.log('Messaging queue response:', queueData);
+      if (queueError) throw new Error(queueError.message);
 
-      return job;
+      return { job, enqueued: true, recipientCount: filtered.length };
     } finally {
       setLoading(false);
     }
   }
 
-  async function getRecipientCount(eventId: string, segment: { type: 'all_attendees' | 'roles'; roles?: RoleType[] }) {
+  async function getRecipientCount(eventId: string, segment: Segment) {
     try {
       if (segment.type === 'all_attendees') {
         const { count } = await supabase
@@ -174,20 +156,24 @@ export function useMessaging() {
           .eq('event_id', eventId)
           .eq('status', 'issued');
         return count || 0;
-      } else if (segment.type === 'roles' && segment.roles?.length) {
+      } else {
         const { count } = await supabase
           .from('event_roles')
           .select('*', { count: 'exact', head: true })
           .eq('event_id', eventId)
-          .in('role', segment.roles);
+          .in('role', segment.roles ?? []);
         return count || 0;
       }
-      return 0;
-    } catch (error) {
-      console.error('Error getting recipient count:', error);
+    } catch (e) {
+      console.error('[useMessaging] getRecipientCount error', e);
       return 0;
     }
   }
 
-  return { createJob, getRecipientCount, loading };
+  async function retryJob(jobId: string, batchSize = 200) {
+    const { error } = await supabase.functions.invoke('messaging-queue', { body: { job_id: jobId, batch_size: batchSize } });
+    if (error) throw new Error(error.message);
+  }
+
+  return { createJob, getRecipientCount, retryJob, loading };
 }
