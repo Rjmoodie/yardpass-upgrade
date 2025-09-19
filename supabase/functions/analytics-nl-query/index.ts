@@ -34,7 +34,7 @@ serve(async (req) => {
     // Schema information for the AI to understand available data
     const schemaInfo = `
 Available tables and key fields:
-- events: id, title, start_at, end_at, visibility, created_by, venue, city
+- events: id, title, start_at, end_at, visibility, created_by (user_id), owner_context_id (org_id), owner_context_type, venue, city
 - tickets: id, event_id, owner_user_id, tier_id, status (issued, transferred, redeemed)
 - ticket_tiers: id, event_id, name, price_cents, quantity, badge_label
 - orders: id, event_id, total_cents, fees_cents, status, paid_at
@@ -44,6 +44,11 @@ Available tables and key fields:
 - scan_logs: id, event_id, ticket_id, result, created_at
 - post_views: id, post_id, user_id, session_id, qualified
 - post_clicks: id, post_id, user_id, target
+- org_memberships: org_id, user_id, role
+
+IMPORTANT: To filter by organization, use one of these patterns:
+1. Filter by organization ownership: WHERE events.owner_context_id = 'org_id' AND events.owner_context_type = 'organization'
+2. Filter by org members' events: WHERE events.created_by IN (SELECT user_id FROM org_memberships WHERE org_id = 'org_id')
 `;
 
     const systemPrompt = `You are a SQL query assistant for YardPass analytics. 
@@ -87,23 +92,30 @@ Available tables and key fields:
 
     // Execute the generated SQL query
     try {
+      console.log('Executing SQL:', queryPlan.sql);
+      
+      // Try to execute using RPC first
       const { data, error } = await supabaseClient.rpc('execute_sql', {
         sql_query: queryPlan.sql
       });
 
       if (error) {
-        // If RPC fails, try direct query (limited to safe SELECT operations)
+        console.error('RPC execution failed:', error);
+        
+        // If RPC fails, try a direct query approach for simple SELECT statements
         if (queryPlan.sql.trim().toLowerCase().startsWith('select')) {
-          const { data: directData, error: directError } = await supabaseClient
-            .from('events') // This is a placeholder - the actual query would need proper routing
-            .select(queryPlan.sql);
+          console.log('Attempting direct query execution...');
           
-          if (directError) throw directError;
-          
+          // For now, return with error info but keep the query plan
           return new Response(JSON.stringify({
             ...queryPlan,
-            data: directData,
-            row_count: directData?.length || 0
+            error: `Query execution failed: ${error.message}`,
+            debug: {
+              sql: queryPlan.sql,
+              error_details: error
+            },
+            data: [],
+            row_count: 0
           }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
@@ -111,6 +123,8 @@ Available tables and key fields:
         throw error;
       }
 
+      console.log('Query executed successfully, rows:', data?.length || 0);
+      
       return new Response(JSON.stringify({
         ...queryPlan,
         data: data,
@@ -120,10 +134,15 @@ Available tables and key fields:
       });
 
     } catch (queryError) {
+      console.error('Query execution error:', queryError);
       // Return the query plan even if execution fails
       return new Response(JSON.stringify({
         ...queryPlan,
-        error: "Query execution failed",
+        error: `Query execution failed: ${queryError.message}`,
+        debug: {
+          sql: queryPlan.sql,
+          error_details: queryError
+        },
         data: [],
         row_count: 0
       }), {
