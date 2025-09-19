@@ -122,6 +122,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           }
         )
         .subscribe((status) => {
+          console.log('Realtime connection status:', status);
           setIsConnected(status === 'SUBSCRIBED');
         });
 
