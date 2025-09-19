@@ -137,23 +137,34 @@ serve(async (req) => {
     }
     logStep("Ticket quantity validation passed");
 
-    // Calculate Stripe line items
+    // Calculate fees and total
+    const calculateTotal = (faceValueCents: number) => {
+      const faceValue = faceValueCents / 100;
+      const processingFee = faceValue * 0.066 + 2.19;
+      const total = faceValue + processingFee;
+      return Math.round(total * 100); // Convert back to cents
+    };
+
+    // Calculate Stripe line items with fees included
     const lineItems = ticketSelections.map((selection) => {
       const tier = tiers.find((t) => t.id === selection.tierId)!;
       const currency = (tier.currency || "USD").toLowerCase();
+      const totalWithFees = calculateTotal(tier.price_cents);
+      
       return {
         price_data: {
           currency,
           product_data: {
             name: `${event.title} - ${tier.name}`,
-            description: `Ticket for ${event.title}`,
+            description: `Event ticket (includes processing fees)`,
             metadata: {
               event_id: eventId,
               tier_id: tier.id,
               badge_label: tier.badge_label || "",
+              face_value_cents: tier.price_cents.toString(),
             },
           },
-          unit_amount: tier.price_cents,
+          unit_amount: totalWithFees,
         },
         quantity: selection.quantity,
       };
