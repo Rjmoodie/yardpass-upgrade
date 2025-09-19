@@ -1255,11 +1255,13 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string
+          description: string | null
           handle: string | null
           id: string
           is_verified: boolean | null
           logo_url: string | null
           name: string
+          social_links: Json | null
           verification_status:
             | Database["public"]["Enums"]["verification_status"]
             | null
@@ -1267,11 +1269,13 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by: string
+          description?: string | null
           handle?: string | null
           id?: string
           is_verified?: boolean | null
           logo_url?: string | null
           name: string
+          social_links?: Json | null
           verification_status?:
             | Database["public"]["Enums"]["verification_status"]
             | null
@@ -1279,11 +1283,13 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string
+          description?: string | null
           handle?: string | null
           id?: string
           is_verified?: boolean | null
           logo_url?: string | null
           name?: string
+          social_links?: Json | null
           verification_status?:
             | Database["public"]["Enums"]["verification_status"]
             | null

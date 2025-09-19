@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { StripeConnectOnboarding } from './StripeConnectOnboarding';
+import { SocialLinkManager } from './SocialLinkManager';
 
 interface OrganizationCreatorProps {
   onBack: () => void;
@@ -50,6 +51,12 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
     handle: '',
     description: '',
   });
+
+  const [socialLinks, setSocialLinks] = useState<Array<{
+    platform: string;
+    url: string;
+    is_primary: boolean;
+  }>>([]);
 
   const handleRegexOk = useMemo(() => /^[a-z0-9-]{3,30}$/.test(formData.handle), [formData.handle]);
   const canSubmit = !!user && !!formData.name && !!formData.handle && handleRegexOk && handleAvailable !== false && !loading;
@@ -149,7 +156,7 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
 
     setLoading(true);
     try {
-      // 1) Create organization atomically w/ membership (no logo yet; we’ll patch it right after)
+      // 1) Create organization atomically w/ membership (no logo yet; we'll patch it right after)
       const { data: orgId, error } = await supabase.rpc('create_organization_with_membership', {
         p_name: formData.name.trim(),
         p_handle: formData.handle.trim(),
@@ -160,7 +167,20 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
       if (error) throw error;
       if (!orgId) throw new Error('Organization ID missing from RPC response');
 
-      // 2) Upload logo (optional) then patch
+      // 2) Update with description and social links
+      const { error: updateError } = await supabase
+        .from('organizations')
+        .update({
+          description: formData.description?.trim() || null,
+          social_links: socialLinks,
+        })
+        .eq('id', orgId as string);
+
+      if (updateError) {
+        console.warn('Failed to update description/social links:', updateError);
+      }
+
+      // 3) Upload logo (optional) then patch
       await uploadLogoAndPatch(orgId as string);
 
       toast({
@@ -317,6 +337,23 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
             </CardContent>
           </Card>
 
+          {/* Social Media Links */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Social Media Links</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Add social media links to help people connect with your organization
+              </p>
+            </CardHeader>
+            <CardContent>
+              <SocialLinkManager 
+                socialLinks={socialLinks}
+                onChange={setSocialLinks}
+                maxLinks={3}
+              />
+            </CardContent>
+          </Card>
+
           {/* Preview */}
           {(formData.name || formData.handle || formData.description) && (
             <Card>
@@ -344,6 +381,11 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
                     {formData.description && (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                         {formData.description}
+                      </p>
+                    )}
+                    {socialLinks.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {socialLinks.length} social link{socialLinks.length > 1 ? 's' : ''} added
                       </p>
                     )}
                   </div>

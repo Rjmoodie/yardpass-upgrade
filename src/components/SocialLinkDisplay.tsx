@@ -1,48 +1,70 @@
 import React from 'react';
+import { Badge } from '@/components/ui/badge';
 import { getSocialIcon, getSocialColor, getSocialName } from '@/utils/socialIcons';
 import { ExternalLink } from 'lucide-react';
-import { SocialLink } from './SocialLinkManager';
+
+interface SocialLink {
+  platform: string;
+  url: string;
+  is_primary: boolean;
+}
 
 interface SocialLinkDisplayProps {
   socialLinks: SocialLink[];
+  showLabels?: boolean;
   showPrimaryOnly?: boolean;
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
 export function SocialLinkDisplay({ 
-  socialLinks = [], 
-  showPrimaryOnly = false, 
-  className = "" 
+  socialLinks, 
+  showLabels = false,
+  showPrimaryOnly = false,
+  size = 'md',
+  className = '' 
 }: SocialLinkDisplayProps) {
-  const linksToShow = showPrimaryOnly 
+  if (!socialLinks || socialLinks.length === 0) {
+    return null;
+  }
+
+  const filteredLinks = showPrimaryOnly 
     ? socialLinks.filter(link => link.is_primary)
     : socialLinks;
 
-  if (linksToShow.length === 0) return null;
+  const iconSize = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5';
+  const containerSize = size === 'sm' ? 'w-8 h-8' : size === 'lg' ? 'w-12 h-12' : 'w-10 h-10';
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      {linksToShow.map((link, index) => {
-        const SocialIcon = getSocialIcon(link.platform);
+      {filteredLinks.map((link, index) => {
+        const Icon = getSocialIcon(link.platform);
         const colorClass = getSocialColor(link.platform);
-        
+        const platformName = getSocialName(link.platform);
+
         return (
-          <a
-            key={index}
-            href={link.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`inline-flex items-center gap-1 text-sm ${colorClass} hover:opacity-70 transition-opacity`}
-            title={`${getSocialName(link.platform)}: ${link.url}`}
-          >
-            <SocialIcon className="w-4 h-4" />
-            {!showPrimaryOnly && (
-              <span className="hidden sm:inline">
-                {getSocialName(link.platform)}
-              </span>
+          <div key={index} className="flex items-center gap-1">
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${containerSize} flex items-center justify-center rounded-full bg-muted hover:bg-muted/80 transition-colors group`}
+              title={`Visit ${platformName}`}
+            >
+              <Icon className={`${iconSize} ${colorClass} group-hover:scale-110 transition-transform`} />
+            </a>
+            {showLabels && (
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-muted-foreground">{platformName}</span>
+                {link.is_primary && (
+                  <Badge variant="secondary" className="text-xs">
+                    Primary
+                  </Badge>
+                )}
+                <ExternalLink className="w-3 h-3 text-muted-foreground" />
+              </div>
             )}
-            <ExternalLink className="w-3 h-3 opacity-60" />
-          </a>
+          </div>
         );
       })}
     </div>

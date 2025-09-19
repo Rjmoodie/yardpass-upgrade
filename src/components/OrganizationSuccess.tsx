@@ -11,7 +11,9 @@ import {
   ArrowRight,
   Calendar,
   Share,
-  Settings
+  Settings,
+  ExternalLink,
+  Globe
 } from 'lucide-react';
 import { StripeConnectOnboarding } from './StripeConnectOnboarding';
 
@@ -21,6 +23,7 @@ interface OrganizationSuccessProps {
   organizationHandle: string;
   onContinue: () => void;
   onCreateEvent?: () => void;
+  onManageOrganization?: () => void;
 }
 
 export function OrganizationSuccess({
@@ -28,7 +31,8 @@ export function OrganizationSuccess({
   organizationName,
   organizationHandle,
   onContinue,
-  onCreateEvent
+  onCreateEvent,
+  onManageOrganization
 }: OrganizationSuccessProps) {
   const [showStripeSetup, setShowStripeSetup] = useState(false);
 
@@ -52,7 +56,7 @@ export function OrganizationSuccess({
       </Card>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={onCreateEvent}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -60,8 +64,23 @@ export function OrganizationSuccess({
                 <Calendar className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold">Create Your First Event</h3>
-                <p className="text-sm text-muted-foreground">Start planning your event</p>
+                <h3 className="font-semibold">Create Event</h3>
+                <p className="text-sm text-muted-foreground">Start planning your first event</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={onManageOrganization}>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Settings className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold">Manage Profile</h3>
+                <p className="text-sm text-muted-foreground">Add social links & team members</p>
               </div>
               <ArrowRight className="w-4 h-4 text-muted-foreground" />
             </div>
@@ -76,13 +95,39 @@ export function OrganizationSuccess({
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold">Enable Payouts</h3>
-                <p className="text-sm text-muted-foreground">Connect Stripe to receive payments</p>
+                <p className="text-sm text-muted-foreground">Connect Stripe for payments</p>
               </div>
               <ArrowRight className="w-4 h-4 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* View Organization Profile CTA */}
+      <Card className="bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <Globe className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Your Organization is Live!</h3>
+                <p className="text-sm text-muted-foreground">
+                  View your public organization profile at @{organizationHandle}
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => window.open(`/org/${organizationHandle}`, '_blank')}
+              className="gap-2"
+            >
+              View Profile <ExternalLink className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stripe Connect Setup */}
       {showStripeSetup && (
@@ -144,13 +189,18 @@ export function OrganizationSuccess({
                 <Settings className="w-3 h-3 text-purple-600" />
               </div>
               <div className="flex-1">
-                <h4 className="font-medium">Organization Settings</h4>
+                <h4 className="font-medium">Organization Profile</h4>
                 <p className="text-sm text-muted-foreground">
-                  Customize your organization profile, branding, and preferences
+                  Add social media links, team members, and customize your organization's public profile
                 </p>
-                <Badge variant="outline" className="mt-2 text-xs">
-                  Available in Dashboard
-                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={onManageOrganization}
+                >
+                  Manage Profile
+                </Button>
               </div>
             </div>
           </div>
@@ -167,9 +217,9 @@ export function OrganizationSuccess({
       </Alert>
 
       {/* Continue Button */}
-      <div className="flex justify-center pt-4">
+      <div className="flex justify-center gap-4 pt-4">
         <Button onClick={onContinue} size="lg" className="px-8">
-          Continue to Event Creation
+          Continue to Events
           <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </div>

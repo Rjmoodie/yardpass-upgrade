@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { SocialLinkManager } from './SocialLinkManager';
+import { SocialLinkDisplay } from './SocialLinkDisplay';
 
 interface User {
   id: string;
@@ -46,6 +48,12 @@ interface Organization {
   logo_url: string | null;
   verification_status: string;
   created_at: string;
+  description?: string | null;
+  social_links?: Array<{
+    platform: string;
+    url: string;
+    is_primary: boolean;
+  }> | null;
 }
 
 type OrgRole = 'owner' | 'admin' | 'editor' | 'viewer';
@@ -127,7 +135,12 @@ export function OrganizationDashboard({
         await Promise.all([orgPromise, membersPromise, analyticsPromise]);
 
       if (orgError) throw orgError;
-      setOrganization(org as Organization);
+      setOrganization({
+        ...org,
+        social_links: Array.isArray(org.social_links) 
+          ? org.social_links as Array<{platform: string; url: string; is_primary: boolean}>
+          : [],
+      } as Organization);
 
       if (membersError) throw membersError;
 
@@ -659,7 +672,7 @@ export function OrganizationDashboard({
                   Organization Settings
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm">Organization Name</label>
@@ -670,6 +683,16 @@ export function OrganizationDashboard({
                     <Input value={`@${organization.handle}`} disabled />
                   </div>
                 </div>
+
+                {organization.description && (
+                  <div className="space-y-2">
+                    <label className="text-sm">Description</label>
+                    <div className="p-3 bg-muted rounded-md text-sm">
+                      {organization.description}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={copyOrgLink}>
                     <Share className="w-4 h-4 mr-1" />
@@ -680,9 +703,64 @@ export function OrganizationDashboard({
                     Reload
                   </Button>
                 </div>
+
                 <p className="text-xs text-muted-foreground">
                   Editing org profile (name/handle/logo) can be added here when ready.
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* Social Media Links Management */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Social Media Links</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Manage your organization's social media presence
+                </p>
+              </CardHeader>
+              <CardContent>
+                <SocialLinkManager 
+                  socialLinks={organization.social_links || []}
+                  onChange={async (newLinks) => {
+                    try {
+                      const { error } = await supabase
+                        .from('organizations')
+                        .update({ social_links: newLinks as any })
+                        .eq('id', organizationId);
+                        
+                      if (error) throw error;
+                      
+                      setOrganization(prev => prev ? { 
+                        ...prev, 
+                        social_links: newLinks 
+                      } : prev);
+                      
+                      toast({
+                        title: 'Social links updated',
+                        description: 'Your social media links have been saved.',
+                      });
+                    } catch (error) {
+                      console.error('Failed to update social links:', error);
+                      toast({
+                        title: 'Error',
+                        description: 'Failed to update social links. Please try again.',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
+                  maxLinks={3}
+                />
+                
+                {organization.social_links && organization.social_links.length > 0 && (
+                  <div className="mt-4 p-4 bg-muted rounded-lg">
+                    <h4 className="text-sm font-medium mb-2">Preview:</h4>
+                    <SocialLinkDisplay 
+                      socialLinks={organization.social_links}
+                      showLabels={true}
+                      size="md"
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
