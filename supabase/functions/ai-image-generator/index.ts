@@ -61,7 +61,6 @@ serve(async (req) => {
         prompt: desc,
         size: "1024x576",
         n: 1,
-        response_format: "b64_json",
       }),
     });
 
