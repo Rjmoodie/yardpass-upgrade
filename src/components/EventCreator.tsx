@@ -65,7 +65,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         const parsed = JSON.parse(saved);
         return {
           step: parsed.step || 1,
-          formData: { ...formData, ...parsed.formData },
+          formData: parsed.formData || {},
           location: parsed.location || null,
           ticketTiers: parsed.ticketTiers || [
             { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100 },
