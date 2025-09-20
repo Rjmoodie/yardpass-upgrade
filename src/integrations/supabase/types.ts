@@ -2767,6 +2767,7 @@ export type Database = {
           item_type: string
           location: string
           organizer_name: string
+          parent_event_id: string
           start_at: string
           title: string
           visibility: string
