@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Search, Calendar, MapPin, Tag } from 'lucide-react';
-import { useSmartSearch } from '@/hooks/useSmartSearch';
+// src/components/SearchPalette.tsx
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { X, Search as SearchIcon, Calendar, MapPin, Tag } from 'lucide-react';
+import { useSmartSearch, type SearchRow } from '@/hooks/useSmartSearch';
 import { Button } from '@/components/ui/button';
 
 type Props = {
@@ -8,7 +9,7 @@ type Props = {
   onClose: () => void;
   onGoToEvent: (eventId: string) => void;
   onGoToPost?: (eventId: string, postId: string) => void;
-  categories?: string[]; // provide if you have a fixed set
+  categories?: string[]; // optional fixed set
 };
 
 const LOCAL_KEY = 'yp_recent_searches_v1';
@@ -18,7 +19,9 @@ function useRecent() {
     try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); } catch { return []; }
   });
   const push = (q: string) => {
-    const next = [q, ...items.filter(i => i !== q)].slice(0, 10);
+    const cleaned = q.trim();
+    if (!cleaned) return;
+    const next = [cleaned, ...items.filter(i => i !== cleaned)].slice(0, 10);
     setItems(next);
     localStorage.setItem(LOCAL_KEY, JSON.stringify(next));
   };
@@ -27,22 +30,48 @@ function useRecent() {
     setItems(next);
     localStorage.setItem(LOCAL_KEY, JSON.stringify(next));
   };
-  return { items, push, remove };
+  const clear = () => {
+    setItems([]);
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([]));
+  };
+  return { items, push, remove, clear };
 }
 
-export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, categories = [] }: Props) {
+export function SearchPalette({
+  isOpen,
+  onClose,
+  onGoToEvent,
+  onGoToPost,
+  categories = [],
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { q, setQ, filters, setFilters, results, loading, error, loadMore, pageSize } = useSmartSearch('');
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const {
+    q, setQ,
+    filters, setFilters, clearFilters,
+    results, loading, error, loadMore, pageSize,
+  } = useSmartSearch('');
+
   const { items: recent, push: pushRecent, remove: removeRecent } = useRecent();
   const [hover, setHover] = useState<number>(0);
 
+  // Keyboard UX
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowDown') { e.preventDefault(); setHover((h) => Math.min(h + 1, results.length - 1)); }
-      if (e.key === 'ArrowUp')   { e.preventDefault(); setHover((h) => Math.max(h - 1, 0)); }
+      if (!results.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHover(h => Math.min(h + 1, results.length - 1));
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHover(h => Math.max(h - 1, 0));
+      }
       if (e.key === 'Enter') {
+        e.preventDefault();
         const row = results[hover];
         if (row) handleNavigate(row);
       }
@@ -56,21 +85,38 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 0);
   }, [isOpen]);
 
-  const handleNavigate = (row: any) => {
+  const handleNavigate = useCallback((row: SearchRow) => {
     if (q.trim()) pushRecent(q);
-    if (row.kind === 'event' || !row.post_id) {
+    if (row.item_type === 'event') {
       onGoToEvent(row.item_id);
     } else {
-      onGoToPost?.(row.item_id, row.post_id);
+      // posts need their parent event id to position in the feed
+      const parent = row.parent_event_id || row.item_id; // fallback if RPC already returns post's event_id here
+      onGoToPost?.(parent, row.item_id);
     }
     onClose();
-  };
+  }, [onClose, onGoToEvent, onGoToPost, pushRecent, q]);
 
+  // Split groups (keeps UI tidy)
   const groups = useMemo(() => {
     const ev = results.filter(r => r.item_type === 'event');
     const posts = results.filter(r => r.item_type === 'post');
     return { ev, posts };
   }, [results]);
+
+  // Quick filter helpers
+  const setNext30Days = () => {
+    const now = new Date();
+    const to = new Date(now); to.setDate(to.getDate() + 30);
+    setFilters(f => ({ ...f, dateFrom: now.toISOString(), dateTo: to.toISOString() }));
+  };
+  const setThisWeekend = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const sat = new Date(now); sat.setDate(now.getDate() + ((6 - day + 7) % 7));
+    const sun = new Date(sat); sun.setDate(sat.getDate() + 1);
+    setFilters(f => ({ ...f, dateFrom: sat.toISOString(), dateTo: sun.toISOString() }));
+  };
 
   if (!isOpen) return null;
 
@@ -80,9 +126,9 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
         className="mx-auto mt-20 max-w-2xl rounded-xl border border-white/10 bg-neutral-900 text-white shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        {/* Input + quick filters */}
+        {/* Header / Input / Filters */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-          <Search className="w-4 h-4 opacity-70" />
+          <SearchIcon className="w-4 h-4 opacity-70" />
           <input
             ref={inputRef}
             value={q}
@@ -95,10 +141,11 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
             <button
               className={`text-xs px-2 py-1 rounded border ${filters.onlyEvents ? 'border-white' : 'border-white/20 text-white/70'}`}
               onClick={() => setFilters(f => ({ ...f, onlyEvents: !f.onlyEvents }))}
+              title="Show only events"
             >
               Events only
             </button>
-            {/* category quick-select */}
+
             {categories.length > 0 && (
               <select
                 value={filters.category ?? ''}
@@ -110,38 +157,39 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             )}
-            {/* date range quick-select: next 30 days / this weekend */}
+
             <button
               className="text-xs px-2 py-1 rounded border border-white/20 text-white/70"
-              onClick={() => {
-                const now = new Date();
-                const in30 = new Date(now); in30.setDate(in30.getDate() + 30);
-                setFilters(f => ({ ...f, dateFrom: now.toISOString(), dateTo: in30.toISOString() }));
-              }}
+              onClick={setNext30Days}
               title="Next 30 days"
             >
               Next 30d
             </button>
             <button
               className="text-xs px-2 py-1 rounded border border-white/20 text-white/70"
-              onClick={() => {
-                const now = new Date();
-                const day = now.getDay();
-                const sat = new Date(now); sat.setDate(now.getDate() + ((6 - day + 7) % 7));
-                const sun = new Date(sat); sun.setDate(sat.getDate() + 1);
-                setFilters(f => ({ ...f, dateFrom: sat.toISOString(), dateTo: sun.toISOString() }));
-              }}
+              onClick={setThisWeekend}
               title="This weekend"
             >
               Weekend
             </button>
+
+            {(filters.category || filters.onlyEvents || filters.dateFrom || filters.dateTo) && (
+              <button
+                className="text-xs px-2 py-1 rounded border border-white text-white"
+                onClick={clearFilters}
+                title="Clear filters"
+              >
+                Clear
+              </button>
+            )}
           </div>
+
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close search">
             <X className="w-4 h-4" />
           </Button>
         </div>
 
-        {/* Recent searches */}
+        {/* Recent searches (when idle) */}
         {(!q && recent.length > 0) && (
           <div className="px-4 py-2 text-sm border-b border-white/10">
             <div className="mb-1 text-white/60">Recent</div>
@@ -149,9 +197,7 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
               {recent.map(r => (
                 <button
                   key={r}
-                  onClick={() => {
-                    setQ(r);
-                  }}
+                  onClick={() => setQ(r)}
                   className="px-2 py-1 rounded bg-white/10 hover:bg-white/15 text-white/90"
                 >
                   {r}
@@ -169,7 +215,7 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
         )}
 
         {/* Results */}
-        <div className="max-h-[60vh] overflow-y-auto">
+        <div ref={listRef} className="max-h-[60vh] overflow-y-auto">
           {error && (
             <div className="px-4 py-6 text-red-300 text-sm">Search failed. Please try again.</div>
           )}
@@ -187,12 +233,13 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
             <>
               <div className="px-4 pt-4 pb-2 text-xs uppercase tracking-wide text-white/50">Events</div>
               <ul className="px-2">
-                {groups.ev.map((row, idx) => {
-                  const isH = results.indexOf(row) === hover;
+                {groups.ev.map((row) => {
+                  const idx = results.indexOf(row);
+                  const isH = idx === hover;
                   return (
-                    <li key={`ev-${row.item_id}-${idx}`}>
+                    <li key={`ev-${row.item_id}`}>
                       <button
-                        onMouseEnter={() => setHover(results.indexOf(row))}
+                        onMouseEnter={() => setHover(idx)}
                         onClick={() => handleNavigate(row)}
                         className={`w-full text-left px-3 py-2 rounded-lg transition ${
                           isH ? 'bg-white/10' : 'hover:bg-white/5'
@@ -201,11 +248,19 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 shrink-0 opacity-70" />
                           <div className="flex-1">
-                            <div className="font-medium">{row.title}</div>
-                            <div className="text-xs text-white/60 flex items-center gap-2">
+                            <div className="font-medium line-clamp-1">{row.title}</div>
+                            <div className="text-xs text-white/60 flex flex-wrap items-center gap-2">
                               {row.start_at && <span>{new Date(row.start_at).toLocaleString()}</span>}
-                              {row.location && (<span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3"/>{row.location}</span>)}
-                              {row.category && (<span className="inline-flex items-center gap-1"><Tag className="w-3 h-3"/>{row.category}</span>)}
+                              {row.location && (
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPin className="w-3 h-3"/>{row.location}
+                                </span>
+                              )}
+                              {row.category && (
+                                <span className="inline-flex items-center gap-1">
+                                  <Tag className="w-3 h-3"/>{row.category}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -223,17 +278,18 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
               <div className="px-4 pt-4 pb-2 text-xs uppercase tracking-wide text-white/50">Posts</div>
               <ul className="px-2">
                 {groups.posts.map((row) => {
-                  const isH = results.indexOf(row) === hover;
+                  const idx = results.indexOf(row);
+                  const isH = idx === hover;
                   return (
                     <li key={`post-${row.item_id}`}>
                       <button
-                        onMouseEnter={() => setHover(results.indexOf(row))}
+                        onMouseEnter={() => setHover(idx)}
                         onClick={() => handleNavigate(row)}
                         className={`w-full text-left px-3 py-2 rounded-lg transition ${
                           isH ? 'bg-white/10' : 'hover:bg-white/5'
                         }`}
                       >
-                        <div className="font-medium">{row.title}</div>
+                        <div className="font-medium line-clamp-1">{row.title}</div>
                         <div className="text-xs text-white/60 line-clamp-2">{row.description}</div>
                       </button>
                     </li>
@@ -252,7 +308,8 @@ export function SearchPalette({ isOpen, onClose, onGoToEvent, onGoToPost, catego
         </div>
 
         <div className="px-4 py-2 border-t border-white/10 text-[11px] text-white/50">
-          Tip: Press <kbd className="px-1 py-[1px] bg-white/10 rounded">⌘</kbd>/<kbd className="px-1 py-[1px] bg-white/10 rounded">Ctrl</kbd>+<kbd className="px-1 py-[1px] bg-white/10 rounded">K</kbd> to open search anywhere
+          Tip: Press <kbd className="px-1 py-[1px] bg-white/10 rounded">⌘</kbd>/<kbd className="px-1 py-[1px] bg-white/10 rounded">Ctrl</kbd>
+          +<kbd className="px-1 py-[1px] bg-white/10 rounded">K</kbd> to open search anywhere
         </div>
       </div>
     </div>
