@@ -2736,27 +2736,16 @@ export type Database = {
         Returns: undefined
       }
       search_all: {
-        Args:
-          | {
-              p_category?: string
-              p_date_from?: string
-              p_date_to?: string
-              p_limit?: number
-              p_offset?: number
-              p_only_events?: boolean
-              p_q: string
-              p_user: string
-            }
-          | {
-              p_category?: string
-              p_date_from?: string
-              p_date_to?: string
-              p_limit?: number
-              p_offset?: number
-              p_only_events?: boolean
-              p_q?: string
-              p_user?: string
-            }
+        Args: {
+          p_category?: string
+          p_date_from?: string
+          p_date_to?: string
+          p_limit?: number
+          p_offset?: number
+          p_only_events?: boolean
+          p_q?: string
+          p_user?: string
+        }
         Returns: {
           category: string
           content: string
