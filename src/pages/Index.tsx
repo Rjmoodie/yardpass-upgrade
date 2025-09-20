@@ -398,13 +398,11 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       <div className="fixed right-3 top-3 z-30">
         <Button 
           variant="secondary" 
-          size="sm"
+          size="icon"
           onClick={() => setSearchOpen(true)}
           className="bg-black/40 border border-white/20 text-white hover:bg-black/60 transition backdrop-blur-sm"
         >
           <Search className="w-4 h-4" />
-          <span className="mx-2">Search</span>
-          <kbd className="px-1 py-[1px] bg-white/10 rounded text-[10px]">K</kbd>
         </Button>
       </div>
 
