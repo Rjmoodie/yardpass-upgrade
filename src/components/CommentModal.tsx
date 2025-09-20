@@ -9,7 +9,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
 import { routes } from '@/lib/routes';
 import { ReportButton } from '@/components/ReportButton';
 import { muxToHls } from '@/utils/media';
@@ -44,6 +43,10 @@ interface Comment {
   author_avatar?: string | null;
   likes_count: number;
   is_liked: boolean;
+
+  /** Local-only, used for optimistic UX */
+  pending?: boolean;
+  client_id?: string;
 }
 
 interface Post {
@@ -54,8 +57,8 @@ interface Post {
   media_urls: string[];
   author_name?: string | null;
   author_avatar?: string | null;
-  author_badge?: string | null;     // ticket tier label
-  author_is_organizer?: boolean;    // reserved
+  author_badge?: string | null;
+  author_is_organizer?: boolean;
   comments: Comment[];
   likes_count: number;
   is_liked: boolean;
@@ -78,8 +81,9 @@ export default function CommentModal({
   isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId, onSuccess,
 }: CommentModalProps) {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const isMounted = useRef(true);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const newestCommentRef = useRef<HTMLDivElement | null>(null);
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
@@ -96,6 +100,14 @@ export default function CommentModal({
 
   // derived: ids of loaded posts for realtime filter
   const postIdSet = useMemo(() => new Set(posts.map((p) => p.id)), [posts]);
+
+  function openInNewTab(href: string) {
+    try {
+      window.open(href, '_blank', 'noopener,noreferrer');
+    } catch {
+      // ignore
+    }
+  }
 
   async function resolvePostIdFromMedia(eventId: string, playbackId: string): Promise<string | null> {
     const { data, error } = await supabase
@@ -136,7 +148,7 @@ export default function CommentModal({
     setPosts([]);
     setPageFrom(0);
     setHasMore(!singleMode);
-    setSelectedPostId(resolvedPostId);
+    setSelectedPostId(resolvedPostId ?? null);
     void loadPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId, resolvedPostId, singleMode]);
@@ -159,27 +171,47 @@ export default function CommentModal({
           const c = payload.new as CommentRow;
           if (!singleMode && !postIdSet.has(c.post_id)) return;
 
+          // Reconcile: if we have a pending optimistic comment from same user & same text,
+          // replace it instead of duplicating.
           setPosts((prev) =>
-            prev.map((p) =>
-              p.id === c.post_id
-                ? {
-                    ...p,
-                    comments: [
-                      ...p.comments,
-                      {
-                        id: c.id,
-                        text: c.text,
-                        author_user_id: c.author_user_id,
-                        created_at: c.created_at,
-                        author_name: 'Anonymous',
-                        author_avatar: null,
-                        likes_count: 0,
-                        is_liked: false,
-                      },
-                    ],
-                  }
-                : p
-            )
+            prev.map((p) => {
+              if (p.id !== c.post_id) return p;
+
+              const idx = p.comments.findIndex(
+                (cm) =>
+                  cm.pending &&
+                  cm.author_user_id === c.author_user_id &&
+                  cm.text.trim() === c.text.trim()
+              );
+
+              if (idx >= 0) {
+                const updated = [...p.comments];
+                updated[idx] = {
+                  ...updated[idx],
+                  id: c.id,
+                  created_at: c.created_at,
+                  pending: false,
+                };
+                return { ...p, comments: updated };
+              }
+
+              return {
+                ...p,
+                comments: [
+                  ...p.comments,
+                  {
+                    id: c.id,
+                    text: c.text,
+                    author_user_id: c.author_user_id,
+                    created_at: c.created_at,
+                    author_name: 'Anonymous',
+                    author_avatar: null,
+                    likes_count: 0,
+                    is_liked: false,
+                  },
+                ],
+              };
+            })
           );
         }
       );
@@ -354,45 +386,76 @@ export default function CommentModal({
     }
 
     setSubmitting(true);
+
+    const clientId = `c_${Date.now()}`;
+    const optimistic: Comment = {
+      id: clientId,                    // temporary id
+      client_id: clientId,
+      text: newComment.trim(),
+      author_user_id: user.id,
+      created_at: new Date().toISOString(),
+      author_name: (user.user_metadata?.display_name as string) || 'You',
+      author_avatar: null,
+      likes_count: 0,
+      is_liked: false,
+      pending: true,
+    };
+
+    // Optimistically append + keep user in-modal with their content visible
+    setPosts((prev) =>
+      prev.map((p) => (p.id === selectedPostId ? { ...p, comments: [...p.comments, optimistic] } : p))
+    );
+
+    // Clear input but keep focus on this post
+    setNewComment('');
+
     try {
-      const { error } = await supabase.from('event_comments').insert({
-        post_id: selectedPostId,
-        author_user_id: user.id,
-        text: newComment.trim(),
-      });
+      // Ask Supabase to return id + created_at so we can replace the optimistic version
+      const { data, error } = await supabase
+        .from('event_comments')
+        .insert({
+          post_id: selectedPostId,
+          author_user_id: user.id,
+          text: optimistic.text,
+        })
+        .select('id, created_at')
+        .single();
+
       if (error) throw error;
 
+      // Replace optimistic comment with the real one (if realtime didn’t already)
       setPosts((prev) =>
-        prev.map((p) =>
-          p.id === selectedPostId
-            ? {
-                ...p,
-                comments: [
-                  ...p.comments,
-                  {
-                    id: `temp-${Date.now()}`,
-                    text: newComment.trim(),
-                    author_user_id: user.id,
-                    created_at: new Date().toISOString(),
-                    author_name: (user.user_metadata?.display_name as string) || 'You',
-                    author_avatar: null,
-                    likes_count: 0,
-                    is_liked: false,
-                  },
-                ],
-              }
-            : p
-        )
+        prev.map((p) => {
+          if (p.id !== selectedPostId) return p;
+          const idx = p.comments.findIndex((c) => c.client_id === clientId || c.id === clientId);
+          if (idx < 0) return p;
+
+          const updated = [...p.comments];
+          updated[idx] = {
+            ...updated[idx],
+            id: data.id,
+            created_at: data.created_at,
+            pending: false,
+          };
+          return { ...p, comments: updated };
+        })
       );
 
-      setNewComment('');
-      if (!singleMode) setSelectedPostId(null);
-      toast({ title: 'Success', description: 'Comment added successfully!' });
-      
-      // Call onSuccess callback to refresh parent feed
+      // Optional parent refresh hook
       onSuccess?.();
+
+      // Smooth scroll to the newest comment
+      setTimeout(() => {
+        newestCommentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 0);
     } catch (e: any) {
       console.error(e);
+      // Roll back optimistic insert
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === selectedPostId ? { ...p, comments: p.comments.filter((c) => c.client_id !== clientId) } : p
+        )
+      );
       toast({ title: 'Error', description: e.message || 'Failed to add comment', variant: 'destructive' });
     } finally {
       setSubmitting(false);
@@ -433,8 +496,7 @@ export default function CommentModal({
           .eq('kind', 'like');
         if (error) throw error;
       }
-      
-      // Call onSuccess callback to refresh parent feed
+
       onSuccess?.();
     } catch (e) {
       console.error(e);
@@ -541,10 +603,6 @@ export default function CommentModal({
     }
   };
 
-  const openPost = (id: string) => {
-    navigate(`${routes.event(eventId)}?tab=posts&post=${id}`);
-  };
-
   const mediaThumb = (urls: string[]) => {
     if (!urls?.length) return null;
     const raw = urls[0];
@@ -582,7 +640,7 @@ export default function CommentModal({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-4 p-1">
+        <div ref={listRef} className="flex-1 overflow-y-auto space-y-4 p-1">
           {loading && posts.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -602,9 +660,9 @@ export default function CommentModal({
                 {/* Post Header */}
                 <div className="flex items-start gap-3">
                   <button
-                    onClick={() => navigate(routes.user(post.author_user_id))}
+                    onClick={() => openInNewTab(routes.user(post.author_user_id))}
                     className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
-                    aria-label={`Open ${post.author_name || 'user'} profile`}
+                    aria-label={`Open ${post.author_name || 'user'} profile in new tab`}
                   >
                     <Avatar className="w-8 h-8">
                       <AvatarImage src={post.author_avatar || undefined} />
@@ -617,9 +675,9 @@ export default function CommentModal({
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <button
-                        onClick={() => navigate(routes.user(post.author_user_id))}
+                        onClick={() => openInNewTab(routes.user(post.author_user_id))}
                         className="font-medium text-sm hover:text-primary transition-colors cursor-pointer"
-                        title="View profile"
+                        title="View profile (new tab)"
                       >
                         {post.author_name}
                       </button>
@@ -663,10 +721,10 @@ export default function CommentModal({
                   </button>
 
                   <button
-                    onClick={() => openPost(post.id)}
+                    onClick={() => openInNewTab(`${routes.event(eventId)}?tab=posts&post=${post.id}`)}
                     className="flex items-center gap-1 hover:text-foreground transition-colors"
-                    aria-label="Open post"
-                    title="Open post"
+                    aria-label="Open post in new tab"
+                    title="Open post in new tab"
                   >
                     <ExternalLink className="w-3 h-3" />
                     View post
@@ -678,14 +736,20 @@ export default function CommentModal({
                 {/* Comments */}
                 {post.comments.length > 0 && (
                   <div className="space-y-3 pl-4 border-l-2 border-muted">
-                    {post.comments.map((comment) => {
+                    {post.comments.map((comment, idx, arr) => {
                       const canDelete = user?.id === comment.author_user_id;
+                      const isNewest = idx === arr.length - 1;
                       return (
-                        <div key={comment.id} className="flex items-start gap-3">
+                        <div
+                          key={comment.id}
+                          ref={isNewest ? newestCommentRef : undefined}
+                          className={`flex items-start gap-3 ${comment.pending ? 'opacity-70' : ''}`}
+                          title={comment.pending ? 'Sending…' : undefined}
+                        >
                           <button
-                            onClick={() => navigate(routes.user(comment.author_user_id))}
+                            onClick={() => openInNewTab(routes.user(comment.author_user_id))}
                             className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
-                            aria-label={`Open ${comment.author_name || 'user'} profile`}
+                            aria-label={`Open ${comment.author_name || 'user'} profile in new tab`}
                           >
                             <Avatar className="w-6 h-6">
                               <AvatarImage src={comment.author_avatar || undefined} />
@@ -698,25 +762,26 @@ export default function CommentModal({
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1">
                               <button
-                                onClick={() => navigate(routes.user(comment.author_user_id))}
+                                onClick={() => openInNewTab(routes.user(comment.author_user_id))}
                                 className="font-medium text-xs hover:text-primary transition-colors cursor-pointer"
-                                title="View profile"
+                                title="View profile (new tab)"
                               >
                                 {comment.author_name}
                               </button>
                               <span className="text-xs text-muted-foreground">
                                 {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                                {comment.pending ? ' • sending…' : ''}
                               </span>
                             </div>
-                            <p className="text-xs leading-relaxed">{comment.text}</p>
+                            <p className="text-xs leading-relaxed break-words whitespace-pre-wrap">{comment.text}</p>
 
                             {/* Comment action row */}
                             <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
                               <button
-                                onClick={() => toggleLikeComment(comment.id)}
+                                onClick={() => !comment.pending && toggleLikeComment(comment.id)}
                                 className={`flex items-center gap-1 hover:text-foreground transition-colors ${
                                   comment.is_liked ? 'text-red-500' : ''
-                                }`}
+                                } ${comment.pending ? 'pointer-events-none opacity-60' : ''}`}
                                 aria-label={comment.is_liked ? 'Unlike comment' : 'Like comment'}
                                 title={comment.is_liked ? 'Unlike' : 'Like'}
                               >
@@ -724,7 +789,7 @@ export default function CommentModal({
                                 {comment.likes_count}
                               </button>
 
-                              {canDelete && (
+                              {canDelete && !comment.pending && (
                                 <button
                                   onClick={() => deleteComment(comment.id)}
                                   className="flex items-center gap-1 hover:text-foreground transition-colors"
@@ -736,9 +801,11 @@ export default function CommentModal({
                                 </button>
                               )}
 
-                              <div className="inline-flex">
-                                <ReportButton targetType="comment" targetId={comment.id} />
-                              </div>
+                              {!comment.pending && (
+                                <div className="inline-flex">
+                                  <ReportButton targetType="comment" targetId={comment.id} />
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -772,13 +839,19 @@ export default function CommentModal({
                         onFocus={() => setSelectedPostId(post.id)}
                         className="min-h-[60px] resize-none text-sm"
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
+                          const metaEnter = (e.key === 'Enter' && (e.metaKey || e.ctrlKey));
+                          if ((e.key === 'Enter' && !e.shiftKey) || metaEnter) {
                             e.preventDefault();
                             handleSubmitComment();
                           }
                         }}
                       />
-                      <div className="flex justify-end">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-muted-foreground">
+                          Press <kbd className="px-1 py-0.5 border rounded">Enter</kbd> to send ·
+                          <span> </span>
+                          <kbd className="px-1 py-0.5 border rounded">Shift</kbd>+<kbd className="px-1 py-0.5 border rounded">Enter</kbd> for a new line
+                        </span>
                         <Button
                           size="sm"
                           onClick={handleSubmitComment}
