@@ -14,6 +14,7 @@ import { useVideoAnalytics } from '@/hooks/useVideoAnalytics';
 import { useHlsVideo } from '@/hooks/useHlsVideo';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useRealtimeEngagement } from '@/hooks/useRealtimeEngagement';
+import { useRealtimeComments } from '@/hooks/useRealtimeComments';
 import { muxToHls, isLikelyVideo } from '@/utils/media';
 
 /** Shape returned by posts-list Edge Function after mapping */
@@ -159,6 +160,23 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     eventIds: currentEventIds,
     userId: user?.id,
     onEngagementUpdate: handleEngagementUpdate
+  });
+
+  // Real-time comment updates
+  useRealtimeComments({
+    eventId: eventId || undefined,
+    onCommentAdded: (comment) => {
+      // Update comment count for the post instantly
+      setPosts(prev => prev.map(post => 
+        post.id === comment.post_id 
+          ? { ...post, comment_count: (post.comment_count || 0) + 1 }
+          : post
+      ));
+    },
+    onCommentDeleted: () => {
+      // Refresh counts on delete
+      fetchPosts();
+    }
   });
 
   // Intersection observer for view tracking

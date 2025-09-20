@@ -96,15 +96,16 @@ export const useOptimisticReactions = () => {
       return { success: false };
     }
 
-    const tempId = `temp-${Date.now()}`;
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
     const tempComment = {
       id: tempId,
       text: commentText.trim(),
       author_name: userData.user.user_metadata?.display_name || 'You',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      isOptimistic: true
     };
 
-    // Optimistic update
+    // Instant optimistic update
     setOptimisticComments(prev => ({
       ...prev,
       [postId]: {
@@ -114,49 +115,45 @@ export const useOptimisticReactions = () => {
       }
     }));
 
-    try {
-      // Use the comments-add edge function for proper counter updates
-      const { data, error } = await supabase.functions.invoke('comments-add', {
-        body: { post_id: postId, text: commentText.trim() }
-      });
-
-      if (error) throw error;
-
-      // Update with real comment data
-      setOptimisticComments(prev => ({
-        ...prev,
-        [postId]: {
-          postId,
-          commentCount: data.comment_count || currentCount + 1,
-          newComment: {
-            id: data.comment.id,
-            text: data.comment.text,
-            author_name: data.comment.author_name || userData.user.user_metadata?.display_name || 'You',
-            created_at: data.comment.created_at
+    // Fire-and-forget background update
+    supabase.functions.invoke('comments-add', {
+      body: { post_id: postId, text: commentText.trim() }
+    }).then(({ data, error }) => {
+      if (error) {
+        // Rollback only on error
+        setOptimisticComments(prev => ({
+          ...prev,
+          [postId]: {
+            postId,
+            commentCount: currentCount,
+            newComment: undefined
           }
-        }
-      }));
+        }));
+        toast({
+          title: "Error",
+          description: "Failed to add comment",
+          variant: "destructive",
+        });
+      } else {
+        // Replace optimistic with real data
+        setOptimisticComments(prev => ({
+          ...prev,
+          [postId]: {
+            postId,
+            commentCount: data.comment_count || currentCount + 1,
+            newComment: {
+              id: data.comment.id,
+              text: data.comment.text,
+              author_name: data.comment.author_name || userData.user.user_metadata?.display_name || 'You',
+              created_at: data.comment.created_at,
+              isOptimistic: false
+            }
+          }
+        }));
+      }
+    });
 
-      return { success: true, comment: data.comment };
-
-    } catch (error) {
-      // Rollback on error
-      setOptimisticComments(prev => ({
-        ...prev,
-        [postId]: {
-          postId,
-          commentCount: currentCount,
-          newComment: undefined
-        }
-      }));
-      
-      toast({
-        title: "Error",
-        description: "Failed to add comment",
-        variant: "destructive",
-      });
-      return { success: false };
-    }
+    return { success: true, comment: tempComment };
   };
 
   const getOptimisticData = (postId: string, fallback: { isLiked: boolean; likeCount: number }) => {
