@@ -32,8 +32,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // 🗨️ Comments
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
+  const [commentMediaPlaybackId, setCommentMediaPlaybackId] = useState<string | undefined>(undefined); // ✨ NEW
+
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -104,9 +108,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           }
         }
       )
-      .subscribe(status => {
-        // Optional: console.debug('Realtime status:', status);
-      });
+      .subscribe(() => {});
 
     return () => {
       supabase.removeChannel(channel);
@@ -121,10 +123,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     setCurrentIndex((i) => Math.min(Math.max(0, i), Math.max(0, items.length - 1)));
   }, [items.length]);
 
-  // Keyboard nav (↑/↓, PgUp/PgDn, Home/End, "s" toggles sound, ⌘/Ctrl+K opens search)
+  // Keyboard nav (+ quick comment with "c") ✨ NEW
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Check for search hotkey first
+      // Search hotkeys
       const isMac = navigator.platform.toLowerCase().includes('mac');
       if ((isMac && e.metaKey && e.key.toLowerCase() === 'k') ||
           (!isMac && e.ctrlKey && e.key.toLowerCase() === 'k')) {
@@ -132,7 +134,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         setSearchOpen(true);
         return;
       }
-      // Quick open with slash if not typing in input
       if (e.key === '/') {
         const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
         if (tag !== 'input' && tag !== 'textarea' && !(e.target as HTMLElement).isContentEditable) {
@@ -141,18 +142,28 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           return;
         }
       }
-      // Regular navigation (only if search is closed)
-      if (!searchOpen) {
-        if (['ArrowUp', 'PageUp'].includes(e.key)) setCurrentIndex((i) => Math.max(0, i - 1));
-        if (['ArrowDown', 'PageDown'].includes(e.key)) setCurrentIndex((i) => Math.min(items.length - 1, i + 1));
-        if (e.key === 'Home') setCurrentIndex(0);
-        if (e.key === 'End') setCurrentIndex(Math.max(0, items.length - 1));
-        if (e.key.toLowerCase() === 's') handleSoundToggle();
+
+      // Disable feed nav while comment modal is open
+      if (showCommentModal) return; // ✨ NEW
+
+      if (['ArrowUp', 'PageUp'].includes(e.key)) setCurrentIndex((i) => Math.max(0, i - 1));
+      if (['ArrowDown', 'PageDown'].includes(e.key)) setCurrentIndex((i) => Math.min(items.length - 1, i + 1));
+      if (e.key === 'Home') setCurrentIndex(0);
+      if (e.key === 'End') setCurrentIndex(Math.max(0, items.length - 1));
+      if (e.key.toLowerCase() === 's') handleSoundToggle();
+
+      // Quick open comments on current post
+      if (e.key.toLowerCase() === 'c') { // ✨ NEW
+        const item = items[currentIndex];
+        if (item?.item_type === 'post') {
+          e.preventDefault();
+          handleComment(item.item_id);
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [items.length, searchOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items, currentIndex, showCommentModal]); // ✨ NEW
 
   // Touch swipe (vertical)
   const touchStartRef = useRef<{ y: number; t: number } | null>(null);
@@ -166,6 +177,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       if (!start) return;
       const dy = (e.changedTouches[0]?.clientY ?? start.y) - start.y;
       const dt = Date.now() - start.t;
+      if (showCommentModal) { // ✨ NEW: freeze swipe while modal is open
+        touchStartRef.current = null;
+        return;
+      }
       // Quick swipe threshold
       if (dt < 800 && Math.abs(dy) > 50) {
         if (dy < 0) setCurrentIndex((i) => Math.min(items.length - 1, i + 1));
@@ -179,9 +194,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       window.removeEventListener('touchstart', onTouchStart as any);
       window.removeEventListener('touchend', onTouchEnd as any);
     };
-  }, [items.length]);
+  }, [items.length, showCommentModal]); // ✨ NEW
 
-  // Preload next page when we're near the end
+  // Preload next page when near end
   useEffect(() => {
     if (!loading && hasMore && currentIndex >= items.length - 3) {
       loadMore().catch(() => {/* surface via hook error if any */});
@@ -190,25 +205,15 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   // Video control: auto-play current video, pause others
   useEffect(() => {
-    // Find videos in the current and adjacent frames
     const indices = new Set([currentIndex - 1, currentIndex, currentIndex + 1].filter(i => i >= 0 && i < items.length));
-    
-    // Update playing state first
     setPlayingVideos(prev => {
       const next = new Set<number>();
-      // Check if the set has actually changed to prevent unnecessary updates
       const currentArray = Array.from(prev);
       const newArray: number[] = [];
-      
       indices.forEach(idx => {
-        if (idx === currentIndex) {
-          newArray.push(idx);
-        }
+        if (idx === currentIndex) newArray.push(idx);
       });
-      
-      // Only update if the arrays are different
-      if (currentArray.length !== newArray.length || 
-          !currentArray.every(item => newArray.includes(item))) {
+      if (currentArray.length !== newArray.length || !currentArray.every(item => newArray.includes(item))) {
         return new Set(newArray);
       }
       return prev;
@@ -219,42 +224,40 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       items.forEach((item, idx) => {
         const feedElement = document.querySelector(`[data-feed-index="${idx}"]`);
         const videoElement = feedElement?.querySelector('video') as HTMLVideoElement;
-        
         if (!videoElement) return;
 
+        // ✨ NEW: if comment modal is open, pause and mute everything
+        if (showCommentModal) {
+          if (!videoElement.paused) videoElement.pause();
+          videoElement.muted = true;
+          return;
+        }
+
         if (idx === currentIndex && item.item_type === 'post') {
-          // Auto-play current video post
           videoElement.muted = !soundEnabled;
-          
-          // Ensure video is ready before playing
           if (videoElement.readyState >= 2) {
             videoElement.currentTime = 0;
             videoElement.play().catch((err) => {
               console.log('Index: Video autoplay failed for item', idx, err);
-              // Try muted playback as fallback
               if (!videoElement.muted) {
                 videoElement.muted = true;
-                videoElement.play().catch(() => {/* ignore second failure */});
+                videoElement.play().catch(() => {});
               }
             });
           } else {
-            // Wait for video to be ready
             const handleCanPlay = () => {
               videoElement.currentTime = 0;
-              videoElement.play().catch(() => {/* ignore failure */});
+              videoElement.play().catch(() => {});
               videoElement.removeEventListener('canplay', handleCanPlay);
             };
             videoElement.addEventListener('canplay', handleCanPlay);
           }
         } else {
-          // Pause all other videos
-          if (!videoElement.paused) {
-            videoElement.pause();
-          }
+          if (!videoElement.paused) videoElement.pause();
         }
       });
     });
-  }, [currentIndex, soundEnabled, items.length]); // Use items.length instead of items to prevent infinite loops
+  }, [currentIndex, soundEnabled, items.length, items, showCommentModal]); // ✨ NEW dep: showCommentModal, items
 
   // Actions
   const handleLike = useCallback(
@@ -274,12 +277,20 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     [withAuth, refresh]
   );
 
+  // Open comment modal (optional playbackId support) ✨ NEW
   const handleComment = useCallback(
-    withAuth((postId: string) => {
+    withAuth((postId: string, playbackId?: string) => {
       setCommentPostId(postId);
+      setCommentMediaPlaybackId(playbackId); // can be undefined if not provided
       setShowCommentModal(true);
+
+      // Soft pause/mute current video's audio immediately for UX ✨ NEW
+      requestAnimationFrame(() => {
+        const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${currentIndex}"] video`);
+        if (el) { try { el.pause(); } catch {} el.muted = true; }
+      });
     }, 'Please sign in to comment'),
-    [withAuth]
+    [withAuth, currentIndex]
   );
 
   const handleShare = useCallback((_postId: string) => {
@@ -295,7 +306,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }, [onEventSelect]);
 
   const handleOpenTickets = useCallback((eventId: string) => {
-    // (Optional) analytics here
     setSelectedEventId(eventId);
     setShowTicketModal(true);
   }, []);
@@ -310,11 +320,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const handleVideoToggle = useCallback((index: number) => {
     setPlayingVideos(prev => {
       const next = new Set(prev);
-      if (prev.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
+      if (prev.has(index)) next.delete(index);
+      else next.add(index);
       return next;
     });
   }, []);
@@ -336,24 +343,19 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   // Search navigation handlers
   const goToEventFromSearch = useCallback((eventId: string) => {
     onEventSelect(eventId);
-    // Find the event in our feed and navigate to it
-    const eventIndex = items.findIndex(item => 
+    const eventIndex = items.findIndex(item =>
       item.item_type === 'event' && item.item_id === eventId
     );
-    if (eventIndex !== -1) {
-      setCurrentIndex(eventIndex);
-    }
+    if (eventIndex !== -1) setCurrentIndex(eventIndex);
   }, [onEventSelect, items]);
 
   const goToPostFromSearch = useCallback((eventId: string, postId: string) => {
-    // Find the post in our feed and navigate to it
-    const postIndex = items.findIndex(item => 
+    const postIndex = items.findIndex(item =>
       item.item_type === 'post' && item.item_id === postId
     );
     if (postIndex !== -1) {
       setCurrentIndex(postIndex);
     } else {
-      // If post not in current feed, go to the event instead
       onEventSelect(eventId);
     }
   }, [onEventSelect, items]);
@@ -438,7 +440,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
               <UserPostCard
                 item={item}
                 onLike={withAuth((postId) => handleLike(postId), 'Please sign in to like posts')}
-                onComment={withAuth((postId) => handleComment(postId), 'Please sign in to comment')}
+                onComment={withAuth((postId /*, playbackId?*/) => handleComment(postId /*, playbackId*/), 'Please sign in to comment')} // ✨ NEW: handler supports optional playbackId
                 onShare={(postId) => handleShare(postId)}
                 onEventClick={handleEventClick}
                 onAuthorClick={handleAuthorClick}
@@ -459,7 +461,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         <div className="flex flex-col items-center gap-2">
           <button
             onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-            disabled={currentIndex === 0}
+            disabled={currentIndex === 0 || showCommentModal} // ✨ NEW: lock while modal open
             className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50 pointer-events-auto"
             aria-label="Previous item"
           >
@@ -474,9 +476,10 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                   key={`${item.item_type}:${item.item_id}`}
                   aria-label={`Go to ${item.item_type} ${actualIndex + 1}`}
                   onClick={() => goTo(actualIndex)}
+                  disabled={showCommentModal} // ✨ NEW
                   className={`w-1 h-6 rounded-full transition-all duration-200 pointer-events-auto ${
                     actualIndex === currentIndex ? 'bg-white shadow-lg' : 'bg-white/40 hover:bg-white/70'
-                  }`}
+                  } ${showCommentModal ? 'opacity-50' : ''}`}
                 />
               );
             })}
@@ -484,7 +487,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
           <button
             onClick={() => setCurrentIndex((i) => Math.min(items.length - 1, i + 1))}
-            disabled={currentIndex === items.length - 1}
+            disabled={currentIndex === items.length - 1 || showCommentModal} // ✨ NEW
             className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50 pointer-events-auto"
             aria-label="Next item"
           >
@@ -551,10 +554,17 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           onClose={() => {
             setShowCommentModal(false);
             setCommentPostId(undefined);
+            setCommentMediaPlaybackId(undefined); // ✨ NEW
+            // Try to restore audio state softly
+            requestAnimationFrame(() => {
+              const el = document.querySelector<HTMLVideoElement>(`[data-feed-index="${currentIndex}"] video`);
+              if (el) { el.muted = !soundEnabled; }
+            });
           }}
           eventId={currentItem.event_id}
           eventTitle={currentItem.event_title}
           postId={commentPostId}
+          mediaPlaybackId={commentMediaPlaybackId} // ✨ NEW (CommentModal will resolve if provided)
           onSuccess={() => {
             // Refresh feed to show new comment count
             refresh();
