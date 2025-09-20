@@ -9,31 +9,29 @@ import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import {
   ArrowLeft, ArrowRight, Plus, X, Upload, Calendar,
-  MapPin, Shield, Share2, Users, Sparkles, Wand2, Image as ImageIcon, Lightbulb
+  MapPin, Shield, Share2, Wand2, Image as ImageIcon, Lightbulb
 } from 'lucide-react';
 import { MapboxLocationPicker } from './MapboxLocationPicker';
 import { supabase } from '@/integrations/supabase/client';
-import { buildEventShareUrl } from '@/lib/visibility';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useToast } from '@/hooks/use-toast';
 
-// === AI modules (as in your screenshot) ===
+// AI modules
 import { AIWritingAssistant } from '@/components/ai/AIWritingAssistant';
 import { AIImageGenerator } from '@/components/ai/AIImageGenerator';
 import { AIRecommendations } from '@/components/ai/AIRecommendations';
 
-// === Series functionality ===
+// Series functionality
 import { SeriesConfiguration } from '@/components/SeriesConfiguration';
 import { useSeriesCreation } from '@/hooks/useSeriesCreation';
 
-// === Types ===
+// === Local Types ===
 interface EventCreatorProps {
   onBack: () => void;
   onCreate: () => void;
   organizationId: string;
 }
-
 interface Location {
   address: string;
   city: string;
@@ -41,7 +39,6 @@ interface Location {
   lat: number;
   lng: number;
 }
-
 interface TicketTier {
   id: string;
   name: string;
@@ -55,19 +52,51 @@ const categories = [
   'Business & Professional', 'Community', 'Technology', 'Other'
 ];
 
+// === Small utils ===
+const toISODate = (d: Date) => d.toISOString().split('T')[0];
+const combineDateTime = (dateStr?: string, timeStr?: string) =>
+  (!dateStr || !timeStr) ? null : new Date(`${dateStr}T${timeStr}`);
+const minutesBetween = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / 60000);
+
+function buildSlug(raw: string) {
+  return (raw || 'untitled-event')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 60);
+}
+async function ensureUniqueSlug(base: string) {
+  let slug = buildSlug(base);
+  let i = 1;
+  // Ensure no slug collision
+  // (Consider indexing events.slug and adding org scoping later if desired)
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('id')
+      .eq('slug', slug)
+      .limit(1);
+    if (error) throw error;
+    if (!data?.length) return slug;
+    i += 1;
+    slug = `${slug.replace(/-\d+$/, '')}-${i}`;
+  }
+}
+
 export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorProps) {
   const { user } = useAuth();
   const { trackEvent } = useAnalyticsIntegration();
   const { toast } = useToast();
 
-  // === Series creation hook ===
+  // Series hook
   const series = useSeriesCreation({
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
 
   const STORAGE_KEY = `event-creator-draft-${organizationId}`;
 
-  // Load saved draft from localStorage
+  // Load draft
   const loadDraft = () => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -87,9 +116,9 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     }
     return null;
   };
-
   const draft = loadDraft();
-  
+
+  // State
   const [step, setStep] = useState(draft?.step || 1);
   const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
@@ -124,26 +153,42 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     ]
   );
 
-  // Auto-save to localStorage whenever form data changes
+  // Validation/errors + dirty + submit guard
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [dirty, setDirty] = useState(false);
+  const submittingRef = useRef(false);
+  const durationRef = useRef<number>(120); // default 2h
+
+  // Auto-save draft
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          step,
-          formData,
-          location,
-          ticketTiers,
-          lastSaved: Date.now(),
+          step, formData, location, ticketTiers, lastSaved: Date.now(),
         }));
       } catch (error) {
         console.warn('Failed to save event creator draft:', error);
       }
-    }, 1000); // Debounce saves by 1 second
-
+    }, 700);
     return () => clearTimeout(timeoutId);
   }, [step, formData, location, ticketTiers, STORAGE_KEY]);
 
-  // Keep series start synced with step 2 date/time
+  // Mark dirty on changes
+  useEffect(() => { setDirty(true); }, [formData, location, ticketTiers]);
+
+  // Warn before unload if dirty
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (dirty && !loading) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty, loading]);
+
+  // Keep series start synced
   useEffect(() => {
     if (formData.startDate && formData.startTime) {
       const iso = new Date(`${formData.startDate}T${formData.startTime}`).toISOString();
@@ -151,32 +196,82 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     }
   }, [formData.startDate, formData.startTime, series]);
 
-  // Clear draft when event is successfully created
-  const clearDraft = () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (error) {
-      console.warn('Failed to clear event creator draft:', error);
+  // Auto-end time default & keep duration if user sets end later
+  useEffect(() => {
+    const start = combineDateTime(formData.startDate, formData.startTime);
+    const end   = combineDateTime(formData.endDate, formData.endTime);
+
+    // if we have both, keep durationRef updated
+    if (start && end) {
+      durationRef.current = Math.max(15, minutesBetween(start, end)); // at least 15m
+      return;
     }
+
+    // if start exists and end is blank, default to +2h (or last known duration)
+    if (start && (!formData.endDate || !formData.endTime)) {
+      const d = new Date(start.getTime() + durationRef.current * 60000);
+      setFormData(f => ({
+        ...f,
+        endDate: toISODate(d),
+        endTime: d.toISOString().slice(11,16),
+      }));
+    }
+  }, [formData.startDate, formData.startTime]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear draft helper
+  const clearDraft = () => {
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
   };
 
-  // ======= Helpers =======
+  // --- Validation functions ---
+  function validateStep1(fd: typeof formData) {
+    const e: Record<string,string> = {};
+    if (!fd.title) e.title = 'Title is required';
+    if (!fd.description) e.description = 'Description is required';
+    if (!fd.category) e.category = 'Category is required';
+    return e;
+  }
+  function validateStep2(fd: typeof formData, loc: Location | null) {
+    const e: Record<string,string> = {};
+    const start = combineDateTime(fd.startDate, fd.startTime);
+    const end = combineDateTime(fd.endDate, fd.endTime);
+    if (!start) e.start = 'Start date & time required';
+    if (!end) e.end = 'End date & time required';
+    if (start && end && end < start) e.end = 'End must be after start';
+    if (!loc) e.location = 'Select a location';
+    const sErr = series.state.enabled ? (series.validate() || '') : '';
+    if (sErr) e.series = sErr;
+    return e;
+  }
+  function validateStep3(tiers: TicketTier[]) {
+    const e: Record<string,string> = {};
+    if (!tiers.length) e.tiers = 'Add at least one tier';
+    tiers.forEach((t, idx) => {
+      if (!t.name) e[`tier-${idx}-name`] = 'Tier name required';
+      if (!t.badge) e[`tier-${idx}-badge`] = 'Badge required';
+      if (!t.quantity || t.quantity < 1) e[`tier-${idx}-quantity`] = 'Quantity must be ≥ 1';
+      if (t.price == null || t.price < 0) e[`tier-${idx}-price`] = 'Price must be ≥ 0';
+    });
+    return e;
+  }
+
   const canProceed = () => {
-    switch (step) {
-      case 1:
-        return formData.title && formData.description && formData.category && formData.visibility;
-      case 2:
-        const basicStep2Valid = formData.startDate && formData.startTime && formData.endDate && formData.endTime && location;
-        const seriesValid = !series.state.enabled || !series.validate();
-        return basicStep2Valid && seriesValid;
-      case 3:
-        return ticketTiers.every((t) => t.name && t.badge && t.quantity > 0);
-      default:
-        return true;
-    }
+    if (step === 1) return Object.keys(validateStep1(formData)).length === 0;
+    if (step === 2) return Object.keys(validateStep2(formData, location)).length === 0;
+    if (step === 3) return Object.keys(validateStep3(ticketTiers)).length === 0;
+    return true;
   };
 
   const handleNext = () => {
+    let e: Record<string,string> = {};
+    if (step === 1) e = validateStep1(formData);
+    if (step === 2) e = validateStep2(formData, location);
+    if (step === 3) e = validateStep3(ticketTiers);
+    setErrors(e);
+    if (Object.keys(e).length) {
+      toast({ title: 'Fix required fields', description: 'Please review highlighted fields.', variant: 'destructive' });
+      return;
+    }
     const newStep = Math.min(totalSteps, step + 1);
     trackEvent('event_creation_step', { from_step: step, to_step: newStep, organization_id: organizationId, direction: 'forward' });
     setStep(newStep);
@@ -187,15 +282,14 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     setStep(newStep);
   };
 
+  // Tiers CRUD
   const addTier = () =>
     setTicketTiers((prev) => [...prev, { id: String(Date.now()), name: '', price: 0, badge: '', quantity: 0 }]);
-
   const updateTier = (id: string, field: keyof TicketTier, value: string | number) =>
     setTicketTiers((tiers) => tiers.map((t) => (t.id === id ? { ...t, [field]: value } : t)));
-
   const removeTier = (id: string) => setTicketTiers((tiers) => tiers.filter((t) => t.id !== id));
 
-  // ======= Storage upload =======
+  // Upload cover
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
@@ -225,7 +319,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     }
   };
 
-  // ======= AI: Writing Assistant =======
+  // AI hooks
   const aiContext = useMemo(() => ({
     orgId: organizationId,
     title: formData.title,
@@ -243,15 +337,11 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     setFormData((f) => ({ ...f, title: text }));
     toast({ title: 'Title added', description: 'AI generated a catchy title.' });
   };
-
-  // ======= AI: Image Generator =======
   const onAIImageDone = (url?: string) => {
     if (!url) return;
     setFormData((f) => ({ ...f, coverImageUrl: url }));
     toast({ title: 'Cover updated', description: 'AI image set as event banner.' });
   };
-
-  // ======= AI: Tier Recommendations (pricing, structure) =======
   const applyTierSuggestions = (suggestions: Array<{ name: string; price: number; badge: string; quantity: number }>) => {
     if (!suggestions?.length) return;
     const mapped: TicketTier[] = suggestions.map((s, i) => ({
@@ -265,34 +355,67 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     toast({ title: 'Tiers suggested', description: 'AI proposed ticket tiers & pricing.' });
   };
 
-  // ======= Submit =======
+  // Submit
   const handleSubmit = async () => {
     if (!user || !location) return;
-
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
-    try {
-      const baseTemplate = {
-        title: formData.title,
-        description: formData.description,
-        category: formData.category,
-        timezone: formData.timezone,
-        venue: formData.venue,
-        address: location.address,
-        city: location.city,
-        country: location.country,
-        lat: location.lat?.toString(),
-        lng: location.lng?.toString(),
-        cover_image_url: formData.coverImageUrl,
-        visibility: formData.visibility
-      };
 
-      // Handle series creation
+    try {
+      // Validate everything once more
+      const e = {
+        ...validateStep1(formData),
+        ...validateStep2(formData, location),
+        ...validateStep3(ticketTiers),
+      };
+      setErrors(e);
+      if (Object.keys(e).length) {
+        toast({ title: 'Fix required fields', description: 'Please review highlighted fields.', variant: 'destructive' });
+        return;
+      }
+
+      // Unique slug
+      const slug = await ensureUniqueSlug(formData.title);
+
+      // Series path
       if (series.state.enabled) {
         const created = await series.createSeriesAndEvents({
           orgId: organizationId,
-          template: baseTemplate,
+          template: {
+            title: formData.title,
+            description: formData.description,
+            category: formData.category,
+            timezone: formData.timezone,
+            venue: formData.venue,
+            address: location.address,
+            city: location.city,
+            country: location.country,
+            lat: location.lat?.toString(),
+            lng: location.lng?.toString(),
+            cover_image_url: formData.coverImageUrl,
+            visibility: formData.visibility,
+            slug
+          },
           createdBy: user.id
         });
+
+        // OPTIONAL: replicate tiers to each created event
+        if (ticketTiers.length && created.length) {
+          const payload = created.flatMap((ev) =>
+            ticketTiers.map((t) => ({
+              event_id: ev.event_id,
+              name: t.name,
+              price_cents: Math.round((t.price || 0) * 100),
+              quantity: t.quantity,
+              badge_label: t.badge,
+              currency: 'USD',
+              status: 'active',
+            }))
+          );
+          const { error: tiersErr } = await supabase.from('ticket_tiers').insert(payload);
+          if (tiersErr) throw tiersErr;
+        }
 
         trackEvent('event_series_creation_success', {
           organization_id: organizationId,
@@ -302,26 +425,16 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         });
 
         clearDraft();
-        toast({
-          title: `Created ${created.length} events`,
-          description: series.state.name || 'Series created successfully.'
-        });
+        setDirty(false);
+        toast({ title: `Created ${created.length} events`, description: series.state.name || 'Series created successfully.' });
         onCreate();
         return;
       }
 
-      // Single event creation (existing logic)
-      const startAt = new Date(`${formData.startDate}T${formData.startTime}`);
-      const endAt = new Date(`${formData.endDate}T${formData.endTime}`);
-
+      // Single event path
+      const startAt = combineDateTime(formData.startDate, formData.startTime)!;
+      const endAt = combineDateTime(formData.endDate, formData.endTime)!;
       const linkToken = formData.visibility === 'unlisted' && 'randomUUID' in crypto ? crypto.randomUUID() : null;
-
-      // Basic slug (can be improved/uniqueness later)
-      const slug = formData.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        .slice(0, 60);
 
       const { data: event, error: eventError } = await supabase
         .from('events')
@@ -351,16 +464,16 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
       if (eventError) throw eventError;
 
-      const tiersPayload = ticketTiers.map((t) => ({
-        event_id: event.id,
-        name: t.name,
-        price_cents: Math.round((t.price || 0) * 100),
-        quantity: t.quantity,
-        badge_label: t.badge,
-        currency: 'USD',
-        status: 'active',
-      }));
-      if (tiersPayload.length) {
+      if (ticketTiers.length) {
+        const tiersPayload = ticketTiers.map((t) => ({
+          event_id: event.id,
+          name: t.name,
+          price_cents: Math.round((t.price || 0) * 100),
+          quantity: t.quantity,
+          badge_label: t.badge,
+          currency: 'USD',
+          status: 'active',
+        }));
         const { error: tiersErr } = await supabase.from('ticket_tiers').insert(tiersPayload);
         if (tiersErr) throw tiersErr;
       }
@@ -381,12 +494,12 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
       trackEvent('event_creation_success', {
         organization_id: organizationId,
-        event_id: event.id,
         event_title: formData.title,
         event_category: formData.category,
       });
 
-      clearDraft(); // Clear the saved draft
+      clearDraft();
+      setDirty(false);
       toast({
         title: 'Event Created!',
         description:
@@ -406,6 +519,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       });
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
@@ -416,8 +530,8 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         <div className="text-center">
           <h2 className="text-xl font-bold mb-4">Authentication Required</h2>
           <p className="text-muted-foreground mb-4">You need to be signed in to create events.</p>
-          <Button onClick={onBack}>Go Back</Button>
         </div>
+        <Button onClick={onBack} className="ml-4">Go Back</Button>
       </div>
     );
   }
@@ -428,7 +542,13 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       {/* Header */}
       <div className="border-b bg-card p-4">
         <div className="flex items-center gap-4 mb-4">
-          <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors">
+          <button
+            onClick={() => {
+              if (!dirty) return onBack();
+              if (confirm('Discard your draft? Changes not saved to the server will be lost.')) onBack();
+            }}
+            className="p-2 rounded-full hover:bg-muted transition-colors"
+          >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
@@ -445,7 +565,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
-        {/* STEP 1: BASICS + AI WRITING & IMAGE */}
+        {/* STEP 1: BASICS + AI */}
         {step === 1 && (
           <Card>
             <CardHeader>
@@ -459,9 +579,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                       setFormData((f) => ({
                         ...f,
                         title: f.title || 'Untitled Event',
-                        description:
-                          f.description ||
-                          'Add an engaging description so people know why this event is for them.',
+                        description: f.description || 'Add an engaging description so people know why this event is for them.',
                       }))
                     }
                   >
@@ -473,7 +591,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
             </CardHeader>
 
             <CardContent className="space-y-6">
-              {/* Title / Description */}
+              {/* Title / Category */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label htmlFor="title">Title *</label>
@@ -483,6 +601,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   />
+                  {errors.title && <p className="text-xs text-destructive mt-1">{errors.title}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -490,14 +609,14 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                   <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
                     <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                     <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
+                      {categories.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
                     </SelectContent>
                   </Select>
+                  {errors.category && <p className="text-xs text-destructive mt-1">{errors.category}</p>}
                 </div>
               </div>
 
+              {/* Description + AI */}
               <div className="space-y-2">
                 <label htmlFor="description">Description *</label>
                 <Textarea
@@ -507,7 +626,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="min-h-28"
                 />
-                {/* AI Writing Assistant inline */}
+                {errors.description && <p className="text-xs text-destructive mt-1">{errors.description}</p>}
                 <div className="flex gap-2">
                   <AIWritingAssistant
                     context={aiContext}
@@ -530,7 +649,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 </div>
               </div>
 
-              {/* Visibility */}
+              {/* Visibility + Cover */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="flex items-center gap-2">
@@ -546,7 +665,6 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                   </Select>
                 </div>
 
-                {/* Cover image: upload or AI generate */}
                 <div className="space-y-2">
                   <label className="flex items-center gap-2">
                     <ImageIcon className="w-4 h-4" /> Cover Image
@@ -609,7 +727,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           </Card>
         )}
 
-        {/* STEP 2: SCHEDULE & LOCATION */}
+        {/* STEP 2: SCHEDULE & LOCATION (+ Series) */}
         {step === 2 && (
           <Card>
             <CardHeader>
@@ -629,6 +747,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                       min={new Date().toISOString().split('T')[0]}
                     />
+                    {errors.start && <p className="text-xs text-destructive mt-1">{errors.start}</p>}
                   </div>
                   <div className="space-y-2">
                     <label>Start Time *</label>
@@ -649,6 +768,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                       min={formData.startDate || new Date().toISOString().split('T')[0]}
                     />
+                    {errors.end && <p className="text-xs text-destructive mt-1">{errors.end}</p>}
                   </div>
                   <div className="space-y-2">
                     <label>End Time *</label>
@@ -675,6 +795,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                   <MapPin className="w-4 h-4" /> Location
                 </h3>
                 <MapboxLocationPicker value={location} onChange={setLocation} />
+                {errors.location && <p className="text-xs text-destructive mt-1">{errors.location}</p>}
               </div>
 
               <div className="space-y-4">
@@ -715,18 +836,16 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 onMaxEvents={(v) => series.setState(s => ({ ...s, maxEvents: v }))}
                 previewISO={series.preview}
               />
-
-              {/* Show series validation error */}
-              {series.error && (
+              {(errors.series || series.error) && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                  <p className="text-sm text-destructive">{series.error}</p>
+                  <p className="text-sm text-destructive">{errors.series || series.error}</p>
                 </div>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* STEP 3: TICKETS + AI RECOMMENDATIONS */}
+        {/* STEP 3: TICKETS + AI */}
         {step === 3 && (
           <Card>
             <CardHeader>
@@ -747,6 +866,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
             </CardHeader>
 
             <CardContent className="space-y-4">
+              {errors.tiers && <p className="text-xs text-destructive">{errors.tiers}</p>}
               {ticketTiers.map((tier, index) => (
                 <Card key={tier.id} className="border-muted">
                   <CardContent className="p-4">
@@ -767,6 +887,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                           value={tier.name}
                           onChange={(e) => updateTier(tier.id, 'name', e.target.value)}
                         />
+                        {errors[`tier-${index}-name`] && <p className="text-xs text-destructive">{errors[`tier-${index}-name`]}</p>}
                       </div>
                       <div className="space-y-2">
                         <label>Badge *</label>
@@ -775,6 +896,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                           value={tier.badge}
                           onChange={(e) => updateTier(tier.id, 'badge', e.target.value)}
                         />
+                        {errors[`tier-${index}-badge`] && <p className="text-xs text-destructive">{errors[`tier-${index}-badge`]}</p>}
                       </div>
                     </div>
 
@@ -788,6 +910,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                           value={tier.price}
                           onChange={(e) => updateTier(tier.id, 'price', parseFloat(e.target.value) || 0)}
                         />
+                        {errors[`tier-${index}-price`] && <p className="text-xs text-destructive">{errors[`tier-${index}-price`]}</p>}
                       </div>
                       <div className="space-y-2">
                         <label>Quantity *</label>
@@ -797,6 +920,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                           value={tier.quantity}
                           onChange={(e) => updateTier(tier.id, 'quantity', parseInt(e.target.value) || 0)}
                         />
+                        {errors[`tier-${index}-quantity`] && <p className="text-xs text-destructive">{errors[`tier-${index}-quantity`]}</p>}
                       </div>
                     </div>
 
@@ -867,8 +991,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                     </div>
 
                     <div className="mt-4 text-sm">
-                      Hosted by{' '}
-                      <span className="font-medium text-primary">Your Organization</span>
+                      Hosted by <span className="font-medium text-primary">Your Organization</span>
                     </div>
                   </CardContent>
                 </Card>
