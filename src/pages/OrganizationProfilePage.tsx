@@ -1,22 +1,35 @@
 // src/pages/OrganizationProfilePage.tsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Building2, Shield, Calendar, MapPin, Share2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  ArrowLeft, Building2, Shield, Calendar, MapPin, Share2, Image as ImageIcon, Globe, AtSign, Link as LinkIcon
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { routes } from '@/lib/routes';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { updateMetaTags } from '@/utils/meta';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Organization {
   id: string;
   name: string;
   handle: string | null;
   logo_url: string | null;
+  banner_url?: string | null;       // NEW (optional column)
+  description?: string | null;      // NEW (optional column)
+  website_url?: string | null;      // NEW (optional column)
+  twitter_url?: string | null;      // NEW (optional column)
+  instagram_url?: string | null;    // NEW (optional column)
+  tiktok_url?: string | null;       // NEW (optional column)
+  location?: string | null;         // NEW (optional column)
   verification_status: string;
   created_at: string;
 }
@@ -36,15 +49,36 @@ export default function OrganizationProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Admin / Branding modal state
+  const [brandingOpen, setBrandingOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Form state for branding
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+
+  const [form, setForm] = useState({
+    description: '',
+    website_url: '',
+    twitter_url: '',
+    instagram_url: '',
+    tiktok_url: '',
+    location: '',
+  });
+
   // Build a canonical share URL
   const shareUrl = useMemo(() => {
     if (!organization) return window.location.href;
-    // If you have a handle-based route, swap here. Otherwise keep /org/:id
-    const path = `/org/${organization.id}`;
+    const path = `/org/${organization.handle || organization.id}`;
     try {
       const base = typeof window !== 'undefined' ? window.location.origin : 'https://yardpass.com';
       return new URL(path, base).toString();
@@ -62,14 +96,31 @@ export default function OrganizationProfilePage() {
     if (!organization) return;
     updateMetaTags({
       title: `${organization.name} • YardPass`,
-      description: organization.handle
-        ? `@${organization.handle} on YardPass — view events and details.`
-        : `View ${organization.name} on YardPass.`,
+      description:
+        organization.description ||
+        (organization.handle
+          ? `@${organization.handle} on YardPass — view events and details.`
+          : `View ${organization.name} on YardPass.`),
       url: shareUrl,
       type: 'website',
-      image: organization.logo_url || undefined,
+      image: organization.banner_url || organization.logo_url || undefined,
     });
   }, [organization, shareUrl]);
+
+  // Check membership: simple owner/admin gate
+  const checkIsAdmin = useCallback(async (orgId: string) => {
+    if (!user?.id) return false;
+    // if you have an organization_members table with role
+    const { data, error } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', orgId)
+      .eq('user_id', user.id)
+      .limit(1);
+    if (error) return false;
+    const role = data?.[0]?.role;
+    return role === 'owner' || role === 'admin';
+  }, [user?.id]);
 
   const fetchOrganizationData = async () => {
     try {
@@ -101,6 +152,22 @@ export default function OrganizationProfilePage() {
 
       if (orgError) throw orgError;
       setOrganization(org);
+
+      if (org) {
+        // preload form state
+        setForm({
+          description: org.description || '',
+          website_url: org.website_url || '',
+          twitter_url: org.twitter_url || '',
+          instagram_url: org.instagram_url || '',
+          tiktok_url: org.tiktok_url || '',
+          location: org.location || '',
+        });
+
+        // admin?
+        const ok = await checkIsAdmin(org.id);
+        setIsAdmin(ok);
+      }
 
       // Fetch organization's public events using the actual org id
       const { data: eventsData, error: eventsError } = await supabase
@@ -135,14 +202,12 @@ export default function OrganizationProfilePage() {
         ? `Check out @${organization.handle} on YardPass`
         : `Check out ${organization?.name} on YardPass`;
 
-      // 1) Native share
       if ((navigator as any)?.share) {
         await (navigator as any).share({ title, text, url: shareUrl });
         toast({ title: 'Link shared' });
         return;
       }
 
-      // 2) App share utils (if available)
       try {
         const [{ sharePayload }, { buildShareUrl, getShareTitle, getShareText }] = await Promise.all([
           import('@/lib/share'),
@@ -164,15 +229,92 @@ export default function OrganizationProfilePage() {
         // fall through to clipboard
       }
 
-      // 3) Clipboard fallback
       await navigator.clipboard.writeText(shareUrl);
       toast({ title: 'Link copied', description: 'URL copied to clipboard.' });
-    } catch (e) {
+    } catch {
       toast({
         title: 'Share failed',
         description: 'Could not share the organization link.',
         variant: 'destructive',
       });
+    }
+  };
+
+  // ---- Branding save ----
+  const uploadImage = async (file: File, keyPrefix: string) => {
+    const ext = file.name.split('.').pop() || 'png';
+    const fileName = `${keyPrefix}-${Date.now()}.${ext}`;
+    const path = `${organization!.id}/${fileName}`;
+    const { error: uploadError } = await supabase.storage
+      .from('org-media')
+      .upload(path, file, { upsert: false });
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from('org-media').getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const handleSaveBranding = async () => {
+    if (!organization) return;
+
+    // Basic validation
+    const allImagesOk =
+      (!logoFile || logoFile.type.startsWith('image/')) &&
+      (!bannerFile || bannerFile.type.startsWith('image/'));
+    if (!allImagesOk) {
+      toast({ title: 'Invalid file', description: 'Only image files are allowed.', variant: 'destructive' });
+      return;
+    }
+    const tooBig =
+      (logoFile && logoFile.size > 5 * 1024 * 1024) ||
+      (bannerFile && bannerFile.size > 8 * 1024 * 1024);
+    if (tooBig) {
+      toast({ title: 'File too large', description: 'Max 5MB (logo) / 8MB (banner).', variant: 'destructive' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let logo_url = organization.logo_url || null;
+      let banner_url = organization.banner_url || null;
+
+      if (logoFile) {
+        logo_url = await uploadImage(logoFile, 'logo');
+      }
+      if (bannerFile) {
+        banner_url = await uploadImage(bannerFile, 'banner');
+      }
+
+      const payload: Partial<Organization> = {
+        logo_url,
+        banner_url,
+        description: form.description?.trim() || null,
+        website_url: form.website_url?.trim() || null,
+        twitter_url: form.twitter_url?.trim() || null,
+        instagram_url: form.instagram_url?.trim() || null,
+        tiktok_url: form.tiktok_url?.trim() || null,
+        location: form.location?.trim() || null,
+      };
+
+      const { error } = await supabase
+        .from('organizations')
+        .update(payload)
+        .eq('id', organization.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Saved', description: 'Branding updated successfully.' });
+      setBrandingOpen(false);
+
+      // refresh local state
+      setOrganization((prev) => (prev ? { ...prev, ...payload } : prev));
+      // reset files
+      setLogoFile(null);
+      setBannerFile(null);
+    } catch (e: any) {
+      toast({ title: 'Save failed', description: e.message || 'Could not save branding.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -200,84 +342,184 @@ export default function OrganizationProfilePage() {
     );
   }
 
+  // ---- Hero helpers ----
+  const joinedYear = new Date(organization.created_at).getFullYear();
+  const showBanner = !!organization.banner_url;
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="container max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4 mb-6">
+      {/* HERO */}
+      <div className="relative">
+        <div className="w-full h-48 sm:h-60 md:h-72 lg:h-80 bg-muted overflow-hidden">
+          {showBanner ? (
+            <ImageWithFallback
+              src={organization.banner_url!}
+              alt={`${organization.name} banner`}
+              className="w-full h-full object-cover"
+              fetchPriority="high"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/20 via-secondary/20 to-background" />
+          )}
+        </div>
+
+        {/* Gradient overlay for contrast */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20" />
+
+        {/* Back + Share + Edit controls */}
+        <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate(-1)}
+            className="rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setBrandingOpen(true)}
+                className="bg-black/40 border border-white/20 text-white hover:bg-black/60"
+              >
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Edit branding
+              </Button>
+            )}
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
-              onClick={() => navigate(-1)}
-              className="rounded-full w-10 h-10 p-0"
-              aria-label="Go back"
+              onClick={handleShare}
+              className="bg-black/40 border border-white/20 text-white hover:bg-black/60"
+              aria-label="Share organization"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <Share2 className="w-4 h-4" />
             </Button>
+          </div>
+        </div>
 
-            <div className="flex-1">
-              <div className="flex items-center gap-4">
-                <Avatar className="w-16 h-16">
-                  <AvatarImage src={organization.logo_url || undefined} alt={organization.name} />
-                  <AvatarFallback className="text-xl">
-                    <Building2 className="w-8 h-8" />
-                  </AvatarFallback>
-                </Avatar>
+        {/* Logo card overlays the banner */}
+        <div className="container max-w-4xl mx-auto px-4">
+          <div className="-mt-10 md:-mt-12">
+            <div className="inline-flex items-center gap-4 bg-card/90 backdrop-blur rounded-2xl border p-3 pr-5 shadow-lg">
+              <Avatar className="w-20 h-20 ring-2 ring-background">
+                <AvatarImage src={organization.logo_url || undefined} alt={organization.name} />
+                <AvatarFallback className="text-xl">
+                  <Building2 className="w-8 h-8" />
+                </AvatarFallback>
+              </Avatar>
 
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h1 className="text-2xl font-bold">{organization.name}</h1>
-                    {organization.verification_status === 'verified' && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Shield className="w-3 h-3 mr-1" />
-                        Verified
-                      </Badge>
-                    )}
-                  </div>
-
-                  {organization.handle && (
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:underline text-left"
-                      onClick={() => navigate(`/org/${organization.id}`)}
-                      aria-label={`Open @${organization.handle}`}
-                    >
-                      @{organization.handle}
-                    </button>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-2xl font-bold">{organization.name}</h1>
+                  {organization.verification_status === 'verified' && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Shield className="w-3 h-3 mr-1" />
+                      Verified
+                    </Badge>
                   )}
-
-                  <p className="text-sm text-muted-foreground">
-                    Organization since {new Date(organization.created_at).getFullYear()}
-                  </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleShare}
-                    className="min-h-[36px] min-w-[36px]"
-                    aria-label="Share organization"
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </Button>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  {organization.handle && (
+                    <span className="inline-flex items-center gap-1">
+                      <AtSign className="w-4 h-4" />
+                      {organization.handle}
+                    </span>
+                  )}
+                  <span>Since {joinedYear}</span>
+                  {organization.location && (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      {organization.location}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Quick facts row (optional; light) */}
-          {/* Could add followers/members here when available */}
         </div>
-      </div>
+      </div> {/* /HERO */}
 
       {/* Content */}
       <div className="container max-w-4xl mx-auto px-4 py-8">
-        <div className="space-y-8">
-          {/* Events Section */}
-          <div>
-            <div className="flex items-center gap-2 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left: About / Links */}
+          <div className="space-y-6">
+            {/* About */}
+            <Card>
+              <CardHeader>
+                <CardTitle>About</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground whitespace-pre-wrap">
+                {organization.description
+                  ? organization.description
+                  : 'This organizer has not added a description yet.'}
+              </CardContent>
+            </Card>
+
+            {/* Links */}
+            {(organization.website_url ||
+              organization.twitter_url ||
+              organization.instagram_url ||
+              organization.tiktok_url) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Links</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {organization.website_url && (
+                    <a
+                      href={organization.website_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 text-primary hover:underline"
+                    >
+                      <Globe className="w-4 h-4" /> {organization.website_url}
+                    </a>
+                  )}
+                  {organization.twitter_url && (
+                    <a
+                      href={organization.twitter_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 text-primary hover:underline"
+                    >
+                      <LinkIcon className="w-4 h-4" /> {organization.twitter_url}
+                    </a>
+                  )}
+                  {organization.instagram_url && (
+                    <a
+                      href={organization.instagram_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 text-primary hover:underline"
+                    >
+                      <LinkIcon className="w-4 h-4" /> {organization.instagram_url}
+                    </a>
+                  )}
+                  {organization.tiktok_url && (
+                    <a
+                      href={organization.tiktok_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 text-primary hover:underline"
+                    >
+                      <LinkIcon className="w-4 h-4" /> {organization.tiktok_url}
+                    </a>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Right: Events */}
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-2 mb-4">
               <Calendar className="w-5 h-5" />
               <h2 className="text-xl font-semibold">Events</h2>
               <Badge variant="outline">{events.length}</Badge>
@@ -366,6 +608,181 @@ export default function OrganizationProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Branding Dialog (Admin only) */}
+      <Dialog open={brandingOpen} onOpenChange={setBrandingOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Organization Branding</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-6">
+            {/* Banner */}
+            <div>
+              <label className="text-sm font-medium">Banner</label>
+              <div className="mt-2 border rounded-lg overflow-hidden">
+                <div className="h-36 bg-muted relative">
+                  {bannerFile ? (
+                    // preview selected
+                    <img
+                      src={URL.createObjectURL(bannerFile)}
+                      alt="Banner preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : organization.banner_url ? (
+                    <img
+                      src={organization.banner_url}
+                      alt="Banner"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary/20 via-secondary/20 to-background" />
+                  )}
+                  <div className="absolute inset-0 flex items-end justify-end p-2 gap-2">
+                    <input
+                      ref={bannerInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => setBannerFile(e.target.files?.[0] ?? null)}
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => bannerInputRef.current?.click()}
+                    >
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      Upload
+                    </Button>
+                    {bannerFile && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setBannerFile(null)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Logo */}
+            <div>
+              <label className="text-sm font-medium">Logo</label>
+              <div className="mt-2 flex items-center gap-4">
+                <Avatar className="w-16 h-16">
+                  {logoFile ? (
+                    <img
+                      src={URL.createObjectURL(logoFile)}
+                      alt="Logo preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <>
+                      <AvatarImage src={organization.logo_url || undefined} />
+                      <AvatarFallback>
+                        <Building2 className="w-6 h-6" />
+                      </AvatarFallback>
+                    </>
+                  )}
+                </Avatar>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+                  />
+                  <Button variant="secondary" size="sm" onClick={() => logoInputRef.current?.click()}>
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Upload
+                  </Button>
+                  {logoFile && (
+                    <Button variant="ghost" size="sm" onClick={() => setLogoFile(null)}>
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                className="mt-2"
+                placeholder="Tell people what your organization is about..."
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                rows={5}
+              />
+            </div>
+
+            {/* Location */}
+            <div>
+              <label className="text-sm font-medium">Location</label>
+              <Input
+                className="mt-2"
+                placeholder="City, Country"
+                value={form.location}
+                onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+              />
+            </div>
+
+            {/* Links */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Website</label>
+                <Input
+                  className="mt-2"
+                  placeholder="https://example.com"
+                  value={form.website_url}
+                  onChange={(e) => setForm((f) => ({ ...f, website_url: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Twitter / X</label>
+                <Input
+                  className="mt-2"
+                  placeholder="https://twitter.com/yourhandle"
+                  value={form.twitter_url}
+                  onChange={(e) => setForm((f) => ({ ...f, twitter_url: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Instagram</label>
+                <Input
+                  className="mt-2"
+                  placeholder="https://instagram.com/yourhandle"
+                  value={form.instagram_url}
+                  onChange={(e) => setForm((f) => ({ ...f, instagram_url: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">TikTok</label>
+                <Input
+                  className="mt-2"
+                  placeholder="https://tiktok.com/@yourhandle"
+                  value={form.tiktok_url}
+                  onChange={(e) => setForm((f) => ({ ...f, tiktok_url: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setBrandingOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveBranding} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
