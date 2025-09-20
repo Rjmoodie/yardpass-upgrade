@@ -23,6 +23,10 @@ import { AIWritingAssistant } from '@/components/ai/AIWritingAssistant';
 import { AIImageGenerator } from '@/components/ai/AIImageGenerator';
 import { AIRecommendations } from '@/components/ai/AIRecommendations';
 
+// === Series functionality ===
+import { SeriesConfiguration } from '@/components/SeriesConfiguration';
+import { useSeriesCreation } from '@/hooks/useSeriesCreation';
+
 // === Types ===
 interface EventCreatorProps {
   onBack: () => void;
@@ -55,6 +59,11 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
   const { user } = useAuth();
   const { trackEvent } = useAnalyticsIntegration();
   const { toast } = useToast();
+
+  // === Series creation hook ===
+  const series = useSeriesCreation({
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
 
   const STORAGE_KEY = `event-creator-draft-${organizationId}`;
 
@@ -134,6 +143,14 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     return () => clearTimeout(timeoutId);
   }, [step, formData, location, ticketTiers, STORAGE_KEY]);
 
+  // Keep series start synced with step 2 date/time
+  useEffect(() => {
+    if (formData.startDate && formData.startTime) {
+      const iso = new Date(`${formData.startDate}T${formData.startTime}`).toISOString();
+      series.setState(s => ({ ...s, seriesStartISO: iso }));
+    }
+  }, [formData.startDate, formData.startTime, series]);
+
   // Clear draft when event is successfully created
   const clearDraft = () => {
     try {
@@ -149,7 +166,9 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       case 1:
         return formData.title && formData.description && formData.category && formData.visibility;
       case 2:
-        return formData.startDate && formData.startTime && formData.endDate && formData.endTime && location;
+        const basicStep2Valid = formData.startDate && formData.startTime && formData.endDate && formData.endTime && location;
+        const seriesValid = !series.state.enabled || !series.validate();
+        return basicStep2Valid && seriesValid;
       case 3:
         return ticketTiers.every((t) => t.name && t.badge && t.quantity > 0);
       default:
@@ -252,6 +271,46 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
     setLoading(true);
     try {
+      const baseTemplate = {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        timezone: formData.timezone,
+        venue: formData.venue,
+        address: location.address,
+        city: location.city,
+        country: location.country,
+        lat: location.lat?.toString(),
+        lng: location.lng?.toString(),
+        cover_image_url: formData.coverImageUrl,
+        visibility: formData.visibility
+      };
+
+      // Handle series creation
+      if (series.state.enabled) {
+        const created = await series.createSeriesAndEvents({
+          orgId: organizationId,
+          template: baseTemplate,
+          createdBy: user.id
+        });
+
+        trackEvent('event_series_creation_success', {
+          organization_id: organizationId,
+          series_name: series.state.name,
+          event_count: created.length,
+          recurrence: series.state.recurrence,
+        });
+
+        clearDraft();
+        toast({
+          title: `Created ${created.length} events`,
+          description: series.state.name || 'Series created successfully.'
+        });
+        onCreate();
+        return;
+      }
+
+      // Single event creation (existing logic)
       const startAt = new Date(`${formData.startDate}T${formData.startTime}`);
       const endAt = new Date(`${formData.endDate}T${formData.endTime}`);
 
@@ -633,6 +692,36 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                   />
                 </div>
               </div>
+
+              {/* Series Configuration */}
+              <SeriesConfiguration
+                enabled={series.state.enabled}
+                onToggle={(v) => series.setState(s => ({ ...s, enabled: v }))}
+                name={series.state.name}
+                onName={(v) => series.setState(s => ({ ...s, name: v }))}
+                description={series.state.description}
+                onDescription={(v) => series.setState(s => ({ ...s, description: v }))}
+                recurrence={series.state.recurrence}
+                onRecurrence={(v) => series.setState(s => ({ ...s, recurrence: v }))}
+                interval={series.state.interval}
+                onInterval={(v) => series.setState(s => ({ ...s, interval: v }))}
+                seriesStartISO={series.state.seriesStartISO}
+                onSeriesStartISO={(v) => series.setState(s => ({ ...s, seriesStartISO: v }))}
+                durationMin={series.state.durationMin}
+                onDurationMin={(v) => series.setState(s => ({ ...s, durationMin: v }))}
+                seriesEndDate={series.state.seriesEndDate}
+                onSeriesEndDate={(v) => series.setState(s => ({ ...s, seriesEndDate: v }))}
+                maxEvents={series.state.maxEvents}
+                onMaxEvents={(v) => series.setState(s => ({ ...s, maxEvents: v }))}
+                previewISO={series.preview}
+              />
+
+              {/* Show series validation error */}
+              {series.error && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <p className="text-sm text-destructive">{series.error}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

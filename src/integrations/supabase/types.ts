@@ -522,6 +522,62 @@ export type Database = {
           },
         ]
       }
+      event_series: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          max_events: number | null
+          name: string
+          organization_id: string
+          recurrence: Database["public"]["Enums"]["recurrence_pattern"]
+          recurrence_interval: number
+          series_end: string
+          series_start: string
+          template: Json
+          timezone: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          max_events?: number | null
+          name: string
+          organization_id: string
+          recurrence: Database["public"]["Enums"]["recurrence_pattern"]
+          recurrence_interval?: number
+          series_end: string
+          series_start: string
+          template?: Json
+          timezone?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          max_events?: number | null
+          name?: string
+          organization_id?: string
+          recurrence?: Database["public"]["Enums"]["recurrence_pattern"]
+          recurrence_interval?: number
+          series_end?: string
+          series_start?: string
+          template?: Json
+          timezone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_series_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_share_assets: {
         Row: {
           active: boolean
@@ -680,6 +736,7 @@ export type Database = {
           owner_context_id: string
           owner_context_type: Database["public"]["Enums"]["owner_context"]
           refund_cutoff_days: number | null
+          series_id: string | null
           slug: string | null
           start_at: string
           timezone: string | null
@@ -706,6 +763,7 @@ export type Database = {
           owner_context_id: string
           owner_context_type: Database["public"]["Enums"]["owner_context"]
           refund_cutoff_days?: number | null
+          series_id?: string | null
           slug?: string | null
           start_at: string
           timezone?: string | null
@@ -732,6 +790,7 @@ export type Database = {
           owner_context_id?: string
           owner_context_type?: Database["public"]["Enums"]["owner_context"]
           refund_cutoff_days?: number | null
+          series_id?: string | null
           slug?: string | null
           start_at?: string
           timezone?: string | null
@@ -752,6 +811,13 @@ export type Database = {
             columns: ["owner_context_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series"
             referencedColumns: ["id"]
           },
         ]
@@ -2420,6 +2486,25 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      create_event_series: {
+        Args: {
+          p_created_by: string
+          p_description: string
+          p_interval: number
+          p_max_events: number
+          p_name: string
+          p_org_id: string
+          p_recurrence: Database["public"]["Enums"]["recurrence_pattern"]
+          p_series_end: string
+          p_series_start: string
+          p_template: Json
+          p_timezone: string
+        }
+        Returns: {
+          event_id: string
+          start_at: string
+        }[]
+      }
       create_organization_with_membership: {
         Args: {
           p_creator_id?: string
@@ -2837,6 +2922,7 @@ export type Database = {
       order_status: "pending" | "paid" | "refunded" | "canceled"
       org_role: "viewer" | "editor" | "admin" | "owner"
       owner_context: "individual" | "organization"
+      recurrence_pattern: "weekly" | "monthly"
       role_type:
         | "organizer"
         | "scanner"
@@ -2997,6 +3083,7 @@ export const Constants = {
       order_status: ["pending", "paid", "refunded", "canceled"],
       org_role: ["viewer", "editor", "admin", "owner"],
       owner_context: ["individual", "organization"],
+      recurrence_pattern: ["weekly", "monthly"],
       role_type: [
         "organizer",
         "scanner",
