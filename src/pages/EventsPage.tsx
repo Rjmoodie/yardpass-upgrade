@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { useAuth } from '@/contexts/AuthContext';
+import MapboxEventMap from '@/components/MapboxEventMap';
 
 interface Event {
   id: string;
@@ -34,6 +35,8 @@ interface Event {
   attendee_count?: number;
   likes?: number;
   shares?: number;
+  lat?: number;
+  lng?: number;
 }
 
 interface TicketTier {
@@ -361,6 +364,20 @@ export default function EventsPage() {
                     <Button variant="outline" size="sm">Follow</Button>
                   </div>
                 </div>
+
+                {/* Location Map */}
+                {event.lat && event.lng && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Location</h3>
+                    <MapboxEventMap 
+                      lat={event.lat}
+                      lng={event.lng}
+                      venue={event.venue}
+                      address={event.address}
+                      className="w-full h-56 rounded-lg"
+                    />
+                  </div>
+                )}
               </div>
             </TabsContent>
 
