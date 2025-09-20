@@ -16,6 +16,7 @@ import { EventCard } from '@/components/EventCard';
 import { UserPostCard } from '@/components/UserPostCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SearchPalette } from '@/components/SearchPalette';
+import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 
 interface IndexProps {
   onEventSelect: (eventId: string) => void;
@@ -26,6 +27,8 @@ interface IndexProps {
 
 export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [scrollDirection, setScrollDirection] = useState<'up' | 'down' | null>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
   const [showAttendeeModal, setShowAttendeeModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -380,7 +383,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }
 
   return (
-    <div className="feed-page h-screen relative overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
+    <div className="feed-page h-screen relative overflow-hidden bg-black smooth-feed-scroll" style={{ touchAction: 'pan-y' }}>
       {/* Logo */}
       <div className="fixed left-2 top-3 z-30">
         <img
@@ -404,15 +407,18 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         </Button>
       </div>
 
-      {/* Feed Items (one-per-screen vertical rail) */}
+      {/* Feed Items with smooth transitions */}
       <div
-        className="h-full w-full relative transition-transform duration-300 ease-out will-change-transform"
-        style={{ transform: `translateY(-${currentIndex * 100}%)` }}
+        className="h-full w-full relative transition-transform duration-500 ease-out will-change-transform"
+        style={{ 
+          transform: `translateY(-${currentIndex * 100}%)`,
+          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
       >
         {items.map((item, i) => (
           <div
             key={`${item.item_type}:${item.item_id}`}
-            className="h-full w-full absolute"
+            className="h-full w-full absolute feed-item"
             style={{ top: `${i * 100}%` }}
             data-feed-index={i}
             aria-label={`Feed item ${i + 1} of ${items.length}`}
