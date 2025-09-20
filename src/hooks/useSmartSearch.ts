@@ -41,9 +41,12 @@ export function useSmartSearch(initialQ = '') {
     setLoading(true);
     setError(null);
     try {
-      // Only show public events in search discovery to prevent leaks
+      // Get current user for authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Call search function with proper user context
       const { data, error } = await supabase.rpc('search_all', {
-        p_user: null,
+        p_user: user?.id ?? null,
         p_q: debouncedQ,
         p_category: filters.category ?? null,
         p_date_from: filters.dateFrom ?? null,
@@ -52,10 +55,14 @@ export function useSmartSearch(initialQ = '') {
         p_limit: pageSize,
         p_offset: (reset ? 0 : page * pageSize),
       });
-      if (error) throw error;
+      if (error) {
+        console.error('Search error:', error);
+        throw error;
+      }
       const rows = (data ?? []) as SearchRow[];
       setResults((prev) => (reset ? rows : [...prev, ...rows]));
     } catch (e) {
+      console.error('Search failed:', e);
       setError(e);
     } finally {
       setLoading(false);

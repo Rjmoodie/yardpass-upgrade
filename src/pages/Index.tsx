@@ -402,9 +402,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           onClick={() => setSearchOpen(true)}
           className="bg-black/40 border border-white/20 text-white hover:bg-black/60 transition backdrop-blur-sm"
         >
-          <Search className="w-4 h-4 mr-2" />
-          Search
-          <kbd className="ml-2 px-1 py-[1px] bg-white/10 rounded text-[10px]">⌘K</kbd>
+          <Search className="w-4 h-4" />
+          <span className="mx-2">Search</span>
+          <kbd className="px-1 py-[1px] bg-white/10 rounded text-[10px]">K</kbd>
         </Button>
       </div>
 
