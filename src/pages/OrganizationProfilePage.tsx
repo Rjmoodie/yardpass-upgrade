@@ -287,7 +287,13 @@ export default function OrganizationProfilePage() {
 
       const payload = {
         logo_url,
+        banner_url,
         description: form.description?.trim() || null,
+        website_url: form.website_url?.trim() || null,
+        twitter_url: form.twitter_url?.trim() || null,
+        instagram_url: form.instagram_url?.trim() || null,
+        tiktok_url: form.tiktok_url?.trim() || null,
+        location: form.location?.trim() || null,
       };
 
       const { error } = await supabase

@@ -1253,46 +1253,64 @@ export type Database = {
       }
       organizations: {
         Row: {
+          banner_url: string | null
           created_at: string | null
           created_by: string
           description: string | null
           handle: string | null
           id: string
+          instagram_url: string | null
           is_verified: boolean | null
+          location: string | null
           logo_url: string | null
           name: string
           social_links: Json | null
+          tiktok_url: string | null
+          twitter_url: string | null
           verification_status:
             | Database["public"]["Enums"]["verification_status"]
             | null
+          website_url: string | null
         }
         Insert: {
+          banner_url?: string | null
           created_at?: string | null
           created_by: string
           description?: string | null
           handle?: string | null
           id?: string
+          instagram_url?: string | null
           is_verified?: boolean | null
+          location?: string | null
           logo_url?: string | null
           name: string
           social_links?: Json | null
+          tiktok_url?: string | null
+          twitter_url?: string | null
           verification_status?:
             | Database["public"]["Enums"]["verification_status"]
             | null
+          website_url?: string | null
         }
         Update: {
+          banner_url?: string | null
           created_at?: string | null
           created_by?: string
           description?: string | null
           handle?: string | null
           id?: string
+          instagram_url?: string | null
           is_verified?: boolean | null
+          location?: string | null
           logo_url?: string | null
           name?: string
           social_links?: Json | null
+          tiktok_url?: string | null
+          twitter_url?: string | null
           verification_status?:
             | Database["public"]["Enums"]["verification_status"]
             | null
+          website_url?: string | null
         }
         Relationships: []
       }
