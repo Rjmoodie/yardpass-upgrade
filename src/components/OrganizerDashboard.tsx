@@ -16,6 +16,7 @@ import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
 import { useOrganizerData } from '@/hooks/useOrganizerData';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import OrganizationDashboard from './OrganizationDashboard';
 
 // --- Types ---
 interface Event {
@@ -55,16 +56,39 @@ export function OrganizerDashboard() {
 
   // --- Auth state ---
   const [user, setUser] = useState<any>(null);
+  
+  // read org deep-link (?org=uuid or handle) to jump straight into org dashboard
+  const initialOrgParam = searchParams.get('org');
+  const [selectedOrganization, setSelectedOrganization] = useState<string | null>(initialOrgParam);
+  
+  // selected event management pane
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+
+  // --- Tab state: URL -> state & remember last tab ---
+  const tabFromUrl = (searchParams.get('tab') as TabKey) || (localStorage.getItem(LAST_TAB_KEY) as TabKey) || DEFAULT_TAB;
+  const [activeTab, setActiveTab] = useState<TabKey>(TAB_KEYS.includes(tabFromUrl) ? tabFromUrl : DEFAULT_TAB);
+
+  // analytics
+  const { trackEvent } = useAnalyticsIntegration();
+  
+  // data hooks - always called in same order
+  const { userEvents, loading, refetchEvents } = useOrganizerData(user);
+  const { organizations, loading: orgsLoading } = useOrganizations(user?.id);
+
+  // --- Derived counts for overview header ---
+  const totals = useMemo(() => {
+    const events = userEvents || [];
+    const revenue = events.reduce((s, e) => s + (e.revenue || 0), 0);
+    const attendees = events.reduce((s, e) => s + (e.attendees || 0), 0);
+    return { events: events.length, revenue, attendees };
+  }, [userEvents]);
+
   useEffect(() => {
     let mounted = true;
     supabase.auth.getUser().then(({ data: { user } }) => mounted && setUser(user));
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => setUser(sess?.user || null));
     return () => sub.subscription.unsubscribe();
   }, []);
-
-  // --- Tab state: URL -> state & remember last tab ---
-  const tabFromUrl = (searchParams.get('tab') as TabKey) || (localStorage.getItem(LAST_TAB_KEY) as TabKey) || DEFAULT_TAB;
-  const [activeTab, setActiveTab] = useState<TabKey>(TAB_KEYS.includes(tabFromUrl) ? tabFromUrl : DEFAULT_TAB);
 
   // keep URL in sync on tab change (and remember)
   useEffect(() => {
@@ -77,22 +101,9 @@ export function OrganizerDashboard() {
     localStorage.setItem(LAST_TAB_KEY, activeTab);
   }, [activeTab, searchParams, setSearchParams]);
 
-  // read org deep-link (?org=uuid or handle) to jump straight into org dashboard
-  const initialOrgParam = searchParams.get('org');
-  const [selectedOrganization, setSelectedOrganization] = useState<string | null>(initialOrgParam);
-
-  // selected event management pane
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-
-  // analytics
-  const { trackEvent } = useAnalyticsIntegration();
   useEffect(() => {
     trackEvent('organizer_tab_view', { tab: activeTab });
   }, [activeTab, trackEvent]);
-
-  // data hooks
-  const { userEvents, loading, refetchEvents } = useOrganizerData(user);
-  const { organizations, loading: orgsLoading } = useOrganizations(user?.id);
 
   // --- Handlers ---
   const handleEventSelect = useCallback((event: Event) => {
@@ -216,13 +227,6 @@ export function OrganizerDashboard() {
     );
   }
 
-  // --- Derived counts for overview header ---
-  const totals = useMemo(() => {
-    const events = userEvents || [];
-    const revenue = events.reduce((s, e) => s + (e.revenue || 0), 0);
-    const attendees = events.reduce((s, e) => s + (e.attendees || 0), 0);
-    return { events: events.length, revenue, attendees };
-  }, [userEvents]);
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
