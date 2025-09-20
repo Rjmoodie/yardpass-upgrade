@@ -438,6 +438,9 @@ function AppContent() {
                 }
               />
 
+              {/* Legacy request-access route redirect */}
+              <Route path="/request-access/:eventId" element={<NotFound />} />
+
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>

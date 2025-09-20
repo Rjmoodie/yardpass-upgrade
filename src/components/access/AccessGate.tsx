@@ -105,14 +105,15 @@ export function AccessGate({ eventId, visibility, linkTokenFromUrl, onTokenAccep
         </p>
         <Button
           onClick={() => {
-            // optional: open inline request modal, or route to request page in a new tab
-            const u = new URL(window.location.href);
-            window.open(`/request-access/${eventId}?return=${encodeURIComponent(u.pathname + u.search)}`, '_blank');
+            // Copy event URL to clipboard for sharing
+            navigator.clipboard.writeText(window.location.href).then(() => {
+              // You can add a toast notification here if needed
+            });
           }}
           className="w-full"
           variant="outline"
         >
-          Request access (new tab)
+          Copy event link
         </Button>
       </CardContent>
     </Card>
