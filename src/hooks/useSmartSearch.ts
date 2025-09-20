@@ -44,13 +44,24 @@ export function useSmartSearch(initialQ = '') {
       // Get current user for authentication
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Call search function with proper user context
+      // Convert ISO date strings to Date objects to ensure proper type casting
+      let dateFrom = null;
+      let dateTo = null;
+      
+      if (filters.dateFrom) {
+        dateFrom = new Date(filters.dateFrom).toISOString().split('T')[0]; // Convert to YYYY-MM-DD format
+      }
+      if (filters.dateTo) {
+        dateTo = new Date(filters.dateTo).toISOString().split('T')[0]; // Convert to YYYY-MM-DD format  
+      }
+      
+      // Call search function with proper user context and date casting
       const { data, error } = await supabase.rpc('search_all', {
         p_user: user?.id ?? null,
         p_q: debouncedQ,
         p_category: filters.category ?? null,
-        p_date_from: filters.dateFrom ?? null,
-        p_date_to: filters.dateTo ?? null,
+        p_date_from: dateFrom,
+        p_date_to: dateTo,
         p_only_events: !!filters.onlyEvents,
         p_limit: pageSize,
         p_offset: (reset ? 0 : page * pageSize),
