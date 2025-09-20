@@ -391,6 +391,11 @@ export default function CommentModal({
       
       // Call onSuccess callback to refresh parent feed
       onSuccess?.();
+      
+      // Navigate to the post to show the new comment
+      if (singleMode && resolvedPostId) {
+        navigate(`${routes.event(eventId)}?tab=posts&post=${resolvedPostId}`);
+      }
     } catch (e: any) {
       console.error(e);
       toast({ title: 'Error', description: e.message || 'Failed to add comment', variant: 'destructive' });
