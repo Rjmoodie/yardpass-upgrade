@@ -39,6 +39,10 @@ export default function EventDetails() {
         // Check if id looks like a UUID
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
         
+        // Get current user
+        const { data: auth } = await supabase.auth.getUser();
+        const userId = auth?.user?.id;
+
         let query = supabase
           .from('events')
           .select(`
@@ -54,7 +58,8 @@ export default function EventDetails() {
             category,
             slug,
             lat,
-            lng
+            lng,
+            visibility
           `);
 
         // Query by ID if UUID, or by slug if not
@@ -70,6 +75,16 @@ export default function EventDetails() {
           console.error('Event fetch error:', error);
           setEvent(null);
           setLoading(false);
+          return;
+        }
+
+        // Check if user can view this event
+        const { canViewEvent } = await import('@/lib/permissions');
+        const canView = await canViewEvent(ev.id, userId);
+        
+        if (!canView.allowed) {
+          // Redirect to request access for private events
+          navigate(`/request-access/${ev.id}`, { replace: true });
           return;
         }
 

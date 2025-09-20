@@ -5,17 +5,20 @@ type CanView = { allowed: boolean; reason?: 'not-found' | 'auth' | 'forbidden' }
 export async function canViewEvent(eventId: string, userId?: string): Promise<CanView> {
   const { data: ev, error } = await supabase
     .from('events')
-    .select('id, owner_context_type, owner_context_id, created_by')
+    .select('id, owner_context_type, owner_context_id, created_by, visibility')
     .eq('id', eventId)
     .single();
 
   if (error || !ev) return { allowed: false, reason: 'not-found' };
   
-  // For now, assume all events are accessible until visibility column is available in types
-  // TODO: Add visibility logic once columns are available
+  // Public events - anyone can view
+  if (ev.visibility === 'public') return { allowed: true };
   
-  // If no user provided, assume public access for now
-  if (!userId) return { allowed: true };
+  // If no user and event is not public, deny access
+  if (!userId) return { allowed: false, reason: 'auth' };
+  
+  // Unlisted events - authenticated users can view
+  if (ev.visibility === 'unlisted') return { allowed: true };
 
   // individual owner
   if (ev.owner_context_type === 'individual' && ev.owner_context_id === userId) {

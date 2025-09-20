@@ -85,67 +85,93 @@ export default function EventSlugPage() {
     (async () => {
       setLoading(true);
 
-      // 1) event by slug
-      let { data, error } = await supabase
-        .from('events')
-        .select(`
-          id, slug, title, description, category, start_at, end_at, venue, city, country, cover_image_url,
-          owner_context_type, owner_context_id,
-          organizations:organizations!events_owner_context_id_fkey(id, name, handle)
-        `)
-        .eq('slug', identifier)
-        .limit(1);
+      try {
+        // Get current user
+        const { data: auth } = await supabase.auth.getUser();
+        const userId = auth?.user?.id;
 
-      // if not found and looks like UUID, try by id
-      if ((!data || !data.length) && /^[0-9a-f-]{36}$/i.test(identifier)) {
-        const byId = await supabase
+        // 1) event by slug
+        let { data, error } = await supabase
           .from('events')
           .select(`
             id, slug, title, description, category, start_at, end_at, venue, city, country, cover_image_url,
-            owner_context_type, owner_context_id,
+            owner_context_type, owner_context_id, visibility,
             organizations:organizations!events_owner_context_id_fkey(id, name, handle)
           `)
-          .eq('id', identifier)
+          .eq('slug', identifier)
           .limit(1);
-        data = byId.data;
-        error = byId.error;
-      }
 
-      if (!isMounted) return;
-      if (error) {
+        // if not found and looks like UUID, try by id
+        if ((!data || !data.length) && /^[0-9a-f-]{36}$/i.test(identifier)) {
+          const byId = await supabase
+            .from('events')
+            .select(`
+              id, slug, title, description, category, start_at, end_at, venue, city, country, cover_image_url,
+              owner_context_type, owner_context_id, visibility,
+              organizations:organizations!events_owner_context_id_fkey(id, name, handle)
+            `)
+            .eq('id', identifier)
+            .limit(1);
+          data = byId.data;
+          error = byId.error;
+        }
+
+        if (!isMounted) return;
+        if (error) {
+          setLoading(false);
+          return;
+        }
+
+        const ev = data?.[0] ?? null;
+        
+        // Check if user can view this event
+        if (ev) {
+          const { canViewEvent } = await import('@/lib/permissions');
+          const canView = await canViewEvent(ev.id, userId);
+          
+          if (!canView.allowed) {
+            // Show RequestAccess component for private events
+            const RequestAccess = (await import('@/components/RequestAccess')).default;
+            setEvent(null);
+            setLoading(false);
+            navigate(`/request-access/${ev.id}`, { replace: true });
+            return;
+          }
+        }
+        
+        setEvent(ev);
+
+        if (ev) {
+          // attendees preview (first 12) + total count
+          const [{ data: atts }, { count }] = await Promise.all([
+            supabase
+              .from('tickets')
+              .select('owner_user_id, user_profiles!inner(id, display_name, photo_url)')
+              .eq('event_id', ev.id)
+              .in('status', ['issued', 'transferred', 'redeemed'])
+              .limit(12),
+            supabase
+              .from('tickets')
+              .select('id', { count: 'exact', head: true })
+              .eq('event_id', ev.id)
+              .in('status', ['issued', 'transferred', 'redeemed']),
+          ]);
+
+          setAttendees(
+            (atts || []).map((t: any) => ({
+              id: t.user_profiles.id,
+              display_name: t.user_profiles.display_name,
+              photo_url: t.user_profiles.photo_url,
+            }))
+          );
+          setAttendeeCount(count || 0);
+        }
         setLoading(false);
-        return;
+      } catch (error) {
+        console.error('Event fetch error:', error);
+        setEvent(null);
+        setLoading(false);
       }
-
-      const ev = data?.[0] ?? null;
-      setEvent(ev);
-
-      if (ev) {
-        // attendees preview (first 12) + total count
-        const [{ data: atts }, { count }] = await Promise.all([
-          supabase
-            .from('tickets')
-            .select('owner_user_id, user_profiles!inner(id, display_name, photo_url)')
-            .eq('event_id', ev.id)
-            .in('status', ['issued', 'transferred', 'redeemed'])
-            .limit(12),
-          supabase
-            .from('tickets')
-            .select('id', { count: 'exact', head: true })
-            .eq('event_id', ev.id)
-            .in('status', ['issued', 'transferred', 'redeemed']),
-        ]);
-
-        setAttendees(
-          (atts || []).map((t: any) => ({
-            id: t.user_profiles.id,
-            display_name: t.user_profiles.display_name,
-            photo_url: t.user_profiles.photo_url,
-          }))
-        );
-        setAttendeeCount(count || 0);
-      }
-      setLoading(false);
     })();
 
     return () => {
