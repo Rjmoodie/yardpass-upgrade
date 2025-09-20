@@ -312,18 +312,8 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     const post = posts.find(p => p.id === postId);
     if (!post) return;
 
+    // toggleLike already handles optimistic updates, don't duplicate here
     await toggleLike(postId, post.liked_by_me ?? false, post.like_count);
-
-    // Update local state optimistically
-    setPosts(prev => prev.map(p => 
-      p.id === postId 
-        ? { 
-            ...p, 
-            liked_by_me: !p.liked_by_me, 
-            like_count: p.liked_by_me ? p.like_count - 1 : p.like_count + 1 
-          } 
-        : p
-    ));
   };
 
   const handleShare = (post: FeedPost) => {

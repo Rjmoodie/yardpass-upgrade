@@ -336,9 +336,12 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
         <div className="max-w-6xl mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="w-5 h-5" /></Button>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-semibold truncate">Search Events</h1>
-              <p className="text-sm text-muted-foreground">Discover amazing events near you</p>
+            <div className="flex-1 min-w-0 flex items-center gap-3">
+              <Search className="w-6 h-6 text-muted-foreground" />
+              <div>
+                <h1 className="text-xl font-semibold truncate">Search Events</h1>
+                <p className="text-sm text-muted-foreground">Discover amazing events near you</p>
+              </div>
             </div>
           </div>
 

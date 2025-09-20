@@ -115,15 +115,10 @@ export const useOptimisticReactions = () => {
     }));
 
     try {
-      const { data, error } = await supabase
-        .from('event_comments')
-        .insert({
-          post_id: postId,
-          author_user_id: userData.user.id,
-          text: commentText.trim()
-        })
-        .select('id, text, created_at')
-        .single();
+      // Use the comments-add edge function for proper counter updates
+      const { data, error } = await supabase.functions.invoke('comments-add', {
+        body: { post_id: postId, text: commentText.trim() }
+      });
 
       if (error) throw error;
 
@@ -132,17 +127,17 @@ export const useOptimisticReactions = () => {
         ...prev,
         [postId]: {
           postId,
-          commentCount: currentCount + 1,
+          commentCount: data.comment_count || currentCount + 1,
           newComment: {
-            id: data.id,
-            text: data.text,
-            author_name: userData.user.user_metadata?.display_name || 'You',
-            created_at: data.created_at
+            id: data.comment.id,
+            text: data.comment.text,
+            author_name: data.comment.author_name || userData.user.user_metadata?.display_name || 'You',
+            created_at: data.comment.created_at
           }
         }
       }));
 
-      return { success: true, comment: data };
+      return { success: true, comment: data.comment };
 
     } catch (error) {
       // Rollback on error
