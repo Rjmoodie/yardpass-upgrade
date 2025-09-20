@@ -30,7 +30,7 @@ interface Organization {
   instagram_url?: string | null;    // NEW (optional column)
   tiktok_url?: string | null;       // NEW (optional column)
   location?: string | null;         // NEW (optional column)
-  verification_status: string;
+  verification_status: 'none' | 'pending' | 'verified' | 'pro';
   created_at: string;
 }
 
@@ -110,11 +110,11 @@ export default function OrganizationProfilePage() {
   // Check membership: simple owner/admin gate
   const checkIsAdmin = useCallback(async (orgId: string) => {
     if (!user?.id) return false;
-    // if you have an organization_members table with role
+    // Use org_memberships table with proper column names
     const { data, error } = await supabase
-      .from('organization_members')
+      .from('org_memberships')
       .select('role')
-      .eq('organization_id', orgId)
+      .eq('org_id', orgId)
       .eq('user_id', user.id)
       .limit(1);
     if (error) return false;
@@ -285,15 +285,9 @@ export default function OrganizationProfilePage() {
         banner_url = await uploadImage(bannerFile, 'banner');
       }
 
-      const payload: Partial<Organization> = {
+      const payload = {
         logo_url,
-        banner_url,
         description: form.description?.trim() || null,
-        website_url: form.website_url?.trim() || null,
-        twitter_url: form.twitter_url?.trim() || null,
-        instagram_url: form.instagram_url?.trim() || null,
-        tiktok_url: form.tiktok_url?.trim() || null,
-        location: form.location?.trim() || null,
       };
 
       const { error } = await supabase
