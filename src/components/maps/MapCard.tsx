@@ -15,14 +15,14 @@ interface MapCardProps {
   showControls?: boolean;
 }
 
-export default function MapCard({ 
+const MapCard = ({ 
   address, 
   title, 
   height = 280, 
   themeOverride,
   styleUrl,
   showControls = false
-}: MapCardProps) {
+}: MapCardProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
@@ -260,4 +260,6 @@ export default function MapCard({
       )}
     </div>
   );
-}
+};
+
+export default MapCard;
