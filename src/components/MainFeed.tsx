@@ -271,6 +271,7 @@ function MediaContainer({ events, currentIndex, scrollRef }: any) {
 function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShowTicketModal, setShowAttendeeModal, setPostCreatorOpen }: any) {
   const { requireAuth } = useAuthGuard();
   const navigate = useNavigate();
+  const [showFullDescription, setShowFullDescription] = useState(false);
   return (
     <div className="absolute bottom-20 left-0 right-0 p-4 text-white">
       <div className="flex justify-between items-end">
@@ -354,7 +355,19 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
               {event.attendeeCount}
             </div>
           </div>
-          <p className="text-sm text-gray-300 line-clamp-2 max-w-xs">{event.description}</p>
+          <div className="max-w-xs">
+            <p className={`text-sm text-gray-300 ${showFullDescription ? '' : 'line-clamp-2'}`}>
+              {event.description}
+            </p>
+            {event.description && event.description.length > 100 && (
+              <button
+                onClick={() => setShowFullDescription(!showFullDescription)}
+                className="text-xs text-primary-foreground/80 hover:text-primary-foreground mt-1 transition-colors"
+              >
+                {showFullDescription ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
           <div className="flex gap-3">
               <Button 
                 size="lg" 
