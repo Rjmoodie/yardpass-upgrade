@@ -6,6 +6,9 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
 import {
   ArrowLeft,
@@ -49,6 +52,12 @@ interface Organization {
   verification_status: string;
   created_at: string;
   description?: string | null;
+  website_url?: string | null;
+  location?: string | null;
+  banner_url?: string | null;
+  instagram_url?: string | null;
+  twitter_url?: string | null;
+  tiktok_url?: string | null;
   social_links?: Array<{
     platform: string;
     url: string;
@@ -99,6 +108,13 @@ export function OrganizationDashboard({
   const [inviting, setInviting] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<Exclude<OrgRole, 'owner'>>('viewer');
+  const [editingOrg, setEditingOrg] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    website_url: '',
+    location: '',
+  });
 
   // Light refresh to re-pull members + analytics
   const refresh = async () => {
@@ -346,6 +362,54 @@ export function OrganizationDashboard({
     a.remove();
     URL.revokeObjectURL(url);
   };
+
+  const handleEditOrg = async () => {
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({
+          name: editForm.name,
+          description: editForm.description || null,
+          website_url: editForm.website_url || null,
+          location: editForm.location || null,
+        })
+        .eq('id', organizationId);
+
+      if (error) throw error;
+
+      setOrganization(prev => prev ? {
+        ...prev,
+        name: editForm.name,
+        description: editForm.description || null,
+        website_url: editForm.website_url || null,
+        location: editForm.location || null,
+      } : prev);
+
+      toast({
+        title: 'Organization updated',
+        description: 'Organization details have been saved.',
+      });
+      setEditingOrg(false);
+    } catch (error: any) {
+      toast({
+        title: 'Failed to update organization',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Initialize edit form when opening
+  useEffect(() => {
+    if (editingOrg && organization) {
+      setEditForm({
+        name: organization.name,
+        description: organization.description || '',
+        website_url: organization.website_url || '',
+        location: organization.location || '',
+      });
+    }
+  }, [editingOrg, organization]);
 
   if (loading) {
     return (
@@ -675,19 +739,28 @@ export function OrganizationDashboard({
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm">Organization Name</label>
-                    <Input value={organization.name} disabled />
+                    <label className="text-sm font-medium">Organization Name</label>
+                    <div className="flex gap-2">
+                      <Input value={organization.name} disabled className="flex-1" />
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setEditingOrg(true)}
+                      >
+                        Edit
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm">Handle</label>
+                    <label className="text-sm font-medium">Handle</label>
                     <Input value={`@${organization.handle}`} disabled />
                   </div>
                 </div>
 
                 {organization.description && (
                   <div className="space-y-2">
-                    <label className="text-sm">Description</label>
-                    <div className="p-3 bg-muted rounded-md text-sm">
+                    <label className="text-sm font-medium">Description</label>
+                    <div className="p-3 bg-muted rounded-md text-sm border">
                       {organization.description}
                     </div>
                   </div>
@@ -703,10 +776,6 @@ export function OrganizationDashboard({
                     Reload
                   </Button>
                 </div>
-
-                <p className="text-xs text-muted-foreground">
-                  Editing org profile (name/handle/logo) can be added here when ready.
-                </p>
               </CardContent>
             </Card>
 
@@ -766,6 +835,63 @@ export function OrganizationDashboard({
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Edit Organization Modal */}
+      <Dialog open={editingOrg} onOpenChange={setEditingOrg}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Organization</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="org-name">Organization Name</Label>
+              <Input
+                id="org-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter organization name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="org-description">Description</Label>
+              <Textarea
+                id="org-description"
+                value={editForm.description}
+                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe your organization"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="org-website">Website URL</Label>
+              <Input
+                id="org-website"
+                value={editForm.website_url}
+                onChange={(e) => setEditForm(prev => ({ ...prev, website_url: e.target.value }))}
+                placeholder="https://example.com"
+                type="url"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="org-location">Location</Label>
+              <Input
+                id="org-location"
+                value={editForm.location}
+                onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                placeholder="City, State/Country"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingOrg(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditOrg} disabled={!editForm.name.trim()}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
