@@ -48,7 +48,6 @@ const UserProfilePage = lazy(() => import('@/pages/UserProfilePage'));
 const OrganizationProfilePage = lazy(() => import('@/pages/OrganizationProfilePage'));
 const EditProfilePage = lazy(() => import('@/pages/EditProfilePage'));
 const AuthPage = lazy(() => import('@/pages/AuthPage'));
-const RequestAccessPage = lazy(() => import('@/pages/RequestAccessPage'));
 
 // Auth guard
 import { AuthGuard } from '@/components/AuthGuard';
@@ -258,7 +257,6 @@ function AppContent() {
               <Route path="/u/:username" element={<UserProfilePage />} />
               <Route path="/org/:id" element={<OrganizationProfilePage />} />
               <Route path="/auth" element={<AuthPage />} />
-              <Route path="/request-access/:eventId" element={<RequestAccessPage />} />
               <Route path="/e/:identifier" element={<EventSlugPage />} />
               <Route path="/e/:identifier/attendees" element={<EventAttendeesPage />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy onBack={() => navigate('/')} />} />

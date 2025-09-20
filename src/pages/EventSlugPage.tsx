@@ -11,6 +11,8 @@ import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { sharePayload } from '@/lib/share';
 import { buildShareUrl, getShareTitle, getShareText } from '@/lib/shareLinks';
 import { EventTicketModal } from '@/components/EventTicketModal';
+import { AccessGate } from '@/components/access/AccessGate';
+import { shouldIndexEvent, buildEventShareUrl } from '@/lib/visibility';
 
 const MapCard = lazy(() => import('@/components/maps/MapCard'));
 
@@ -28,6 +30,8 @@ type EventRow = {
   cover_image_url: string | null;
   owner_context_type: 'organization' | 'individual';
   owner_context_id: string;
+  visibility: 'public' | 'unlisted' | 'private';
+  link_token?: string | null;
   organizations?: { id: string; name: string; handle: string | null } | null;
 };
 
@@ -86,16 +90,12 @@ export default function EventSlugPage() {
       setLoading(true);
 
       try {
-        // Get current user
-        const { data: auth } = await supabase.auth.getUser();
-        const userId = auth?.user?.id;
-
         // 1) event by slug
         let { data, error } = await supabase
           .from('events')
           .select(`
             id, slug, title, description, category, start_at, end_at, venue, city, country, cover_image_url,
-            owner_context_type, owner_context_id, visibility,
+            owner_context_type, owner_context_id, visibility, link_token,
             organizations:organizations!events_owner_context_id_fkey(id, name, handle)
           `)
           .eq('slug', identifier)
@@ -107,7 +107,7 @@ export default function EventSlugPage() {
             .from('events')
             .select(`
               id, slug, title, description, category, start_at, end_at, venue, city, country, cover_image_url,
-              owner_context_type, owner_context_id, visibility,
+              owner_context_type, owner_context_id, visibility, link_token,
               organizations:organizations!events_owner_context_id_fkey(id, name, handle)
             `)
             .eq('id', identifier)
@@ -123,22 +123,6 @@ export default function EventSlugPage() {
         }
 
         const ev = data?.[0] ?? null;
-        
-        // Check if user can view this event
-        if (ev) {
-          const { canViewEvent } = await import('@/lib/permissions');
-          const canView = await canViewEvent(ev.id, userId);
-          
-          if (!canView.allowed) {
-            // Show RequestAccess component for private events
-            const RequestAccess = (await import('@/components/RequestAccess')).default;
-            setEvent(null);
-            setLoading(false);
-            navigate(`/request-access/${ev.id}`, { replace: true });
-            return;
-          }
-        }
-        
         setEvent(ev);
 
         if (ev) {
@@ -211,10 +195,15 @@ export default function EventSlugPage() {
     );
   }
 
-  const shareUrl = buildShareUrl({
-    type: 'event',
-    slug: event.slug ?? event.id,
-    title: event.title || '',
+  // Get access token from URL and determine SEO settings
+  const linkTokenFromUrl = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('k');
+  const robotsNoIndex = event?.visibility && !shouldIndexEvent(event.visibility);
+
+  // Build proper share URL with access token for unlisted events
+  const shareUrl = buildEventShareUrl({
+    idOrSlug: event.slug ?? event.id,
+    visibility: event.visibility as any,
+    linkToken: event.visibility === 'unlisted' ? event.link_token ?? null : null,
   });
 
   const fullAddress =
@@ -255,30 +244,39 @@ export default function EventSlugPage() {
   };
 
   return (
-    <div className="pb-20">
-      {/* SEO + preload hero */}
-      <Helmet prioritizeSeoTags>
+    <>
+      <Helmet>
         <title>{meta.title}</title>
-        {meta.canonical && <link rel="canonical" href={meta.canonical} />}
         <meta name="description" content={meta.description} />
+        <link rel="canonical" href={meta.canonical} />
+        {robotsNoIndex && <meta name="robots" content="noindex,nofollow" />}
+        
         {/* Open Graph */}
-        <meta property="og:type" content={meta.ogType} />
         <meta property="og:title" content={meta.title} />
         <meta property="og:description" content={meta.description} />
+        <meta property="og:type" content={meta.ogType} />
         <meta property="og:url" content={meta.canonical} />
         {meta.image && <meta property="og:image" content={meta.image} />}
+        
         {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={meta.title} />
         <meta name="twitter:description" content={meta.description} />
         {meta.image && <meta name="twitter:image" content={meta.image} />}
-        {/* Preload hero image for better LCP */}
-        {event.cover_image_url ? (
-          <link rel="preload" as="image" href={event.cover_image_url} />
-        ) : null}
+        
         {/* JSON-LD */}
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       </Helmet>
+
+      <AccessGate
+        eventId={event.id}
+        visibility={event.visibility as any}
+        linkTokenFromUrl={linkTokenFromUrl}
+        onTokenAccepted={() => {
+          // Optional: refetch if needed, but AccessGate handles the flow
+        }}
+      >
+        <div className="pb-20">
 
       {/* COVER */}
       {event.cover_image_url ? (
@@ -527,7 +525,10 @@ export default function EventSlugPage() {
           setShowTicketModal(false);
           // Optionally refresh attendee count
         }}
-      />
-    </div>
+        />
+        </div>
+
+      </AccessGate>
+    </>
   );
 }

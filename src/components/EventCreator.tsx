@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { MapboxLocationPicker } from './MapboxLocationPicker';
 import { supabase } from '@/integrations/supabase/client';
+import { buildEventShareUrl } from '@/lib/visibility';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useToast } from '@/hooks/use-toast';

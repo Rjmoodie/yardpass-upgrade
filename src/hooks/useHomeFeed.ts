@@ -92,7 +92,7 @@ export function useHomeFeed(postLimit = 3) {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth?.user?.id ?? null;
 
-      // RPC signature: get_home_feed(p_user_id, p_limit, p_offset)
+      // RPC signature: get_home_feed(p_user_id, p_limit, p_offset) - only public events for discovery
       const { data: rows, error: rpcErr } = await supabase.rpc('get_home_feed', {
         p_user_id: userId,
         p_limit: 20,

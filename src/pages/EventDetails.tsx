@@ -78,16 +78,6 @@ export default function EventDetails() {
           return;
         }
 
-        // Check if user can view this event
-        const { canViewEvent } = await import('@/lib/permissions');
-        const canView = await canViewEvent(ev.id, userId);
-        
-        if (!canView.allowed) {
-          // Redirect to request access for private events
-          navigate(`/request-access/${ev.id}`, { replace: true });
-          return;
-        }
-
         setEvent(ev as EventRow);
         setLoading(false);
       } catch (error) {

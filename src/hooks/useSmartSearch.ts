@@ -41,6 +41,7 @@ export function useSmartSearch(initialQ = '') {
     setLoading(true);
     setError(null);
     try {
+      // Only show public events in search discovery to prevent leaks
       const { data, error } = await supabase.rpc('search_all', {
         p_user: null,
         p_q: debouncedQ,

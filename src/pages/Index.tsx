@@ -16,7 +16,6 @@ import { EventCard } from '@/components/EventCard';
 import { UserPostCard } from '@/components/UserPostCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SearchPalette } from '@/components/SearchPalette';
-import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 
 interface IndexProps {
   onEventSelect: (eventId: string) => void;
