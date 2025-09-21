@@ -9,6 +9,9 @@ class ImageCache {
   private loadingPromises = new Map<string, Promise<void>>();
 
   async preload(src: string): Promise<void> {
+    // Only preload HTTP(S) URLs
+    if (!src || !/^https?:\/\//i.test(src)) return;
+    
     if (this.cache.has(src)) return;
     
     if (this.loadingPromises.has(src)) {
@@ -83,7 +86,11 @@ export function useProgressiveImage(src: string, placeholderSrc?: string) {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    if (!src) return;
+    if (!src || !/^https?:\/\//i.test(src)) {
+      setHasError(!!src && !/^https?:\/\//i.test(src));
+      setIsLoading(false);
+      return;
+    }
 
     setIsLoading(true);
     setHasError(false);
