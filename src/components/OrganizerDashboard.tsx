@@ -366,9 +366,10 @@ export function OrganizerDashboard() {
           )}
         </TabsContent>
 
-        {/* PAYOUTS — context-aware */}
+        {/* PAYOUTS — context-aware with key for proper refresh */}
         <TabsContent value="payouts" className="space-y-6">
           <PayoutPanel
+            key={`${selectedOrganization || 'individual'}-payouts`}
             contextType={selectedOrganization ? 'organization' : 'individual'}
             contextId={selectedOrganization || user?.id}
           />
