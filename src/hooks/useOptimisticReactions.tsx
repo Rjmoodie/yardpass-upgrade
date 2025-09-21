@@ -1,4 +1,5 @@
-import { useState } from 'react';
+// src/hooks/useOptimisticReactions.ts
+import { useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -8,7 +9,7 @@ interface OptimisticReaction {
   likeCount: number;
 }
 
-interface OptimisticComment {
+interface OptimisticCommentEntry {
   postId: string;
   commentCount: number;
   newComment?: {
@@ -16,158 +17,241 @@ interface OptimisticComment {
     text: string;
     author_name: string;
     created_at: string;
+    /** Client-only hint; not sent to server */
+    isOptimistic?: boolean;
   };
 }
 
+type ToggleResult =
+  | { ok: true; isLiked: boolean; likeCount: number }
+  | { ok: false; error?: string; isLiked: boolean; likeCount: number };
+
+type AddCommentResult =
+  | { success: true; comment: OptimisticCommentEntry['newComment'] }
+  | { success: false; error?: string };
+
 export const useOptimisticReactions = () => {
   const [optimisticState, setOptimisticState] = useState<Record<string, OptimisticReaction>>({});
-  const [optimisticComments, setOptimisticComments] = useState<Record<string, OptimisticComment>>({});
+  const [optimisticComments, setOptimisticComments] = useState<Record<string, OptimisticCommentEntry>>({});
   const { toast } = useToast();
 
-  const toggleLike = async (postId: string, currentLiked: boolean, currentCount: number) => {
-    // Optimistic update
-    const newLiked = !currentLiked;
-    const newCount = newLiked ? currentCount + 1 : currentCount - 1;
-    
-    setOptimisticState(prev => ({
+  // Per-post guard to avoid concurrent toggles/comments racing each other
+  const likeLocksRef = useRef<Record<string, boolean>>({});
+  const commentLocksRef = useRef<Record<string, boolean>>({});
+
+  /** Safely clamp non-negative */
+  const clampNonNegative = (n: number) => (Number.isFinite(n) && n > 0 ? Math.floor(n) : 0);
+
+  /**
+   * Toggle like with optimistic UI and robust rollback.
+   * Returns final server-truthy state when possible.
+   */
+  const toggleLike = async (
+    postId: string,
+    currentLiked: boolean,
+    currentCount: number
+  ): Promise<ToggleResult> => {
+    if (likeLocksRef.current[postId]) {
+      // Ignore if a previous toggle is still in flight
+      return {
+        ok: true,
+        isLiked: optimisticState[postId]?.isLiked ?? currentLiked,
+        likeCount: optimisticState[postId]?.likeCount ?? currentCount,
+      };
+    }
+
+    likeLocksRef.current[postId] = true;
+
+    // Compute optimistic values
+    const optimisticLiked = !currentLiked;
+    const optimisticCount = clampNonNegative(optimisticLiked ? currentCount + 1 : currentCount - 1);
+
+    // Apply optimistic immediately (functional update to avoid stale closures)
+    setOptimisticState((prev) => ({
       ...prev,
       [postId]: {
         postId,
-        isLiked: newLiked,
-        likeCount: Math.max(0, newCount)
-      }
+        isLiked: optimisticLiked,
+        likeCount: optimisticCount,
+      },
     }));
 
     try {
-      // Call the idempotent reactions function
       const { data, error } = await supabase.functions.invoke('reactions-toggle', {
-        body: { post_id: postId, kind: 'like' }
+        body: { post_id: postId, kind: 'like' },
       });
 
       if (error) throw error;
 
-      // Update with server response
-      setOptimisticState(prev => ({
+      // Defensive parsing of payload
+      const liked = Boolean((data as any)?.liked);
+      const like_count_raw = (data as any)?.like_count;
+      const like_count = clampNonNegative(Number.isFinite(like_count_raw) ? like_count_raw : optimisticCount);
+
+      // Reconcile with server truth
+      setOptimisticState((prev) => ({
         ...prev,
         [postId]: {
           postId,
-          isLiked: data.liked,
-          likeCount: data.like_count
-        }
+          isLiked: liked,
+          likeCount: like_count,
+        },
       }));
 
-    } catch (error) {
-      // Rollback on error
-      setOptimisticState(prev => ({
+      return { ok: true, isLiked: liked, likeCount: like_count };
+    } catch (e: any) {
+      // Roll back to the previous known state
+      setOptimisticState((prev) => ({
         ...prev,
         [postId]: {
           postId,
           isLiked: currentLiked,
-          likeCount: currentCount
-        }
+          likeCount: clampNonNegative(currentCount),
+        },
       }));
-      
-      toast({
-        title: "Error",
-        description: "Failed to update reaction",
-        variant: "destructive",
-      });
+
+      const msg = e?.message ?? 'Failed to update reaction';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+
+      return { ok: false, error: msg, isLiked: currentLiked, likeCount: clampNonNegative(currentCount) };
+    } finally {
+      likeLocksRef.current[postId] = false;
     }
   };
 
-  const addComment = async (postId: string, commentText: string, currentCount: number) => {
-    if (!commentText.trim()) {
-      toast({
-        title: "Empty comment",
-        description: "Please enter a comment",
-        variant: "destructive",
-      });
-      return { success: false };
+  /**
+   * Add a comment with optimistic UI.
+   * Keeps a temporary comment until the server confirms/denies.
+   */
+  const addComment = async (
+    postId: string,
+    commentText: string,
+    currentCount: number
+  ): Promise<AddCommentResult> => {
+    const text = commentText?.trim();
+    if (!text) {
+      toast({ title: 'Empty comment', description: 'Please enter a comment', variant: 'destructive' });
+      return { success: false, error: 'empty' };
     }
 
-    // Get current user
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to comment",
-        variant: "destructive",
-      });
-      return { success: false };
+    if (commentLocksRef.current[postId]) {
+      // Already adding a comment for this post; prevent spam
+      return { success: false, error: 'in_flight' };
     }
+    commentLocksRef.current[postId] = true;
 
-    const tempId = `temp-${Date.now()}-${Math.random()}`;
-    const tempComment = {
-      id: tempId,
-      text: commentText.trim(),
-      author_name: userData.user.user_metadata?.display_name || 'You',
-      created_at: new Date().toISOString(),
-      isOptimistic: true
-    };
-
-    // Instant optimistic update
-    setOptimisticComments(prev => ({
-      ...prev,
-      [postId]: {
-        postId,
-        commentCount: currentCount + 1,
-        newComment: tempComment
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth?.user;
+      if (!user) {
+        toast({ title: 'Authentication required', description: 'Please sign in to comment', variant: 'destructive' });
+        return { success: false, error: 'unauthenticated' };
       }
-    }));
 
-    // Fire-and-forget background update
-    supabase.functions.invoke('comments-add', {
-      body: { post_id: postId, text: commentText.trim() }
-    }).then(({ data, error }) => {
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const optimisticComment = {
+        id: tempId,
+        text,
+        author_name: user.user_metadata?.display_name || 'You',
+        created_at: new Date().toISOString(),
+        isOptimistic: true,
+      };
+
+      // Optimistic +1 and show temp comment
+      setOptimisticComments((prev) => ({
+        ...prev,
+        [postId]: {
+          postId,
+          commentCount: clampNonNegative(currentCount + 1),
+          newComment: optimisticComment,
+        },
+      }));
+
+      // Fire request
+      const { data, error } = await supabase.functions.invoke('comments-add', {
+        body: { post_id: postId, text },
+      });
+
       if (error) {
-        // Rollback only on error
-        setOptimisticComments(prev => ({
+        // Roll back count and remove temp comment
+        setOptimisticComments((prev) => ({
           ...prev,
           [postId]: {
             postId,
-            commentCount: currentCount,
-            newComment: undefined
-          }
+            commentCount: clampNonNegative(currentCount),
+            newComment: undefined,
+          },
         }));
-        toast({
-          title: "Error",
-          description: "Failed to add comment",
-          variant: "destructive",
-        });
-      } else {
-        // Replace optimistic with real data
-        setOptimisticComments(prev => ({
-          ...prev,
-          [postId]: {
-            postId,
-            commentCount: data.comment_count || currentCount + 1,
-            newComment: {
-              id: data.comment.id,
-              text: data.comment.text,
-              author_name: data.comment.author_name || userData.user.user_metadata?.display_name || 'You',
-              created_at: data.comment.created_at,
-              isOptimistic: false
-            }
-          }
-        }));
+        const msg = error?.message ?? 'Failed to add comment';
+        toast({ title: 'Error', description: msg, variant: 'destructive' });
+        return { success: false, error: msg };
       }
-    });
 
-    return { success: true, comment: tempComment };
+      // Defensive read of response
+      const serverComment = (data as any)?.comment;
+      const serverCount = (data as any)?.comment_count;
+
+      const finalComment = {
+        id: String(serverComment?.id ?? optimisticComment.id),
+        text: String(serverComment?.text ?? optimisticComment.text),
+        author_name:
+          String(serverComment?.author_name) ||
+          user.user_metadata?.display_name ||
+          'You',
+        created_at: String(serverComment?.created_at ?? optimisticComment.created_at),
+        isOptimistic: false,
+      };
+
+      setOptimisticComments((prev) => ({
+        ...prev,
+        [postId]: {
+          postId,
+          commentCount: clampNonNegative(
+            Number.isFinite(serverCount) ? serverCount : currentCount + 1
+          ),
+          newComment: finalComment,
+        },
+      }));
+
+      return { success: true, comment: finalComment };
+    } catch (e: any) {
+      // Roll back on unexpected error
+      setOptimisticComments((prev) => ({
+        ...prev,
+        [postId]: {
+          postId,
+          commentCount: clampNonNegative(currentCount),
+          newComment: undefined,
+        },
+      }));
+      const msg = e?.message ?? 'Failed to add comment';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+      return { success: false, error: msg };
+    } finally {
+      commentLocksRef.current[postId] = false;
+    }
   };
 
-  const getOptimisticData = (postId: string, fallback: { isLiked: boolean; likeCount: number }) => {
-    return optimisticState[postId] || fallback;
-  };
+  /** Get optimistic like data or provided fallback */
+  const getOptimisticData = (
+    postId: string,
+    fallback: { isLiked: boolean; likeCount: number }
+  ) => optimisticState[postId] || { postId, ...fallback };
 
-  const getOptimisticCommentData = (postId: string, fallback: { commentCount: number }) => {
-    return optimisticComments[postId] || { postId, commentCount: fallback.commentCount };
-  };
+  /** Get optimistic comment data or provided fallback */
+  const getOptimisticCommentData = (
+    postId: string,
+    fallback: { commentCount: number }
+  ) =>
+    optimisticComments[postId] || {
+      postId,
+      commentCount: clampNonNegative(fallback.commentCount),
+    };
 
   return {
     toggleLike,
     addComment,
     getOptimisticData,
-    getOptimisticCommentData
+    getOptimisticCommentData,
   };
 };
