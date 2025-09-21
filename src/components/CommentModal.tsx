@@ -165,11 +165,34 @@ export default function CommentModal({
       setPosts(prev => prev.map(p => {
         if (p.id !== comment.post_id) return p;
         
-        // Check if comment already exists (prevent duplicates from optimistic + realtime)
+        // Check if comment already exists with same ID (prevent duplicates)
         const existingComment = p.comments.find(c => c.id === comment.id);
         if (existingComment) {
           console.log('🔥 CommentModal: Comment already exists, skipping duplicate', { commentId: comment.id });
           return p;
+        }
+        
+        // Check if this is replacing a pending optimistic comment
+        const pendingComment = p.comments.find(c => c.pending && c.author_user_id === comment.author_user_id);
+        if (pendingComment) {
+          console.log('🔥 CommentModal: Replacing pending comment with real one', { 
+            pendingId: pendingComment.id, 
+            realId: comment.id 
+          });
+          return {
+            ...p,
+            comments: p.comments.map(c => 
+              c.id === pendingComment.id 
+                ? { 
+                    ...comment, 
+                    author_name: comment.author_name || 'User',
+                    likes_count: 0,
+                    is_liked: false,
+                    pending: false
+                  }
+                : c
+            )
+          };
         }
         
         console.log('🔥 CommentModal: Adding new realtime comment', { commentId: comment.id });
