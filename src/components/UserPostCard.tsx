@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Play, Pause } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
+import { muxToPoster } from '@/utils/media';
 import { useHlsVideo } from '@/hooks/useHlsVideo';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
@@ -268,7 +269,7 @@ export const UserPostCard = memo(function UserPostCard({
             </div>
           ) : (
             <img
-              src={mediaUrl?.startsWith('mux:') ? '' : mediaUrl!}
+              src={muxToPoster(mediaUrl!)}
               alt={item.event_title ? `Media for ${item.event_title}` : 'Post media'}
               className="absolute inset-0 w-full h-full object-cover"
               loading="lazy"

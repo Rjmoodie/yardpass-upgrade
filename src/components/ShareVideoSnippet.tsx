@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, Ticket } from "lucide-react";
+import { muxToPoster } from '@/utils/media';
 
 interface ShareVideoSnippetProps {
   playbackId: string;
@@ -22,8 +23,8 @@ export default function ShareVideoSnippet({
 }: ShareVideoSnippetProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Convert mux: poster URLs to proper thumbnail URLs, or exclude them
-  const validPoster = poster && !poster.startsWith('mux:') ? poster : undefined;
+  // Convert mux poster URLs to proper thumbnail URLs
+  const validPoster = poster ? muxToPoster(poster) : undefined;
 
   useEffect(() => {
     const video = videoRef.current;

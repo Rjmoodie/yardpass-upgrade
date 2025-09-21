@@ -11,6 +11,7 @@ import { FollowButton } from '@/components/follow/FollowButton';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { routes } from '@/lib/routes';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
+import { muxToPoster } from '@/utils/media';
 
 import type { Event, EventPost } from '@/types/events';
 
@@ -240,13 +241,11 @@ export function PostHero({
         style={{ cursor: 'pointer' }}
       />
       <ImageWithFallback
-        src={
-          // Filter out mux: URLs for images
-          (() => {
-            const url = post.thumbnailUrl || post.mediaUrl || event.coverImage || DEFAULT_EVENT_COVER;
-            return url?.startsWith('mux:') ? DEFAULT_EVENT_COVER : url;
-          })()
-        }
+        src={(() => {
+          const url = post.thumbnailUrl || post.mediaUrl || event.coverImage || DEFAULT_EVENT_COVER;
+          // Convert mux URLs to poster images, otherwise use original or fallback
+          return url ? muxToPoster(url) : DEFAULT_EVENT_COVER;
+        })()}
         alt=""
         className="w-full h-full object-cover"
       />

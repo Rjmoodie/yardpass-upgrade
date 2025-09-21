@@ -567,7 +567,7 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
                              ) : (
                                // eslint-disable-next-line @next/next/no-img-element
                                <img 
-                                 src={thumb.startsWith('mux:') ? '' : thumb} 
+                                 src={thumb} 
                                  alt="Post thumbnail" 
                                  className="w-full h-full object-cover" 
                                  onError={(e) => {
