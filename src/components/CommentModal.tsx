@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { routes } from '@/lib/routes';
 import { ReportButton } from '@/components/ReportButton';
 import { muxToHls } from '@/utils/media';
+import { useRealtimeComments } from '@/hooks/useRealtimeComments';
 
 const PAGE_SIZE = 25;
 const MAX_LEN = 1000;
@@ -155,55 +156,45 @@ export default function CommentModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId, activePostId, singleMode]);
 
-  // Realtime: only subscribe to active post or the event (if multi)
-  useEffect(() => {
-    if (!isOpen) return;
+  // Realtime: narrow subscription using useRealtimeComments hook
+  useRealtimeComments({
+    postIds: singleMode && activePostId ? [activePostId] : undefined,
+    eventId: !singleMode ? eventId : undefined,
+    onCommentAdded: (comment) => {
+      setPosts(prev => prev.map(p => {
+        if (p.id !== comment.post_id) return p;
+        return {
+          ...p,
+          comments: [
+            ...p.comments,
+            {
+              id: comment.id,
+              text: comment.text,
+              author_user_id: comment.author_user_id,
+              created_at: comment.created_at,
+              author_name: comment.author_name ?? 'Anonymous',
+              author_avatar: null,
+              likes_count: 0,
+              is_liked: false,
+            }
+          ]
+        };
+      }));
 
-    const channel = supabase
-      .channel(`comments-${singleMode ? (activePostId ?? 'none') : eventId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'event_comments',
-          ...(singleMode && activePostId ? { filter: `post_id=eq.${activePostId}` } : {}),
-        },
-        (payload) => {
-          const c = payload.new as CommentRow;
-          // append to correct post in memory
-          setPosts(prev => prev.map(p => {
-            if (p.id !== c.post_id) return p;
-            return {
-              ...p,
-              comments: [
-                ...p.comments,
-                {
-                  id: c.id,
-                  text: c.text,
-                  author_user_id: c.author_user_id,
-                  created_at: c.created_at,
-                  author_name: 'Anonymous',
-                  author_avatar: null,
-                  likes_count: 0,
-                  is_liked: false,
-                }
-              ]
-            };
-          }));
-
-          // keep scrolled to bottom if user is near bottom
-          const scroller = scrollRef.current;
-          if (scroller) {
-            const nearBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 120;
-            if (nearBottom) requestAnimationFrame(() => bottomSentinelRef.current?.scrollIntoView({ behavior: 'smooth' }));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => { try { supabase.removeChannel(channel); } catch {} };
-  }, [isOpen, eventId, singleMode, activePostId]);
+      // keep scrolled to bottom if user is near bottom
+      const scroller = scrollRef.current;
+      if (scroller) {
+        const nearBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 120;
+        if (nearBottom) requestAnimationFrame(() => bottomSentinelRef.current?.scrollIntoView({ behavior: 'smooth' }));
+      }
+    },
+    onCommentDeleted: (comment) => {
+      setPosts(prev => prev.map(p => ({
+        ...p,
+        comments: p.comments.filter(c => c.id !== comment.id)
+      })));
+    }
+  });
 
   // Load posts (+ comments + profiles), then pin scroll to bottom
   async function loadPage(reset = false) {
