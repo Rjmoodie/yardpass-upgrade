@@ -129,6 +129,7 @@ export default function OrganizerDashboard() {
       if (error) throw error;
 
       const rows = (data || []) as any[];
+      console.log('📋 Raw events data for scope:', scopeKey, 'count:', rows.length, rows.map(r => ({ id: r.id, title: r.title, owner_context_type: r.owner_context_type, owner_context_id: r.owner_context_id, revenue: r.revenue, attendees: r.attendees })));
 
       const mapped: Event[] = rows.map((e) => ({
         id: e.id,
@@ -199,10 +200,13 @@ export default function OrganizerDashboard() {
   // --- Totals ---
   const totals = useMemo(() => {
     const evs = events || [];
+    console.log('🔢 Calculating totals for scope:', scopeKey, 'events:', evs.length, evs.map(e => ({ id: e.id, title: e.title, revenue: e.revenue, attendees: e.attendees })));
     const revenue = evs.reduce((s, e) => s + (e.revenue || 0), 0);
     const attendees = evs.reduce((s, e) => s + (e.attendees || 0), 0);
-    return { events: evs.length, revenue, attendees };
-  }, [events]);
+    const result = { events: evs.length, revenue, attendees };
+    console.log('📊 Final totals for scope:', scopeKey, result);
+    return result;
+  }, [events, scopeKey]);
 
   // --- Create event (prefill owner context) ---
   const goCreateEvent = () => {
@@ -300,6 +304,7 @@ export default function OrganizerDashboard() {
             <span>• {totals.events} event{totals.events === 1 ? '' : 's'}</span>
             <span>• {totals.attendees} attendees</span>
             <span>• ${totals.revenue.toLocaleString()} revenue</span>
+            <span className="text-xs text-muted-foreground">({scopeKey})</span>
           </p>
         </div>
 
