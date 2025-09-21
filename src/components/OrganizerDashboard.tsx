@@ -294,7 +294,7 @@ export function OrganizerDashboard() {
           <Button
             variant="outline"
             className="w-full sm:w-auto"
-            onClick={() => (window.location.href = '/organization/create')}
+            onClick={() => (window.location.href = '/create-organization')}
           >
             <Building2 className="mr-2 h-4 w-4" />
             New Org

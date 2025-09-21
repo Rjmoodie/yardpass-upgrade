@@ -6,7 +6,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const cache = new Map<string, { data: any; ts: number }>();
 
 export function useOrganizations(userId?: string) {
-  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; verification_status?: string; is_verified?: boolean }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

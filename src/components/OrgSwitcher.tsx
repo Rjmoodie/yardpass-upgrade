@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Building2, ChevronsUpDown, User } from "lucide-react";
 
-type Org = { id: string; name: string };
+type Org = { id: string; name: string; verification_status?: string; is_verified?: boolean };
 const RECENTS_KEY = "orgSwitcher.recents";
 const MAX_RECENTS = 6;
 
@@ -85,6 +85,9 @@ export function OrgSwitcher({
               <DropdownMenuItem key={`recent-${org.id}`} onSelect={() => commit(org.id)}>
                 <Building2 className="mr-2 h-4 w-4" />
                 <span className="truncate">{org.name}</span>
+                {org.verification_status === 'verified' && (
+                  <span className="ml-auto text-blue-500 text-xs">✓</span>
+                )}
               </DropdownMenuItem>
             ))}
             {otherOrgs.length > 0 && <DropdownMenuSeparator />}
@@ -98,6 +101,9 @@ export function OrgSwitcher({
               <DropdownMenuItem key={org.id} onSelect={() => commit(org.id)}>
                 <Building2 className="mr-2 h-4 w-4" />
                 <span className="truncate">{org.name}</span>
+                {org.verification_status === 'verified' && (
+                  <span className="ml-auto text-blue-500 text-xs">✓</span>
+                )}
               </DropdownMenuItem>
             ))}
           </>
