@@ -1,5 +1,5 @@
 // src/components/UserPostCard.tsx
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Pause } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
@@ -38,7 +38,7 @@ function badgeClass(badge: AuthorBadge) {
   return BADGE_COLORS[(badge as keyof typeof BADGE_COLORS)] ?? 'bg-blue-500';
 }
 
-export function UserPostCard({
+export const UserPostCard = memo(function UserPostCard({
   item,
   onLike,
   onComment,
@@ -367,6 +367,6 @@ export function UserPostCard({
       </div>
     </div>
   );
-}
+});
 
 export default UserPostCard;

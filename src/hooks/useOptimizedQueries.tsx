@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useMemoizedSelector } from './useMemoizedSelector';
 
 // Cache for frequently accessed data
 const queryCache = new Map();

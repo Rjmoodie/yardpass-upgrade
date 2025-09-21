@@ -18,7 +18,7 @@ interface EventCardProps {
   isVideoPlaying?: boolean;
 }
 
-export function EventCard({
+export const EventCard = memo(function EventCard({
   item,
   onOpenTickets,
   onEventClick,
@@ -202,6 +202,6 @@ export function EventCard({
       </div>
     </div>
   );
-}
+});
 
 export default EventCard;
