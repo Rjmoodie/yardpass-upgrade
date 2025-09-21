@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
+import { muxToPoster } from '@/utils/media';
 
 /** ---------- Types returned to the page (aligns with Index.tsx expectations) ---------- */
 type EventPost = {
@@ -185,7 +186,7 @@ export function useHomeFeed(postLimit = 3) {
               likes: safeNumber(p?.like_count),
               mediaType,
               mediaUrl: rawUrl,
-              thumbnailUrl: mediaType === 'image' ? rawUrl : undefined,
+              thumbnailUrl: mediaType === 'image' ? (rawUrl?.startsWith('mux:') ? muxToPoster(rawUrl) : rawUrl) : undefined,
               commentCount: safeNumber(p?.comment_count),
               authorId: authorId || undefined,
               ticketTierId: ticketTierId || undefined,
