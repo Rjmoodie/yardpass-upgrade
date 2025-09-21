@@ -268,7 +268,7 @@ export function UserPostCard({
             </div>
           ) : (
             <img
-              src={mediaUrl!}
+              src={mediaUrl?.startsWith('mux:') ? '' : mediaUrl!}
               alt={item.event_title ? `Media for ${item.event_title}` : 'Post media'}
               className="absolute inset-0 w-full h-full object-cover"
               loading="lazy"

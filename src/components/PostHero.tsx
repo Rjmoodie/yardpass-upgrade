@@ -240,7 +240,13 @@ export function PostHero({
         style={{ cursor: 'pointer' }}
       />
       <ImageWithFallback
-        src={post.thumbnailUrl || post.mediaUrl || event.coverImage || DEFAULT_EVENT_COVER}
+        src={
+          // Filter out mux: URLs for images
+          (() => {
+            const url = post.thumbnailUrl || post.mediaUrl || event.coverImage || DEFAULT_EVENT_COVER;
+            return url?.startsWith('mux:') ? DEFAULT_EVENT_COVER : url;
+          })()
+        }
         alt=""
         className="w-full h-full object-cover"
       />

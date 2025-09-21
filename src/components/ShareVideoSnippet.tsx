@@ -22,6 +22,9 @@ export default function ShareVideoSnippet({
 }: ShareVideoSnippetProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Convert mux: poster URLs to proper thumbnail URLs, or exclude them
+  const validPoster = poster && !poster.startsWith('mux:') ? poster : undefined;
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -57,7 +60,7 @@ export default function ShareVideoSnippet({
             autoPlay
             muted
             loop
-            poster={poster}
+            poster={validPoster}
             className="w-full h-auto"
             style={{ aspectRatio: '9 / 16' }}
           />
