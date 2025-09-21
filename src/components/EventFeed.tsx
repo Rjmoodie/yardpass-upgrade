@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, MessageCircle, Share as ShareIcon, Crown, MoreVertical, Volume2, VolumeX, Bookmark, ExternalLink, Instagram, Twitter, Globe } from 'lucide-react';
+import { Heart, MessageCircle, Share as ShareIcon, Crown, MoreVertical, Volume2, VolumeX, Bookmark, Instagram, Twitter, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +16,7 @@ import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useRealtimeEngagement } from '@/hooks/useRealtimeEngagement';
 import { useRealtimeComments } from '@/hooks/useRealtimeComments';
 import { muxToHls, isLikelyVideo } from '@/utils/media';
+import CommentModal from '@/components/CommentModal';
 
 /** Shape returned by posts-list Edge Function after mapping */
 interface FeedPost {
@@ -73,8 +74,7 @@ function VideoMedia({
     const v = videoRef.current;
     if (!v || !ready) return;
     v.muted = muted;
-    
-    // Attach analytics once the element is ready
+
     cleanupRef.current?.();
     cleanupRef.current = (onAttachAnalytics?.(v) as VoidFunction) ?? null;
     return () => {
@@ -130,7 +130,13 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   const { user } = useAuth();
   const navigate = useNavigate();
   const { trackClick, startViewTracking, stopViewTracking, trackVideoProgress } = useVideoAnalytics();
-  const { toggleLike, getOptimisticData } = useOptimisticReactions();
+  const { toggleLike } = useOptimisticReactions();
+
+  // 💬 Comment modal state (fix redirect issue)
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
+  const [commentEventId, setCommentEventId] = useState<string | undefined>(undefined);
+  const [commentEventTitle, setCommentEventTitle] = useState<string | undefined>(undefined);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isMounted = useRef(true);
@@ -138,48 +144,46 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<Record<string, any[]>>({});
-  
-  // Real-time engagement updates
+
+  // Pause/mute all videos when modal opens; restore current on close
+  useEffect(() => {
+    if (!showCommentModal) return;
+    const videos = Array.from(document.querySelectorAll<HTMLVideoElement>('video'));
+    const states = videos.map(v => ({ v, paused: v.paused, muted: v.muted }));
+    videos.forEach(v => { try { v.pause(); } catch {} v.muted = true; });
+
+    return () => {
+      // restore only mute states; keep paused unless user interacts
+      states.forEach(({ v, muted }) => { v.muted = muted; });
+    };
+  }, [showCommentModal]);
+
+  // Realtime engagement
   const currentEventIds = eventId ? [eventId] : posts.map(p => p.event_id).filter(Boolean);
-  
   const handleEngagementUpdate = useCallback((update: any) => {
-    console.log('📊 Real-time engagement update:', update);
-    setPosts(prev => prev.map(post => 
-      post.id === update.postId 
-        ? { 
-            ...post, 
-            like_count: update.likeCount, 
+    setPosts(prev => prev.map(post =>
+      post.id === update.postId
+        ? {
+            ...post,
+            like_count: update.likeCount,
             comment_count: update.commentCount,
             liked_by_me: update.viewerHasLiked
-          } 
+          }
         : post
     ));
   }, []);
+  useRealtimeEngagement({ eventIds: currentEventIds, userId: user?.id, onEngagementUpdate: handleEngagementUpdate });
 
-  useRealtimeEngagement({
-    eventIds: currentEventIds,
-    userId: user?.id,
-    onEngagementUpdate: handleEngagementUpdate
-  });
-
-  // Real-time comment updates
+  // Realtime comments (increment count inline)
   useRealtimeComments({
     eventId: eventId || undefined,
     onCommentAdded: (comment) => {
-      // Update comment count for the post instantly
-      setPosts(prev => prev.map(post => 
-        post.id === comment.post_id 
-          ? { ...post, comment_count: (post.comment_count || 0) + 1 }
-          : post
-      ));
+      setPosts(prev => prev.map(p => p.id === comment.post_id ? { ...p, comment_count: (p.comment_count || 0) + 1 } : p));
     },
-    onCommentDeleted: () => {
-      // Refresh counts on delete
-      fetchPosts();
-    }
+    onCommentDeleted: () => { fetchPosts(); }
   });
 
-  // Intersection observer for view tracking
+  // Intersection observer for view analytics
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
@@ -187,7 +191,6 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
           const postId = entry.target.getAttribute('data-post-id');
           const eventIdAttr = entry.target.getAttribute('data-event-id');
           if (!postId || !eventIdAttr) return;
-
           if (entry.isIntersecting && entry.intersectionRatio >= 0.25) {
             startViewTracking(postId, eventIdAttr);
           } else {
@@ -209,12 +212,11 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     isMounted.current = true;
 
     try {
-      // Build GET to Edge Function (uses auth header)
       const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const url = new URL(`${baseUrl}/functions/v1/posts-list`);
       if (eventId) url.searchParams.append('event_id', eventId);
       if (userId) url.searchParams.append('user_id', userId);
-      url.searchParams.append('limit', '50'); // Increase limit to show more posts
+      url.searchParams.append('limit', '50');
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -229,7 +231,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       const payload = await res.json();
       const rows: any[] = payload.data ?? [];
 
-      // fetch event titles if any are missing (defensive)
+      // Defensive: backfill missing event titles
       const uniqueEventIds = [...new Set(rows.map((r) => r.event_id))].filter(Boolean);
       let titles: Record<string, string> = {};
       if (uniqueEventIds.length) {
@@ -243,7 +245,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       const mapped: FeedPost[] = rows.map((r) => ({
         id: r.id,
         text: r.text || '',
-        media_urls: (r.media_urls ?? []).filter(Boolean), // Filter out null/empty URLs
+        media_urls: (r.media_urls ?? []).filter(Boolean),
         created_at: r.created_at,
         author_user_id: r.author_user_id,
         event_id: r.event_id,
@@ -269,7 +271,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
         },
       }));
 
-      // Fetch comments for each post
+      // Comments preview (first few) — keep lightweight
       if (mapped.length) {
         const { data: commentsData } = await supabase
           .from('event_comments')
@@ -305,7 +307,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     } finally {
       if (isMounted.current) setLoading(false);
     }
-  }, [eventId, userId, user]);
+  }, [eventId, userId]);
 
   useEffect(() => {
     fetchPosts();
@@ -326,11 +328,8 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       toast({ title: 'Sign in required', description: 'Please sign in to like posts', variant: 'destructive' });
       return;
     }
-
     const post = posts.find(p => p.id === postId);
     if (!post) return;
-
-    // toggleLike already handles optimistic updates, don't duplicate here
     await toggleLike(postId, post.liked_by_me ?? false, post.like_count);
   };
 
@@ -345,10 +344,14 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     }
   };
 
+  // ✅ FIX: Open inline modal instead of navigating/redirecting
   const handleComment = (post: FeedPost) => {
     trackClick({ post_id: post.id, event_id: post.event_id, target: 'comment' });
     capture('feed_click', { target: 'comment', event_id: post.event_id, post_id: post.id });
-    navigate(routes.post(post.id));
+    setCommentPostId(post.id);
+    setCommentEventId(post.event_id);
+    setCommentEventTitle(post.events.title);
+    setShowCommentModal(true);
   };
 
   const handlePostMenu = (post: FeedPost) => {
@@ -395,308 +398,331 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   }
 
   return (
-    <div className="space-y-4">
-      {posts.map((post) => (
-        <Card
-          key={post.id}
-          className="overflow-hidden group"
-          ref={postRef}
-          data-post-id={post.id}
-          data-event-id={post.event_id}
-        >
-          <CardContent className="p-4 space-y-4">
-            {/* Header */}
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3 flex-1">
-                <Avatar className="w-10 h-10">
-                  <AvatarImage src={post.user_profiles.photo_url || ''} />
-                  <AvatarFallback>{post.user_profiles.display_name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      className="font-medium hover:underline text-left"
-                      onClick={() => {
-                        capture('feed_click', { target: 'handle', event_id: post.event_id, post_id: post.id });
-                        navigate(routes.user(post.author_user_id));
-                      }}
-                    >
-                      {post.user_profiles.display_name}
-                    </button>
-                    {post.user_profiles.username && (
-                      <span className="text-sm text-muted-foreground">
-                        @{post.user_profiles.username}
-                      </span>
-                    )}
-                    {post.badge_label && (
-                      <Badge
-                        variant="secondary"
-                        className="text-xs cursor-pointer hover:bg-secondary/80"
-                        onClick={() => onEventClick?.(post.event_id)}
-                      >
-                        {post.badge_label}
-                      </Badge>
-                    )}
-                    {post.is_organizer && <Crown className="w-4 h-4 text-primary" aria-label="Organizer" />}
-                  </div>
-                  
-                  {/* Social Links for Author */}
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(post.created_at).toLocaleString()}
-                      {' • '}
-                      <button
-                        onClick={() => onEventClick?.(post.event_id)}
-                        className="hover:text-foreground hover:underline"
-                      >
-                        {post.events.title}
-                      </button>
-                    </div>
-                    
-                    {/* Author Social Links */}
-                    <div className="flex items-center gap-1">
-                      {post.user_profiles.instagram_handle && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-5 h-5 p-0 text-muted-foreground hover:text-pink-500"
-                          onClick={() => window.open(`https://instagram.com/${post.user_profiles.instagram_handle}`, '_blank')}
-                          aria-label="Instagram"
-                        >
-                          <Instagram className="w-3 h-3" />
-                        </Button>
-                      )}
-                      {post.user_profiles.twitter_handle && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-5 h-5 p-0 text-muted-foreground hover:text-blue-500"
-                          onClick={() => window.open(`https://twitter.com/${post.user_profiles.twitter_handle}`, '_blank')}
-                          aria-label="Twitter"
-                        >
-                          <Twitter className="w-3 h-3" />
-                        </Button>
-                      )}
-                      {post.user_profiles.website_url && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-5 h-5 p-0 text-muted-foreground hover:text-primary"
-                          onClick={() => window.open(post.user_profiles.website_url!, '_blank')}
-                          aria-label="Website"
-                        >
-                          <Globe className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Organizer Social Links (if user is organizer) */}
-                  {post.is_organizer && (
-                    <div className="flex items-center gap-1 mt-1">
-                      <span className="text-xs text-muted-foreground">Organizer:</span>
-                      {post.events.organizer_instagram && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-5 h-5 p-0 text-muted-foreground hover:text-pink-500"
-                          onClick={() => window.open(`https://instagram.com/${post.events.organizer_instagram}`, '_blank')}
-                          aria-label="Organizer Instagram"
-                        >
-                          <Instagram className="w-3 h-3" />
-                        </Button>
-                      )}
-                      {post.events.organizer_twitter && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-5 h-5 p-0 text-muted-foreground hover:text-blue-500"
-                          onClick={() => window.open(`https://twitter.com/${post.events.organizer_twitter}`, '_blank')}
-                          aria-label="Organizer Twitter"
-                        >
-                          <Twitter className="w-3 h-3" />
-                        </Button>
-                      )}
-                      {post.events.organizer_website && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-5 h-5 p-0 text-muted-foreground hover:text-primary"
-                          onClick={() => window.open(post.events.organizer_website!, '_blank')}
-                          aria-label="Organizer Website"
-                        >
-                          <Globe className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handlePostMenu(post)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  aria-label="More options"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Text */}
-            {post.text && <div className="text-sm leading-relaxed">{post.text}</div>}
-
-            {/* Media */}
-            {!!post.media_urls.length && (
-              <div className="grid gap-2">
-                {post.media_urls.map((url, idx) => {
-                  // Better media type detection
-                  const isVideo = isLikelyVideo(url);
-                  const processedUrl = url.startsWith('mux:') ? url : url;
-                  
-                  return (
-                    <div key={idx} className="relative rounded-lg overflow-hidden">
-                      {isVideo ? (
-                        <VideoMedia
-                          url={processedUrl}
-                          post={post}
-                          onAttachAnalytics={(v) => trackVideoProgress(post.id, post.event_id, v)}
-                        />
-                      ) : (
-                        <div className="relative">
-                          <img 
-                            src={url} 
-                            alt={`Media from ${post.user_profiles.display_name}`}
-                            className="w-full max-h-80 object-cover rounded-lg"
-                            onError={(e) => {
-                              console.warn('Failed to load image:', url);
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                          <div className="absolute top-2 right-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm rounded-full"
-                              aria-label="Bookmark post"
-                            >
-                              <Bookmark className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Comments Section - Show for all posts */}
-            <div className="space-y-2 pt-2 border-t border-border/50">
-              {comments[post.id] && comments[post.id].length > 0 ? (
-                <>
-                  <h4 className="text-sm font-medium">Comments ({post.comment_count})</h4>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {comments[post.id].slice(0, 3).map((comment: any) => (
-                      <div key={comment.id} className="flex gap-2 text-sm">
-                        <Avatar className="w-6 h-6">
-                          <AvatarImage src={comment.user_profiles?.photo_url || ''} />
-                          <AvatarFallback className="text-xs">
-                            {comment.user_profiles?.display_name?.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <span className="font-medium text-xs">
-                            {comment.user_profiles?.display_name || 'User'}:
-                          </span>
-                          <span className="ml-1">{comment.text}</span>
-                        </div>
-                      </div>
-                    ))}
-                    {post.comment_count > 3 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleComment(post)}
-                        className="text-xs text-muted-foreground"
-                      >
-                        View all {post.comment_count} comments
-                      </Button>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="text-xs text-muted-foreground">
-                  No comments yet. Be the first to comment!
-                </div>
-              )}
-              
-              {/* Quick comment input for authenticated users */}
-              {user && (
-                <div className="flex gap-2 mt-2">
-                  <Avatar className="w-6 h-6">
-                    <AvatarImage src={user.user_metadata?.photo_url || ''} />
-                    <AvatarFallback className="text-xs">
-                      {user.user_metadata?.display_name?.charAt(0) || 'U'}
-                    </AvatarFallback>
+    <>
+      <div className="space-y-4">
+        {posts.map((post) => (
+          <Card
+            key={post.id}
+            className="overflow-hidden group"
+            ref={postRef}
+            data-post-id={post.id}
+            data-event-id={post.event_id}
+          >
+            <CardContent className="p-4 space-y-4">
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={post.user_profiles.photo_url || ''} />
+                    <AvatarFallback>{post.user_profiles.display_name.charAt(0)}</AvatarFallback>
                   </Avatar>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        className="font-medium hover:underline text-left"
+                        onClick={() => {
+                          capture('feed_click', { target: 'handle', event_id: post.event_id, post_id: post.id });
+                          navigate(routes.user(post.author_user_id));
+                        }}
+                      >
+                        {post.user_profiles.display_name}
+                      </button>
+                      {post.user_profiles.username && (
+                        <span className="text-sm text-muted-foreground">
+                          @{post.user_profiles.username}
+                        </span>
+                      )}
+                      {post.badge_label && (
+                        <Badge
+                          variant="secondary"
+                          className="text-xs cursor-pointer hover:bg-secondary/80"
+                          onClick={() => onEventClick?.(post.event_id)}
+                        >
+                          {post.badge_label}
+                        </Badge>
+                      )}
+                      {post.is_organizer && <Crown className="w-4 h-4 text-primary" aria-label="Organizer" />}
+                    </div>
+
+                    {/* Meta & Event link */}
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(post.created_at).toLocaleString()}
+                        {' • '}
+                        <button
+                          onClick={() => onEventClick?.(post.event_id)}
+                          className="hover:text-foreground hover:underline"
+                        >
+                          {post.events.title}
+                        </button>
+                      </div>
+
+                      {/* Author Social Links */}
+                      <div className="flex items-center gap-1">
+                        {post.user_profiles.instagram_handle && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-5 h-5 p-0 text-muted-foreground hover:text-pink-500"
+                            onClick={() => window.open(`https://instagram.com/${post.user_profiles.instagram_handle}`, '_blank')}
+                            aria-label="Instagram"
+                          >
+                            <Instagram className="w-3 h-3" />
+                          </Button>
+                        )}
+                        {post.user_profiles.twitter_handle && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-5 h-5 p-0 text-muted-foreground hover:text-blue-500"
+                            onClick={() => window.open(`https://twitter.com/${post.user_profiles.twitter_handle}`, '_blank')}
+                            aria-label="Twitter"
+                          >
+                            <Twitter className="w-3 h-3" />
+                          </Button>
+                        )}
+                        {post.user_profiles.website_url && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-5 h-5 p-0 text-muted-foreground hover:text-primary"
+                            onClick={() => window.open(post.user_profiles.website_url!, '_blank')}
+                            aria-label="Website"
+                          >
+                            <Globe className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Organizer Socials (if organizer) */}
+                    {post.is_organizer && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="text-xs text-muted-foreground">Organizer:</span>
+                        {post.events.organizer_instagram && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-5 h-5 p-0 text-muted-foreground hover:text-pink-500"
+                            onClick={() => window.open(`https://instagram.com/${post.events.organizer_instagram}`, '_blank')}
+                            aria-label="Organizer Instagram"
+                          >
+                            <Instagram className="w-3 h-3" />
+                          </Button>
+                        )}
+                        {post.events.organizer_twitter && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-5 h-5 p-0 text-muted-foreground hover:text-blue-500"
+                            onClick={() => window.open(`https://twitter.com/${post.events.organizer_twitter}`, '_blank')}
+                            aria-label="Organizer Twitter"
+                          >
+                            <Twitter className="w-3 h-3" />
+                          </Button>
+                        )}
+                        {post.events.organizer_website && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-5 h-5 p-0 text-muted-foreground hover:text-primary"
+                            onClick={() => window.open(post.events.organizer_website!, '_blank')}
+                            aria-label="Organizer Website"
+                          >
+                            <Globe className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleComment(post)}
-                    className="flex-1 text-left text-xs text-muted-foreground"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handlePostMenu(post)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="More options"
                   >
-                    Add a comment...
+                    <MoreVertical className="w-4 h-4" />
                   </Button>
                 </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-2 border-t border-border/50">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    capture('feed_click', { target: 'like', event_id: post.event_id, post_id: post.id });
-                    handleLike(post.id);
-                  }}
-                  className={`gap-2 ${post.liked_by_me ? 'text-red-500' : ''}`}
-                  aria-label={post.liked_by_me ? 'Unlike post' : 'Like post'}
-                >
-                  <Heart className={`w-4 h-4 ${post.liked_by_me ? 'fill-current' : ''}`} />
-                  {post.like_count}
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => handleComment(post)}
-                  aria-label="View comments"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  {post.comment_count}
-                </Button>
               </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleShare(post)}
-                className="gap-2"
-                aria-label="Share post"
-              >
-                <ShareIcon className="w-4 h-4" />
-                Share
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+              {/* Text */}
+              {post.text && <div className="text-sm leading-relaxed">{post.text}</div>}
+
+              {/* Media */}
+              {!!post.media_urls.length && (
+                <div className="grid gap-2">
+                  {post.media_urls.map((url, idx) => {
+                    const isVideo = isLikelyVideo(url);
+                    const processedUrl = url.startsWith('mux:') ? url : url;
+
+                    return (
+                      <div key={idx} className="relative rounded-lg overflow-hidden">
+                        {isVideo ? (
+                          <VideoMedia
+                            url={processedUrl}
+                            post={post}
+                            onAttachAnalytics={(v) => trackVideoProgress(post.id, post.event_id, v)}
+                          />
+                        ) : (
+                          <div className="relative">
+                            <img
+                              src={url}
+                              alt={`Media from ${post.user_profiles.display_name}`}
+                              className="w-full max-h-80 object-cover rounded-lg"
+                              loading="lazy"
+                              decoding="async"
+                              onError={(e) => {
+                                console.warn('Failed to load image:', url);
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                            <div className="absolute top-2 right-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm rounded-full"
+                                aria-label="Bookmark post"
+                              >
+                                <Bookmark className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Comments preview */}
+              <div className="space-y-2 pt-2 border-t border-border/50">
+                {comments[post.id] && comments[post.id].length > 0 ? (
+                  <>
+                    <h4 className="text-sm font-medium">Comments ({post.comment_count})</h4>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {comments[post.id].slice(0, 3).map((comment: any) => (
+                        <div key={comment.id} className="flex gap-2 text-sm">
+                          <Avatar className="w-6 h-6">
+                            <AvatarImage src={comment.user_profiles?.photo_url || ''} />
+                            <AvatarFallback className="text-xs">
+                              {comment.user_profiles?.display_name?.charAt(0) || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <span className="font-medium text-xs">
+                              {comment.user_profiles?.display_name || 'User'}:
+                            </span>
+                            <span className="ml-1">{comment.text}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {post.comment_count > 3 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleComment(post)}
+                          className="text-xs text-muted-foreground"
+                        >
+                          View all {post.comment_count} comments
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-muted-foreground">
+                    No comments yet. Be the first to comment!
+                  </div>
+                )}
+
+                {/* Quick comment CTA for authenticated users */}
+                {user && (
+                  <div className="flex gap-2 mt-2">
+                    <Avatar className="w-6 h-6">
+                      <AvatarImage src={user.user_metadata?.photo_url || ''} />
+                      <AvatarFallback className="text-xs">
+                        {user.user_metadata?.display_name?.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleComment(post)}
+                      className="flex-1 text-left text-xs text-muted-foreground"
+                    >
+                      Add a comment...
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                <div className="flex items-center gap-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      capture('feed_click', { target: 'like', event_id: post.event_id, post_id: post.id });
+                      handleLike(post.id);
+                    }}
+                    className={`gap-2 ${post.liked_by_me ? 'text-red-500' : ''}`}
+                    aria-label={post.liked_by_me ? 'Unlike post' : 'Like post'}
+                  >
+                    <Heart className={`w-4 h-4 ${post.liked_by_me ? 'fill-current' : ''}`} />
+                    {post.like_count}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => handleComment(post)}
+                    aria-label="View comments"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    {post.comment_count}
+                  </Button>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleShare(post)}
+                  className="gap-2"
+                  aria-label="Share post"
+                >
+                  <ShareIcon className="w-4 h-4" />
+                  Share
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* 💬 Inline Comment Modal (no route change) */}
+      {showCommentModal && commentPostId && commentEventId && (
+        <CommentModal
+          isOpen={showCommentModal}
+          onClose={() => {
+            setShowCommentModal(false);
+            setCommentPostId(undefined);
+            setCommentEventId(undefined);
+            setCommentEventTitle(undefined);
+          }}
+          eventId={commentEventId}
+          eventTitle={commentEventTitle || 'Event'}
+          postId={commentPostId}
+          onSuccess={() => {
+            // Best-effort refresh counts after new comment
+            fetchPosts();
+          }}
+        />
+      )}
+    </>
   );
 }
 
