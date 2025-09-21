@@ -1,5 +1,5 @@
 // Image optimization and preloading utilities
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 
 /**
  * Image preloader with cache management
@@ -72,66 +72,6 @@ export function useImagePreloader() {
   }, []);
 
   return { preloadImage, preloadImages, clearCache };
-}
-
-/**
- * Optimized image component with lazy loading and error handling
- */
-interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  src: string;
-  alt: string;
-  fallbackSrc?: string;
-  onLoadComplete?: () => void;
-  onLoadError?: (error: Error) => void;
-  preload?: boolean;
-}
-
-export function OptimizedImage({
-  src,
-  alt,
-  fallbackSrc,
-  onLoadComplete,
-  onLoadError,
-  preload = false,
-  className = '',
-  ...props
-}: OptimizedImageProps) {
-  const imgRef = useRef<HTMLImageElement>(null);
-  const { preloadImage } = useImagePreloader();
-
-  // Preload if requested
-  useEffect(() => {
-    if (preload && src) {
-      preloadImage(src);
-    }
-  }, [src, preload, preloadImage]);
-
-  const handleLoad = useCallback(() => {
-    onLoadComplete?.();
-  }, [onLoadComplete]);
-
-  const handleError = useCallback(() => {
-    const img = imgRef.current;
-    if (img && fallbackSrc && img.src !== fallbackSrc) {
-      img.src = fallbackSrc;
-    } else {
-      onLoadError?.(new Error(`Failed to load image: ${src}`));
-    }
-  }, [fallbackSrc, src, onLoadError]);
-
-  return (
-    <img
-      ref={imgRef}
-      src={src}
-      alt={alt}
-      className={`${className} transition-opacity duration-200`}
-      onLoad={handleLoad}
-      onError={handleError}
-      loading="lazy"
-      decoding="async"
-      {...props}
-    />
-  );
 }
 
 /**
