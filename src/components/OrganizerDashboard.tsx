@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, ChevronDown } from 'lucide-react';
+import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2 } from 'lucide-react';
+import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import AnalyticsHub from '@/components/AnalyticsHub';
@@ -236,48 +236,31 @@ export function OrganizerDashboard() {
         <div className="flex-1">
           <div className="flex items-center gap-4 mb-2">
             <h1 className="text-2xl sm:text-3xl font-bold">Organizer Dashboard</h1>
+
             {organizations.length > 0 && (
-              <Select 
-                value="individual" 
-                onValueChange={(value) => {
+              <OrgSwitcher
+                organizations={organizations}
+                value={selectedOrganization ? selectedOrganization : "individual"}
+                onSelect={(value) => {
                   if (value === "individual") {
-                    // Stay on individual dashboard
+                    // clear org context
                     if (selectedOrganization) {
                       setSelectedOrganization(null);
                       const next = new URLSearchParams(searchParams);
-                      next.delete('org');
+                      next.delete("org");
                       setSearchParams(next, { replace: true });
                     }
                   } else {
-                    // Switch to organization dashboard
+                    // optimistic URL + state update
                     const next = new URLSearchParams(searchParams);
-                    next.set('org', value);
+                    next.set("org", value);
                     setSearchParams(next, { replace: true });
                     setSelectedOrganization(value);
-                    trackEvent('dashboard_org_selected', { org_id: value, source: 'dropdown' });
+                    trackEvent("dashboard_org_selected", { org_id: value, source: "switcher" });
                   }
                 }}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Switch context" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="individual">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Personal Dashboard
-                    </div>
-                  </SelectItem>
-                  {organizations.map((org) => (
-                    <SelectItem key={org.id} value={org.id}>
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4" />
-                        {org.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                className="w-[240px]"
+              />
             )}
           </div>
           <p className="text-muted-foreground">
