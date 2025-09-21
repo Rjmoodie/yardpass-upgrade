@@ -351,9 +351,19 @@ export function OrganizerDashboard() {
           )}
         </TabsContent>
 
-        {/* TEAMS (example uses first event id in scope, tweak as needed) */}
+        {/* TEAMS — organization-aware */}
         <TabsContent value="teams" className="space-y-6">
-          <OrganizerCommsPanel eventId={scopedEvents?.[0]?.id || ''} />
+          {selectedOrganization ? (
+            <OrganizerCommsPanel eventId={scopedEvents?.[0]?.id || ''} />
+          ) : (
+            <div className="text-center py-16 border rounded-lg">
+              <Users className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-lg font-semibold mb-1">Team Management</h3>
+              <p className="text-muted-foreground mb-4">
+                Select an organization to manage team communications and roles.
+              </p>
+            </div>
+          )}
         </TabsContent>
 
         {/* PAYOUTS — context-aware */}
