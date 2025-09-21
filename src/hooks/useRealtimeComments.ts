@@ -1,5 +1,5 @@
 // src/hooks/useRealtimeComments.ts
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Comment {
@@ -12,38 +12,45 @@ export interface Comment {
 }
 
 interface UseRealtimeCommentsProps {
+  /** Subscribe by event OR explicit postIds (prefer postIds when you can) */
   eventId?: string;
+  postIds?: string[];
   onCommentAdded: (comment: Comment) => void;
   onCommentDeleted: (comment: Comment) => void;
 }
 
-/**
- * Realtime comments for a given event:
- * - Loads all post IDs for the event
- * - Subscribes to INSERT/DELETE on event_comments with an IN(...) filter on post_id
- * - Also listens to event_posts inserts/deletes for this event to refresh the subscriptions
- * - Enriches author_name from user_profiles (cached) if missing
- */
+/** Quote each UUID for PostgREST `in.(...)` filter */
+const quoteCSV = (ids: string[]) =>
+  ids.map((id) => `"${id}"`).join(',');
+
 export const useRealtimeComments = ({
   eventId,
+  postIds: explicitPostIds,
   onCommentAdded,
   onCommentDeleted,
 }: UseRealtimeCommentsProps) => {
-  const [postIds, setPostIds] = useState<string[]>([]);
+  const [postIds, setPostIds] = useState<string[]>(explicitPostIds ?? []);
   const authorCacheRef = useRef<Map<string, { display_name?: string }>>(new Map());
 
-  // Keep stable refs to callbacks
+  // Keep latest callbacks
   const addedRef = useRef(onCommentAdded);
   const deletedRef = useRef(onCommentDeleted);
   useEffect(() => { addedRef.current = onCommentAdded; }, [onCommentAdded]);
   useEffect(() => { deletedRef.current = onCommentDeleted; }, [onCommentDeleted]);
 
-  // Load current post IDs for the event
+  // If caller supplies postIds, use them directly
   useEffect(() => {
-    if (!eventId) {
+    if (explicitPostIds && explicitPostIds.length) {
+      setPostIds(explicitPostIds);
+    } else if (!eventId) {
       setPostIds([]);
-      return;
     }
+  }, [explicitPostIds?.join('|'), eventId]);
+
+  // If no explicit postIds, hydrate from event
+  useEffect(() => {
+    if (!eventId || (explicitPostIds && explicitPostIds.length)) return;
+
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
@@ -62,14 +69,14 @@ export const useRealtimeComments = ({
       }
     })();
     return () => { cancelled = true; };
-  }, [eventId]);
+  }, [eventId, explicitPostIds?.length]);
 
-  // Subscribe to post set changes (so we can refresh comment subscriptions)
+  // Keep post set in sync when subscribing by event
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId || (explicitPostIds && explicitPostIds.length)) return;
 
     const postsChannel = supabase
-      .channel(`event-posts-${eventId}`, { config: { broadcast: { ack: true } } })
+      .channel(`event-posts-${eventId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'event_posts', filter: `event_id=eq.${eventId}` },
@@ -91,57 +98,48 @@ export const useRealtimeComments = ({
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(postsChannel);
-    };
-  }, [eventId]);
+    return () => { supabase.removeChannel(postsChannel); };
+  }, [eventId, explicitPostIds?.length]);
 
-  // Subscribe to comments for the current post IDs (chunked to avoid long IN lists)
+  // Subscribe to comments for the current post IDs (chunked & **quoted**)
   useEffect(() => {
-    if (!eventId) return;
-    // No posts yet -> no comment subscriptions
     if (postIds.length === 0) return;
 
-    // Supabase IN(...) filters are fine with a bunch of values; we chunk for safety.
-    const CHUNK = 100;
+    const CHUNK = 80; // keep it comfy
     const chunks: string[][] = [];
-    for (let i = 0; i < postIds.length; i += CHUNK) {
-      chunks.push(postIds.slice(i, i + CHUNK));
-    }
+    for (let i = 0; i < postIds.length; i += CHUNK) chunks.push(postIds.slice(i, i + CHUNK));
 
     const commentChannels = chunks.map((ids, idx) => {
-      const filter = `post_id=in.(${ids.join(',')})`;
+      // Proper quoting and encoding
+      const filter = `post_id=in.(${quoteCSV(ids)})`;
+
       return supabase
-        .channel(`event-comments-${eventId}-${idx}`, { config: { broadcast: { ack: true } } })
+        .channel(`event-comments-${(eventId ?? 'noevent')}-${idx}`)
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'event_comments', filter },
           async (payload) => {
             const newComment = payload.new as Comment;
-            // Enrich author name if missing (cached)
+
+            // Enrich author name (simple local cache)
             if (!newComment.author_name && newComment.author_user_id) {
               const cached = authorCacheRef.current.get(newComment.author_user_id);
               if (cached) {
-                addedRef.current({
-                  ...newComment,
-                  author_name: cached.display_name || 'User',
-                });
+                addedRef.current({ ...newComment, author_name: cached.display_name || 'User' });
                 return;
               }
               const { data: profile } = await supabase
                 .from('user_profiles')
                 .select('display_name')
                 .eq('user_id', newComment.author_user_id)
-                .single();
-              authorCacheRef.current.set(newComment.author_user_id, {
-                display_name: profile?.display_name,
-              });
-              addedRef.current({
-                ...newComment,
-                author_name: profile?.display_name || 'User',
-              });
+                .maybeSingle();
+
+              const display_name = profile?.display_name;
+              authorCacheRef.current.set(newComment.author_user_id, { display_name });
+              addedRef.current({ ...newComment, author_name: display_name || 'User' });
               return;
             }
+
             addedRef.current(newComment);
           }
         )
@@ -156,14 +154,9 @@ export const useRealtimeComments = ({
         .subscribe();
     });
 
-    // Cleanup when postIds change or eventId changes
-    return () => {
-      commentChannels.forEach((ch) => supabase.removeChannel(ch));
-    };
-  }, [eventId, postIds.join('|')]); // join for stable dependency
+    return () => { commentChannels.forEach((ch) => supabase.removeChannel(ch)); };
+  }, [eventId, postIds.join('|')]);
 
-  // Optional: clear author cache on event change to avoid unbounded growth
-  useEffect(() => {
-    authorCacheRef.current.clear();
-  }, [eventId]);
+  // keep cache bounded per event
+  useEffect(() => { authorCacheRef.current.clear(); }, [eventId, explicitPostIds?.join('|')]);
 };
