@@ -106,22 +106,30 @@ export function EventCard({ item, onOpenTickets, onEventClick, onCreatePost, onR
       <div className="absolute left-4 right-4 bottom-6 z-30">
         <div className="bg-black/80 backdrop-blur-md rounded-full px-4 py-3 flex items-center justify-between shadow-2xl border border-white/10">
           {/* Left side - Organizer */}
-          <Link
-            to={`/u/${item.event_organizer_id || 'organizer'}`}
-            className="text-white font-bold hover:underline text-base flex-shrink-0"
-            onClick={(e) => e.stopPropagation()}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // Use navigate instead of Link to prevent full page reload
+              window.history.pushState({}, '', `/u/${item.event_organizer_id || 'organizer'}`);
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }}
+            className="text-white font-bold hover:underline text-base flex-shrink-0 bg-transparent border-none cursor-pointer"
           >
             {item.event_organizer || 'Organizer'}
-          </Link>
+          </button>
 
           {/* Right side - Event */}
-          <Link
-            to={`/event/${item.event_id}`}
-            className="text-white/90 hover:text-white font-medium text-base truncate ml-4"
-            onClick={(e) => e.stopPropagation()}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // Use navigate instead of Link to prevent full page reload
+              window.history.pushState({}, '', `/event/${item.event_id}`);
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }}
+            className="text-white/90 hover:text-white font-medium text-base truncate ml-4 bg-transparent border-none cursor-pointer"
           >
             {item.event_title}
-          </Link>
+          </button>
         </div>
       </div>
     </div>

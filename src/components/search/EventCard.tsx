@@ -28,13 +28,20 @@ export function EventCard({ event, onClick, onTicket, onBookmark, onShare, class
   const rating = (event.rating ?? 4.2).toFixed(1);
 
   return (
-    <div className={cn('group rounded-2xl border overflow-hidden bg-card hover:shadow-xl transition-shadow', className)}>
-      <button
-        onClick={onClick}
-        className="w-full text-left"
-        aria-label={`Open event ${event.title}`}
-      >
-        <div className="flex">
+    <div 
+      className={cn('group rounded-2xl border overflow-hidden bg-card hover:shadow-xl transition-shadow cursor-pointer', className)}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      aria-label={`Open event ${event.title}`}
+    >
+      <div className="flex">
           {/* Media */}
           <div className="w-36 h-36 shrink-0 relative">
             <ImageWithFallback
@@ -132,7 +139,6 @@ export function EventCard({ event, onClick, onTicket, onBookmark, onShare, class
             </div>
           </div>
         </div>
-      </button>
     </div>
   );
 }

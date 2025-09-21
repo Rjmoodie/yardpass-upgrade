@@ -311,14 +311,16 @@ export function UserPostCard({
         <div className="bg-black/80 backdrop-blur-md rounded-full px-4 py-3 flex items-center justify-between shadow-2xl border border-white/10 pointer-events-auto">
           {/* Author */}
           <div className="flex items-center gap-2 min-w-0">
-            <Link
-              to={`/u/${item.author_id}`}
-              className="text-white font-bold hover:underline text-base flex-shrink-0"
-              onClick={handleAuthorClickWrapper}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAuthorClick?.(item.author_id);
+              }}
+              className="text-white font-bold hover:underline text-base flex-shrink-0 bg-transparent border-none cursor-pointer"
               title={item.author_name || 'User'}
             >
               {item.author_name || 'User'}
-            </Link>
+            </button>
 
             {item.author_badge && (
               <span
@@ -344,14 +346,16 @@ export function UserPostCard({
           </div>
 
           {/* Event link */}
-          <Link
-            to={`/event/${item.event_id}`}
-            className="text-white/90 hover:text-white font-medium text-base truncate ml-4"
-            onClick={(e) => e.stopPropagation()}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEventClick(item.event_id);
+            }}
+            className="text-white/90 hover:text-white font-medium text-base truncate ml-4 bg-transparent border-none cursor-pointer"
             title={item.event_title || 'View event'}
           >
             {item.event_title || 'View event'}
-          </Link>
+          </button>
         </div>
 
         {/* Post content */}
