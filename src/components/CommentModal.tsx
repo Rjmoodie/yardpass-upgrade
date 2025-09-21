@@ -721,7 +721,11 @@ export default function CommentModal({
                   </button>
 
                   <button
-                    onClick={() => openInNewTab(`${routes.event(eventId)}?tab=posts&post=${post.id}`)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openInNewTab(`${routes.event(eventId)}?tab=posts&post=${post.id}`);
+                    }}
                     className="flex items-center gap-1 hover:text-foreground transition-colors"
                     aria-label="Open post in new tab"
                     title="Open post in new tab"
@@ -842,6 +846,7 @@ export default function CommentModal({
                           const metaEnter = (e.key === 'Enter' && (e.metaKey || e.ctrlKey));
                           if ((e.key === 'Enter' && !e.shiftKey) || metaEnter) {
                             e.preventDefault();
+                            e.stopPropagation();
                             handleSubmitComment();
                           }
                         }}
@@ -854,7 +859,11 @@ export default function CommentModal({
                         </span>
                         <Button
                           size="sm"
-                          onClick={handleSubmitComment}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSubmitComment();
+                          }}
                           disabled={!newComment.trim() || submitting || selectedPostId !== post.id}
                           className="h-8 px-3"
                         >
