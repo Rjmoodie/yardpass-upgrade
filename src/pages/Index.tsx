@@ -16,6 +16,7 @@ import { EventCard } from '@/components/EventCard';
 import { UserPostCard } from '@/components/UserPostCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SearchPalette } from '@/components/SearchPalette';
+import { muxToPoster } from '@/utils/media';
 
 interface IndexProps {
   onEventSelect: (eventId: string) => void;
@@ -382,10 +383,16 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     const ids = [currentIndex - 1, currentIndex + 1].filter((i) => i >= 0 && i < items.length);
     ids.forEach((i) => {
       const it = items[i];
-      const url =
-        it.item_type === 'event'
-          ? it.event_cover_image
-          : (it.media_urls?.[0] && !it.media_urls[0].endsWith('.m3u8') ? it.media_urls[0] : undefined);
+      let url: string | undefined;
+      if (it.item_type === 'event') {
+        url = it.event_cover_image;
+      } else {
+        const mediaUrl = it.media_urls?.[0];
+        if (mediaUrl && !mediaUrl.endsWith('.m3u8')) {
+          // Convert mux: URLs to poster URLs for preloading
+          url = mediaUrl.startsWith('mux:') ? muxToPoster(mediaUrl) : mediaUrl;
+        }
+      }
       if (url) {
         const img = new Image();
         img.src = url;
