@@ -14,7 +14,7 @@ export interface Comment {
 interface UseRealtimeCommentsProps {
   eventId?: string;
   onCommentAdded: (comment: Comment) => void;
-  onCommentDeleted: (commentId: string) => void;
+  onCommentDeleted: (comment: Comment) => void;
 }
 
 /**
@@ -150,7 +150,7 @@ export const useRealtimeComments = ({
           { event: 'DELETE', schema: 'public', table: 'event_comments', filter },
           (payload) => {
             const deletedComment = payload.old as Comment;
-            deletedRef.current(deletedComment.id);
+            deletedRef.current(deletedComment);
           }
         )
         .subscribe();

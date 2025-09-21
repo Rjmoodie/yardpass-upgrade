@@ -174,13 +174,15 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   }, []);
   useRealtimeEngagement({ eventIds: currentEventIds, userId: user?.id, onEngagementUpdate: handleEngagementUpdate });
 
-  // Realtime comments (increment count inline)
+  // Realtime comments (handle both add and delete locally)
   useRealtimeComments({
     eventId: eventId || undefined,
     onCommentAdded: (comment) => {
       setPosts(prev => prev.map(p => p.id === comment.post_id ? { ...p, comment_count: (p.comment_count || 0) + 1 } : p));
     },
-    onCommentDeleted: () => { fetchPosts(); }
+    onCommentDeleted: (comment) => {
+      setPosts(prev => prev.map(p => p.id === comment.post_id ? { ...p, comment_count: Math.max(0, (p.comment_count || 0) - 1) } : p));
+    }
   });
 
   // Intersection observer for view analytics
@@ -729,14 +731,6 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
           eventId={commentEventId!}
           eventTitle={commentEventTitle || 'Event'}
           postId={commentPostId}
-          onSuccess={() => {
-            // Update comment count for the specific post instead of refetching all
-            if (commentPostId) {
-              setPosts(prev => prev.map(p => 
-                p.id === commentPostId ? { ...p, comment_count: (p.comment_count || 0) + 1 } : p
-              ));
-            }
-          }}
         />
       )}
     </>
