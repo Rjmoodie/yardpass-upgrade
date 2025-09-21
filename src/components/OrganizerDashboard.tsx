@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import AnalyticsHub from '@/components/AnalyticsHub';
@@ -232,8 +233,53 @@ export function OrganizerDashboard() {
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Organizer Dashboard</h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-4 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold">Organizer Dashboard</h1>
+            {organizations.length > 0 && (
+              <Select 
+                value="individual" 
+                onValueChange={(value) => {
+                  if (value === "individual") {
+                    // Stay on individual dashboard
+                    if (selectedOrganization) {
+                      setSelectedOrganization(null);
+                      const next = new URLSearchParams(searchParams);
+                      next.delete('org');
+                      setSearchParams(next, { replace: true });
+                    }
+                  } else {
+                    // Switch to organization dashboard
+                    const next = new URLSearchParams(searchParams);
+                    next.set('org', value);
+                    setSearchParams(next, { replace: true });
+                    setSelectedOrganization(value);
+                    trackEvent('dashboard_org_selected', { org_id: value, source: 'dropdown' });
+                  }
+                }}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Switch context" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="individual">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Personal Dashboard
+                    </div>
+                  </SelectItem>
+                  {organizations.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        {org.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           <p className="text-muted-foreground">
             {totals.events} event{totals.events === 1 ? '' : 's'} • {totals.attendees} attendees • ${totals.revenue.toLocaleString()} revenue
           </p>
