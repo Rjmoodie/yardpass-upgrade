@@ -106,6 +106,8 @@ export default function OrganizerDashboard() {
     if (!user?.id) return;
     setLoadingScoped(true);
     try {
+      console.log('🔍 Fetching scoped events for selectedOrganization:', selectedOrganization);
+      
       let query = supabase
         .from('events')
         .select(`id, title, created_at, start_at, end_at, venue, category,
@@ -116,16 +118,19 @@ export default function OrganizerDashboard() {
         .order('start_at', { ascending: false });
 
       if (selectedOrganization) {
+        console.log('📋 Filtering for organization:', selectedOrganization);
         query = query
           .eq('owner_context_type', 'organization')
           .eq('owner_context_id', selectedOrganization);
       } else {
+        console.log('👤 Filtering for individual user:', user.id);
         query = query
           .eq('owner_context_type', 'individual')
           .eq('owner_context_id', user.id);
       }
 
       const { data, error } = await query;
+      console.log('📊 Scoped events query result:', { data, error, selectedOrganization });
       if (error) throw error;
 
       const rows = (data || []) as any[];
