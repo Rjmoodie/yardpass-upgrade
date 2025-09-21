@@ -1,10 +1,11 @@
+// src/components/CommentModal.tsx
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, Send, X, Play, ExternalLink, Trash2 } from 'lucide-react';
+import { Heart, Send, X, Play, ExternalLink, Trash2, Link as LinkIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -14,6 +15,7 @@ import { ReportButton } from '@/components/ReportButton';
 import { muxToHls } from '@/utils/media';
 
 const PAGE_SIZE = 10;
+const MAX_LEN = 1000;
 
 interface CommentRow {
   id: string;
@@ -43,8 +45,6 @@ interface Comment {
   author_avatar?: string | null;
   likes_count: number;
   is_liked: boolean;
-
-  /** Local-only, used for optimistic UX */
   pending?: boolean;
   client_id?: string;
 }
@@ -102,11 +102,7 @@ export default function CommentModal({
   const postIdSet = useMemo(() => new Set(posts.map((p) => p.id)), [posts]);
 
   function openInNewTab(href: string) {
-    try { 
-      window.open(href, '_blank', 'noopener,noreferrer'); 
-    } catch { 
-      /* ignore - no fallback navigation */ 
-    }
+    try { window.open(href, '_blank', 'noopener,noreferrer'); } catch { /* ignore */ }
   }
 
   async function resolvePostIdFromMedia(eventId: string, playbackId: string): Promise<string | null> {
@@ -124,11 +120,10 @@ export default function CommentModal({
     return null;
   }
 
-  // When opening, resolve postId if we only have a playback id
+  // Resolve postId (when opening)
   useEffect(() => {
     if (!isOpen) return;
     isMounted.current = true;
-
     (async () => {
       if (postId) { setResolvedPostId(postId); return; }
       if (mediaPlaybackId) {
@@ -138,24 +133,20 @@ export default function CommentModal({
       }
       setResolvedPostId(null);
     })();
-
     return () => { isMounted.current = false; };
   }, [isOpen, eventId, postId, mediaPlaybackId]);
 
-  // Pause/mute all videos when modal opens; restore current on close
+  // Pause/mute all videos when modal opens; restore only mute state on close
   useEffect(() => {
     if (!isOpen) return;
     const videos = Array.from(document.querySelectorAll<HTMLVideoElement>('video'));
-    const state = videos.map(v => ({ v, muted: v.muted, paused: v.paused }));
+    const state = videos.map(v => ({ v, muted: v.muted }));
     videos.forEach(v => { try { v.pause(); } catch {} v.muted = true; });
 
-    return () => { 
-      // restore only mute states; keep paused unless user interacts
-      state.forEach(({ v, muted }) => { v.muted = muted; }); 
-    };
+    return () => { state.forEach(({ v, muted }) => { v.muted = muted; }); };
   }, [isOpen]);
 
-  // reset & load when opened
+  // Reset & load when opened
   useEffect(() => {
     if (!isOpen) return;
     setPosts([]);
@@ -166,11 +157,11 @@ export default function CommentModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId, resolvedPostId, singleMode]);
 
-  // --- Realtime: only subscribe to the target (post or event) ---
+  // Realtime (scoped)
   useEffect(() => {
     if (!isOpen) return;
 
-  const channel = supabase
+    const channel = supabase
       .channel(`comments-${singleMode ? resolvedPostId ?? 'unknown' : eventId}`)
       .on(
         'postgres_changes',
@@ -182,11 +173,8 @@ export default function CommentModal({
         },
         (payload) => {
           const c = payload.new as CommentRow;
-          // Filter to just the post we're viewing to avoid jostling
           if (!singleMode && !postIdSet.has(c.post_id)) return;
 
-          // Reconcile: if we have a pending optimistic comment from same user & same text,
-          // replace it instead of duplicating.
           setPosts((prev) =>
             prev.map((p) => {
               if (p.id !== c.post_id) return p;
@@ -228,13 +216,13 @@ export default function CommentModal({
             })
           );
         }
-      );
+      )
+      .subscribe();
 
-    channel.subscribe();
     return () => { try { supabase.removeChannel(channel); } catch {} };
   }, [isOpen, eventId, singleMode, resolvedPostId, postIdSet]);
 
-  // Load posts (+ comments, likes, profiles). In singleMode we load only that one post.
+  // Load posts (+ comments, likes, profiles)
   async function loadPage(reset = false) {
     if (loading) return;
     setLoading(true);
@@ -293,7 +281,6 @@ export default function CommentModal({
         .select('id, text, author_user_id, created_at, post_id')
         .in('post_id', postIds.length ? postIds : ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: true });
-
       if (commentsError) throw commentsError;
 
       // Profiles for comment authors
@@ -378,7 +365,6 @@ export default function CommentModal({
         is_liked: likedPostSet.has(p.id),
       }));
 
-      // Enforce single-post mode
       const finalMapped = singleMode && resolvedPostId ? mapped.filter((p) => p.id === resolvedPostId) : mapped;
 
       setPosts((prev) => (reset ? finalMapped : [...prev, ...finalMapped]));
@@ -392,8 +378,10 @@ export default function CommentModal({
     }
   }
 
+  const overLimit = newComment.length > MAX_LEN;
+
   const handleSubmitComment = async () => {
-    if (!newComment.trim() || !selectedPostId) return;
+    if (!newComment.trim() || !selectedPostId || overLimit) return;
     if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to comment', variant: 'destructive' });
       return;
@@ -403,7 +391,7 @@ export default function CommentModal({
 
     const clientId = `c_${Date.now()}`;
     const optimistic: Comment = {
-      id: clientId,                    // temporary id
+      id: clientId,
       client_id: clientId,
       text: newComment.trim(),
       author_user_id: user.id,
@@ -415,16 +403,12 @@ export default function CommentModal({
       pending: true,
     };
 
-    // Optimistically append + keep user in-modal with their content visible
     setPosts((prev) =>
       prev.map((p) => (p.id === selectedPostId ? { ...p, comments: [...p.comments, optimistic] } : p))
     );
-
-    // Clear input but keep focus on this post
     setNewComment('');
 
     try {
-      // Ask Supabase to return id + created_at so we can replace the optimistic version
       const { data, error } = await supabase
         .from('event_comments')
         .insert({
@@ -437,7 +421,6 @@ export default function CommentModal({
 
       if (error) throw error;
 
-      // Replace optimistic comment with the real one (if realtime didn’t already)
       setPosts((prev) =>
         prev.map((p) => {
           if (p.id !== selectedPostId) return p;
@@ -455,16 +438,12 @@ export default function CommentModal({
         })
       );
 
-      // Optional parent refresh hook
       onSuccess?.();
-
-      // Smooth scroll to the newest comment
       setTimeout(() => {
         newestCommentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 0);
     } catch (e: any) {
       console.error(e);
-      // Roll back optimistic insert
       setPosts((prev) =>
         prev.map((p) =>
           p.id === selectedPostId ? { ...p, comments: p.comments.filter((c) => c.client_id !== clientId) } : p
@@ -486,7 +465,6 @@ export default function CommentModal({
     if (!post) return;
 
     const optimistic = !post.is_liked;
-
     setPosts((prev) =>
       prev.map((p) =>
         p.id === postIdToToggle
@@ -510,11 +488,9 @@ export default function CommentModal({
           .eq('kind', 'like');
         if (error) throw error;
       }
-
       onSuccess?.();
     } catch (e) {
       console.error(e);
-      // rollback
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postIdToToggle
@@ -532,7 +508,6 @@ export default function CommentModal({
       return;
     }
 
-    // find current state
     let isLiked = false;
     for (const p of posts) {
       const c = p.comments.find((cc) => cc.id === commentId);
@@ -569,7 +544,6 @@ export default function CommentModal({
       }
     } catch (e) {
       console.error(e);
-      // rollback
       setPosts((prev) =>
         prev.map((p) => ({
           ...p,
@@ -590,7 +564,6 @@ export default function CommentModal({
       return;
     }
 
-    // find author
     let authorId: string | null = null;
     for (const p of posts) {
       const c = p.comments.find((cc) => cc.id === commentId);
@@ -624,7 +597,7 @@ export default function CommentModal({
     const isVideo = /\.m3u8$|\.mp4$|\.mov$|\.webm$/i.test(url);
 
     return (
-      <div className="relative w-16 h-16 flex-shrink-0 rounded-md overflow-hidden border">
+      <div className="relative w-16 h-16 flex-shrink-0 rounded-md overflow-hidden border bg-muted/30">
         {isVideo ? (
           <div className="w-full h-full bg-muted/40 flex items-center justify-center">
             <Play className="w-5 h-5 text-muted-foreground" />
@@ -642,291 +615,338 @@ export default function CommentModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-background border shadow-xl">
-        {/* Prevent implicit form submission */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-        >
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent
+        className="w-[min(100vw,880px)] max-h-[84vh] p-0 gap-0 overflow-hidden bg-background border shadow-xl rounded-2xl"
+      >
+        {/* Header */}
+        <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">
-              {singleMode ? 'Comments' : 'Posts & Comments'} • {eventTitle}
+            <DialogTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+              <span className="truncate">{singleMode ? 'Comments' : 'Posts & Comments'}</span>
+              <span className="text-muted-foreground">•</span>
+              <span className="truncate text-muted-foreground">{eventTitle}</span>
             </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0" aria-label="Close">
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              {singleMode && resolvedPostId && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    navigator.clipboard.writeText(`${window.location.origin}${routes.event(eventId)}?tab=posts&post=${resolvedPostId}`)
+                      .then(() => toast({ title: 'Link copied' }))
+                      .catch(() => {});
+                  }}
+                >
+                  <LinkIcon className="w-4 h-4" />
+                </Button>
+              )}
+              <Button type="button" variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
-        <div ref={listRef} className="flex-1 overflow-y-auto space-y-4 p-1">
+        {/* Body */}
+        <div ref={listRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {loading && posts.length === 0 ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="border rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-40 bg-muted rounded animate-pulse" />
+                      <div className="h-3 w-24 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : posts.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">
+            <div className="text-center py-16 text-muted-foreground">
               <p className="font-medium">No {singleMode ? 'comments' : 'posts'} yet.</p>
+              <p className="text-sm">Be the first to start the conversation.</p>
             </div>
           ) : (
-            posts.map((post) => (
-              <div
-                key={post.id}
-                className={`border rounded-lg p-4 space-y-3 transition-all ${
-                  selectedPostId === post.id ? 'ring-2 ring-primary border-primary' : ''
-                }`}
-              >
-                {/* Post Header */}
-                <div className="flex items-start gap-3">
-                  <button
-                    onClick={() => openInNewTab(routes.user(post.author_user_id))}
-                    className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
-                    aria-label={`Open ${post.author_name || 'user'} profile in new tab`}
-                  >
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src={post.author_avatar || undefined} />
-                      <AvatarFallback className="text-xs">
-                        {post.author_name?.charAt(0) || 'A'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </button>
+            posts.map((post) => {
+              const isSelected = selectedPostId === post.id;
+              return (
+                <div
+                  key={post.id}
+                  className={`rounded-2xl border bg-card/40 p-4 sm:p-5 transition-all ${isSelected ? 'ring-2 ring-primary border-primary' : ''}`}
+                >
+                  {/* Post meta */}
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openInNewTab(routes.user(post.author_user_id))}
+                      className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+                      aria-label={`Open ${post.author_name || 'user'} profile in new tab`}
+                    >
+                      <Avatar className="w-9 h-9">
+                        <AvatarImage src={post.author_avatar || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {post.author_name?.charAt(0) || 'A'}
+                        </AvatarFallback>
+                      </Avatar>
+                    </button>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <button
-                        onClick={() => openInNewTab(routes.user(post.author_user_id))}
-                        className="font-medium text-sm hover:text-primary transition-colors cursor-pointer"
-                        title="View profile (new tab)"
-                      >
-                        {post.author_name}
-                      </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openInNewTab(routes.user(post.author_user_id))}
+                          className="font-medium text-sm hover:text-primary transition-colors cursor-pointer"
+                          title="View profile (new tab)"
+                        >
+                          {post.author_name}
+                        </button>
 
-                      {post.author_is_organizer && (
-                        <Badge variant="outline" className="text-[10px]">
-                          ORGANIZER
-                        </Badge>
+                        {post.author_is_organizer && (
+                          <Badge variant="outline" className="text-[10px]">ORGANIZER</Badge>
+                        )}
+
+                        {post.author_badge && (
+                          <Badge variant="outline" className="text-[10px]">{post.author_badge}</Badge>
+                        )}
+
+                        <span className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
+
+                      {post.text && (
+                        <p className="mt-1 text-sm leading-relaxed text-foreground/95 whitespace-pre-wrap">
+                          {post.text}
+                        </p>
                       )}
-
-                      {post.author_badge && (
-                        <Badge variant="outline" className="text-[10px]">
-                          {post.author_badge}
-                        </Badge>
-                      )}
-
-                      <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                      </span>
                     </div>
 
-                    <p className="text-sm leading-relaxed">{post.text}</p>
+                    {mediaThumb(post.media_urls)}
                   </div>
 
-                  {/* Media thumb */}
-                  {mediaThumb(post.media_urls)}
-                </div>
+                  {/* Post actions */}
+                  <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleLikePost(post.id); }}
+                      className={`flex items-center gap-1 hover:text-foreground transition-colors ${post.is_liked ? 'text-red-500' : ''}`}
+                      aria-label={post.is_liked ? 'Unlike post' : 'Like post'}
+                      title={post.is_liked ? 'Unlike' : 'Like'}
+                    >
+                      <Heart className={`w-3 h-3 ${post.is_liked ? 'fill-current' : ''}`} />
+                      {post.likes_count}
+                    </button>
 
-                {/* Post Actions */}
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleLikePost(post.id);
-                    }}
-                    className={`flex items-center gap-1 hover:text-foreground transition-colors ${
-                      post.is_liked ? 'text-red-500' : ''
-                    }`}
-                    aria-label={post.is_liked ? 'Unlike post' : 'Like post'}
-                    title={post.is_liked ? 'Unlike' : 'Like'}
-                  >
-                    <Heart className={`w-3 h-3 ${post.is_liked ? 'fill-current' : ''}`} />
-                    {post.likes_count}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        openInNewTab(`${routes.event(eventId)}?tab=posts&post=${post.id}`);
+                      }}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                      aria-label="Open post in new tab"
+                      title="Open post in new tab"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      View post
+                    </button>
 
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      openInNewTab(`${routes.event(eventId)}?tab=posts&post=${post.id}`);
-                    }}
-                    className="flex items-center gap-1 hover:text-foreground transition-colors"
-                    aria-label="Open post in new tab"
-                    title="Open post in new tab"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    View post
-                  </button>
+                    <span className="text-muted-foreground">
+                      {post.comments.length} comment{post.comments.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
 
-                  <span>{post.comments.length} comments</span>
-                </div>
+                  {/* Comments list (chat style) */}
+                  {post.comments.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {post.comments.map((comment, idx, arr) => {
+                        const mine = user?.id === comment.author_user_id;
+                        const isNewest = idx === arr.length - 1;
 
-                {/* Comments */}
-                {post.comments.length > 0 && (
-                  <div className="space-y-3 pl-4 border-l-2 border-muted">
-                    {post.comments.map((comment, idx, arr) => {
-                      const canDelete = user?.id === comment.author_user_id;
-                      const isNewest = idx === arr.length - 1;
-                      return (
-                        <div
-                          key={comment.id}
-                          ref={isNewest ? newestCommentRef : undefined}
-                          className={`flex items-start gap-3 ${comment.pending ? 'opacity-70' : ''}`}
-                          title={comment.pending ? 'Sending…' : undefined}
-                        >
-                          <button
-                            onClick={() => openInNewTab(routes.user(comment.author_user_id))}
-                            className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
-                            aria-label={`Open ${comment.author_name || 'user'} profile in new tab`}
+                        return (
+                          <div
+                            key={comment.id}
+                            ref={isNewest ? newestCommentRef : undefined}
+                            className={`group flex items-start gap-2 sm:gap-3 ${mine ? 'flex-row-reverse text-right' : ''}`}
                           >
-                            <Avatar className="w-6 h-6">
-                              <AvatarImage src={comment.author_avatar || undefined} />
-                              <AvatarFallback className="text-xs">
-                                {comment.author_name?.charAt(0) || 'A'}
-                              </AvatarFallback>
-                            </Avatar>
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => openInNewTab(routes.user(comment.author_user_id))}
+                              className={`mt-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-primary ${mine ? 'order-last' : ''}`}
+                              aria-label={`Open ${comment.author_name || 'user'} profile in new tab`}
+                            >
+                              <Avatar className="w-7 h-7">
+                                <AvatarImage src={comment.author_avatar || undefined} />
+                                <AvatarFallback className="text-xs">
+                                  {comment.author_name?.charAt(0) || 'A'}
+                                </AvatarFallback>
+                              </Avatar>
+                            </button>
 
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <button
-                                onClick={() => openInNewTab(routes.user(comment.author_user_id))}
-                                className="font-medium text-xs hover:text-primary transition-colors cursor-pointer"
-                                title="View profile (new tab)"
+                            <div className={`max-w-[85%] sm:max-w-[70%]`}>
+                              <div
+                                className={`rounded-2xl px-3 py-2 text-xs sm:text-sm leading-relaxed break-words whitespace-pre-wrap shadow-sm
+                                ${mine ? 'bg-primary/10 text-foreground' : 'bg-muted/60 text-foreground'}
+                                ${comment.pending ? 'opacity-70' : ''}
+                                `}
+                                title={comment.pending ? 'Sending…' : undefined}
                               >
-                                {comment.author_name}
-                              </button>
-                              <span className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                                {comment.pending ? ' • sending…' : ''}
-                              </span>
-                            </div>
-                            <p className="text-xs leading-relaxed break-words whitespace-pre-wrap">{comment.text}</p>
+                                <div className="mb-1 flex items-center justify-between gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => openInNewTab(routes.user(comment.author_user_id))}
+                                    className="font-medium text-[11px] sm:text-xs hover:text-primary transition-colors"
+                                    title="View profile (new tab)"
+                                  >
+                                    {comment.author_name}
+                                  </button>
+                                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                                    {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                                    {comment.pending ? ' • sending…' : ''}
+                                  </span>
+                                </div>
+                                {comment.text}
+                              </div>
 
-                            {/* Comment action row */}
-                            <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  if (!comment.pending) toggleLikeComment(comment.id);
-                                }}
-                                className={`flex items-center gap-1 hover:text-foreground transition-colors ${
-                                  comment.is_liked ? 'text-red-500' : ''
-                                } ${comment.pending ? 'pointer-events-none opacity-60' : ''}`}
-                                aria-label={comment.is_liked ? 'Unlike comment' : 'Like comment'}
-                                title={comment.is_liked ? 'Unlike' : 'Like'}
-                              >
-                                <Heart className={`w-3 h-3 ${comment.is_liked ? 'fill-current' : ''}`} />
-                                {comment.likes_count}
-                              </button>
-
-                              {canDelete && !comment.pending && (
+                              {/* Bubble actions */}
+                              <div className={`mt-1 flex items-center ${mine ? 'justify-end' : 'justify-start'} gap-3 text-[11px] text-muted-foreground`}>
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    deleteComment(comment.id);
-                                  }}
-                                  className="flex items-center gap-1 hover:text-foreground transition-colors"
-                                  aria-label="Delete comment"
-                                  title="Delete comment"
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!comment.pending) toggleLikeComment(comment.id); }}
+                                  className={`inline-flex items-center gap-1 hover:text-foreground transition-colors ${comment.is_liked ? 'text-red-500' : ''} ${comment.pending ? 'pointer-events-none opacity-60' : ''}`}
+                                  aria-label={comment.is_liked ? 'Unlike comment' : 'Like comment'}
+                                  title={comment.is_liked ? 'Unlike' : 'Like'}
                                 >
-                                  <Trash2 className="w-3 h-3" />
-                                  Delete
+                                  <Heart className={`w-3 h-3 ${comment.is_liked ? 'fill-current' : ''}`} />
+                                  {comment.likes_count}
                                 </button>
-                              )}
 
-                              {!comment.pending && (
-                                <div className="inline-flex">
-                                  <ReportButton targetType="comment" targetId={comment.id} />
-                                </div>
-                              )}
+                                {user?.id === comment.author_user_id && !comment.pending && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteComment(comment.id); }}
+                                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                                    aria-label="Delete comment"
+                                    title="Delete comment"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    Delete
+                                  </button>
+                                )}
+
+                                {!comment.pending && (
+                                  <div className="inline-flex">
+                                    <ReportButton targetType="comment" targetId={comment.id} />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  )}
 
-                {/* Comment Input */}
-                {user && (
-                  <div className="flex items-start gap-3 pt-2 border-t">
-                    <Avatar className="w-6 h-6">
-                      <AvatarFallback className="text-xs">
-                        {user.user_metadata?.display_name?.charAt(0) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 space-y-2">
+                  {/* Composer (pinned within each post card) */}
+                  {user && (
+                    <div className="mt-3 border-t pt-3">
                       {selectedPostId === post.id && (
-                        <div className="text-xs text-primary font-medium flex items-center gap-1">
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
+                        <div className="mb-1 text-[11px] text-primary font-medium flex items-center gap-1">
+                          <div className="w-2 h-2 bg-primary rounded-full" />
                           Commenting on this post
                         </div>
                       )}
-                      <Textarea
-                        placeholder="Write your comment…"
-                        value={selectedPostId === post.id ? newComment : ''}
-                        onChange={(e) => {
-                          setNewComment(e.target.value);
-                          setSelectedPostId(post.id);
-                        }}
-                        onFocus={() => setSelectedPostId(post.id)}
-                        className="min-h-[60px] resize-none text-sm"
-                        onKeyDown={(e) => {
-                          const metaEnter = (e.key === 'Enter' && (e.metaKey || e.ctrlKey));
-                          if ((e.key === 'Enter' && !e.shiftKey) || metaEnter) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleSubmitComment();
-                          }
-                        }}
-                      />
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-muted-foreground">
-                          Press <kbd className="px-1 py-0.5 border rounded">Enter</kbd> to send ·
-                          <span> </span>
-                          <kbd className="px-1 py-0.5 border rounded">Shift</kbd>+<kbd className="px-1 py-0.5 border rounded">Enter</kbd> for a new line
-                        </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleSubmitComment();
-                          }}
-                          disabled={!newComment.trim() || submitting || selectedPostId !== post.id}
-                          className="h-8 px-3"
-                        >
-                          <Send className="w-3 h-3 mr-1" />
-                          {submitting && selectedPostId === post.id ? 'Posting…' : 'Post'}
-                        </Button>
+                      <div className="flex items-start gap-2">
+                        <Avatar className="w-7 h-7">
+                          <AvatarFallback className="text-xs">
+                            {user.user_metadata?.display_name?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        <div className="flex-1 space-y-2">
+                          <Textarea
+                            placeholder="Write your comment…"
+                            value={selectedPostId === post.id ? newComment : ''}
+                            onChange={(e) => {
+                              if (e.target.value.length <= MAX_LEN + 200) { // soft guard to allow paste then show counter
+                                setNewComment(e.target.value);
+                              }
+                              setSelectedPostId(post.id);
+                            }}
+                            onFocus={() => setSelectedPostId(post.id)}
+                            className={`min-h-[60px] resize-none text-sm ${overLimit ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                            onKeyDown={(e) => {
+                              const metaEnter = (e.key === 'Enter' && (e.metaKey || e.ctrlKey));
+                              if ((e.key === 'Enter' && !e.shiftKey) || metaEnter) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleSubmitComment();
+                              }
+                            }}
+                          />
+
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[11px] ${overLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+                              {newComment.length}/{MAX_LEN} {overLimit ? '— too long' : ''}
+                              <span className="mx-1">·</span>
+                              Press <kbd className="px-1 py-0.5 border rounded">Enter</kbd> to send
+                              <span className="mx-1">·</span>
+                              <kbd className="px-1 py-0.5 border rounded">Shift</kbd>+<kbd className="px-1 py-0.5 border rounded">Enter</kbd> for a new line
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                className="h-8"
+                                onClick={(e) => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  navigator.clipboard.writeText(`${window.location.origin}${routes.event(eventId)}?tab=posts&post=${post.id}`)
+                                    .then(() => toast({ title: 'Link copied' }))
+                                    .catch(() => {});
+                                }}
+                              >
+                                <LinkIcon className="w-3.5 h-3.5 mr-1" />
+                                Copy link
+                              </Button>
+
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSubmitComment(); }}
+                                disabled={!newComment.trim() || submitting || selectedPostId !== post.id || overLimit}
+                                className="h-8 px-3"
+                              >
+                                <Send className="w-3.5 h-3.5 mr-1" />
+                                {submitting && selectedPostId === post.id ? 'Posting…' : 'Post'}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))
+                  )}
+                </div>
+              );
+            })
           )}
 
           {/* Load more (hidden in single-post mode) */}
           {!singleMode && hasMore && (
-            <div className="flex justify-center py-3">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  loadPage(false);
-                }} 
+            <div className="flex justify-center pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); loadPage(false); }}
                 disabled={loading}
+                className="rounded-full"
               >
                 {loading ? 'Loading…' : 'Load more'}
               </Button>
@@ -934,12 +954,12 @@ export default function CommentModal({
           )}
         </div>
 
+        {/* Footer (auth hint) */}
         {!user && (
-          <div className="flex-shrink-0 p-4 bg-muted/50 rounded-lg">
+          <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t px-4 sm:px-6 py-3">
             <p className="text-sm text-center text-muted-foreground">Sign in to join the conversation</p>
           </div>
         )}
-        </form>
       </DialogContent>
     </Dialog>
   );
