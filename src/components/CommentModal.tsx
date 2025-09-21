@@ -63,6 +63,7 @@ type Post = {
   comments: Comment[];
   likes_count: number;
   is_liked: boolean;
+  comment_count: number;
 };
 
 interface CommentModalProps {
@@ -181,6 +182,7 @@ export default function CommentModal({
           });
           return {
             ...p,
+            comment_count: p.comment_count, // Keep the count unchanged as it was already incremented
             comments: p.comments.map(c => 
               c.id === pendingComment.id 
                 ? { 
@@ -198,6 +200,7 @@ export default function CommentModal({
         console.log('🔥 CommentModal: Adding new realtime comment', { commentId: comment.id });
         return {
           ...p,
+          comment_count: p.comment_count + 1, // Increment count for new comments
           comments: [
             ...p.comments,
             {
@@ -223,10 +226,14 @@ export default function CommentModal({
     },
     onCommentDeleted: (comment) => {
       console.log('🔥 CommentModal: Realtime comment deleted', { commentId: comment.id });
-      setPosts(prev => prev.map(p => ({
-        ...p,
-        comments: p.comments.filter(c => c.id !== comment.id)
-      })));
+      setPosts(prev => prev.map(p => {
+        if (p.id !== comment.post_id) return p;
+        return {
+          ...p,
+          comment_count: Math.max(0, p.comment_count - 1), // Decrement count
+          comments: p.comments.filter(c => c.id !== comment.id)
+        };
+      }));
     }
   });
 
@@ -324,6 +331,7 @@ export default function CommentModal({
         comments: commentsByPost[p.id] ?? [],
         likes_count: p.like_count ?? 0,
         is_liked: false,
+        comment_count: p.comment_count ?? 0,
       }));
 
       setPosts(prev => reset ? mapped : [...prev, ...mapped]);
@@ -379,7 +387,11 @@ export default function CommentModal({
     };
 
     console.log('🔥 CommentModal: Adding optimistic comment', { clientId, postId: activePost.id });
-    setPosts(prev => prev.map(p => p.id === activePost.id ? { ...p, comments: [...p.comments, optimistic] } : p));
+    setPosts(prev => prev.map(p => p.id === activePost.id ? { 
+      ...p, 
+      comment_count: p.comment_count + 1, // Increment count optimistically
+      comments: [...p.comments, optimistic] 
+    } : p));
     setDraft('');
 
     try {
@@ -392,6 +404,7 @@ export default function CommentModal({
       if (error) throw error;
 
       console.log('🔥 CommentModal: Comment inserted successfully', { commentId: data.id });
+      // Don't update count here - it will be handled by realtime when replacing optimistic comment
       setPosts(prev => prev.map(p => {
         if (p.id !== activePost.id) return p;
         const idx = p.comments.findIndex(c => c.client_id === clientId || c.id === clientId);
@@ -407,7 +420,11 @@ export default function CommentModal({
     } catch (e: any) {
       console.error('🔥 CommentModal: Error submitting comment', e);
       setPosts(prev => prev.map(p =>
-        p.id === activePost.id ? { ...p, comments: p.comments.filter(c => c.client_id !== clientId) } : p
+        p.id === activePost.id ? { 
+          ...p, 
+          comment_count: Math.max(0, p.comment_count - 1), // Rollback count on error
+          comments: p.comments.filter(c => c.client_id !== clientId) 
+        } : p
       ));
       toast({ title: 'Error', description: e.message || 'Failed to add comment', variant: 'destructive' });
     } finally {
