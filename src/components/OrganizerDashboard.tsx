@@ -1,4 +1,3 @@
-// src/pages/OrganizerDashboard.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,6 +9,7 @@ import { toast } from '@/hooks/use-toast';
 import AnalyticsHub from '@/components/AnalyticsHub';
 import { PayoutPanel } from '@/components/PayoutPanel';
 import { OrganizerCommsPanel } from '@/components/organizer/OrganizerCommsPanel';
+import { OrganizationTeamPanel } from '@/components/OrganizationTeamPanel';
 import EventManagement from './EventManagement';
 import { DashboardOverview } from '@/components/dashboard/DashboardOverview';
 import { EventsList } from '@/components/dashboard/EventsList';
@@ -351,16 +351,16 @@ export function OrganizerDashboard() {
           )}
         </TabsContent>
 
-        {/* TEAMS — organization-aware */}
+        {/* TEAMS — organization team management */}
         <TabsContent value="teams" className="space-y-6">
           {selectedOrganization ? (
-            <OrganizerCommsPanel eventId={scopedEvents?.[0]?.id || ''} />
+            <OrganizationTeamPanel organizationId={selectedOrganization} />
           ) : (
             <div className="text-center py-16 border rounded-lg">
               <Users className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
               <h3 className="text-lg font-semibold mb-1">Team Management</h3>
               <p className="text-muted-foreground mb-4">
-                Select an organization to manage team communications and roles.
+                Select an organization to manage team members and roles.
               </p>
             </div>
           )}
