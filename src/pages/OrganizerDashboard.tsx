@@ -1,8 +1,9 @@
+// src/pages/OrganizerDashboard.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2 } from 'lucide-react';
+import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2 } from 'lucide-react';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -95,10 +96,8 @@ export default function OrganizerDashboard() {
     setActiveTab(TAB_KEYS.includes(saved) ? saved : DEFAULT_TAB);
   }, [scopeKey]);
 
-  // --- Events (scoped) ---
-  // If your useOrganizerData already supports org scoping, prefer that; otherwise we fetch scoped here.
-  const { userEvents, loading: hookLoading, refetchEvents } = useOrganizerData(user);
-
+  // --- Events (server-scoped) ---
+  const { userEvents, loading: hookLoading } = useOrganizerData(user); // kept for compatibility; not used here
   const [scopedEvents, setScopedEvents] = useState<Event[]>([]);
   const [loadingScoped, setLoadingScoped] = useState<boolean>(true);
   const mountedRef = useRef(true);
@@ -107,12 +106,13 @@ export default function OrganizerDashboard() {
     if (!user?.id) return;
     setLoadingScoped(true);
     try {
-      // Server-side scoped fetch
       let query = supabase
         .from('events')
         .select(`id, title, created_at, start_at, end_at, venue, category,
                  cover_image_url, description, city, visibility,
-                 owner_context_type, owner_context_id`)
+                 owner_context_type, owner_context_id,
+                 attendees, revenue, views, likes, shares,
+                 tickets_sold, capacity, conversion_rate, engagement_rate`)
         .order('start_at', { ascending: false });
 
       if (selectedOrganization) {
@@ -127,36 +127,37 @@ export default function OrganizerDashboard() {
 
       const { data, error } = await query;
       if (error) throw error;
-      
-      // Transform to expected Event format
-      const transformedEvents: Event[] = (data || []).map(event => ({
-        id: event.id,
-        title: event.title,
-        status: 'active', // default status
-        date: event.start_at,
-        attendees: 0, // default values - these would come from aggregations
-        revenue: 0,
-        views: 0,
-        likes: 0,
-        shares: 0,
-        tickets_sold: 0,
-        capacity: 0,
-        conversion_rate: 0,
-        engagement_rate: 0,
-        created_at: event.created_at,
-        start_at: event.start_at,
-        end_at: event.end_at,
-        venue: event.venue,
-        category: event.category,
-        cover_image_url: event.cover_image_url,
-        description: event.description,
-        city: event.city,
-        visibility: event.visibility,
-        owner_context_type: event.owner_context_type,
-        owner_context_id: event.owner_context_id,
+
+      const rows = (data || []) as any[];
+
+      const mapped: Event[] = rows.map((e) => ({
+        id: e.id,
+        title: e.title,
+        status: 'active',
+        date: e.start_at,
+        attendees: e.attendees ?? 0,
+        revenue: e.revenue ?? 0,
+        views: e.views ?? 0,
+        likes: e.likes ?? 0,
+        shares: e.shares ?? 0,
+        tickets_sold: e.tickets_sold ?? 0,
+        capacity: e.capacity ?? 0,
+        conversion_rate: e.conversion_rate ?? 0,
+        engagement_rate: e.engagement_rate ?? 0,
+        created_at: e.created_at,
+        start_at: e.start_at,
+        end_at: e.end_at,
+        venue: e.venue,
+        category: e.category,
+        cover_image_url: e.cover_image_url,
+        description: e.description,
+        city: e.city,
+        visibility: e.visibility,
+        owner_context_type: e.owner_context_type,
+        owner_context_id: e.owner_context_id,
       }));
-      
-      if (mountedRef.current) setScopedEvents(transformedEvents);
+
+      if (mountedRef.current) setScopedEvents(mapped);
     } catch (e: any) {
       console.error('fetchScopedEvents', e);
       toast({ title: 'Error loading events', description: e.message || 'Please try again.', variant: 'destructive' });
@@ -169,7 +170,7 @@ export default function OrganizerDashboard() {
   useEffect(() => {
     mountedRef.current = true;
     fetchScopedEvents();
-    // realtime: refresh when events for this scope change
+
     const filter = selectedOrganization
       ? `owner_context_type=eq.organization,owner_context_id=eq.${selectedOrganization}`
       : `owner_context_type=eq.individual,owner_context_id=eq.${user?.id || 'null'}`;
@@ -185,15 +186,8 @@ export default function OrganizerDashboard() {
     };
   }, [fetchScopedEvents, selectedOrganization, user?.id, scopeKey]);
 
-  // Fallback: if your hook already returns scoped items (owner fields present), use that instead
-  const maybeHookScoped = useMemo(() => {
-    const arr = userEvents || [];
-    // For now, just use the scoped events since userEvents doesn't have owner context fields
-    return null;
-  }, [userEvents, selectedOrganization, user?.id]);
-
-  const events = maybeHookScoped ?? scopedEvents;
-  const loading = hookLoading && !maybeHookScoped ? loadingScoped : (maybeHookScoped ? false : loadingScoped);
+  const events = scopedEvents;
+  const loading = loadingScoped;
 
   // --- Event drill-in ---
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -210,7 +204,7 @@ export default function OrganizerDashboard() {
     return { events: evs.length, revenue, attendees };
   }, [events]);
 
-  // --- Create event with owner context prefill ---
+  // --- Create event (prefill owner context) ---
   const goCreateEvent = () => {
     const params = new URLSearchParams();
     params.set('owner_context_type', selectedOrganization ? 'organization' : 'individual');
@@ -223,7 +217,7 @@ export default function OrganizerDashboard() {
     return <LoadingSpinner />;
   }
 
-  // --- Event management view ---
+  // --- Event management drill-in ---
   if (selectedEvent) {
     const e = selectedEvent;
     const eventWithDetails = {
@@ -262,9 +256,12 @@ export default function OrganizerDashboard() {
     );
   }
 
-  const activeOrgName = selectedOrganization
-    ? organizations.find(o => o.id === selectedOrganization)?.name || 'Organization'
-    : 'Personal Dashboard';
+  const activeOrg = selectedOrganization
+    ? organizations.find(o => o.id === selectedOrganization)
+    : null;
+
+  const headerName = activeOrg?.name || 'Personal Dashboard';
+  const isVerified = !!activeOrg?.is_verified;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
@@ -277,7 +274,8 @@ export default function OrganizerDashboard() {
             {!!organizations.length && (
               <OrgSwitcher
                 organizations={organizations}
-                value={selectedOrganization}
+                includePersonal
+                value={selectedOrganization}   // null => personal
                 onSelect={(value) => {
                   const next = new URLSearchParams(searchParams);
                   if (value) next.set('org', value);
@@ -286,12 +284,22 @@ export default function OrganizerDashboard() {
                   setSelectedOrganization(value);
                   trackEvent('dashboard_org_selected', { org_id: value || 'individual', source: 'switcher' });
                 }}
-                className="w-[260px]"
+                onCreateOrgPath="/create-organization"
+                className="w-[280px]"
               />
             )}
           </div>
-          <p className="text-muted-foreground">
-            <span className="font-medium">{activeOrgName}</span> • {totals.events} event{totals.events === 1 ? '' : 's'} • {totals.attendees} attendees • ${totals.revenue.toLocaleString()} revenue
+
+          <p className="text-muted-foreground flex items-center gap-2">
+            <span className="font-medium">{headerName}</span>
+            {isVerified && (
+              <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+                <CheckCircle2 className="h-4 w-4" /> Verified
+              </span>
+            )}
+            <span>• {totals.events} event{totals.events === 1 ? '' : 's'}</span>
+            <span>• {totals.attendees} attendees</span>
+            <span>• ${totals.revenue.toLocaleString()} revenue</span>
           </p>
         </div>
 
@@ -366,7 +374,9 @@ export default function OrganizerDashboard() {
             <div className="text-center py-16 border rounded-lg">
               <Users className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
               <h3 className="text-lg font-semibold mb-1">Team Management</h3>
-              <p className="text-muted-foreground mb-4">Switch to an organization to manage team members and roles.</p>
+              <p className="text-muted-foreground mb-4">
+                Switch to an organization to manage team members and roles.
+              </p>
             </div>
           )}
         </TabsContent>
