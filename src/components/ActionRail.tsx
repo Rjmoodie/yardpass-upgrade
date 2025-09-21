@@ -21,6 +21,8 @@ export interface ActionRailProps {
   soundEnabled?: boolean;
   /** when true, prevents rail from intercepting vertical swipes */
   enablePointerEvents?: boolean;
+  /** when true, hides like/comment/share buttons (for events) */
+  hideEngagement?: boolean;
 }
 
 export const ActionRail: React.FC<ActionRailProps> = ({
@@ -39,6 +41,7 @@ export const ActionRail: React.FC<ActionRailProps> = ({
   shareCount = 0,
   soundEnabled = true,
   enablePointerEvents = true,
+  hideEngagement = false,
 }) => {
   const { trackEvent } = useAnalyticsIntegration();
   const pe = enablePointerEvents ? 'pointer-events-auto' : 'pointer-events-none';
@@ -46,57 +49,61 @@ export const ActionRail: React.FC<ActionRailProps> = ({
     <div
       className={`absolute right-3 md:right-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-20 ${pe} ${className}`}
     >
-      <button
-        aria-label="Like"
-        onClick={(e) => { 
-          e.stopPropagation(); 
-          onLike?.();
-          trackEvent('engagement_like', {
-            content_type: 'post',
-            content_id: postId,
-            event_id: eventId,
-            liked: !liked
-          });
-        }}
-        className={`feed-rail-btn ${liked ? 'text-red-500' : ''}`}
-      >
-        <Heart className="w-7 h-7" />
-        <span className="rail-count">{Number(likeCount || 0).toLocaleString()}</span>
-      </button>
+      {!hideEngagement && (
+        <>
+          <button
+            aria-label="Like"
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              onLike?.();
+              trackEvent('engagement_like', {
+                content_type: 'post',
+                content_id: postId,
+                event_id: eventId,
+                liked: !liked
+              });
+            }}
+            className={`feed-rail-btn ${liked ? 'text-red-500' : ''}`}
+          >
+            <Heart className="w-7 h-7" />
+            <span className="rail-count">{Number(likeCount || 0).toLocaleString()}</span>
+          </button>
 
-      <button
-        aria-label="Comments"
-        onClick={(e) => { 
-          e.stopPropagation(); 
-          onComment?.();
-          trackEvent('engagement_comment', {
-            content_type: 'post',
-            content_id: postId,
-            event_id: eventId
-          });
-        }}
-        className="feed-rail-btn"
-      >
-        <MessageCircle className="w-7 h-7" />
-        <span className="rail-count">{Number(commentCount || 0).toLocaleString()}</span>
-      </button>
+          <button
+            aria-label="Comments"
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              onComment?.();
+              trackEvent('engagement_comment', {
+                content_type: 'post',
+                content_id: postId,
+                event_id: eventId
+              });
+            }}
+            className="feed-rail-btn"
+          >
+            <MessageCircle className="w-7 h-7" />
+            <span className="rail-count">{Number(commentCount || 0).toLocaleString()}</span>
+          </button>
 
-      <button
-        aria-label="Share"
-        onClick={(e) => { 
-          e.stopPropagation(); 
-          onShare?.();
-          trackEvent('engagement_share', {
-            content_type: 'post',
-            content_id: postId,
-            event_id: eventId
-          });
-        }}
-        className="feed-rail-btn"
-      >
-        <Share2 className="w-7 h-7" />
-        <span className="rail-count">{Number(shareCount || 0).toLocaleString()}</span>
-      </button>
+          <button
+            aria-label="Share"
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              onShare?.();
+              trackEvent('engagement_share', {
+                content_type: 'post',
+                content_id: postId,
+                event_id: eventId
+              });
+            }}
+            className="feed-rail-btn"
+          >
+            <Share2 className="w-7 h-7" />
+            <span className="rail-count">{Number(shareCount || 0).toLocaleString()}</span>
+          </button>
+        </>
+      )}
 
       <button
         aria-label="Create post"

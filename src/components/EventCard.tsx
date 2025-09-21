@@ -113,12 +113,13 @@ export function EventCard({
       {/* Legibility gradient */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
 
-      {/* RIGHT ACTION RAIL (TikTok style) */}
+      {/* RIGHT ACTION RAIL (TikTok style) - Events only show create post */}
       <ActionRail
         onCreatePost={onCreatePost}
         onReport={onReport}
         onSoundToggle={onSoundToggle}
         soundEnabled={soundEnabled}
+        hideEngagement={true}
       />
 
       {/* Content */}
