@@ -15,7 +15,7 @@ import { useHlsVideo } from '@/hooks/useHlsVideo';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useRealtimeEngagement } from '@/hooks/useRealtimeEngagement';
 import { useRealtimeComments } from '@/hooks/useRealtimeComments';
-import { muxToHls, isLikelyVideo } from '@/utils/media';
+import { muxToHls, muxToPoster, isLikelyVideo } from '@/utils/media';
 import CommentModal from '@/components/CommentModal';
 
 /** Shape returned by posts-list Edge Function after mapping */
@@ -558,7 +558,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
 
                     return (
                       <div key={idx} className="relative rounded-lg overflow-hidden">
-                         {isVideo ? (
+                          {isVideo ? (
                            <VideoMedia
                              url={url}
                              post={post}
@@ -567,7 +567,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                         ) : (
                           <div className="relative">
                             <img
-                              src={url}
+                              src={url.startsWith('mux:') ? muxToPoster(url) : url}
                               alt={`Media from ${post.user_profiles.display_name}`}
                               className="w-full max-h-80 object-cover rounded-lg"
                               loading="lazy"
