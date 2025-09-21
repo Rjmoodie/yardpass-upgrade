@@ -150,27 +150,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Atomically-ish increment comment_count for the post
-    const { data: updatedPost, error: incErr } = await supabase
-      .from('event_posts')
-      .update({ comment_count: (null as unknown) }) // placeholder to enable .select() returning
-      .eq('id', post_id)
-      .select('comment_count')
-      .single();
-
-    // If PostgREST rejects null update, do explicit RPC/SQL in your DB:
-    //   UPDATE event_posts SET comment_count = COALESCE(comment_count,0) + 1 WHERE id = $1;
-    // For JS only approach, run two statements:
-    if (incErr) {
-      // Fallback: do raw increment in two steps
-      const { error: step1 } = await supabase
-        .from('event_posts')
-        .update({ comment_count: (Number.isInteger((post as any).comment_count) ? (post as any).comment_count : 0) + 1 })
-        .eq('id', post_id);
-      if (step1) console.error('Comment count increment error:', step1);
-    }
-
-    // Fetch fresh count
+    // Database triggers automatically update comment_count, just fetch the updated count
     const { data: countRow } = await supabase
       .from('event_posts')
       .select('comment_count')
@@ -195,7 +175,7 @@ Deno.serve(async (req) => {
           author_name: profile?.display_name || user.user_metadata?.display_name || 'User',
           author_photo_url: profile?.photo_url || null,
         },
-        comment_count: countRow?.comment_count ?? updatedPost?.comment_count ?? null,
+        comment_count: countRow?.comment_count ?? null,
       }),
       {
         status: 201,
