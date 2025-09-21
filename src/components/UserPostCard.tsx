@@ -1,3 +1,4 @@
+// src/components/UserPostCard.tsx
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Pause } from 'lucide-react';
@@ -26,15 +27,15 @@ interface UserPostCardProps {
 
 type AuthorBadge = 'ORGANIZER' | 'VIP' | 'EARLY' | (string & {}) | null | undefined;
 
-const BADGE_COLORS: Record<Exclude<AuthorBadge, null | undefined>, string> = {
+const BADGE_COLORS: Record<'ORGANIZER' | 'VIP' | 'EARLY', string> = {
   ORGANIZER: 'bg-orange-500',
   VIP: 'bg-purple-500',
   EARLY: 'bg-green-500',
 };
 
-function getBadgeColor(badge: AuthorBadge) {
+function badgeClass(badge: AuthorBadge) {
   if (!badge) return 'bg-blue-500';
-  return BADGE_COLORS[badge as keyof typeof BADGE_COLORS] ?? 'bg-blue-500';
+  return BADGE_COLORS[(badge as keyof typeof BADGE_COLORS)] ?? 'bg-blue-500';
 }
 
 export function UserPostCard({
@@ -51,218 +52,163 @@ export function UserPostCard({
   soundEnabled = true,
   isVideoPlaying = false,
 }: UserPostCardProps) {
-  const { trackVideoEvent, trackEvent } = useAnalyticsIntegration();
+  const { trackEvent } = useAnalyticsIntegration();
   const [mediaError, setMediaError] = useState(false);
 
-  // Derived values memoized for small perf wins
-  const mediaUrl = useMemo(() => item.media_urls?.[0], [item.media_urls]);
-  const isVideo = useMemo(() => Boolean(mediaUrl && isVideoUrl(mediaUrl)), [mediaUrl]);
+  const mediaUrl = useMemo(() => item.media_urls?.[0] || null, [item.media_urls]);
+  const isVideo = useMemo(() => Boolean(mediaUrl && isVideoUrl(mediaUrl!)), [mediaUrl]);
   const videoSrc = useMemo(() => (isVideo && mediaUrl ? buildMuxUrl(mediaUrl) : undefined), [isVideo, mediaUrl]);
+
   const likes = item.metrics?.likes ?? 0;
   const comments = item.metrics?.comments ?? 0;
 
-  const { videoRef, ready, error } = useHlsVideo(videoSrc);
+  const { videoRef, ready, error: hlsError } = useHlsVideo(videoSrc);
 
-  // Keep video element play/pause state in sync with prop
+  // Play/pause side effect driven by isVideoPlaying
   useEffect(() => {
     const el = videoRef.current;
-    if (!el) {
-      console.log('UserPostCard: No video element found for:', item.item_id);
-      return;
-    }
+    if (!el || !isVideo) return;
 
-    console.log('UserPostCard: Video element setup for:', item.item_id, {
-      isVideoPlaying,
-      ready,
-      videoSrc,
-      elementVisible: el.offsetWidth > 0 && el.offsetHeight > 0,
-      hasSource: el.src || el.currentSrc,
-      error
-    });
-
-    // Respect prefers-reduced-motion: reduce autoplay
     const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-    if (isVideoPlaying && ready && !prefersReduced && !error) {
-      // Ensure video is properly prepared for playback
-      if (el.readyState >= 2) { // HAVE_CURRENT_DATA or higher
-        el.currentTime = 0; // Start from beginning
-        el.play().catch((err) => {
-          console.log('UserPostCard: Video play failed for:', item.item_id, err);
-          // Try again after a short delay
-          setTimeout(() => {
-            el.play().catch(console.warn);
-          }, 100);
-        });
+    if (isVideoPlaying && ready && !prefersReduced && !hlsError) {
+      if (el.readyState >= 2) {
+        // reset to start for consistent short-loop promo style
+        el.currentTime = 0;
+        el.play().catch(() => {/* noop: autoplay policy fallback */});
       } else {
-        // Wait for the video to be ready
         const onCanPlay = () => {
           el.currentTime = 0;
-          el.play().catch(console.warn);
+          el.play().catch(() => {/* noop */});
           el.removeEventListener('canplay', onCanPlay);
         };
         el.addEventListener('canplay', onCanPlay);
-        
-        // Cleanup listener if component unmounts
         return () => el.removeEventListener('canplay', onCanPlay);
       }
     } else {
       el.pause();
     }
-  }, [isVideoPlaying, ready, videoRef, item.item_id, videoSrc, error]);
+  }, [isVideoPlaying, ready, hlsError, isVideo, videoRef]);
 
-  // Track video interactions
+  // Track video milestones and basic interactions
   useEffect(() => {
-    if (isVideo && videoRef.current && isVideoPlaying) {
-      const video = videoRef.current;
-      let viewStartTime = Date.now();
-      let lastProgress = 0;
+    if (!isVideo || !videoRef.current) return;
 
-      const handleTimeUpdate = () => {
-        const currentTime = video.currentTime;
-        const duration = video.duration;
-        const percentage = duration > 0 ? (currentTime / duration) * 100 : 0;
-        
-        // Track progress milestones
-        if (percentage >= 25 && lastProgress < 25) {
-          trackEvent('video_progress_25', {
-            post_id: item.item_id,
-            event_id: item.event_id,
-            duration,
-            current_time: currentTime
-          });
-          lastProgress = 25;
-        } else if (percentage >= 50 && lastProgress < 50) {
-          trackEvent('video_progress_50', {
-            post_id: item.item_id,
-            event_id: item.event_id,
-            duration,
-            current_time: currentTime
-          });
-          lastProgress = 50;
-        } else if (percentage >= 75 && lastProgress < 75) {
-          trackEvent('video_progress_75', {
-            post_id: item.item_id,
-            event_id: item.event_id,
-            duration,
-            current_time: currentTime
-          });
-          lastProgress = 75;
-        } else if (percentage >= 95) {
-          trackEvent('video_complete', {
-            post_id: item.item_id,
-            event_id: item.event_id,
-            duration,
-            current_time: currentTime,
-            view_duration: Date.now() - viewStartTime
-          });
-        }
-      };
+    const video = videoRef.current;
+    let viewStart = 0;
+    let lastMilestone = 0; // 0, 25, 50, 75
 
-      const handlePlay = () => {
-        viewStartTime = Date.now();
-        trackEvent('video_play', {
+    const onTimeUpdate = () => {
+      const { currentTime, duration } = video;
+      if (!duration || duration <= 0) return;
+      const pct = (currentTime / duration) * 100;
+
+      if (pct >= 25 && lastMilestone < 25) {
+        trackEvent('video_progress_25', { post_id: item.item_id, event_id: item.event_id, duration, current_time: currentTime });
+        lastMilestone = 25;
+      } else if (pct >= 50 && lastMilestone < 50) {
+        trackEvent('video_progress_50', { post_id: item.item_id, event_id: item.event_id, duration, current_time: currentTime });
+        lastMilestone = 50;
+      } else if (pct >= 75 && lastMilestone < 75) {
+        trackEvent('video_progress_75', { post_id: item.item_id, event_id: item.event_id, duration, current_time: currentTime });
+        lastMilestone = 75;
+      } else if (pct >= 95) {
+        trackEvent('video_complete', {
           post_id: item.item_id,
           event_id: item.event_id,
-          current_time: video.currentTime
+          duration,
+          current_time: currentTime,
+          view_duration: viewStart ? Date.now() - viewStart : undefined,
         });
-      };
+      }
+    };
 
-      const handlePause = () => {
-        trackEvent('video_pause', {
-          post_id: item.item_id,
-          event_id: item.event_id,
-          current_time: video.currentTime,
-          view_duration: Date.now() - viewStartTime
-        });
-      };
+    const onPlay = () => {
+      viewStart = Date.now();
+      trackEvent('video_play', { post_id: item.item_id, event_id: item.event_id, current_time: video.currentTime });
+    };
+    const onPause = () => {
+      trackEvent('video_pause', {
+        post_id: item.item_id,
+        event_id: item.event_id,
+        current_time: video.currentTime,
+        view_duration: viewStart ? Date.now() - viewStart : undefined,
+      });
+    };
 
-      video.addEventListener('timeupdate', handleTimeUpdate);
-      video.addEventListener('play', handlePlay);
-      video.addEventListener('pause', handlePause);
+    video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+    return () => {
+      video.removeEventListener('timeupdate', onTimeUpdate);
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('pause', onPause);
+    };
+  }, [isVideo, videoRef, item.item_id, item.event_id, trackEvent]);
 
-      return () => {
-        video.removeEventListener('timeupdate', handleTimeUpdate);
-        video.removeEventListener('play', handlePlay);
-        video.removeEventListener('pause', handlePause);
-      };
-    }
-  }, [isVideo, videoRef, isVideoPlaying, item.item_id, item.event_id, trackEvent]);
-
-  // Update muted state when soundEnabled changes
+  // Keep mute state in sync
   useEffect(() => {
     const el = videoRef.current;
-    if (el) {
-      el.muted = !soundEnabled;
-    }
+    if (el) el.muted = !soundEnabled;
   }, [soundEnabled, videoRef]);
 
-  // Wire minimal video error handling
+  // Media error handlers
+  const handleImageError = useCallback<React.ReactEventHandler<HTMLImageElement>>(() => {
+    setMediaError(true);
+  }, []);
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-
     const onError = () => setMediaError(true);
     el.addEventListener('error', onError);
     return () => el.removeEventListener('error', onError);
   }, [videoRef]);
 
+  // Handlers
   const handleRootClick = useCallback(() => {
-    // Clicking the background navigates to the event
     onEventClick(item.event_id);
   }, [item.event_id, onEventClick]);
 
-  const handleVideoClick: React.MouseEventHandler<HTMLVideoElement> = useCallback(
+  const handleVideoClick = useCallback<React.MouseEventHandler<HTMLVideoElement>>(
     (e) => {
       e.stopPropagation();
       onVideoToggle?.();
     },
-    [onVideoToggle],
+    [onVideoToggle]
   );
 
-  const handleImageError: React.ReactEventHandler<HTMLImageElement> = useCallback(
-    (e) => {
-      // Keep a concise log and fail over to event cover
-      console.error('Image error src:', (e.target as HTMLImageElement)?.src);
-      setMediaError(true);
-    },
-    [],
-  );
-
-  const handleAuthorClick: React.MouseEventHandler<HTMLAnchorElement> = useCallback(
+  const handleAuthorClickWrapper = useCallback<React.MouseEventHandler<HTMLAnchorElement>>(
     (e) => {
       e.stopPropagation();
       onAuthorClick?.(item.author_id);
     },
-    [item.author_id, onAuthorClick],
+    [onAuthorClick, item.author_id]
   );
 
-  const handleKeyDownRoot: React.KeyboardEventHandler<HTMLDivElement> = useCallback(
+  const handleKeyDownRoot = useCallback<React.KeyboardEventHandler<HTMLDivElement>>(
     (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         onEventClick(item.event_id);
       }
     },
-    [item.event_id, onEventClick],
+    [item.event_id, onEventClick]
   );
 
-  const showFallback = !mediaUrl || mediaError || error;
+  // Fallback if no media or error
+  const showFallback = !mediaUrl || mediaError || !!hlsError;
 
-  // Debug logging for video display
-  useEffect(() => {
-    if (isVideo && videoSrc) {
-      console.log('UserPostCard: Video display debug for:', item.item_id, {
-        mediaUrl,
-        videoSrc,
-        isVideo,
-        showFallback,
-        ready,
-        mediaError,
-        hlsError: error
-      });
-    }
-  }, [isVideo, videoSrc, item.item_id, mediaUrl, showFallback, ready, mediaError, error]);
+  // Dev-only diagnostics
+  if (import.meta.env?.DEV && isVideo && videoSrc) {
+    // eslint-disable-next-line no-console
+    console.debug('UserPostCard video debug', {
+      post: item.item_id,
+      isVideoPlaying,
+      ready,
+      videoSrc,
+      hlsError,
+      showFallback,
+    });
+  }
 
   return (
     <div
@@ -282,54 +228,31 @@ export function UserPostCard({
               <video
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-cover cursor-pointer"
-                // Enable better preloading for smoother experience
-                autoPlay={false}
+                // Controlled externally; we don't use autoPlay to respect autoplay policies
                 muted={!soundEnabled}
                 loop
                 playsInline
-                preload="auto" 
+                preload="auto"
                 crossOrigin="anonymous"
                 onClick={handleVideoClick}
                 aria-label={isVideoPlaying ? 'Pause video' : 'Play video'}
-                // Add these attributes for better mobile support
-                webkit-playsinline="true"
-                x-webkit-airplay="allow"
-                // Optimize video loading
-                onLoadStart={() => console.log('Video load started for:', item.item_id)}
-                onCanPlay={() => console.log('Video can play for:', item.item_id)}
-                onError={(e) => console.error('Video error for:', item.item_id, e)}
               />
-              
-              {(!ready || error) && (
+              {/* Loading / error mask */}
+              {(!ready || hlsError) && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  {error ? (
-                    <div className="text-white text-center">
-                      <div className="text-sm">Failed to load video</div>
-                      <div className="text-xs opacity-70 mt-1">{error}</div>
-                    </div>
+                  {hlsError ? (
+                    <div className="text-white text-sm">Failed to load video</div>
                   ) : (
-                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-label="Loading video" />
+                    <div
+                      className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"
+                      aria-label="Loading video"
+                    />
                   )}
                 </div>
               )}
 
-              {/* Play/Pause Hover Overlay - only show when video is ready */}
-              {ready && !error && (
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                    <div className="bg-black/60 rounded-full p-4">
-                      {isVideoPlaying ? (
-                        <Pause className="w-8 h-8 text-white" aria-hidden />
-                      ) : (
-                        <Play className="w-8 h-8 text-white" aria-hidden />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Play/Pause Hover Overlay */}
-              {ready && (
+              {/* Hover play/pause hint (desktop) */}
+              {ready && !hlsError && (
                 <div className="absolute inset-0 pointer-events-none">
                   <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                     <div className="bg-black/60 rounded-full p-4">
@@ -364,10 +287,10 @@ export function UserPostCard({
         />
       )}
 
-      {/* Subtle gradient for legibility */}
+      {/* Legibility gradient */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
 
-      {/* RIGHT ACTION RAIL (TikTok style) */}
+      {/* Action rail */}
       <ActionRail
         postId={item.item_id}
         eventId={item.event_id}
@@ -383,24 +306,25 @@ export function UserPostCard({
         soundEnabled={soundEnabled}
       />
 
-      {/* BOTTOM META BAR */}
+      {/* Bottom meta bar */}
       <div className="absolute left-4 right-4 bottom-6 z-30 pointer-events-none">
         <div className="bg-black/80 backdrop-blur-md rounded-full px-4 py-3 flex items-center justify-between shadow-2xl border border-white/10 pointer-events-auto">
-          {/* Left - Username */}
-          <div className="flex items-center gap-2">
+          {/* Author */}
+          <div className="flex items-center gap-2 min-w-0">
             <Link
               to={`/u/${item.author_id}`}
               className="text-white font-bold hover:underline text-base flex-shrink-0"
-              onClick={handleAuthorClick}
+              onClick={handleAuthorClickWrapper}
               title={item.author_name || 'User'}
             >
               {item.author_name || 'User'}
             </Link>
 
-            {/* VIP / ORGANIZER badge */}
             {item.author_badge && (
               <span
-                className={`text-xs px-2 py-1 rounded-full text-white font-medium flex-shrink-0 ${getBadgeColor(item.author_badge as AuthorBadge)}`}
+                className={`text-xs px-2 py-1 rounded-full text-white font-medium flex-shrink-0 ${badgeClass(
+                  item.author_badge as AuthorBadge
+                )}`}
                 aria-label={String(item.author_badge)}
                 title={String(item.author_badge)}
               >
@@ -408,19 +332,18 @@ export function UserPostCard({
               </span>
             )}
 
-            {/* Primary Social Link */}
             {item.author_social_links && Array.isArray(item.author_social_links) && (
               <div className="flex items-center">
-                <SocialLinkDisplay 
-                  socialLinks={item.author_social_links} 
-                  showPrimaryOnly={true} 
+                <SocialLinkDisplay
+                  socialLinks={item.author_social_links}
+                  showPrimaryOnly
                   className="text-white/80 hover:text-white"
                 />
               </div>
             )}
           </div>
 
-          {/* Right - Event link */}
+          {/* Event link */}
           <Link
             to={`/event/${item.event_id}`}
             className="text-white/90 hover:text-white font-medium text-base truncate ml-4"
@@ -431,9 +354,9 @@ export function UserPostCard({
           </Link>
         </div>
 
-        {/* Post Content */}
+        {/* Post content */}
         {item.content && (
-          <p className="text-white text-sm leading-relaxed mt-2 bg-black/20 backdrop-blur-sm rounded-lg px-3 py-2 pointer-events-auto">
+          <p className="text-white text-sm leading-relaxed mt-2 bg-black/20 backdrop-blur-sm rounded-lg px-3 py-2 pointer-events-auto line-clamp-4">
             {item.content}
           </p>
         )}
@@ -441,3 +364,5 @@ export function UserPostCard({
     </div>
   );
 }
+
+export default UserPostCard;
