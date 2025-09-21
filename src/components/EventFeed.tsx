@@ -730,8 +730,12 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
           eventTitle={commentEventTitle || 'Event'}
           postId={commentPostId}
           onSuccess={() => {
-            // Refresh counts after new comment
-            fetchPosts();
+            // Update comment count for the specific post instead of refetching all
+            if (commentPostId) {
+              setPosts(prev => prev.map(p => 
+                p.id === commentPostId ? { ...p, comment_count: (p.comment_count || 0) + 1 } : p
+              ));
+            }
           }}
         />
       )}
