@@ -84,6 +84,7 @@ export default function CommentModal({
   const isMounted = useRef(true);
   const listRef = useRef<HTMLDivElement | null>(null);
   const newestCommentRef = useRef<HTMLDivElement | null>(null);
+  const composerRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
@@ -100,6 +101,23 @@ export default function CommentModal({
 
   // derived: ids of loaded posts for realtime filter
   const postIdSet = useMemo(() => new Set(posts.map((p) => p.id)), [posts]);
+
+  // Smoothly jump to the active (or provided) post's composer and focus it
+  const jumpToComposer = (postId?: string) => {
+    const id = postId || selectedPostId || posts[0]?.id;
+    if (!id) return;
+
+    const el = composerRefs.current[id];
+    if (!el) return;
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // ensure focus after scroll finishes
+    setTimeout(() => {
+      el.focus();
+      // move caret to the end
+      try { el.selectionStart = el.selectionEnd = el.value.length; } catch {}
+    }, 250);
+  };
 
   function openInNewTab(href: string) {
     try { window.open(href, '_blank', 'noopener,noreferrer'); } catch { /* ignore */ }
@@ -156,6 +174,16 @@ export default function CommentModal({
     void loadPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId, resolvedPostId, singleMode]);
+
+  // Auto-jump to composer when opening in single-post mode
+  useEffect(() => {
+    if (!isOpen) return;
+    if (singleMode) {
+      // wait for the first render after posts load
+      const t = setTimeout(() => jumpToComposer(resolvedPostId || undefined), 450);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen, singleMode, resolvedPostId, posts.length]);
 
   // Realtime (scoped)
   useEffect(() => {
@@ -627,6 +655,17 @@ export default function CommentModal({
               <span className="truncate text-muted-foreground">{eventTitle}</span>
             </DialogTitle>
             <div className="flex items-center gap-2">
+              {user && posts.length > 0 && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); jumpToComposer(); }}
+                  className="h-8"
+                >
+                  Write a comment
+                </Button>
+              )}
               {singleMode && resolvedPostId && (
                 <Button
                   type="button"
@@ -643,7 +682,7 @@ export default function CommentModal({
                   <LinkIcon className="w-4 h-4" />
                 </Button>
               )}
-              <Button type="button" variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+              <Button type="button" variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0" aria-label="Close">
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -871,6 +910,7 @@ export default function CommentModal({
 
                         <div className="flex-1 space-y-2">
                           <Textarea
+                            ref={(el) => { composerRefs.current[post.id] = el; }}
                             placeholder="Write your comment…"
                             value={selectedPostId === post.id ? newComment : ''}
                             onChange={(e) => {
@@ -953,6 +993,22 @@ export default function CommentModal({
             </div>
           )}
         </div>
+
+        {/* Floating "Add comment" FAB (nice on mobile) */}
+        {user && posts.length > 0 && (
+          <div className="pointer-events-none">
+            <div className="fixed bottom-[max(env(safe-area-inset-bottom),1rem)] right-4 z-[60]">
+              <Button
+                type="button"
+                size="sm"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); jumpToComposer(); }}
+                className="pointer-events-auto shadow-lg"
+              >
+                Write a comment
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Footer (auth hint) */}
         {!user && (
