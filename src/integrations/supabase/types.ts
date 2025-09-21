@@ -2693,7 +2693,9 @@ export type Database = {
         Args: { user_uuid: string }
         Returns: {
           id: string
+          is_verified: boolean
           name: string
+          verification_status: Database["public"]["Enums"]["verification_status"]
         }[]
       }
       gtrgm_compress: {
