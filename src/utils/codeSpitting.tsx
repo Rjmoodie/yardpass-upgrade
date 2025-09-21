@@ -4,8 +4,8 @@ import { lazy, Suspense, Component, ReactNode } from 'react';
 /**
  * Enhanced lazy loading with retry mechanism
  */
-export function lazyWithRetry<T extends Component>(
-  importFunc: () => Promise<{ default: T }>,
+export function lazyWithRetry(
+  importFunc: () => Promise<{ default: React.ComponentType<any> }>,
   maxRetries = 3
 ) {
   return lazy(async () => {
