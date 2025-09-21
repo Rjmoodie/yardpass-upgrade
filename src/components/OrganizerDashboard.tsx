@@ -1,6 +1,6 @@
 // src/pages/OrganizerDashboard.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2 } from 'lucide-react';
@@ -17,7 +17,6 @@ import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
 import { useOrganizerData } from '@/hooks/useOrganizerData';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useOrganizations } from '@/hooks/useOrganizations';
-import OrganizationDashboard from './OrganizationDashboard';
 
 // --- Types ---
 interface Event {
@@ -43,47 +42,44 @@ interface Event {
   description?: string;
   city?: string;
   visibility?: string;
+  // If available in your schema, these help client-side filtering
+  owner_context_type?: 'individual' | 'organization';
+  owner_context_id?: string | null;
 }
 
 // Tab constants (stable keys)
-const TAB_KEYS = ['dashboard', 'events', 'organizations', 'teams', 'payouts'] as const;
+const TAB_KEYS = ['dashboard', 'events', 'teams', 'payouts'] as const; // 👈 removed 'organizations'
 type TabKey = typeof TAB_KEYS[number];
 const DEFAULT_TAB: TabKey = 'dashboard';
-const LAST_TAB_KEY = 'organizer.lastTab';
+
+// We’ll scope the “last tab” to the active context (personal vs org)
+const lastTabKeyFor = (scope: string) => `organizer.lastTab.${scope}`;
 
 export function OrganizerDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   // --- Auth state ---
   const [user, setUser] = useState<any>(null);
-  
-  // read org deep-link (?org=uuid or handle) to jump straight into org dashboard
-  const initialOrgParam = searchParams.get('org');
+
+  // Selected context (null => personal)
+  const initialOrgParam = searchParams.get('org'); // UUID or null
   const [selectedOrganization, setSelectedOrganization] = useState<string | null>(initialOrgParam);
-  
+
+  // Scope key for per-context memory
+  const scopeKey = selectedOrganization || 'individual';
+
+  // --- Tab state (per scope) ---
+  const initialTabFromStorage = (localStorage.getItem(lastTabKeyFor(scopeKey)) as TabKey) || DEFAULT_TAB;
+  const initialTabFromUrl = (searchParams.get('tab') as TabKey) || initialTabFromStorage || DEFAULT_TAB;
+  const [activeTab, setActiveTab] = useState<TabKey>(TAB_KEYS.includes(initialTabFromUrl) ? initialTabFromUrl : DEFAULT_TAB);
+
   // selected event management pane
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
-  // --- Tab state: URL -> state & remember last tab ---
-  const tabFromUrl = (searchParams.get('tab') as TabKey) || (localStorage.getItem(LAST_TAB_KEY) as TabKey) || DEFAULT_TAB;
-  const [activeTab, setActiveTab] = useState<TabKey>(TAB_KEYS.includes(tabFromUrl) ? tabFromUrl : DEFAULT_TAB);
-
   // analytics
   const { trackEvent } = useAnalyticsIntegration();
-  
-  // data hooks - always called in same order
-  const { userEvents, loading, refetchEvents } = useOrganizerData(user);
-  const { organizations, loading: orgsLoading } = useOrganizations(user?.id);
 
-  // --- Derived counts for overview header ---
-  const totals = useMemo(() => {
-    const events = userEvents || [];
-    const revenue = events.reduce((s, e) => s + (e.revenue || 0), 0);
-    const attendees = events.reduce((s, e) => s + (e.attendees || 0), 0);
-    return { events: events.length, revenue, attendees };
-  }, [userEvents]);
-
+  // Load auth user
   useEffect(() => {
     let mounted = true;
     supabase.auth.getUser().then(({ data: { user } }) => mounted && setUser(user));
@@ -91,7 +87,15 @@ export function OrganizerDashboard() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // keep URL in sync on tab change (and remember)
+  // Organizations for the switcher
+  const { organizations, loading: orgsLoading } = useOrganizations(user?.id);
+
+  // Data hook (update this to accept org context if your hook supports it)
+  // If your useOrganizerData already supports an org filter, pass it here.
+  // Otherwise we’ll filter client-side below as a fallback.
+  const { userEvents, loading, refetchEvents } = useOrganizerData(user, selectedOrganization);
+
+  // Keep URL in sync on tab change (and remember per-scope)
   useEffect(() => {
     const current = searchParams.get('tab');
     if (current !== activeTab) {
@@ -99,24 +103,23 @@ export function OrganizerDashboard() {
       next.set('tab', activeTab);
       setSearchParams(next, { replace: true });
     }
-    localStorage.setItem(LAST_TAB_KEY, activeTab);
-  }, [activeTab, searchParams, setSearchParams]);
+    localStorage.setItem(lastTabKeyFor(scopeKey), activeTab);
+  }, [activeTab, searchParams, scopeKey, setSearchParams]);
 
+  // Remember tab view for analytics
   useEffect(() => {
-    trackEvent('organizer_tab_view', { tab: activeTab });
-  }, [activeTab, trackEvent]);
+    trackEvent('organizer_tab_view', { tab: activeTab, scope: scopeKey });
+  }, [activeTab, scopeKey, trackEvent]);
 
-  // --- Handlers ---
-  const handleEventSelect = useCallback((event: Event) => {
-    trackEvent('dashboard_event_selected', {
-      event_id: event.id,
-      user_id: user?.id,
-      timestamp: Date.now(),
-    });
-    setSelectedEvent(event);
-  }, [trackEvent, user?.id]);
+  // When org context changes, keep tab but persist new scope’s last tab if present
+  useEffect(() => {
+    const saved = (localStorage.getItem(lastTabKeyFor(scopeKey)) as TabKey) || DEFAULT_TAB;
+    setActiveTab(TAB_KEYS.includes(saved) ? saved : DEFAULT_TAB);
+    // Trigger a refetch in the new context
+    refetchEvents?.();
+  }, [scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // quick keyboard: "n" to create event (only when not typing)
+  // Quick keyboard: "n" to create event (only when not typing)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
@@ -129,9 +132,46 @@ export function OrganizerDashboard() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // event create (kept for API parity; dashboard CTA still routes to /create-event)
+  // Derived: filter events by active context if needed (fallback)
+  const scopedEvents = useMemo(() => {
+    if (!selectedOrganization) return userEvents; // personal
+    // If your hook already returns org-scoped events, just return userEvents.
+    // Otherwise filter by owner_context_id when available:
+    const hasOwnerFields = (userEvents?.[0] && ('owner_context_type' in userEvents[0]));
+    if (hasOwnerFields) {
+      return (userEvents || []).filter(
+        (e: any) =>
+          e.owner_context_type === 'organization' &&
+          e.owner_context_id === selectedOrganization
+      );
+    }
+    // If no owner info, return as-is (your hook should handle org scoping)
+    return userEvents;
+  }, [userEvents, selectedOrganization]);
+
+  // Totals for header
+  const totals = useMemo(() => {
+    const events = scopedEvents || [];
+    const revenue = events.reduce((s, e) => s + (e.revenue || 0), 0);
+    const attendees = events.reduce((s, e) => s + (e.attendees || 0), 0);
+    return { events: events.length, revenue, attendees };
+  }, [scopedEvents]);
+
+  // Handlers
+  const handleEventSelect = useCallback((event: Event) => {
+    trackEvent('dashboard_event_selected', {
+      event_id: event.id,
+      user_id: user?.id,
+      scope: scopeKey,
+      timestamp: Date.now(),
+    });
+    setSelectedEvent(event);
+  }, [trackEvent, user?.id, scopeKey]);
+
+  // Context-aware event creation
   const createNewEvent = useCallback(async (values: any) => {
     try {
+      const isOrg = !!selectedOrganization;
       const { data, error } = await supabase
         .from('events')
         .insert({
@@ -142,8 +182,8 @@ export function OrganizerDashboard() {
           venue: values.venue,
           category: values.category,
           created_by: user?.id,
-          owner_context_type: 'individual',
-          owner_context_id: user?.id,
+          owner_context_type: isOrg ? 'organization' : 'individual',
+          owner_context_id: isOrg ? selectedOrganization : user?.id,
           visibility: 'public',
         })
         .select()
@@ -163,34 +203,14 @@ export function OrganizerDashboard() {
       });
       throw error;
     }
-  }, [refetchEvents, user?.id]);
+  }, [refetchEvents, selectedOrganization, user?.id]);
 
   // --- Early loading state ---
-  if (loading && !userEvents.length) {
+  if ((loading && !(scopedEvents?.length)) || (orgsLoading && !organizations.length)) {
     return <LoadingSpinner />;
   }
 
-  // --- Drill-in: Organization Dashboard ---
-  if (selectedOrganization) {
-    return (
-      <div className="container mx-auto p-6">
-        <OrganizationDashboard
-          user={{ id: user?.id || '', name: user?.email || 'User', role: 'organizer' }}
-          organizationId={selectedOrganization}
-          onBack={() => {
-            setSelectedOrganization(null);
-            // clear ?org=… from URL for a clean back stack
-            const next = new URLSearchParams(searchParams);
-            next.delete('org');
-            setSearchParams(next, { replace: true });
-          }}
-          onCreateEvent={() => (window.location.href = '/create-event')}
-        />
-      </div>
-    );
-  }
-
-  // --- Drill-in: Event Management ---
+  // Drill-in: Event Management
   if (selectedEvent) {
     const eventWithDetails = {
       ...selectedEvent,
@@ -228,6 +248,10 @@ export function OrganizerDashboard() {
     );
   }
 
+  const activeOrgName =
+    selectedOrganization
+      ? organizations.find(o => o.id === selectedOrganization)?.name || 'Organization'
+      : 'Personal Dashboard';
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
@@ -237,7 +261,7 @@ export function OrganizerDashboard() {
           <div className="flex items-center gap-4 mb-2">
             <h1 className="text-2xl sm:text-3xl font-bold">Organizer Dashboard</h1>
 
-            {organizations.length > 0 && (
+            {!!organizations.length && (
               <OrgSwitcher
                 organizations={organizations}
                 value={selectedOrganization ? selectedOrganization : "individual"}
@@ -245,10 +269,10 @@ export function OrganizerDashboard() {
                   if (value === "individual") {
                     // clear org context
                     if (selectedOrganization) {
-                      setSelectedOrganization(null);
                       const next = new URLSearchParams(searchParams);
                       next.delete("org");
                       setSearchParams(next, { replace: true });
+                      setSelectedOrganization(null);
                     }
                   } else {
                     // optimistic URL + state update
@@ -259,30 +283,38 @@ export function OrganizerDashboard() {
                     trackEvent("dashboard_org_selected", { org_id: value, source: "switcher" });
                   }
                 }}
-                className="w-[240px]"
+                className="w-[260px]"
               />
             )}
           </div>
           <p className="text-muted-foreground">
-            {totals.events} event{totals.events === 1 ? '' : 's'} • {totals.attendees} attendees • ${totals.revenue.toLocaleString()} revenue
+            <span className="font-medium">{activeOrgName}</span> • {totals.events} event{totals.events === 1 ? '' : 's'} • {totals.attendees} attendees • ${totals.revenue.toLocaleString()} revenue
           </p>
         </div>
+
         <div className="flex gap-2">
-          <Button className="w-full sm:w-auto" onClick={() => (window.location.href = '/create-event')}>
+          <Button
+            className="w-full sm:w-auto"
+            onClick={() => (window.location.href = '/create-event')}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Event
           </Button>
-          {/* Optional: quick org create */}
-          <Button variant="outline" className="w-full sm:w-auto" onClick={() => (window.location.href = '/organization/create')}>
+          {/* Quick org create stays here if you want it */}
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => (window.location.href = '/organization/create')}
+          >
             <Building2 className="mr-2 h-4 w-4" />
             New Org
           </Button>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs (no "Organizations" tab anymore) */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
           <TabsTrigger value="dashboard" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Dashboard</span>
@@ -290,10 +322,6 @@ export function OrganizerDashboard() {
           <TabsTrigger value="events" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Events</span>
-          </TabsTrigger>
-          <TabsTrigger value="organizations" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <Building2 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Orgs</span>
           </TabsTrigger>
           <TabsTrigger value="teams" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
@@ -307,8 +335,8 @@ export function OrganizerDashboard() {
 
         {/* DASHBOARD */}
         <TabsContent value="dashboard" className="space-y-6">
-          <DashboardOverview events={userEvents} onEventSelect={handleEventSelect} />
-          {/* Optional: AI insights (kept hidden if you removed the tab) */}
+          <DashboardOverview events={scopedEvents} onEventSelect={handleEventSelect} />
+          {/* Optional: AI insights */}
           <div className="hidden">
             <AnalyticsHub />
           </div>
@@ -316,89 +344,34 @@ export function OrganizerDashboard() {
 
         {/* EVENTS */}
         <TabsContent value="events" className="space-y-6">
-          {userEvents.length === 0 ? (
+          {(scopedEvents?.length ?? 0) === 0 ? (
             <div className="text-center py-16 border rounded-lg">
               <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
               <h3 className="text-lg font-semibold mb-1">No events yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
+              <p className="text-muted-foreground mb-4">
+                Create your first event to get started.
+              </p>
               <Button onClick={() => (window.location.href = '/create-event')}>
                 <Plus className="mr-2 h-4 w-4" />
                 Create Event
               </Button>
             </div>
           ) : (
-            <EventsList events={userEvents} onEventSelect={handleEventSelect} />
+            <EventsList events={scopedEvents} onEventSelect={handleEventSelect} />
           )}
         </TabsContent>
 
-        {/* ORGANIZATIONS */}
-        <TabsContent value="organizations" className="space-y-6">
-          <div className="grid gap-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Organizations</h2>
-              <Button onClick={() => (window.location.href = '/organization/create')}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Organization
-              </Button>
-            </div>
-
-            {orgsLoading ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-48 bg-muted rounded-lg animate-pulse" />
-                ))}
-              </div>
-            ) : organizations.length === 0 ? (
-              <div className="text-center py-16 border rounded-lg">
-                <Building2 className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-                <h3 className="text-lg font-semibold mb-1">No organizations</h3>
-                <p className="text-muted-foreground mb-4">
-                  Get started by creating your first organization.
-                </p>
-                <Button onClick={() => (window.location.href = '/organization/create')}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Organization
-                </Button>
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {organizations.map((org) => (
-                  <div
-                    key={org.id}
-                    className="bg-card rounded-lg border p-6 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => {
-                      // reflect choice in URL for deep-linking/back
-                      const next = new URLSearchParams(searchParams);
-                      next.set('org', org.id);
-                      setSearchParams(next, { replace: true });
-                      setSelectedOrganization(org.id);
-                      trackEvent('dashboard_org_selected', { org_id: org.id });
-                    }}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Building2 className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold truncate">{org.name}</h3>
-                        <p className="text-sm text-muted-foreground truncate">Click to manage</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* TEAMS (kept lightweight; pass first event id if available) */}
+        {/* TEAMS (example uses first event id in scope, tweak as needed) */}
         <TabsContent value="teams" className="space-y-6">
-          <OrganizerCommsPanel eventId={userEvents[0]?.id || ''} />
+          <OrganizerCommsPanel eventId={scopedEvents?.[0]?.id || ''} />
         </TabsContent>
 
-        {/* PAYOUTS */}
+        {/* PAYOUTS — context-aware */}
         <TabsContent value="payouts" className="space-y-6">
-          <PayoutPanel contextType="individual" contextId={user?.id} />
+          <PayoutPanel
+            contextType={selectedOrganization ? 'organization' : 'individual'}
+            contextId={selectedOrganization || user?.id}
+          />
         </TabsContent>
       </Tabs>
     </div>
