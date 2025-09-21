@@ -348,6 +348,11 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
 
   // ✅ FIX: Pure modal open (no navigate)
   const handleComment = (post: FeedPost) => {
+    console.log('🔥 EventFeed: Opening comment modal for post', { 
+      postId: post.id, 
+      eventId: post.event_id, 
+      eventTitle: post.events.title 
+    });
     trackClick({ post_id: post.id, event_id: post.event_id, target: 'comment' });
     capture('feed_click', { target: 'comment', event_id: post.event_id, post_id: post.id });
     setCommentPostId(post.id);

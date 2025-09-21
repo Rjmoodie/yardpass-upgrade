@@ -611,9 +611,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           eventTitle={currentItem.event_title}
           postId={commentPostId}
           mediaPlaybackId={commentMediaPlaybackId}
-          onSuccess={() => {
-            refresh();
-          }}
         />
       )}
 

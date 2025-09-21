@@ -72,11 +72,11 @@ interface CommentModalProps {
   eventTitle: string;
   postId?: string;            // focus a single post (preferred)
   mediaPlaybackId?: string;   // fallback to resolve post by playback id
-  onSuccess?: () => void;
+  // onSuccess removed - rely on realtime updates only
 }
 
 export default function CommentModal({
-  isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId, onSuccess,
+  isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId,
 }: CommentModalProps) {
   const { user } = useAuth();
 
@@ -315,6 +315,13 @@ export default function CommentModal({
 
   // --- actions ---
   const submit = async () => {
+    console.log('🔥 CommentModal: Starting comment submission', {
+      activePost: activePost?.id,
+      eventId,
+      draft: draft.trim(),
+      singleMode
+    });
+    
     if (!draft.trim() || !activePost?.id || overLimit) return;
     if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to comment', variant: 'destructive' });
@@ -337,10 +344,12 @@ export default function CommentModal({
       pending: true,
     };
 
+    console.log('🔥 CommentModal: Adding optimistic comment', { clientId, postId: activePost.id });
     setPosts(prev => prev.map(p => p.id === activePost.id ? { ...p, comments: [...p.comments, optimistic] } : p));
     setDraft('');
 
     try {
+      console.log('🔥 CommentModal: Inserting comment to DB', { postId: activePost.id, text: optimistic.text });
       const { data, error } = await supabase
         .from('event_comments')
         .insert({ post_id: activePost.id, author_user_id: user.id, text: optimistic.text })
@@ -348,6 +357,7 @@ export default function CommentModal({
         .single();
       if (error) throw error;
 
+      console.log('🔥 CommentModal: Comment inserted successfully', { commentId: data.id });
       setPosts(prev => prev.map(p => {
         if (p.id !== activePost.id) return p;
         const idx = p.comments.findIndex(c => c.client_id === clientId || c.id === clientId);
@@ -357,15 +367,17 @@ export default function CommentModal({
         return { ...p, comments: updated };
       }));
 
-      onSuccess?.();
+      console.log('🔥 CommentModal: Comment successfully posted - no callback needed');
+      console.log('🔥 CommentModal: Scrolling to bottom');
       requestAnimationFrame(() => bottomSentinelRef.current?.scrollIntoView({ behavior: 'smooth' }));
     } catch (e: any) {
-      console.error(e);
+      console.error('🔥 CommentModal: Error submitting comment', e);
       setPosts(prev => prev.map(p =>
         p.id === activePost.id ? { ...p, comments: p.comments.filter(c => c.client_id !== clientId) } : p
       ));
       toast({ title: 'Error', description: e.message || 'Failed to add comment', variant: 'destructive' });
     } finally {
+      console.log('🔥 CommentModal: Comment submission finished');
       setSubmitting(false);
     }
   };

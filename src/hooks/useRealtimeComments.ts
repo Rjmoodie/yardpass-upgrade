@@ -35,8 +35,14 @@ export const useRealtimeComments = ({
   // Keep latest callbacks
   const addedRef = useRef(onCommentAdded);
   const deletedRef = useRef(onCommentDeleted);
-  useEffect(() => { addedRef.current = onCommentAdded; }, [onCommentAdded]);
-  useEffect(() => { deletedRef.current = onCommentDeleted; }, [onCommentDeleted]);
+  useEffect(() => { 
+    console.log('🔥 useRealtimeComments: Updating onCommentAdded callback');
+    addedRef.current = onCommentAdded; 
+  }, [onCommentAdded]);
+  useEffect(() => { 
+    console.log('🔥 useRealtimeComments: Updating onCommentDeleted callback');
+    deletedRef.current = onCommentDeleted; 
+  }, [onCommentDeleted]);
 
   // If caller supplies postIds, use them directly
   useEffect(() => {
