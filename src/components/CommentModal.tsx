@@ -404,18 +404,12 @@ export default function CommentModal({
     console.log('🔥 CommentModal: Adding optimistic comment', { clientId, postId: activePost.id });
     setPosts(prev => prev.map(p => {
       if (p.id !== activePost.id) return p;
-      const updatedPost = { 
+      // Don't increment optimistically since database triggers will handle it
+      // Just add the optimistic comment to the list
+      return { 
         ...p, 
-        comment_count: p.comment_count + 1, // Increment count optimistically
         comments: [...p.comments, optimistic] 
       };
-      
-      // Notify parent of count change
-      if (onCommentCountChange) {
-        onCommentCountChange(activePost.id, updatedPost.comment_count);
-      }
-      
-      return updatedPost;
     }));
     setDraft('');
 
@@ -446,18 +440,11 @@ export default function CommentModal({
       console.error('🔥 CommentModal: Error submitting comment', e);
       setPosts(prev => prev.map(p => {
         if (p.id !== activePost.id) return p;
-        const updatedPost = { 
+        // Don't decrement optimistically since we'll get the real count from the server
+        return { 
           ...p, 
-          comment_count: Math.max(0, p.comment_count - 1), // Rollback count on error
           comments: p.comments.filter(c => c.client_id !== clientId) 
         };
-        
-        // Notify parent of count change
-        if (onCommentCountChange) {
-          onCommentCountChange(activePost.id, updatedPost.comment_count);
-        }
-        
-        return updatedPost;
       }));
       toast({ title: 'Error', description: e.message || 'Failed to add comment', variant: 'destructive' });
     } finally {
