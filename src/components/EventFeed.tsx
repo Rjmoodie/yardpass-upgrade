@@ -174,16 +174,8 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   }, []);
   useRealtimeEngagement({ eventIds: currentEventIds, userId: user?.id, onEngagementUpdate: handleEngagementUpdate });
 
-  // Realtime comments (handle both add and delete locally)
-  useRealtimeComments({
-    eventId: eventId || undefined,
-    onCommentAdded: (comment) => {
-      setPosts(prev => prev.map(p => p.id === comment.post_id ? { ...p, comment_count: (p.comment_count || 0) + 1 } : p));
-    },
-    onCommentDeleted: (comment) => {
-      setPosts(prev => prev.map(p => p.id === comment.post_id ? { ...p, comment_count: Math.max(0, (p.comment_count || 0) - 1) } : p));
-    }
-  });
+  // Realtime comments now handled by CommentModal via callback
+  // This prevents double-counting of comments
 
   // Intersection observer for view analytics
   useEffect(() => {
@@ -736,6 +728,11 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
           eventId={commentEventId!}
           eventTitle={commentEventTitle || 'Event'}
           postId={commentPostId}
+          onCommentCountChange={(postId, newCount) => {
+            setPosts(prev => prev.map(p => 
+              p.id === postId ? { ...p, comment_count: newCount } : p
+            ));
+          }}
         />
       )}
     </>

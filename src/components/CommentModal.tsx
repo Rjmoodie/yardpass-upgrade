@@ -73,11 +73,12 @@ interface CommentModalProps {
   eventTitle: string;
   postId?: string;            // focus a single post (preferred)
   mediaPlaybackId?: string;   // fallback to resolve post by playback id
+  onCommentCountChange?: (postId: string, newCount: number) => void;
   // onSuccess removed - rely on realtime updates only
 }
 
 export default function CommentModal({
-  isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId,
+  isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId, onCommentCountChange,
 }: CommentModalProps) {
   const { user } = useAuth();
 
@@ -198,7 +199,7 @@ export default function CommentModal({
         }
         
         console.log('🔥 CommentModal: Adding new realtime comment', { commentId: comment.id });
-        return {
+        const updatedPost = {
           ...p,
           comment_count: p.comment_count + 1, // Increment count for new comments
           comments: [
@@ -215,6 +216,13 @@ export default function CommentModal({
             }
           ]
         };
+        
+        // Notify parent of count change
+        if (onCommentCountChange) {
+          onCommentCountChange(comment.post_id, updatedPost.comment_count);
+        }
+        
+        return updatedPost;
       }));
 
       // keep scrolled to bottom if user is near bottom
@@ -228,11 +236,18 @@ export default function CommentModal({
       console.log('🔥 CommentModal: Realtime comment deleted', { commentId: comment.id });
       setPosts(prev => prev.map(p => {
         if (p.id !== comment.post_id) return p;
-        return {
+        const updatedPost = {
           ...p,
           comment_count: Math.max(0, p.comment_count - 1), // Decrement count
           comments: p.comments.filter(c => c.id !== comment.id)
         };
+        
+        // Notify parent of count change
+        if (onCommentCountChange) {
+          onCommentCountChange(comment.post_id, updatedPost.comment_count);
+        }
+        
+        return updatedPost;
       }));
     }
   });
@@ -387,11 +402,21 @@ export default function CommentModal({
     };
 
     console.log('🔥 CommentModal: Adding optimistic comment', { clientId, postId: activePost.id });
-    setPosts(prev => prev.map(p => p.id === activePost.id ? { 
-      ...p, 
-      comment_count: p.comment_count + 1, // Increment count optimistically
-      comments: [...p.comments, optimistic] 
-    } : p));
+    setPosts(prev => prev.map(p => {
+      if (p.id !== activePost.id) return p;
+      const updatedPost = { 
+        ...p, 
+        comment_count: p.comment_count + 1, // Increment count optimistically
+        comments: [...p.comments, optimistic] 
+      };
+      
+      // Notify parent of count change
+      if (onCommentCountChange) {
+        onCommentCountChange(activePost.id, updatedPost.comment_count);
+      }
+      
+      return updatedPost;
+    }));
     setDraft('');
 
     try {
@@ -419,13 +444,21 @@ export default function CommentModal({
       requestAnimationFrame(() => bottomSentinelRef.current?.scrollIntoView({ behavior: 'smooth' }));
     } catch (e: any) {
       console.error('🔥 CommentModal: Error submitting comment', e);
-      setPosts(prev => prev.map(p =>
-        p.id === activePost.id ? { 
+      setPosts(prev => prev.map(p => {
+        if (p.id !== activePost.id) return p;
+        const updatedPost = { 
           ...p, 
           comment_count: Math.max(0, p.comment_count - 1), // Rollback count on error
           comments: p.comments.filter(c => c.client_id !== clientId) 
-        } : p
-      ));
+        };
+        
+        // Notify parent of count change
+        if (onCommentCountChange) {
+          onCommentCountChange(activePost.id, updatedPost.comment_count);
+        }
+        
+        return updatedPost;
+      }));
       toast({ title: 'Error', description: e.message || 'Failed to add comment', variant: 'destructive' });
     } finally {
       console.log('🔥 CommentModal: Comment submission finished');
