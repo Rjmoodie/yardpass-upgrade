@@ -564,9 +564,17 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
                               <div className="w-full h-full bg-muted flex items-center justify-center">
                                 <Play className="w-6 h-6" />
                               </div>
-                            ) : (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={thumb} alt="Post thumbnail" className="w-full h-full object-cover" />
+                             ) : (
+                               // eslint-disable-next-line @next/next/no-img-element
+                               <img 
+                                 src={thumb.startsWith('mux:') ? '' : thumb} 
+                                 alt="Post thumbnail" 
+                                 className="w-full h-full object-cover" 
+                                 onError={(e) => {
+                                   // Hide broken images
+                                   (e.target as HTMLImageElement).style.display = 'none';
+                                 }}
+                               />
                             )}
                           </div>
                         )}

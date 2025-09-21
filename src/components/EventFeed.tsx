@@ -555,16 +555,15 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                 <div className="grid gap-2">
                   {post.media_urls.map((url, idx) => {
                     const isVideo = isLikelyVideo(url);
-                    const processedUrl = url.startsWith('mux:') ? url : url;
 
                     return (
                       <div key={idx} className="relative rounded-lg overflow-hidden">
-                        {isVideo ? (
-                          <VideoMedia
-                            url={processedUrl}
-                            post={post}
-                            onAttachAnalytics={(v) => trackVideoProgress(post.id, post.event_id, v)}
-                          />
+                         {isVideo ? (
+                           <VideoMedia
+                             url={url}
+                             post={post}
+                             onAttachAnalytics={(v) => trackVideoProgress(post.id, post.event_id, v)}
+                           />
                         ) : (
                           <div className="relative">
                             <img
