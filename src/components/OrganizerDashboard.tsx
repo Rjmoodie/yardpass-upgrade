@@ -93,7 +93,7 @@ export function OrganizerDashboard() {
   // Data hook (update this to accept org context if your hook supports it)
   // If your useOrganizerData already supports an org filter, pass it here.
   // Otherwise we’ll filter client-side below as a fallback.
-  const { userEvents, loading, refetchEvents } = useOrganizerData(user, selectedOrganization);
+  const { userEvents, loading, refetchEvents } = useOrganizerData(user);
 
   // Keep URL in sync on tab change (and remember per-scope)
   useEffect(() => {
