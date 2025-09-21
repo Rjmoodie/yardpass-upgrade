@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Building2, ChevronsUpDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { Building2, ChevronsUpDown, User } from "lucide-react";
 
 type Org = { id: string; name: string };
 const RECENTS_KEY = "orgSwitcher.recents";
@@ -19,30 +19,37 @@ export function OrgSwitcher({
   value,
   onSelect,
   className,
+  includePersonal,
 }: {
   organizations: Org[];
   value: string | null;
-  onSelect: (orgId: string) => void;
+  onSelect: (orgId: string | null) => void;
   className?: string;
+  includePersonal?: boolean;
 }) {
   const [recents, setRecents] = React.useState<string[]>(loadRecents());
 
-  const current = organizations.find(o => o.id === value) || organizations[0];
+  const current = value ? organizations.find(o => o.id === value) : null;
   const byId = React.useMemo(() => new Map(organizations.map(o => [o.id, o])), [organizations]);
   
   const recentItems = recents
     .map(id => byId.get(id))
     .filter(Boolean) as Org[];
 
-  const commit = (id: string) => {
-    // update recents
-    const next = [id, ...recents.filter(r => r !== id && r !== value)];
-    setRecents(next);
-    saveRecents(next);
+  const otherOrgs = organizations.filter(o => !recentItems.find(r => r.id === o.id));
+
+  const commit = (id: string | null) => {
+    if (id) {
+      const next = [id, ...recents.filter(r => r !== id && r !== value)];
+      setRecents(next);
+      saveRecents(next);
+    }
     onSelect(id);
   };
 
-  if (!organizations.length) return null;
+  const displayText = value 
+    ? current?.name || 'Select organization' 
+    : (includePersonal ? 'Personal Dashboard' : 'Select organization');
 
   return (
     <DropdownMenu>
@@ -54,34 +61,47 @@ export function OrgSwitcher({
           aria-label="Switch organization"
         >
           <div className="flex items-center gap-2 truncate">
-            <Building2 className="h-4 w-4" />
-            <span className="truncate">{current?.name || 'Select organization'}</span>
+            {value ? <Building2 className="h-4 w-4" /> : <User className="h-4 w-4" />}
+            <span className="truncate">{displayText}</span>
           </div>
           <ChevronsUpDown className="h-4 w-4 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[220px]">
+      <DropdownMenuContent align="start" className={className || "w-[220px]"}>
+        {includePersonal && (
+          <>
+            <DropdownMenuItem onSelect={() => commit(null)}>
+              <User className="mr-2 h-4 w-4" />
+              <span className="truncate">Personal Dashboard</span>
+            </DropdownMenuItem>
+            {organizations.length > 0 && <DropdownMenuSeparator />}
+          </>
+        )}
+        
         {recentItems.length > 0 && (
           <>
+            <DropdownMenuLabel>Recent Organizations</DropdownMenuLabel>
             {recentItems.map(org => (
               <DropdownMenuItem key={`recent-${org.id}`} onSelect={() => commit(org.id)}>
                 <Building2 className="mr-2 h-4 w-4" />
                 <span className="truncate">{org.name}</span>
               </DropdownMenuItem>
             ))}
-            {organizations.filter(o => !recentItems.find(r => r.id === o.id)).length > 0 && (
-              <div className="h-px bg-border my-1" />
-            )}
+            {otherOrgs.length > 0 && <DropdownMenuSeparator />}
           </>
         )}
-        {organizations
-          .filter(o => !recentItems.find(r => r.id === o.id))
-          .map(org => (
-            <DropdownMenuItem key={org.id} onSelect={() => commit(org.id)}>
-              <Building2 className="mr-2 h-4 w-4" />
-              <span className="truncate">{org.name}</span>
-            </DropdownMenuItem>
-          ))}
+        
+        {otherOrgs.length > 0 && (
+          <>
+            <DropdownMenuLabel>All Organizations</DropdownMenuLabel>
+            {otherOrgs.map(org => (
+              <DropdownMenuItem key={org.id} onSelect={() => commit(org.id)}>
+                <Building2 className="mr-2 h-4 w-4" />
+                <span className="truncate">{org.name}</span>
+              </DropdownMenuItem>
+            ))}
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
