@@ -134,9 +134,9 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
 
   // 💬 Comment modal state (fix redirect issue)
   const [showCommentModal, setShowCommentModal] = useState(false);
-  const [commentPostId, setCommentPostId] = useState<string | undefined>(undefined);
-  const [commentEventId, setCommentEventId] = useState<string | undefined>(undefined);
-  const [commentEventTitle, setCommentEventTitle] = useState<string | undefined>(undefined);
+  const [commentPostId, setCommentPostId] = useState<string>();
+  const [commentEventId, setCommentEventId] = useState<string>();
+  const [commentEventTitle, setCommentEventTitle] = useState<string>();
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isMounted = useRef(true);
@@ -344,13 +344,13 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
     }
   };
 
-  // ✅ FIX: Open inline modal instead of navigating/redirecting
+  // ✅ FIX: Pure modal open (no navigate)
   const handleComment = (post: FeedPost) => {
     trackClick({ post_id: post.id, event_id: post.event_id, target: 'comment' });
     capture('feed_click', { target: 'comment', event_id: post.event_id, post_id: post.id });
     setCommentPostId(post.id);
     setCommentEventId(post.event_id);
-    setCommentEventTitle(post.events.title);
+    setCommentEventTitle(post.events.title || 'Event');
     setShowCommentModal(true);
   };
 
@@ -662,9 +662,12 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
               <div className="flex items-center justify-between pt-2 border-t border-border/50">
                 <div className="flex items-center gap-4">
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       capture('feed_click', { target: 'like', event_id: post.event_id, post_id: post.id });
                       handleLike(post.id);
                     }}
@@ -675,22 +678,32 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                     {post.like_count}
                   </Button>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => handleComment(post)}
-                    aria-label="View comments"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    {post.comment_count}
-                  </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleComment(post);
+                  }}
+                  aria-label="View comments"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  {post.comment_count}
+                </Button>
                 </div>
 
                 <Button
+                  type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleShare(post)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleShare(post);
+                  }}
                   className="gap-2"
                   aria-label="Share post"
                 >
@@ -713,11 +726,11 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
             setCommentEventId(undefined);
             setCommentEventTitle(undefined);
           }}
-          eventId={commentEventId}
+          eventId={commentEventId!}
           eventTitle={commentEventTitle || 'Event'}
           postId={commentPostId}
           onSuccess={() => {
-            // Best-effort refresh counts after new comment
+            // Refresh counts after new comment
             fetchPosts();
           }}
         />

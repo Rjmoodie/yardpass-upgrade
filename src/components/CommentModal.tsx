@@ -102,10 +102,10 @@ export default function CommentModal({
   const postIdSet = useMemo(() => new Set(posts.map((p) => p.id)), [posts]);
 
   function openInNewTab(href: string) {
-    try {
-      window.open(href, '_blank', 'noopener,noreferrer');
-    } catch {
-      // ignore
+    try { 
+      window.open(href, '_blank', 'noopener,noreferrer'); 
+    } catch { 
+      /* ignore - no fallback navigation */ 
     }
   }
 
@@ -142,6 +142,19 @@ export default function CommentModal({
     return () => { isMounted.current = false; };
   }, [isOpen, eventId, postId, mediaPlaybackId]);
 
+  // Pause/mute all videos when modal opens; restore current on close
+  useEffect(() => {
+    if (!isOpen) return;
+    const videos = Array.from(document.querySelectorAll<HTMLVideoElement>('video'));
+    const state = videos.map(v => ({ v, muted: v.muted, paused: v.paused }));
+    videos.forEach(v => { try { v.pause(); } catch {} v.muted = true; });
+
+    return () => { 
+      // restore only mute states; keep paused unless user interacts
+      state.forEach(({ v, muted }) => { v.muted = muted; }); 
+    };
+  }, [isOpen]);
+
   // reset & load when opened
   useEffect(() => {
     if (!isOpen) return;
@@ -157,7 +170,7 @@ export default function CommentModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    const channel = supabase
+  const channel = supabase
       .channel(`comments-${singleMode ? resolvedPostId ?? 'unknown' : eventId}`)
       .on(
         'postgres_changes',
@@ -169,6 +182,7 @@ export default function CommentModal({
         },
         (payload) => {
           const c = payload.new as CommentRow;
+          // Filter to just the post we're viewing to avoid jostling
           if (!singleMode && !postIdSet.has(c.post_id)) return;
 
           // Reconcile: if we have a pending optimistic comment from same user & same text,
@@ -629,6 +643,13 @@ export default function CommentModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-background border shadow-xl">
+        {/* Prevent implicit form submission */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold">
@@ -709,7 +730,12 @@ export default function CommentModal({
                 {/* Post Actions */}
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <button
-                    onClick={() => toggleLikePost(post.id)}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleLikePost(post.id);
+                    }}
                     className={`flex items-center gap-1 hover:text-foreground transition-colors ${
                       post.is_liked ? 'text-red-500' : ''
                     }`}
@@ -782,7 +808,12 @@ export default function CommentModal({
                             {/* Comment action row */}
                             <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
                               <button
-                                onClick={() => !comment.pending && toggleLikeComment(comment.id)}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!comment.pending) toggleLikeComment(comment.id);
+                                }}
                                 className={`flex items-center gap-1 hover:text-foreground transition-colors ${
                                   comment.is_liked ? 'text-red-500' : ''
                                 } ${comment.pending ? 'pointer-events-none opacity-60' : ''}`}
@@ -795,7 +826,12 @@ export default function CommentModal({
 
                               {canDelete && !comment.pending && (
                                 <button
-                                  onClick={() => deleteComment(comment.id)}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    deleteComment(comment.id);
+                                  }}
                                   className="flex items-center gap-1 hover:text-foreground transition-colors"
                                   aria-label="Delete comment"
                                   title="Delete comment"
@@ -858,6 +894,7 @@ export default function CommentModal({
                           <kbd className="px-1 py-0.5 border rounded">Shift</kbd>+<kbd className="px-1 py-0.5 border rounded">Enter</kbd> for a new line
                         </span>
                         <Button
+                          type="button"
                           size="sm"
                           onClick={(e) => {
                             e.preventDefault();
@@ -881,7 +918,16 @@ export default function CommentModal({
           {/* Load more (hidden in single-post mode) */}
           {!singleMode && hasMore && (
             <div className="flex justify-center py-3">
-              <Button variant="outline" onClick={() => loadPage(false)} disabled={loading}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  loadPage(false);
+                }} 
+                disabled={loading}
+              >
                 {loading ? 'Loading…' : 'Load more'}
               </Button>
             </div>
@@ -893,6 +939,7 @@ export default function CommentModal({
             <p className="text-sm text-center text-muted-foreground">Sign in to join the conversation</p>
           </div>
         )}
+        </form>
       </DialogContent>
     </Dialog>
   );
