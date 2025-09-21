@@ -264,24 +264,14 @@ export function OrganizerDashboard() {
             {!!organizations.length && (
               <OrgSwitcher
                 organizations={organizations}
-                value={selectedOrganization ? selectedOrganization : "individual"}
+                value={selectedOrganization}
                 onSelect={(value) => {
-                  if (value === "individual") {
-                    // clear org context
-                    if (selectedOrganization) {
-                      const next = new URLSearchParams(searchParams);
-                      next.delete("org");
-                      setSearchParams(next, { replace: true });
-                      setSelectedOrganization(null);
-                    }
-                  } else {
-                    // optimistic URL + state update
-                    const next = new URLSearchParams(searchParams);
-                    next.set("org", value);
-                    setSearchParams(next, { replace: true });
-                    setSelectedOrganization(value);
-                    trackEvent("dashboard_org_selected", { org_id: value, source: "switcher" });
-                  }
+                  // optimistic URL + state update
+                  const next = new URLSearchParams(searchParams);
+                  next.set("org", value);
+                  setSearchParams(next, { replace: true });
+                  setSelectedOrganization(value);
+                  trackEvent("dashboard_org_selected", { org_id: value, source: "switcher" });
                 }}
                 className="w-[260px]"
               />
