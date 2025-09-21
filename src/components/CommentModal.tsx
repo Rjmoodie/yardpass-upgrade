@@ -161,8 +161,18 @@ export default function CommentModal({
     postIds: singleMode && activePostId ? [activePostId] : undefined,
     eventId: !singleMode ? eventId : undefined,
     onCommentAdded: (comment) => {
+      console.log('🔥 CommentModal: Realtime comment added', { commentId: comment.id, postId: comment.post_id });
       setPosts(prev => prev.map(p => {
         if (p.id !== comment.post_id) return p;
+        
+        // Check if comment already exists (prevent duplicates from optimistic + realtime)
+        const existingComment = p.comments.find(c => c.id === comment.id);
+        if (existingComment) {
+          console.log('🔥 CommentModal: Comment already exists, skipping duplicate', { commentId: comment.id });
+          return p;
+        }
+        
+        console.log('🔥 CommentModal: Adding new realtime comment', { commentId: comment.id });
         return {
           ...p,
           comments: [
@@ -189,6 +199,7 @@ export default function CommentModal({
       }
     },
     onCommentDeleted: (comment) => {
+      console.log('🔥 CommentModal: Realtime comment deleted', { commentId: comment.id });
       setPosts(prev => prev.map(p => ({
         ...p,
         comments: p.comments.filter(c => c.id !== comment.id)
