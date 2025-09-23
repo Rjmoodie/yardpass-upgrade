@@ -61,7 +61,17 @@ export function EventsList({ events, onEventSelect }: EventsListProps) {
                       {event.status}
                     </Badge>
                   </div>
-                  <p className="text-muted-foreground mb-4">{event.date}</p>
+                   <p className="text-muted-foreground mb-4">
+                     {event.start_at ? new Date(event.start_at).toLocaleDateString('en-US', { 
+                       weekday: 'short',
+                       year: 'numeric', 
+                       month: 'short', 
+                       day: 'numeric',
+                       hour: '2-digit',
+                       minute: '2-digit',
+                       timeZone: 'UTC'
+                     }) : event.date}
+                   </p>
                   
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>

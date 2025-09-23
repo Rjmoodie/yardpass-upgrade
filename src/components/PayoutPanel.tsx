@@ -124,18 +124,30 @@ export function PayoutPanel({ contextType = 'individual', contextId }: Props) {
 
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
               <div className="flex flex-col space-y-2">
-                <Label htmlFor="payout-amount">Request payout (in {balance?.currency?.toUpperCase() || 'USD'})</Label>
-                <Input
-                  id="payout-amount"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="e.g. 125.00"
-                  className="w-48"
-                />
+                <Label htmlFor="payout-amount">
+                  Request payout (in {balance?.currency?.toUpperCase() || 'USD'})
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    {balance?.currency?.toUpperCase() === 'USD' ? '$' : balance?.currency?.toUpperCase()}
+                  </span>
+                  <Input
+                    id="payout-amount"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="125.00"
+                    className="w-48 pl-8"
+                  />
+                </div>
+                {balance && (
+                  <p className="text-xs text-muted-foreground">
+                    Available: {formatMoney(balance.available, balance.currency)}
+                  </p>
+                )}
               </div>
               <Button
                 onClick={onRequestPayout}

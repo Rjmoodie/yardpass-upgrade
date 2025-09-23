@@ -140,9 +140,15 @@ export default function OrganizerDashboard() {
 
       const mapped: Event[] = rows.map((e) => ({
         id: e.id,
-        title: e.title,
-        status: 'active',
-        date: e.start_at,
+        title: e.title || 'Untitled Event',
+        status: e.visibility === 'draft' ? 'draft' : 'published',
+        date: e.start_at ? new Date(e.start_at).toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric',
+          timeZone: 'UTC'
+        }) : 'Date TBD',
         attendees: e.attendees ?? 0,
         revenue: e.revenue ?? 0,
         views: e.views ?? 0,
@@ -155,12 +161,12 @@ export default function OrganizerDashboard() {
         created_at: e.created_at,
         start_at: e.start_at,
         end_at: e.end_at,
-        venue: e.venue,
-        category: e.category,
+        venue: e.venue || 'Venue TBD',
+        category: e.category || 'General',
         cover_image_url: e.cover_image_url,
-        description: e.description,
-        city: e.city,
-        visibility: e.visibility,
+        description: e.description || '',
+        city: e.city || 'Location TBD',
+        visibility: e.visibility || 'public',
         owner_context_type: e.owner_context_type,
         owner_context_id: e.owner_context_id,
       }));

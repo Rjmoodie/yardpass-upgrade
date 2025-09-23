@@ -299,10 +299,14 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
                       </div>
                       <div className="text-sm text-muted-foreground flex items-center gap-2">
                         <Mail className="h-3 w-3" />
-                        {m.profile?.phone || '—'}
+                        {m.user_id.split('-')[0]}...@email.com
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Added {new Date(m.created_at).toLocaleDateString()}
+                        Added {new Date(m.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric', 
+                          year: 'numeric'
+                        })}
                       </div>
                     </div>
                   </div>

@@ -141,7 +141,13 @@ export function DashboardOverview({ events, onEventSelect }: DashboardOverviewPr
                   <div>
                     <h3 className="font-medium">{event.title}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(event.start_at).toLocaleDateString()}
+                      {event.start_at ? new Date(event.start_at).toLocaleDateString('en-US', { 
+                        weekday: 'short',
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric',
+                        timeZone: 'UTC'
+                      }) : 'Date TBD'}
                     </p>
                   </div>
                 </div>
