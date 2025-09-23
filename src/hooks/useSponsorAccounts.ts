@@ -7,6 +7,41 @@ export function useSponsorAccounts(userId?: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const createSponsor = useCallback(async (data: {
+    name: string;
+    website_url?: string;
+    contact_email?: string;
+  }) => {
+    if (!userId) throw new Error('User not authenticated');
+
+    const { data: sponsor, error: sponsorError } = await supabase
+      .from('sponsors')
+      .insert({
+        ...data,
+        created_by: userId
+      })
+      .select()
+      .single();
+
+    if (sponsorError) throw sponsorError;
+
+    // Add user as owner
+    const { error: memberError } = await supabase
+      .from('sponsor_members')
+      .insert({
+        sponsor_id: sponsor.id,
+        user_id: userId,
+        role: 'owner'
+      });
+
+    if (memberError) throw memberError;
+
+    // Refresh accounts list
+    await fetchSponsors();
+    
+    return sponsor;
+  }, [userId]);
+
   const fetchSponsors = useCallback(async () => {
     if (!userId) {
       setAccounts([]);
@@ -54,5 +89,5 @@ export function useSponsorAccounts(userId?: string) {
     fetchSponsors();
   }, [fetchSponsors]);
 
-  return { accounts, loading, error, refresh: fetchSponsors };
+  return { accounts, loading, error, refresh: fetchSponsors, createSponsor };
 }

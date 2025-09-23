@@ -40,7 +40,13 @@ export default function SponsorDashboard() {
             Browse events, buy packages, manage assets and track performance.
           </p>
         </div>
-        <SponsorSwitcher accounts={accounts} value={sponsorId} onSelect={setSponsorId} />
+        <SponsorSwitcher 
+          userId={user?.id}
+          accounts={accounts} 
+          value={sponsorId} 
+          onSelect={setSponsorId}
+          className="w-[260px]" 
+        />
       </div>
 
       {/* Tabs */}
