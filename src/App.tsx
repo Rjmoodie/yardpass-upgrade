@@ -48,6 +48,7 @@ const UserProfilePage = lazy(() => import('@/pages/UserProfilePage'));
 const OrganizationProfilePage = lazy(() => import('@/pages/OrganizationProfilePage'));
 const EditProfilePage = lazy(() => import('@/pages/EditProfilePage'));
 const AuthPage = lazy(() => import('@/pages/AuthPage'));
+const SponsorDashboard = lazy(() => import('@/components/sponsor/SponsorDashboard'));
 
 // Auth guard
 import { AuthGuard } from '@/components/AuthGuard';
@@ -434,6 +435,14 @@ function AppContent() {
                 element={
                   <AuthGuard>
                     <EventAnalyticsPage />
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/sponsor"
+                element={
+                  <AuthGuard>
+                    <SponsorDashboard />
                   </AuthGuard>
                 }
               />

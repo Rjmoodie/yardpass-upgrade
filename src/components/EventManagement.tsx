@@ -5,13 +5,14 @@ import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { ArrowLeft, Calendar, Users, BarChart3, Settings, Scan, Download, ExternalLink, MoreVertical, Search, Filter, RefreshCw, Edit, Trash2, Plus, Eye, Share, MessageSquare, Bell, Mail, QrCode, CheckCircle, Clock, AlertCircle, SortAsc, SortDesc, CheckSquare, Square, UserCheck, UserX, Send, FileText, DollarSign, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, BarChart3, Settings, Scan, Download, ExternalLink, MoreVertical, Search, Filter, RefreshCw, Edit, Trash2, Plus, Eye, Share, MessageSquare, Bell, Mail, QrCode, CheckCircle, Clock, AlertCircle, SortAsc, SortDesc, CheckSquare, Square, UserCheck, UserX, Send, FileText, DollarSign, TrendingUp, Handshake } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GuestManagement } from '@/components/GuestManagement';
 import { OrganizerRolesPanel } from './organizer/OrganizerRolesPanel';
 import { EnhancedTicketManagement } from '@/components/EnhancedTicketManagement';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { EventSponsorshipManagement } from './EventSponsorshipManagement';
 
 import { Event, TicketTier } from '@/types/events';
 
@@ -432,10 +433,11 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-6 mb-4">
+          <TabsList className="w-full grid grid-cols-7 mb-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="attendees">Attendees</TabsTrigger>
             <TabsTrigger value="tickets">Tickets</TabsTrigger>
+            <TabsTrigger value="sponsorship">Sponsorship</TabsTrigger>
             <TabsTrigger value="scanner">Scanner</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -750,6 +752,10 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                 </Card>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="sponsorship" className="space-y-4">
+            <EventSponsorshipManagement eventId={event.id} />
           </TabsContent>
 
           <TabsContent value="teams" className="space-y-4">

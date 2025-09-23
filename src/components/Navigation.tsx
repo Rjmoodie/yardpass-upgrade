@@ -1,4 +1,4 @@
-import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp } from 'lucide-react';
+import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useCallback, useMemo, useState } from 'react';
@@ -28,7 +28,8 @@ export type Screen =
   | 'scanner'
   | 'ticket-success'
   | 'posts-test'
-  | 'analytics';
+  | 'analytics'
+  | 'sponsor';
 
 export type UserRole = 'attendee' | 'organizer';
 
@@ -47,6 +48,7 @@ const AUTH_REQUIRED: Record<string, Screen> = {
   '/tickets': 'tickets',
   '/scanner': 'scanner',
   '/analytics': 'analytics',
+  '/sponsor': 'sponsor',
 };
 
 export default function Navigation({ userRole }: NavigationProps) {
@@ -82,6 +84,7 @@ export default function Navigation({ userRole }: NavigationProps) {
         },
         { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
         { id: 'analytics' as Screen, path: '/analytics', icon: TrendingUp, label: 'Analytics', show: userRole === 'organizer' },
+        { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: true },
         { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
       ] as const
     ).filter((i) => i.show);
@@ -149,6 +152,7 @@ export default function Navigation({ userRole }: NavigationProps) {
       'tickets': '/tickets',
       'scanner': '/scanner',
       'analytics': '/analytics',
+      'sponsor': '/sponsor',
     };
     const path = pathMap[pendingNavigation];
     if (path) navigate(path);

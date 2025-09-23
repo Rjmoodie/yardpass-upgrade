@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarDays, Users, DollarSign, Eye } from 'lucide-react';
+import { CalendarDays, Users, DollarSign, Eye, Handshake } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -14,6 +14,8 @@ interface Event {
   tickets_sold: number;
   capacity: number;
   start_at: string;
+  sponsor_count?: number;
+  sponsor_revenue?: number;
 }
 
 interface DashboardOverviewProps {
@@ -26,6 +28,8 @@ interface Totals {
   totalAttendees: number;
   totalViews: number;
   totalLikes: number;
+  totalSponsorRevenue: number;
+  totalSponsors: number;
 }
 
 const calculateTotals = (events: Event[]): Totals => {
@@ -33,8 +37,17 @@ const calculateTotals = (events: Event[]): Totals => {
     totalRevenue: acc.totalRevenue + event.revenue,
     totalAttendees: acc.totalAttendees + event.attendees,
     totalViews: acc.totalViews + event.views,
-    totalLikes: acc.totalLikes + event.likes
-  }), { totalRevenue: 0, totalAttendees: 0, totalViews: 0, totalLikes: 0 });
+    totalLikes: acc.totalLikes + event.likes,
+    totalSponsorRevenue: acc.totalSponsorRevenue + (event.sponsor_revenue || 0),
+    totalSponsors: acc.totalSponsors + (event.sponsor_count || 0)
+  }), { 
+    totalRevenue: 0, 
+    totalAttendees: 0, 
+    totalViews: 0, 
+    totalLikes: 0, 
+    totalSponsorRevenue: 0,
+    totalSponsors: 0 
+  });
 };
 
 export function DashboardOverview({ events, onEventSelect }: DashboardOverviewProps) {
@@ -43,7 +56,7 @@ export function DashboardOverview({ events, onEventSelect }: DashboardOverviewPr
   return (
     <div className="space-y-6">
       {/* Overview Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Events</CardTitle>
@@ -57,12 +70,23 @@ export function DashboardOverview({ events, onEventSelect }: DashboardOverviewPr
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Ticket Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${totals.totalRevenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">+15% from last month</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Sponsor Revenue</CardTitle>
+            <Handshake className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${totals.totalSponsorRevenue.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">+22% from last month</p>
           </CardContent>
         </Card>
 
@@ -74,6 +98,17 @@ export function DashboardOverview({ events, onEventSelect }: DashboardOverviewPr
           <CardContent>
             <div className="text-2xl font-bold">{totals.totalAttendees.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">+8% from last month</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Sponsors</CardTitle>
+            <Handshake className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totals.totalSponsors}</div>
+            <p className="text-xs text-muted-foreground">Across all events</p>
           </CardContent>
         </Card>
 
@@ -120,6 +155,12 @@ export function DashboardOverview({ events, onEventSelect }: DashboardOverviewPr
                       <DollarSign className="h-3 w-3" />
                       <span>${event.revenue.toLocaleString()}</span>
                     </div>
+                    {event.sponsor_count && event.sponsor_count > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Handshake className="h-3 w-3" />
+                        <span>{event.sponsor_count} • ${(event.sponsor_revenue || 0).toLocaleString()}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1">
                       <Eye className="h-3 w-3" />
                       <span>{event.views.toLocaleString()}</span>
