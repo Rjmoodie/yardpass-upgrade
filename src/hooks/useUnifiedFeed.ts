@@ -20,6 +20,11 @@ export type FeedItem =
       media_urls: null;
       content: null;
       metrics: Record<string, any>;
+      sponsor?: {
+        name: string;
+        logo_url?: string;
+        tier: string;
+      };
     }
   | {
       item_type: 'post';

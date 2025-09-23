@@ -148,6 +148,15 @@ export const EventCard = memo(function EventCard({
                 {item.event_description}
               </p>
             )}
+
+            {/* Sponsor information */}
+            {item.sponsor && (
+              <div className="flex items-center gap-2 mt-2">
+                <div className="bg-amber-400/20 text-amber-200 px-2 py-1 rounded-full text-xs font-medium">
+                  Sponsored by {item.sponsor.name}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}

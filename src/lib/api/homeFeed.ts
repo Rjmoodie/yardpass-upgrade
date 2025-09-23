@@ -19,6 +19,11 @@ export interface HomeFeedEvent {
   isLiked?: boolean;
   posts?: EventPost[];
   totalComments?: number;
+  sponsor?: {
+    name: string;
+    logo_url?: string;
+    tier: string;
+  };
 }
 
 export interface TicketTier {
@@ -63,6 +68,15 @@ export async function fetchHomeFeed(limit: number = 3): Promise<HomeFeedEvent[]>
         organizations!inner(
           id,
           name
+        ),
+        event_sponsorships (
+          sponsor_id,
+          tier,
+          status,
+          sponsors (
+            name,
+            logo_url
+          )
         )
       `)
       .eq('visibility', 'public')
@@ -75,26 +89,36 @@ export async function fetchHomeFeed(limit: number = 3): Promise<HomeFeedEvent[]>
     }
 
     // Transform the data to match our interface
-    const transformedData = (data || []).map((item: any): HomeFeedEvent => ({
-      id: item.id,
-      title: item.title || 'Untitled Event',
-      description: item.description || '',
-      organizer: item.organizations?.name || 'Unknown',
-      organizerId: item.organizations?.id || '',
-      category: item.category || 'general',
-      startAtISO: item.start_at,
-      endAtISO: item.end_at,
-      dateLabel: new Date(item.start_at).toLocaleDateString(),
-      location: `${item.venue || ''} ${item.city || ''}`.trim(),
-      coverImage: item.cover_image_url || '',
-      ticketTiers: [],
-      attendeeCount: 0,
-      likes: 0,
-      shares: 0,
-      isLiked: false,
-      posts: [],
-      totalComments: 0
-    }));
+    const transformedData = (data || []).map((item: any): HomeFeedEvent => {
+      // Get active sponsor if available
+      const activeSponsor = item.event_sponsorships?.find((s: any) => s.status === 'active');
+      
+      return {
+        id: item.id,
+        title: item.title || 'Untitled Event',
+        description: item.description || '',
+        organizer: item.organizations?.name || 'Unknown',
+        organizerId: item.organizations?.id || '',
+        category: item.category || 'general',
+        startAtISO: item.start_at,
+        endAtISO: item.end_at,
+        dateLabel: new Date(item.start_at).toLocaleDateString(),
+        location: `${item.venue || ''} ${item.city || ''}`.trim(),
+        coverImage: item.cover_image_url || '',
+        ticketTiers: [],
+        attendeeCount: 0,
+        likes: 0,
+        shares: 0,
+        isLiked: false,
+        posts: [],
+        totalComments: 0,
+        sponsor: activeSponsor ? {
+          name: activeSponsor.sponsors?.name,
+          logo_url: activeSponsor.sponsors?.logo_url,
+          tier: activeSponsor.tier
+        } : undefined
+      };
+    });
 
     return transformedData;
   } catch (error) {

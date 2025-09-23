@@ -143,9 +143,19 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
             visibility,
             user_profiles!events_created_by_fkey (
               display_name
+            ),
+            event_sponsorships!inner (
+              sponsor_id,
+              tier,
+              status,
+              sponsors (
+                name,
+                logo_url
+              )
             )
           `)
-          .eq('visibility', 'public');
+          .eq('visibility', 'public')
+          .eq('event_sponsorships.status', 'active');
 
         // server filters (safe)
         if (q) {
@@ -175,6 +185,12 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
           attendeeCount: Math.floor(Math.random()*900)+50, // replace with real metric when available
           priceFrom: Math.floor(Math.random()*100)+15,     // replace with real price once added to schema
           rating: 4 + Math.random(),
+          // Extract primary sponsor information
+          sponsor: e.event_sponsorships?.[0]?.sponsors ? {
+            name: e.event_sponsorships[0].sponsors.name,
+            logo_url: e.event_sponsorships[0].sponsors.logo_url,
+            tier: e.event_sponsorships[0].tier
+          } : null,
         }));
 
         if (!canceled) {

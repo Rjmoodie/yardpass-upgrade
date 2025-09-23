@@ -75,6 +75,11 @@ export function EventCard({ event, onClick, onTicket, onBookmark, onShare, class
                       {event.category}
                     </Badge>
                   )}
+                  {event.sponsor && (
+                    <Badge variant="outline" className="px-2 py-0.5 rounded-full bg-amber-50 border-amber-200 text-amber-800">
+                      Sponsored by {event.sponsor.name}
+                    </Badge>
+                  )}
                   {whenLabel && (
                     <span className="inline-flex items-center gap-1">
                       <CalendarIcon className="w-3 h-3" /> {whenLabel}
