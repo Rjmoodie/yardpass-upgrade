@@ -1,14 +1,14 @@
-// src/components/OrgSwitcher.tsx
 import * as React from 'react';
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
-import { Building2, ChevronsUpDown, User, CheckCircle2, Search } from "lucide-react";
+import { Building2, ChevronsUpDown, CheckCircle2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 type Org = { id: string; name: string; verification_status?: string; is_verified?: boolean };
+
 const RECENTS_KEY = "orgSwitcher.recents";
 const MAX_RECENTS = 6;
 
@@ -24,14 +24,12 @@ export function OrgSwitcher({
   value,
   onSelect,
   className,
-  includePersonal,
   onCreateOrgPath = '/create-organization',
 }: {
   organizations: Org[];
-  value: string | null;
-  onSelect: (orgId: string | null) => void;
+  value: string | null;                 // must be an org id; null only while bootstrapping
+  onSelect: (orgId: string) => void;    // NOTE: no null here (no personal mode)
   className?: string;
-  includePersonal?: boolean;
   onCreateOrgPath?: string;
 }) {
   const [recents, setRecents] = React.useState<string[]>(loadRecents());
@@ -41,12 +39,10 @@ export function OrgSwitcher({
   const byId = React.useMemo(() => new Map(organizations.map(o => [o.id, o])), [organizations]);
   const current = value ? byId.get(value) || null : null;
 
-  const commit = (id: string | null) => {
-    if (id) {
-      const next = [id, ...recents.filter(r => r !== id && r !== value)];
-      setRecents(next);
-      saveRecents(next);
-    }
+  const commit = (id: string) => {
+    const next = [id, ...recents.filter(r => r !== id && r !== value)];
+    setRecents(next);
+    saveRecents(next);
     onSelect(id);
     setOpen(false);
   };
@@ -59,9 +55,7 @@ export function OrgSwitcher({
     .filter(o => !recentItems.find(r => r.id === o.id))
     .filter(o => !q || o.name.toLowerCase().includes(q.toLowerCase()));
 
-  const displayText = value
-    ? current?.name || 'Select organization'
-    : (includePersonal ? 'Personal Dashboard' : 'Select organization');
+  const displayText = current?.name || 'Select organization';
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -73,7 +67,7 @@ export function OrgSwitcher({
           aria-label="Switch organization"
         >
           <div className="flex items-center gap-2 truncate">
-            {value ? <Building2 className="h-4 w-4" /> : <User className="h-4 w-4" />}
+            <Building2 className="h-4 w-4" />
             <span className="truncate">{displayText}</span>
           </div>
           <ChevronsUpDown className="h-4 w-4 opacity-60" />
@@ -92,16 +86,6 @@ export function OrgSwitcher({
             />
           </div>
         </div>
-
-        {includePersonal && (
-          <>
-            <DropdownMenuItem onSelect={() => commit(null)}>
-              <User className="mr-2 h-4 w-4" />
-              <span className="truncate">Personal Dashboard</span>
-            </DropdownMenuItem>
-            {(recentItems.length > 0 || allFiltered.length > 0) && <DropdownMenuSeparator />}
-          </>
-        )}
 
         {recentItems.length > 0 && (
           <>
