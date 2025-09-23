@@ -9,6 +9,7 @@ import { PurchaseGateModal } from './PurchaseGateModal';
 import { OrganizerMenu } from './OrganizerMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useSponsorAccounts } from '@/hooks/useSponsorAccounts';
 
 export type Screen =
   | 'feed'
@@ -56,6 +57,7 @@ export default function Navigation({ userRole }: NavigationProps) {
   const { trackEvent } = useAnalyticsIntegration();
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasSponsorAccess } = useSponsorAccounts(user?.id);
 
   console.log('Navigation render - user:', user?.id, 'userRole:', userRole);
 
@@ -84,14 +86,14 @@ export default function Navigation({ userRole }: NavigationProps) {
         },
         { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
         { id: 'analytics' as Screen, path: '/analytics', icon: TrendingUp, label: 'Analytics', show: userRole === 'organizer' },
-        { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: true },
+        { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: hasSponsorAccess },
         { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
       ] as const
     ).filter((i) => i.show);
     
     console.log('Navigation items:', items.map(i => ({ id: i.id, label: i.label, show: i.show })));
     return items;
-  }, [userRole]);
+  }, [userRole, hasSponsorAccess]);
 
   const requiresAuth = useCallback((path: string) => path in AUTH_REQUIRED, []);
 
