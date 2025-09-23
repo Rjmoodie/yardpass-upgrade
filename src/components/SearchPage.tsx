@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { FilterChip } from './search/FilterChip';
 import { EventCard } from './search/EventCard';
 import { SkeletonGrid, EmptyState } from './search/SearchPageComponents';
+import { useSmartSearch } from '@/hooks/useSmartSearch';
 
 interface SearchPageProps {
   onBack: () => void;
@@ -110,141 +111,78 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     localStorage.setItem(LOCAL_RECENT_KEY, JSON.stringify(next));
   }, [recent]);
 
-  // data state
-  const [allEvents, setAllEvents] = useState<any[]>([]);
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use the smart search hook instead of custom logic
+  const { 
+    q: searchQuery, 
+    setQ: setSearchQuery,
+    filters,
+    setFilters,
+    results: searchResults,
+    loading,
+    error
+  } = useSmartSearch('');
+
   const [showFilters, setShowFilters] = useState(false);
 
-  // paging (client-side for now; easy to migrate to server pages)
+  // Sync URL params with search hook
+  useEffect(() => {
+    setSearchQuery(q);
+  }, [q, setSearchQuery]);
+
+  useEffect(() => {
+    setFilters({
+      category: cat !== 'All' ? cat : null,
+      dateFrom: from || null,
+      dateTo: to || null,
+    });
+  }, [cat, from, to, setFilters]);
+
+  // Transform search results to match EventCard props
+  const transformedResults = searchResults.map(result => ({
+    id: result.item_id,
+    title: result.title,
+    description: result.description || result.content,
+    organizer: result.organizer_name || 'Organizer',
+    organizerId: result.item_id,
+    category: result.category || 'Other',
+    date: result.start_at ? new Date(result.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBA',
+    start_at: result.start_at,
+    location: result.location || 'TBA',
+    coverImage: result.cover_image_url || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
+    attendeeCount: Math.floor(Math.random()*900)+50, // TODO: get real metrics
+    priceFrom: Math.floor(Math.random()*100)+15,     // TODO: get real pricing
+    rating: 4 + Math.random(),
+    type: result.item_type,
+    parentEventId: result.parent_event_id,
+  }));
+
+  // Client-side filtering for price (until server-side is implemented)
+  const filteredResults = useMemo(() => {
+    let filtered = [...transformedResults];
+    
+    if (min) filtered = filtered.filter(e => (e.priceFrom ?? 0) >= Number(min));
+    if (max) filtered = filtered.filter(e => (e.priceFrom ?? 1e9) <= Number(max));
+    
+    // Sort
+    filtered.sort((a, b) => {
+      if (sort === 'price_asc') return (a.priceFrom ?? 1e9) - (b.priceFrom ?? 1e9);
+      if (sort === 'price_desc') return (b.priceFrom ?? -1) - (a.priceFrom ?? -1);
+      if (sort === 'attendees_desc') return (b.attendeeCount ?? 0) - (a.attendeeCount ?? 0);
+      return 0; // date_asc default
+    });
+    
+    return filtered;
+  }, [transformedResults, min, max, sort]);
+
+  // Pagination
   const PAGE_SIZE = 24;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
-  // fetch (server-side filtering where possible)
+  // Reset pagination when filters change
   useEffect(() => {
-    let canceled = false;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const qb = supabase
-          .from('events')
-          .select(`
-            id,
-            title,
-            description,
-            start_at,
-            end_at,
-            venue,
-            city,
-            category,
-            cover_image_url,
-            visibility,
-            user_profiles!events_created_by_fkey (
-              display_name
-            ),
-            event_sponsorships!inner (
-              sponsor_id,
-              tier,
-              status,
-              sponsors (
-                name,
-                logo_url
-              )
-            )
-          `)
-          .eq('visibility', 'public')
-          .eq('event_sponsorships.status', 'active');
-
-        // server filters (safe)
-        if (q) {
-          // Use ilike on title/desc/city where possible (cheap-ish)
-          qb.or(`title.ilike.%${q}%,description.ilike.%${q}%,city.ilike.%${q}%`);
-        }
-        if (city) qb.ilike('city', `%${city}%`);
-        if (from) qb.gte('start_at', from);
-        if (to) qb.lte('start_at', to);
-
-        qb.order('start_at', { ascending: true }).limit(200);
-
-        const { data, error } = await qb;
-        if (error) throw error;
-
-        const transformed = (data || []).map((e: any) => ({
-          id: e.id,
-          title: e.title,
-          description: e.description || '',
-          organizer: e.user_profiles?.display_name || 'Organizer',
-          organizerId: e.id,
-          category: e.category || 'Other',
-          date: new Date(e.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-          start_at: e.start_at,
-          location: e.city || e.venue || 'TBA',
-          coverImage: e.cover_image_url || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
-          attendeeCount: Math.floor(Math.random()*900)+50, // replace with real metric when available
-          priceFrom: Math.floor(Math.random()*100)+15,     // replace with real price once added to schema
-          rating: 4 + Math.random(),
-          // Extract primary sponsor information
-          sponsor: e.event_sponsorships?.[0]?.sponsors ? {
-            name: e.event_sponsorships[0].sponsors.name,
-            logo_url: e.event_sponsorships[0].sponsors.logo_url,
-            tier: e.event_sponsorships[0].tier
-          } : null,
-        }));
-
-        if (!canceled) {
-          const fallback = transformed.length ? transformed : mockSearchResults;
-          setAllEvents(fallback);
-        }
-      } catch (e) {
-        console.error('search load error', e);
-        if (!canceled) setAllEvents(mockSearchResults);
-      } finally {
-        if (!canceled) setLoading(false);
-      }
-    };
-    load();
-    return () => { canceled = true; };
-  }, [q, city, from, to]);
-
-  // apply filters + debounce on url param change
-  useEffect(() => {
-    const t = setTimeout(() => {
-      let filtered = [...allEvents];
-
-      if (cat !== 'All') filtered = filtered.filter(e => e.category === cat);
-
-      // price filters (client side until price exists server-side)
-      if (min) filtered = filtered.filter(e => (e.priceFrom ?? 0) >= Number(min));
-      if (max) filtered = filtered.filter(e => (e.priceFrom ?? 1e9) <= Number(max));
-
-      // from/to already applied on server; keep guard (for mock data)
-      if (from || to) {
-        const fromD = from ? new Date(from) : null;
-        const toD = to ? new Date(to) : null;
-        filtered = filtered.filter(e => {
-          const d = new Date(e.date);
-          const okFrom = fromD ? d >= fromD : true;
-          const okTo = toD ? d <= toD : true;
-          return okFrom && okTo;
-        });
-      }
-
-      // sort
-      filtered.sort((a, b) => {
-        if (sort === 'price_asc') return (a.priceFrom ?? 1e9) - (b.priceFrom ?? 1e9);
-        if (sort === 'price_desc') return (b.priceFrom ?? -1) - (a.priceFrom ?? -1);
-        if (sort === 'attendees_desc') return (b.attendeeCount ?? 0) - (a.attendeeCount ?? 0);
-        // date_asc default; server already ordered
-        return 0;
-      });
-
-      setResults(filtered);
-      setVisibleCount(PAGE_SIZE); // reset paging on filter change
-    }, 150);
-    return () => clearTimeout(t);
-  }, [allEvents, cat, sort, min, max, from, to]);
+    setVisibleCount(PAGE_SIZE);
+  }, [filteredResults]);
 
   // infinite scroll sentinel
   useEffect(() => {
@@ -252,12 +190,12 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     const el = loaderRef.current;
     const io = new IntersectionObserver((entries) => {
       if (entries.some(e => e.isIntersecting)) {
-        setVisibleCount((c) => Math.min(c + PAGE_SIZE, results.length));
+        setVisibleCount((c) => Math.min(c + PAGE_SIZE, filteredResults.length));
       }
     }, { rootMargin: '600px' }); // prefetch before hitting bottom
     io.observe(el);
     return () => io.disconnect();
-  }, [results.length]);
+  }, [filteredResults.length]);
 
   // helpers to update url params succinctly
   const setParam = (k: string, v?: string) => {
@@ -270,7 +208,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       filter_value: v || '',
       query: q,
       category: cat,
-      results_count: results.length
+      results_count: filteredResults.length
     });
 
     // recent searches (when editing the main query)
@@ -286,7 +224,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     trackEvent('search_filters_clear', {
       previous_query: q,
       previous_category: cat,
-      results_count: results.length
+      results_count: filteredResults.length
     });
     setParams(new URLSearchParams(), { replace: true });
     setVisibleCount(PAGE_SIZE);
@@ -343,7 +281,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   // ————————————————————————————————————————
   // Render
   // ————————————————————————————————————————
-  const visible = results.slice(0, visibleCount);
+  const visible = filteredResults.slice(0, visibleCount);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -563,7 +501,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
 
           {loading ? (
             <SkeletonGrid />
-          ) : results.length === 0 ? (
+          ) : filteredResults.length === 0 ? (
             <EmptyState />
           ) : (
             <>
@@ -573,7 +511,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 ))}
               </div>
               {/* sentinel for infinite scroll */}
-              {visibleCount < results.length && (
+              {visibleCount < filteredResults.length && (
                 <div ref={loaderRef} className="h-12 flex items-center justify-center text-muted-foreground">
                   Loading more…
                 </div>
