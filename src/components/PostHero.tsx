@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, NavigateFunction } from 'react-router-dom';
 import { Heart, MessageCircle, Volume2, VolumeX, Bookmark } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -149,7 +149,7 @@ export function PostHero({
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-        <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} />
+        <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} navigate={navigate} />
       </div>
     );
   }
@@ -201,7 +201,7 @@ export function PostHero({
         </div>
 
         {/* Bottom panel with CTAs */}
-        <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} post={post} />
+        <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} post={post} navigate={navigate} />
 
         {/* Sound and Bookmark Controls - Mobile optimized */}
         <div className="absolute top-16 right-4 flex flex-col gap-2">
@@ -267,7 +267,7 @@ export function PostHero({
         </div>
       </div>
 
-      <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} post={post} />
+      <BottomPanel event={event} onOpenTickets={onOpenTickets} goToEvent={goToEvent} post={post} navigate={navigate} />
     </div>
   );
 }
@@ -278,11 +278,13 @@ function BottomPanel({
   onOpenTickets,
   goToEvent,
   post,
+  navigate,
 }: {
   event: Event;
   onOpenTickets: () => void;
   goToEvent: () => void;
   post?: EventPost;
+  navigate: NavigateFunction;
 }) {
   return (
     <div className="absolute inset-x-0 bottom-0 p-2 text-white pointer-events-none">
@@ -291,7 +293,12 @@ function BottomPanel({
         {post && (
           <div className="border-b border-white/15 pb-2 mb-2">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold text-xs">{post.authorName}</span>
+              <button 
+                onClick={() => post.authorId && navigate(routes.user(post.authorId))}
+                className="font-semibold text-xs hover:underline cursor-pointer"
+              >
+                {post.authorName}
+              </button>
               {post.authorBadge && post.authorBadge !== 'ATTENDEE' && (
                 <span className="text-[9px] bg-primary px-1.5 py-0.5 rounded-full font-bold text-white shadow-sm">
                   {post.authorBadge}

@@ -331,7 +331,10 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
               <AvatarFallback className="text-xs bg-white/20 text-white">{event.organizer.charAt(0)}</AvatarFallback>
               </Avatar>
               <button 
-              onClick={() => capture('feed_click', { target: 'handle', event_id: event.id })}
+              onClick={() => {
+                capture('feed_click', { target: 'handle', event_id: event.id });
+                navigate(routes.user(event.organizerId));
+              }}
               className="cursor-pointer hover:text-white"
               >
               @{event.organizer.replaceAll(' ', '').toLowerCase()}
