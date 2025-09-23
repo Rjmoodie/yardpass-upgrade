@@ -211,6 +211,30 @@ serve(async (req) => {
         failureMessage: payout.failure_message
       });
 
+    } else if (event.type === "payment_intent.succeeded") {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      const orderId = paymentIntent.metadata?.order_id;
+
+      if (orderId) {
+        logStep("Processing sponsorship payment success", { orderId, paymentIntentId: paymentIntent.id });
+        
+        // Update sponsorship order to escrow status
+        const { error: updateError } = await supabaseService
+          .from("sponsorship_orders")
+          .update({ 
+            status: "escrow", 
+            stripe_payment_intent_id: paymentIntent.id,
+            updated_at: new Date().toISOString() 
+          })
+          .eq("id", orderId);
+
+        if (updateError) {
+          logStep("Failed to update sponsorship order", { error: updateError.message });
+        } else {
+          logStep("Sponsorship order moved to escrow", { orderId });
+        }
+      }
+
     } else {
       logStep("Unhandled webhook event", { type: event.type });
     }

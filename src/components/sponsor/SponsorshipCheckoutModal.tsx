@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MarketplaceSponsorship } from "@/types/sponsors";
+import { SponsorshipPackage } from "@/hooks/useMarketplaceSponsorships";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface SponsorshipCheckoutModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  package: MarketplaceSponsorship;
+  package: SponsorshipPackage;
   sponsorId: string;
   onSuccess: () => void;
 }
@@ -29,36 +29,82 @@ export function SponsorshipCheckoutModal({
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmitOrder = async () => {
+  const handleStripeCheckout = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('sponsorship_orders')
-        .insert({
-          package_id: pkg.package_id,
-          sponsor_id: sponsorId,
-          event_id: pkg.event_id,
-          amount_cents: pkg.price_cents,
-          notes: notes || null,
-          status: 'pending'
-        })
-        .select()
-        .single();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: 'Authentication Required',
+          description: 'Please sign in to complete the sponsorship purchase.',
+          variant: 'destructive'
+        });
+        return;
+      }
 
-      if (error) throw error;
-
-      toast({
-        title: "Order Submitted",
-        description: "Your sponsorship request has been submitted for review.",
+      // Create payment intent
+      const { data, error } = await supabase.functions.invoke('sponsor-create-intent', {
+        body: { 
+          packageId: pkg.id, 
+          sponsorId: sponsorId 
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
-      setStep('success');
-    } catch (error) {
-      console.error('Error creating sponsorship order:', error);
+      if (error) {
+        console.error('Function invocation error:', error);
+        throw new Error(error.message);
+      }
+
+      if (!data?.clientSecret) {
+        throw new Error('No client secret received');
+      }
+
+      // Load Stripe.js dynamically
+      const stripeScript = document.createElement('script');
+      stripeScript.src = 'https://js.stripe.com/v3/';
+      document.head.appendChild(stripeScript);
+
+      stripeScript.onload = async () => {
+        // @ts-ignore - Stripe is loaded globally
+        const stripe = window.Stripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+        
+        if (!stripe) {
+          throw new Error('Stripe failed to load');
+        }
+
+        const { error: confirmError } = await stripe.confirmCardPayment(data.clientSecret, {
+          payment_method: {
+            card: {
+              // This will trigger the Stripe payment form
+            }
+          }
+        });
+
+        if (confirmError) {
+          console.error('Payment confirmation error:', confirmError);
+          toast({
+            title: 'Payment Failed',
+            description: confirmError.message,
+            variant: 'destructive'
+          });
+        } else {
+          toast({
+            title: 'Payment Successful',
+            description: 'Your sponsorship payment has been processed. Funds are held in escrow until the event completes.',
+          });
+          setStep('success');
+        }
+      };
+
+    } catch (error: any) {
+      console.error('Checkout error:', error);
       toast({
-        title: "Error",
-        description: "Failed to submit sponsorship request. Please try again.",
-        variant: "destructive",
+        title: 'Checkout Error',
+        description: error.message || 'An unexpected error occurred',
+        variant: 'destructive'
       });
     } finally {
       setLoading(false);
@@ -73,33 +119,40 @@ export function SponsorshipCheckoutModal({
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              {new Date(pkg.start_at).toLocaleDateString()}
+              {pkg.event_start_at ? new Date(pkg.event_start_at).toLocaleDateString() : 'TBD'}
             </div>
-            {pkg.city && (
+            {pkg.event_city && (
               <div className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
-                {pkg.city}
+                {pkg.event_city}
               </div>
             )}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
-            <Badge variant="secondary">{pkg.tier} Sponsorship</Badge>
+            <Badge variant="secondary">{pkg.title} Sponsorship</Badge>
             <div className="flex items-center gap-1 text-lg font-semibold">
               <DollarSign className="h-5 w-5" />
               {(pkg.price_cents / 100).toLocaleString()}
             </div>
           </div>
 
-          {pkg.benefits && Object.keys(pkg.benefits).length > 0 && (
+          {pkg.description && (
+            <div>
+              <h4 className="font-medium mb-2">Description</h4>
+              <p className="text-sm text-muted-foreground">{pkg.description}</p>
+            </div>
+          )}
+
+          {pkg.benefits && Array.isArray(pkg.benefits) && pkg.benefits.length > 0 && (
             <div>
               <h4 className="font-medium mb-2">Package Benefits</h4>
               <div className="space-y-1 text-sm text-muted-foreground">
-                {Object.entries(pkg.benefits).map(([key, value]) => (
-                  <div key={key} className="flex justify-between">
-                    <span className="capitalize">{key.replace(/_/g, ' ')}</span>
-                    <span>{String(value)}</span>
+                {pkg.benefits.map((benefit, index) => (
+                  <div key={index} className="flex items-start">
+                    <span className="text-primary mr-2">•</span>
+                    <span>{String(benefit)}</span>
                   </div>
                 ))}
               </div>
@@ -139,12 +192,12 @@ export function SponsorshipCheckoutModal({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex justify-between">
-            <span>{pkg.tier} Sponsorship</span>
+            <span>{pkg.title} Sponsorship</span>
             <span>${(pkg.price_cents / 100).toLocaleString()}</span>
           </div>
-          <div className="flex justify-between">
-            <span>Processing Fee</span>
-            <span>$0</span>
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>Platform Fee (10%)</span>
+            <span>${((pkg.price_cents * 0.1) / 100).toLocaleString()}</span>
           </div>
           <hr />
           <div className="flex justify-between font-semibold text-lg">
@@ -166,8 +219,8 @@ export function SponsorshipCheckoutModal({
         <Button variant="outline" onClick={() => setStep('details')} className="flex-1">
           Back
         </Button>
-        <Button onClick={handleSubmitOrder} disabled={loading} className="flex-1">
-          {loading ? "Processing..." : "Submit Request"}
+        <Button onClick={handleStripeCheckout} disabled={loading} className="flex-1">
+          {loading ? "Processing..." : "Pay Now"}
         </Button>
       </div>
     </div>
@@ -179,14 +232,14 @@ export function SponsorshipCheckoutModal({
         <CheckCircle className="h-16 w-16 text-green-600" />
       </div>
       <div>
-        <h3 className="text-lg font-semibold mb-2">Request Submitted Successfully!</h3>
+        <h3 className="text-lg font-semibold mb-2">Payment Successful!</h3>
         <p className="text-muted-foreground">
-          Your sponsorship request has been sent to the event organizer for review. 
-          You'll receive an email confirmation shortly and updates as your request is processed.
+          Your sponsorship payment has been processed and is now held in escrow. 
+          You'll receive email confirmations and updates as the event approaches.
         </p>
       </div>
       <Button onClick={onSuccess} className="w-full">
-        View My Deals
+        View My Sponsorships
       </Button>
     </div>
   );
@@ -197,8 +250,8 @@ export function SponsorshipCheckoutModal({
         <DialogHeader>
           <DialogTitle>
             {step === 'details' && 'Sponsorship Details'}
-            {step === 'payment' && 'Review & Submit'}
-            {step === 'success' && 'Request Submitted'}
+            {step === 'payment' && 'Review & Pay'}
+            {step === 'success' && 'Payment Successful'}
           </DialogTitle>
         </DialogHeader>
         

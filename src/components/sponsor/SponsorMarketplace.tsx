@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useMarketplaceSponsorships } from "@/hooks/useMarketplaceSponsorships";
 import { SponsorshipCheckoutModal } from "./SponsorshipCheckoutModal";
-import { MarketplaceSponsorship } from "@/types/sponsors";
+import { SponsorshipPackage } from "@/hooks/useMarketplaceSponsorships";
 
 interface SponsorMarketplaceProps {
   sponsorId: string | null;
@@ -20,7 +20,7 @@ export function SponsorMarketplace({ sponsorId }: SponsorMarketplaceProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [minPrice, setMinPrice] = useState<number | undefined>();
   const [maxPrice, setMaxPrice] = useState<number | undefined>();
-  const [selectedPackage, setSelectedPackage] = useState<MarketplaceSponsorship | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<SponsorshipPackage | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
 
   const filters = {
@@ -31,9 +31,9 @@ export function SponsorMarketplace({ sponsorId }: SponsorMarketplaceProps) {
     max_price: maxPrice ? maxPrice * 100 : undefined, // Convert to cents
   };
 
-  const { items, loading } = useMarketplaceSponsorships(filters);
+  const { data: items = [], isLoading: loading } = useMarketplaceSponsorships(filters);
 
-  const handleBuyPackage = (item: MarketplaceSponsorship) => {
+  const handleBuyPackage = (item: SponsorshipPackage) => {
     if (!sponsorId) {
       alert("Please select a sponsor account first");
       return;
@@ -158,45 +158,45 @@ export function SponsorMarketplace({ sponsorId }: SponsorMarketplaceProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((item) => (
-            <Card key={item.package_id} className="hover:shadow-md transition-shadow">
+            <Card key={item.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
                 <CardTitle className="text-lg">{item.event_title}</CardTitle>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {new Date(item.start_at).toLocaleDateString()}
+                    {item.event_start_at ? new Date(item.event_start_at).toLocaleDateString() : 'TBD'}
                   </div>
-                  {item.city && (
+                  {item.event_city && (
                     <div className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" />
-                      {item.city}
+                      {item.event_city}
                     </div>
                   )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Badge variant="secondary">{item.tier}</Badge>
+                  <Badge variant="secondary">{item.title}</Badge>
                   <div className="flex items-center gap-1 font-semibold">
                     <DollarSign className="h-4 w-4" />
                     {(item.price_cents / 100).toLocaleString()}
                   </div>
                 </div>
                 
-                {item.category && (
-                  <Badge variant="outline">{item.category}</Badge>
+                {item.event_category && (
+                  <Badge variant="outline">{item.event_category}</Badge>
                 )}
                 
                 <div className="text-sm text-muted-foreground">
-                  {item.inventory} {item.inventory === 1 ? 'spot' : 'spots'} available
+                  {item.inventory - item.sold} of {item.inventory} spots available
                 </div>
 
-                {item.benefits && Object.keys(item.benefits).length > 0 && (
+                {item.benefits && Array.isArray(item.benefits) && item.benefits.length > 0 && (
                   <div className="text-xs">
                     <div className="font-medium mb-1">Benefits include:</div>
                     <div className="text-muted-foreground">
-                      {Object.entries(item.benefits).slice(0, 3).map(([key, value]) => (
-                        <div key={key}>{key}: {String(value)}</div>
+                      {item.benefits.slice(0, 3).map((benefit, index) => (
+                        <div key={index}>• {String(benefit)}</div>
                       ))}
                     </div>
                   </div>
@@ -206,10 +206,10 @@ export function SponsorMarketplace({ sponsorId }: SponsorMarketplaceProps) {
                   <Button 
                     size="sm" 
                     onClick={() => handleBuyPackage(item)}
-                    disabled={!sponsorId || item.inventory === 0}
+                    disabled={!sponsorId || (item.inventory - item.sold) === 0}
                     className="flex-1"
                   >
-                    {item.inventory === 0 ? 'Sold Out' : 'Buy Now'}
+                    {(item.inventory - item.sold) === 0 ? 'Sold Out' : 'Buy Now'}
                   </Button>
                   <Button size="sm" variant="outline">
                     Preview
