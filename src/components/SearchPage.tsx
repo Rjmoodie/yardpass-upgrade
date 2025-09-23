@@ -202,13 +202,13 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     const next = new URLSearchParams(params);
     if (v && v.length) next.set(k, v); else next.delete(k);
 
-    // analytics
+    // analytics (use safe access to avoid undefined reference)
     trackEvent('search_filter_change', {
       filter_type: k,
       filter_value: v || '',
       query: q,
       category: cat,
-      results_count: filteredResults.length
+      results_count: filteredResults?.length || 0
     });
 
     // recent searches (when editing the main query)
@@ -224,7 +224,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     trackEvent('search_filters_clear', {
       previous_query: q,
       previous_category: cat,
-      results_count: filteredResults.length
+      results_count: filteredResults?.length || 0
     });
     setParams(new URLSearchParams(), { replace: true });
     setVisibleCount(PAGE_SIZE);
