@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
@@ -65,6 +65,21 @@ function RedirectToEventSlug() {
     if (id) {
       // Redirect to primary event slug route
       navigate(`/e/${id}`, { replace: true });
+    }
+  }, [id, navigate]);
+  
+  return <PageLoadingSpinner />;
+}
+
+// Redirect component for legacy profile routes
+function RedirectToUserProfile() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (id) {
+      // Redirect to primary user profile route
+      navigate(`/u/${id}`, { replace: true });
     }
   }, [id, navigate]);
   
@@ -255,6 +270,9 @@ function AppContent() {
               {/* Redirect legacy event routes to primary /e/:identifier format */}
               <Route path="/events/:id" element={<RedirectToEventSlug />} />
               <Route path="/event/:id" element={<RedirectToEventSlug />} />
+              
+              {/* Redirect legacy profile routes to /u/:id format */}
+              <Route path="/profile/:id" element={<RedirectToUserProfile />} />
               
               <Route path="/u/:username" element={<UserProfilePage />} />
               <Route path="/org/:id" element={<OrganizationProfilePage />} />

@@ -310,7 +310,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   const handleAuthorClick = useCallback(
     (authorId: string) => {
-      navigate(`/profile/${authorId}`);
+      navigate(`/u/${authorId}`);
     },
     [navigate]
   );
