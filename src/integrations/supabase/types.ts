@@ -3622,6 +3622,7 @@ export type Database = {
           event_location: string
           event_organizer: string
           event_organizer_id: string
+          event_owner_context_type: string
           event_starts_at: string
           event_title: string
           item_id: string

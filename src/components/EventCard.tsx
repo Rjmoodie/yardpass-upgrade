@@ -67,9 +67,15 @@ export const EventCard = memo(function EventCard({
     (e?: React.MouseEvent) => {
       e?.stopPropagation?.();
       if (!item.event_organizer_id) return;
-      navigate(`/u/${item.event_organizer_id}`);
+      
+      // Navigate to organization page if event is owned by organization, otherwise user profile
+      if (item.event_owner_context_type === 'organization') {
+        navigate(`/org/${item.event_organizer_id}`);
+      } else {
+        navigate(`/u/${item.event_organizer_id}`);
+      }
     },
-    [item.event_organizer_id, navigate]
+    [item.event_organizer_id, item.event_owner_context_type, navigate]
   );
 
   const onKeyDownRoot = useCallback(
