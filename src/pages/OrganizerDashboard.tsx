@@ -282,7 +282,6 @@ export default function OrganizerDashboard() {
             {!!organizations.length && (
               <OrgSwitcher
                 organizations={organizations}
-                includePersonal
                 value={selectedOrganization}   // null => personal
                 onSelect={(value) => {
                   const next = new URLSearchParams(searchParams);
