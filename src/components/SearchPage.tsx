@@ -134,27 +134,81 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       category: cat !== 'All' ? cat : null,
       dateFrom: from || null,
       dateTo: to || null,
+      onlyEvents: true, // Filter to events only at the source
     });
   }, [cat, from, to, setFilters]);
 
-  // Transform search results to match EventCard props
-  const transformedResults = searchResults.map(result => ({
-    id: result.item_id,
-    title: result.title,
-    description: result.description || result.content,
-    organizer: result.organizer_name || 'Organizer',
-    organizerId: result.item_id,
-    category: result.category || 'Other',
-    date: result.start_at ? new Date(result.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBA',
-    start_at: result.start_at,
-    location: result.location || 'TBA',
-    coverImage: result.cover_image_url || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
-    attendeeCount: Math.floor(Math.random()*900)+50, // TODO: get real metrics
-    priceFrom: Math.floor(Math.random()*100)+15,     // TODO: get real pricing
-    rating: 4 + Math.random(),
-    type: result.item_type,
-    parentEventId: result.parent_event_id,
-  }));
+  // Keep only true events (ignore event_posts, orgs, etc.)
+  const eventHits = useMemo(() => {
+    return (searchResults || []).filter(r =>
+      r.item_type === 'event' && r.item_id
+    );
+  }, [searchResults]);
+
+  // Verify event pages exist & are public
+  const [validEventIds, setValidEventIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const ids = Array.from(new Set(
+      eventHits.map(h => h.item_id).filter(Boolean)
+    ));
+    if (ids.length === 0) {
+      setValidEventIds(new Set());
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, visibility')
+        .in('id', ids);
+
+      if (cancelled) return;
+      if (error) {
+        console.warn('verify events failed:', error);
+        // fallback: allow all ids
+        setValidEventIds(new Set(ids));
+        return;
+      }
+
+      const allowed = new Set(
+        (data || [])
+          .filter(e => e.visibility === 'public')
+          .map(e => e.id)
+      );
+      setValidEventIds(allowed);
+    })();
+
+    return () => { cancelled = true; };
+  }, [eventHits]);
+
+  // Transform verified events only
+  const transformedResults = useMemo(() => {
+    const rows = eventHits.filter(h => validEventIds.has(h.item_id));
+    return rows.map(result => ({
+      id: result.item_id,
+      title: result.title,
+      description: result.description || result.content || '',
+      organizer: result.organizer_name || 'Organizer',
+      organizerId: result.item_id,
+      category: result.category || 'Other',
+      date: result.start_at
+        ? new Date(result.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+        : 'TBA',
+      start_at: result.start_at,
+      location: result.location || 'TBA',
+      coverImage:
+        result.cover_image_url ||
+        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
+      attendeeCount: undefined, // TODO: get real metrics
+      priceFrom: undefined,     // TODO: get real pricing
+      rating: 4.2,
+      type: 'event',
+      parentEventId: null,
+    }));
+  }, [eventHits, validEventIds]);
 
   // Client-side filtering for price (until server-side is implemented)
   const filteredResults = useMemo(() => {
