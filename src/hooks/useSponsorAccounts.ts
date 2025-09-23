@@ -6,6 +6,7 @@ export function useSponsorAccounts(userId?: string) {
   const [accounts, setAccounts] = useState<Sponsor[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasSponsorAccess, setHasSponsorAccess] = useState(false);
 
   const createSponsor = useCallback(async (data: {
     name: string;
@@ -77,9 +78,11 @@ export function useSponsorAccounts(userId?: string) {
       if (sponsorError) throw sponsorError;
 
       setAccounts(sponsors ?? []);
+      setHasSponsorAccess((sponsors ?? []).length > 0);
     } catch (err) {
       console.error('Error fetching sponsor accounts:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch sponsor accounts');
+      setHasSponsorAccess(false);
     } finally {
       setLoading(false);
     }
@@ -89,5 +92,5 @@ export function useSponsorAccounts(userId?: string) {
     fetchSponsors();
   }, [fetchSponsors]);
 
-  return { accounts, loading, error, refresh: fetchSponsors, createSponsor };
+  return { accounts, loading, error, hasSponsorAccess, refresh: fetchSponsors, createSponsor };
 }
