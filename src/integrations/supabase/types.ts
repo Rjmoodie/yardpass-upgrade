@@ -3604,12 +3604,19 @@ export type Database = {
         }[]
       }
       get_home_feed_v2: {
-        Args: {
-          p_cursor_id?: string
-          p_cursor_ts?: string
-          p_limit?: number
-          p_user?: string
-        }
+        Args:
+          | {
+              p_cursor_id?: string
+              p_cursor_ts?: string
+              p_limit?: number
+              p_user?: string
+            }
+          | {
+              p_cursor_id?: string
+              p_cursor_ts?: string
+              p_limit?: number
+              p_user?: string
+            }
         Returns: {
           author_badge: string
           author_id: string
