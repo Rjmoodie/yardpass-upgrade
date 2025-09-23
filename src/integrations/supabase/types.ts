@@ -1207,6 +1207,57 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory_operations: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json | null
+          operation_type: string
+          order_id: string | null
+          quantity: number
+          session_id: string | null
+          tier_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          operation_type: string
+          order_id?: string | null
+          quantity: number
+          session_id?: string | null
+          tier_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          operation_type?: string
+          order_id?: string | null
+          quantity?: number
+          session_id?: string | null
+          tier_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_operations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_operations_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kv_store_d42c04e8: {
         Row: {
           key: string
@@ -2424,6 +2475,60 @@ export type Database = {
           },
         ]
       }
+      ticket_holds: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          metadata: Json | null
+          order_id: string | null
+          quantity: number
+          session_id: string | null
+          status: string
+          tier_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          metadata?: Json | null
+          order_id?: string | null
+          quantity: number
+          session_id?: string | null
+          status?: string
+          tier_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          order_id?: string | null
+          quantity?: number
+          session_id?: string | null
+          status?: string
+          tier_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_holds_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_holds_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_tiers: {
         Row: {
           badge_label: string | null
@@ -2431,10 +2536,12 @@ export type Database = {
           currency: string
           event_id: string
           id: string
+          issued_quantity: number
           max_per_order: number | null
           name: string
           price_cents: number
           quantity: number | null
+          reserved_quantity: number
           sales_end: string | null
           sales_start: string | null
           sold_quantity: number | null
@@ -2448,10 +2555,12 @@ export type Database = {
           currency?: string
           event_id: string
           id?: string
+          issued_quantity?: number
           max_per_order?: number | null
           name: string
           price_cents?: number
           quantity?: number | null
+          reserved_quantity?: number
           sales_end?: string | null
           sales_start?: string | null
           sold_quantity?: number | null
@@ -2465,10 +2574,12 @@ export type Database = {
           currency?: string
           event_id?: string
           id?: string
+          issued_quantity?: number
           max_per_order?: number | null
           name?: string
           price_cents?: number
           quantity?: number | null
+          reserved_quantity?: number
           sales_end?: string | null
           sales_start?: string | null
           sold_quantity?: number | null
@@ -3489,6 +3600,10 @@ export type Database = {
         Args: { p_event: string; p_user: string }
         Returns: boolean
       }
+      cleanup_expired_holds: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       cleanup_guest_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -3496,6 +3611,10 @@ export type Database = {
       cleanup_old_keys: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      consume_ticket_holds: {
+        Args: { p_hold_ids: string[]; p_order_id?: string }
+        Returns: Json
       }
       create_event_series: {
         Args: {
@@ -3659,6 +3778,10 @@ export type Database = {
           reason: string
           score: number
         }[]
+      }
+      get_tier_inventory_status: {
+        Args: { p_tier_id: string }
+        Returns: Json
       }
       get_top_posts_analytics: {
         Args: { p_event_id: string; p_limit?: number; p_metric?: string }
@@ -3833,6 +3956,33 @@ export type Database = {
       refresh_video_analytics: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      release_ticket_holds: {
+        Args: {
+          p_hold_ids?: string[]
+          p_reason?: string
+          p_session_id?: string
+        }
+        Returns: Json
+      }
+      reserve_tickets_atomic: {
+        Args: {
+          p_expires_minutes?: number
+          p_quantity: number
+          p_session_id?: string
+          p_tier_id: string
+          p_user_id?: string
+        }
+        Returns: Json
+      }
+      reserve_tickets_batch: {
+        Args: {
+          p_expires_minutes?: number
+          p_reservations: Json
+          p_session_id?: string
+          p_user_id?: string
+        }
+        Returns: Json
       }
       search_all: {
         Args: {
