@@ -1514,6 +1514,7 @@ export type Database = {
           currency: string
           event_id: string
           fees_cents: number
+          hold_ids: string[] | null
           id: string
           paid_at: string | null
           payout_destination_id: string | null
@@ -1532,6 +1533,7 @@ export type Database = {
           currency?: string
           event_id: string
           fees_cents?: number
+          hold_ids?: string[] | null
           id?: string
           paid_at?: string | null
           payout_destination_id?: string | null
@@ -1550,6 +1552,7 @@ export type Database = {
           currency?: string
           event_id?: string
           fees_cents?: number
+          hold_ids?: string[] | null
           id?: string
           paid_at?: string | null
           payout_destination_id?: string | null
@@ -3749,6 +3752,19 @@ export type Database = {
           media_urls: string[]
           metrics: Json
           sort_ts: string
+        }[]
+      }
+      get_inventory_health: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          available: number
+          event_id: string
+          health_status: string
+          issued_quantity: number
+          reserved_quantity: number
+          tier_id: string
+          tier_name: string
+          total_quantity: number
         }[]
       }
       get_org_analytics: {
