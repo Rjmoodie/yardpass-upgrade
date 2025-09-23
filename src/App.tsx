@@ -71,20 +71,6 @@ function RedirectToEventSlug() {
   return <PageLoadingSpinner />;
 }
 
-// Redirect component for legacy profile routes
-function RedirectToUserProfile() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  
-  useEffect(() => {
-    if (id) {
-      // Redirect to primary user profile route
-      navigate(`/u/${id}`, { replace: true });
-    }
-  }, [id, navigate]);
-  
-  return <PageLoadingSpinner />;
-}
 
 // Scanner route component
 function ScannerRouteComponent() {
@@ -160,6 +146,20 @@ function AppContent() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+
+  // Redirect component for legacy profile routes
+  function RedirectToUserProfile() {
+    const { id } = useParams<{ id: string }>();
+    
+    useEffect(() => {
+      if (id) {
+        // Redirect to primary user profile route
+        navigate(`/u/${id}`, { replace: true });
+      }
+    }, [id]);
+    
+    return <PageLoadingSpinner />;
+  }
 
   useEffect(() => {
     const onShareModalOpen = (e: CustomEvent<SharePayload>) => {
