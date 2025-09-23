@@ -99,6 +99,27 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
+    // Reserve tickets atomically using the new system
+    console.log('🔒 Attempting atomic ticket reservation...');
+    const reservationItems = order_data.items.map((item: any) => ({
+      tier_id: item.tier_id,
+      quantity: item.quantity
+    }));
+
+    const { data: reservationResult, error: reservationError } = await supabaseService
+      .rpc('reserve_tickets_batch', {
+        p_user_id: order_data.user_id,
+        p_items: reservationItems,
+        p_expires_minutes: 15
+      });
+
+    if (reservationError || !reservationResult?.success) {
+      console.error('❌ Ticket reservation failed:', reservationError || reservationResult?.error);
+      throw new Error(reservationResult?.error || 'Failed to reserve tickets');
+    }
+
+    console.log('✅ Tickets reserved successfully:', reservationResult);
+
     // Calculate amounts using the specified fee structure
     const faceValueCents = order_data.items.reduce((total: number, item: any) => {
       return total + (item.unit_price_cents * item.quantity);
@@ -133,6 +154,7 @@ serve(async (req) => {
         event_id: order_data.event_id,
         user_id: order_data.user_id,
         platform_fee: applicationFeeCents.toString(),
+        hold_ids: JSON.stringify(reservationResult.hold_ids || []),
       },
     };
 
@@ -166,6 +188,7 @@ serve(async (req) => {
         total_cents: totalCents,
         payout_destination_owner: payout_destination?.context_type,
         payout_destination_id: payout_destination?.context_id,
+        hold_ids: reservationResult.hold_ids || [],
       })
       .select()
       .single();
@@ -209,8 +232,30 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in enhanced-checkout:', error);
+    
+    // If we have order_data and items, try to release any holds
+    if (order_data?.items && order_data?.user_id) {
+      try {
+        console.log('🔄 Attempting to release holds due to error...');
+        await supabaseService.rpc('release_tickets_batch', {
+          p_user_id: order_data.user_id,
+          p_items: order_data.items.map((item: any) => ({
+            tier_id: item.tier_id,
+            quantity: item.quantity
+          }))
+        });
+        console.log('✅ Holds released successfully');
+      } catch (releaseError) {
+        console.error('❌ Failed to release holds:', releaseError);
+      }
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: false,
+        error: error.message,
+        error_code: 'CHECKOUT_FAILED'
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,

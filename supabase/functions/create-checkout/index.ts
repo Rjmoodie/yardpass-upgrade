@@ -118,24 +118,26 @@ serve(async (req) => {
     if (!tiers || tiers.length !== tierIds.length) throw new Error("One or more tiers do not belong to this event");
     logStep("Ticket tiers found", { count: tiers.length });
 
-    // Validate ticket quantities (client-side guard + server-side)
-    for (const selection of ticketSelections) {
-      const tier = tiers.find((t) => t.id === selection.tierId);
-      if (!tier) throw new Error(`Tier not found: ${selection.tierId}`);
+    // Reserve tickets atomically using the new system
+    logStep("Attempting atomic ticket reservation");
+    const reservationItems = ticketSelections.map(selection => ({
+      tier_id: selection.tierId,
+      quantity: selection.quantity
+    }));
 
-      if (selection.quantity > tier.quantity) {
-        throw new Error(
-          `Not enough tickets available for ${tier.name}. Available: ${tier.quantity}, Requested: ${selection.quantity}`,
-        );
-      }
+    const { data: reservationResult, error: reservationError } = await supabaseService
+      .rpc('reserve_tickets_batch', {
+        p_user_id: user.id,
+        p_items: reservationItems,
+        p_expires_minutes: 15
+      });
 
-      if (tier.max_per_order && selection.quantity > tier.max_per_order) {
-        throw new Error(
-          `Cannot purchase more than ${tier.max_per_order} tickets per order for ${tier.name}`,
-        );
-      }
+    if (reservationError || !reservationResult?.success) {
+      logStep("Ticket reservation failed", reservationError || reservationResult?.error);
+      throw new Error(reservationResult?.error || 'Failed to reserve tickets');
     }
-    logStep("Ticket quantity validation passed");
+
+    logStep("Tickets reserved successfully", reservationResult);
 
     // Calculate fees and total
     const calculateTotal = (faceValueCents: number) => {
@@ -215,6 +217,7 @@ serve(async (req) => {
           event_id: eventId,
           user_id: user.id,
           ticket_selections: JSON.stringify(ticketSelections),
+          hold_ids: JSON.stringify(reservationResult.hold_ids || []),
         },
       },
       { idempotencyKey }
@@ -227,28 +230,7 @@ serve(async (req) => {
       0
     );
 
-    // Reserve tickets defensively: conditional decrement to reduce race conditions
-    for (const selection of ticketSelections) {
-      const tier = tiers.find((t) => t.id === selection.tierId)!;
-
-      // Update only if enough remain at update time.
-      const { data: updatedRows, error: reserveError } = await supabaseService
-        .from("ticket_tiers")
-        .update({ quantity: tier.quantity - selection.quantity })
-        .eq("id", tier.id)
-        .gte("quantity", selection.quantity) // ensure quantity still available
-        .select("id, quantity");
-
-      if (reserveError) {
-        logStep("Failed to reserve tickets", { tierId: tier.id, error: reserveError.message });
-        throw new Error(`Failed to reserve tickets for ${tier.name}`);
-      }
-      if (!updatedRows || updatedRows.length === 0) {
-        logStep("Reservation conflict (insufficient quantity at update time)", { tierId: tier.id });
-        throw new Error(`Sorry, ${tier.name} just sold out or has fewer tickets left than requested.`);
-      }
-    }
-    logStep("Tickets reserved successfully");
+    logStep("Tickets already reserved via atomic system");
 
     // Create pending order
     const { data: order, error: orderError } = await supabaseService
@@ -261,18 +243,20 @@ serve(async (req) => {
         subtotal_cents: totalAmount,
         total_cents: totalAmount,
         currency: "USD",
+        hold_ids: reservationResult.hold_ids || [],
       })
       .select()
       .single();
 
     if (orderError) {
       // Release the reserved tickets if creating the order fails
-      for (const selection of ticketSelections) {
-        const tier = tiers.find((t) => t.id === selection.tierId)!;
-        await supabaseService
-          .from("ticket_tiers")
-          .update({ quantity: tier.quantity + selection.quantity })
-          .eq("id", tier.id);
+      try {
+        await supabaseService.rpc('release_tickets_batch', {
+          p_user_id: user.id,
+          p_items: reservationItems
+        });
+      } catch (releaseError) {
+        logStep("Failed to release holds after order creation failure", releaseError);
       }
       throw new Error(`Order creation failed: ${orderError.message}`);
     }
@@ -300,6 +284,10 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in create-checkout", { message: errorMessage });
-    return createErrorResponse(errorMessage);
+    
+    return createErrorResponse(errorMessage, {
+      success: false,
+      error_code: 'CHECKOUT_FAILED'
+    });
   }
 });
