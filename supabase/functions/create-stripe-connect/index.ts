@@ -84,12 +84,43 @@ serve(async (req) => {
     if (existingAccount?.stripe_connect_id) {
       stripeAccountId = existingAccount.stripe_connect_id;
     } else {
-      // Create new Stripe Connect account
-      const account = await stripe.accounts.create({
-        type: 'express',
-        country: 'US', // Default to US, should be configurable
-        email: userData.user.email,
-      });
+    // Check circuit breaker before creating account
+      const correlationId = crypto.randomUUID();
+      const { data: cb } = await supabaseService.rpc('check_circuit_breaker', { p_service_id: 'stripe_api' });
+      if (!cb?.can_proceed) {
+        return new Response(JSON.stringify({ 
+          error: 'Stripe API temporarily unavailable',
+          correlation_id: correlationId 
+        }), { 
+          status: 503, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      // Create new Stripe Connect account with resilience
+      let account;
+      try {
+        account = await stripe.accounts.create({
+          type: 'express',
+          country: 'US', // Default to US, should be configurable
+          email: userData.user.email,
+        });
+
+        // Success - close circuit breaker
+        await supabaseService.rpc('update_circuit_breaker_state', { 
+          p_service_id: 'stripe_api', 
+          p_success: true 
+        });
+
+      } catch (stripeError) {
+        // Open/increment circuit breaker
+        await supabaseService.rpc('update_circuit_breaker_state', { 
+          p_service_id: 'stripe_api', 
+          p_success: false, 
+          p_error_message: stripeError.message 
+        });
+        throw stripeError;
+      }
 
       stripeAccountId = account.id;
 
@@ -118,13 +149,31 @@ serve(async (req) => {
       }
     }
 
-    // Create account link for onboarding
-    const accountLink = await stripe.accountLinks.create({
-      account: stripeAccountId,
-      return_url: return_url || `${req.headers.get("origin")}/dashboard?tab=payouts`,
-      refresh_url: refresh_url || `${req.headers.get("origin")}/dashboard?tab=payouts`,
-      type: 'account_onboarding',
-    });
+    // Create account link for onboarding with resilience
+    let accountLink;
+    try {
+      accountLink = await stripe.accountLinks.create({
+        account: stripeAccountId,
+        return_url: return_url || `${req.headers.get("origin")}/dashboard?tab=payouts`,
+        refresh_url: refresh_url || `${req.headers.get("origin")}/dashboard?tab=payouts`,
+        type: 'account_onboarding',
+      });
+
+      // Success - close circuit breaker
+      await supabaseService.rpc('update_circuit_breaker_state', { 
+        p_service_id: 'stripe_api', 
+        p_success: true 
+      });
+
+    } catch (stripeError) {
+      // Open/increment circuit breaker
+      await supabaseService.rpc('update_circuit_breaker_state', { 
+        p_service_id: 'stripe_api', 
+        p_success: false, 
+        p_error_message: stripeError.message 
+      });
+      throw stripeError;
+    }
 
     return new Response(
       JSON.stringify({

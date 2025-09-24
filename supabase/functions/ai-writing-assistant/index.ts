@@ -1,11 +1,10 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import OpenAI from "npm:openai@4.56.0";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 if (!OPENAI_API_KEY) {
   console.warn("[ai-writing-assistant] OPENAI_API_KEY is missing");
 }
-const openai = new OpenAI({ apiKey: OPENAI_API_KEY ?? "" });
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,23 +55,30 @@ Channel: ${ctx.messageType || "email"}.
 Use US English, friendly/professional tone unless otherwise requested.`;
 
 async function completeJSON<T = any>(system: string, user: string) {
-  const resp = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0.6,
-    messages: [
-      { role: "system", content: system },
-      {
-        role: "user",
-        content:
-          user +
-          `
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      temperature: 0.6,
+      messages: [
+        { role: 'system', content: system },
+        {
+          role: 'user',
+          content: user + `
 
 Return strictly valid JSON. Top-level keys allowed: "text", "variants", "insights".`,
-      },
-    ],
-    response_format: { type: "json_object" as const },
+        },
+      ],
+      response_format: { type: 'json_object' },
+    }),
   });
-  const raw = resp.choices[0]?.message?.content ?? "{}";
+
+  const data = await response.json();
+  const raw = data.choices[0]?.message?.content ?? "{}";
   try {
     return JSON.parse(raw) as T;
   } catch {

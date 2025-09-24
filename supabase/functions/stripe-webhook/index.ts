@@ -12,8 +12,11 @@ serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  const correlationId = crypto.randomUUID();
+  const t0 = performance.now();
+
   try {
-    logStep("Webhook received");
+    logStep("Webhook received", { correlationId });
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
@@ -35,11 +38,11 @@ serve(async (req) => {
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err) {
-      logStep("Webhook signature verification failed", { error: err.message });
+      logStep("Webhook signature verification failed", { error: err.message, correlationId });
       throw new Error(`Webhook signature verification failed: ${err.message}`);
     }
 
-    logStep("Event received", { type: event.type, id: event.id });
+    logStep("Event received", { type: event.type, id: event.id, correlationId });
 
     // Create Supabase service client
     const supabaseService = createClient(
@@ -236,14 +239,75 @@ serve(async (req) => {
       }
 
     } else {
-      logStep("Unhandled webhook event", { type: event.type });
+      logStep("Unhandled webhook event", { type: event.type, correlationId });
     }
 
-    return createResponse({ received: true });
+    // Log successful processing
+    await supabaseService.rpc('log_request', {
+      p_correlation_id: correlationId,
+      p_source_type: 'edge_function',
+      p_function_name: 'stripe-webhook',
+      p_http_method: 'POST',
+      p_url: '/stripe-webhook',
+      p_headers: Object.fromEntries(req.headers.entries()),
+      p_body: { type: event.type, id: event.id },
+      p_response_status: 200,
+      p_response_body: { received: true },
+      p_execution_time_ms: Math.round(performance.now() - t0),
+      p_error_message: null
+    });
+
+    return createResponse({ received: true, correlationId });
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in stripe-webhook", { message: errorMessage });
-    return createErrorResponse(errorMessage);
+    logStep("ERROR in stripe-webhook", { message: errorMessage, correlationId });
+    
+    // Create Supabase service client for error logging
+    const supabaseService = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+
+    try {
+      // Try to get event for DLQ
+      const body = await req.text();
+      const signature = req.headers.get("stripe-signature");
+      const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+      
+      if (signature && webhookSecret) {
+        const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", { apiVersion: "2023-10-16" });
+        const event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+        
+        // Enqueue to DLQ for later processing
+        await supabaseService.rpc('dlq_enqueue_webhook', {
+          p_correlation_id: correlationId,
+          p_webhook_type: event.type,
+          p_payload: event,
+          p_original_timestamp: event.created ? new Date(event.created * 1000).toISOString() : new Date().toISOString(),
+          p_failure_reason: errorMessage.slice(0, 500)
+        });
+      }
+
+      // Log the error
+      await supabaseService.rpc('log_request', {
+        p_correlation_id: correlationId,
+        p_source_type: 'edge_function',
+        p_function_name: 'stripe-webhook',
+        p_http_method: 'POST',
+        p_url: '/stripe-webhook',
+        p_headers: Object.fromEntries(req.headers.entries()),
+        p_body: {},
+        p_response_status: 500,
+        p_response_body: { error: errorMessage },
+        p_execution_time_ms: Math.round(performance.now() - t0),
+        p_error_message: errorMessage
+      });
+    } catch (logError) {
+      console.error('Failed to log error or enqueue to DLQ:', logError);
+    }
+
+    return createErrorResponse(errorMessage, correlationId);
   }
 });
