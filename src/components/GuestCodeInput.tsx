@@ -30,7 +30,7 @@ export function GuestCodeInput({ eventId, onCodeValidated, onClose }: GuestCodeI
 
     setValidating(true);
     try {
-      // Join tier name if present
+      // Get guest code data
       const { data, error } = await supabase
         .from('guest_codes')
         .select(`
@@ -39,8 +39,7 @@ export function GuestCodeInput({ eventId, onCodeValidated, onClose }: GuestCodeI
           tier_id,
           max_uses,
           used_count,
-          expires_at,
-          ticket_tiers: tier_id ( name )
+          expires_at
         `)
         .eq('event_id', eventId)
         .eq('code', trimmed)
@@ -52,6 +51,17 @@ export function GuestCodeInput({ eventId, onCodeValidated, onClose }: GuestCodeI
         setIsValid(false);
         toast({ title: 'Invalid code', description: 'Guest code not found', variant: 'destructive' });
         return;
+      }
+
+      // Get tier name if tier_id exists
+      let tierName: string | undefined;
+      if (data.tier_id) {
+        const { data: tierData } = await supabase
+          .from('ticket_tiers')
+          .select('name')
+          .eq('id', data.tier_id)
+          .maybeSingle();
+        tierName = tierData?.name;
       }
 
       if (data.expires_at && new Date(data.expires_at) < new Date()) {
@@ -73,7 +83,7 @@ export function GuestCodeInput({ eventId, onCodeValidated, onClose }: GuestCodeI
         id: data.id,
         code: data.code,
         tier_id: data.tier_id ?? undefined,
-        tier_name: data.ticket_tiers?.name ?? undefined,
+        tier_name: tierName,
       });
     } catch (e: any) {
       console.error('Error validating guest code:', e);

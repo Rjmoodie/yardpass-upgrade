@@ -192,7 +192,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="guest@example.com"
-                  required={guestType !== 'guest_code'}
+                  required={guestType === 'complimentary_ticket' || guestType === 'invite_only'}
                 />
               </div>
             )}
