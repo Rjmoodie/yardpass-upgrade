@@ -80,6 +80,7 @@ export async function fetchHomeFeed(limit: number = 3): Promise<HomeFeedEvent[]>
         )
       `)
       .eq('visibility', 'public')
+      .gte('start_at', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(limit);
 

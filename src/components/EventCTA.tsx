@@ -19,15 +19,18 @@ export function EventCTA({
   onGetTickets: () => void;
   onDetails: () => void;
 }) {
-  const timeToStart = useMemo(() => {
-    if (!startAtISO) return null;
+  const { timeToStart, isPastEvent } = useMemo(() => {
+    if (!startAtISO) return { timeToStart: null, isPastEvent: false };
     const diffMs = new Date(startAtISO).getTime() - Date.now();
-    if (diffMs <= 0) return 'Live or ended';
+    const isPast = diffMs <= 0;
+    
+    if (isPast) return { timeToStart: 'Sales ended', isPastEvent: true };
+    
     const hours = Math.floor(diffMs / 3.6e6);
     const mins = Math.floor((diffMs % 3.6e6) / 6e4);
-    if (hours < 1) return `Starts in ${mins}m`;
-    if (hours < 48) return `Starts in ${hours}h`;
-    return new Date(startAtISO).toLocaleString();
+    if (hours < 1) return { timeToStart: `Starts in ${mins}m`, isPastEvent: false };
+    if (hours < 48) return { timeToStart: `Starts in ${hours}h`, isPastEvent: false };
+    return { timeToStart: new Date(startAtISO).toLocaleString(), isPastEvent: false };
   }, [startAtISO]);
 
   const headline =
@@ -63,8 +66,15 @@ export function EventCTA({
         <Button size="sm" variant="outline" onClick={onDetails} className="h-7 px-2 text-xs">
           Details
         </Button>
-        <Button size="sm" onClick={onGetTickets} className="h-7 px-2 text-xs">
-          <Ticket className="w-3 h-3 mr-1" /> Get Tickets
+        <Button 
+          size="sm" 
+          onClick={onGetTickets} 
+          disabled={isPastEvent}
+          className="h-7 px-2 text-xs" 
+          variant={isPastEvent ? "secondary" : "default"}
+        >
+          <Ticket className="w-3 h-3 mr-1" /> 
+          {isPastEvent ? "Sales Ended" : "Get Tickets"}
         </Button>
       </div>
     </div>
