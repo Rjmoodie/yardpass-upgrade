@@ -126,7 +126,7 @@ export default function EventSlugPage() {
           const [{ data: atts }, { count }] = await Promise.all([
             supabase
               .from('tickets')
-              .select('owner_user_id, user_profiles!inner(id, display_name, photo_url)')
+              .select('owner_user_id, user_profiles!tickets_owner_user_id_fkey(id, display_name, photo_url)')
               .eq('event_id', ev.id)
               .in('status', ['issued', 'transferred', 'redeemed'])
               .limit(12),
