@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
+// Using direct fetch to avoid npm dependency issues
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -120,12 +120,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     const html = generatePurchaseConfirmationHtml(data);
 
-    const emailResponse = await resend.emails.send({
-      from: "YardPass <onboarding@resend.dev>",
-      to: [data.customerEmail],
-      subject: `Ticket Confirmation - ${data.eventTitle}`,
-      html,
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: "YardPass <onboarding@resend.dev>",
+        to: [data.customerEmail],
+        subject: `Ticket Confirmation - ${data.eventTitle}`,
+        html,
+      }),
     });
+
+    if (!response.ok) {
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const emailResponse = await response.json();
 
     console.log("Purchase confirmation email sent:", emailResponse);
 

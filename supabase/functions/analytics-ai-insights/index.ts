@@ -1,8 +1,7 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import OpenAI from "npm:openai@4.56.0";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const openai = new OpenAI({ apiKey: OPENAI_API_KEY ?? "" });
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,19 +71,25 @@ serve(async (req) => {
       }`;
     }
 
-    const responseFormat: any = { type: "json_object" };
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      response_format: responseFormat,
-      temperature: 0.3,
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+      }),
     });
 
-    const result = JSON.parse(completion.choices[0].message.content || "{}");
+    const data = await response.json();
+    const result = JSON.parse(data.choices[0]?.message?.content || "{}");
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -94,7 +99,7 @@ serve(async (req) => {
     console.error("AI insights error:", error);
     return new Response(JSON.stringify({ 
       error: "Failed to generate insights",
-      details: error.message 
+      details: (error as Error).message 
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

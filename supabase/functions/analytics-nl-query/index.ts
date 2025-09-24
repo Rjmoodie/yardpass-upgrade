@@ -1,9 +1,8 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import OpenAI from "npm:openai@4.56.0";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const openai = new OpenAI({ apiKey: OPENAI_API_KEY ?? "" });
 
 const supabaseClient = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -78,17 +77,25 @@ IMPORTANT: To filter by organization, use one of these patterns:
     
     Focus on providing actionable analytics insights.`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.1,
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+      }),
     });
 
-    const queryPlan = JSON.parse(completion.choices[0].message.content || "{}");
+    const data = await response.json();
+    const queryPlan = JSON.parse(data.choices[0]?.message?.content || "{}");
 
     // Execute the generated SQL query
     try {

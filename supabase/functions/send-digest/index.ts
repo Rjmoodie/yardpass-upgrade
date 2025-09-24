@@ -1,14 +1,13 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "npm:resend@4.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 async function renderHtml(userName: string, recs: any[]) {
   const items = recs.map(r => `
@@ -74,12 +73,23 @@ serve(async (req) => {
 
     const html = await renderHtml(userRow.display_name ?? "", recs);
 
-    await resend.emails.send({
-      from: "YardPass <updates@yardpass.app>",
-      to: [userRow.email],
-      subject: reason === "ticket_intent" ? "Still thinking about these?" : "Your weekly picks",
-      html,
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: "YardPass <updates@yardpass.app>",
+        to: [userRow.email],
+        subject: reason === "ticket_intent" ? "Still thinking about these?" : "Your weekly picks",
+        html,
+      }),
     });
+
+    if (!response.ok) {
+      throw new Error(`Resend API error: ${response.status}`);
+    }
 
     console.log(`Successfully sent ${reason} email to ${userRow.email}`);
     return new Response(JSON.stringify({ success: true }), {

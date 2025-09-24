@@ -227,6 +227,6 @@ Respond as: {"text":"cleaned copy"}
         return bad("Unknown action");
     }
   } catch (e) {
-    return bad("Assistant failure", 500, e?.message ?? e);
+    return bad("Assistant failure", 500, (e as Error)?.message ?? e);
   }
 });
