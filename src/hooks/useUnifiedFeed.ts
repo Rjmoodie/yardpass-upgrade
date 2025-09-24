@@ -80,14 +80,11 @@ export function useUnifiedFeed(userId?: string) {
 
     try {
       console.log('🚀 Starting feed fetch with params:', { userId, cursor });
-      console.error('🔥 FORCED ERROR TEST - This should appear in console');
-      alert('Feed hook is running!'); // This will show if the hook executes at all
       
-      const { data, error } = await supabase.rpc('get_home_feed_v2', {
-        p_user: userId || null,
+      const { data, error } = await supabase.rpc('get_home_feed', {
+        p_user_id: userId || null,
         p_limit: 20,
-        p_cursor_ts: cursor?.ts ?? null,
-        p_cursor_id: cursor?.id ?? null,
+        p_offset: 0, // For now, we'll use the existing function and adapt pagination later
       });
 
       console.log('📊 RPC Response:', { error, dataExists: !!data, dataType: typeof data, dataLength: Array.isArray(data) ? data.length : 'not array' });
