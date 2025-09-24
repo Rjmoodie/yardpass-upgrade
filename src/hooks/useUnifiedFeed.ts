@@ -79,6 +79,8 @@ export function useUnifiedFeed(userId?: string) {
     abortRef.current = ac;
 
     try {
+      console.log('🚀 Starting feed fetch with params:', { userId, cursor });
+      
       const { data, error } = await supabase.rpc('get_home_feed_v2', {
         p_user: userId || null,
         p_limit: 20,
@@ -86,7 +88,12 @@ export function useUnifiedFeed(userId?: string) {
         p_cursor_id: cursor?.id ?? null,
       });
 
-      if (error) throw error;
+      console.log('📊 RPC Response:', { error, dataExists: !!data, dataType: typeof data, dataLength: Array.isArray(data) ? data.length : 'not array' });
+
+      if (error) {
+        console.error('❌ RPC Error:', error);
+        throw error;
+      }
 
       console.log('🔍 Feed data received:', { data, dataType: typeof data, dataLength: data?.length });
       const newItems: FeedItem[] = (data ?? []) as any[];
