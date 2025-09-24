@@ -70,26 +70,19 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   // Build nav items from role
   const navItems = useMemo(() => {
-    const items = (
-      [
-        { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
-        { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
-        { id: 'create-event' as Screen, path: '/create-event', icon: Plus, label: 'Create', show: userRole === 'organizer' },
-        { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: userRole === 'attendee' },
-        // Attendees see Tickets; organizers see Scan
-        {
-          id: (userRole === 'organizer' ? 'scanner' : 'tickets') as Screen,
-          path: userRole === 'organizer' ? '/scanner' : '/tickets',
-          icon: userRole === 'organizer' ? Scan : Ticket,
-          label: userRole === 'organizer' ? 'Scan' : 'Tickets',
-          show: true,
-        },
-        { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
-        { id: 'analytics' as Screen, path: '/analytics', icon: TrendingUp, label: 'Analytics', show: userRole === 'organizer' },
-        { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
-        { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
-      ] as const
-    ).filter((i) => i.show);
+      const items = (
+        [
+          { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
+          { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
+          { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: userRole === 'attendee' },
+          // Attendees see Tickets
+          { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: userRole === 'attendee' },
+          { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
+          { id: 'analytics' as Screen, path: '/analytics', icon: TrendingUp, label: 'Analytics', show: userRole === 'organizer' },
+          { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
+          { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
+        ] as const
+      ).filter((i) => i.show);
     
     console.log('Navigation items:', items.map(i => ({ id: i.id, label: i.label, show: i.show })));
     return items;
