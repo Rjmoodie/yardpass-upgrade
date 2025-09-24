@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProfilePictureUpload } from '@/components/ProfilePictureUpload';
 import { SocialLinkManager, SocialLink } from '@/components/SocialLinkManager';
+import { SponsorModeSettings } from '@/components/sponsor/SponsorModeSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -184,6 +185,9 @@ export default function EditProfilePage() {
           onChange={setSocialLinks}
           maxLinks={3}
         />
+
+        {/* Sponsor Mode Settings */}
+        <SponsorModeSettings />
 
         {/* Privacy Note */}
         <Card className="bg-muted/50">

@@ -3015,6 +3015,7 @@ export type Database = {
           photo_url: string | null
           role: string | null
           social_links: Json | null
+          sponsor_mode_enabled: boolean
           updated_at: string | null
           user_id: string
           verification_status:
@@ -3028,6 +3029,7 @@ export type Database = {
           photo_url?: string | null
           role?: string | null
           social_links?: Json | null
+          sponsor_mode_enabled?: boolean
           updated_at?: string | null
           user_id: string
           verification_status?:
@@ -3041,6 +3043,7 @@ export type Database = {
           photo_url?: string | null
           role?: string | null
           social_links?: Json | null
+          sponsor_mode_enabled?: boolean
           updated_at?: string | null
           user_id?: string
           verification_status?:
