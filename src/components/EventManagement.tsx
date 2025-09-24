@@ -433,9 +433,10 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-7 mb-4">
+          <TabsList className="w-full grid grid-cols-8 mb-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="attendees">Attendees</TabsTrigger>
+            <TabsTrigger value="guests">Guests</TabsTrigger>
             <TabsTrigger value="tickets">Tickets</TabsTrigger>
             <TabsTrigger value="sponsorship">Sponsorship</TabsTrigger>
             <TabsTrigger value="scanner">Scanner</TabsTrigger>
@@ -713,6 +714,10 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                 ))}
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="guests" className="space-y-4">
+            <GuestManagement eventId={event.id} />
           </TabsContent>
 
           <TabsContent value="tickets" className="space-y-4">
