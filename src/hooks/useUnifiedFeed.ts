@@ -95,7 +95,76 @@ export function useUnifiedFeed(userId?: string) {
       }
 
       console.log('🔍 Feed data received:', { data, dataType: typeof data, dataLength: data?.length });
-      const newItems: FeedItem[] = (data ?? []) as any[];
+      
+      // Transform home_feed_row data to unified feed structure
+      const transformedItems: FeedItem[] = [];
+      
+      (data ?? []).forEach((row: any) => {
+        // Create event item
+        const eventItem: FeedItem = {
+          item_type: 'event',
+          sort_ts: row.start_at || new Date().toISOString(),
+          item_id: row.event_id,
+          event_id: row.event_id,
+          event_title: row.title || 'Untitled Event',
+          event_description: row.description || '',
+          event_starts_at: row.start_at,
+          event_cover_image: row.cover_image_url || '',
+          event_organizer: row.organizer_display_name || 'Unknown Organizer',
+          event_organizer_id: row.created_by || '',
+          event_owner_context_type: 'individual',
+          event_location: row.city || row.venue || 'TBA',
+          author_id: null,
+          author_name: null,
+          author_badge: null,
+          media_urls: null,
+          content: null,
+          metrics: { likes: 0, comments: 0 },
+          sponsor: null,
+          sponsors: null
+        };
+
+        transformedItems.push(eventItem);
+
+        // Add posts from this event
+        if (row.recent_posts && Array.isArray(row.recent_posts)) {
+          row.recent_posts.forEach((post: any) => {
+            const postItem: FeedItem = {
+              item_type: 'post',
+              sort_ts: post.created_at || new Date().toISOString(),
+              item_id: post.id,
+              event_id: row.event_id,
+              event_title: row.title || 'Untitled Event',
+              event_description: row.description || '',
+              event_starts_at: row.start_at,
+              event_cover_image: row.cover_image_url || '',
+              event_organizer: row.organizer_display_name || 'Unknown Organizer',
+              event_organizer_id: row.created_by || '',
+              event_owner_context_type: 'individual',
+              event_location: row.city || row.venue || 'TBA',
+              author_id: post.author?.id || null,
+              author_name: post.author?.display_name || null,
+              author_badge: post.author?.badge_label || null,
+              author_social_links: null,
+              media_urls: post.media_urls || null,
+              content: post.text || null,
+              metrics: { 
+                likes: post.like_count || 0, 
+                comments: post.comment_count || 0 
+              },
+              sponsor: null,
+              sponsors: null
+            };
+            transformedItems.push(postItem);
+          });
+        }
+      });
+
+      // Sort by timestamp descending
+      const newItems = transformedItems.sort((a, b) => 
+        new Date(b.sort_ts).getTime() - new Date(a.sort_ts).getTime()
+      );
+      
       console.log('🔍 newItems processed:', { newItemsLength: newItems.length, firstItem: newItems[0] });
       
       // De-dupe by composite key type+id to avoid "override"
