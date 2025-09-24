@@ -25,11 +25,13 @@ export function GuestCodeInput({ eventId, onCodeValidated, onClose }: GuestCodeI
   const { toast } = useToast();
 
   const validateGuestCode = async () => {
-    if (!code.trim()) return;
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) return;
 
     setValidating(true);
     try {
-      const { data: guestCodeData, error } = await supabase
+      // Join tier name if present
+      const { data, error } = await supabase
         .from('guest_codes')
         .select(`
           id,
@@ -37,67 +39,46 @@ export function GuestCodeInput({ eventId, onCodeValidated, onClose }: GuestCodeI
           tier_id,
           max_uses,
           used_count,
-          expires_at
+          expires_at,
+          ticket_tiers: tier_id ( name )
         `)
         .eq('event_id', eventId)
-        .eq('code', code.trim().toUpperCase())
+        .eq('code', trimmed)
         .maybeSingle();
 
       if (error) throw error;
 
-      if (!guestCodeData) {
+      if (!data) {
         setIsValid(false);
-        toast({
-          title: "Invalid code",
-          description: "Guest code not found",
-          variant: "destructive",
-        });
+        toast({ title: 'Invalid code', description: 'Guest code not found', variant: 'destructive' });
         return;
       }
 
-      // Check if code is expired
-      if (guestCodeData.expires_at && new Date(guestCodeData.expires_at) < new Date()) {
+      if (data.expires_at && new Date(data.expires_at) < new Date()) {
         setIsValid(false);
-        toast({
-          title: "Code expired",
-          description: "This guest code has expired",
-          variant: "destructive",
-        });
+        toast({ title: 'Code expired', description: 'This guest code has expired', variant: 'destructive' });
         return;
       }
 
-      // Check if code has remaining uses
-      if (guestCodeData.used_count >= guestCodeData.max_uses) {
+      if (data.used_count >= data.max_uses) {
         setIsValid(false);
-        toast({
-          title: "Code limit reached",
-          description: "This guest code has been used up",
-          variant: "destructive",
-        });
+        toast({ title: 'Code limit reached', description: 'This guest code has been used up', variant: 'destructive' });
         return;
       }
 
       setIsValid(true);
-      toast({
-        title: "Valid code",
-        description: "Guest code accepted",
-      });
+      toast({ title: 'Valid code', description: 'Guest code accepted' });
 
       onCodeValidated({
-        id: guestCodeData.id,
-        code: guestCodeData.code,
-        tier_id: guestCodeData.tier_id,
-        tier_name: undefined
+        id: data.id,
+        code: data.code,
+        tier_id: data.tier_id ?? undefined,
+        tier_name: data.ticket_tiers?.name ?? undefined,
       });
-
-    } catch (error: any) {
-      console.error('Error validating guest code:', error);
+    } catch (e: any) {
+      console.error('Error validating guest code:', e);
       setIsValid(false);
-      toast({
-        title: "Validation error",
-        description: "Unable to validate guest code",
-        variant: "destructive",
-      });
+      toast({ title: 'Validation error', description: 'Unable to validate guest code', variant: 'destructive' });
     } finally {
       setValidating(false);
     }
@@ -105,7 +86,7 @@ export function GuestCodeInput({ eventId, onCodeValidated, onClose }: GuestCodeI
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    validateGuestCode();
+    if (!validating) validateGuestCode();
   };
 
   return (
@@ -130,16 +111,18 @@ export function GuestCodeInput({ eventId, onCodeValidated, onClose }: GuestCodeI
                 }}
                 placeholder="Enter your guest code"
                 className={`pr-10 ${
-                  isValid === true ? 'border-green-500' : 
-                  isValid === false ? 'border-red-500' : ''
+                  isValid === true ? 'border-green-500' : isValid === false ? 'border-red-500' : ''
                 }`}
                 disabled={validating}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
               />
               {isValid === true && (
-                <Check className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-500" />
+                <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
               )}
               {isValid === false && (
-                <AlertCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-red-500" />
+                <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
               )}
             </div>
           </div>
@@ -148,12 +131,8 @@ export function GuestCodeInput({ eventId, onCodeValidated, onClose }: GuestCodeI
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={!code.trim() || validating}
-              className="flex-1"
-            >
-              {validating ? 'Validating...' : 'Validate'}
+            <Button type="submit" disabled={!code.trim() || validating} className="flex-1">
+              {validating ? 'Validating…' : 'Validate'}
             </Button>
           </div>
         </form>

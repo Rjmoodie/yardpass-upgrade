@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ interface TicketTier {
   id: string;
   name: string;
   price_cents: number;
+  status?: string;
 }
 
 export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuestModalProps) {
@@ -43,10 +44,18 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // reset form when opening
   useEffect(() => {
     if (isOpen) {
+      setEmail('');
+      setName('');
+      setNotes('');
+      setMaxUses(1);
+      setExpiresAt('');
+      setGuestType('complimentary_ticket');
       loadTicketTiers();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId]);
 
   const loadTicketTiers = async () => {
@@ -54,28 +63,35 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
     try {
       const { data, error } = await supabase
         .from('ticket_tiers')
-        .select('id, name, price_cents')
+        .select('id, name, price_cents, status')
         .eq('event_id', eventId)
         .eq('status', 'active')
-        .order('sort_index');
-
+        .order('sort_index', { ascending: true });
       if (error) throw error;
       setTicketTiers(data || []);
-      
-      // Auto-select first tier
-      if (data && data.length > 0) {
-        setSelectedTierId(data[0].id);
-      }
-    } catch (error) {
-      console.error('Error loading ticket tiers:', error);
+      if (data?.length) setSelectedTierId(data[0].id);
+    } catch (e) {
+      // silent; the parent has toasts
+      console.error('Error loading ticket tiers:', e);
     } finally {
       setLoading(false);
     }
   };
 
+  const canSubmit = useMemo(() => {
+    if (guestType === 'guest_code') {
+      return Boolean(selectedTierId) && (!Number.isNaN(maxUses) && maxUses > 0);
+    }
+    if (guestType === 'invite_only') {
+      return Boolean(email);
+    }
+    // complimentary_ticket
+    return Boolean(email && selectedTierId);
+  }, [guestType, email, selectedTierId, maxUses]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (guestType !== 'guest_code' && !email) return;
+    if (!canSubmit || submitting) return;
 
     setSubmitting(true);
     try {
@@ -86,16 +102,8 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
         tier_id: (guestType === 'complimentary_ticket' || guestType === 'guest_code') ? selectedTierId : undefined,
         notes: notes || undefined,
         max_uses: guestType === 'guest_code' ? maxUses : undefined,
-        expires_at: guestType === 'guest_code' && expiresAt ? expiresAt : undefined
+        expires_at: guestType === 'guest_code' && expiresAt ? expiresAt : undefined,
       });
-
-      // Reset form
-      setEmail('');
-      setName('');
-      setNotes('');
-      setMaxUses(1);
-      setExpiresAt('');
-      setGuestType('complimentary_ticket');
       onClose();
     } catch (error) {
       console.error('Error adding guest:', error);
@@ -104,11 +112,8 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
     }
   };
 
-  const canSubmit = (guestType === 'guest_code' || email) && 
-    (guestType === 'invite_only' || selectedTierId);
-
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !submitting && (open ? void 0 : onClose())}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -118,7 +123,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Guest Type Selection */}
+          {/* Guest Type */}
           <div className="space-y-3">
             <Label>Guest Type</Label>
             <RadioGroup value={guestType} onValueChange={(value) => setGuestType(value as any)}>
@@ -132,7 +137,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
                         <span className="font-medium">Complimentary Ticket</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Guest gets a free ticket and can be scanned in
+                        Guest receives a free ticket (scan-in eligible).
                       </p>
                     </Label>
                   </div>
@@ -149,7 +154,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
                         <span className="font-medium">Invite Only</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Guest can view private event but no ticket issued
+                        Guest can view private event; no ticket issued.
                       </p>
                     </Label>
                   </div>
@@ -166,7 +171,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
                         <span className="font-medium">Guest Code</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Generate a code that guests can use at checkout
+                        Generate a code for use at checkout (limit + expiry).
                       </p>
                     </Label>
                   </div>
@@ -175,7 +180,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
             </RadioGroup>
           </div>
 
-          {/* Guest Details */}
+          {/* Guest details */}
           <div className="space-y-4">
             {guestType !== 'guest_code' && (
               <div className="space-y-2">
@@ -183,10 +188,11 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="guest@example.com"
-                  required
+                  required={guestType !== 'guest_code'}
                 />
               </div>
             )}
@@ -195,6 +201,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
               <Label htmlFor="name">Guest Name (Optional)</Label>
               <Input
                 id="name"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
@@ -202,7 +209,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
             </div>
           </div>
 
-          {/* Ticket Tier Selection */}
+          {/* Tier select */}
           {(guestType === 'complimentary_ticket' || guestType === 'guest_code') && (
             <div className="space-y-2">
               <Label>Ticket Tier</Label>
@@ -210,7 +217,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
                 <div className="h-10 bg-muted animate-pulse rounded-md" />
               ) : (
                 <Select value={selectedTierId} onValueChange={setSelectedTierId}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Select ticket tier">
                     <SelectValue placeholder="Select ticket tier" />
                   </SelectTrigger>
                   <SelectContent>
@@ -225,7 +232,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
             </div>
           )}
 
-          {/* Guest Code Options */}
+          {/* Guest code options */}
           {guestType === 'guest_code' && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -236,7 +243,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
                   min="1"
                   max="100"
                   value={maxUses}
-                  onChange={(e) => setMaxUses(Number(e.target.value))}
+                  onChange={(e) => setMaxUses(Math.max(1, Number(e.target.value || 1)))}
                   placeholder="How many people can use this code?"
                 />
               </div>
@@ -266,15 +273,11 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
 
           {/* Actions */}
           <div className="flex gap-3">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1" disabled={submitting}>
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={!canSubmit || submitting}
-              className="flex-1"
-            >
-              {submitting ? 'Adding...' : 'Add Guest'}
+            <Button type="submit" disabled={!canSubmit || submitting} className="flex-1">
+              {submitting ? 'Adding…' : 'Add Guest'}
             </Button>
           </div>
         </form>
