@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { Plus, Minus, CreditCard } from 'lucide-react';
+import { Plus, Minus, CreditCard, Key, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { toast } from '@/hooks/use-toast';
@@ -52,6 +52,15 @@ export function TicketPurchaseModal({
   const [selections, setSelections] = useState<TicketSelection>({});
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [guestCode, setGuestCode] = useState('');
+  const [validatingCode, setValidatingCode] = useState(false);
+  const [validatedCode, setValidatedCode] = useState<{
+    id: string;
+    code: string;
+    tier_id?: string;
+    tier_name?: string;
+  } | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
   
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -62,6 +71,76 @@ export function TicketPurchaseModal({
       title: "Info",
       description: message,
     });
+  };
+
+  const validateGuestCode = async () => {
+    const trimmed = guestCode.trim().toUpperCase();
+    if (!trimmed) return;
+
+    setValidatingCode(true);
+    setCodeError(null);
+    
+    try {
+      // Get guest code data
+      const { data, error } = await supabase
+        .from('guest_codes')
+        .select(`
+          id,
+          code,
+          tier_id,
+          max_uses,
+          used_count,
+          expires_at
+        `)
+        .eq('event_id', event.id)
+        .eq('code', trimmed)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        setCodeError('Invalid guest code');
+        return;
+      }
+
+      if (data.expires_at && new Date(data.expires_at) < new Date()) {
+        setCodeError('Guest code has expired');
+        return;
+      }
+
+      if (data.used_count >= data.max_uses) {
+        setCodeError('Guest code has reached its usage limit');
+        return;
+      }
+
+      // Get tier name if tier_id exists
+      let tierName: string | undefined;
+      if (data.tier_id) {
+        const { data: tierData } = await supabase
+          .from('ticket_tiers')
+          .select('name')
+          .eq('id', data.tier_id)
+          .maybeSingle();
+        tierName = tierData?.name;
+      }
+
+      setValidatedCode({
+        id: data.id,
+        code: data.code,
+        tier_id: data.tier_id ?? undefined,
+        tier_name: tierName,
+      });
+
+      toast({
+        title: "Valid guest code",
+        description: `Access granted${tierName ? ` for ${tierName}` : ''}`,
+      });
+    } catch (e: any) {
+      console.error('Error validating guest code:', e);
+      setCodeError('Unable to validate guest code');
+    } finally {
+      setValidatingCode(false);
+    }
   };
 
   // Fee calculation function
@@ -271,6 +350,80 @@ export function TicketPurchaseModal({
                 <p>{new Date(event.start_at).toLocaleDateString()} at {new Date(event.start_at).toLocaleTimeString()}</p>
                 {event.venue && <p>{event.venue}</p>}
                 {event.location && <p>{event.location}</p>}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Guest Code Section */}
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Key className="w-4 h-4" />
+                Guest Code (Optional)
+              </h3>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      placeholder="Enter your guest code"
+                      value={guestCode}
+                      onChange={(e) => {
+                        setGuestCode(e.target.value);
+                        setCodeError(null);
+                        setValidatedCode(null);
+                      }}
+                      className={`${
+                        validatedCode ? 'border-green-500' : codeError ? 'border-red-500' : ''
+                      } pr-10`}
+                      disabled={validatingCode || !!validatedCode}
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                    {validatedCode && (
+                      <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                    )}
+                    {codeError && (
+                      <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+                    )}
+                  </div>
+                  {!validatedCode && (
+                    <Button
+                      onClick={validateGuestCode}
+                      disabled={!guestCode.trim() || validatingCode}
+                      variant="outline"
+                    >
+                      {validatingCode ? 'Validating...' : 'Apply'}
+                    </Button>
+                  )}
+                  {validatedCode && (
+                    <Button
+                      onClick={() => {
+                        setValidatedCode(null);
+                        setGuestCode('');
+                        setCodeError(null);
+                      }}
+                      variant="outline"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {codeError && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {codeError}
+                  </p>
+                )}
+                {validatedCode && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                    <p className="text-sm text-green-700 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      Guest code applied successfully
+                      {validatedCode.tier_name && ` for ${validatedCode.tier_name}`}
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
