@@ -128,7 +128,13 @@ export function useUnifiedFeed(userId?: string) {
 
         // Add posts from this event
         if (row.recent_posts && Array.isArray(row.recent_posts)) {
-          row.recent_posts.forEach((post: any) => {
+          console.log('🎬 Processing posts for event:', row.event_id, 'Posts:', row.recent_posts.length);
+          row.recent_posts.forEach((post: any, postIndex: number) => {
+            console.log(`🎬 Post ${postIndex}:`, { 
+              id: post.id, 
+              media_urls: post.media_urls, 
+              text: post.text?.substring(0, 50) 
+            });
             const postItem: FeedItem = {
               item_type: 'post',
               sort_ts: post.created_at || new Date().toISOString(),

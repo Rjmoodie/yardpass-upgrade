@@ -56,7 +56,15 @@ export const UserPostCard = memo(function UserPostCard({
   const { trackEvent } = useAnalyticsIntegration();
   const [mediaError, setMediaError] = useState(false);
 
-  const mediaUrl = useMemo(() => item.media_urls?.[0] || null, [item.media_urls]);
+  const mediaUrl = useMemo(() => {
+    const url = item.media_urls?.[0] || null;
+    console.log('🖼️ UserPostCard media debug:', { 
+      postId: item.item_id, 
+      media_urls: item.media_urls, 
+      selectedUrl: url 
+    });
+    return url;
+  }, [item.media_urls, item.item_id]);
   const isVideo = useMemo(() => Boolean(mediaUrl && isVideoUrl(mediaUrl!)), [mediaUrl]);
   const videoSrc = useMemo(() => (isVideo && mediaUrl ? buildMuxUrl(mediaUrl) : undefined), [isVideo, mediaUrl]);
 
