@@ -1862,18 +1862,21 @@ export type Database = {
         Row: {
           bucket: string
           count: number | null
+          ip_hash: string | null
           minute: string
           user_id: string
         }
         Insert: {
           bucket: string
           count?: number | null
+          ip_hash?: string | null
           minute: string
           user_id: string
         }
         Update: {
           bucket?: string
           count?: number | null
+          ip_hash?: string | null
           minute?: string
           user_id?: string
         }
@@ -3603,6 +3606,15 @@ export type Database = {
         Args: { p_event: string; p_user: string }
         Returns: boolean
       }
+      check_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_ip_address?: string
+          p_max_per_minute?: number
+          p_user_id?: string
+        }
+        Returns: Json
+      }
       cleanup_expired_holds: {
         Args: Record<PropertyKey, never>
         Returns: Json
@@ -3884,6 +3896,10 @@ export type Database = {
       halfvec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      hash_ip: {
+        Args: { ip_address: string }
+        Returns: string
       }
       hnsw_bit_support: {
         Args: { "": unknown }
