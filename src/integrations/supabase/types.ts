@@ -3732,6 +3732,10 @@ export type Database = {
         Args: { p_event: string; p_user: string }
         Returns: boolean
       }
+      check_circuit_breaker: {
+        Args: { p_service_id: string }
+        Returns: Json
+      }
       check_rate_limit: {
         Args: {
           p_bucket: string
@@ -3784,6 +3788,29 @@ export type Database = {
           p_name: string
         }
         Returns: string
+      }
+      dlq_enqueue_webhook: {
+        Args: {
+          p_correlation_id: string
+          p_failure_reason: string
+          p_original_timestamp: string
+          p_payload: Json
+          p_webhook_type: string
+        }
+        Returns: string
+      }
+      dlq_pop_next: {
+        Args: { p_webhook_type?: string }
+        Returns: {
+          correlation_id: string
+          id: string
+          payload: Json
+          webhook_type: string
+        }[]
+      }
+      dlq_set_status: {
+        Args: { p_failure_reason?: string; p_id: string; p_status: string }
+        Returns: undefined
       }
       execute_sql: {
         Args: { sql_query: string }
@@ -4083,9 +4110,33 @@ export type Database = {
         Args: { "": string } | { "": unknown } | { "": unknown }
         Returns: string
       }
+      log_request: {
+        Args: {
+          p_body: Json
+          p_correlation_id: string
+          p_error_message: string
+          p_execution_time_ms: number
+          p_function_name: string
+          p_headers: Json
+          p_http_method: string
+          p_response_body: Json
+          p_response_status: number
+          p_source_type: string
+          p_url: string
+        }
+        Returns: string
+      }
       normalize_text: {
         Args: { txt: string }
         Returns: string
+      }
+      prune_dead_letters: {
+        Args: { p_keep_days?: number }
+        Returns: undefined
+      }
+      prune_request_logs: {
+        Args: { p_keep_days?: number }
+        Returns: undefined
       }
       refresh_analytics_views: {
         Args: Record<PropertyKey, never>
@@ -4199,6 +4250,14 @@ export type Database = {
       sparsevec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      update_circuit_breaker_state: {
+        Args: {
+          p_error_message?: string
+          p_service_id: string
+          p_success: boolean
+        }
+        Returns: Json
       }
       user_related_event_ids: {
         Args: { p_user_id: string }
