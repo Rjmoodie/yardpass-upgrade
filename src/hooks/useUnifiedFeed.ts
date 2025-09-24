@@ -88,7 +88,9 @@ export function useUnifiedFeed(userId?: string) {
 
       if (error) throw error;
 
+      console.log('🔍 Feed data received:', { data, dataType: typeof data, dataLength: data?.length });
       const newItems: FeedItem[] = (data ?? []) as any[];
+      console.log('🔍 newItems processed:', { newItemsLength: newItems.length, firstItem: newItems[0] });
       
       // De-dupe by composite key type+id to avoid "override"
       setPages(prev => {
@@ -98,6 +100,8 @@ export function useUnifiedFeed(userId?: string) {
           const key = keyOf(it);
           return !seen.has(key);
         });
+
+        console.log('🔍 dedupedItems:', { dedupedLength: dedupedItems.length, totalPages: prev.length + 1 });
 
         const last = newItems[newItems.length - 1];
         return [
