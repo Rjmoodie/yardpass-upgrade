@@ -3816,6 +3816,14 @@ export type Database = {
         Args: { sql_query: string }
         Returns: Json
       }
+      get_active_event_sponsors: {
+        Args: { p_event_ids: string[] }
+        Returns: {
+          event_id: string
+          primary_sponsor: Json
+          sponsors: Json
+        }[]
+      }
       get_current_user_org_role: {
         Args: { p_org_id: string }
         Returns: string
@@ -3891,12 +3899,19 @@ export type Database = {
         }[]
       }
       get_home_feed_v2: {
-        Args: {
-          p_cursor_id?: string
-          p_cursor_ts?: string
-          p_limit?: number
-          p_user?: string
-        }
+        Args:
+          | {
+              p_cursor_id?: string
+              p_cursor_ts?: string
+              p_limit?: number
+              p_user?: string
+            }
+          | {
+              p_cursor_id?: string
+              p_cursor_ts?: string
+              p_limit?: number
+              p_user?: string
+            }
         Returns: {
           author_badge: string
           author_id: string

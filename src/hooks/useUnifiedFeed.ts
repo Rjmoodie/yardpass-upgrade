@@ -25,7 +25,14 @@ export type FeedItem =
         name: string;
         logo_url?: string;
         tier: string;
-      };
+        amount_cents: number;
+      } | null;
+      sponsors?: Array<{
+        name: string;
+        logo_url?: string;
+        tier: string;
+        amount_cents: number;
+      }> | null;
     }
   | {
       item_type: 'post';
@@ -47,6 +54,8 @@ export type FeedItem =
       media_urls: string[] | null;
       content: string | null;
       metrics: Record<string, any>;
+      sponsor?: null;
+      sponsors?: null;
     };
 
 type Page = { items: FeedItem[]; nextCursor: { ts: string; id: string } | null };
