@@ -179,6 +179,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in posts-create function:', error);
-    return createErrorResponse(error.message, 500);
+    return createErrorResponse((error as any)?.message || 'Unknown error', 500);
   }
 });

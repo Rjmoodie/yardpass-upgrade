@@ -94,7 +94,7 @@ serve(async (req) => {
       stripeAccount: payoutAccount.stripe_connect_id
     });
 
-    const availableAmount = balance.available.reduce((total, b) => {
+    const availableAmount = balance.available.reduce((total: number, b: any) => {
       if (b.currency === 'usd') return total + b.amount;
       return total;
     }, 0);
@@ -134,7 +134,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in create-payout:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as any)?.message || 'Unknown error' }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,

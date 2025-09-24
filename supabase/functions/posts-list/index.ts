@@ -122,6 +122,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in posts-list function:', error);
-    return createErrorResponse(error.message, 500);
+    return createErrorResponse((error as any)?.message || 'Unknown error', 500);
   }
 });

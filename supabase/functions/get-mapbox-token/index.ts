@@ -24,6 +24,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Mapbox token error:', error);
-    return createErrorResponse(error.message);
+    return createErrorResponse((error as any)?.message || 'Unknown error');
   }
 });

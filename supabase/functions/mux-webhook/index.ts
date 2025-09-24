@@ -79,6 +79,6 @@ serve(async (req) => {
 
   } catch (e) {
     console.error("Mux webhook error:", e);
-    return createErrorResponse(e?.message ?? "unknown_error", 500);
+    return createErrorResponse((e as any)?.message ?? "unknown_error", 500);
   }
 });

@@ -114,12 +114,12 @@ serve(async (req) => {
       stripeAccount: payoutAccount.stripe_connect_id
     });
 
-    const availableAmount = balance.available.reduce((total, b) => {
+    const availableAmount = balance.available.reduce((total: number, b: any) => {
       if (b.currency === 'usd') return total + b.amount;
       return total;
     }, 0);
 
-    const pendingAmount = balance.pending.reduce((total, b) => {
+    const pendingAmount = balance.pending.reduce((total: number, b: any) => {
       if (b.currency === 'usd') return total + b.amount;
       return total;
     }, 0);
@@ -152,7 +152,7 @@ serve(async (req) => {
         pending: 0,
         currency: 'usd',
         account_ready: false,
-        error: error.message 
+        error: (error as any)?.message || 'Unknown error' 
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

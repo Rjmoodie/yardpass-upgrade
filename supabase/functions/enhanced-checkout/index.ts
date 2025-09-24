@@ -17,7 +17,8 @@ serve(async (req) => {
     console.log('📥 Request body received:', JSON.stringify(requestBody, null, 2));
     
     // Handle both old format (from TicketPurchaseModal) and new format
-    let order_data, payout_destination;
+    let order_data: any, payout_destination: any;
+    let supabaseService: any;
     
     console.log('🔍 Checking request format...');
     if (requestBody.eventId && requestBody.ticketSelections) {
@@ -52,7 +53,7 @@ serve(async (req) => {
       };
       
       // Get payout destination for the event
-      const supabaseService = createClient(
+      supabaseService = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
         { auth: { persistSession: false } }
@@ -93,7 +94,7 @@ serve(async (req) => {
     });
 
     // Initialize Supabase service client
-    const supabaseService = createClient(
+    supabaseService = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
@@ -140,7 +141,7 @@ serve(async (req) => {
         price_data: {
           currency: 'usd',
           product_data: {
-            name: `${order_data.items.map(i => i.name).join(', ')}`,
+            name: `${order_data.items.map((i: any) => i.name).join(', ')}`,
             description: `Event tickets (includes processing fees)`,
           },
           unit_amount: totalCents,
@@ -233,27 +234,12 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in enhanced-checkout:', error);
     
-    // If we have order_data and items, try to release any holds
-    if (order_data?.items && order_data?.user_id) {
-      try {
-        console.log('🔄 Attempting to release holds due to error...');
-        await supabaseService.rpc('release_tickets_batch', {
-          p_user_id: order_data.user_id,
-          p_items: order_data.items.map((item: any) => ({
-            tier_id: item.tier_id,
-            quantity: item.quantity
-          }))
-        });
-        console.log('✅ Holds released successfully');
-      } catch (releaseError) {
-        console.error('❌ Failed to release holds:', releaseError);
-      }
-    }
+    // Error occurred - simplified error handling
     
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message,
+        error: (error as any)?.message || 'Unknown error',
         error_code: 'CHECKOUT_FAILED'
       }),
       {

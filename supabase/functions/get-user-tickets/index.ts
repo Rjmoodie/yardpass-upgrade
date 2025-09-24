@@ -123,7 +123,7 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("get-user-tickets fatal:", e);
-    return new Response(JSON.stringify({ error: e?.message ?? "unknown_error" }), { 
+    return new Response(JSON.stringify({ error: (e as any)?.message ?? "unknown_error" }), { 
       headers: corsHeaders, 
       status: 500 
     });

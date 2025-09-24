@@ -88,6 +88,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in reactions-toggle function:', error);
-    return createErrorResponse(error.message, 500);
+    return createErrorResponse((error as any)?.message || 'Unknown error', 500);
   }
 });

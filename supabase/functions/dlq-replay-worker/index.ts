@@ -74,14 +74,14 @@ serve(async (req) => {
         await supabase.rpc('dlq_set_status', {
           p_id: webhook.id,
           p_status: 'failed',
-          p_failure_reason: replayError.message
+          p_failure_reason: (replayError as any)?.message || 'Unknown replay error'
         });
         
         failed.push({
           id: webhook.id,
           correlation_id: webhook.correlation_id,
           type: webhook.webhook_type,
-          error: replayError.message
+          error: (replayError as any)?.message || 'Unknown replay error'
         });
       }
     }
@@ -100,7 +100,7 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
+      error: (error as any)?.message || 'Unknown error',
       processed: processed.length,
       failed: failed.length
     }), {
@@ -149,6 +149,6 @@ async function replayWebhook(webhook: ReplayableWebhook): Promise<{ success: boo
     }
 
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: (error as any)?.message || 'Unknown error' };
   }
 }

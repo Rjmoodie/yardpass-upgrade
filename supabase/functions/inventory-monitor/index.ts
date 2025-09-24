@@ -120,11 +120,11 @@ serve(async (req) => {
       timestamp: new Date().toISOString(),
       alerts_count: alerts.length,
       inventory_health: {
-        total_tiers: inventoryStats?.total_tiers || 0,
-        total_tickets: inventoryStats?.total_tickets || 0,
-        total_reserved: inventoryStats?.total_reserved || 0,
-        total_issued: inventoryStats?.total_issued || 0,
-        available: (inventoryStats?.total_tickets || 0) - (inventoryStats?.total_reserved || 0) - (inventoryStats?.total_issued || 0)
+        total_tiers: (inventoryStats as any)?.total_tiers || 0,
+        total_tickets: (inventoryStats as any)?.total_tickets || 0,
+        total_reserved: (inventoryStats as any)?.total_reserved || 0,
+        total_issued: (inventoryStats as any)?.total_issued || 0,
+        available: ((inventoryStats as any)?.total_tickets || 0) - ((inventoryStats as any)?.total_reserved || 0) - ((inventoryStats as any)?.total_issued || 0)
       },
       alerts
     };
@@ -162,7 +162,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: (error as any)?.message || 'Unknown error',
         error_code: 'MONITOR_FAILED'
       }),
       {

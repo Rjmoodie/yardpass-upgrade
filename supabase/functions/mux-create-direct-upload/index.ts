@@ -102,12 +102,12 @@ serve(async (req) => {
       console.log("Mux upload created:", upload.id);
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
+      if ((fetchError as any)?.name === 'AbortError') {
         console.error("Mux API request timeout");
         return createErrorResponse("Request timeout to Mux API", 504);
       }
       console.error("Mux API fetch error:", fetchError);
-      return createErrorResponse(`Network error: ${fetchError.message}`, 502);
+      return createErrorResponse(`Network error: ${(fetchError as any)?.message || 'Unknown error'}`, 502);
     }
     console.log("Mux upload created:", upload.id);
 
@@ -143,7 +143,7 @@ serve(async (req) => {
 
   } catch (e) {
     console.error("Mux direct upload error:", e);
-    console.error("Error stack:", e?.stack);
+    console.error("Error stack:", (e as any)?.stack || 'No stack trace');
     const errorMessage = e instanceof Error ? e.message : "unknown_error";
     return createErrorResponse(errorMessage, 500);
   }

@@ -117,7 +117,7 @@ serve(async (req) => {
         await supabaseService.rpc('update_circuit_breaker_state', { 
           p_service_id: 'stripe_api', 
           p_success: false, 
-          p_error_message: stripeError.message 
+          p_error_message: (stripeError as any)?.message || 'Unknown Stripe error'
         });
         throw stripeError;
       }
@@ -170,7 +170,7 @@ serve(async (req) => {
       await supabaseService.rpc('update_circuit_breaker_state', { 
         p_service_id: 'stripe_api', 
         p_success: false, 
-        p_error_message: stripeError.message 
+        p_error_message: (stripeError as any)?.message || 'Unknown Stripe error' 
       });
       throw stripeError;
     }
@@ -189,7 +189,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in create-stripe-connect:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as any)?.message || 'Unknown error' }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,

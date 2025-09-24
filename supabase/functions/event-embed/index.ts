@@ -61,7 +61,7 @@ serve(async (req) => {
   } catch (e) {
     console.error('Error in event-embed function:', e);
     return new Response(
-      JSON.stringify({ error: e.message }),
+      JSON.stringify({ error: (e as any)?.message || 'Unknown error' }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

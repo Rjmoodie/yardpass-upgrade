@@ -195,7 +195,7 @@ async function fetchRealAcquisition(
         visitors: visitors,
         conversions: Math.round(visitors * 0.08) // 8% conversion estimate
       };
-    }).filter(item => item.visitors > 0).slice(0, 6); // Top 6 channels
+    }).filter((item: any) => item.visitors > 0).slice(0, 6); // Top 6 channels
 
   } catch (error) {
     console.error("Acquisition fetch error:", error);
@@ -247,7 +247,7 @@ async function fetchRealDeviceBreakdown(
         sessions: sessions,
         conversion_rate: Math.round((sessions > 0 ? Math.random() * 15 + 2 : 0) * 10) / 10
       };
-    }).filter(item => item.sessions > 0);
+    }).filter((item: any) => item.sessions > 0);
 
   } catch (error) {
     console.error("Device breakdown fetch error:", error);
