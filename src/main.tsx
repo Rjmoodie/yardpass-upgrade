@@ -6,6 +6,7 @@ import { HelmetProvider } from 'react-helmet-async'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AnalyticsWrapper } from '@/components/AnalyticsWrapper'
+import { CSRFProtection } from '@/lib/csrf'
 import App from './App.tsx'
 import './index.css'
 
@@ -37,6 +38,10 @@ const postHogOptions = {
 }
 
 const postHogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY || 'phc_PLACEHOLDER_KEY';
+
+// Initialize CSRF protection
+CSRFProtection.enhanceSupabaseClient();
+CSRFProtection.generateToken();
 
 createRoot(document.getElementById("root")!).render(
   <HelmetProvider>

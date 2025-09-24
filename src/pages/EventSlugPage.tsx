@@ -43,12 +43,8 @@ const safeOrigin =
     ? window.location.origin
     : 'https://yardpass.app'; // fallback to your prod origin if SSR or during build
 
-function stripHtml(input: string | null | undefined) {
-  if (!input) return '';
-  const tmp = document.createElement('div');
-  tmp.innerHTML = input;
-  return (tmp.textContent || tmp.innerText || '').trim();
-}
+// Import security utilities instead of local implementation
+import { stripHtml, sanitizeHtml, sanitizeMetaDescription } from '@/lib/security';
 
 function truncate(s: string, n = 160) {
   if (!s) return '';
@@ -428,7 +424,7 @@ export default function EventSlugPage() {
               <h2 className="text-lg font-semibold mb-3">About this event</h2>
               <div 
                 className="prose prose-sm max-w-none text-muted-foreground leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: event.description }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(event.description) }}
               />
             </CardContent>
           </Card>

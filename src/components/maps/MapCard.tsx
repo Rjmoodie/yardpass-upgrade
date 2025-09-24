@@ -90,18 +90,30 @@ const MapCard = ({
             }
           });
 
-          // Custom marker with your brand colors
+          // Custom marker with your brand colors - safely constructed
           const markerElement = document.createElement('div');
-          markerElement.innerHTML = `
-            <div class="relative">
-              <div class="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
-              <div class="relative w-8 h-8 bg-primary rounded-full border-2 border-background shadow-lg flex items-center justify-center">
-                <svg class="w-4 h-4 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
-                </svg>
-              </div>
-            </div>
-          `;
+          markerElement.className = 'relative';
+          
+          const pingDiv = document.createElement('div');
+          pingDiv.className = 'absolute inset-0 bg-primary/20 rounded-full animate-ping';
+          
+          const markerDiv = document.createElement('div');
+          markerDiv.className = 'relative w-8 h-8 bg-primary rounded-full border-2 border-background shadow-lg flex items-center justify-center';
+          
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('class', 'w-4 h-4 text-primary-foreground');
+          svg.setAttribute('fill', 'currentColor');
+          svg.setAttribute('viewBox', '0 0 20 20');
+          
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('fill-rule', 'evenodd');
+          path.setAttribute('d', 'M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z');
+          path.setAttribute('clip-rule', 'evenodd');
+          
+          svg.appendChild(path);
+          markerDiv.appendChild(svg);
+          markerElement.appendChild(pingDiv);
+          markerElement.appendChild(markerDiv);
           
           new mapboxgl.Marker(markerElement)
             .setLngLat([lng, lat])
