@@ -38,8 +38,8 @@ serve(async (req) => {
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err) {
-      logStep("Webhook signature verification failed", { error: err.message, correlationId });
-      throw new Error(`Webhook signature verification failed: ${err.message}`);
+      logStep("Webhook signature verification failed", { error: (err as any).message, correlationId });
+      throw new Error(`Webhook signature verification failed: ${(err as any).message}`);
     }
 
     logStep("Event received", { type: event.type, id: event.id, correlationId });
@@ -308,6 +308,6 @@ serve(async (req) => {
       console.error('Failed to log error or enqueue to DLQ:', logError);
     }
 
-    return createErrorResponse(errorMessage, correlationId);
+    return createErrorResponse(errorMessage);
   }
 });

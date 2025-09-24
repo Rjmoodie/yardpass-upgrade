@@ -216,9 +216,9 @@ serve(async (req) => {
         p_headers: Object.fromEntries(req.headers.entries()),
         p_body: {},
         p_response_status: 500,
-        p_response_body: { error: error.message },
+        p_response_body: { error: (error as any).message },
         p_execution_time_ms: Math.round(performance.now() - t0),
-        p_error_message: error.message
+        p_error_message: (error as any).message
       });
     } catch (logError) {
       console.error('Failed to log error:', logError);

@@ -117,7 +117,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: (error as any).message,
         error_code: 'EXPIRY_DAEMON_FAILED'
       }),
       {

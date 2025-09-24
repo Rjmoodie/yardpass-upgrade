@@ -105,7 +105,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Mux upload error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as any).message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });

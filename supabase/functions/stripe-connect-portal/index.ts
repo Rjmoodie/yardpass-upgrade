@@ -56,7 +56,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in stripe-connect-portal:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as any).message }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,

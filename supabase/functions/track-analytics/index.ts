@@ -108,7 +108,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Analytics tracking error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as any).message }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
