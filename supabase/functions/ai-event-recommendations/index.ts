@@ -80,7 +80,7 @@ Constraints: 3–4 tiers, include one entry-level option and one premium/VIP opt
     })) : [];
 
     return json({ tiers, notes: parsed?.notes ?? '' });
-  } catch (e) {
+  } catch (e: any) {
     console.error('[ai-event-recommendations] error:', e);
     return json({ error: String(e?.message || e) }, 500);
   }

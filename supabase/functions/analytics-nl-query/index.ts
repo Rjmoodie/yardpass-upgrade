@@ -145,7 +145,7 @@ IMPORTANT: To filter by organization, use one of these patterns:
       // Return the query plan even if execution fails
       return new Response(JSON.stringify({
         ...queryPlan,
-        error: `Query execution failed: ${queryError.message}`,
+        error: `Query execution failed: ${(queryError as any)?.message || 'Unknown error'}`,
         debug: {
           sql: queryPlan.sql,
           error_details: queryError
@@ -161,7 +161,7 @@ IMPORTANT: To filter by organization, use one of these patterns:
     console.error("Natural language query error:", error);
     return new Response(JSON.stringify({ 
       error: "Failed to process query",
-      details: error.message 
+      details: (error as any)?.message || 'Unknown error' 
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

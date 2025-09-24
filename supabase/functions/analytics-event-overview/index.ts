@@ -95,9 +95,9 @@ serve(async (req) => {
       p_to_date: defaultToDate.split('T')[0]
     });
 
-    const totalRevenue = kpisData?.reduce((sum, row) => sum + row.gmv_cents, 0) || 0;
-    const totalFees = kpisData?.reduce((sum, row) => sum + row.fees_cents, 0) || 0;
-    const totalTickets = kpisData?.reduce((sum, row) => sum + row.units, 0) || 0;
+    const totalRevenue = kpisData?.reduce((sum: number, row: any) => sum + row.gmv_cents, 0) || 0;
+    const totalFees = kpisData?.reduce((sum: number, row: any) => sum + row.fees_cents, 0) || 0;
+    const totalTickets = kpisData?.reduce((sum: number, row: any) => sum + row.units, 0) || 0;
 
     // Get ticket tiers and their performance
     const { data: tiers } = await supabase
@@ -139,7 +139,7 @@ serve(async (req) => {
       p_to_date: defaultToDate.split('T')[0]
     });
 
-    const totalScans = scanData?.reduce((sum, row) => sum + row.scans, 0) || 0;
+    const totalScans = scanData?.reduce((sum: number, row: any) => sum + row.scans, 0) || 0;
     const checkinRate = totalTickets > 0 ? (totalScans / totalTickets) * 100 : 0;
 
     // Get posts and engagement for this event
@@ -156,12 +156,12 @@ serve(async (req) => {
       p_to_date: defaultToDate.split('T')[0]
     });
 
-    const totalEngagements = engagementData?.reduce((sum, row) => 
+    const totalEngagements = engagementData?.reduce((sum: number, row: any) => 
       sum + row.likes + row.comments + row.shares, 0) || 0;
 
     // Sales curve data (cumulative)
     let cumulativeRevenue = 0;
-    const salesCurve = kpisData?.map(row => {
+    const salesCurve = kpisData?.map((row: any) => {
       cumulativeRevenue += row.gmv_cents;
       return {
         date: row.d,
@@ -172,7 +172,7 @@ serve(async (req) => {
     }) || [];
 
     // Check-in timeline
-    const checkinTimeline = scanData?.map(row => ({
+    const checkinTimeline = scanData?.map((row: any) => ({
       date: row.d,
       scans: row.scans,
       duplicates: row.dupes
@@ -190,9 +190,9 @@ serve(async (req) => {
         net_revenue: totalRevenue - totalFees,
         platform_fees: totalFees,
         tickets_sold: totalTickets,
-        capacity: tiers?.reduce((sum, t) => sum + (t.quantity || 0), 0) || 0,
-        sell_through: tiers?.reduce((sum, t) => sum + (t.quantity || 0), 0) > 0 
-          ? (totalTickets / tiers.reduce((sum, t) => sum + (t.quantity || 0), 0)) * 100 
+        capacity: tiers?.reduce((sum: number, t: any) => sum + (t.quantity || 0), 0) || 0,
+        sell_through: tiers && tiers.reduce((sum: number, t: any) => sum + (t.quantity || 0), 0) > 0 
+          ? (totalTickets / tiers.reduce((sum: number, t: any) => sum + (t.quantity || 0), 0)) * 100 
           : 0,
         checkin_rate: Math.round(checkinRate * 100) / 100,
         posts_created: postsData?.length || 0,
@@ -203,8 +203,8 @@ serve(async (req) => {
       tier_performance: tierPerformance,
       scan_summary: {
         total_scans: totalScans,
-        valid_scans: totalScans - (scanData?.reduce((sum, row) => sum + row.dupes, 0) || 0),
-        duplicate_scans: scanData?.reduce((sum, row) => sum + row.dupes, 0) || 0
+        valid_scans: totalScans - (scanData?.reduce((sum: number, row: any) => sum + row.dupes, 0) || 0),
+        duplicate_scans: scanData?.reduce((sum: number, row: any) => sum + row.dupes, 0) || 0
       }
     };
 
@@ -212,7 +212,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Event analytics error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

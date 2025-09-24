@@ -125,11 +125,13 @@ serve(async (req) => {
       quantity: selection.quantity
     }));
 
+    const sessionId = crypto.randomUUID(); // Generate unique session ID
     const { data: reservationResult, error: reservationError } = await supabaseService
       .rpc('reserve_tickets_batch', {
-        p_user_id: user.id,
-        p_items: reservationItems,
-        p_expires_minutes: 15
+        p_expires_minutes: 15,
+        p_reservations: reservationItems,
+        p_session_id: sessionId,
+        p_user_id: user.id
       });
 
     if (reservationError || !reservationResult?.success) {
@@ -252,8 +254,10 @@ serve(async (req) => {
       // Release the reserved tickets if creating the order fails
       try {
         await supabaseService.rpc('release_tickets_batch', {
-          p_user_id: user.id,
-          p_items: reservationItems
+          p_expires_minutes: 15,
+          p_reservations: reservationItems,
+          p_session_id: sessionId,
+          p_user_id: user.id
         });
       } catch (releaseError) {
         logStep("Failed to release holds after order creation failure", releaseError);
@@ -285,9 +289,6 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in create-checkout", { message: errorMessage });
     
-    return createErrorResponse(errorMessage, {
-      success: false,
-      error_code: 'CHECKOUT_FAILED'
-    });
+    return createErrorResponse(errorMessage);
   }
 });

@@ -122,9 +122,9 @@ serve(async (req) => {
     });
 
     // Calculate aggregated KPIs
-    const totalRevenue = kpisData?.reduce((sum, row) => sum + row.gmv_cents, 0) || 0;
-    const totalFees = kpisData?.reduce((sum, row) => sum + row.fees_cents, 0) || 0;
-    const totalTickets = kpisData?.reduce((sum, row) => sum + row.units, 0) || 0;
+    const totalRevenue = kpisData?.reduce((sum: number, row: any) => sum + row.gmv_cents, 0) || 0;
+    const totalFees = kpisData?.reduce((sum: number, row: any) => sum + row.fees_cents, 0) || 0;
+    const totalTickets = kpisData?.reduce((sum: number, row: any) => sum + row.units, 0) || 0;
 
     // Get refund data
     const { data: refundsData } = await supabase
@@ -144,7 +144,7 @@ serve(async (req) => {
       p_to_date: defaultToDate.split('T')[0]
     });
 
-    const totalScans = scanData?.reduce((sum, row) => sum + row.scans, 0) || 0;
+    const totalScans = scanData?.reduce((sum: number, row: any) => sum + row.scans, 0) || 0;
     const noShowRate = totalTickets > 0 ? ((totalTickets - totalScans) / totalTickets) * 100 : 0;
 
     // Get unique buyers
@@ -173,11 +173,11 @@ serve(async (req) => {
       p_to_date: defaultToDate.split('T')[0]
     });
 
-    const totalEngagements = engagementData?.reduce((sum, row) => 
+    const totalEngagements = engagementData?.reduce((sum: number, row: any) => 
       sum + row.likes + row.comments + row.shares, 0) || 0;
 
     // Revenue trend data (daily)
-    const revenueTrend = kpisData?.map(row => ({
+    const revenueTrend = kpisData?.map((row: any) => ({
       date: row.d,
       revenue: row.gmv_cents,
       event_id: row.event_id
@@ -185,7 +185,7 @@ serve(async (req) => {
 
     // Top events by revenue
     const eventRevenue = new Map();
-    kpisData?.forEach(row => {
+    kpisData?.forEach((row: any) => {
       const current = eventRevenue.get(row.event_id) || 0;
       eventRevenue.set(row.event_id, current + row.gmv_cents);
     });
@@ -226,7 +226,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Analytics error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

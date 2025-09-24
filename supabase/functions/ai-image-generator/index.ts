@@ -89,7 +89,7 @@ serve(async (req) => {
 
     const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(key);
     return json({ image_url: publicUrl });
-  } catch (e) {
+  } catch (e: any) {
     console.error("[ai-image-generator] error:", e);
     return json({ error: String(e?.message || e) }, 500);
   }
