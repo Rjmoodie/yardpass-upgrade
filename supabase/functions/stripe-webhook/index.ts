@@ -127,7 +127,7 @@ serve(async (req) => {
           const { error: releaseError } = await supabaseService
             .from("ticket_tiers")
             .update({
-              quantity: supabaseService.raw(`quantity + ${item.quantity}`)
+              quantity: item.quantity // This will be handled by a database function instead
             })
             .eq("id", item.tier_id);
 

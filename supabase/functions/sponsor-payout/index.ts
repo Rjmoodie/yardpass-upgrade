@@ -115,7 +115,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in sponsor-payout:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as any).message }),
       {
         headers: { ...corsHeaders, "content-type": "application/json" },
         status: 500,

@@ -76,6 +76,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Share event error:', error);
-    return createErrorResponse(error.message);
+    return createErrorResponse((error as any).message);
   }
 });

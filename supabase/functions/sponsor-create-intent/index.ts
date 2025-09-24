@@ -145,7 +145,7 @@ serve(async (req) => {
       await supabase.rpc('update_circuit_breaker_state', { 
         p_service_id: 'stripe_api', 
         p_success: false, 
-        p_error_message: stripeError.message 
+        p_error_message: (stripeError as any).message 
       });
 
       // Enqueue to DLQ for later retry
@@ -159,7 +159,7 @@ serve(async (req) => {
           amount: pkg.price_cents 
         },
         p_original_timestamp: new Date().toISOString(),
-        p_failure_reason: stripeError.message?.slice(0, 500) || 'unknown'
+        p_failure_reason: (stripeError as any).message?.slice(0, 500) || 'unknown'
       });
 
       throw stripeError;
@@ -226,7 +226,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: (error as any).message,
         correlation_id: correlationId
       }),
       {

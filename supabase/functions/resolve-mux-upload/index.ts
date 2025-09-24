@@ -119,7 +119,7 @@ serve(async (req) => {
 
   } catch (e) {
     console.error("Resolve Mux upload error:", e);
-    console.error("Error stack:", e?.stack);
+    console.error("Error stack:", (e as any)?.stack);
     const errorMessage = e instanceof Error ? e.message : "unknown_error";
     return createErrorResponse(errorMessage, 500);
   }

@@ -114,8 +114,8 @@ serve(async (req) => {
           id: guestCode.id,
           code: guestCode.code,
           tier_id: guestCode.tier_id,
-          tier_name: guestCode.ticket_tiers?.name,
-          tier_price_cents: guestCode.ticket_tiers?.price_cents || 0
+          tier_name: (guestCode.ticket_tiers as any)?.name,
+          tier_price_cents: (guestCode.ticket_tiers as any)?.price_cents || 0
         }
       }),
       { 

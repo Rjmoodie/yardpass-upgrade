@@ -229,9 +229,9 @@ Deno.serve(async (req) => {
         timestamp: ticketData.redeemed_at,
         ticket: {
           id: ticketData.id,
-          tier_name: ticketData.ticket_tiers.name,
-          attendee_name: ticketData.user_profiles.display_name,
-          badge_label: ticketData.ticket_tiers.badge_label
+          tier_name: (ticketData.ticket_tiers as any).name,
+          attendee_name: (ticketData.user_profiles as any).display_name,
+          badge_label: (ticketData.ticket_tiers as any).badge_label
         }
       }
       
@@ -313,9 +313,9 @@ Deno.serve(async (req) => {
       message: 'Ticket validated successfully',
       ticket: {
         id: ticketData.id,
-        tier_name: ticketData.ticket_tiers.name,
-        attendee_name: ticketData.user_profiles.display_name,
-        badge_label: ticketData.ticket_tiers.badge_label
+        tier_name: (ticketData.ticket_tiers as any).name,
+        attendee_name: (ticketData.user_profiles as any).display_name,
+        badge_label: (ticketData.ticket_tiers as any).badge_label
       },
       timestamp: now
     }
