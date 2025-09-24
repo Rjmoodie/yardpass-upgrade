@@ -74,6 +74,42 @@ export type Database = {
         }
         Relationships: []
       }
+      circuit_breaker_state: {
+        Row: {
+          created_at: string | null
+          failure_count: number | null
+          failure_threshold: number | null
+          id: string
+          last_failure_at: string | null
+          next_attempt_at: string | null
+          state: string | null
+          timeout_seconds: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          failure_count?: number | null
+          failure_threshold?: number | null
+          id: string
+          last_failure_at?: string | null
+          next_attempt_at?: string | null
+          state?: string | null
+          timeout_seconds?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          failure_count?: number | null
+          failure_threshold?: number | null
+          id?: string
+          last_failure_at?: string | null
+          next_attempt_at?: string | null
+          state?: string | null
+          timeout_seconds?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       cultural_guides: {
         Row: {
           community: string[] | null
@@ -136,6 +172,48 @@ export type Database = {
             referencedColumns: ["event_id"]
           },
         ]
+      }
+      dead_letter_webhooks: {
+        Row: {
+          correlation_id: string | null
+          created_at: string | null
+          failure_reason: string | null
+          id: string
+          last_retry_at: string | null
+          original_timestamp: string
+          payload: Json
+          retry_count: number | null
+          status: string | null
+          updated_at: string | null
+          webhook_type: string
+        }
+        Insert: {
+          correlation_id?: string | null
+          created_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          last_retry_at?: string | null
+          original_timestamp: string
+          payload: Json
+          retry_count?: number | null
+          status?: string | null
+          updated_at?: string | null
+          webhook_type: string
+        }
+        Update: {
+          correlation_id?: string | null
+          created_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          last_retry_at?: string | null
+          original_timestamp?: string
+          payload?: Json
+          retry_count?: number | null
+          status?: string | null
+          updated_at?: string | null
+          webhook_type?: string
+        }
+        Relationships: []
       }
       event_comment_reactions: {
         Row: {
@@ -1941,6 +2019,54 @@ export type Database = {
           reported_by?: string | null
           target_id?: string
           target_type?: string
+        }
+        Relationships: []
+      }
+      request_logs: {
+        Row: {
+          body: Json | null
+          correlation_id: string | null
+          created_at: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          function_name: string | null
+          headers: Json | null
+          http_method: string | null
+          id: string
+          response_body: Json | null
+          response_status: number | null
+          source_type: string
+          url: string | null
+        }
+        Insert: {
+          body?: Json | null
+          correlation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          function_name?: string | null
+          headers?: Json | null
+          http_method?: string | null
+          id?: string
+          response_body?: Json | null
+          response_status?: number | null
+          source_type: string
+          url?: string | null
+        }
+        Update: {
+          body?: Json | null
+          correlation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          function_name?: string | null
+          headers?: Json | null
+          http_method?: string | null
+          id?: string
+          response_body?: Json | null
+          response_status?: number | null
+          source_type?: string
+          url?: string | null
         }
         Relationships: []
       }
