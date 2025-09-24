@@ -55,16 +55,23 @@ export function useGuestManagement(eventId: string) {
           status,
           created_at,
           qr_code,
-          user_profiles!tickets_owner_user_id_fkey (
-            display_name,
-            user_id
-          ),
-          ticket_tiers (
-            name,
-            price_cents
-          )
+          tier_id
         `)
         .eq('event_id', eventId);
+
+      // Get user profiles separately
+      const userIds = [...new Set((tickets || []).map(t => t.owner_user_id))];
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name')
+        .in('user_id', userIds);
+
+      // Get ticket tiers separately  
+      const tierIds = [...new Set((tickets || []).map(t => t.tier_id))];
+      const { data: tiers } = await supabase
+        .from('ticket_tiers')
+        .select('id, name, price_cents')
+        .in('id', tierIds);
 
       if (ticketsError) throw ticketsError;
 
@@ -75,38 +82,55 @@ export function useGuestManagement(eventId: string) {
           event_id,
           user_id,
           email,
-          created_at,
-          user_profiles!event_invites_user_id_fkey (
-            display_name,
-            user_id
-          )
+          created_at
         `)
         .eq('event_id', eventId);
 
       if (invitesError) throw invitesError;
 
+      // Get user profiles for invites separately
+      const inviteUserIds = [...new Set((invites || []).map(i => i.user_id))];
+      const { data: inviteProfiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name')
+        .in('user_id', inviteUserIds);
+
+      // Create lookup maps
+      const profilesMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+      const tiersMap = new Map(tiers?.map(t => [t.id, t]) || []);
+      const inviteProfilesMap = new Map(inviteProfiles?.map(p => [p.user_id, p]) || []);
+
       // Combine and format data
       const guestList: Guest[] = [
-        ...(tickets || []).map((ticket: any) => ({
-          id: ticket.id,
-          name: ticket.user_profiles?.display_name || 'Unknown User',
-          email: '', // We don't have email in tickets, would need to join with auth.users
-          type: 'ticket' as const,
-          status: ticket.status,
-          created_at: ticket.created_at,
-          ticket_id: ticket.id,
-          tier_name: ticket.ticket_tiers?.name,
-          is_complimentary: ticket.ticket_tiers?.price_cents === 0
-        })),
-        ...(invites || []).map((invite: any) => ({
-          id: `invite-${invite.user_id}`,
-          name: invite.user_profiles?.display_name || 'Invited User',
-          email: invite.email || '',
-          type: 'invite' as const,
-          status: 'invited',
-          created_at: invite.created_at,
-          invite_id: invite.user_id
-        }))
+        ...(tickets || []).map((ticket: any) => {
+          const profile = profilesMap.get(ticket.owner_user_id);
+          const tier = tiersMap.get(ticket.tier_id);
+          
+          return {
+            id: ticket.id,
+            name: profile?.display_name || 'Unknown User',
+            email: '', // We don't have email in tickets, would need to join with auth.users
+            type: 'ticket' as const,
+            status: ticket.status,
+            created_at: ticket.created_at,
+            ticket_id: ticket.id,
+            tier_name: tier?.name,
+            is_complimentary: tier?.price_cents === 0
+          };
+        }),
+        ...(invites || []).map((invite: any) => {
+          const profile = inviteProfilesMap.get(invite.user_id);
+          
+          return {
+            id: `invite-${invite.user_id}`,
+            name: profile?.display_name || 'Invited User',
+            email: invite.email || '',
+            type: 'invite' as const,
+            status: 'invited',
+            created_at: invite.created_at,
+            invite_id: invite.user_id
+          };
+        })
       ];
 
       setGuests(guestList);
@@ -279,15 +303,21 @@ export function useGuestManagement(eventId: string) {
           used_count,
           expires_at,
           notes,
-          created_at,
-          ticket_tiers (
-            name
-          )
+          created_at
         `)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      // Get tier names separately if tier_ids exist
+      const codeTierIds = [...new Set((codes || []).filter(c => c.tier_id).map(c => c.tier_id))];
+      const { data: codeTiers } = codeTierIds.length > 0 ? await supabase
+        .from('ticket_tiers')
+        .select('id, name')
+        .in('id', codeTierIds) : { data: [] };
+
+      const codeTiersMap = new Map((codeTiers || []).map((t: any) => [t.id, t]));
 
       const formattedCodes: GuestCode[] = (codes || []).map((code: any) => ({
         id: code.id,
@@ -298,7 +328,7 @@ export function useGuestManagement(eventId: string) {
         expires_at: code.expires_at,
         notes: code.notes,
         created_at: code.created_at,
-        tier_name: code.ticket_tiers?.name
+        tier_name: code.tier_id ? (codeTiersMap.get(code.tier_id) as any)?.name : undefined
       }));
 
       setGuestCodes(formattedCodes);
