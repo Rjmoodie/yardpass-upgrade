@@ -54,6 +54,7 @@ export type FeedItem =
       media_urls: string[] | null;
       content: string | null;
       metrics: Record<string, any>;
+      liked_by_me?: boolean;
       sponsor?: null;
       sponsors?: null;
     };

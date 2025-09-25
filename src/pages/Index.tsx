@@ -67,7 +67,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }, []);
 
   // ---------- Feed ----------
-  const { items, loading, error, prependItem, hasMore, loadMore, refresh, bumpPostCommentCount } = useUnifiedFeed(userId);
+  const { items, loading, error, prependItem, hasMore, loadMore, refresh, bumpPostCommentCount, bumpPostLikeCount } = useUnifiedFeed(userId);
 
   useEffect(() => {
     if (error) {
@@ -276,17 +276,25 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const handleLike = useCallback(
     withAuth(async (postId: string) => {
       try {
-        const { error } = await supabase.functions.invoke('reactions-toggle', {
+        const { data, error } = await supabase.functions.invoke('reactions-toggle', {
           body: { post_id: postId, kind: 'like' },
         });
         if (error) throw error;
-        refresh(); // keep counts in sync; no reloads
-        toast({ title: 'Liked!', description: 'Your reaction has been added.' });
+        
+        // LOCAL IN-PLACE UPDATE — no refresh, no reorder
+        if (data) {
+          bumpPostLikeCount(postId, data.like_count, data.liked);
+        }
+        
+        toast({ 
+          title: data?.liked ? 'Liked!' : 'Unliked!', 
+          description: data?.liked ? 'Your reaction has been added.' : 'Your reaction has been removed.'
+        });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to like post', variant: 'destructive' });
       }
     }, 'Please sign in to like posts'),
-    [withAuth, refresh]
+    [withAuth, bumpPostLikeCount]
   );
 
   const handleComment = useCallback(
