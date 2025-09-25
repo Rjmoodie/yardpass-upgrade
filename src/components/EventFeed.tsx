@@ -18,6 +18,7 @@ import { isVideoUrl, muxToPoster } from '@/utils/mux';
 import { isLikelyVideo } from '@/utils/media';
 import { VideoMedia } from '@/components/feed/VideoMedia';
 import { useHlsPrefetch } from '@/hooks/useHlsPrefetch';
+import { PreloadCriticalPosters } from '@/components/Perf/PreloadCriticalPosters';
 import CommentModal from '@/components/CommentModal';
 
 /** Shape returned by posts-list Edge Function after mapping */
@@ -376,6 +377,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
 
   return (
     <>
+      <PreloadCriticalPosters posts={posts} />
       <div className="space-y-4">
         {posts.map((post) => (
           <Card

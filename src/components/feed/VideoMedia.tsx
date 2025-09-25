@@ -37,15 +37,32 @@ export function VideoMedia({
 
   return (
     <div className="relative">
+      {/* Optimized poster image that loads immediately */}
+      <img
+        src={poster}
+        alt={`Video thumbnail for post by ${post.user_profiles?.display_name ?? 'User'}`}
+        className="w-full max-h-80 object-cover rounded-lg absolute inset-0 z-10"
+        loading="eager"
+        fetchPriority="high"
+        style={{
+          opacity: videoRef.current?.readyState >= 3 ? 0 : 1,
+          transition: 'opacity 0.3s ease-in-out'
+        }}
+      />
       <video
         ref={videoRef}
-        className="w-full max-h-80 object-cover rounded-lg"
+        className="w-full max-h-80 object-cover rounded-lg relative z-20"
         playsInline
         muted={muted}
         preload="metadata"
         poster={poster}
         aria-label={`Video in post by ${post.user_profiles?.display_name ?? 'User'}`}
         controls={false}
+        onLoadedData={() => {
+          // Fade out poster when video is ready
+          const img = videoRef.current?.parentElement?.querySelector('img');
+          if (img) img.style.opacity = '0';
+        }}
       />
       <div className="absolute top-2 right-2 flex flex-col gap-2">
         <Button

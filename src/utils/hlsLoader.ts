@@ -10,16 +10,29 @@ export function getHlsModule() {
 export function createHlsInstance(HlsMod: typeof import('hls.js')) {
   const { default: Hls } = HlsMod;
   return new Hls({
-    // Stability & startup
-    lowLatencyMode: true,
+    // Faster startup
+    lowLatencyMode: false, // Disable for better initial loading
     enableWorker: true,
-    backBufferLength: 30,
-    // Startup faster on average devices
-    maxBufferLength: 10,
-    maxMaxBufferLength: 30,
-    // Avoid CPU meltdowns
-    capLevelOnFPSDrop: true,
-    // ABR tuning
+    autoStartLoad: true,
+    startFragPrefetch: true,
+    
+    // Aggressive buffering for smooth playback
+    maxBufferLength: 5,  // Reduced for faster startup
+    maxMaxBufferLength: 15,
+    backBufferLength: 10,
+    
+    // Quality selection for faster loading
     startLevel: -1, // auto
+    capLevelOnFPSDrop: true,
+    capLevelToPlayerSize: true,
+    
+    // Network optimization
+    maxLoadingDelay: 2,  // Faster timeout
+    maxBufferHole: 0.3,
+    nudgeMaxRetry: 3,
+    
+    // Fragment loading
+    progressive: false,
+    testBandwidth: false, // Skip bandwidth test for faster startup
   });
 }

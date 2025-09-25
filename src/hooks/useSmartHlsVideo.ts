@@ -16,10 +16,16 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
       const canNative = el.canPlayType('application/vnd.apple.mpegurl');
       if (canNative) {
         if (visible) {
-          if (el.src !== manifestUrl) el.src = manifestUrl;
+          if (el.src !== manifestUrl) {
+            el.src = manifestUrl;
+            // Preload first few seconds immediately
+            el.preload = 'auto';
+          }
           try { await el.play().catch(() => {}); } catch {}
         } else {
           try { el.pause(); } catch {}
+          // Switch back to metadata preload to save bandwidth
+          el.preload = 'metadata';
         }
         return;
       }
@@ -28,7 +34,7 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
       const HlsMod = await getHlsModule();
       if (cancelled) return;
 
-      // create once
+      // create once with optimized settings
       if (!hlsRef.current) {
         hlsRef.current = createHlsInstance(HlsMod);
         hlsRef.current.attachMedia(el);
@@ -37,10 +43,14 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
       // swap source only when visible to avoid unnecessary network
       if (visible) {
         hlsRef.current.loadSource(manifestUrl);
+        // Trigger immediate buffer start for faster playback
+        hlsRef.current.startLoad(0);
         // play may fail silently due to autoplay policy; that's ok
         try { await el.play().catch(() => {}); } catch {}
       } else {
         try { el.pause(); } catch {}
+        // Stop loading to save bandwidth when not visible
+        hlsRef.current.stopLoad();
       }
     })();
 
