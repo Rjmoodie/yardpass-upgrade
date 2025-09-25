@@ -20,9 +20,13 @@ export function VideoMedia({
 
   const manifest = useMemo(() => {
     const muxUrl = buildMuxUrl(url);
+    console.log('🎬 Building manifest URL:', { originalUrl: url, muxUrl });
     if (muxUrl?.includes('stream.mux.com')) {
-      return `${muxUrl}?redundant_streams=true`;
+      const finalUrl = `${muxUrl}?redundant_streams=true`;
+      console.log('📺 Final manifest URL:', finalUrl);
+      return finalUrl;
     }
+    console.log('🔄 Using original URL as manifest:', muxUrl || url);
     return muxUrl || url;
   }, [url]);
 
