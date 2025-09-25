@@ -39,6 +39,13 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const isPast = (() => {
+    if (!event?.start_at && !event?.startAtISO) return false;
+    const iso = event.startAtISO ?? event.start_at;
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? t < Date.now() : false;
+  })();
+
   // Fetch ticket tiers when event changes
   useEffect(() => {
     if (event?.id && isOpen) {
@@ -73,6 +80,7 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
   if (!event) return null;
 
   const handlePurchaseClick = () => {
+    if (isPast) return; // safety
     console.log('🛒 Purchase button clicked!');
     console.log('Available ticket tiers:', ticketTiers?.length);
     setShowPurchaseModal(true);
@@ -115,6 +123,13 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
               </CardContent>
             </Card>
 
+            {/* Past event notice */}
+            {isPast && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 p-3 text-sm">
+                Sales ended — this event has already started or ended.
+              </div>
+            )}
+
             {/* Available Tickets */}
             <div className="space-y-4">
               <h3 className="font-semibold">Available Tickets</h3>
@@ -128,7 +143,12 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
                 </div>
               ) : (
                 ticketTiers.map((tier) => (
-                  <Card key={tier.id} className="border hover:border-primary/50 transition-colors">
+                  <Card
+                    key={tier.id}
+                    className={`border transition-colors ${
+                      isPast ? 'opacity-60' : 'hover:border-primary/50'
+                    }`}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
@@ -156,13 +176,14 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
               <Button variant="outline" onClick={onClose} className="flex-1">
                 Close
               </Button>
-              <Button 
-                onClick={handlePurchaseClick} 
+              <Button
+                onClick={handlePurchaseClick}
                 className="flex-1"
-                disabled={loading || ticketTiers.length === 0}
+                disabled={loading || ticketTiers.length === 0 || isPast}
+                variant={isPast ? 'outline' : 'default'}
               >
                 <CreditCard className="w-4 h-4 mr-2" />
-                Purchase Tickets
+                {isPast ? 'Sales ended' : 'Purchase Tickets'}
               </Button>
             </div>
           </div>

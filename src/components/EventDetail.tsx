@@ -60,8 +60,15 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
+  const isPast = (() => {
+    const iso = event.startAtISO;
+    if (!iso) return false;
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? t < Date.now() : false;
+  })();
+
   const handlePurchase = () => {
-    if (selectedTier) {
+    if (selectedTier && !isPast) {
       setShowPurchaseModal(true);
     }
   };
@@ -218,17 +225,28 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
           </TabsContent>
 
           <TabsContent value="tickets" className="p-4 space-y-4">
+            {/* Past event banner */}
+            {isPast && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 p-3 text-sm">
+                Sales ended — this event has already started or ended.
+              </div>
+            )}
+
             <div className="space-y-3">
               {event.ticketTiers && event.ticketTiers.length > 0 ? (
                 event.ticketTiers.map((tier) => (
                   <Card
                     key={tier.id}
-                    className={`cursor-pointer transition-all ${
-                      selectedTier?.id === tier.id
-                        ? 'ring-2 ring-primary border-primary'
-                        : 'hover:shadow-md'
+                    className={`transition-all ${
+                      isPast
+                        ? 'opacity-60 cursor-not-allowed'
+                        : selectedTier?.id === tier.id
+                        ? 'ring-2 ring-primary border-primary cursor-pointer'
+                        : 'hover:shadow-md cursor-pointer'
                     }`}
-                    onClick={() => setSelectedTier(tier)}
+                    onClick={() => {
+                      if (!isPast) setSelectedTier(tier);
+                    }}
                   >
                     <CardContent className="p-4">
                       <div className="flex justify-between items-start mb-2">
@@ -266,7 +284,7 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
               )}
             </div>
 
-            {selectedTier && (
+            {selectedTier && !isPast && (
               <Card className="border-primary">
                 <CardContent className="p-4">
                   <div className="flex justify-between items-center mb-4">
@@ -346,6 +364,13 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
                   </Dialog>
                 </CardContent>
               </Card>
+            )}
+
+            {/* If past, hide the purchase block entirely */}
+            {isPast && (
+              <div className="text-sm text-muted-foreground">
+                Tickets are no longer available. You can still view posts in the "Posts" tab.
+              </div>
             )}
           </TabsContent>
 

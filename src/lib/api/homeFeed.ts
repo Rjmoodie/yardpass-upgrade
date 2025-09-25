@@ -53,6 +53,8 @@ export interface EventPost {
 
 export async function fetchHomeFeed(limit: number = 3): Promise<HomeFeedEvent[]> {
   try {
+    const nowISO = new Date().toISOString();
+
     const { data, error } = await supabase
       .from('events')
       .select(`
@@ -80,8 +82,8 @@ export async function fetchHomeFeed(limit: number = 3): Promise<HomeFeedEvent[]>
         )
       `)
       .eq('visibility', 'public')
-      .gte('start_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
+      .gte('start_at', nowISO)            // ⬅️ filter out past events
+      .order('start_at', { ascending: true })
       .limit(limit);
 
     if (error) {

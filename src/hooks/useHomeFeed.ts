@@ -102,7 +102,10 @@ export function useHomeFeed(postLimit = 3) {
 
       if (rpcErr) throw rpcErr;
 
-      const events: HomeFeedEvent[] = (rows ?? []).map((row: any) => {
+      const now = Date.now();
+
+      const events: HomeFeedEvent[] = (rows ?? [])
+        .map((row: any) => {
         // Accept either event_id or id from RPC
         const eventId: string = (row?.event_id ?? row?.id) as string;
 
@@ -220,6 +223,11 @@ export function useHomeFeed(postLimit = 3) {
           isLiked: false,
           posts,
         };
+      })
+      // ⬇️ filter out events that already started (past)
+      .filter(e => {
+        const t = Date.parse(e.startAtISO);
+        return Number.isFinite(t) ? t >= now : true;
       });
 
       setData(events);
