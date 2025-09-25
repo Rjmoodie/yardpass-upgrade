@@ -638,6 +638,11 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           eventTitle={currentItem.event_title}
           postId={commentPostId}
           mediaPlaybackId={commentMediaPlaybackId}
+          onCommentCountChange={(postId, newCount) => {
+            console.log('🔥 Index: Updating comment count for post', { postId, newCount });
+            // Force refresh the unified feed to get updated counts
+            refresh();
+          }}
         />
       )}
 
