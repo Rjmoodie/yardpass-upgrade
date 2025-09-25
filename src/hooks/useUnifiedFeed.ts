@@ -173,16 +173,24 @@ export function useUnifiedFeed(userId?: string) {
       
       console.log('🔍 newItems processed:', { newItemsLength: newItems.length, firstItem: newItems[0] });
       
-      // De-dupe by composite key type+id to avoid "override"
+      // De-dupe within this batch only, not against all existing items
       setPages(prev => {
-        const existingItems = prev.flatMap(p => p.items);
-        const seen = new Set(existingItems.map(keyOf));
+        const batchSeen = new Set<string>();
         const dedupedItems = newItems.filter(it => {
           const key = keyOf(it);
-          return !seen.has(key);
+          if (batchSeen.has(key)) {
+            return false; // Skip duplicates within this batch
+          }
+          batchSeen.add(key);
+          return true;
         });
 
-        console.log('🔍 dedupedItems:', { dedupedLength: dedupedItems.length, totalPages: prev.length + 1 });
+        console.log('🔍 dedupedItems:', { 
+          originalLength: newItems.length,
+          dedupedLength: dedupedItems.length, 
+          totalPages: prev.length + 1,
+          removedDuplicates: newItems.length - dedupedItems.length
+        });
 
         const last = newItems[newItems.length - 1];
         return [
