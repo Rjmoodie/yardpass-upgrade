@@ -250,6 +250,7 @@ export type Database = {
       event_comments: {
         Row: {
           author_user_id: string
+          client_id: string | null
           created_at: string | null
           id: string
           post_id: string
@@ -257,6 +258,7 @@ export type Database = {
         }
         Insert: {
           author_user_id: string
+          client_id?: string | null
           created_at?: string | null
           id?: string
           post_id: string
@@ -264,6 +266,7 @@ export type Database = {
         }
         Update: {
           author_user_id?: string
+          client_id?: string | null
           created_at?: string | null
           id?: string
           post_id?: string
