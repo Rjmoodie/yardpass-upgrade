@@ -231,6 +231,38 @@ export function useUnifiedFeed(userId?: string) {
     });
   }, []);
 
+  // Local mutator for post comment_count (no network, no reorder)
+  const bumpPostCommentCount = useCallback((postId: string, newCount: number) => {
+    setPages(prev =>
+      prev.map(page => ({
+        ...page,
+        items: page.items.map(it =>
+          it.item_type === 'post' && it.item_id === postId
+            ? { ...it, metrics: { ...it.metrics, comments: newCount } }
+            : it
+        )
+      }))
+    );
+  }, []);
+
+  // Local mutator for post like_count (no network, no reorder)
+  const bumpPostLikeCount = useCallback((postId: string, newCount: number, liked?: boolean) => {
+    setPages(prev =>
+      prev.map(page => ({
+        ...page,
+        items: page.items.map(it =>
+          it.item_type === 'post' && it.item_id === postId
+            ? { 
+                ...it, 
+                metrics: { ...it.metrics, likes: newCount },
+                ...(liked !== undefined && { liked_by_me: liked })
+              }
+            : it
+        )
+      }))
+    );
+  }, []);
+
   useEffect(() => {
     // initial load on user change
     setPages([]);
@@ -245,6 +277,8 @@ export function useUnifiedFeed(userId?: string) {
     loadMore, 
     refresh, 
     prependItem,
+    bumpPostCommentCount,
+    bumpPostLikeCount,
     hasMore: !!pages[pages.length - 1]?.nextCursor 
   };
 }

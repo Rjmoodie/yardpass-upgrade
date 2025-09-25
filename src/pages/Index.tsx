@@ -67,7 +67,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   }, []);
 
   // ---------- Feed ----------
-  const { items, loading, error, prependItem, hasMore, loadMore, refresh } = useUnifiedFeed(userId);
+  const { items, loading, error, prependItem, hasMore, loadMore, refresh, bumpPostCommentCount } = useUnifiedFeed(userId);
 
   useEffect(() => {
     if (error) {
@@ -640,8 +640,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           mediaPlaybackId={commentMediaPlaybackId}
           onCommentCountChange={(postId, newCount) => {
             console.log('🔥 Index: Updating comment count for post', { postId, newCount });
-            // Force refresh the unified feed to get updated counts
-            refresh();
+            // LOCAL IN-PLACE UPDATE — no refresh, no reorder
+            bumpPostCommentCount(postId, newCount);
           }}
         />
       )}
