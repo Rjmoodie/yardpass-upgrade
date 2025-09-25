@@ -82,25 +82,45 @@ function safeString(s: unknown, fallback = ''): string {
 
 /** ---------- Hook ---------- */
 export function useHomeFeed(postLimit = 3) {
+  const CACHE_KEY = 'homeFeed:v2';
   const [data, setData] = useState<HomeFeedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
 
+  // Hydrate from sessionStorage on mount
+  useEffect(() => {
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try { 
+        setData(JSON.parse(cached)); 
+        setLoading(false); 
+      } catch {}
+    }
+  }, []);
+
   const fetchFeed = useCallback(async () => {
-    setLoading(true);
+    setLoading(!data.length); // if we showed cache, keep UI responsive
     setError(null);
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth?.user?.id ?? null;
+      // Fire feed query without blocking on auth for public content
+      const [feedResult, authResult] = await Promise.allSettled([
+        supabase.rpc('get_home_feed', {
+          p_user_id: null, // start with public query
+          p_limit: 20,
+          p_offset: 0,
+        }),
+        supabase.auth.getUser()
+      ]);
 
-      // RPC signature: get_home_feed(p_user_id, p_limit, p_offset) - only public events for discovery
-      const { data: rows, error: rpcErr } = await supabase.rpc('get_home_feed', {
-        p_user_id: userId,
-        p_limit: 20,
-        p_offset: 0,
-      });
+      const userId = authResult.status === 'fulfilled' ? authResult.value.data?.user?.id ?? null : null;
 
-      if (rpcErr) throw rpcErr;
+      let rows: any[] = [];
+      if (feedResult.status === 'fulfilled') {
+        if (feedResult.value.error) throw feedResult.value.error;
+        rows = feedResult.value.data ?? [];
+      } else {
+        throw feedResult.reason;
+      }
 
       const now = Date.now();
 
@@ -231,6 +251,10 @@ export function useHomeFeed(postLimit = 3) {
       });
 
       setData(events);
+      // Cache successful results
+      try { 
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(events)); 
+      } catch {}
     } catch (err) {
       console.error('[useHomeFeed] error:', err);
       setError(err);
@@ -238,7 +262,7 @@ export function useHomeFeed(postLimit = 3) {
     } finally {
       setLoading(false);
     }
-  }, [postLimit]);
+  }, [postLimit, data.length]);
 
   useEffect(() => {
     fetchFeed();

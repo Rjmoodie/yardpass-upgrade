@@ -12,6 +12,9 @@ import { getEventRoute } from '@/lib/eventRouting';
 import { Scan } from 'lucide-react';
 import { PageLoadingSpinner } from '@/components/LoadingSpinner';
 import { Event } from '@/types/events';
+import { PerfPreconnect } from '@/components/Perf/PerfPreconnect';
+import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
+import { DeferredImports } from '@/components/Perf/DeferredImports';
 
 // Lazy load heavy components
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
@@ -232,8 +235,12 @@ function AppContent() {
   }
 
   return (
-    <AnalyticsWrapper>
-      <div className="flex min-h-[100dvh] flex-col bg-background relative">
+    <>
+      <PerfPreconnect />
+      <WarmHlsOnIdle />
+      <DeferredImports />
+      <AnalyticsWrapper>
+        <div className="flex min-h-[100dvh] flex-col bg-background relative">
         {/* Subtle Background Pattern */}
         <div className="absolute inset-0 opacity-5 pointer-events-none">
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/20 via-transparent to-accent/20" />
