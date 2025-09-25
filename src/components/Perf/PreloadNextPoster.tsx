@@ -12,7 +12,13 @@ export function PreloadNextPoster({ url }: PreloadNextPosterProps) {
     link.as = 'image';
     link.href = url;
     document.head.appendChild(link);
-    return () => document.head.removeChild(link);
+    return () => {
+      try {
+        document.head.removeChild(link);
+      } catch {
+        // Link might already be removed
+      }
+    };
   }, [url]);
   return null;
 }

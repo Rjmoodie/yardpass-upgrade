@@ -3913,6 +3913,19 @@ export type Database = {
           sort_ts: string
         }[]
       }
+      get_hero_feed: {
+        Args: { p_limit?: number }
+        Returns: {
+          city: string
+          cover_image_url: string
+          created_by: string
+          id: string
+          organizer_display_name: string
+          start_at: string
+          title: string
+          venue: string
+        }[]
+      }
       get_home_feed: {
         Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
         Returns: Database["public"]["CompositeTypes"]["home_feed_row"][]

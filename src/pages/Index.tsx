@@ -18,6 +18,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { SearchPalette } from '@/components/SearchPalette';
 import { muxToPoster } from '@/utils/media';
 import { PreconnectMux } from '@/components/Perf/PreconnectMux';
+import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
+import { PreloadNextPoster } from '@/components/Perf/PreloadNextPoster';
 
 interface IndexProps {
   onEventSelect: (eventId: string) => void;
@@ -401,6 +403,19 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     });
   }, [currentIndex, items]);
 
+  // Get next poster URL for preloading
+  const nextPosterUrl = useMemo(() => {
+    const nextItem = items[currentIndex + 1];
+    if (nextItem?.item_type === 'event' && nextItem.event_cover_image) {
+      return nextItem.event_cover_image;
+    }
+    if (nextItem?.item_type === 'post' && nextItem.media_urls?.[0]) {
+      const mediaUrl = nextItem.media_urls[0];
+      return mediaUrl.startsWith('mux:') ? muxToPoster(mediaUrl) : mediaUrl;
+    }
+    return undefined;
+  }, [items, currentIndex]);
+
   // ---------- Empty / Loading ----------
   if (loading && !items.length) {
     return (
@@ -432,6 +447,8 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       style={{ touchAction: 'pan-y' }}
     >
       <PreconnectMux />
+      <WarmHlsOnIdle />
+      <PreloadNextPoster url={nextPosterUrl} />
       {/* Logo */}
       <div className="fixed left-2 top-3 z-30">
         <img

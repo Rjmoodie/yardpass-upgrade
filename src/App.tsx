@@ -499,8 +499,9 @@ function AppContent() {
 
         {/* Share Modal (single instance) */}
         <ShareModal isOpen={!!sharePayload} onClose={() => setSharePayload(null)} payload={sharePayload} />
-      </div>
-    </AnalyticsWrapper>
+        </div>
+      </AnalyticsWrapper>
+    </>
   );
 }
 
