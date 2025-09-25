@@ -174,18 +174,28 @@ export default function CommentModal({
           return p;
         }
         
-        // Check if this is replacing a pending optimistic comment
-        const pendingComment = p.comments.find(c => c.pending && c.author_user_id === comment.author_user_id);
-        if (pendingComment) {
+        // Smart matching: client_id first, then fuzzy match by author+time+text
+        const keyFor = (c: any) =>
+          `${c.author_user_id}|${new Date(c.created_at).toISOString().slice(0,19)}|${(c.text||'').slice(0,64)}`;
+
+        const pendingIdx = p.comments.findIndex(c =>
+          c.pending && (
+            (c.client_id && comment.client_id && c.client_id === comment.client_id) || // client_id match
+            keyFor(c) === keyFor(comment) // fallback fuzzy match
+          )
+        );
+
+        if (pendingIdx !== -1) {
           console.log('🔥 CommentModal: Replacing pending comment with real one', { 
-            pendingId: pendingComment.id, 
-            realId: comment.id 
+            pendingId: p.comments[pendingIdx].id, 
+            realId: comment.id,
+            clientId: comment.client_id
           });
           return {
             ...p,
-            comment_count: p.comment_count, // Keep the count unchanged as it was already incremented
-            comments: p.comments.map(c => 
-              c.id === pendingComment.id 
+            comment_count: p.comment_count, // Keep the count unchanged as it was already incremented optimistically
+            comments: p.comments.map((c, idx) => 
+              idx === pendingIdx 
                 ? { 
                     ...comment, 
                     author_name: comment.author_name || 'User',
@@ -387,7 +397,7 @@ export default function CommentModal({
 
     setSubmitting(true);
 
-    const clientId = `c_${Date.now()}`;
+    const clientId = `c_${crypto.randomUUID?.() ?? Date.now()}`;
     const optimistic: Comment = {
       id: clientId,
       client_id: clientId,
@@ -404,12 +414,17 @@ export default function CommentModal({
     console.log('🔥 CommentModal: Adding optimistic comment', { clientId, postId: activePost.id });
     setPosts(prev => prev.map(p => {
       if (p.id !== activePost.id) return p;
-      // Don't increment optimistically since database triggers will handle it
-      // Just add the optimistic comment to the list
-      return { 
+      // Increment count optimistically - will be corrected by realtime if needed
+      const updatedPost = { 
         ...p, 
+        comment_count: p.comment_count + 1,
         comments: [...p.comments, optimistic] 
       };
+      
+      // Notify parent immediately about count change
+      onCommentCountChange?.(activePost.id, updatedPost.comment_count);
+      
+      return updatedPost;
     }));
     setDraft('');
 
@@ -417,8 +432,13 @@ export default function CommentModal({
       console.log('🔥 CommentModal: Inserting comment to DB', { postId: activePost.id, text: optimistic.text });
       const { data, error } = await supabase
         .from('event_comments')
-        .insert({ post_id: activePost.id, author_user_id: user.id, text: optimistic.text })
-        .select('id, created_at')
+        .insert({ 
+          post_id: activePost.id, 
+          author_user_id: user.id, 
+          text: optimistic.text,
+          client_id: clientId
+        })
+        .select('id, created_at, client_id')
         .single();
       if (error) throw error;
 
@@ -674,14 +694,14 @@ export default function CommentModal({
               </div>
 
               {/* Comments list */}
-              <div className="space-y-2">
+               <div className="space-y-2" aria-live="polite">
                 {activePost.comments.map((comment) => {
                   const mine = user?.id === comment.author_user_id;
                   return (
-                    <div
-                      key={comment.id}
-                      className={`group flex items-start gap-2 sm:gap-3 ${mine ? 'flex-row-reverse text-right' : ''}`}
-                    >
+                     <div
+                       key={comment.id}
+                       className={`group flex items-start gap-2 sm:gap-3 ${mine ? 'flex-row-reverse text-right' : ''} ${comment.pending ? 'opacity-70' : ''}`}
+                     >
                       <button
                         type="button"
                         onClick={() => openInNewTab(routes.user(comment.author_user_id))}

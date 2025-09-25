@@ -9,6 +9,7 @@ export interface Comment {
   created_at: string;
   post_id: string;
   author_user_id: string;
+  client_id?: string;
 }
 
 interface UseRealtimeCommentsProps {
