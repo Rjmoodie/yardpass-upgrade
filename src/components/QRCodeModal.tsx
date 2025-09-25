@@ -89,11 +89,11 @@ export function QRCodeModal({
           userId: user.id,
         });
 
-        // Generate both PNG (for display) and SVG (for export) concurrently
-        const [pngDataUrl, svgDataUrl] = await Promise.all([
-          generateStyledQRDataURL(qrData, { ...qrOptions, format: 'png' }),
-          generateStyledQRDataURL(qrData, { ...qrOptions, format: 'svg' }),
-        ]);
+        // Generate PNG first for display, SVG on demand
+        const pngDataUrl = await generateStyledQRDataURL(qrData, { ...qrOptions, format: 'png' });
+        
+        // Generate SVG lazily - only when needed for download
+        const svgDataUrl = '';
 
         if (!cancelled) {
           setQrPng(pngDataUrl);
@@ -123,9 +123,32 @@ export function QRCodeModal({
     };
   }, [ticket, user, qrOptions, toast]);
 
-  // Download handler with proper file naming
-  const handleDownload = useCallback((dataUrl: string, format: 'png' | 'svg') => {
-    if (!dataUrl) {
+  // Download handler with lazy SVG generation
+  const handleDownload = useCallback(async (dataUrl: string, format: 'png' | 'svg') => {
+    let finalDataUrl = dataUrl;
+    
+    // Generate SVG on-demand if needed
+    if (format === 'svg' && !dataUrl) {
+      try {
+        const qrData = generateQRData({
+          id: ticket.id,
+          eventId: ticket.eventId,
+          qrCode: ticket.qrCode,
+          userId: user.id,
+        });
+        finalDataUrl = await generateStyledQRDataURL(qrData, { ...qrOptions, format: 'svg' });
+      } catch (error) {
+        console.error('Failed to generate SVG:', error);
+        toast({
+          title: "Download Failed",
+          description: "Could not generate SVG QR code",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    if (!finalDataUrl) {
       toast({
         title: "Download Failed",
         description: "QR code not ready for download",

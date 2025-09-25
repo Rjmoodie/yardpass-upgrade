@@ -1,5 +1,6 @@
 // src/lib/styledQr.ts - Premium QR Code Generation with Branded Styling
 import type { QRCodeData } from './qrCode';
+import { getCachedQR, cacheQR } from './qrCache';
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -185,6 +186,12 @@ export async function generateStyledQRDataURL(
   data: QRCodeData,
   options: StyledQrOptions = {}
 ): Promise<string> {
+  // Check cache first
+  const cached = getCachedQR(data, options);
+  if (cached) {
+    console.log('✅ Using cached QR code');
+    return cached;
+  }
   // Apply safe defaults optimized for scanability
   const {
     size = 512,                    // Retina quality for crisp display
@@ -194,7 +201,7 @@ export async function generateStyledQRDataURL(
     dotsGradient,                  // Optional brand gradient
     logoUrl,                       // Brand logo
     logoMargin = 8,                // Breathing room around logo
-    logoSizeRatio = 0.80,          // Extra large logo - 80% of QR width
+    logoSizeRatio = 0.22,          // Optimal size for scanning - 22% of QR width
     dotsType = 'rounded',          // Premium rounded dots
     cornersSquareType = 'extra-rounded', // Distinctive finder eyes
     cornersDotType = 'dot',        // Clean center dots
@@ -218,20 +225,8 @@ export async function generateStyledQRDataURL(
     // Dynamic import to avoid SSR issues
     const QRCodeStyling = (await import('qr-code-styling')).default;
 
-    // Generate logo badge if logo URL is provided
-    console.log('🖼️ Logo URL provided:', logoUrl);
-    const logoBadge = logoUrl
-      ? await buildLogoBadgeDataUri({
-          logoUrl,
-          sizePx: 256,                    // High resolution badge
-          marginPx: logoMargin,
-          shape: logoBackerShape,
-          fill: logoBackerFill,
-          stroke: logoBackerStroke,
-          strokeWidth: logoBackerStrokeWidth,
-          shadow: logoShadow,
-        })
-      : undefined;
+    // Use simpler logo handling - skip complex badge generation for speed
+    const logoBadge = logoUrl;
     
     console.log('🎨 Badge generated:', !!logoBadge, logoBadge ? 'Successfully created' : 'Failed or no logo');
 
@@ -273,7 +268,7 @@ export async function generateStyledQRDataURL(
       },
       imageOptions: {
         crossOrigin: 'anonymous',
-        margin: 0,                        // Padding handled in badge
+        margin: logoMargin,               // Simple margin instead of complex badge
         imageSize: Math.min(Math.max(logoSizeRatio, 0.18), 0.24), // Clamp to safe range
         hideBackgroundDots: true,         // Clear area behind logo
       },
@@ -295,6 +290,10 @@ export async function generateStyledQRDataURL(
     });
 
     console.log('✅ Premium QR code generated successfully');
+    
+    // Cache the result
+    cacheQR(data, options, dataUrl);
+    
     return dataUrl;
 
   } catch (error) {
