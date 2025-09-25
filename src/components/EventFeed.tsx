@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, MessageCircle, Share as ShareIcon, Crown, MoreVertical, Volume2, VolumeX, Bookmark, Instagram, Twitter, Globe } from 'lucide-react';
+import { Heart, MessageCircle, Share as ShareIcon, Crown, MoreVertical, Instagram, Twitter, Globe, Bookmark } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,11 +11,13 @@ import { toast } from '@/hooks/use-toast';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { useVideoAnalytics } from '@/hooks/useVideoAnalytics';
-import { useHlsVideo } from '@/hooks/useHlsVideo';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useRealtimeEngagement } from '@/hooks/useRealtimeEngagement';
 import { useRealtimeComments } from '@/hooks/useRealtimeComments';
-import { muxToHls, muxToPoster, isLikelyVideo } from '@/utils/media';
+import { isVideoUrl, muxToPoster } from '@/utils/mux';
+import { isLikelyVideo } from '@/utils/media';
+import { VideoMedia } from '@/components/feed/VideoMedia';
+import { useHlsPrefetch } from '@/hooks/useHlsPrefetch';
 import CommentModal from '@/components/CommentModal';
 
 /** Shape returned by posts-list Edge Function after mapping */
@@ -55,76 +57,6 @@ interface EventFeedProps {
   refreshTrigger?: number;
 }
 
-/** Video tile with sound controls */
-function VideoMedia({
-  url,
-  post,
-  onAttachAnalytics,
-}: {
-  url: string;
-  post: FeedPost;
-  onAttachAnalytics?: (v: HTMLVideoElement) => VoidFunction | void;
-}) {
-  const [muted, setMuted] = useState(true);
-  const src = useMemo(() => muxToHls(url), [url]);
-  const { videoRef, ready } = useHlsVideo(src);
-  const cleanupRef = useRef<VoidFunction | null>(null);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v || !ready) return;
-    v.muted = muted;
-
-    cleanupRef.current?.();
-    cleanupRef.current = (onAttachAnalytics?.(v) as VoidFunction) ?? null;
-    return () => {
-      cleanupRef.current?.();
-      cleanupRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, videoRef, muted]);
-
-  const toggleMute = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    const newMuted = !muted;
-    setMuted(newMuted);
-    v.muted = newMuted;
-  };
-
-  return (
-    <div className="relative">
-      <video
-        ref={videoRef}
-        controls
-        className="w-full max-h-80 object-cover rounded-lg"
-        playsInline
-        preload="metadata"
-        muted={muted}
-        aria-label={`Video in post by ${post.user_profiles.display_name}`}
-      />
-      <div className="absolute top-2 right-2 flex flex-col gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleMute}
-          className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm rounded-full"
-          aria-label={muted ? 'Unmute video' : 'Mute video'}
-        >
-          {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm rounded-full"
-          aria-label="Bookmark post"
-        >
-          <Bookmark className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: EventFeedProps) {
   const { user } = useAuth();
@@ -138,12 +70,58 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   const [commentEventId, setCommentEventId] = useState<string>();
   const [commentEventTitle, setCommentEventTitle] = useState<string>();
 
+  // Viewport visibility tracking
+  const [visibleMap, setVisibleMap] = useState<Record<string, boolean>>({});
+  const ioRef = useRef<IntersectionObserver | null>(null);
+
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isMounted = useRef(true);
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<Record<string, any[]>>({});
+
+  // Setup intersection observer for visibility tracking
+  useEffect(() => {
+    ioRef.current = new IntersectionObserver(
+      entries => {
+        setVisibleMap(prev => {
+          const next = { ...prev };
+          for (const e of entries) {
+            const id = e.target.getAttribute('data-post-id');
+            if (id) next[id] = e.isIntersecting && e.intersectionRatio >= 0.5;
+          }
+          return next;
+        });
+      },
+      { threshold: [0.25, 0.5, 0.75], rootMargin: '150px 0px 150px 0px' }
+    );
+    return () => ioRef.current?.disconnect();
+  }, []);
+
+  const observePost = useCallback((el: HTMLDivElement | null) => {
+    if (!el || !ioRef.current) return;
+    ioRef.current.observe(el);
+  }, []);
+
+  // collect all manifest URLs in order for prefetch
+  const manifestOrder = useMemo(() => {
+    return posts.flatMap(p => (p.media_urls || []).filter(isLikelyVideo).map(url => 
+      url.startsWith('mux:') ? `https://stream.mux.com/${url.slice(4)}.m3u8` : url
+    ));
+  }, [posts]);
+
+  // find current index ≈ first visible video in list
+  const currentVisibleIndex = useMemo(() => {
+    const ids = posts.map(p => p.id);
+    for (let i = 0; i < ids.length; i++) {
+      if (visibleMap[ids[i]]) return i;
+    }
+    return 0;
+  }, [posts, visibleMap]);
+
+  // warm next manifest
+  useHlsPrefetch(currentVisibleIndex, manifestOrder, 1);
 
   // Pause/mute all videos when modal opens; restore current on close
   useEffect(() => {
@@ -403,7 +381,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
           <Card
             key={post.id}
             className="overflow-hidden group"
-            ref={postRef}
+            ref={observePost}
             data-post-id={post.id}
             data-event-id={post.event_id}
           >
@@ -562,6 +540,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                            <VideoMedia
                              url={url}
                              post={post}
+                             visible={!!visibleMap[post.id]}
                              onAttachAnalytics={(v) => trackVideoProgress(post.id, post.event_id, v)}
                            />
                         ) : (

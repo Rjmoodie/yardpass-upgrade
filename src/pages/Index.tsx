@@ -17,6 +17,7 @@ import { UserPostCard } from '@/components/UserPostCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SearchPalette } from '@/components/SearchPalette';
 import { muxToPoster } from '@/utils/media';
+import { PreconnectMux } from '@/components/Perf/PreconnectMux';
 
 interface IndexProps {
   onEventSelect: (eventId: string) => void;
@@ -430,6 +431,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       className="feed-page h-screen relative overflow-hidden bg-black smooth-feed-scroll"
       style={{ touchAction: 'pan-y' }}
     >
+      <PreconnectMux />
       {/* Logo */}
       <div className="fixed left-2 top-3 z-30">
         <img
