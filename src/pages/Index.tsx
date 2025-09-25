@@ -275,6 +275,11 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   // ---------- Actions ----------
   const handleLike = useCallback(
     withAuth(async (postId: string) => {
+      // Prevent rapid-fire clicks using a proper ref pattern
+      const lockKey = `like-${postId}`;
+      if ((window as any)[lockKey]) return;
+      (window as any)[lockKey] = true;
+
       try {
         const { data, error } = await supabase.functions.invoke('reactions-toggle', {
           body: { post_id: postId, kind: 'like' },
@@ -292,6 +297,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to like post', variant: 'destructive' });
+      } finally {
+        // Release lock after a short delay
+        setTimeout(() => { delete (window as any)[lockKey]; }, 1000);
       }
     }, 'Please sign in to like posts'),
     [withAuth, bumpPostLikeCount]
