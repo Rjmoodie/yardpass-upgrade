@@ -1,7 +1,7 @@
 // src/components/UserPostCard.tsx
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, Ticket } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
 import { muxToPoster } from '@/utils/media';
@@ -22,6 +22,7 @@ interface UserPostCardProps {
   onReport?: () => void;
   onSoundToggle?: () => void;
   onVideoToggle?: () => void;
+  onOpenTickets?: (eventId: string) => void;
   soundEnabled?: boolean;
   isVideoPlaying?: boolean;
 }
@@ -50,6 +51,7 @@ export const UserPostCard = memo(function UserPostCard({
   onReport,
   onSoundToggle,
   onVideoToggle,
+  onOpenTickets,
   soundEnabled = true,
   isVideoPlaying = false,
 }: UserPostCardProps) {
@@ -354,17 +356,33 @@ export const UserPostCard = memo(function UserPostCard({
             )}
           </div>
 
-          {/* Event link */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEventClick(item.event_id);
-            }}
-            className="text-white/90 hover:text-white font-medium text-base truncate ml-4 bg-transparent border-none cursor-pointer"
-            title={item.event_title || 'View event'}
-          >
-            {item.event_title || 'View event'}
-          </button>
+          {/* Event link and tickets */}
+          <div className="flex items-center gap-2 min-w-0 ml-4">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEventClick(item.event_id);
+              }}
+              className="text-white/90 hover:text-white font-medium text-base truncate bg-transparent border-none cursor-pointer"
+              title={item.event_title || 'View event'}
+            >
+              {item.event_title || 'View event'}
+            </button>
+            
+            {onOpenTickets && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenTickets(item.event_id);
+                }}
+                className="flex items-center gap-1 bg-primary text-primary-foreground hover:bg-primary/90 px-2 py-1 rounded-full text-xs font-medium transition-colors flex-shrink-0"
+                title="Get tickets"
+              >
+                <Ticket size={12} />
+                <span>Tickets</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Post content */}

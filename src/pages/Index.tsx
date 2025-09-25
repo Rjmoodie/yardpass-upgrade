@@ -491,6 +491,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
                 onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
                 onReport={() => {}}
                 onSoundToggle={handleSoundToggle}
+                onOpenTickets={handleOpenTickets}
                 soundEnabled={soundEnabled}
                 onVideoToggle={() => {}}
                 isVideoPlaying={i === currentIndex}
