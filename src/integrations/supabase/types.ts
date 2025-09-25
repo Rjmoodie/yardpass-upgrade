@@ -1849,6 +1849,29 @@ export type Database = {
         }
         Relationships: []
       }
+      pgbench_tiers: {
+        Row: {
+          id: string
+          pos: number
+        }
+        Insert: {
+          id: string
+          pos: number
+        }
+        Update: {
+          id?: string
+          pos?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pgbench_tiers_id_fkey"
+            columns: ["id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_clicks: {
         Row: {
           created_at: string | null
@@ -3935,6 +3958,8 @@ export type Database = {
           media_urls: string[]
           metrics: Json
           sort_ts: string
+          sponsor: Json
+          sponsors: Json
         }[]
       }
       get_inventory_health: {
