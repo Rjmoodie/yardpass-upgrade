@@ -8,7 +8,7 @@ export interface ActionRailProps {
   className?: string;
   postId?: string;
   eventId?: string;
-  onLike?: () => void;
+  onLike?: (event?: React.MouseEvent) => void;
   onComment?: () => void;
   onShare?: () => void;
   onCreatePost?: () => void;
@@ -55,7 +55,7 @@ export const ActionRail: React.FC<ActionRailProps> = ({
             aria-label="Like"
             onClick={(e) => { 
               e.stopPropagation(); 
-              onLike?.();
+              onLike?.(e);
               trackEvent('engagement_like', {
                 content_type: 'post',
                 content_id: postId,

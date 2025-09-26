@@ -272,19 +272,35 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     });
   }, [currentIndex, soundEnabled, items, showCommentModal]);
 
+  // Prevent multiple like calls
+  const likingPostsRef = useRef<Set<string>>(new Set());
+
   // ---------- Actions ----------
   const handleLike = useCallback(
-    withAuth(async (postId: string) => {
-      // Prevent rapid-fire clicks using a proper ref pattern
-      const lockKey = `like-${postId}`;
-      if ((window as any)[lockKey]) return;
-      (window as any)[lockKey] = true;
+    withAuth(async (postId: string, event?: React.MouseEvent) => {
+      console.log('handleLike called for post:', postId);
+      
+      // Prevent event bubbling
+      event?.preventDefault();
+      event?.stopPropagation();
+      
+      // Prevent multiple simultaneous calls for the same post
+      if (likingPostsRef.current.has(postId)) {
+        console.log('Like already in progress for post:', postId);
+        return;
+      }
+      
+      console.log('Adding like lock for post:', postId);
+      likingPostsRef.current.add(postId);
 
       try {
+        console.log('Calling reactions-toggle for post:', postId);
         const { data, error } = await supabase.functions.invoke('reactions-toggle', {
           body: { post_id: postId, kind: 'like' },
         });
         if (error) throw error;
+        
+        console.log('reactions-toggle response:', data);
         
         // LOCAL IN-PLACE UPDATE — no refresh, no reorder
         if (data) {
@@ -296,10 +312,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           description: data?.liked ? 'Your reaction has been added.' : 'Your reaction has been removed.'
         });
       } catch (err) {
+        console.error('Like error:', err);
         toast({ title: 'Error', description: 'Failed to like post', variant: 'destructive' });
       } finally {
-        // Release lock after a short delay
-        setTimeout(() => { delete (window as any)[lockKey]; }, 1000);
+        // Always remove from processing set
+        console.log('Removing like lock for post:', postId);
+        likingPostsRef.current.delete(postId);
       }
     }, 'Please sign in to like posts'),
     [withAuth, bumpPostLikeCount]
@@ -518,7 +536,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             ) : (
               <UserPostCard
                 item={item}
-                onLike={withAuth((postId) => handleLike(postId), 'Please sign in to like posts')}
+                onLike={(postId, event) => handleLike(postId, event)}
                 onComment={withAuth((postId /*, playbackId?*/) => handleComment(postId /*, playbackId*/), 'Please sign in to comment')}
                 onShare={(postId) => handleShare(postId)}
                 onEventClick={handleEventClick}

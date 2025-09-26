@@ -13,7 +13,7 @@ import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
 interface UserPostCardProps {
   item: Extract<FeedItem, { item_type: 'post' }>;
-  onLike: (postId: string) => void;
+  onLike: (postId: string, event?: React.MouseEvent) => void;
   onComment: (postId: string) => void;
   onShare: (postId: string) => void;
   onEventClick: (eventId: string) => void;
@@ -308,7 +308,7 @@ export const UserPostCard = memo(function UserPostCard({
         liked={item.metrics?.viewer_has_liked || false}
         likeCount={likes}
         commentCount={comments}
-        onLike={() => onLike(item.item_id)}
+        onLike={(event) => onLike(item.item_id, event)}
         onComment={() => onComment(item.item_id)}
         onShare={() => onShare(item.item_id)}
         onCreatePost={onCreatePost}
