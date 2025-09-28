@@ -7,6 +7,9 @@ export type FeedItem =
       event_cover_image?: string | null;
       event_starts_at?: string | null;
       event_location?: string | null;
+      event_organizer?: string | null;
+      event_organizer_id?: string | null;
+      event_owner_context_type?: string | null;
     }
   | {
       item_type: "post";

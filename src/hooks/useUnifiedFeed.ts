@@ -174,23 +174,77 @@ export function useUnifiedFeed(userId?: string) {
   const fetchSmart = useCallback(async () => {
     console.log('🧠 Fetching smart feed with offset:', offsetRef.current);
     try {
-      const { data, error } = await supabase.rpc('get_home_feed_ids', {
-        p_user: userId ?? null,
-        p_limit: PAGE_SIZE,
-        p_offset: offsetRef.current,
+      // Use the new home-feed Edge Function instead of RPC
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/home-feed`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          user_id: userId ?? null,
+          limit: PAGE_SIZE,
+          offset: offsetRef.current,
+          mode: 'smart',
+        }),
       });
-      if (error) {
-        console.error('🧠 Smart feed RPC error:', error);
-        throw error;
+      
+      if (!response.ok) {
+        throw new Error(`Feed request failed: ${response.status}`);
       }
       
-      console.log('🧠 Smart feed RPC response:', data);
-      const mapped = await mapIdsToItems(data ?? []);
-      console.log('🧠 Smart feed mapped:', mapped.length, 'items');
-      return mapped;
+      const { items } = await response.json();
+      console.log('🧠 Smart feed Edge Function response:', items);
+      
+      // Transform Edge Function response to local FeedItem format
+      const transformedItems: FeedItem[] = items.map((item: any) => ({
+        item_type: item.item_type,
+        sort_ts: item.item_type === 'event' ? item.event_starts_at : new Date().toISOString(),
+        item_id: item.item_id,
+        event_id: item.event_id,
+        event_title: item.event_title || 'Event',
+        event_description: '',
+        event_starts_at: item.event_starts_at,
+        event_cover_image: item.event_cover_image || '',
+        event_organizer: item.event_organizer || 'Organizer',
+        event_organizer_id: item.event_organizer_id || '',
+        event_owner_context_type: item.event_owner_context_type || 'individual',
+        event_location: item.event_location || 'TBA',
+        author_id: item.author_user_id || null,
+        author_name: item.author_name || null,
+        author_badge: null,
+        author_social_links: null,
+        media_urls: item.media_urls || null,
+        content: null,
+        metrics: { 
+          likes: item.like_count || 0, 
+          comments: item.comment_count || 0 
+        },
+        ...(item.item_type === 'post' && { liked_by_me: false }),
+        sponsor: null,
+        sponsors: null
+      }));
+      
+      console.log('🧠 Smart feed transformed:', transformedItems.length, 'items');
+      return transformedItems;
     } catch (error) {
       console.error('🧠 Smart feed fetch error:', error);
-      throw error;
+      // Fallback to RPC if Edge Function fails
+      try {
+        const { data, error } = await supabase.rpc('get_home_feed_ids', {
+          p_user: userId ?? null,
+          p_limit: PAGE_SIZE,
+          p_offset: offsetRef.current,
+        });
+        if (error) throw error;
+        
+        const mapped = await mapIdsToItems(data ?? []);
+        return mapped;
+      } catch (fallbackError) {
+        console.error('🧠 Smart feed fallback error:', fallbackError);
+        throw fallbackError;
+      }
     }
   }, [userId, mapIdsToItems]);
 

@@ -77,7 +77,12 @@ export const handler = withCORS(async (req: Request) => {
     const [{ data: events }, postsRes] = await Promise.all([
       supabase
         .from("events")
-        .select("id, title, cover_image_url, start_at, venue, city")
+        .select(`
+          id, title, cover_image_url, start_at, venue, city, created_by,
+          owner_context_type, owner_context_id,
+          user_profiles!events_created_by_fkey(display_name),
+          organizations!events_owner_context_id_fkey(name)
+        `)
         .in("id", eventIds.length ? eventIds : ["00000000-0000-0000-0000-000000000000"]),
       postIds.length
         ? supabase
@@ -106,6 +111,14 @@ export const handler = withCORS(async (req: Request) => {
     const items: FeedItem[] = ranked.map((row) => {
       const ev = eMap.get(row.event_id);
       if (row.item_type === "event") {
+        // Determine organizer name and ID based on ownership context
+        const organizerName = ev?.owner_context_type === "organization" 
+          ? ev?.organizations?.name 
+          : ev?.user_profiles?.display_name;
+        const organizerId = ev?.owner_context_type === "organization" 
+          ? ev?.owner_context_id 
+          : ev?.created_by;
+        
         return {
           item_type: "event",
           item_id: row.item_id,
@@ -114,6 +127,9 @@ export const handler = withCORS(async (req: Request) => {
           event_cover_image: ev?.cover_image_url ?? null,
           event_starts_at: ev?.start_at ?? null,
           event_location: [ev?.venue, ev?.city].filter(Boolean).join(", ") || null,
+          event_organizer: organizerName ?? "Organizer",
+          event_organizer_id: organizerId ?? null,
+          event_owner_context_type: ev?.owner_context_type ?? null,
         };
       } else {
         const po = pMap.get(row.item_id);
