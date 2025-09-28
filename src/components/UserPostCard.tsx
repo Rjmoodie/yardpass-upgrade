@@ -369,11 +369,12 @@ export const UserPostCard = memo(function UserPostCard({
                   e.stopPropagation();
                   onOpenTickets(item.event_id);
                 }}
-                className="flex items-center gap-1 bg-primary text-primary-foreground hover:bg-primary/90 px-2 py-1 rounded-full text-xs font-medium transition-colors flex-shrink-0"
+                className="flex items-center justify-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-sm sm:text-base font-semibold transition-all duration-200 hover:scale-105 shadow-lg min-w-[80px] sm:min-w-[100px]"
                 title="Get tickets"
               >
-                <Ticket size={12} />
+                <Ticket size={16} className="sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">Tickets</span>
+                <span className="sm:hidden">Get</span>
               </button>
             )}
           </div>

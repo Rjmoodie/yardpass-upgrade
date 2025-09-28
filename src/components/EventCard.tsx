@@ -166,7 +166,7 @@ export const EventCard = memo(function EventCard({
                 e.stopPropagation();
                 onOpenTickets(item.event_id);
               }}
-              className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold py-3 shadow-lg"
+              className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-bold py-4 sm:py-5 text-base sm:text-lg shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-[1.02] rounded-xl"
               aria-label="Get Tickets"
             >
               Get Tickets
@@ -177,7 +177,7 @@ export const EventCard = memo(function EventCard({
                 goToEvent(e);
               }}
               variant="outline"
-              className="px-6 bg-white/10 border-white/20 text-white hover:bg-white/20"
+              className="px-6 sm:px-8 py-4 sm:py-5 bg-white/10 border-white/20 text-white hover:bg-white/20 text-base sm:text-lg font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02]"
               aria-label="View Details"
             >
               Details
