@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+const SMART_FEED_ENABLED = import.meta.env.VITE_SMART_FEED?.toLowerCase() === 'true';
+const PAGE_SIZE = 40;
+
 export type FeedItem =
   | {
       item_type: 'event';
@@ -65,12 +68,200 @@ export function useUnifiedFeed(userId?: string) {
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const offsetRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
   const items = pages.flatMap(p => p.items);
   
   // Helper for composite key generation
   const keyOf = (item: FeedItem) => `${item.item_type}:${item.item_id}`;
+
+  // Map smart feed IDs to full FeedItem objects
+  const mapIdsToItems = useCallback(async (rows: any[]): Promise<FeedItem[]> => {
+    if (!rows?.length) return [];
+
+    const eventIds = Array.from(new Set(rows.map(r => r.event_id)));
+    const postIds = rows.filter(r => r.item_type === 'post').map(r => r.item_id);
+
+    // Fetch events with organizer info
+    const { data: events } = await supabase
+      .from('events')
+      .select(`
+        id, title, description, cover_image_url, start_at, venue, city, created_by,
+        user_profiles!events_created_by_fkey(display_name)
+      `)
+      .in('id', eventIds);
+
+    const eventMap = new Map<string, any>();
+    (events ?? []).forEach(e => eventMap.set(e.id, e));
+
+    // Fetch posts with author info
+    const { data: posts } = postIds.length
+      ? await supabase
+          .from('event_posts_with_meta')
+          .select('*')
+          .in('id', postIds)
+      : { data: [] as any[] };
+
+    const postMap = new Map<string, any>();
+    (posts ?? []).forEach(p => postMap.set(p.id, p));
+
+    // Transform to FeedItem format maintaining order
+    const transformedItems: FeedItem[] = [];
+    
+    rows.forEach(row => {
+      const event = eventMap.get(row.event_id);
+      const organizer = event?.user_profiles;
+      
+      if (row.item_type === 'event') {
+        transformedItems.push({
+          item_type: 'event',
+          sort_ts: event?.start_at || new Date().toISOString(),
+          item_id: row.item_id,
+          event_id: row.event_id,
+          event_title: event?.title ?? 'Event',
+          event_description: event?.description ?? '',
+          event_starts_at: event?.start_at,
+          event_cover_image: event?.cover_image_url ?? '',
+          event_organizer: organizer?.display_name ?? 'Organizer',
+          event_organizer_id: event?.created_by ?? '',
+          event_owner_context_type: 'individual',
+          event_location: [event?.venue, event?.city].filter(Boolean).join(', ') || 'TBA',
+          author_id: null,
+          author_name: null,
+          author_badge: null,
+          media_urls: null,
+          content: null,
+          metrics: { likes: 0, comments: 0 },
+          sponsor: null,
+          sponsors: null
+        });
+      } else if (row.item_type === 'post') {
+        const post = postMap.get(row.item_id);
+        transformedItems.push({
+          item_type: 'post',
+          sort_ts: post?.created_at || new Date().toISOString(),
+          item_id: row.item_id,
+          event_id: row.event_id,
+          event_title: event?.title ?? 'Event',
+          event_description: event?.description ?? '',
+          event_starts_at: event?.start_at,
+          event_cover_image: event?.cover_image_url ?? '',
+          event_organizer: organizer?.display_name ?? 'Organizer',
+          event_organizer_id: event?.created_by ?? '',
+          event_owner_context_type: 'individual',
+          event_location: [event?.venue, event?.city].filter(Boolean).join(', ') || 'TBA',
+          author_id: post?.author_user_id ?? null,
+          author_name: post?.author_name ?? null,
+          author_badge: post?.author_badge_label ?? null,
+          author_social_links: null,
+          media_urls: post?.media_urls ?? null,
+          content: post?.text ?? null,
+          metrics: { 
+            likes: post?.like_count ?? 0, 
+            comments: post?.comment_count ?? 0 
+          },
+          liked_by_me: false, // TODO: Add viewer state
+          sponsor: null,
+          sponsors: null
+        });
+      }
+    });
+
+    return transformedItems;
+  }, []);
+
+  const fetchSmart = useCallback(async () => {
+    console.log('🧠 Fetching smart feed with offset:', offsetRef.current);
+    const { data, error } = await supabase.rpc('get_home_feed_ids', {
+      p_user: userId ?? null,
+      p_limit: PAGE_SIZE,
+      p_offset: offsetRef.current,
+    });
+    if (error) throw error;
+    
+    const mapped = await mapIdsToItems(data ?? []);
+    console.log('🧠 Smart feed mapped:', mapped.length, 'items');
+    return mapped;
+  }, [userId, mapIdsToItems]);
+
+  const fetchBasic = useCallback(async () => {
+    console.log('📰 Fetching basic feed');
+    const { data, error } = await supabase.rpc('get_home_feed', {
+      p_user_id: userId || null,
+      p_limit: PAGE_SIZE,
+      p_offset: 0,
+    });
+    if (error) throw error;
+    
+    // Transform home_feed_row data to unified feed structure (existing logic)
+    const transformedItems: FeedItem[] = [];
+    
+    (data ?? []).forEach((row: any) => {
+      // Create event item
+      const eventItem: FeedItem = {
+        item_type: 'event',
+        sort_ts: row.start_at || new Date().toISOString(),
+        item_id: row.event_id,
+        event_id: row.event_id,
+        event_title: row.title || 'Untitled Event',
+        event_description: row.description || '',
+        event_starts_at: row.start_at,
+        event_cover_image: row.cover_image_url || '',
+        event_organizer: row.organizer_display_name || 'Unknown Organizer',
+        event_organizer_id: row.created_by || '',
+        event_owner_context_type: 'individual',
+        event_location: row.city || row.venue || 'TBA',
+        author_id: null,
+        author_name: null,
+        author_badge: null,
+        media_urls: null,
+        content: null,
+        metrics: { likes: 0, comments: 0 },
+        sponsor: null,
+        sponsors: null
+      };
+
+      transformedItems.push(eventItem);
+
+      // Add posts from this event
+      if (row.recent_posts && Array.isArray(row.recent_posts)) {
+        row.recent_posts.forEach((post: any) => {
+          const postItem: FeedItem = {
+            item_type: 'post',
+            sort_ts: post.created_at || new Date().toISOString(),
+            item_id: post.id,
+            event_id: row.event_id,
+            event_title: row.title || 'Untitled Event',
+            event_description: row.description || '',
+            event_starts_at: row.start_at,
+            event_cover_image: row.cover_image_url || '',
+            event_organizer: row.organizer_display_name || 'Unknown Organizer',
+            event_organizer_id: row.created_by || '',
+            event_owner_context_type: 'individual',
+            event_location: row.city || row.venue || 'TBA',
+            author_id: post.author?.id || null,
+            author_name: post.author?.display_name || null,
+            author_badge: post.author?.badge_label || null,
+            author_social_links: null,
+            media_urls: post.media_urls || null,
+            content: post.text || null,
+            metrics: { 
+              likes: post.like_count || 0, 
+              comments: post.comment_count || 0 
+            },
+            sponsor: null,
+            sponsors: null
+          };
+          transformedItems.push(postItem);
+        });
+      }
+    });
+    
+    return transformedItems.sort((a, b) => 
+      new Date(b.sort_ts).getTime() - new Date(a.sort_ts).getTime()
+    );
+  }, [userId]);
 
   const fetchPage = useCallback(async (cursor?: { ts: string; id: string }) => {
     setLoading(true);
@@ -80,99 +271,14 @@ export function useUnifiedFeed(userId?: string) {
     abortRef.current = ac;
 
     try {
-      console.log('🚀 Starting feed fetch with params:', { userId, cursor });
+      console.log(`🚀 Starting ${SMART_FEED_ENABLED ? 'SMART' : 'BASIC'} feed fetch with params:`, { userId, cursor, offset: offsetRef.current });
       
-      const { data, error } = await supabase.rpc('get_home_feed', {
-        p_user_id: userId || null,
-        p_limit: 20,
-        p_offset: 0, // For now, we'll use the existing function and adapt pagination later
-      });
+      const newItems = SMART_FEED_ENABLED ? await fetchSmart() : await fetchBasic();
 
-      console.log('📊 RPC Response:', { error, dataExists: !!data, dataType: typeof data, dataLength: Array.isArray(data) ? data.length : 'not array' });
-
-      if (error) {
-        console.error('❌ RPC Error:', error);
-        throw error;
-      }
-
-      console.log('🔍 Feed data received:', { data, dataType: typeof data, dataLength: data?.length });
+      console.log('📊 Feed Response:', { itemsLength: newItems.length });
       
-      // Transform home_feed_row data to unified feed structure
-      const transformedItems: FeedItem[] = [];
-      
-      (data ?? []).forEach((row: any) => {
-        // Create event item
-        const eventItem: FeedItem = {
-          item_type: 'event',
-          sort_ts: row.start_at || new Date().toISOString(),
-          item_id: row.event_id,
-          event_id: row.event_id,
-          event_title: row.title || 'Untitled Event',
-          event_description: row.description || '',
-          event_starts_at: row.start_at,
-          event_cover_image: row.cover_image_url || '',
-          event_organizer: row.organizer_display_name || 'Unknown Organizer',
-          event_organizer_id: row.created_by || '',
-          event_owner_context_type: 'individual',
-          event_location: row.city || row.venue || 'TBA',
-          author_id: null,
-          author_name: null,
-          author_badge: null,
-          media_urls: null,
-          content: null,
-          metrics: { likes: 0, comments: 0 },
-          sponsor: null,
-          sponsors: null
-        };
-
-        transformedItems.push(eventItem);
-
-        // Add posts from this event
-        if (row.recent_posts && Array.isArray(row.recent_posts)) {
-          console.log('🎬 Processing posts for event:', row.event_id, 'Posts:', row.recent_posts.length);
-          row.recent_posts.forEach((post: any, postIndex: number) => {
-            console.log(`🎬 Post ${postIndex}:`, { 
-              id: post.id, 
-              media_urls: post.media_urls, 
-              text: post.text?.substring(0, 50) 
-            });
-            const postItem: FeedItem = {
-              item_type: 'post',
-              sort_ts: post.created_at || new Date().toISOString(),
-              item_id: post.id,
-              event_id: row.event_id,
-              event_title: row.title || 'Untitled Event',
-              event_description: row.description || '',
-              event_starts_at: row.start_at,
-              event_cover_image: row.cover_image_url || '',
-              event_organizer: row.organizer_display_name || 'Unknown Organizer',
-              event_organizer_id: row.created_by || '',
-              event_owner_context_type: 'individual',
-              event_location: row.city || row.venue || 'TBA',
-              author_id: post.author?.id || null,
-              author_name: post.author?.display_name || null,
-              author_badge: post.author?.badge_label || null,
-              author_social_links: null,
-              media_urls: post.media_urls || null,
-              content: post.text || null,
-              metrics: { 
-                likes: post.like_count || 0, 
-                comments: post.comment_count || 0 
-              },
-              sponsor: null,
-              sponsors: null
-            };
-            transformedItems.push(postItem);
-          });
-        }
-      });
-
-      // Sort by timestamp descending
-      const newItems = transformedItems.sort((a, b) => 
-        new Date(b.sort_ts).getTime() - new Date(a.sort_ts).getTime()
-      );
-      
-      console.log('🔍 newItems processed:', { newItemsLength: newItems.length, firstItem: newItems[0] });
+      // Update offset for pagination
+      offsetRef.current += newItems.length;
       
       // De-dupe within this batch only, not against all existing items
       setPages(prev => {

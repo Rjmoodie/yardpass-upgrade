@@ -3934,9 +3934,13 @@ export type Database = {
         Returns: Database["public"]["CompositeTypes"]["home_feed_row"][]
       }
       get_home_feed_ids: {
-        Args: { p_limit?: number; p_user_id: string }
+        Args:
+          | { p_limit?: number; p_offset?: number; p_user: string }
+          | { p_limit?: number; p_user_id: string }
         Returns: {
           event_id: string
+          item_id: string
+          item_type: string
           score: number
         }[]
       }
