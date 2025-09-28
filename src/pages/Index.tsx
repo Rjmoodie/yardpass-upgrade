@@ -516,7 +516,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       >
         {items.map((item, i) => (
           <div
-            key={`${item.item_type}:${item.item_id}`}
+            key={`feed-${item.item_type}-${item.item_id}-${i}`}
             className="h-full w-full absolute feed-item"
             style={{ top: `${i * 100}%` }}
             data-feed-index={i}
@@ -573,7 +573,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
               const active = actualIndex === currentIndex;
               return (
                 <button
-                  key={`${item.item_type}:${item.item_id}`}
+                  key={`nav-${item.item_type}-${item.item_id}-${actualIndex}`}
                   aria-label={`Go to ${item.item_type} ${actualIndex + 1}`}
                   onClick={() => lockFor() && goTo(actualIndex)}
                   disabled={showCommentModal}
