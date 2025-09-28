@@ -302,7 +302,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         
         console.log('reactions-toggle response:', data);
         
-        // LOCAL IN-PLACE UPDATE — no refresh, no reorder
+        // Set exact count and state from server response
         if (data) {
           bumpPostLikeCount(postId, data.like_count, data.liked);
         }

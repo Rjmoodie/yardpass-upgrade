@@ -4314,6 +4314,10 @@ export type Database = {
         Args: { "": unknown[] }
         Returns: number
       }
+      sync_post_like_count: {
+        Args: { p_post: string }
+        Returns: undefined
+      }
       update_circuit_breaker_state: {
         Args: {
           p_error_message?: string

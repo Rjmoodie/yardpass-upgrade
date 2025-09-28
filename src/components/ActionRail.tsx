@@ -53,6 +53,7 @@ export const ActionRail: React.FC<ActionRailProps> = ({
         <>
           <button
             aria-label="Like"
+            disabled={false} // Let parent handle locking
             onClick={(e) => { 
               e.preventDefault();
               e.stopPropagation(); 

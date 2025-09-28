@@ -425,8 +425,8 @@ export function useUnifiedFeed(userId?: string) {
     );
   }, []);
 
-  // Local mutator for post like_count (no network, no reorder)
-  const bumpPostLikeCount = useCallback((postId: string, newCount: number, liked?: boolean) => {
+  // Set exact like count from server (no network, no reorder)
+  const bumpPostLikeCount = useCallback((postId: string, exactCount: number, liked?: boolean) => {
     setPages(prev =>
       prev.map(page => ({
         ...page,
@@ -434,7 +434,7 @@ export function useUnifiedFeed(userId?: string) {
           it.item_type === 'post' && it.item_id === postId
             ? { 
                 ...it, 
-                metrics: { ...it.metrics, likes: newCount },
+                metrics: { ...it.metrics, likes: exactCount }, // Set exact count from server
                 ...(liked !== undefined && { liked_by_me: liked })
               }
             : it

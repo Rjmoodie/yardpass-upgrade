@@ -14,6 +14,12 @@ serve(async (req) => {
   try {
     console.log('Reactions-toggle function called');
     
+    const { post_id, kind = 'like' }: ToggleReactionRequest = await req.json();
+    
+    if (!post_id || kind !== 'like') {
+      return createErrorResponse("post_id and kind='like' required", 400);
+    }
+
     // Create Supabase client for user operations
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -32,58 +38,56 @@ serve(async (req) => {
       return createErrorResponse("Unauthorized", 401);
     }
 
-    const { post_id, kind = 'like' }: ToggleReactionRequest = await req.json();
-    
-    if (!post_id) {
-      return createErrorResponse("Missing post_id", 400);
-    }
+    const user_id = user.id;
 
-    // Check if reaction exists
+    // 1) Check if like exists
     const { data: existing } = await supabaseClient
       .from('event_reactions')
-      .select('user_id')
+      .select('id')
       .eq('post_id', post_id)
-      .eq('user_id', user.id)
-      .eq('kind', kind)
+      .eq('user_id', user_id)
+      .eq('kind', 'like')
       .maybeSingle();
 
-    let isLiked: boolean;
-
     if (existing) {
-      // Unlike - idempotent delete
-      await supabaseClient
+      // UNLIKE - delete by ID to be precise
+      const { error: delErr } = await supabaseClient
         .from('event_reactions')
         .delete()
-        .eq('post_id', post_id)
-        .eq('user_id', user.id)
-        .eq('kind', kind);
-      
-      isLiked = false;
-      console.log(`Removed ${kind} for post ${post_id} by user ${user.id}`);
+        .eq('id', existing.id);
+      if (delErr) throw delErr;
+      console.log(`Removed like for post ${post_id} by user ${user_id}`);
     } else {
-      // Like - idempotent insert
-      await supabaseClient
+      // LIKE - conflict-safe insert (unique index will prevent duplicates)
+      const { error: insErr } = await supabaseClient
         .from('event_reactions')
-        .insert({
-          post_id,
-          user_id: user.id,
-          kind
-        });
-      
-      isLiked = true;
-      console.log(`Added ${kind} for post ${post_id} by user ${user.id}`);
+        .insert({ post_id, user_id, kind: 'like' });
+      // Ignore duplicate constraint violations (23505) under race conditions
+      if (insErr && (insErr as any).code !== '23505') throw insErr;
+      console.log(`Added like for post ${post_id} by user ${user_id}`);
     }
 
-    // Get updated like count
-    const { data: post } = await supabaseClient
-      .from('event_posts')
-      .select('like_count')
-      .eq('id', post_id)
-      .single();
+    // 2) Get exact like count from database
+    const { count, error: cntErr } = await supabaseClient
+      .from('event_reactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', post_id)
+      .eq('kind', 'like');
+
+    if (cntErr) throw cntErr;
+
+    // 3) Check current liked state
+    const { data: nowLiked } = await supabaseClient
+      .from('event_reactions')
+      .select('id')
+      .eq('post_id', post_id)
+      .eq('user_id', user_id)
+      .eq('kind', 'like')
+      .maybeSingle();
 
     return createResponse({
-      liked: isLiked,
-      like_count: post?.like_count || 0
+      liked: Boolean(nowLiked),
+      like_count: count ?? 0
     });
 
   } catch (error) {
