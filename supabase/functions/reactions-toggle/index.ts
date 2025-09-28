@@ -1,101 +1,82 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
 
-interface ToggleReactionRequest {
-  post_id: string;
-  kind?: string;
-}
+const url = Deno.env.get("SUPABASE_URL")!;
+const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 serve(async (req) => {
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
-
   try {
-    console.log('Reactions-toggle function called');
-    
-    const { post_id, kind = 'like' }: ToggleReactionRequest = await req.json();
-    
-    if (!post_id || kind !== 'like') {
-      return createErrorResponse("post_id and kind='like' required", 400);
+    const { post_id, kind } = await safeJson(req);
+    if (!post_id || kind !== "like") {
+      return json(400, { error: "post_id and kind='like' required" });
     }
 
-    // Create Supabase client for user operations
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: req.headers.get("Authorization")! },
-        },
-      }
-    );
-
-    // Get the current user
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    
-    if (userError || !user) {
-      return createErrorResponse("Unauthorized", 401);
-    }
-
-    const user_id = user.id;
-
-    // 1) Check if like exists
-    const { data: existing } = await supabaseClient
-      .from('event_reactions')
-      .select('id')
-      .eq('post_id', post_id)
-      .eq('user_id', user_id)
-      .eq('kind', 'like')
-      .maybeSingle();
-
-    console.log('Current like state for user', user_id, 'on post', post_id, ':', existing ? 'LIKED' : 'NOT_LIKED');
-
-    if (existing) {
-      // UNLIKE - delete by ID to be precise
-      const { error: delErr } = await supabaseClient
-        .from('event_reactions')
-        .delete()
-        .eq('id', existing.id);
-      if (delErr) throw delErr;
-      console.log(`✅ UNLIKED: Removed like for post ${post_id} by user ${user_id}`);
-    } else {
-      // LIKE - conflict-safe insert (unique index will prevent duplicates)
-      const { error: insErr } = await supabaseClient
-        .from('event_reactions')
-        .insert({ post_id, user_id, kind: 'like' });
-      // Ignore duplicate constraint violations (23505) under race conditions
-      if (insErr && (insErr as any).code !== '23505') throw insErr;
-      console.log(`✅ LIKED: Added like for post ${post_id} by user ${user_id}`);
-    }
-
-    // 2) Get exact like count from database
-    const { count, error: cntErr } = await supabaseClient
-      .from('event_reactions')
-      .select('*', { count: 'exact', head: true })
-      .eq('post_id', post_id)
-      .eq('kind', 'like');
-
-    if (cntErr) throw cntErr;
-
-    // 3) Check current liked state
-    const { data: nowLiked } = await supabaseClient
-      .from('event_reactions')
-      .select('id')
-      .eq('post_id', post_id)
-      .eq('user_id', user_id)
-      .eq('kind', 'like')
-      .maybeSingle();
-
-    console.log(`Final state - liked: ${Boolean(nowLiked)}, count: ${count ?? 0}`);
-
-    return createResponse({
-      liked: Boolean(nowLiked),
-      like_count: count ?? 0
+    const supabase = createClient(url, anon, {
+      global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
     });
 
-  } catch (error) {
-    console.error('Error in reactions-toggle function:', error);
-    return createErrorResponse((error as any)?.message || 'Unknown error', 500);
+    // who is calling?
+    const { data: userRes, error: uerr } = await supabase.auth.getUser();
+    if (uerr || !userRes?.user?.id) return json(401, { error: "unauthorized" });
+    const user_id = userRes.user.id;
+
+    // do we already have a like?
+    const { data: existing } = await supabase
+      .from("event_reactions")
+      .select("id")
+      .eq("post_id", post_id)
+      .eq("user_id", user_id)
+      .eq("kind", "like")
+      .maybeSingle();
+
+    if (existing) {
+      // UNLIKE
+      const { error: delErr } = await supabase
+        .from("event_reactions")
+        .delete()
+        .eq("id", existing.id);
+      if (delErr) return json(403, { error: "forbidden_delete", detail: delErr.message });
+    } else {
+      // LIKE (ignore duplicate under race)
+      const { error: insErr } = await supabase
+        .from("event_reactions")
+        .insert({ post_id, user_id, kind: "like" });
+      // If conflict (race), proceed — unique index protects us
+      if (insErr && (insErr as any).code !== "23505") {
+        return json(400, { error: "insert_failed", detail: insErr.message });
+      }
+    }
+
+    // exact count
+    const { count, error: cntErr } = await supabase
+      .from("event_reactions")
+      .select("*", { count: "exact", head: true })
+      .eq("post_id", post_id)
+      .eq("kind", "like");
+    if (cntErr) return json(400, { error: "count_failed", detail: cntErr.message });
+
+    // current liked state
+    const { data: nowLiked } = await supabase
+      .from("event_reactions")
+      .select("id")
+      .eq("post_id", post_id)
+      .eq("user_id", user_id)
+      .eq("kind", "like")
+      .maybeSingle();
+
+    return json(200, { liked: Boolean(nowLiked), like_count: count ?? 0 });
+  } catch (e: any) {
+    console.error(e);
+    return json(500, { error: e?.message ?? "error" });
   }
 });
+
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
+async function safeJson(req: Request) {
+  try { return await req.json(); } catch { return {}; }
+}

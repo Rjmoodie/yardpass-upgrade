@@ -219,7 +219,8 @@ export function useUnifiedFeed(userId?: string) {
         content: null,
         metrics: { 
           likes: item.like_count || 0, 
-          comments: item.comment_count || 0 
+          comments: item.comment_count || 0,
+          viewer_has_liked: Boolean(item.viewer_has_liked)
         },
         ...(item.item_type === 'post' && { liked_by_me: false }),
         sponsor: null,
