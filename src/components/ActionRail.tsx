@@ -54,6 +54,7 @@ export const ActionRail: React.FC<ActionRailProps> = ({
           <button
             aria-label="Like"
             onClick={(e) => { 
+              e.preventDefault();
               e.stopPropagation(); 
               onLike?.(e);
               trackEvent('engagement_like', {

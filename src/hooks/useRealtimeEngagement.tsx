@@ -33,7 +33,7 @@ export function useRealtimeEngagement({
             const current = prev[postId];
             const update = {
               postId,
-              likeCount: (current?.likeCount || 0) + 1,
+              likeCount: current?.likeCount || 0, // Don't increment here - let the direct API response handle it
               commentCount: current?.commentCount || 0,
               viewerHasLiked: event.data.user_id === userId ? true : (current?.viewerHasLiked || false)
             };
@@ -51,7 +51,7 @@ export function useRealtimeEngagement({
             const current = prev[postId];
             const update = {
               postId,
-              likeCount: Math.max((current?.likeCount || 0) - 1, 0),
+              likeCount: current?.likeCount || 0, // Don't decrement here - let the direct API response handle it
               commentCount: current?.commentCount || 0,
               viewerHasLiked: event.data.user_id === userId ? false : (current?.viewerHasLiked || false)
             };
