@@ -34,6 +34,9 @@ export const handler = withCORS(async (req: Request) => {
       global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } }
     });
 
+    // Get current user for liked state
+    const { data: { user } } = await supabase.auth.getUser();
+
     // 1) fetch ranked IDs (smart or basic)
     let ranked:
       | { item_type: "event" | "post"; item_id: string; event_id: string; score?: number }[]
@@ -94,6 +97,18 @@ export const handler = withCORS(async (req: Request) => {
 
     const posts = postsRes?.data ?? [];
 
+    // Get viewer's like states for posts if user is authenticated
+    const { data: viewerLikes } = user && postIds.length 
+      ? await supabase
+          .from("event_reactions")
+          .select("post_id")
+          .eq("user_id", user.id)
+          .eq("kind", "like")
+          .in("post_id", postIds)
+      : { data: [] as any[] };
+
+    const likedPostIds = new Set((viewerLikes || []).map((like: any) => like.post_id));
+
     const authorIds = dedupe(posts.map((p: any) => p.author_user_id).filter(Boolean));
     const { data: profiles } = authorIds.length
       ? await supabase
@@ -142,6 +157,7 @@ export const handler = withCORS(async (req: Request) => {
           media_urls: po?.media_urls ?? [],
           like_count: po?.like_count ?? 0,
           comment_count: po?.comment_count ?? 0,
+          viewer_has_liked: likedPostIds.has(row.item_id),
           author_user_id: po?.author_user_id ?? null,
           author_name: author?.display_name ?? null,
         };

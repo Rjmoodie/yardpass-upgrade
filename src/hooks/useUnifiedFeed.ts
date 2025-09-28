@@ -159,9 +159,9 @@ export function useUnifiedFeed(userId?: string) {
           content: post?.text ?? null,
           metrics: { 
             likes: post?.like_count ?? 0, 
-            comments: post?.comment_count ?? 0 
+            comments: post?.comment_count ?? 0,
+            viewer_has_liked: post?.viewer_has_liked ?? false
           },
-          liked_by_me: false, // TODO: Add viewer state
           sponsor: null,
           sponsors: null
         });
@@ -434,8 +434,11 @@ export function useUnifiedFeed(userId?: string) {
           it.item_type === 'post' && it.item_id === postId
             ? { 
                 ...it, 
-                metrics: { ...it.metrics, likes: exactCount }, // Set exact count from server
-                ...(liked !== undefined && { liked_by_me: liked })
+                metrics: { 
+                  ...it.metrics, 
+                  likes: exactCount, // Set exact count from server
+                  viewer_has_liked: liked // Use consistent field name
+                }
               }
             : it
         )

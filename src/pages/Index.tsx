@@ -308,8 +308,9 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         }
         
         toast({ 
-          title: data?.liked ? 'Liked!' : 'Unliked!', 
-          description: data?.liked ? 'Your reaction has been added.' : 'Your reaction has been removed.'
+          title: data?.liked ? '❤️ Liked!' : '💔 Unliked!', 
+          description: data?.liked ? 'Your reaction has been added.' : 'Your reaction has been removed.',
+          duration: 2000
         });
       } catch (err) {
         console.error('Like error:', err);

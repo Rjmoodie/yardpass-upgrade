@@ -65,9 +65,9 @@ export const ActionRail: React.FC<ActionRailProps> = ({
                 liked: !liked
               });
             }}
-            className={`feed-rail-btn ${liked ? 'text-red-500' : ''}`}
+            className={`feed-rail-btn ${liked ? 'text-red-500' : 'text-white'}`}
           >
-            <Heart className="w-7 h-7" />
+            <Heart className={`w-7 h-7 ${liked ? 'fill-current' : ''}`} />
             <span className="rail-count">{Number(likeCount || 0).toLocaleString()}</span>
           </button>
 

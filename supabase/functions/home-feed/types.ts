@@ -16,9 +16,10 @@ export type FeedItem =
       item_id: string; // post_id
       event_id: string;
       event_title: string;
-      media_urls?: string[] | null;
-      like_count?: number;
-      comment_count?: number;
-      author_user_id?: string | null;
-      author_name?: string | null;
+       media_urls?: string[] | null;
+       like_count?: number;
+       comment_count?: number;
+       viewer_has_liked?: boolean;
+       author_user_id?: string | null;
+       author_name?: string | null;
     };
