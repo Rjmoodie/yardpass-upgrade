@@ -301,17 +301,22 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         if (error) throw error;
         
         console.log('reactions-toggle response:', data);
+        console.log('User action result - liked:', data?.liked, 'count:', data?.like_count);
         
         // Set exact count and state from server response
         if (data) {
           bumpPostLikeCount(postId, data.like_count, data.liked);
+          
+          // Show appropriate toast message
+          const isLiking = data.liked;
+          console.log('Showing toast for action:', isLiking ? 'LIKE' : 'UNLIKE');
+          
+          toast({ 
+            title: isLiking ? '❤️ Liked!' : '💔 Unliked!', 
+            description: isLiking ? 'Your reaction has been added.' : 'Your reaction has been removed.',
+            duration: 2000
+          });
         }
-        
-        toast({ 
-          title: data?.liked ? '❤️ Liked!' : '💔 Unliked!', 
-          description: data?.liked ? 'Your reaction has been added.' : 'Your reaction has been removed.',
-          duration: 2000
-        });
       } catch (err) {
         console.error('Like error:', err);
         toast({ title: 'Error', description: 'Failed to like post', variant: 'destructive' });

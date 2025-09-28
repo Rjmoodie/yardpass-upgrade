@@ -49,6 +49,8 @@ serve(async (req) => {
       .eq('kind', 'like')
       .maybeSingle();
 
+    console.log('Current like state for user', user_id, 'on post', post_id, ':', existing ? 'LIKED' : 'NOT_LIKED');
+
     if (existing) {
       // UNLIKE - delete by ID to be precise
       const { error: delErr } = await supabaseClient
@@ -56,7 +58,7 @@ serve(async (req) => {
         .delete()
         .eq('id', existing.id);
       if (delErr) throw delErr;
-      console.log(`Removed like for post ${post_id} by user ${user_id}`);
+      console.log(`✅ UNLIKED: Removed like for post ${post_id} by user ${user_id}`);
     } else {
       // LIKE - conflict-safe insert (unique index will prevent duplicates)
       const { error: insErr } = await supabaseClient
@@ -64,7 +66,7 @@ serve(async (req) => {
         .insert({ post_id, user_id, kind: 'like' });
       // Ignore duplicate constraint violations (23505) under race conditions
       if (insErr && (insErr as any).code !== '23505') throw insErr;
-      console.log(`Added like for post ${post_id} by user ${user_id}`);
+      console.log(`✅ LIKED: Added like for post ${post_id} by user ${user_id}`);
     }
 
     // 2) Get exact like count from database
@@ -84,6 +86,8 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .eq('kind', 'like')
       .maybeSingle();
+
+    console.log(`Final state - liked: ${Boolean(nowLiked)}, count: ${count ?? 0}`);
 
     return createResponse({
       liked: Boolean(nowLiked),
