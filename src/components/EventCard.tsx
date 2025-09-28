@@ -91,12 +91,6 @@ export const EventCard = memo(function EventCard({
   return (
     <div
       className="w-full h-screen relative overflow-hidden bg-black"
-      onClick={goToEvent}
-      onKeyDown={onKeyDownRoot}
-      role="button"
-      tabIndex={0}
-      aria-label={item.event_title || 'Open event'}
-      title={item.event_title || 'Open event'}
     >
       {/* Background Image */}
       <img
@@ -193,26 +187,30 @@ export const EventCard = memo(function EventCard({
       </div>
 
       {/* BOTTOM META BAR */}
-      <div className="absolute left-4 right-4 bottom-6 z-30">
-        <div className="bg-black/80 backdrop-blur-md rounded-full px-4 py-3 flex items-center justify-between shadow-2xl border border-white/10">
-          {/* Left side - Organizer */}
-          <button
-            onClick={goToOrganizer}
-            className="text-white font-bold hover:underline text-base flex-shrink-0 bg-transparent border-none cursor-pointer"
-            aria-label={`Open organizer ${item.event_organizer || 'profile'}`}
-          >
-            {item.event_organizer || 'Organizer'}
-          </button>
+      <div className="absolute left-2 right-2 sm:left-4 sm:right-4 bottom-6 z-30">
+        <div className="bg-black/80 backdrop-blur-md rounded-full px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 sm:justify-between shadow-2xl border border-white/10">
+          {/* Organizer section */}
+          <div className="w-full sm:w-auto">
+            <button
+              onClick={goToOrganizer}
+              className="text-white font-bold hover:underline text-sm sm:text-base flex-shrink-0 bg-transparent border-none cursor-pointer"
+              aria-label={`Open organizer ${item.event_organizer || 'profile'}`}
+            >
+              {item.event_organizer || 'Organizer'}
+            </button>
+          </div>
 
-          {/* Right side - Event */}
-          <button
-            onClick={goToEvent}
-            className="text-white/90 hover:text-white font-medium text-base truncate ml-4 bg-transparent border-none cursor-pointer"
-            aria-label="Open event"
-            title={item.event_title}
-          >
-            {item.event_title}
-          </button>
+          {/* Event section */}
+          <div className="w-full sm:w-auto sm:ml-4">
+            <button
+              onClick={goToEvent}
+              className="text-white/90 hover:text-white font-medium text-sm sm:text-base truncate bg-transparent border-none cursor-pointer text-left w-full sm:w-auto"
+              aria-label="Open event"
+              title={item.event_title}
+            >
+              {item.event_title}
+            </button>
+          </div>
         </div>
       </div>
     </div>

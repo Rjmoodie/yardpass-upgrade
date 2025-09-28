@@ -224,12 +224,6 @@ export const UserPostCard = memo(function UserPostCard({
   return (
     <div
       className="w-full h-screen relative overflow-hidden bg-black"
-      onClick={handleRootClick}
-      onKeyDown={handleKeyDownRoot}
-      role="button"
-      tabIndex={0}
-      aria-label={item.event_title || 'Open event'}
-      title={item.event_title || 'Open event'}
     >
       {/* Background Media */}
       {!showFallback ? (
@@ -318,16 +312,16 @@ export const UserPostCard = memo(function UserPostCard({
       />
 
       {/* Bottom meta bar */}
-      <div className="absolute left-4 right-4 bottom-6 z-30 pointer-events-none">
-        <div className="bg-black/80 backdrop-blur-md rounded-full px-4 py-3 flex items-center justify-between shadow-2xl border border-white/10 pointer-events-auto">
-          {/* Author */}
-          <div className="flex items-center gap-2 min-w-0">
+      <div className="absolute left-2 right-2 sm:left-4 sm:right-4 bottom-6 z-30 pointer-events-none">
+        <div className="bg-black/80 backdrop-blur-md rounded-full px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 sm:justify-between shadow-2xl border border-white/10 pointer-events-auto">
+          {/* Author section */}
+          <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onAuthorClick?.(item.author_id);
               }}
-              className="text-white font-bold hover:underline text-base flex-shrink-0 bg-transparent border-none cursor-pointer"
+              className="text-white font-bold hover:underline text-sm sm:text-base flex-shrink-0 bg-transparent border-none cursor-pointer"
               title={item.author_name || 'User'}
             >
               {item.author_name || 'User'}
@@ -346,7 +340,7 @@ export const UserPostCard = memo(function UserPostCard({
             )}
 
             {item.author_social_links && Array.isArray(item.author_social_links) && (
-              <div className="flex items-center">
+              <div className="flex items-center ml-auto sm:ml-0">
                 <SocialLinkDisplay
                   socialLinks={item.author_social_links}
                   showPrimaryOnly
@@ -357,13 +351,13 @@ export const UserPostCard = memo(function UserPostCard({
           </div>
 
           {/* Event link and tickets */}
-          <div className="flex items-center gap-2 min-w-0 ml-4">
+          <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:ml-4">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onEventClick(item.event_id);
               }}
-              className="text-white/90 hover:text-white font-medium text-base truncate bg-transparent border-none cursor-pointer"
+              className="text-white/90 hover:text-white font-medium text-sm sm:text-base truncate bg-transparent border-none cursor-pointer flex-1 sm:flex-none text-left"
               title={item.event_title || 'View event'}
             >
               {item.event_title || 'View event'}
@@ -379,7 +373,7 @@ export const UserPostCard = memo(function UserPostCard({
                 title="Get tickets"
               >
                 <Ticket size={12} />
-                <span>Tickets</span>
+                <span className="hidden sm:inline">Tickets</span>
               </button>
             )}
           </div>
