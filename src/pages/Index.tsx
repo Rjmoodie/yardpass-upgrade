@@ -278,7 +278,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   // ---------- Actions ----------
   const handleLike = useCallback(
     withAuth(async (postId: string, event?: React.MouseEvent) => {
-      console.log('handleLike called for post:', postId);
+      console.log('🚀 handleLike called for post:', postId);
+      
+      // Get current like state from the UI
+      const currentPost = items.find(item => item.item_type === 'post' && item.item_id === postId);
+      const currentlyLiked = currentPost?.metrics?.viewer_has_liked || false;
+      console.log('📊 Current UI state - liked:', currentlyLiked, 'count:', currentPost?.metrics?.likes || 0);
       
       // Prevent event bubbling
       event?.preventDefault();
@@ -375,6 +380,12 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     (i: number) => setCurrentIndex(Math.max(0, Math.min(items.length - 1, i))),
     [items.length]
   );
+
+  // Add refresh function for debugging
+  const handleRefresh = useCallback(() => {
+    console.log('🔄 Refreshing feed...');
+    refresh();
+  }, [refresh]);
 
   const handleSoundToggle = useCallback(() => {
     setSoundEnabled((prev) => {
