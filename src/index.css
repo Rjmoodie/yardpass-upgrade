@@ -5,21 +5,21 @@
 
 /* iOS-Native Design System Tokens */
 :root {
-  /* Core Colors - iOS-inspired HSL palette */
+  /* Core Colors - Vibrant Orange/Amber palette */
   --background: 0 0% 100%;
   --foreground: 215 25% 8%;
   --card: 0 0% 100%;
   --card-foreground: 215 25% 8%;
   --popover: 0 0% 100%;
   --popover-foreground: 215 25% 8%;
-  --primary: 211 100% 50%;           /* iOS Blue */
+  --primary: 32 95% 55%;             /* Vibrant Orange */
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 211 100% 75%;      /* Lighter blue for glows */
+  --primary-glow: 35 100% 70%;       /* Bright amber glow */
   --secondary: 210 17% 96%;          /* iOS Light Gray */
   --secondary-foreground: 215 25% 8%;
   --muted: 210 17% 96%;
   --muted-foreground: 215 16% 47%;
-  --accent: 211 100% 50%;
+  --accent: 32 95% 55%;              /* Match primary orange */
   --accent-foreground: 0 0% 100%;
   --destructive: 358 75% 59%;        /* iOS Red */
   --destructive-foreground: 0 0% 100%;
@@ -29,7 +29,7 @@
   --warning-foreground: 0 0% 100%;
   --border: 210 17% 89%;
   --input: 210 17% 89%;
-  --ring: 211 100% 50%;
+  --ring: 32 95% 55%;
   
   /* Safe Area Variables */
   --safe-area-inset-top: env(safe-area-inset-top);
@@ -83,6 +83,11 @@
   --glass-bg: hsl(0 0% 100% / 0.8);
   --glass-border: hsl(0 0% 100% / 0.2);
   --glass-backdrop: blur(20px) saturate(180%);
+  
+  /* Orange gradients */
+  --gradient-orange: linear-gradient(135deg, hsl(32 95% 55%), hsl(35 100% 70%));
+  --gradient-orange-hover: linear-gradient(135deg, hsl(32 95% 50%), hsl(35 100% 65%));
+  --gradient-orange-glow: linear-gradient(135deg, hsl(32 95% 60%), hsl(35 100% 75%));
 }
 
 /* Dark Theme - iOS-inspired dark colors */
@@ -94,15 +99,15 @@
     --card-foreground: 210 17% 95%;
     --popover: 210 22% 11%;
     --popover-foreground: 210 17% 95%;
-    --primary: 211 100% 60%;            /* Slightly lighter blue for dark mode */
-    --primary-foreground: 210 22% 9%;
-    --primary-glow: 211 100% 70%;
+    --primary: 35 100% 65%;             /* Bright orange for dark mode */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 35 100% 75%;        /* Bright amber glow */
     --secondary: 210 22% 15%;           /* iOS Dark Secondary */
     --secondary-foreground: 210 17% 85%;
     --muted: 210 22% 15%;
     --muted-foreground: 210 17% 60%;
-    --accent: 211 100% 60%;
-    --accent-foreground: 210 22% 9%;
+    --accent: 35 100% 65%;              /* Match primary orange */
+    --accent-foreground: 0 0% 100%;
     --destructive: 358 75% 65%;         /* Slightly lighter red for dark mode */
     --destructive-foreground: 210 22% 9%;
     --success: 145 63% 55%;             /* Slightly lighter green for dark mode */
@@ -111,7 +116,7 @@
     --warning-foreground: 210 22% 9%;
     --border: 210 22% 18%;
     --input: 210 22% 15%;
-    --ring: 211 100% 60%;
+    --ring: 35 100% 65%;                /* Match primary orange */
     
     /* Dark mode glassmorphism */
     --glass-bg: hsl(210 22% 11% / 0.8);
