@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { updateMetaTags, defaultMeta } from '@/utils/meta';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
-import { ChevronUp, ChevronDown, Search } from 'lucide-react';
+import { ChevronUp, ChevronDown, Search, Volume2, VolumeX } from 'lucide-react';
 import { ShareModal } from '@/components/ShareModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
 import CommentModal from '@/components/CommentModal';
@@ -279,59 +279,42 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   const handleLike = useCallback(
     withAuth(async (postId: string, event?: React.MouseEvent) => {
       console.log('🚀 handleLike called for post:', postId);
-      
-      // Get current like state from the UI
+
       const currentPost = items.find(item => item.item_type === 'post' && item.item_id === postId);
       const currentlyLiked = currentPost?.metrics?.viewer_has_liked || false;
       console.log('📊 Current UI state - liked:', currentlyLiked, 'count:', currentPost?.metrics?.likes || 0);
-      
-      // Prevent event bubbling
+
       event?.preventDefault();
       event?.stopPropagation();
-      
-      // Prevent multiple simultaneous calls for the same post
+
       if (likingPostsRef.current.has(postId)) {
         console.log('Like already in progress for post:', postId);
         return;
       }
-      
-      console.log('Adding like lock for post:', postId);
       likingPostsRef.current.add(postId);
 
       try {
-        console.log('Calling reactions-toggle for post:', postId);
         const { data, error } = await supabase.functions.invoke('reactions-toggle', {
           body: { post_id: postId, kind: 'like' },
         });
         if (error) throw error;
-        
-        console.log('reactions-toggle response:', data);
-        console.log('User action result - liked:', data?.liked, 'count:', data?.like_count);
-        
-        // Set exact count and state from server response
+
         if (data) {
           bumpPostLikeCount(postId, data.like_count, data.liked);
-          
-          // Show appropriate toast message
-          const isLiking = data.liked;
-          console.log('Showing toast for action:', isLiking ? 'LIKE' : 'UNLIKE');
-          
-          toast({ 
-            title: isLiking ? '❤️ Liked!' : '💔 Unliked!', 
-            description: isLiking ? 'Your reaction has been added.' : 'Your reaction has been removed.',
-            duration: 2000
+          toast({
+            title: data.liked ? '❤️ Liked!' : '💔 Unliked!',
+            description: data.liked ? 'Your reaction has been added.' : 'Your reaction has been removed.',
+            duration: 1600
           });
         }
       } catch (err) {
         console.error('Like error:', err);
         toast({ title: 'Error', description: 'Failed to like post', variant: 'destructive' });
       } finally {
-        // Always remove from processing set
-        console.log('Removing like lock for post:', postId);
         likingPostsRef.current.delete(postId);
       }
     }, 'Please sign in to like posts'),
-    [withAuth, bumpPostLikeCount]
+    [withAuth, bumpPostLikeCount, items]
   );
 
   const handleComment = useCallback(
@@ -381,7 +364,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     [items.length]
   );
 
-  // Add refresh function for debugging
   const handleRefresh = useCallback(() => {
     console.log('🔄 Refreshing feed...');
     refresh();
@@ -421,7 +403,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       if (postIndex !== -1) {
         setCurrentIndex(postIndex);
       } else {
-        // fall back to event page if post not in feed yet
         onEventSelect(eventId);
         navigate(`/event/${eventId}`);
       }
@@ -443,7 +424,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
       } else {
         const mediaUrl = it.media_urls?.[0];
         if (mediaUrl && !mediaUrl.endsWith('.m3u8')) {
-          // Convert mux: URLs to poster URLs for preloading
           url = mediaUrl.startsWith('mux:') ? muxToPoster(mediaUrl) : mediaUrl;
         }
       }
@@ -494,35 +474,38 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   // ---------- UI ----------
   return (
     <div
-      className="feed-page h-screen relative overflow-hidden bg-black smooth-feed-scroll"
+      className="feed-page h-screen relative overflow-hidden bg-black smooth-feed-scroll page-with-bottom-bar"
       style={{ touchAction: 'pan-y' }}
     >
       <PreconnectMux />
       <WarmHlsOnIdle />
       <PreloadNextPoster url={nextPosterUrl} />
-      {/* Logo */}
+
+      {/* Logo (glassy chip to improve contrast over media) */}
       <div className="fixed left-2 top-3 z-30">
-        <img
-          src="/yardpass-logo.png"
-          alt="YardPass"
-          className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 lg:w-56 lg:h-56 object-contain"
-        />
+        <div className="glass-effect rounded-2xl px-2 py-1.5">
+          <img
+            src="/yardpass-logo.png"
+            alt="YardPass"
+            className="w-24 h-16 sm:w-28 sm:h-18 md:w-32 md:h-20 object-contain"
+          />
+        </div>
       </div>
 
-      {/* Search Button */}
+      {/* Search Button (glassy) */}
       <div className="fixed right-3 top-3 z-30">
         <Button
-          variant="secondary"
+          variant="glass"
           size="icon"
           onClick={() => setSearchOpen(true)}
-          className="bg-black/40 border border-white/20 text-white hover:bg-black/60 transition backdrop-blur-sm"
+          className="text-white"
           aria-label="Search"
         >
-          <Search className="w-4 h-4" />
+          <Search className="w-5 h-5" />
         </Button>
       </div>
 
-      {/* Feed Items */}
+      {/* Feed Items with readability overlays */}
       <div
         className="h-full w-full relative transition-transform duration-500 ease-out will-change-transform"
         style={{
@@ -538,78 +521,78 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
             data-feed-index={i}
             aria-label={`Feed item ${i + 1} of ${items.length}`}
           >
-            {item.item_type === 'event' ? (
-              <EventCard
-                item={item}
-                onOpenTickets={handleOpenTickets}
-                onEventClick={handleEventClick}
-                onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
-                onReport={() => {}}
-                onSoundToggle={handleSoundToggle}
-                soundEnabled={soundEnabled}
-                onVideoToggle={() => {}}
-                isVideoPlaying={i === currentIndex}
-              />
-            ) : (
-              <UserPostCard
-                item={item}
-                onLike={(postId, event) => handleLike(postId, event)}
-                onComment={withAuth((postId /*, playbackId?*/) => handleComment(postId /*, playbackId*/), 'Please sign in to comment')}
-                onShare={(postId) => handleShare(postId)}
-                onEventClick={handleEventClick}
-                onAuthorClick={handleAuthorClick}
-                onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
-                onReport={() => {}}
-                onSoundToggle={handleSoundToggle}
-                onOpenTickets={handleOpenTickets}
-                soundEnabled={soundEnabled}
-                onVideoToggle={() => {}}
-                isVideoPlaying={i === currentIndex}
-              />
-            )}
+            {/* Readability overlays (don’t intercept taps) */}
+            <div className="pointer-events-none absolute inset-0 z-10">
+              {/* Top gradient for titles / chips */}
+              <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-black/70 via-black/25 to-transparent" />
+              {/* Bottom gradient for action rails / captions */}
+              <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
+            </div>
+
+            {/* Actual card layers (z-20 so they render above gradients) */}
+            <div className="absolute inset-0 z-20">
+              {item.item_type === 'event' ? (
+                <EventCard
+                  item={item}
+                  onOpenTickets={handleOpenTickets}
+                  onEventClick={handleEventClick}
+                  onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
+                  onReport={() => {}}
+                  onSoundToggle={handleSoundToggle}
+                  soundEnabled={soundEnabled}
+                  onVideoToggle={() => {}}
+                  isVideoPlaying={i === currentIndex}
+                />
+              ) : (
+                <UserPostCard
+                  item={item}
+                  onLike={(postId, event) => handleLike(postId, event)}
+                  onComment={withAuth((postId /*, playbackId?*/) => handleComment(postId /*, playbackId*/), 'Please sign in to comment')}
+                  onShare={(postId) => handleShare(postId)}
+                  onEventClick={handleEventClick}
+                  onAuthorClick={handleAuthorClick}
+                  onCreatePost={() => requireAuth(() => onCreatePost(), 'Please sign in to create posts')}
+                  onReport={() => {}}
+                  onSoundToggle={handleSoundToggle}
+                  onOpenTickets={handleOpenTickets}
+                  soundEnabled={soundEnabled}
+                  onVideoToggle={() => {}}
+                  isVideoPlaying={i === currentIndex}
+                />
+              )}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Navigation controls */}
-      <div className="absolute left-1/2 -translate-x-1/2 bottom-6 z-10 pointer-events-none">
-        <div className="flex flex-col items-center gap-2">
-          <button
-            onClick={() => lockFor() && setCurrentIndex((i) => Math.max(0, i - 1))}
-            disabled={currentIndex === 0 || showCommentModal}
-            className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50 pointer-events-auto"
-            aria-label="Previous item"
-          >
-            <ChevronUp className="w-4 h-4" />
-          </button>
+      {/* ====== Bottom glass rail (replaces scroll dots) ====== */}
+      <div className="bottom-bar">
+        <button
+          onClick={() => lockFor() && setCurrentIndex((i) => Math.max(0, i - 1))}
+          disabled={currentIndex === 0 || showCommentModal}
+          className="rail-btn disabled:opacity-50"
+          aria-label="Previous item"
+        >
+          <ChevronUp className="w-5 h-5" />
+        </button>
 
-          <div className="flex flex-col items-center gap-1 max-h-32 overflow-y-auto pointer-events-auto">
-            {items.slice(Math.max(0, currentIndex - 3), currentIndex + 4).map((item, i) => {
-              const actualIndex = Math.max(0, currentIndex - 3) + i;
-              const active = actualIndex === currentIndex;
-              return (
-                <button
-                  key={`nav-${item.item_type}-${item.item_id}-${actualIndex}`}
-                  aria-label={`Go to ${item.item_type} ${actualIndex + 1}`}
-                  onClick={() => lockFor() && goTo(actualIndex)}
-                  disabled={showCommentModal}
-                  className={`w-1 h-6 rounded-full transition-all duration-200 ${
-                    active ? 'bg-white shadow-lg' : 'bg-white/40 hover:bg-white/70'
-                  } ${showCommentModal ? 'opacity-50' : ''}`}
-                />
-              );
-            })}
-          </div>
+        <button
+          onClick={handleSoundToggle}
+          disabled={showCommentModal}
+          className="rail-btn disabled:opacity-50"
+          aria-label={soundEnabled ? 'Mute' : 'Unmute'}
+        >
+          {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+        </button>
 
-          <button
-            onClick={() => lockFor() && setCurrentIndex((i) => Math.min(items.length - 1, i + 1))}
-            disabled={currentIndex === items.length - 1 || showCommentModal}
-            className="p-2 rounded-full bg-black/40 border border-white/20 text-white hover:bg-black/60 transition disabled:opacity-50 pointer-events-auto"
-            aria-label="Next item"
-          >
-            <ChevronDown className="w-4 h-4" />
-          </button>
-        </div>
+        <button
+          onClick={() => lockFor() && setCurrentIndex((i) => Math.min(items.length - 1, i + 1))}
+          disabled={currentIndex === items.length - 1 || showCommentModal}
+          className="rail-btn disabled:opacity-50"
+          aria-label="Next item"
+        >
+          <ChevronDown className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Modals */}
@@ -691,7 +674,6 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
           mediaPlaybackId={commentMediaPlaybackId}
           onCommentCountChange={(postId, newCount) => {
             console.log('🔥 Index: Updating comment count for post', { postId, newCount });
-            // LOCAL IN-PLACE UPDATE — no refresh, no reorder
             bumpPostCommentCount(postId, newCount);
           }}
         />
