@@ -86,6 +86,52 @@ export function useUnifiedFeed(userId?: string) {
 
   // ---------- Helpers ----------
 
+  // Helper to fetch viewer_has_liked status for posts
+  const enrichWithLikeStatus = useCallback(async (items: FeedItem[]): Promise<FeedItem[]> => {
+    if (!userId) {
+      // Not authenticated, so viewer_has_liked is always false
+      return items.map((it: FeedItem) => {
+        if (it.item_type === 'event') return it;
+        return {
+          ...it,
+          metrics: {
+            ...it.metrics,
+            viewer_has_liked: false,
+          }
+        };
+      });
+    }
+
+    // Get all post IDs that need like status
+    const postIds = items
+      .filter((it: FeedItem) => it.item_type === 'post')
+      .map((it: FeedItem) => it.item_id);
+
+    if (postIds.length === 0) return items;
+
+    // Fetch like status for all posts in one query
+    const { data: userLikes } = await supabase
+      .from('event_reactions')
+      .select('post_id')
+      .in('post_id', postIds)
+      .eq('user_id', userId)
+      .eq('kind', 'like');
+
+    const likedPostIds = new Set(userLikes?.map(like => like.post_id) || []);
+
+    // Update items with correct viewer_has_liked status
+    return items.map((it: FeedItem) => {
+      if (it.item_type === 'event') return it;
+      return {
+        ...it,
+        metrics: {
+          ...it.metrics,
+          viewer_has_liked: likedPostIds.has(it.item_id),
+        }
+      };
+    });
+  }, [userId]);
+
   // Map get_home_feed_ids → full FeedItem (RPC fallback path)
   const mapIdsToItems = useCallback(async (rows: any[]): Promise<FeedItem[]> => {
     if (!rows?.length) return [];
@@ -176,7 +222,8 @@ export function useUnifiedFeed(userId?: string) {
       }
     });
 
-    return out;
+    // Enrich with proper like status
+    return await enrichWithLikeStatus(out);
   }, []);
 
   // ---------- Fetchers ----------
@@ -236,8 +283,9 @@ export function useUnifiedFeed(userId?: string) {
       sponsors: null,
     }));
 
-    return transformed;
-  }, [userId]);
+    // Enrich with proper like status
+    return await enrichWithLikeStatus(transformed);
+  }, [enrichWithLikeStatus]);
 
   // BASIC (legacy RPC)
   const fetchBasic = useCallback(async () => {
