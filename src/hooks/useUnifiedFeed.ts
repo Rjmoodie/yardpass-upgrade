@@ -428,23 +428,28 @@ export function useUnifiedFeed(userId?: string) {
 
   // Set exact like count from server (no network, no reorder)
   const bumpPostLikeCount = useCallback((postId: string, exactCount: number, liked?: boolean) => {
-    setPages(prev =>
-      prev.map(page => ({
+    console.log('bumpPostLikeCount called:', { postId, exactCount, liked });
+    setPages(prev => {
+      const updated = prev.map(page => ({
         ...page,
-        items: page.items.map(it =>
-          it.item_type === 'post' && it.item_id === postId
-            ? { 
-                ...it, 
-                metrics: { 
-                  ...it.metrics, 
-                  likes: exactCount, // Set exact count from server
-                  viewer_has_liked: liked // Use consistent field name
-                }
+        items: page.items.map(it => {
+          if (it.item_type === 'post' && it.item_id === postId) {
+            console.log('Updating post:', postId, 'old metrics:', it.metrics, 'new likes:', exactCount, 'new liked:', liked);
+            return { 
+              ...it, 
+              metrics: { 
+                ...it.metrics, 
+                likes: exactCount, // Set exact count from server
+                viewer_has_liked: liked // Use consistent field name
               }
-            : it
-        )
-      }))
-    );
+            };
+          }
+          return it;
+        })
+      }));
+      console.log('Pages updated for post:', postId);
+      return updated;
+    });
   }, []);
 
   useEffect(() => {
