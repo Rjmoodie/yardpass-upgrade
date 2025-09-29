@@ -5,7 +5,7 @@ import { Calendar, MapPin } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import ActionRail from './ActionRail';
 import ClampText from '@/components/ui/ClampText';
-import { OverlayPanel } from '@/components/overlays/OverlayPanel';
+import PeekSheet from '@/components/overlays/PeekSheet';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
 interface EventCardProps {
@@ -138,111 +138,83 @@ export const EventCard = memo(function EventCard({
 
       {/* Content Overlay */}
       <div className="absolute inset-0 flex flex-col justify-end pointer-events-none">
-        <div className="pointer-events-auto">
-          <OverlayPanel className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-2xl font-bold leading-tight truncate pr-2">
-                {item.event_title}
-              </h2>
+        <PeekSheet minHeight="168px" maxHeight="78vh">
+          {/* Header grid keeps CTA fixed and title tidy */}
+          <div className="grid grid-cols-[1fr,auto] items-center gap-3">
+            <h2 className="text-[clamp(20px,4vw,28px)] font-extrabold leading-snug line-clamp-2 pr-1">
+              {item.event_title}
+            </h2>
 
-              {/* Ticket CTA stays aligned; fixed min width avoids layout jump */}
-              <Button
-                className="shrink-0 min-w-[9.5rem] h-11 px-5 bg-amber-500 hover:bg-amber-600 text-black font-bold"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenTickets(item.event_id);
-                }}
-              >
-                🎟️ Get Tickets
-              </Button>
-            </div>
+            <Button
+              className="shrink-0 min-w-[9.5rem] h-11 px-5 bg-amber-500 hover:bg-amber-600 text-black font-bold"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenTickets(item.event_id);
+              }}
+            >
+              🎟️ Get Tickets
+            </Button>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/85 text-sm">
-              {item.event_starts_at && (
-                <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 opacity-80" />
-                  {formatDate(item.event_starts_at)}
-                </span>
-              )}
-              {item.event_location && (
-                <span className="inline-flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 opacity-80" />
-                  <span className="truncate max-w-[12rem] sm:max-w-none">
-                    {item.event_location}
-                  </span>
-                </span>
-              )}
-            </div>
-
-            {/* Description with "More/Less" on mobile */}
-            {item.event_description && (
-              <ClampText lines={4} className="text-[15px] leading-relaxed">
-                {item.event_description}
-              </ClampText>
+          {/* Meta row */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-white/85 text-sm">
+            {item.event_starts_at && (
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 opacity-80" />
+                {formatDate(item.event_starts_at)}
+              </span>
             )}
+            {item.event_location && (
+              <span className="inline-flex items-center gap-1.5 min-w-0">
+                <MapPin className="w-4 h-4 opacity-80 flex-shrink-0" />
+                <span className="truncate"> {item.event_location} </span>
+              </span>
+            )}
+          </div>
 
-            {/* Sponsor information */}
-            {item.sponsor && (
-              <div className="flex items-center gap-2">
-                <div className="bg-amber-400/20 text-amber-200 px-2 py-1 rounded-full text-xs font-medium">
-                  Sponsored by {item.sponsor.name}
-                </div>
+          {/* Description (clamp + expand) */}
+          {item.event_description && (
+            <ClampText lines={4} className="mt-3 text-[15px] leading-relaxed">
+              {item.event_description}
+            </ClampText>
+          )}
+
+          {/* Sponsor information */}
+          {item.sponsor && (
+            <div className="mt-3 flex items-center gap-2">
+              <div className="bg-amber-400/20 text-amber-200 px-2 py-1 rounded-full text-xs font-medium">
+                Sponsored by {item.sponsor.name}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Secondary actions row – wraps nicely on small screens */}
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button 
-                variant="outline" 
-                className="h-10 px-4 bg-white/10 border-white/20 text-white hover:bg-white/20" 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goToEvent(e);
-                }}
+          {/* Organizer/secondary row */}
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <button
+              onClick={(e) => { e.stopPropagation(); goToOrganizer(e as any); }}
+              className="text-white/90 hover:text-white font-semibold text-sm underline-offset-2 hover:underline"
+            >
+              {item.event_organizer || "Organizer"}
+            </button>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="h-10 px-4 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                onClick={(e) => { e.stopPropagation(); goToEvent(e); }}
               >
                 Details
               </Button>
-              <Button 
-                variant="outline" 
-                className="h-10 px-4 bg-white/10 border-white/20 text-white hover:bg-white/20" 
+              <Button
+                variant="outline"
+                className="h-10 px-4 bg-white/10 border-white/20 text-white hover:bg-white/20"
                 onClick={onSoundToggle}
               >
                 {soundEnabled ? "Mute" : "Unmute"}
               </Button>
             </div>
-          </OverlayPanel>
-        </div>
-      </div>
-
-      {/* BOTTOM META BAR - Enhanced mobile visibility */}
-      <div className="absolute left-2 right-2 sm:left-4 sm:right-4 bottom-6 z-30">
-        <div className="bg-black/90 backdrop-blur-xl rounded-full px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 sm:justify-between shadow-2xl border border-white/20"
-             style={{ backdropFilter: 'blur(20px) saturate(180%)' }}>
-          {/* Organizer section */}
-          <div className="w-full sm:w-auto">
-            <button
-              onClick={goToOrganizer}
-              className="text-white font-bold hover:underline text-sm sm:text-base flex-shrink-0 bg-transparent border-none cursor-pointer min-h-[44px] px-0 flex items-center"
-              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
-              aria-label={`Open organizer ${item.event_organizer || 'profile'}`}
-            >
-              {item.event_organizer || 'Organizer'}
-            </button>
           </div>
-
-          {/* Event section */}
-          <div className="w-full sm:w-auto sm:ml-4">
-            <button
-              onClick={goToEvent}
-              className="text-white/95 hover:text-white font-medium text-sm sm:text-base truncate bg-transparent border-none cursor-pointer text-left w-full sm:w-auto min-h-[44px] px-0 flex items-center"
-              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
-              aria-label="Open event"
-              title={item.event_title}
-            >
-              {item.event_title}
-            </button>
-          </div>
-        </div>
+        </PeekSheet>
       </div>
     </div>
   );

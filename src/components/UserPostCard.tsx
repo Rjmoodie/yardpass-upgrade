@@ -10,7 +10,7 @@ import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
 import ActionRail from './ActionRail';
 import ClampText from '@/components/ui/ClampText';
-import { OverlayPanel } from '@/components/overlays/OverlayPanel';
+import PeekSheet from '@/components/overlays/PeekSheet';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
 interface UserPostCardProps {
@@ -325,89 +325,59 @@ export const UserPostCard = memo(function UserPostCard({
         soundEnabled={soundEnabled}
       />
 
-      {/* Bottom meta bar - Enhanced mobile contrast */}
-      <div className="absolute left-4 right-20 bottom-safe-bottom pb-6 z-30 pointer-events-none">
-        <div className="bg-black/90 backdrop-blur-xl rounded-2xl px-4 py-3 flex flex-col gap-3 shadow-xl border border-white/30 pointer-events-auto max-w-full overflow-hidden"
-             style={{ backdropFilter: 'blur(20px) saturate(180%)' }}>
-          {/* Author and event info */}
-          <div className="flex items-center gap-2 min-w-0 w-full">
+      {/* Post overlay */}
+      <div className="absolute inset-0 flex flex-col justify-end pointer-events-none">
+        <PeekSheet minHeight="156px" maxHeight="76vh">
+          {/* Author + social */}
+          <div className="flex items-center gap-2 min-w-0">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onAuthorClick?.(item.author_id);
-              }}
-              className="text-white font-bold hover:underline text-base flex-shrink-0 bg-transparent border-none cursor-pointer min-h-[44px] px-0 flex items-center"
-              style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}
-              title={item.author_name || 'User'}
+              onClick={(e) => { e.stopPropagation(); onAuthorClick?.(item.author_id); }}
+              className="text-white font-bold hover:underline text-base truncate"
+              title={item.author_name || "User"}
             >
-              {item.author_name || 'User'}
+              {item.author_name || "User"}
             </button>
 
             {item.author_badge && (
-              <span
-                className={`text-xs px-2 py-1 rounded-lg text-white font-medium flex-shrink-0 ${badgeClass(
-                  item.author_badge as AuthorBadge
-                )}`}
-                aria-label={String(item.author_badge)}
-                title={String(item.author_badge)}
-              >
+              <span className={`text-xs px-2 py-1 rounded-lg text-white font-medium flex-shrink-0 ${badgeClass(item.author_badge as any)}`}>
                 {item.author_badge}
               </span>
             )}
 
             {item.author_social_links && Array.isArray(item.author_social_links) && (
-              <div className="flex items-center ml-auto">
-                <SocialLinkDisplay
-                  socialLinks={item.author_social_links}
-                  showPrimaryOnly
-                  className="text-white/80 hover:text-white"
-                />
+              <div className="ml-auto">
+                <SocialLinkDisplay socialLinks={item.author_social_links} showPrimaryOnly className="text-white/80 hover:text-white" />
               </div>
             )}
           </div>
 
-          {/* Event title and ticket button */}
-          <div className="flex items-center justify-between gap-3 min-w-0 w-full">
+          {/* Event + tickets */}
+          <div className="mt-2 grid grid-cols-[1fr,auto] items-center gap-3">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEventClick(item.event_id);
-              }}
-              className="text-white/95 hover:text-white font-medium text-base truncate bg-transparent border-none cursor-pointer text-left min-h-[44px] px-0 flex items-center flex-1"
-              style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}
-              title={item.event_title || 'View event'}
+              onClick={(e) => { e.stopPropagation(); onEventClick(item.event_id); }}
+              className="text-white/95 hover:text-white font-medium text-base text-left truncate"
+              title={item.event_title || "View event"}
             >
-              {item.event_title || 'View event'}
+              {item.event_title || "View event"}
             </button>
-            
+
             {onOpenTickets && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenTickets(item.event_id);
-                }}
-                className="flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 px-6 py-3 rounded-2xl text-base font-semibold transition-all duration-200 shadow-lg min-h-[44px] min-w-[120px] touch-manipulation"
-                title="Get tickets"
+              <Button
+                onClick={(e) => { e.stopPropagation(); onOpenTickets(item.event_id); }}
+                className="h-10 px-4 rounded-2xl font-semibold"
               >
-                <Ticket size={18} />
-                <span>Tickets</span>
-              </button>
+                🎟️ Tickets
+              </Button>
             )}
           </div>
-        </div>
 
-        {/* Post content */}
-        {item.content && (
-          <div className="mt-3 pointer-events-auto">
-            <p className="text-white text-base leading-relaxed bg-black/60 backdrop-blur-sm rounded-xl px-4 py-3 line-clamp-4 font-medium"
-               style={{ 
-                 textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                 backdropFilter: 'blur(12px) saturate(120%)'
-               }}>
+          {/* Caption with clamp */}
+          {item.content && (
+            <ClampText lines={4} className="mt-3 text-[15px] leading-relaxed">
               {item.content}
-            </p>
-          </div>
-        )}
+            </ClampText>
+          )}
+        </PeekSheet>
       </div>
     </div>
   );
