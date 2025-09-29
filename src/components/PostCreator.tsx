@@ -20,6 +20,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from 'lucide-react';
+import { RecordingModal } from './RecordingModal';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -205,6 +206,7 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [showRecordingModal, setShowRecordingModal] = useState(false);
 
   const unmountedRef = useRef(false);
 
@@ -494,6 +496,10 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
     }
   };
 
+  const handleRecordingComplete = (file: File) => {
+    addFiles([file]);
+  };
+
   const removeQueued = (name: string) => {
     setQueue((q) => {
       const t = q.find((f) => f.name === name);
@@ -739,6 +745,15 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
                   </Button>
                 </label>
 
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowRecordingModal(true)}
+                >
+                  <VideoIcon className="w-4 h-4 mr-1" />
+                  Record
+                </Button>
+
                 <div className="text-xs text-muted-foreground self-center">
                   Drag & drop or paste media (images ≤ {MAX_IMAGE_MB}MB, videos ≤ {MAX_VIDEO_MB}MB)
                 </div>
@@ -957,6 +972,12 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
           </Card>
         )}
       </div>
+
+      <RecordingModal
+        isOpen={showRecordingModal}
+        onClose={() => setShowRecordingModal(false)}
+        onRecordingComplete={handleRecordingComplete}
+      />
     </div>
   );
 }
