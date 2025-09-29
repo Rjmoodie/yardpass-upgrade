@@ -139,12 +139,14 @@ export function useUnifiedFeed(userId?: string) {
     const eventIds = Array.from(new Set(rows.map(r => r.event_id)));
     const postIds = rows.filter(r => r.item_type === 'post').map(r => r.item_id);
 
-    // Events (+ organizer)
+    // Events (+ organizer name)
     const { data: events } = await supabase
       .from('events')
       .select(`
         id, title, description, cover_image_url, start_at, venue, city, created_by,
-        user_profiles!events_created_by_fkey(display_name)
+        owner_context_type, owner_context_id,
+        user_profiles!events_created_by_fkey(display_name),
+        organizations!events_owner_context_id_fkey(name)
       `)
       .in('id', eventIds);
 
@@ -165,7 +167,13 @@ export function useUnifiedFeed(userId?: string) {
     const out: FeedItem[] = [];
     rows.forEach(row => {
       const ev = eMap.get(row.event_id);
-      const organizer = ev?.user_profiles;
+      const userOrganizer = ev?.user_profiles;
+      const orgOrganizer = ev?.organizations;
+      
+      // Choose organizer name based on context type
+      const organizerName = ev?.owner_context_type === 'organization' && orgOrganizer?.name
+        ? orgOrganizer.name
+        : userOrganizer?.display_name ?? 'Organizer';
 
       if (row.item_type === 'event') {
         out.push({
@@ -177,9 +185,9 @@ export function useUnifiedFeed(userId?: string) {
           event_description: ev?.description ?? '',
           event_starts_at: ev?.start_at ?? null,
           event_cover_image: ev?.cover_image_url ?? '',
-          event_organizer: organizer?.display_name ?? 'Organizer',
-          event_organizer_id: ev?.created_by ?? '',
-          event_owner_context_type: 'individual',
+          event_organizer: organizerName,
+          event_organizer_id: ev?.owner_context_type === 'organization' ? ev?.owner_context_id ?? '' : ev?.created_by ?? '',
+          event_owner_context_type: ev?.owner_context_type ?? 'individual',
           event_location: [ev?.venue, ev?.city].filter(Boolean).join(', ') || 'TBA',
           author_id: null,
           author_name: null,
@@ -201,9 +209,9 @@ export function useUnifiedFeed(userId?: string) {
           event_description: ev?.description ?? '',
           event_starts_at: ev?.start_at ?? null,
           event_cover_image: ev?.cover_image_url ?? '',
-          event_organizer: organizer?.display_name ?? 'Organizer',
-          event_organizer_id: ev?.created_by ?? '',
-          event_owner_context_type: 'individual',
+          event_organizer: organizerName,
+          event_organizer_id: ev?.owner_context_type === 'organization' ? ev?.owner_context_id ?? '' : ev?.created_by ?? '',
+          event_owner_context_type: ev?.owner_context_type ?? 'individual',
           event_location: [ev?.venue, ev?.city].filter(Boolean).join(', ') || 'TBA',
           author_id: po?.author_user_id ?? null,
           author_name: po?.author_name ?? null,
