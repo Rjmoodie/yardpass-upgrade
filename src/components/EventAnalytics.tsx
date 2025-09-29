@@ -418,23 +418,23 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
           </div>
 
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button onClick={fetchEventAnalytics} disabled={loading} variant="outline" size="sm" className="text-xs">
+            <Button onClick={fetchEventAnalytics} disabled={loading} variant="outline" size="sm" className="h-8 px-3 text-xs">
               <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={() => window.print()} className="text-xs">
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 px-3 text-xs">
               <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               <span className="hidden sm:inline">Print</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={copyShareLink} className="text-xs">
+            <Button variant="outline" size="sm" onClick={copyShareLink} className="h-8 px-3 text-xs">
               <LinkIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               <span className="hidden sm:inline">Copy Link</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={downloadJSON} disabled={!analytics} className="text-xs">
+            <Button variant="outline" size="sm" onClick={downloadJSON} disabled={!analytics} className="h-8 px-3 text-xs">
               <FileJson className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               <span className="hidden sm:inline">JSON</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={downloadTiersCSV} disabled={!analytics?.tier_performance?.length} className="text-xs">
+            <Button variant="outline" size="sm" onClick={downloadTiersCSV} disabled={!analytics?.tier_performance?.length} className="h-8 px-3 text-xs">
               <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               <span className="hidden sm:inline">CSV</span>
             </Button>
@@ -475,7 +475,7 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
           variant={autoRefresh ? 'default' : 'outline'}
           size="sm"
           onClick={() => setAutoRefresh((v) => !v)}
-          className="sm:w-auto w-full text-xs"
+          className="sm:w-auto w-full h-8 px-3 text-xs"
         >
           <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">{autoRefresh ? 'Auto refresh: ON' : 'Auto refresh: OFF'}</span>
@@ -490,9 +490,10 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
             <div className="text-sm">
               New activity detected (orders/tickets). Data may be stale.
             </div>
-            <Button size="sm" onClick={fetchEventAnalytics}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Update now
+            <Button size="sm" onClick={fetchEventAnalytics} className="h-8 px-3 text-xs">
+              <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+              <span className="hidden sm:inline">Update now</span>
+              <span className="sm:hidden">Update</span>
             </Button>
           </CardContent>
         </Card>

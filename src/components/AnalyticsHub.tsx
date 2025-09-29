@@ -234,11 +234,13 @@ const InlineAIInsightsPanel: React.FC<{
             ) : null}
 
             <div className="flex items-center gap-2 pt-2">
-              <Button size="sm" variant="ghost" onClick={() => onFeedback(true)}>
-                <ThumbsUp className="h-4 w-4 mr-1" /> Helpful
+              <Button size="sm" variant="ghost" onClick={() => onFeedback(true)} className="h-8 px-3 text-xs">
+                <ThumbsUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+                <span className="hidden sm:inline">Helpful</span>
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => onFeedback(false)}>
-                <ThumbsDown className="h-4 w-4 mr-1" /> Not helpful
+              <Button size="sm" variant="ghost" onClick={() => onFeedback(false)} className="h-8 px-3 text-xs">
+                <ThumbsDown className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+                <span className="hidden sm:inline">Not helpful</span>
               </Button>
             </div>
           </>
@@ -320,11 +322,13 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
       <div className="flex items-center justify-between mb-2">
         <div />
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={exportCSV}>
-            <DownloadIcon className="h-4 w-4 mr-1" /> CSV
+          <Button size="sm" variant="outline" onClick={exportCSV} className="h-8 px-3 text-xs">
+            <DownloadIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+            <span className="hidden sm:inline">CSV</span>
           </Button>
-          <Button size="sm" variant="outline" onClick={exportJSON}>
-            <DownloadIcon className="h-4 w-4 mr-1" /> JSON
+          <Button size="sm" variant="outline" onClick={exportJSON} className="h-8 px-3 text-xs">
+            <DownloadIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+            <span className="hidden sm:inline">JSON</span>
           </Button>
         </div>
       </div>
@@ -1135,21 +1139,21 @@ const AnalyticsHub: React.FC = () => {
     <div className="min-h-0 w-full">
       <div className="container mx-auto p-6 max-w-7xl">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">YardPass Analytics Hub</h1>
-              <p className="text-muted-foreground">Comprehensive insights across your events and content</p>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2">YardPass Analytics Hub</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">Comprehensive insights across your events and content</p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setAutoRefresh((v) => !v)}>
-                {autoRefresh ? <><PauseIcon className="h-4 w-4 mr-1" /> Auto-refresh</> : <><ResumeIcon className="h-4 w-4 mr-1" /> Auto-refresh</>}
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => setAutoRefresh((v) => !v)} className="h-8 px-3 text-xs">
+                {autoRefresh ? <><PauseIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> <span className="hidden sm:inline">Auto-refresh</span></> : <><ResumeIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> <span className="hidden sm:inline">Auto-refresh</span></>}
               </Button>
-              <Button variant={realtime ? 'default' : 'outline'} size="sm" onClick={() => setRealtime((v) => !v)}>
-                <RadioIcon className="h-4 w-4 mr-1" /> Realtime
+              <Button variant={realtime ? 'default' : 'outline'} size="sm" onClick={() => setRealtime((v) => !v)} className="h-8 px-3 text-xs">
+                <RadioIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> <span className="hidden sm:inline">Realtime</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={shareLink} title="Copy deep link">
-                <ShareIcon className="h-4 w-4 mr-1" /> Share
+              <Button variant="outline" size="sm" onClick={shareLink} title="Copy deep link" className="h-8 px-3 text-xs">
+                <ShareIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> <span className="hidden sm:inline">Share</span>
               </Button>
             </div>
           </div>
@@ -1190,9 +1194,9 @@ const AnalyticsHub: React.FC = () => {
           <Button onClick={() => {
             trackEvent('analytics_refresh_click', { organization_id: selectedOrg, date_range: dateRange, active_tab: activeTab });
             fetchAnalytics();
-          }} disabled={loading} variant="outline">
-            <RefreshIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+          }} disabled={loading} variant="outline" size="sm" className="h-8 px-3 text-xs">
+            <RefreshIcon className={`h-3 w-3 sm:h-4 sm:w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
 
@@ -1203,12 +1207,12 @@ const AnalyticsHub: React.FC = () => {
           trackEvent('analytics_tab_change', { from_tab: activeTab, to_tab: newTab, organization_id: selectedOrg, date_range: dateRange });
         }} className="w-full space-y-8">
           <div className="relative z-20">
-            <TabsList className="grid w-full grid-cols-5 h-12 p-1 bg-muted/50 rounded-xl">
-              <TabsTrigger className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="overview">Overview</TabsTrigger>
-              <TabsTrigger className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="events">Events</TabsTrigger>
-              <TabsTrigger className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="videos">Videos</TabsTrigger>
-              <TabsTrigger className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="audience">Audience</TabsTrigger>
-              <TabsTrigger className="font-medium text-sm px-6 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="ai-assistant">AI Assistant</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-10 sm:h-12 p-1 bg-muted/50 rounded-xl">
+              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="overview">Overview</TabsTrigger>
+              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="events">Events</TabsTrigger>
+              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="videos">Videos</TabsTrigger>
+              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="audience">Audience</TabsTrigger>
+              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all col-span-2 sm:col-span-1" value="ai-assistant">AI Assistant</TabsTrigger>
             </TabsList>
           </div>
 
