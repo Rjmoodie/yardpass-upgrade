@@ -70,6 +70,12 @@ export const useEngagementActions = (
   }, [eventId]);
 
   const handleLike = useCallback(() => {
+    console.log('🎯 handleLike called - Current state:', {
+      postId,
+      isLiked: currentLikeState.isLiked,
+      likeCount: currentLikeState.likeCount,
+      initialState
+    });
     requireAuth(
       () => {
         toggleLike(

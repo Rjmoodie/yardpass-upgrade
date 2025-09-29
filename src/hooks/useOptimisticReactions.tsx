@@ -77,10 +77,12 @@ export const useOptimisticReactions = () => {
     }));
 
     try {
+      console.log('🚀 Sending like request:', { post_id: postId, kind: 'like', action: 'toggle' });
       const { data, error } = await supabase.functions.invoke('reactions-toggle', {
         body: { post_id: postId, kind: 'like', action: 'toggle' },
       });
 
+      console.log('📊 Reactions response:', data);
       if (error) throw error;
 
       // Parse response with new API structure
@@ -90,6 +92,7 @@ export const useOptimisticReactions = () => {
       const like_count = clampNonNegative(Number.isFinite(like_count_raw) ? like_count_raw : optimisticCount);
 
       // Reconcile with server truth
+      console.log('✅ Server response - liked:', liked, 'count:', like_count, 'viewer_has_liked:', viewer_has_liked);
       setOptimisticState((prev) => ({
         ...prev,
         [postId]: {

@@ -4319,6 +4319,10 @@ export type Database = {
         Args: { p_post: string }
         Returns: undefined
       }
+      test_like_trigger: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       update_circuit_breaker_state: {
         Args: {
           p_error_message?: string
