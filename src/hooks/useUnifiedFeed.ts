@@ -316,13 +316,14 @@ export function useUnifiedFeed(userId?: string) {
         event_description: row.description || '',
         event_starts_at: row.start_at ?? null,
         event_cover_image: row.cover_image_url || '',
-        // Prioritize organization name for organization-owned events
-        event_organizer: row.owner_context_type === 'organization' 
-          ? (row.organization_name || row.organizer_name || 'Organization')
-          : (row.organizer_display_name || row.organizer_name || 'Organizer'),
-        event_organizer_id: row.owner_context_type === 'organization' 
-          ? row.owner_context_id 
-          : row.created_by,
+        // ✅ Use resolved value from SQL (falls back if someone hasn't run the migration yet)
+        event_organizer: row.organizer_name
+          || (row.owner_context_type === 'organization'
+              ? (row.organization_name || row.organizer_display_name || 'Organization')
+              : (row.organizer_display_name || 'Organizer')),
+        event_organizer_id: row.organizer_id || (row.owner_context_type === 'organization'
+          ? row.owner_context_id
+          : row.created_by),
         event_owner_context_type: row.owner_context_type || 'individual',
         event_location: row.city || row.venue || 'TBA',
         author_id: null,
@@ -347,12 +348,13 @@ export function useUnifiedFeed(userId?: string) {
             event_description: row.description || '',
             event_starts_at: row.start_at ?? null,
             event_cover_image: row.cover_image_url || '',
-            event_organizer: row.owner_context_type === 'organization' 
-              ? (row.organization_name || row.organizer_name || 'Organization')
-              : (row.organizer_display_name || row.organizer_name || 'Organizer'),
-            event_organizer_id: row.owner_context_type === 'organization' 
-              ? row.owner_context_id 
-              : row.created_by,
+            event_organizer: row.organizer_name
+              || (row.owner_context_type === 'organization'
+                  ? (row.organization_name || row.organizer_display_name || 'Organization')
+                  : (row.organizer_display_name || 'Organizer')),
+            event_organizer_id: row.organizer_id || (row.owner_context_type === 'organization'
+              ? row.owner_context_id
+              : row.created_by),
             event_owner_context_type: row.owner_context_type || 'individual',
             event_location: row.city || row.venue || 'TBA',
             author_id: post.author?.id || null,
@@ -538,6 +540,11 @@ export function useUnifiedFeed(userId?: string) {
     fetchPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, SMART_FEED_ENABLED]);
+
+  // Force refresh on mount to pick up updated RPC function
+  useEffect(() => {
+    refresh();
+  }, []);
 
   return {
     items,
