@@ -412,6 +412,59 @@ export function useUnifiedFeed(userId?: string) {
     []
   );
 
+  // ---------- Real-time subscriptions ----------
+  
+  useEffect(() => {
+    // Subscribe to real-time like updates
+    const channel = supabase
+      .channel('like-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_reactions',
+          filter: 'kind=eq.like'
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+            const postId = (payload.new as any)?.post_id || (payload.old as any)?.post_id;
+            if (postId) {
+              // Refresh the specific post's like count
+              refreshPostLikes(postId);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const refreshPostLikes = async (postId: string) => {
+    try {
+      const { count } = await supabase
+        .from('event_reactions')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', postId)
+        .eq('kind', 'like');
+
+      const { data: userLike } = await supabase
+        .from('event_reactions')
+        .select('*')
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .eq('kind', 'like')
+        .maybeSingle();
+
+      bumpPostLikeCount(postId, count ?? 0, Boolean(userLike));
+    } catch (error) {
+      console.error('Failed to refresh post likes:', error);
+    }
+  };
+
   // ---------- Lifecycle ----------
 
   useEffect(() => {
