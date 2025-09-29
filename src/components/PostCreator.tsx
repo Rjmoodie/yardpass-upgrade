@@ -233,8 +233,8 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
             id,
             event_id,
             tier_id,
-            events!fk_tickets_event_id ( id, title, cover_image_url, start_at ),
-            ticket_tiers!fk_tickets_tier_id ( badge_label, name )
+            events!tickets_event_id_fkey ( id, title, cover_image_url, start_at ),
+            ticket_tiers!tickets_tier_id_fkey ( badge_label, name )
           `)
           .eq('owner_user_id', user.id)
           .in('status', ['issued', 'transferred', 'redeemed']);
