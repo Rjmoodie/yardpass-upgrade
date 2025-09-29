@@ -78,13 +78,14 @@ export const useOptimisticReactions = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('reactions-toggle', {
-        body: { post_id: postId, kind: 'like' },
+        body: { post_id: postId, kind: 'like', action: 'toggle' },
       });
 
       if (error) throw error;
 
-      // Defensive parsing of payload
+      // Parse response with new API structure
       const liked = Boolean((data as any)?.liked);
+      const viewer_has_liked = Boolean((data as any)?.viewer_has_liked);
       const like_count_raw = (data as any)?.like_count;
       const like_count = clampNonNegative(Number.isFinite(like_count_raw) ? like_count_raw : optimisticCount);
 
