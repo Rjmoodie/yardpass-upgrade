@@ -39,6 +39,8 @@ serve(async (req) => {
       .eq("kind", "like")
       .maybeSingle();
 
+    let isLiked: boolean;
+
     if (existing) {
       // UNLIKE - delete using composite key
       const { error: delErr } = await supabase
@@ -48,6 +50,7 @@ serve(async (req) => {
         .eq("user_id", user_id)
         .eq("kind", "like");
       if (delErr) return json(403, { error: "forbidden_delete", detail: delErr.message });
+      isLiked = false;
     } else {
       // LIKE (ignore duplicate under race)
       const { error: insErr } = await supabase
@@ -57,9 +60,10 @@ serve(async (req) => {
       if (insErr && (insErr as any).code !== "23505") {
         return json(400, { error: "insert_failed", detail: insErr.message });
       }
+      isLiked = true;
     }
 
-    // exact count
+    // Get exact count in a single query
     const { count, error: cntErr } = await supabase
       .from("event_reactions")
       .select("*", { count: "exact", head: true })
@@ -67,19 +71,10 @@ serve(async (req) => {
       .eq("kind", "like");
     if (cntErr) return json(400, { error: "count_failed", detail: cntErr.message });
 
-    // current liked state
-    const { data: nowLiked } = await supabase
-      .from("event_reactions")
-      .select("*")
-      .eq("post_id", post_id)
-      .eq("user_id", user_id)
-      .eq("kind", "like")
-      .maybeSingle();
-
     return json(200, { 
       post_id,
-      liked: Boolean(nowLiked), 
-      viewer_has_liked: Boolean(nowLiked),
+      liked: isLiked, 
+      viewer_has_liked: isLiked,
       like_count: count ?? 0 
     });
   } catch (e: any) {
