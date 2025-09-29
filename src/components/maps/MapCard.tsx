@@ -80,7 +80,6 @@ const MapCard = ({
             bearing: 0,
             antialias: true, // Smooth edges
             fadeDuration: 300, // Smooth transitions
-            accessToken: mapboxToken, // Explicitly set token
           });
 
           // Wait for style to load before customizing
