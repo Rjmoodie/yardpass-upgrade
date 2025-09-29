@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-const SMART_FEED_ENABLED = import.meta.env.VITE_SMART_FEED?.toLowerCase() === 'true';
+const SMART_FEED_ENABLED = false; // Disabled to ensure guest users can see feed
 const PAGE_SIZE = 40;
 
 export type FeedItem =
