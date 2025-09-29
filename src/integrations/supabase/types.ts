@@ -3931,8 +3931,25 @@ export type Database = {
         }[]
       }
       get_home_feed: {
-        Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
-        Returns: Database["public"]["CompositeTypes"]["home_feed_row"][]
+        Args:
+          | { p_limit?: number; p_offset?: number; p_user_id?: string }
+          | { p_limit?: number; p_user_id?: string }
+        Returns: {
+          city: string
+          cover_image_url: string
+          created_by: string
+          description: string
+          event_id: string
+          organization_id: string
+          organization_name: string
+          organizer_display_name: string
+          organizer_name: string
+          owner_context_id: string
+          owner_context_type: Database["public"]["Enums"]["owner_context"]
+          start_at: string
+          title: string
+          venue: string
+        }[]
       }
       get_home_feed_ids: {
         Args:
