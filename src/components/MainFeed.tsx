@@ -171,7 +171,14 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
   if (!current) return <EmptyState />;
 
   return (
-    <div className="h-screen relative overflow-hidden bg-black">
+    <div 
+      className="h-dvh relative overflow-hidden bg-black"
+      style={{ 
+        scrollSnapType: 'y mandatory',
+        overscrollBehavior: 'none',
+        WebkitOverflowScrolling: 'touch'
+      }}
+    >
       <Header onCreatePost={() => setPostCreatorOpen(true)} />
       <MediaContainer events={events} currentIndex={currentIndex} scrollRef={scrollRef} />
       <EventOverlay
@@ -255,11 +262,22 @@ function MediaContainer({ events, currentIndex, scrollRef }: any) {
   return (
       <div 
         ref={scrollRef}
-      className="h-full w-full relative transition-transform duration-300 ease-out"
-        style={{ transform: `translateY(-${currentIndex * 100}%)` }}
+        className="h-full w-full relative will-change-transform"
+        style={{ 
+          transform: `translateY(-${currentIndex * 100}%)`,
+          transition: `transform 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`,
+          scrollSnapAlign: 'start'
+        }}
       >
       {events.map((e: Event, i: number) => (
-        <div key={e.id} className="h-full w-full absolute" style={{ top: `${i * 100}%` }}>
+        <div 
+          key={e.id} 
+          className="h-full w-full absolute" 
+          style={{ 
+            top: `${i * 100}%`,
+            scrollSnapAlign: 'start'
+          }}
+        >
           <ImageWithFallback src={e.coverImage} alt={e.title} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
           </div>
@@ -273,7 +291,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
   const navigate = useNavigate();
   const [showFullDescription, setShowFullDescription] = useState(false);
   return (
-    <div className="absolute bottom-20 left-0 right-0 p-4 text-white">
+    <div className="absolute bottom-4 left-0 right-0 p-4 text-white rail-safe">
       <div className="flex justify-between items-end">
         <div className="flex-1 mr-4 space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
@@ -371,28 +389,28 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
               </button>
             )}
           </div>
-          <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               <Button 
                 size="lg" 
-                variant="premium"
-              onClick={() =>
-                requireAuth(() => {
-                  capture('feed_click', { target: 'tickets', event_id: event.id });
-                  setShowTicketModal(true);
-                }, 'Sign in to buy tickets')
-              }
-              className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[48px] px-6 font-bold shadow-lg"
+                variant="default"
+                onClick={() =>
+                  requireAuth(() => {
+                    capture('feed_click', { target: 'tickets', event_id: event.id });
+                    setShowTicketModal(true);
+                  }, 'Sign in to buy tickets')
+                }
+                className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[44px] min-w-[44px] px-6 font-bold shadow-lg touch-manipulation"
               >
                 Get Tickets
               </Button>
               <Button 
                 size="lg" 
-                variant="glass"
-              onClick={() => {
-                capture('feed_click', { target: 'details', event_id: event.id });
-                navigate(routes.event(event.id));
-              }}
-              className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[48px] px-6 font-semibold backdrop-blur-md"
+                variant="outline"
+                onClick={() => {
+                  capture('feed_click', { target: 'details', event_id: event.id });
+                  navigate(routes.event(event.id));
+                }}
+                className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[44px] min-w-[44px] px-6 font-semibold backdrop-blur-md touch-manipulation"
               >
                 Details
               </Button>
@@ -442,7 +460,7 @@ function ActionButton({ icon, label, onClick, active }: any) {
   return (
           <button
       onClick={onClick}
-      className="flex flex-col items-center gap-1 transition-transform active:scale-95 min-h-[56px] min-w-[56px] p-2"
+      className="flex flex-col items-center gap-1 transition-transform active:scale-95 min-h-[48px] min-w-[48px] p-2 touch-manipulation"
     >
       <div
         className={`p-3 rounded-full transition-all ${
@@ -474,16 +492,21 @@ function SwipeArea({ handleScroll }: { handleScroll: (dir: 'up' | 'down') => voi
   return (
       <div 
         className="absolute inset-0 z-10"
-      style={{ pointerEvents: 'auto', touchAction: 'pan-y', clipPath: 'polygon(0% 15%, 80% 15%, 80% 100%, 0% 100%)' }}
+        style={{ 
+          pointerEvents: 'auto', 
+          touchAction: 'pan-y',
+          clipPath: 'polygon(0% 15%, 75% 15%, 75% 100%, 0% 100%)',
+          overscrollBehavior: 'none'
+        }}
         onTouchStart={(e) => {
-        e.currentTarget.dataset.startY = e.touches[0].clientY.toString();
+          e.currentTarget.dataset.startY = e.touches[0].clientY.toString();
         }}
         onTouchEnd={(e) => {
-        const startY = parseInt(e.currentTarget.dataset.startY || '0', 10);
+          const startY = parseInt(e.currentTarget.dataset.startY || '0', 10);
           const endY = e.changedTouches[0].clientY;
           const diff = startY - endY;
-          if (Math.abs(diff) > 50) {
-          handleScroll(diff > 0 ? 'down' : 'up');
+          if (Math.abs(diff) > 60) {
+            handleScroll(diff > 0 ? 'down' : 'up');
           }
         }}
       />

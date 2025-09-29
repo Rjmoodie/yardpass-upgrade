@@ -474,8 +474,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   // ---------- UI ----------
   return (
     <div
-      className="feed-page h-screen relative overflow-hidden bg-black smooth-feed-scroll page-with-bottom-bar"
-      style={{ touchAction: 'pan-y' }}
+      className="feed-page h-dvh relative overflow-hidden bg-black"
+      style={{ 
+        touchAction: 'pan-y',
+        scrollSnapType: 'y mandatory',
+        overscrollBehavior: 'none',
+        WebkitOverflowScrolling: 'touch'
+      }}
     >
       <PreconnectMux />
       <WarmHlsOnIdle />
@@ -505,19 +510,23 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         </Button>
       </div>
 
-      {/* Feed Items with readability overlays */}
+      {/* Feed Items with smooth scroll behavior */}
       <div
-        className="h-full w-full relative transition-transform duration-500 ease-out will-change-transform"
+        className="h-full w-full relative will-change-transform"
         style={{
           transform: `translateY(-${currentIndex * 100}%)`,
-          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: `transform 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`,
+          scrollSnapAlign: 'start'
         }}
       >
         {items.map((item, i) => (
           <div
             key={`feed-${item.item_type}-${item.item_id}-${i}`}
             className="h-full w-full absolute feed-item"
-            style={{ top: `${i * 100}%` }}
+            style={{ 
+              top: `${i * 100}%`,
+              scrollSnapAlign: 'start'
+            }}
             data-feed-index={i}
             aria-label={`Feed item ${i + 1} of ${items.length}`}
           >
@@ -565,33 +574,33 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         ))}
       </div>
 
-      {/* ====== Bottom glass rail (replaces scroll dots) ====== */}
-      <div className="bottom-bar">
+      {/* ====== Bottom navigation rail - mobile optimized ====== */}
+      <div className="bottom-bar bg-black/60 backdrop-blur-xl border-t border-white/10">
         <button
           onClick={() => lockFor() && setCurrentIndex((i) => Math.max(0, i - 1))}
           disabled={currentIndex === 0 || showCommentModal}
-          className="rail-btn disabled:opacity-50"
+          className="rail-btn disabled:opacity-30 disabled:cursor-not-allowed"
           aria-label="Previous item"
         >
-          <ChevronUp className="w-5 h-5" />
+          <ChevronUp className="w-6 h-6" />
         </button>
 
         <button
           onClick={handleSoundToggle}
           disabled={showCommentModal}
-          className="rail-btn disabled:opacity-50"
+          className="rail-btn disabled:opacity-30"
           aria-label={soundEnabled ? 'Mute' : 'Unmute'}
         >
-          {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
         </button>
 
         <button
           onClick={() => lockFor() && setCurrentIndex((i) => Math.min(items.length - 1, i + 1))}
           disabled={currentIndex === items.length - 1 || showCommentModal}
-          className="rail-btn disabled:opacity-50"
+          className="rail-btn disabled:opacity-30 disabled:cursor-not-allowed"
           aria-label="Next item"
         >
-          <ChevronDown className="w-5 h-5" />
+          <ChevronDown className="w-6 h-6" />
         </button>
       </div>
 
