@@ -1,4 +1,4 @@
-import type { Config } from "tailwindcss";
+import type { Config } from "tailwindcss"
 
 export default {
   darkMode: ["class"],
@@ -11,16 +11,28 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: "1rem",
+      padding: {
+        DEFAULT: "1rem",
+        sm: "1rem",
+        md: "1.25rem",
+        lg: "1.5rem",
+        xl: "2rem",
+        "2xl": "2.5rem",
+      },
       screens: {
-        "sm": "640px",
-        "md": "768px", 
-        "lg": "1024px",
-        "xl": "1280px",
+        xs: "360px",  // iPhone mini / compact devices
+        sm: "640px",
+        md: "768px",
+        lg: "1024px",
+        xl: "1280px",
         "2xl": "1400px",
       },
     },
     extend: {
+      screens: {
+        "tall": { raw: "(min-height: 740px)" },   // thumb reach tuning
+        "short": { raw: "(max-height: 680px)" },  // dense layouts
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -71,61 +83,70 @@ export default {
         mono: ["var(--font-mono)"],
       },
       fontSize: {
-        'xxs': ['0.625rem', { lineHeight: '0.875rem' }],  /* 10px */
-        'xs': ['0.75rem', { lineHeight: '1rem' }],        /* 12px */
-        'sm': ['0.875rem', { lineHeight: '1.25rem' }],    /* 14px */
-        'base': ['1rem', { lineHeight: '1.5rem' }],       /* 16px */
-        'lg': ['1.125rem', { lineHeight: '1.75rem' }],    /* 18px */
-        'xl': ['1.25rem', { lineHeight: '1.75rem' }],     /* 20px */
-        '2xl': ['1.5rem', { lineHeight: '2rem' }],        /* 24px */
-        '3xl': ['1.875rem', { lineHeight: '2.25rem' }],   /* 30px */
-        '4xl': ['2.25rem', { lineHeight: '2.5rem' }],     /* 36px */
-        '5xl': ['3rem', { lineHeight: '1' }],             /* 48px */
+        xxs: ["0.625rem", { lineHeight: "0.875rem" }],  // 10px
+        xs:  ["0.75rem",  { lineHeight: "1rem" }],
+        sm:  ["0.875rem", { lineHeight: "1.25rem" }],
+        base:["1rem",     { lineHeight: "1.5rem" }],
+        lg:  ["1.125rem", { lineHeight: "1.75rem" }],
+        xl:  ["1.25rem",  { lineHeight: "1.75rem" }],
+        "2xl": ["1.5rem", { lineHeight: "2rem" }],
+        "3xl": ["1.875rem",{ lineHeight: "2.25rem" }],
+        "4xl": ["2.25rem", { lineHeight: "2.5rem" }],
+        "5xl": ["3rem",    { lineHeight: "1" }],
       },
       spacing: {
-        '18': '4.5rem',   /* 72px */
-        '22': '5.5rem',   /* 88px */
-        '26': '6.5rem',   /* 104px */
-        '30': '7.5rem',   /* 120px */
-        'safe-top': 'var(--safe-area-inset-top)',
-        'safe-bottom': 'var(--safe-area-inset-bottom)',
-        'safe-left': 'var(--safe-area-inset-left)',
-        'safe-right': 'var(--safe-area-inset-right)',
+        18: "4.5rem",
+        22: "5.5rem",
+        26: "6.5rem",
+        30: "7.5rem",
+        "safe-top": "var(--safe-area-inset-top)",
+        "safe-bottom": "var(--safe-area-inset-bottom)",
+        "safe-left": "var(--safe-area-inset-left)",
+        "safe-right": "var(--safe-area-inset-right)",
       },
       borderRadius: {
-        "xs": "var(--radius-xs)",
-        "sm": "var(--radius-sm)", 
-        "md": "var(--radius-md)",
-        "lg": "var(--radius-lg)",
-        "xl": "var(--radius-xl)",
+        xs: "var(--radius-xs)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
         "2xl": "var(--radius-2xl)",
         "3xl": "var(--radius-3xl)",
-        "full": "var(--radius-full)",
+        full: "var(--radius-full)",
       },
       boxShadow: {
-        "sm": "var(--shadow-sm)",
-        "md": "var(--shadow-md)",
-        "lg": "var(--shadow-lg)",
-        "xl": "var(--shadow-xl)",
-        "glow": "var(--shadow-glow)",
-        "elevated": "var(--shadow-elevated)",
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
+        xl: "var(--shadow-xl)",
+        glow: "var(--shadow-glow)",
+        elevated: "var(--shadow-elevated)",
       },
       backdropBlur: {
-        "glass": "20px",
+        glass: "20px",
       },
       transitionTimingFunction: {
-        "ios": "var(--ease-out)",
+        ios: "var(--ease-out)",
         "ios-in-out": "var(--ease-in-out)",
-        "spring": "var(--ease-spring)",
+        spring: "var(--ease-spring)",
       },
       transitionDuration: {
-        "quick": "200ms",
-        "smooth": "300ms",
-        "spring": "400ms",
+        quick: "200ms",
+        smooth: "300ms",
+        spring: "400ms",
+      },
+      zIndex: {
+        rail: "40",
+        toast: "50",
+        modal: "50",
+      },
+      opacity: {
+        15: "0.15",
+        85: "0.85",
       },
       keyframes: {
         "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
-        "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
+        "accordion-up":   { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
         "fade-in": {
           "0%": { opacity: "0", transform: "translateY(10px)" },
           "100%": { opacity: "1", transform: "translateY(0)" }
@@ -164,4 +185,4 @@ export default {
     },
   },
   plugins: [require("tailwindcss-animate")],
-} satisfies Config;
+} satisfies Config
