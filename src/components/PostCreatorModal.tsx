@@ -244,12 +244,12 @@ export function PostCreatorModal({
             id,
             event_id,
             tier_id,
-            events!tickets_event_id_fkey (
+            events!fk_tickets_event_id (
               id,
               title,
               cover_image_url
             ),
-            ticket_tiers!tickets_tier_id_fkey (
+            ticket_tiers!fk_tickets_tier_id (
               badge_label,
               name
             )

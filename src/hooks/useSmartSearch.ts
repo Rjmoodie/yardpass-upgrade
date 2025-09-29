@@ -78,22 +78,10 @@ export function useSmartSearch(initialQ = '') {
           p_offset: reset ? 0 : page * pageSize,
         });
 
-        console.log('🔍 RPC search_all params:', {
-          p_user: userId,
-          p_q: debouncedQ || null,
-          p_category: filters.category ?? null,
-          p_date_from,
-          p_date_to,
-          p_only_events: !!filters.onlyEvents,
-          p_limit: pageSize,
-          p_offset: reset ? 0 : page * pageSize,
-        });
-
         if (error) throw error;
         if (myVersion !== reqVersion.current) return; // stale, ignore
 
         const rows = (data ?? []) as SearchRow[];
-        console.log('🔍 RPC search_all returned:', rows);
 
         setResults(prev => (reset ? rows : [...prev, ...rows]));
       } catch (e) {
