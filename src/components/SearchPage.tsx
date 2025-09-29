@@ -134,14 +134,14 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       category: cat !== 'All' ? cat : null,
       dateFrom: from || null,
       dateTo: to || null,
-      onlyEvents: true, // Filter to events only at the source
+      onlyEvents: false, // Include both events and posts
     });
   }, [cat, from, to, setFilters]);
 
-  // Keep only true events (ignore event_posts, orgs, etc.)
+  // Include both events and posts
   const eventHits = useMemo(() => {
     return (searchResults || []).filter(r =>
-      r.item_type === 'event' && r.item_id
+      (r.item_type === 'event' || r.item_type === 'post') && r.item_id
     );
   }, [searchResults]);
 
@@ -184,15 +184,19 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     return () => { cancelled = true; };
   }, [eventHits]);
 
-  // Transform verified events only
+  // Transform verified events and posts
   const transformedResults = useMemo(() => {
-    const rows = eventHits.filter(h => validEventIds.has(h.item_id));
+    const rows = eventHits.filter(h => 
+      h.item_type === 'post' || validEventIds.has(h.item_id)
+    );
     return rows.map(result => ({
       id: result.item_id,
-      title: result.title,
+      title: result.item_type === 'post' 
+        ? `"${result.content || 'Post'}" - ${result.title}` 
+        : result.title,
       description: result.description || result.content || '',
       organizer: result.organizer_name || 'Organizer',
-      organizerId: result.item_id,
+      organizerId: result.item_type === 'post' ? result.parent_event_id || result.item_id : result.item_id,
       category: result.category || 'Other',
       date: result.start_at
         ? new Date(result.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -205,8 +209,8 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       attendeeCount: undefined, // TODO: get real metrics
       priceFrom: undefined,     // TODO: get real pricing
       rating: 4.2,
-      type: 'event',
-      parentEventId: null,
+      type: result.item_type === 'post' ? 'post' : 'event',
+      parentEventId: result.item_type === 'post' ? result.parent_event_id : null,
     }));
   }, [eventHits, validEventIds]);
 
@@ -361,7 +365,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 id="search-query-input"
                 value={q}
                 onChange={(e) => setParam('q', e.target.value)}
-                placeholder="Search events, organizers, locations… (press / to focus)"
+                placeholder="Search events, posts, organizers, locations… (press / to focus)"
                 className="pl-10"
               />
             </div>
