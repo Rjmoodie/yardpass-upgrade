@@ -118,35 +118,87 @@
     --glass-border: hsl(210 17% 95% / 0.1);
   }
 }
-  --secondary: 30 15% 18%;
-  --secondary-foreground: 45 25% 85%;
-  --muted: 30 15% 16%;
-  --muted-foreground: 45 20% 65%;
-  --accent: 42 95% 55%;
-  --accent-foreground: 30 15% 15%;
-  --destructive: 0 72% 55%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 30 15% 22%;
-  --input: 30 15% 16%;
-  --input-background: 30 15% 16%;
-  --ring: 45 100% 50%;
 
-  --sidebar: 30 15% 6%;
-  --sidebar-foreground: 45 25% 90%;
-  --sidebar-primary: 45 100% 50%;
-  --sidebar-primary-foreground: 30 15% 15%;
-  --sidebar-accent: 30 15% 12%;
-  --sidebar-accent-foreground: 45 20% 80%;
-  --sidebar-border: 30 15% 20%;
-  --sidebar-ring: 45 100% 50%;
+/* iOS-Native Base Styles */
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
 
-  /* Enhanced visibility tokens - dark mode */
-  --text-accent: 45 25% 90%;
-  --text-accent-muted: 0 0% 80%;
-  --border-accent: 0 0% 30%;
-  --border-strong: 0 0% 35%;
-  --button-shadow: 0 2px 8px hsl(0 0% 0% / 20%);
-  --button-shadow-hover: 0 4px 12px hsl(0 0% 0% / 25%);
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-display: swap;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  transition: background-color var(--transition-smooth), color var(--transition-smooth);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
+  font-feature-settings: "kern" 1, "liga" 1;
+  
+  /* Safe area support */
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
+}
+
+/* iOS-style selection */
+::selection {
+  background-color: hsl(var(--primary) / 0.2);
+  color: hsl(var(--foreground));
+}
+
+::-moz-selection {
+  background-color: hsl(var(--primary) / 0.2);
+  color: hsl(var(--foreground));
+}
+
+/* iOS Typography Scale */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+h1 { font-size: 2rem; }      /* 32px */
+h2 { font-size: 1.75rem; }   /* 28px */
+h3 { font-size: 1.5rem; }    /* 24px */
+h4 { font-size: 1.25rem; }   /* 20px */
+h5 { font-size: 1.125rem; }  /* 18px */
+h6 { font-size: 1rem; }      /* 16px */
+
+p {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 1rem;
+}
+
+/* iOS-style focus states */
+:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  body {
+    scroll-behavior: auto;
   }
 }
 
