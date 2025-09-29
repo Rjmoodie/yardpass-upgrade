@@ -205,13 +205,6 @@ export const EventCard = memo(function EventCard({
               >
                 Details
               </Button>
-              <Button
-                variant="outline"
-                className="h-10 px-4 bg-white/10 border-white/20 text-white hover:bg-white/20"
-                onClick={onSoundToggle}
-              >
-                {soundEnabled ? "Mute" : "Unmute"}
-              </Button>
             </div>
           </div>
         </PeekSheet>
