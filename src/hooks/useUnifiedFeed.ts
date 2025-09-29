@@ -316,8 +316,8 @@ export function useUnifiedFeed(userId?: string) {
         event_description: row.description || '',
         event_starts_at: row.start_at ?? null,
         event_cover_image: row.cover_image_url || '',
-        // Use the improved organizer_name from the function
-        event_organizer: row.organizer_name || 'Unknown Organizer',
+        // Use the improved organizer_name from the function, with better fallbacks
+        event_organizer: row.organizer_name || row.organization_name || row.organizer_display_name || 'Organizer',
         event_organizer_id: row.organization_id || row.created_by || '',
         event_owner_context_type: row.owner_context_type || 'individual',
         event_location: row.city || row.venue || 'TBA',
@@ -343,7 +343,7 @@ export function useUnifiedFeed(userId?: string) {
             event_description: row.description || '',
             event_starts_at: row.start_at ?? null,
             event_cover_image: row.cover_image_url || '',
-            event_organizer: row.organizer_name || 'Unknown Organizer',
+            event_organizer: row.organizer_name || row.organization_name || row.organizer_display_name || 'Organizer',
             event_organizer_id: row.organization_id || row.created_by || '',
             event_owner_context_type: row.owner_context_type || 'individual',
             event_location: row.city || row.venue || 'TBA',

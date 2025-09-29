@@ -6,22 +6,30 @@ import { routes } from '@/lib/routes';
 export function OrganizerChip({
   organizerId,
   name,
-  verified
+  verified,
+  contextType = 'individual'
 }: {
   organizerId: string;
   name: string;
   verified?: boolean;
+  contextType?: 'individual' | 'organization';
 }) {
   const navigate = useNavigate();
   if (!organizerId) return null;
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (contextType === 'organization') {
+      navigate(routes.org(organizerId));
+    } else {
+      navigate(`/u/${organizerId}`);
+    }
+  };
+
   return (
     <button
       className="inline-flex items-center gap-1 text-xs hover:underline"
-      onClick={(e) => {
-        e.stopPropagation();
-        navigate(routes.org(organizerId)); // ensure routes.org exists
-      }}
+      onClick={handleClick}
     >
       <span className="font-medium">{name}</span>
       {verified && (
