@@ -382,49 +382,49 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     <div className="h-full bg-background flex flex-col">
       {/* Enhanced Header */}
       <div className="border-b border-accent bg-card p-4">
-        <div className="flex items-center gap-4 mb-4">
-          <Button onClick={onBack} variant="ghost" size="icon" className="rounded-full btn-enhanced">
-            <ArrowLeft className="w-5 h-5" />
+          <div className="flex items-center gap-3 mb-4">
+          <Button onClick={onBack} variant="ghost" size="sm" className="rounded-xl h-9 w-9 p-0">
+            <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold text-accent">{event.title}</h1>
-            <p className="text-sm text-accent-muted">Event Management</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-accent truncate">{event.title}</h1>
+            <p className="text-xs text-accent-muted">Event Management</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="btn-enhanced border-accent">
-              <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="h-8 px-3 text-xs">
+              <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
             <Button 
               variant="outline" 
               size="sm" 
-              className="btn-enhanced border-accent"
+              className="h-8 px-3 text-xs"
               onClick={() => {
                 window.open(`/e/${event.id}`, '_blank');
               }}
             >
-              <ExternalLink className="w-4 h-4 mr-1" />
-              View Event
+              <ExternalLink className="w-3 h-3 mr-1" />
+              <span className="hidden sm:inline">View</span>
             </Button>
           </div>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-accent">{soldTickets}</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="text-center p-2 rounded-lg bg-muted/30">
+            <div className="text-lg sm:text-xl font-bold text-accent">{soldTickets}</div>
             <div className="text-xs text-accent-muted">Tickets Sold</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-accent">{checkedInCount}</div>
+          <div className="text-center p-2 rounded-lg bg-muted/30">
+            <div className="text-lg sm:text-xl font-bold text-accent">{checkedInCount}</div>
             <div className="text-xs text-accent-muted">Checked In</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-accent">${revenue.toLocaleString()}</div>
+          <div className="text-center p-2 rounded-lg bg-muted/30">
+            <div className="text-lg sm:text-xl font-bold text-accent">${revenue.toLocaleString()}</div>
             <div className="text-xs text-accent-muted">Revenue</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-accent">{realTimeStats.totalScans}</div>
+          <div className="text-center p-2 rounded-lg bg-muted/30">
+            <div className="text-lg sm:text-xl font-bold text-accent">{realTimeStats.totalScans}</div>
             <div className="text-xs text-accent-muted">Total Scans</div>
           </div>
         </div>
@@ -433,15 +433,15 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-8 mb-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="attendees">Attendees</TabsTrigger>
-            <TabsTrigger value="guests">Guests</TabsTrigger>
-            <TabsTrigger value="tickets">Tickets</TabsTrigger>
-            <TabsTrigger value="sponsorship">Sponsorship</TabsTrigger>
-            <TabsTrigger value="scanner">Scanner</TabsTrigger>
-            <TabsTrigger value="teams">Teams</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-4 sm:grid-cols-8 mb-6 gap-1">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
+            <TabsTrigger value="attendees" className="text-xs sm:text-sm">Attendees</TabsTrigger>
+            <TabsTrigger value="guests" className="text-xs sm:text-sm">Guests</TabsTrigger>
+            <TabsTrigger value="tickets" className="text-xs sm:text-sm">Tickets</TabsTrigger>
+            <TabsTrigger value="sponsorship" className="text-xs sm:text-sm">Sponsor</TabsTrigger>
+            <TabsTrigger value="scanner" className="text-xs sm:text-sm">Scanner</TabsTrigger>
+            <TabsTrigger value="teams" className="text-xs sm:text-sm">Teams</TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
