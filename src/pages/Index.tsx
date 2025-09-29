@@ -574,35 +574,37 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
         ))}
       </div>
 
-      {/* ====== Bottom navigation rail - mobile optimized ====== */}
-      <div className="bottom-bar bg-black/60 backdrop-blur-xl border-t border-white/10">
-        <button
-          onClick={() => lockFor() && setCurrentIndex((i) => Math.max(0, i - 1))}
-          disabled={currentIndex === 0 || showCommentModal}
-          className="rail-btn disabled:opacity-30 disabled:cursor-not-allowed"
-          aria-label="Previous item"
-        >
-          <ChevronUp className="w-6 h-6" />
-        </button>
+       {/* Navigation controls (hidden to reduce noise) */}
+      {false && (
+        <div className="bottom-bar bg-black/60 backdrop-blur-xl border-t border-white/10">
+          <button
+            onClick={() => lockFor() && setCurrentIndex((i) => Math.max(0, i - 1))}
+            disabled={currentIndex === 0 || showCommentModal}
+            className="rail-btn disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Previous item"
+          >
+            <ChevronUp className="w-6 h-6" />
+          </button>
 
-        <button
-          onClick={handleSoundToggle}
-          disabled={showCommentModal}
-          className="rail-btn disabled:opacity-30"
-          aria-label={soundEnabled ? 'Mute' : 'Unmute'}
-        >
-          {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-        </button>
+          <button
+            onClick={handleSoundToggle}
+            disabled={showCommentModal}
+            className="rail-btn disabled:opacity-30"
+            aria-label={soundEnabled ? 'Mute' : 'Unmute'}
+          >
+            {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+          </button>
 
-        <button
-          onClick={() => lockFor() && setCurrentIndex((i) => Math.min(items.length - 1, i + 1))}
-          disabled={currentIndex === items.length - 1 || showCommentModal}
-          className="rail-btn disabled:opacity-30 disabled:cursor-not-allowed"
-          aria-label="Next item"
-        >
-          <ChevronDown className="w-6 h-6" />
-        </button>
-      </div>
+          <button
+            onClick={() => lockFor() && setCurrentIndex((i) => Math.min(items.length - 1, i + 1))}
+            disabled={currentIndex === items.length - 1 || showCommentModal}
+            className="rail-btn disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Next item"
+          >
+            <ChevronDown className="w-6 h-6" />
+          </button>
+        </div>
+      )}
 
       {/* Modals */}
       <AttendeeListModal

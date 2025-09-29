@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Calendar, MapPin } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import ActionRail from './ActionRail';
+import ClampText from '@/components/ui/ClampText';
+import { OverlayPanel } from '@/components/overlays/OverlayPanel';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
 interface EventCardProps {
@@ -134,72 +136,81 @@ export const EventCard = memo(function EventCard({
         hideEngagement={true}
       />
 
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-end p-6 pb-24 pointer-events-none">
-        <div className="space-y-4 pointer-events-auto">
-          {/* Event Info */}
-          <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight drop-shadow-2xl" 
-                style={{ 
-                  textShadow: '2px 2px 4px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.6)' 
-                }}>
-              {item.event_title}
-            </h1>
+      {/* Content Overlay */}
+      <div className="absolute inset-0 flex flex-col justify-end pointer-events-none">
+        <div className="pointer-events-auto">
+          <OverlayPanel className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-bold leading-tight truncate pr-2">
+                {item.event_title}
+              </h2>
 
-            <div className="flex flex-col gap-2 text-white/95" 
-                 style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-3.5 h-3.5 drop-shadow-lg" aria-hidden />
-                <span className="text-xs sm:text-sm font-medium">{formatDate(item.event_starts_at)}</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 drop-shadow-lg" aria-hidden />
-                <span className="text-xs sm:text-sm font-medium">{item.event_location || 'Location TBA'}</span>
-              </div>
+              {/* Ticket CTA stays aligned; fixed min width avoids layout jump */}
+              <Button
+                className="shrink-0 min-w-[9.5rem] h-11 px-5 bg-amber-500 hover:bg-amber-600 text-black font-bold"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenTickets(item.event_id);
+                }}
+              >
+                🎟️ Get Tickets
+              </Button>
             </div>
 
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/85 text-sm">
+              {item.event_starts_at && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 opacity-80" />
+                  {formatDate(item.event_starts_at)}
+                </span>
+              )}
+              {item.event_location && (
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 opacity-80" />
+                  <span className="truncate max-w-[12rem] sm:max-w-none">
+                    {item.event_location}
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {/* Description with "More/Less" on mobile */}
             {item.event_description && (
-              <p className="text-white/90 text-xs sm:text-sm leading-relaxed line-clamp-3 font-medium"
-                 style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}>
+              <ClampText lines={4} className="text-[15px] leading-relaxed">
                 {item.event_description}
-              </p>
+              </ClampText>
             )}
 
             {/* Sponsor information */}
             {item.sponsor && (
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2">
                 <div className="bg-amber-400/20 text-amber-200 px-2 py-1 rounded-full text-xs font-medium">
                   Sponsored by {item.sponsor.name}
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 z-40 relative">
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenTickets(item.event_id);
-              }}
-              className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-bold py-3 sm:py-4 text-sm sm:text-base shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-[1.02] rounded-xl"
-              aria-label="Get Tickets"
-            >
-              Get Tickets
-            </Button>
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                goToEvent(e);
-              }}
-              variant="outline"
-              className="px-4 sm:px-6 py-3 sm:py-4 bg-white/10 border-white/20 text-white hover:bg-white/20 text-sm sm:text-base font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02]"
-              aria-label="View Details"
-            >
-              Details
-            </Button>
-          </div>
+            {/* Secondary actions row – wraps nicely on small screens */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button 
+                variant="outline" 
+                className="h-10 px-4 bg-white/10 border-white/20 text-white hover:bg-white/20" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToEvent(e);
+                }}
+              >
+                Details
+              </Button>
+              <Button 
+                variant="outline" 
+                className="h-10 px-4 bg-white/10 border-white/20 text-white hover:bg-white/20" 
+                onClick={onSoundToggle}
+              >
+                {soundEnabled ? "Mute" : "Unmute"}
+              </Button>
+            </div>
+          </OverlayPanel>
         </div>
       </div>
 

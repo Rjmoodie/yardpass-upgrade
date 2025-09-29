@@ -1,14 +1,16 @@
 // src/components/UserPostCard.tsx
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { Play, Pause, Ticket } from 'lucide-react';
+import { useHlsVideo } from '@/hooks/useHlsVideo';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
 import { muxToPoster } from '@/utils/media';
-import { useHlsVideo } from '@/hooks/useHlsVideo';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
 import ActionRail from './ActionRail';
+import ClampText from '@/components/ui/ClampText';
+import { OverlayPanel } from '@/components/overlays/OverlayPanel';
 import type { FeedItem } from '@/hooks/useUnifiedFeed';
 
 interface UserPostCardProps {
