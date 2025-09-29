@@ -16,7 +16,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   try {
-    const { post_id, kind } = await safeJson(req);
+    const { post_id, kind, action } = await safeJson(req);
     if (!post_id || kind !== "like") {
       return json(400, { error: "post_id and kind='like' required" });
     }
@@ -33,18 +33,20 @@ serve(async (req) => {
     // do we already have a like?
     const { data: existing } = await supabase
       .from("event_reactions")
-      .select("id")
+      .select("*")
       .eq("post_id", post_id)
       .eq("user_id", user_id)
       .eq("kind", "like")
       .maybeSingle();
 
     if (existing) {
-      // UNLIKE
+      // UNLIKE - delete using composite key
       const { error: delErr } = await supabase
         .from("event_reactions")
         .delete()
-        .eq("id", existing.id);
+        .eq("post_id", post_id)
+        .eq("user_id", user_id)
+        .eq("kind", "like");
       if (delErr) return json(403, { error: "forbidden_delete", detail: delErr.message });
     } else {
       // LIKE (ignore duplicate under race)
@@ -68,13 +70,18 @@ serve(async (req) => {
     // current liked state
     const { data: nowLiked } = await supabase
       .from("event_reactions")
-      .select("id")
+      .select("*")
       .eq("post_id", post_id)
       .eq("user_id", user_id)
       .eq("kind", "like")
       .maybeSingle();
 
-    return json(200, { liked: Boolean(nowLiked), like_count: count ?? 0 });
+    return json(200, { 
+      post_id,
+      liked: Boolean(nowLiked), 
+      viewer_has_liked: Boolean(nowLiked),
+      like_count: count ?? 0 
+    });
   } catch (e: any) {
     console.error(e);
     return json(500, { error: e?.message ?? "error" });
