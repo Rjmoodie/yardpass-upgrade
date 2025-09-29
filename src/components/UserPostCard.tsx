@@ -312,16 +312,16 @@ export const UserPostCard = memo(function UserPostCard({
       />
 
       {/* Bottom meta bar */}
-      <div className="absolute left-2 right-2 sm:left-4 sm:right-4 bottom-6 z-30 pointer-events-none">
-        <div className="bg-black/80 backdrop-blur-md rounded-full px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 sm:justify-between shadow-2xl border border-white/10 pointer-events-auto">
-          {/* Author section */}
-          <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto">
+      <div className="absolute left-4 right-20 bottom-safe-bottom pb-6 z-30 pointer-events-none">
+        <div className="bg-black/75 backdrop-blur-xl rounded-2xl px-4 py-3 flex flex-col gap-3 shadow-xl border border-white/20 pointer-events-auto max-w-full overflow-hidden">
+          {/* Author and event info */}
+          <div className="flex items-center gap-2 min-w-0 w-full">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onAuthorClick?.(item.author_id);
               }}
-              className="text-white font-bold hover:underline text-sm sm:text-base flex-shrink-0 bg-transparent border-none cursor-pointer"
+              className="text-white font-bold hover:underline text-base flex-shrink-0 bg-transparent border-none cursor-pointer min-h-[44px] px-0 flex items-center"
               title={item.author_name || 'User'}
             >
               {item.author_name || 'User'}
@@ -329,7 +329,7 @@ export const UserPostCard = memo(function UserPostCard({
 
             {item.author_badge && (
               <span
-                className={`text-xs px-2 py-1 rounded-full text-white font-medium flex-shrink-0 ${badgeClass(
+                className={`text-xs px-2 py-1 rounded-lg text-white font-medium flex-shrink-0 ${badgeClass(
                   item.author_badge as AuthorBadge
                 )}`}
                 aria-label={String(item.author_badge)}
@@ -340,7 +340,7 @@ export const UserPostCard = memo(function UserPostCard({
             )}
 
             {item.author_social_links && Array.isArray(item.author_social_links) && (
-              <div className="flex items-center ml-auto sm:ml-0">
+              <div className="flex items-center ml-auto">
                 <SocialLinkDisplay
                   socialLinks={item.author_social_links}
                   showPrimaryOnly
@@ -350,14 +350,14 @@ export const UserPostCard = memo(function UserPostCard({
             )}
           </div>
 
-          {/* Event link and tickets */}
-          <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:ml-4">
+          {/* Event title and ticket button */}
+          <div className="flex items-center justify-between gap-3 min-w-0 w-full">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onEventClick(item.event_id);
               }}
-              className="text-white/90 hover:text-white font-medium text-sm sm:text-base truncate bg-transparent border-none cursor-pointer flex-1 sm:flex-none text-left"
+              className="text-white/90 hover:text-white font-medium text-base truncate bg-transparent border-none cursor-pointer text-left min-h-[44px] px-0 flex items-center flex-1"
               title={item.event_title || 'View event'}
             >
               {item.event_title || 'View event'}
@@ -369,12 +369,11 @@ export const UserPostCard = memo(function UserPostCard({
                   e.stopPropagation();
                   onOpenTickets(item.event_id);
                 }}
-                className="flex items-center justify-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-sm sm:text-base font-semibold transition-all duration-200 hover:scale-105 shadow-lg min-w-[80px] sm:min-w-[100px]"
+                className="flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 px-6 py-3 rounded-2xl text-base font-semibold transition-all duration-200 shadow-lg min-h-[44px] min-w-[120px] touch-manipulation"
                 title="Get tickets"
               >
-                <Ticket size={16} className="sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">Tickets</span>
-                <span className="sm:hidden">Get</span>
+                <Ticket size={18} />
+                <span>Tickets</span>
               </button>
             )}
           </div>
@@ -382,9 +381,11 @@ export const UserPostCard = memo(function UserPostCard({
 
         {/* Post content */}
         {item.content && (
-          <p className="text-white text-sm leading-relaxed mt-2 bg-black/20 backdrop-blur-sm rounded-lg px-3 py-2 pointer-events-auto line-clamp-4">
-            {item.content}
-          </p>
+          <div className="mt-3 pointer-events-auto">
+            <p className="text-white text-base leading-relaxed bg-black/40 backdrop-blur-sm rounded-xl px-4 py-3 line-clamp-4">
+              {item.content}
+            </p>
+          </div>
         )}
       </div>
     </div>

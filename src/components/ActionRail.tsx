@@ -1,6 +1,7 @@
 import React from 'react';
 import { Heart, MessageCircle, Share2, Plus, Flag, Volume2, VolumeX } from 'lucide-react';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
+import { useHaptics } from '@/hooks/useHaptics';
 
 type Countable = number | undefined | null;
 
@@ -44,19 +45,21 @@ export const ActionRail: React.FC<ActionRailProps> = ({
   hideEngagement = false,
 }) => {
   const { trackEvent } = useAnalyticsIntegration();
+  const { impactLight, impactMedium } = useHaptics();
   const pe = enablePointerEvents ? 'pointer-events-auto' : 'pointer-events-none';
   return (
     <div
-      className={`absolute right-3 md:right-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-20 ${pe} ${className}`}
+      className={`absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 z-20 ${pe} ${className}`}
     >
       {!hideEngagement && (
         <>
           <button
-            aria-label="Like"
-            disabled={false} // Let parent handle locking
-            onClick={(e) => { 
+            aria-label={liked ? "Unlike post" : "Like post"}
+            disabled={false}
+            onClick={async (e) => { 
               e.preventDefault();
-              e.stopPropagation(); 
+              e.stopPropagation();
+              await impactLight();
               onLike?.(e);
               trackEvent('engagement_like', {
                 content_type: 'post',
@@ -65,16 +68,19 @@ export const ActionRail: React.FC<ActionRailProps> = ({
                 liked: !liked
               });
             }}
-            className={`feed-rail-btn ${liked ? 'text-red-500' : 'text-white'}`}
+            className={`feed-rail-btn transition-transform active:scale-90 ${
+              liked ? 'text-red-500 bg-red-500/20 border-red-500/40' : 'text-white'
+            }`}
           >
-            <Heart className={`w-7 h-7 ${liked ? 'fill-current' : ''}`} />
+            <Heart className={`w-6 h-6 transition-all duration-200 ${liked ? 'fill-current scale-110' : ''}`} />
             <span className="rail-count">{Number(likeCount || 0).toLocaleString()}</span>
           </button>
 
           <button
-            aria-label="Comments"
-            onClick={(e) => { 
-              e.stopPropagation(); 
+            aria-label="View comments"
+            onClick={async (e) => { 
+              e.stopPropagation();
+              await impactLight();
               onComment?.();
               trackEvent('engagement_comment', {
                 content_type: 'post',
@@ -82,16 +88,17 @@ export const ActionRail: React.FC<ActionRailProps> = ({
                 event_id: eventId
               });
             }}
-            className="feed-rail-btn"
+            className="feed-rail-btn transition-transform active:scale-90"
           >
-            <MessageCircle className="w-7 h-7" />
+            <MessageCircle className="w-6 h-6" />
             <span className="rail-count">{Number(commentCount || 0).toLocaleString()}</span>
           </button>
 
           <button
-            aria-label="Share"
-            onClick={(e) => { 
-              e.stopPropagation(); 
+            aria-label="Share post"
+            onClick={async (e) => { 
+              e.stopPropagation();
+              await impactLight();
               onShare?.();
               trackEvent('engagement_share', {
                 content_type: 'post',
@@ -99,9 +106,9 @@ export const ActionRail: React.FC<ActionRailProps> = ({
                 event_id: eventId
               });
             }}
-            className="feed-rail-btn"
+            className="feed-rail-btn transition-transform active:scale-90"
           >
-            <Share2 className="w-7 h-7" />
+            <Share2 className="w-6 h-6" />
             <span className="rail-count">{Number(shareCount || 0).toLocaleString()}</span>
           </button>
         </>
@@ -109,33 +116,42 @@ export const ActionRail: React.FC<ActionRailProps> = ({
 
       <button
         aria-label="Create post"
-        onClick={(e) => { 
-          e.stopPropagation(); 
+        onClick={async (e) => { 
+          e.stopPropagation();
+          await impactMedium();
           onCreatePost?.();
           trackEvent('engagement_create_post_cta', {
             event_id: eventId,
             source: 'action_rail'
           });
         }}
-        className="p-3 rounded-full bg-primary/90 backdrop-blur-sm border border-primary/60 hover:bg-primary transition-all duration-200 shadow-lg min-h-[48px] min-w-[48px] touch-manipulation"
+        className="flex items-center justify-center rounded-full bg-primary backdrop-blur-sm border border-primary/60 hover:bg-primary/90 transition-all duration-200 shadow-lg min-h-[52px] min-w-[52px] touch-manipulation active:scale-90"
       >
-        <Plus className="w-5 h-5 text-white" />
+        <Plus className="w-6 h-6 text-white" />
       </button>
 
       <button
-        aria-label="Report"
-        onClick={(e) => { e.stopPropagation(); onReport?.(); }}
-        className="feed-rail-btn"
+        aria-label="Report content"
+        onClick={async (e) => { 
+          e.stopPropagation();
+          await impactLight();
+          onReport?.();
+        }}
+        className="feed-rail-btn transition-transform active:scale-90"
       >
-        <Flag className="w-6 h-6" />
+        <Flag className="w-5 h-5" />
       </button>
 
       <button
         aria-label={soundEnabled ? "Mute sound" : "Enable sound"}
-        onClick={(e) => { e.stopPropagation(); onSoundToggle?.(); }}
-        className="feed-rail-btn"
+        onClick={async (e) => { 
+          e.stopPropagation();
+          await impactLight();
+          onSoundToggle?.();
+        }}
+        className="feed-rail-btn transition-transform active:scale-90"
       >
-        {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+        {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
       </button>
     </div>
   );

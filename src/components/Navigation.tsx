@@ -1,6 +1,7 @@
 import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
+import { useHaptics } from '@/hooks/useHaptics';
 import { useCallback, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AuthModal from './AuthModal';
@@ -55,6 +56,7 @@ const AUTH_REQUIRED: Record<string, Screen> = {
 export default function Navigation({ userRole }: NavigationProps) {
   const { user } = useAuth();
   const { trackEvent } = useAnalyticsIntegration();
+  const { selectionChanged, impactLight } = useHaptics();
   const navigate = useNavigate();
   const location = useLocation();
   const { sponsorModeEnabled } = useSponsorMode();
@@ -111,8 +113,11 @@ export default function Navigation({ userRole }: NavigationProps) {
   }, [user, userRole, trackEvent]);
 
   const handleNavigation = useCallback(
-    (path: string, screen: Screen) => {
+    async (path: string, screen: Screen) => {
       console.log('handleNavigation called with:', { path, screen, user: user?.id, userRole });
+      
+      // Haptic feedback for navigation
+      await selectionChanged();
       
       // Track navigation click
       trackEvent('engagement_navigation_click', {
@@ -133,7 +138,7 @@ export default function Navigation({ userRole }: NavigationProps) {
       }
       navigate(path);
     },
-    [navigate, requiresAuth, user, userRole, handleCreatePost, trackEvent]
+    [navigate, requiresAuth, user, userRole, handleCreatePost, trackEvent, selectionChanged]
   );
 
   const handleAuthSuccess = useCallback(() => {
@@ -161,8 +166,8 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div className="glass-nav px-2 sm:px-6 py-2 sm:py-4 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-white/20 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 shadow-lg shadow-black/5">
-      <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-0.5 sm:gap-2 w-full max-w-3xl mx-auto justify-evenly">
+    <div className="glass-nav px-4 py-2 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 safe-bottom">
+      <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-1 w-full max-w-md mx-auto justify-evenly">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -173,7 +178,7 @@ export default function Navigation({ userRole }: NavigationProps) {
               label={item.label}
               onClick={() => handleNavigation(item.path, item.id)}
             >
-              <Icon className={`transition-all duration-300 ${active ? 'w-7 h-7' : 'w-6 h-6'}`} strokeWidth={active ? 2.5 : 2} />
+              <Icon className={`transition-all duration-200 ${active ? 'w-6 h-6' : 'w-5 h-5'}`} strokeWidth={active ? 2.5 : 2} />
             </NavButton>
           );
         })}
@@ -230,33 +235,35 @@ export default function Navigation({ userRole }: NavigationProps) {
 }
 
 function NavButton({ children, label, active, onClick }: { children: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+  const { impactLight } = useHaptics();
+
+  const handleClick = async () => {
+    await impactLight();
+    onClick();
+  };
+
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       aria-label={`Navigate to ${label}`}
       aria-current={active ? 'page' : undefined}
       role="tab"
       tabIndex={0}
-      className={`group flex flex-col items-center gap-1 sm:gap-1.5 flex-1 max-w-[80px] sm:max-w-[92px] p-1.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all duration-300 active:scale-95 min-h-[48px] sm:min-h-[56px] min-w-[48px] sm:min-w-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 relative overflow-hidden ${
+      className={`group flex flex-col items-center gap-1 flex-1 max-w-[72px] p-2 rounded-2xl transition-all duration-200 active:scale-90 min-h-[56px] min-w-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 relative touch-manipulation ${
         active
-          ? 'text-primary bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/40 shadow-lg shadow-primary/20 scale-105'
-          : 'text-muted-foreground hover:text-primary hover:bg-gradient-to-br hover:from-white/15 hover:to-white/5 hover:backdrop-blur-sm hover:border hover:border-white/30 hover:shadow-md'
+          ? 'text-primary bg-primary/10 border border-primary/20 shadow-md'
+          : 'text-muted-foreground hover:text-primary hover:bg-muted/50'
       }`}
     >
-      {/* Subtle background glow for active state */}
-      {active && (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-2xl" />
-      )}
-      
       {/* Icon with enhanced styling */}
-      <div className={`relative z-10 transition-all duration-300 ${active ? 'drop-shadow-sm' : 'group-hover:drop-shadow-sm'}`}>
+      <div className={`relative z-10 transition-all duration-200 ${active ? 'scale-110' : 'group-hover:scale-105'}`}>
         {children}
       </div>
       
       {/* Label with better typography */}
-      <span className={`relative z-10 text-[9px] sm:text-xs font-medium leading-none transition-all duration-300 truncate max-w-full ${
+      <span className={`relative z-10 text-xs font-medium leading-none transition-all duration-200 truncate max-w-full ${
         active 
-          ? 'font-bold text-primary drop-shadow-sm' 
+          ? 'font-bold text-primary' 
           : 'group-hover:font-semibold group-hover:text-primary'
       }`}>
         {label}

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { useHaptics } from '@/hooks/useHaptics';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Heart, X, Trash2, Play, ExternalLink, Link as LinkIcon, ChevronDown } from 'lucide-react';
@@ -802,18 +803,18 @@ export default function CommentModal({
           )}
         </div>
 
-        {/* Footer / single composer (sticky) */}
-        <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t px-4 sm:px-6 py-3">
+        {/* Footer / single composer (sticky) - iOS optimized */}
+        <div className="sticky bottom-0 bg-card/95 backdrop-blur-xl border-t border-border safe-bottom px-4 py-4">
           {user ? (
-            <div className="flex items-end gap-3">
-              <Avatar className="w-8 h-8">
+            <div className="flex items-start gap-3">
+              <Avatar className="w-10 h-10 flex-shrink-0">
                 <AvatarImage src={user.user_metadata?.photo_url || undefined} />
-                <AvatarFallback className="text-xs">
+                <AvatarFallback className="text-sm font-medium">
                   {user.user_metadata?.display_name?.charAt(0) || 'U'}
                 </AvatarFallback>
               </Avatar>
 
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <Textarea
                   value={draft}
                   onChange={(e) => {
@@ -822,7 +823,7 @@ export default function CommentModal({
                   }}
                   placeholder={activePost ? 'Write your comment…' : 'Select a post to comment'}
                   disabled={!activePost}
-                  className={`w-full min-h-[44px] max-h-[160px] resize-none text-sm ${overLimit ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                  className={`w-full min-h-[52px] max-h-[120px] resize-none text-base rounded-2xl px-4 py-3 ${overLimit ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -830,8 +831,8 @@ export default function CommentModal({
                     }
                   }}
                 />
-                <div className="mt-1 flex items-center justify-between">
-                  <span className={`text-[11px] ${overLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className={`text-xs ${overLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
                     {draft.length}/{MAX_LEN} {overLimit ? '— too long' : ''}
                   </span>
                   <div className="flex gap-2">
@@ -840,19 +841,21 @@ export default function CommentModal({
                         type="button"
                         size="sm"
                         variant="secondary"
+                        className="min-h-[44px] px-4 rounded-2xl"
                         onClick={() => {
                           navigator.clipboard
                             .writeText(`${window.location.origin}${routes.event(eventId)}?tab=posts&post=${activePost.id}`)
                             .then(() => toast({ title: 'Link copied' }));
                         }}
                       >
-                        <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                        <ExternalLink className="w-4 h-4 mr-2" />
                         Copy link
                       </Button>
                     )}
                     <Button
                       type="button"
                       size="sm"
+                      className="min-h-[44px] px-6 rounded-2xl font-semibold"
                       onClick={submit}
                       disabled={!draft.trim() || submitting || !activePost || overLimit}
                     >
@@ -863,7 +866,7 @@ export default function CommentModal({
               </div>
             </div>
           ) : (
-            <p className="text-sm text-center text-muted-foreground">Sign in to join the conversation</p>
+            <p className="text-base text-center text-muted-foreground py-4">Sign in to join the conversation</p>
           )}
         </div>
       </DialogContent>
