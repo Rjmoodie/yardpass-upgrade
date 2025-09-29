@@ -110,8 +110,20 @@ export const EventCard = memo(function EventCard({
       {!imageLoaded && (
         <div className="absolute inset-0 bg-neutral-900 animate-pulse" aria-hidden="true" />
       )}
-      {/* Legibility gradient */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+      {/* Enhanced mobile legibility gradient with stronger contrast */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/20" />
+      
+      {/* Additional text shadow overlay for ultra-high contrast */}
+      <div className="absolute inset-0" style={{
+        background: `linear-gradient(
+          to top,
+          rgba(0,0,0,0.9) 0%,
+          rgba(0,0,0,0.7) 25%,
+          rgba(0,0,0,0.3) 50%,
+          rgba(0,0,0,0.6) 75%,
+          rgba(0,0,0,0.4) 100%
+        )`
+      }} />
 
       {/* RIGHT ACTION RAIL (TikTok style) - Events only show create post */}
       <ActionRail
@@ -127,24 +139,29 @@ export const EventCard = memo(function EventCard({
         <div className="space-y-4 pointer-events-auto">
           {/* Event Info */}
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-white leading-tight">
+            <h1 className="text-3xl font-bold text-white leading-tight drop-shadow-2xl" 
+                style={{ 
+                  textShadow: '2px 2px 4px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.6)' 
+                }}>
               {item.event_title}
             </h1>
 
-            <div className="flex flex-col gap-2 text-white/90">
+            <div className="flex flex-col gap-2 text-white/95" 
+                 style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}>
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" aria-hidden />
-                <span className="text-sm">{formatDate(item.event_starts_at)}</span>
+                <Calendar className="w-4 h-4 drop-shadow-lg" aria-hidden />
+                <span className="text-sm font-medium">{formatDate(item.event_starts_at)}</span>
               </div>
 
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" aria-hidden />
-                <span className="text-sm">{item.event_location || 'Location TBA'}</span>
+                <MapPin className="w-4 h-4 drop-shadow-lg" aria-hidden />
+                <span className="text-sm font-medium">{item.event_location || 'Location TBA'}</span>
               </div>
             </div>
 
             {item.event_description && (
-              <p className="text-white/80 text-sm leading-relaxed line-clamp-3">
+              <p className="text-white/90 text-sm leading-relaxed line-clamp-3 font-medium"
+                 style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}>
                 {item.event_description}
               </p>
             )}
@@ -186,14 +203,16 @@ export const EventCard = memo(function EventCard({
         </div>
       </div>
 
-      {/* BOTTOM META BAR */}
+      {/* BOTTOM META BAR - Enhanced mobile visibility */}
       <div className="absolute left-2 right-2 sm:left-4 sm:right-4 bottom-6 z-30">
-        <div className="bg-black/80 backdrop-blur-md rounded-full px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 sm:justify-between shadow-2xl border border-white/10">
+        <div className="bg-black/90 backdrop-blur-xl rounded-full px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 sm:justify-between shadow-2xl border border-white/20"
+             style={{ backdropFilter: 'blur(20px) saturate(180%)' }}>
           {/* Organizer section */}
           <div className="w-full sm:w-auto">
             <button
               onClick={goToOrganizer}
-              className="text-white font-bold hover:underline text-sm sm:text-base flex-shrink-0 bg-transparent border-none cursor-pointer"
+              className="text-white font-bold hover:underline text-sm sm:text-base flex-shrink-0 bg-transparent border-none cursor-pointer min-h-[44px] px-0 flex items-center"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
               aria-label={`Open organizer ${item.event_organizer || 'profile'}`}
             >
               {item.event_organizer || 'Organizer'}
@@ -204,7 +223,8 @@ export const EventCard = memo(function EventCard({
           <div className="w-full sm:w-auto sm:ml-4">
             <button
               onClick={goToEvent}
-              className="text-white/90 hover:text-white font-medium text-sm sm:text-base truncate bg-transparent border-none cursor-pointer text-left w-full sm:w-auto"
+              className="text-white/95 hover:text-white font-medium text-sm sm:text-base truncate bg-transparent border-none cursor-pointer text-left w-full sm:w-auto min-h-[44px] px-0 flex items-center"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
               aria-label="Open event"
               title={item.event_title}
             >

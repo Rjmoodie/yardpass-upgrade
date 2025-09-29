@@ -292,8 +292,20 @@ export const UserPostCard = memo(function UserPostCard({
         />
       )}
 
-      {/* Legibility gradient */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
+      {/* Enhanced mobile legibility gradient with stronger contrast */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/30" />
+      
+      {/* Additional text readability overlay */}
+      <div className="absolute inset-0" style={{
+        background: `linear-gradient(
+          to top,
+          rgba(0,0,0,0.9) 0%,
+          rgba(0,0,0,0.6) 30%,
+          rgba(0,0,0,0.2) 60%,
+          rgba(0,0,0,0.5) 85%,
+          rgba(0,0,0,0.3) 100%
+        )`
+      }} />
 
       {/* Action rail */}
       <ActionRail
@@ -311,9 +323,10 @@ export const UserPostCard = memo(function UserPostCard({
         soundEnabled={soundEnabled}
       />
 
-      {/* Bottom meta bar */}
+      {/* Bottom meta bar - Enhanced mobile contrast */}
       <div className="absolute left-4 right-20 bottom-safe-bottom pb-6 z-30 pointer-events-none">
-        <div className="bg-black/75 backdrop-blur-xl rounded-2xl px-4 py-3 flex flex-col gap-3 shadow-xl border border-white/20 pointer-events-auto max-w-full overflow-hidden">
+        <div className="bg-black/90 backdrop-blur-xl rounded-2xl px-4 py-3 flex flex-col gap-3 shadow-xl border border-white/30 pointer-events-auto max-w-full overflow-hidden"
+             style={{ backdropFilter: 'blur(20px) saturate(180%)' }}>
           {/* Author and event info */}
           <div className="flex items-center gap-2 min-w-0 w-full">
             <button
@@ -322,6 +335,7 @@ export const UserPostCard = memo(function UserPostCard({
                 onAuthorClick?.(item.author_id);
               }}
               className="text-white font-bold hover:underline text-base flex-shrink-0 bg-transparent border-none cursor-pointer min-h-[44px] px-0 flex items-center"
+              style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}
               title={item.author_name || 'User'}
             >
               {item.author_name || 'User'}
@@ -357,7 +371,8 @@ export const UserPostCard = memo(function UserPostCard({
                 e.stopPropagation();
                 onEventClick(item.event_id);
               }}
-              className="text-white/90 hover:text-white font-medium text-base truncate bg-transparent border-none cursor-pointer text-left min-h-[44px] px-0 flex items-center flex-1"
+              className="text-white/95 hover:text-white font-medium text-base truncate bg-transparent border-none cursor-pointer text-left min-h-[44px] px-0 flex items-center flex-1"
+              style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}
               title={item.event_title || 'View event'}
             >
               {item.event_title || 'View event'}
@@ -382,7 +397,11 @@ export const UserPostCard = memo(function UserPostCard({
         {/* Post content */}
         {item.content && (
           <div className="mt-3 pointer-events-auto">
-            <p className="text-white text-base leading-relaxed bg-black/40 backdrop-blur-sm rounded-xl px-4 py-3 line-clamp-4">
+            <p className="text-white text-base leading-relaxed bg-black/60 backdrop-blur-sm rounded-xl px-4 py-3 line-clamp-4 font-medium"
+               style={{ 
+                 textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                 backdropFilter: 'blur(12px) saturate(120%)'
+               }}>
               {item.content}
             </p>
           </div>
