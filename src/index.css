@@ -88,6 +88,23 @@
   --gradient-orange: linear-gradient(135deg, hsl(32 95% 55%), hsl(35 100% 70%));
   --gradient-orange-hover: linear-gradient(135deg, hsl(32 95% 50%), hsl(35 100% 65%));
   --gradient-orange-glow: linear-gradient(135deg, hsl(32 95% 60%), hsl(35 100% 75%));
+
+  /* ======== DESIGN TOKENS: fill any missing variables you reference elsewhere ======== */
+  /* Frequently referenced but not previously defined tokens */
+  --radius: 1rem; /* base radius used by calc()s in mapbox blocks etc. */
+  --overlay: hsla(0, 0%, 0%, 0.45);
+  --modal-bg: hsl(var(--card) / 0.98);
+  --modal-border: hsl(var(--border));
+  --shadow-modal: 0 16px 48px hsl(0 0% 0% / 0.28), 0 4px 16px hsl(0 0% 0% / 0.12);
+  --shadow-card: 0 10px 24px hsl(0 0% 0% / 0.10);
+
+  --text-accent: 32 95% 55%; /* aligns with primary */
+  --text-accent-muted: 215 16% 47%;
+  --border-accent: 210 17% 89%;
+  --border-strong: 210 17% 80%;
+  --tab-active-bg: 210 17% 96%;
+  --tab-active-border: 210 17% 84%;
+  --input-background: 0 0% 100%;
 }
 
 /* Dark Theme - iOS-inspired dark colors */
@@ -121,6 +138,21 @@
     /* Dark mode glassmorphism */
     --glass-bg: hsl(210 22% 11% / 0.8);
     --glass-border: hsl(210 17% 95% / 0.1);
+
+    /* Dark mode counterparts */
+    --overlay: hsla(0, 0%, 0%, 0.60);
+    --modal-bg: hsl(210 22% 11% / 0.98);
+    --modal-border: hsl(210 22% 18%);
+    --shadow-modal: 0 24px 64px hsl(0 0% 0% / 0.45), 0 6px 24px hsl(0 0% 0% / 0.25);
+    --shadow-card: 0 10px 24px hsl(0 0% 0% / 0.25);
+
+    --text-accent: 35 100% 65%;
+    --text-accent-muted: 210 17% 60%;
+    --border-accent: 210 22% 18%;
+    --border-strong: 210 22% 26%;
+    --tab-active-bg: 210 22% 15%;
+    --tab-active-border: 210 22% 22%;
+    --input-background: 210 22% 11%;
   }
 }
 
@@ -950,5 +982,68 @@ p {
     background-image: none !important;
     border: 1px solid #000 !important;
   }
+}
+
+/* ======== ALWAYS-SAFE iOS RAILS & BOTTOM BARS ======== */
+
+/* Pads fixed bottom bars so they never overlap the iOS home indicator */
+.rail-safe {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+/* Fixed bottom nav/action rail with safe-area awareness */
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  padding-top: 10px;
+  display: grid;
+  grid-auto-flow: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+
+  background: hsl(0 0% 0% / 0.55); /* glassy dark by default so media stays readable */
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border-top: 1px solid hsl(var(--border) / 0.35);
+  box-shadow: 0 -8px 24px hsl(0 0% 0% / 0.25);
+  z-index: 40;
+  touch-action: manipulation;
+}
+
+/* Lighter variant for bright screens if needed */
+.bottom-bar--light {
+  background: hsl(0 0% 100% / 0.75);
+  border-top-color: hsl(var(--border));
+  box-shadow: 0 -8px 24px hsl(0 0% 0% / 0.10);
+}
+
+/* Ensure feed viewport never hides behind bottom bar on small screens */
+.page-with-bottom-bar {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+/* Large, thumb-friendly icon buttons used in bottom rails */
+.rail-btn {
+  min-width: 48px;
+  min-height: 48px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid hsl(0 0% 100% / 0.18);
+  background: hsl(0 0% 100% / 0.10);
+  color: white;
+  transition: transform 180ms var(--ease-out), background-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+}
+.rail-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-glow); background: hsl(var(--primary) / 0.25); }
+.rail-btn:active { transform: translateY(0) scale(0.96); }
+@media (prefers-reduced-motion: reduce) {
+  .rail-btn, .bottom-bar { transition: none; }
 }
 }
