@@ -186,9 +186,12 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
 
   // Transform verified events and posts
   const transformedResults = useMemo(() => {
+    console.log('🔍 Search Debug - eventHits:', eventHits);
     const rows = eventHits.filter(h => 
       h.item_type === 'post' || validEventIds.has(h.item_id)
     );
+    console.log('🔍 Search Debug - filtered rows:', rows);
+    console.log('🔍 Search Debug - validEventIds:', validEventIds);
     return rows.map(result => ({
       id: result.item_id,
       title: result.item_type === 'post' 
@@ -212,6 +215,8 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       type: result.item_type === 'post' ? 'post' : 'event',
       parentEventId: result.item_type === 'post' ? result.parent_event_id : null,
     }));
+    console.log('🔍 Search Debug - transformedResults:', transformedResults);
+    return transformedResults;
   }, [eventHits, validEventIds]);
 
   // Client-side filtering for price (until server-side is implemented)
