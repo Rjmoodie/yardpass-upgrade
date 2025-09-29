@@ -1,3 +1,4 @@
+// src/hooks/useUnifiedFeed.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -23,7 +24,12 @@ export type FeedItem =
       author_badge: null;
       media_urls: null;
       content: null;
-      metrics: Record<string, any>;
+      metrics: {
+        likes: number;
+        comments: number;
+        viewer_has_liked?: boolean;
+        [k: string]: any;
+      };
       sponsor?: {
         name: string;
         logo_url?: string;
@@ -56,8 +62,12 @@ export type FeedItem =
       author_social_links: any[] | null;
       media_urls: string[] | null;
       content: string | null;
-      metrics: Record<string, any>;
-      liked_by_me?: boolean;
+      metrics: {
+        likes: number;
+        comments: number;
+        viewer_has_liked?: boolean; // ← canonical client flag
+        [k: string]: any;
+      };
       sponsor?: null;
       sponsors?: null;
     };
@@ -72,18 +82,18 @@ export function useUnifiedFeed(userId?: string) {
   const abortRef = useRef<AbortController | null>(null);
 
   const items = pages.flatMap(p => p.items);
-  
-  // Helper for composite key generation
   const keyOf = (item: FeedItem) => `${item.item_type}:${item.item_id}`;
 
-  // Map smart feed IDs to full FeedItem objects
+  // ---------- Helpers ----------
+
+  // Map get_home_feed_ids → full FeedItem (RPC fallback path)
   const mapIdsToItems = useCallback(async (rows: any[]): Promise<FeedItem[]> => {
     if (!rows?.length) return [];
 
     const eventIds = Array.from(new Set(rows.map(r => r.event_id)));
     const postIds = rows.filter(r => r.item_type === 'post').map(r => r.item_id);
 
-    // Fetch events with organizer info
+    // Events (+ organizer)
     const { data: events } = await supabase
       .from('events')
       .select(`
@@ -92,10 +102,10 @@ export function useUnifiedFeed(userId?: string) {
       `)
       .in('id', eventIds);
 
-    const eventMap = new Map<string, any>();
-    (events ?? []).forEach(e => eventMap.set(e.id, e));
+    const eMap = new Map<string, any>();
+    (events ?? []).forEach(e => eMap.set(e.id, e));
 
-    // Fetch posts with author info
+    // Posts (+ viewer_has_liked via view)
     const { data: posts } = postIds.length
       ? await supabase
           .from('event_posts_with_meta')
@@ -103,30 +113,28 @@ export function useUnifiedFeed(userId?: string) {
           .in('id', postIds)
       : { data: [] as any[] };
 
-    const postMap = new Map<string, any>();
-    (posts ?? []).forEach(p => postMap.set(p.id, p));
+    const pMap = new Map<string, any>();
+    (posts ?? []).forEach(p => pMap.set(p.id, p));
 
-    // Transform to FeedItem format maintaining order
-    const transformedItems: FeedItem[] = [];
-    
+    const out: FeedItem[] = [];
     rows.forEach(row => {
-      const event = eventMap.get(row.event_id);
-      const organizer = event?.user_profiles;
-      
+      const ev = eMap.get(row.event_id);
+      const organizer = ev?.user_profiles;
+
       if (row.item_type === 'event') {
-        transformedItems.push({
+        out.push({
           item_type: 'event',
-          sort_ts: event?.start_at || new Date().toISOString(),
+          sort_ts: ev?.start_at || new Date().toISOString(),
           item_id: row.item_id,
           event_id: row.event_id,
-          event_title: event?.title ?? 'Event',
-          event_description: event?.description ?? '',
-          event_starts_at: event?.start_at,
-          event_cover_image: event?.cover_image_url ?? '',
+          event_title: ev?.title ?? 'Event',
+          event_description: ev?.description ?? '',
+          event_starts_at: ev?.start_at ?? null,
+          event_cover_image: ev?.cover_image_url ?? '',
           event_organizer: organizer?.display_name ?? 'Organizer',
-          event_organizer_id: event?.created_by ?? '',
+          event_organizer_id: ev?.created_by ?? '',
           event_owner_context_type: 'individual',
-          event_location: [event?.venue, event?.city].filter(Boolean).join(', ') || 'TBA',
+          event_location: [ev?.venue, ev?.city].filter(Boolean).join(', ') || 'TBA',
           author_id: null,
           author_name: null,
           author_badge: null,
@@ -134,49 +142,51 @@ export function useUnifiedFeed(userId?: string) {
           content: null,
           metrics: { likes: 0, comments: 0 },
           sponsor: null,
-          sponsors: null
+          sponsors: null,
         });
-      } else if (row.item_type === 'post') {
-        const post = postMap.get(row.item_id);
-        transformedItems.push({
+      } else {
+        const po = pMap.get(row.item_id);
+        out.push({
           item_type: 'post',
-          sort_ts: post?.created_at || new Date().toISOString(),
+          sort_ts: po?.created_at || new Date().toISOString(),
           item_id: row.item_id,
           event_id: row.event_id,
-          event_title: event?.title ?? 'Event',
-          event_description: event?.description ?? '',
-          event_starts_at: event?.start_at,
-          event_cover_image: event?.cover_image_url ?? '',
+          event_title: ev?.title ?? 'Event',
+          event_description: ev?.description ?? '',
+          event_starts_at: ev?.start_at ?? null,
+          event_cover_image: ev?.cover_image_url ?? '',
           event_organizer: organizer?.display_name ?? 'Organizer',
-          event_organizer_id: event?.created_by ?? '',
+          event_organizer_id: ev?.created_by ?? '',
           event_owner_context_type: 'individual',
-          event_location: [event?.venue, event?.city].filter(Boolean).join(', ') || 'TBA',
-          author_id: post?.author_user_id ?? null,
-          author_name: post?.author_name ?? null,
-          author_badge: post?.author_badge_label ?? null,
+          event_location: [ev?.venue, ev?.city].filter(Boolean).join(', ') || 'TBA',
+          author_id: po?.author_user_id ?? null,
+          author_name: po?.author_name ?? null,
+          author_badge: po?.author_badge_label ?? null,
           author_social_links: null,
-          media_urls: post?.media_urls ?? null,
-          content: post?.text ?? null,
-          metrics: { 
-            likes: post?.like_count ?? 0, 
-            comments: post?.comment_count ?? 0,
-            viewer_has_liked: post?.viewer_has_liked ?? false
+          media_urls: po?.media_urls ?? null,
+          content: po?.text ?? null,
+          metrics: {
+            likes: po?.like_count ?? 0,
+            comments: po?.comment_count ?? 0,
+            viewer_has_liked: Boolean(po?.viewer_has_liked), // ← from view
           },
           sponsor: null,
-          sponsors: null
+          sponsors: null,
         });
       }
     });
 
-    return transformedItems;
+    return out;
   }, []);
 
+  // ---------- Fetchers ----------
+
+  // SMART (Edge Function) — expects posts to include viewer_has_liked for the JWT user
   const fetchSmart = useCallback(async () => {
-    console.log('🧠 Fetching smart feed with offset:', offsetRef.current);
-    try {
-      // Use the new home-feed Edge Function instead of RPC
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/home-feed`, {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/home-feed`,
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -188,198 +198,150 @@ export function useUnifiedFeed(userId?: string) {
           offset: offsetRef.current,
           mode: 'smart',
         }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Feed request failed: ${response.status}`);
       }
-      
-      const { items } = await response.json();
-      console.log('🧠 Smart feed Edge Function response:', items);
-      
-      // Transform Edge Function response to local FeedItem format
-      const transformedItems: FeedItem[] = items.map((item: any) => ({
-        item_type: item.item_type,
-        sort_ts: item.item_type === 'event' ? item.event_starts_at : new Date().toISOString(),
-        item_id: item.item_id,
-        event_id: item.event_id,
-        event_title: item.event_title || 'Event',
-        event_description: '',
-        event_starts_at: item.event_starts_at,
-        event_cover_image: item.event_cover_image || '',
-        event_organizer: item.event_organizer || 'Organizer',
-        event_organizer_id: item.event_organizer_id || '',
-        event_owner_context_type: item.event_owner_context_type || 'individual',
-        event_location: item.event_location || 'TBA',
-        author_id: item.author_user_id || null,
-        author_name: item.author_name || null,
-        author_badge: null,
-        author_social_links: null,
-        media_urls: item.media_urls || null,
-        content: null,
-        metrics: { 
-          likes: item.like_count || 0, 
-          comments: item.comment_count || 0,
-          viewer_has_liked: Boolean(item.viewer_has_liked)
-        },
-        ...(item.item_type === 'post' && { liked_by_me: false }),
-        sponsor: null,
-        sponsors: null
-      }));
-      
-      console.log('🧠 Smart feed transformed:', transformedItems.length, 'items');
-      return transformedItems;
-    } catch (error) {
-      console.error('🧠 Smart feed fetch error:', error);
-      // Fallback to RPC if Edge Function fails
-      try {
-        const { data, error } = await supabase.rpc('get_home_feed_ids', {
-          p_user: userId ?? null,
-          p_limit: PAGE_SIZE,
-          p_offset: offsetRef.current,
-        });
-        if (error) throw error;
-        
-        const mapped = await mapIdsToItems(data ?? []);
-        return mapped;
-      } catch (fallbackError) {
-        console.error('🧠 Smart feed fallback error:', fallbackError);
-        throw fallbackError;
-      }
-    }
-  }, [userId, mapIdsToItems]);
+    );
 
-  const fetchBasic = useCallback(async () => {
-    console.log('📰 Fetching basic feed for user:', userId);
-    try {
-      const { data, error } = await supabase.rpc('get_home_feed', {
-        p_user_id: userId || null,
-        p_limit: PAGE_SIZE,
-        p_offset: 0,
-      });
-      if (error) {
-        console.error('📰 Basic feed RPC error:', error);
-        throw error;
-      }
-      
-      console.log('📰 Basic feed RPC response:', data);
-      
-      // Transform home_feed_row data to unified feed structure (existing logic)
-      const transformedItems: FeedItem[] = [];
-      
-      (data ?? []).forEach((row: any) => {
-        // Create event item
-        const eventItem: FeedItem = {
-          item_type: 'event',
-          sort_ts: row.start_at || new Date().toISOString(),
-          item_id: row.event_id,
-          event_id: row.event_id,
-          event_title: row.title || 'Untitled Event',
-          event_description: row.description || '',
-          event_starts_at: row.start_at,
-          event_cover_image: row.cover_image_url || '',
-          event_organizer: row.organizer_display_name || 'Unknown Organizer',
-          event_organizer_id: row.created_by || '',
-          event_owner_context_type: 'individual',
-          event_location: row.city || row.venue || 'TBA',
-          author_id: null,
-          author_name: null,
-          author_badge: null,
-          media_urls: null,
-          content: null,
-          metrics: { likes: 0, comments: 0 },
-          sponsor: null,
-          sponsors: null
-        };
+    if (!res.ok) throw new Error(`Feed request failed: ${res.status}`);
+    const { items } = await res.json();
 
-        transformedItems.push(eventItem);
+    const transformed: FeedItem[] = (items ?? []).map((it: any) => ({
+      item_type: it.item_type,
+      sort_ts:
+        it.item_type === 'event'
+          ? it.event_starts_at ?? new Date().toISOString()
+          : it.created_at ?? new Date().toISOString(),
+      item_id: it.item_id,
+      event_id: it.event_id,
+      event_title: it.event_title || 'Event',
+      event_description: it.event_description || '',
+      event_starts_at: it.event_starts_at ?? null,
+      event_cover_image: it.event_cover_image || '',
+      event_organizer: it.event_organizer || 'Organizer',
+      event_organizer_id: it.event_organizer_id || '',
+      event_owner_context_type: it.event_owner_context_type || 'individual',
+      event_location: it.event_location || 'TBA',
+      author_id: it.author_user_id || null,
+      author_name: it.author_name || null,
+      author_badge: null,
+      author_social_links: null,
+      media_urls: it.media_urls || null,
+      content: it.content ?? null,
+      metrics: {
+        likes: it.like_count || 0,
+        comments: it.comment_count || 0,
+        // IMPORTANT: keep this exact name so the UI reads the correct initial state
+        viewer_has_liked: Boolean(it.viewer_has_liked),
+      },
+      sponsor: null,
+      sponsors: null,
+    }));
 
-        // Add posts from this event
-        if (row.recent_posts && Array.isArray(row.recent_posts)) {
-          row.recent_posts.forEach((post: any) => {
-            const postItem: FeedItem = {
-              item_type: 'post',
-              sort_ts: post.created_at || new Date().toISOString(),
-              item_id: post.id,
-              event_id: row.event_id,
-              event_title: row.title || 'Untitled Event',
-              event_description: row.description || '',
-              event_starts_at: row.start_at,
-              event_cover_image: row.cover_image_url || '',
-              event_organizer: row.organizer_display_name || 'Unknown Organizer',
-              event_organizer_id: row.created_by || '',
-              event_owner_context_type: 'individual',
-              event_location: row.city || row.venue || 'TBA',
-              author_id: post.author?.id || null,
-              author_name: post.author?.display_name || null,
-              author_badge: post.author?.badge_label || null,
-              author_social_links: null,
-              media_urls: post.media_urls || null,
-              content: post.text || null,
-              metrics: { 
-                likes: post.like_count || 0, 
-                comments: post.comment_count || 0 
-              },
-              sponsor: null,
-              sponsors: null
-            };
-            transformedItems.push(postItem);
-          });
-        }
-      });
-      
-      return transformedItems.sort((a, b) => 
-        new Date(b.sort_ts).getTime() - new Date(a.sort_ts).getTime()
-      );
-    } catch (error) {
-      console.error('📰 Basic feed fetch error:', error);
-      throw error;
-    }
+    return transformed;
   }, [userId]);
 
-  const fetchPage = useCallback(async (cursor?: { ts: string; id: string }) => {
+  // BASIC (legacy RPC)
+  const fetchBasic = useCallback(async () => {
+    const { data, error } = await supabase.rpc('get_home_feed', {
+      p_user_id: userId || null,
+      p_limit: PAGE_SIZE,
+      p_offset: 0,
+    });
+    if (error) throw error;
+
+    const out: FeedItem[] = [];
+    (data ?? []).forEach((row: any) => {
+      // event item
+      out.push({
+        item_type: 'event',
+        sort_ts: row.start_at || new Date().toISOString(),
+        item_id: row.event_id,
+        event_id: row.event_id,
+        event_title: row.title || 'Untitled Event',
+        event_description: row.description || '',
+        event_starts_at: row.start_at ?? null,
+        event_cover_image: row.cover_image_url || '',
+        event_organizer: row.organizer_display_name || 'Unknown Organizer',
+        event_organizer_id: row.created_by || '',
+        event_owner_context_type: 'individual',
+        event_location: row.city || row.venue || 'TBA',
+        author_id: null,
+        author_name: null,
+        author_badge: null,
+        media_urls: null,
+        content: null,
+        metrics: { likes: 0, comments: 0 },
+        sponsor: null,
+        sponsors: null,
+      });
+
+      // post items (if present)
+      if (Array.isArray(row.recent_posts)) {
+        row.recent_posts.forEach((post: any) => {
+          out.push({
+            item_type: 'post',
+            sort_ts: post.created_at || new Date().toISOString(),
+            item_id: post.id,
+            event_id: row.event_id,
+            event_title: row.title || 'Untitled Event',
+            event_description: row.description || '',
+            event_starts_at: row.start_at ?? null,
+            event_cover_image: row.cover_image_url || '',
+            event_organizer: row.organizer_display_name || 'Unknown Organizer',
+            event_organizer_id: row.created_by || '',
+            event_owner_context_type: 'individual',
+            event_location: row.city || row.venue || 'TBA',
+            author_id: post.author?.id || null,
+            author_name: post.author?.display_name || null,
+            author_badge: post.author?.badge_label || null,
+            author_social_links: null,
+            media_urls: post.media_urls || null,
+            content: post.text || null,
+            metrics: {
+              likes: post.like_count || 0,
+              comments: post.comment_count || 0,
+              // BASIC path often lacks this; default false to avoid “first click = unlike”
+              viewer_has_liked: Boolean(post.viewer_has_liked),
+            },
+            sponsor: null,
+            sponsors: null,
+          });
+        });
+      }
+    });
+
+    return out.sort(
+      (a, b) => new Date(b.sort_ts).getTime() - new Date(a.sort_ts).getTime()
+    );
+  }, [userId]);
+
+  // ---------- Paging ----------
+
+  const fetchPage = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
 
     try {
-      console.log(`🚀 Starting ${SMART_FEED_ENABLED ? 'SMART' : 'BASIC'} feed fetch with params:`, { userId, cursor, offset: offsetRef.current });
-      
       const newItems = SMART_FEED_ENABLED ? await fetchSmart() : await fetchBasic();
 
-      console.log('📊 Feed Response:', { itemsLength: newItems.length });
-      
-      // Update offset for pagination
       offsetRef.current += newItems.length;
-      
-      // De-dupe within this batch only, not against all existing items
+
       setPages(prev => {
         const batchSeen = new Set<string>();
-        const dedupedItems = newItems.filter(it => {
-          const key = keyOf(it);
-          if (batchSeen.has(key)) {
-            return false; // Skip duplicates within this batch
-          }
-          batchSeen.add(key);
+        const deduped = newItems.filter(it => {
+          const k = keyOf(it);
+          if (batchSeen.has(k)) return false;
+          batchSeen.add(k);
           return true;
         });
 
-        console.log('🔍 dedupedItems:', { 
-          originalLength: newItems.length,
-          dedupedLength: dedupedItems.length, 
-          totalPages: prev.length + 1,
-          removedDuplicates: newItems.length - dedupedItems.length
-        });
-
-        const last = newItems[newItems.length - 1];
+        const last = deduped[deduped.length - 1];
         return [
           ...prev,
-          {
-            items: dedupedItems,
-            nextCursor: last ? { ts: last.sort_ts, id: last.item_id } : null,
-          },
+          { items: deduped, nextCursor: last ? { ts: last.sort_ts, id: last.item_id } : null },
         ];
       });
     } catch (e: any) {
@@ -387,15 +349,16 @@ export function useUnifiedFeed(userId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [fetchBasic, fetchSmart]);
 
   const loadMore = useCallback(async () => {
     const lastPage = pages[pages.length - 1];
-    await fetchPage(lastPage?.nextCursor ?? undefined);
+    if (lastPage?.nextCursor) await fetchPage();
   }, [pages, fetchPage]);
 
   const refresh = useCallback(() => {
     setPages([]);
+    offsetRef.current = 0;
     fetchPage();
   }, [fetchPage]);
 
@@ -403,16 +366,15 @@ export function useUnifiedFeed(userId?: string) {
     setPages(prev => {
       const key = keyOf(newItem);
       const seen = new Set(prev.flatMap(p => p.items.map(keyOf)));
-      
-      if (seen.has(key)) return prev; // already present
+      if (seen.has(key)) return prev;
 
-      // Prepend to first page while keeping pagination intact
       const [first, ...rest] = prev.length ? prev : [{ items: [], nextCursor: null }];
       return [{ ...first, items: [newItem, ...first.items] }, ...rest];
     });
   }, []);
 
-  // Local mutator for post comment_count (no network, no reorder)
+  // ---------- Local mutators (no reorder) ----------
+
   const bumpPostCommentCount = useCallback((postId: string, newCount: number) => {
     setPages(prev =>
       prev.map(page => ({
@@ -421,55 +383,53 @@ export function useUnifiedFeed(userId?: string) {
           it.item_type === 'post' && it.item_id === postId
             ? { ...it, metrics: { ...it.metrics, comments: newCount } }
             : it
-        )
+        ),
       }))
     );
   }, []);
 
-  // Set exact like count from server (no network, no reorder)
-  const bumpPostLikeCount = useCallback((postId: string, exactCount: number, liked?: boolean) => {
-    console.log('bumpPostLikeCount called:', { postId, exactCount, liked });
-    setPages(prev => {
-      const updated = prev.map(page => ({
-        ...page,
-        items: page.items.map(it => {
-          if (it.item_type === 'post' && it.item_id === postId) {
-            console.log('Updating post:', postId, 'old metrics:', it.metrics, 'new likes:', exactCount, 'new liked:', liked);
-            return { 
-              ...it, 
-              metrics: { 
-                ...it.metrics, 
-                likes: exactCount, // Set exact count from server
-                viewer_has_liked: liked // Use consistent field name
-              }
-            };
-          }
-          return it;
-        })
-      }));
-      console.log('Pages updated for post:', postId);
-      return updated;
-    });
-  }, []);
+  // Set exact like count AND viewer_has_liked from server response
+  const bumpPostLikeCount = useCallback(
+    (postId: string, exactCount: number, liked?: boolean) => {
+      setPages(prev =>
+        prev.map(page => ({
+          ...page,
+          items: page.items.map(it =>
+            it.item_type === 'post' && it.item_id === postId
+              ? {
+                  ...it,
+                  metrics: {
+                    ...it.metrics,
+                    likes: exactCount,
+                    viewer_has_liked: liked ?? it.metrics.viewer_has_liked ?? false,
+                  },
+                }
+              : it
+          ),
+        }))
+      );
+    },
+    []
+  );
+
+  // ---------- Lifecycle ----------
 
   useEffect(() => {
-    // initial load on user change
-    console.log('🔄 useUnifiedFeed: Initializing feed for user:', userId);
-    console.log('🔄 SMART_FEED_ENABLED:', SMART_FEED_ENABLED);
     setPages([]);
+    offsetRef.current = 0;
     fetchPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, SMART_FEED_ENABLED]);
 
-  return { 
-    items, 
-    loading, 
-    error, 
-    loadMore, 
-    refresh, 
+  return {
+    items,
+    loading,
+    error,
+    loadMore,
+    refresh,
     prependItem,
     bumpPostCommentCount,
     bumpPostLikeCount,
-    hasMore: !!pages[pages.length - 1]?.nextCursor 
+    hasMore: !!pages[pages.length - 1]?.nextCursor,
   };
 }
