@@ -139,7 +139,7 @@ export const EventCard = memo(function EventCard({
         <div className="space-y-4 pointer-events-auto">
           {/* Event Info */}
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-white leading-tight drop-shadow-2xl" 
+            <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight drop-shadow-2xl" 
                 style={{ 
                   textShadow: '2px 2px 4px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.6)' 
                 }}>
@@ -149,18 +149,18 @@ export const EventCard = memo(function EventCard({
             <div className="flex flex-col gap-2 text-white/95" 
                  style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}>
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 drop-shadow-lg" aria-hidden />
-                <span className="text-sm font-medium">{formatDate(item.event_starts_at)}</span>
+                <Calendar className="w-3.5 h-3.5 drop-shadow-lg" aria-hidden />
+                <span className="text-xs sm:text-sm font-medium">{formatDate(item.event_starts_at)}</span>
               </div>
 
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 drop-shadow-lg" aria-hidden />
-                <span className="text-sm font-medium">{item.event_location || 'Location TBA'}</span>
+                <MapPin className="w-3.5 h-3.5 drop-shadow-lg" aria-hidden />
+                <span className="text-xs sm:text-sm font-medium">{item.event_location || 'Location TBA'}</span>
               </div>
             </div>
 
             {item.event_description && (
-              <p className="text-white/90 text-sm leading-relaxed line-clamp-3 font-medium"
+              <p className="text-white/90 text-xs sm:text-sm leading-relaxed line-clamp-3 font-medium"
                  style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}>
                 {item.event_description}
               </p>
@@ -183,7 +183,7 @@ export const EventCard = memo(function EventCard({
                 e.stopPropagation();
                 onOpenTickets(item.event_id);
               }}
-              className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-bold py-4 sm:py-5 text-base sm:text-lg shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-[1.02] rounded-xl"
+              className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-bold py-3 sm:py-4 text-sm sm:text-base shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-[1.02] rounded-xl"
               aria-label="Get Tickets"
             >
               Get Tickets
@@ -194,7 +194,7 @@ export const EventCard = memo(function EventCard({
                 goToEvent(e);
               }}
               variant="outline"
-              className="px-6 sm:px-8 py-4 sm:py-5 bg-white/10 border-white/20 text-white hover:bg-white/20 text-base sm:text-lg font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02]"
+              className="px-4 sm:px-6 py-3 sm:py-4 bg-white/10 border-white/20 text-white hover:bg-white/20 text-sm sm:text-base font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02]"
               aria-label="View Details"
             >
               Details
