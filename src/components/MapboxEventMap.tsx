@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { Button } from '@/components/ui/button';
+import { ExternalLink, Navigation } from 'lucide-react';
 
 interface MapboxEventMapProps {
   lat: number;
@@ -132,6 +134,48 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
     };
   }, [lat, lng, venue, address, mapboxToken]);
 
+  // Open external map with precise coordinates
+  const openExternalMap = () => {
+    const location = `${lat},${lng}`;
+    const query = venue || address || location;
+    const encodedQuery = encodeURIComponent(query);
+    
+    // Use coordinates for maximum accuracy
+    const userAgent = navigator.userAgent;
+    
+    if (/iPad|iPhone|iPod/.test(userAgent)) {
+      // iOS - Apple Maps with coordinates
+      const appleUrl = `maps://maps.apple.com/?ll=${lat},${lng}&q=${encodedQuery}`;
+      const googleUrl = `https://maps.google.com/maps?q=${lat},${lng}`;
+      
+      try {
+        window.location.href = appleUrl;
+        setTimeout(() => {
+          window.open(googleUrl, '_blank');
+        }, 500);
+      } catch {
+        window.open(googleUrl, '_blank');
+      }
+    } else if (/Android/.test(userAgent)) {
+      // Android - Google Maps with coordinates
+      const googleUrl = `geo:${lat},${lng}?q=${lat},${lng}(${encodedQuery})`;
+      const fallbackUrl = `https://maps.google.com/maps?q=${lat},${lng}`;
+      
+      try {
+        window.location.href = googleUrl;
+        setTimeout(() => {
+          window.open(fallbackUrl, '_blank');
+        }, 500);
+      } catch {
+        window.open(fallbackUrl, '_blank');
+      }
+    } else {
+      // Desktop - Google Maps with coordinates
+      const googleUrl = `https://maps.google.com/maps?q=${lat},${lng}`;
+      window.open(googleUrl, '_blank');
+    }
+  };
+
   if (!mapboxToken) {
     return (
       <div className={`${className} bg-gradient-to-br from-muted via-muted to-muted/50 animate-pulse flex items-center justify-center`}>
@@ -149,6 +193,21 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
       {!mapLoaded && (
         <div className={`absolute inset-0 ${className} bg-gradient-to-br from-muted via-muted to-muted/50 animate-pulse flex items-center justify-center`}>
           <div className="text-sm text-muted-foreground">Loading map...</div>
+        </div>
+      )}
+      
+      {/* Directions Button */}
+      {mapLoaded && (
+        <div className="absolute bottom-4 right-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={openExternalMap}
+            className="shadow-lg backdrop-blur-sm bg-card/90 border border-border/50 hover:bg-card transition-all duration-200"
+          >
+            <Navigation className="w-4 h-4 mr-2" />
+            Directions
+          </Button>
         </div>
       )}
       
