@@ -331,16 +331,12 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-1 border-b">
+        <div className="grid grid-cols-2 gap-1 border-b">
           <div className="p-4 text-center">
             <div className="text-xl">{eventsAttended}</div>
             <div className="text-xs text-muted-foreground">Events</div>
           </div>
-          <div className="p-4 text-center border-x">
-            <div className="text-xl">${totalSpent.toFixed(0)}</div>
-            <div className="text-xs text-muted-foreground">Spent</div>
-          </div>
-          <div className="p-4 text-center">
+          <div className="p-4 text-center border-l">
             <div className="text-xl">{userPosts.length}</div>
             <div className="text-xs text-muted-foreground">Posts</div>
           </div>
