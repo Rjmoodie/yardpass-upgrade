@@ -63,8 +63,9 @@ export function RecordingModal({ isOpen, onClose, onRecordingComplete }: Recordi
   // Display live video feed
   useEffect(() => {
     if (videoRef.current && stream && recordingType === 'video') {
-      // @ts-expect-error - srcObject exists in browsers
-      videoRef.current.srcObject = stream;
+      if ('srcObject' in videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
     }
   }, [stream, recordingType]);
 
