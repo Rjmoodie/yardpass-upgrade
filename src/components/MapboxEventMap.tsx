@@ -56,12 +56,14 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
     // Initialize map
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
+      style: 'mapbox://styles/mapbox/streets-v12', // Less branded style
       center: [lng, lat],
       zoom: 15,
-      pitch: 45,
+      pitch: 0, // Flat view reduces 3D ads
       bearing: 0,
       interactive: true,
+      attributionControl: false, // We'll add custom minimal attribution
+      logoPosition: 'bottom-left',
     });
 
     // Add marker
@@ -90,6 +92,15 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
 
       marker.setPopup(popup);
     }
+
+    // Add minimal custom attribution
+    map.current.addControl(
+      new mapboxgl.AttributionControl({
+        compact: true,
+        customAttribution: '© YardPass'
+      }),
+      'bottom-right'
+    );
 
     // Add navigation controls
     map.current.addControl(
