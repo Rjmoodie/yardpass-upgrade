@@ -15,6 +15,7 @@ import { EventsList } from '@/components/dashboard/EventsList';
 import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import { OrgWalletDashboard } from '@/components/wallet/OrgWalletDashboard';
 
 type OwnerContextType = 'individual' | 'organization';
 
@@ -514,32 +515,7 @@ export default function OrganizerDashboard() {
         </TabsContent>
 
         <TabsContent value="wallet" className="space-y-6">
-          <div className="rounded-lg border bg-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Wallet className="h-5 w-5" />
-              <h2 className="text-xl font-semibold">Organization Wallet</h2>
-            </div>
-            <div className="space-y-4">
-              <div className="p-4 bg-muted/50 rounded-lg border-l-4 border-primary">
-                <p className="font-medium mb-1">Coming Soon</p>
-                <p className="text-sm text-muted-foreground">
-                  Organization-level wallets are currently being developed. Each organization will have its own shared credit balance for ad campaigns, managed by org admins.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-medium">What to Expect:</h3>
-                <ul className="text-sm space-y-1 text-muted-foreground list-disc list-inside">
-                  <li>Shared credit balance for the organization</li>
-                  <li>Transaction history visible to all admins</li>
-                  <li>Credit purchases managed by org admins and owners</li>
-                  <li>Separate from personal user wallets</li>
-                </ul>
-              </div>
-              <p className="text-sm text-muted-foreground pt-2 border-t">
-                For now, use your personal wallet at <a href="/wallet" className="text-primary hover:underline font-medium">/wallet</a> to manage ad credits.
-              </p>
-            </div>
-          </div>
+          <OrgWalletDashboard orgId={selectedOrgId} />
         </TabsContent>
 
         <TabsContent value="payouts" className="space-y-6">
