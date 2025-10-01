@@ -46,9 +46,9 @@ interface Event {
 }
 
 // ─────────────────────────────────────────
-const TAB_KEYS = ['dashboard', 'events', 'analytics', 'teams', 'wallet', 'payouts'] as const;
+const TAB_KEYS = ['events', 'analytics', 'teams', 'wallet', 'payouts'] as const;
 type TabKey = typeof TAB_KEYS[number];
-const DEFAULT_TAB: TabKey = 'dashboard';
+const DEFAULT_TAB: TabKey = 'events';
 const lastTabKeyFor = (orgId: string) => `organizer.lastTab.${orgId}`;
 const LAST_ORG_KEY = 'organizer.lastOrgId';
 // ─────────────────────────────────────────
@@ -343,11 +343,7 @@ export default function OrganizerDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6 h-auto p-1">
-          <TabsTrigger value="dashboard" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Dashboard</span>
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5 h-auto p-1">
           <TabsTrigger value="events" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Events</span>
@@ -369,11 +365,6 @@ export default function OrganizerDashboard() {
             <span className="text-xs">Payouts</span>
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="dashboard" className="space-y-6">
-          {loadingEvents ? <LoadingSpinner /> : <DashboardOverview events={events} onEventSelect={handleEventSelect} />}
-          <div className="hidden"><AnalyticsHub /></div>
-        </TabsContent>
 
         <TabsContent value="events" className="space-y-6">
           {(events?.length ?? 0) === 0 ? (
