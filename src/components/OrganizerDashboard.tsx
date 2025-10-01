@@ -146,39 +146,56 @@ export default function OrganizerDashboard() {
     try {
       const { data, error } = await supabase
         .from('events')
-        .select(`id, title, created_at, start_at, end_at, venue, category, cover_image_url, description, city, visibility, owner_context_type, owner_context_id`)
+        .select(`
+          id, title, created_at, start_at, end_at, venue, category, cover_image_url, description, city, visibility, owner_context_type, owner_context_id,
+          orders:orders!orders_event_id_fkey(total_cents, status),
+          tickets:tickets!tickets_event_id_fkey(status)
+        `)
         .eq('owner_context_type', 'organization')
         .eq('owner_context_id', selectedOrgId)
         .order('start_at', { ascending: false });
 
       if (error) throw error;
 
-      const transformed: Event[] = (data || []).map(e => ({
-        id: e.id,
-        title: e.title,
-        status: 'active',
-        date: e.start_at,
-        attendees: 0,
-        revenue: 0,
-        views: 0,
-        likes: 0,
-        shares: 0,
-        tickets_sold: 0,
-        capacity: 0,
-        conversion_rate: 0,
-        engagement_rate: 0,
-        created_at: e.created_at,
-        start_at: e.start_at,
-        end_at: e.end_at,
-        venue: e.venue,
-        category: e.category,
-        cover_image_url: e.cover_image_url,
-        description: e.description,
-        city: e.city,
-        visibility: e.visibility,
-        owner_context_type: e.owner_context_type as OwnerContextType,
-        owner_context_id: e.owner_context_id,
-      }));
+      const transformed: Event[] = (data || []).map(e => {
+        // Calculate revenue from paid orders
+        const paidOrders = (e.orders || []).filter((o: any) => o.status === 'paid');
+        const revenue = paidOrders.reduce((sum: number, o: any) => sum + (o.total_cents || 0), 0) / 100;
+        
+        // Count issued tickets (purchased tickets)
+        const issuedTickets = (e.tickets || []).filter(
+          (t: any) => t.status === 'issued' || t.status === 'transferred' || t.status === 'redeemed'
+        );
+        const attendees = issuedTickets.length;
+        const tickets_sold = issuedTickets.length;
+
+        return {
+          id: e.id,
+          title: e.title,
+          status: 'active',
+          date: e.start_at,
+          attendees,
+          revenue,
+          views: 0,
+          likes: 0,
+          shares: 0,
+          tickets_sold,
+          capacity: 0,
+          conversion_rate: 0,
+          engagement_rate: 0,
+          created_at: e.created_at,
+          start_at: e.start_at,
+          end_at: e.end_at,
+          venue: e.venue,
+          category: e.category,
+          cover_image_url: e.cover_image_url,
+          description: e.description,
+          city: e.city,
+          visibility: e.visibility,
+          owner_context_type: e.owner_context_type as OwnerContextType,
+          owner_context_id: e.owner_context_id,
+        };
+      });
 
       if (mountedRef.current) setEvents(transformed);
     } catch (err: any) {
