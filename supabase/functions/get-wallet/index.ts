@@ -58,12 +58,10 @@ Deno.serve(async (req) => {
 
     if (txError) throw txError;
 
-    const usdEquiv = (wallet.balance_credits / 100).toFixed(2);
-
     return new Response(
       JSON.stringify({
         balance_credits: wallet.balance_credits,
-        usd_equiv: `$${usdEquiv}`,
+        usd_equiv: wallet.balance_credits / 100,
         low_balance_threshold: wallet.low_balance_threshold,
         auto_reload_enabled: wallet.auto_reload_enabled,
         auto_reload_topup_credits: wallet.auto_reload_topup_credits,
