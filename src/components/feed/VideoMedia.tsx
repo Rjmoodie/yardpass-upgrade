@@ -23,16 +23,7 @@ export function VideoMedia({
   // Extract Mux playback ID from URL (supports mux:ABC or stream.mux.com/ABC)
   const playbackId = useMemo(() => extractMuxPlaybackId(url), [url]);
 
-  // Attach analytics tracking to the underlying video element (MuxPlayer.media)
-  useEffect(() => {
-    const muxPlayer = playerRef.current;
-    if (!visible || !muxPlayer?.media) return;
-    // Cast to HTMLVideoElement for compatibility with analytics hook
-    const cleanup = onAttachAnalytics?.(muxPlayer.media as unknown as HTMLVideoElement);
-    return () => {
-      if (typeof cleanup === 'function') cleanup();
-    };
-  }, [visible, onAttachAnalytics]);
+  // Mux Player handles analytics automatically via envKey
 
   // Control playback based on visibility
   useEffect(() => {

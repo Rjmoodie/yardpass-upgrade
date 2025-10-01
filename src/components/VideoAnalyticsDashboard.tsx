@@ -1,27 +1,20 @@
-// src/components/VideoAnalyticsDashboard.tsx
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useEffect, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Eye,
   Play,
-  MousePointer,
-  Heart,
-  MessageCircle,
-  Share2,
+  Clock,
   TrendingUp,
   RefreshCw,
   Download,
-  Link as LinkIcon,
-  Printer,
   FileJson,
-  AlertTriangle,
+  AlertCircle,
+  BarChart,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useEventAnalytics, useTopPostsAnalytics } from '@/hooks/useEventAnalytics';
-import { formatDistanceToNow } from 'date-fns';
+import { useMuxAnalytics } from '@/hooks/useMuxAnalytics';
 
 interface VideoAnalyticsDashboardProps {
   eventId: string;
@@ -29,8 +22,6 @@ interface VideoAnalyticsDashboardProps {
 }
 
 type DateRangeKey = '7d' | '30d' | '90d';
-
-const keyFor = (eventId: string, k: string) => `video-analytics:${eventId}:${k}`;
 
 const getRange = (k: DateRangeKey) => {
   const now = new Date();
@@ -40,15 +31,13 @@ const getRange = (k: DateRangeKey) => {
   return { from, to };
 };
 
-const safe = (n: any) => (Number.isFinite(Number(n)) ? Number(n) : 0);
-const pct = (num: number, denom: number) => (safe(denom) <= 0 ? 0 : (safe(num) / safe(denom)) * 100);
-const formatCTR = (num: number, denom: number) => `${pct(num, denom).toFixed(1)}%`;
 const formatDuration = (ms: number) => {
-  const seconds = Math.max(0, Math.floor(safe(ms) / 1000));
+  const seconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 };
+
 const safeFileName = (s: string) =>
   (s || 'export')
     .replace(/[^\w\s-]/g, '')
@@ -57,253 +46,82 @@ const safeFileName = (s: string) =>
     .toLowerCase();
 
 export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsDashboardProps) {
-  const persisted = (typeof window !== 'undefined'
-    ? (localStorage.getItem(keyFor(eventId, 'range')) as DateRangeKey)
-    : null) || '30d';
-  const [rangeKey, setRangeKey] = useState<DateRangeKey>(persisted);
-  const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'performance'>('overview');
-  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(keyFor(eventId, 'autoRefresh')) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const [offline, setOffline] = useState<boolean>(() => typeof navigator !== 'undefined' && !navigator.onLine);
-  const [realtimeNudge, setRealtimeNudge] = useState(false);
+  const [rangeKey, setRangeKey] = useState<DateRangeKey>('30d');
+  const [activeTab, setActiveTab] = useState<'overview' | 'videos' | 'performance'>('overview');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const { analytics, loading: analyticsLoading, refetch: refetchAnalytics, error: analyticsError } =
-    useEventAnalytics(eventId);
-  const { topPosts, loading: postsLoading, refetch: refetchTopPosts, error: postsError } =
-    useTopPostsAnalytics(eventId);
+  const { from, to } = getRange(rangeKey);
+  const { metrics, loading, error, refetch } = useMuxAnalytics(eventId, from, to);
 
-  const reqRef = useRef(0);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const heartbeatRef = useRef<number | null>(null);
-
-  // derived
-  const counters = analytics?.counters || {
-    views_unique: 0,
-    views_total: 0,
-    completions: 0,
-    avg_dwell_ms: 0,
-    clicks_tickets: 0,
-    clicks_share: 0,
-    clicks_comment: 0,
-    likes: 0,
-    comments: 0,
-    shares: 0,
+  const doRefresh = () => {
+    refetch();
+    setLastUpdated(new Date());
   };
-  const totalEngagement = useMemo(
-    () => safe(counters.likes) + safe(counters.comments) + safe(counters.shares),
-    [counters]
-  );
 
-  /* ------------------------- persistence & lifecycle ------------------------- */
-
-  // persist range + auto refresh flag
   useEffect(() => {
-    try {
-      localStorage.setItem(keyFor(eventId, 'range'), rangeKey);
-    } catch {
-      /* ignore */
-    }
-    // refresh on range change
     doRefresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rangeKey, eventId]);
+  }, [rangeKey]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(keyFor(eventId, 'autoRefresh'), autoRefresh ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
-  }, [autoRefresh, eventId]);
-
-  // initial stamp when analytics first appear
-  useEffect(() => {
-    if (analytics && !lastUpdated) setLastUpdated(Date.now());
-  }, [analytics, lastUpdated]);
-
-  // online/offline indicator
-  useEffect(() => {
-    const onOnline = () => setOffline(false);
-    const onOffline = () => setOffline(true);
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-    };
-  }, []);
-
-  // optional auto refresh every 60s, pause when tab hidden
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const tick = () => {
-      if (document.visibilityState === 'visible') doRefresh();
-    };
-    heartbeatRef.current = window.setInterval(tick, 60_000);
-    return () => {
-      if (heartbeatRef.current) window.clearInterval(heartbeatRef.current);
-      heartbeatRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh, rangeKey, eventId]);
-
-  // realtime nudge (best effort) – if views/reactions change for this event
-  useEffect(() => {
-    try {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-      const ch = supabase
-        .channel(`va_${eventId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'post_views', filter: `event_id=eq.${eventId}` }, () =>
-          setRealtimeNudge(true)
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'event_reactions', filter: `event_id=eq.${eventId}` },
-          () => setRealtimeNudge(true)
-        )
-        .subscribe();
-      channelRef.current = ch;
-      return () => {
-        if (channelRef.current) supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      };
-    } catch {
-      // ignore if RLS/tables differ in env
-    }
-  }, [eventId]);
-
-  /* --------------------------------- actions -------------------------------- */
-
-  const doRefresh = async () => {
-    const { from, to } = getRange(rangeKey);
-    reqRef.current += 1;
-    const myReq = reqRef.current;
-    try {
-      await ((refetchAnalytics as any)?.({ from, to }) ?? refetchAnalytics());
-      await ((refetchTopPosts as any)?.({ from, to }) ?? refetchTopPosts());
-      if (myReq === reqRef.current) {
-        setLastUpdated(Date.now());
-        setRealtimeNudge(false);
-      }
-    } catch {
-      // hooks surface their own errors
-    }
-  };
-
-  const exportPostsCSV = () => {
-    const rows = (topPosts?.posts || []).map((p) => [
-      p.post_id,
-      `"${(p.title || 'Post').replace(/"/g, '""')}"`,
-      p.views_unique ?? 0,
-      p.views_total ?? 0,
-      p.completions ?? 0,
-      p.clicks_tickets ?? 0,
-      p.engagement_total ?? 0,
-      (p.media_urls?.[0] || '').replace(/,/g, ' '),
-      p.created_at,
-    ]);
-    const header = [
-      'post_id',
-      'title',
-      'views_unique',
-      'views_total',
-      'completions',
-      'clicks_tickets',
-      'engagement_total',
-      'first_media',
-      'created_at',
+  const exportVideosCSV = () => {
+    if (!metrics?.videos || metrics.videos.length === 0) return;
+    const rows = [
+      ['Asset ID', 'Plays', 'Unique Viewers', 'Avg Watch Time (s)', 'Completion Rate %'],
+      ...metrics.videos.map(v => [
+        v.asset_id,
+        v.plays.toString(),
+        v.unique_viewers.toString(),
+        Math.round(v.avg_watch_time / 1000).toString(),
+        (v.completion_rate * 100).toFixed(1)
+      ])
     ];
-    const csv = [header, ...rows].map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const fname = `${safeFileName(eventTitle)}-top-posts.csv`;
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = fname;
-    document.body.appendChild(a);
+    a.download = `${safeFileName(eventTitle)}-videos-${rangeKey}.csv`;
     a.click();
-    a.remove();
     URL.revokeObjectURL(url);
   };
 
   const exportOverviewCSV = () => {
-    const header = ['metric', 'value'];
-    const data = [
-      ['views_unique', counters.views_unique],
-      ['views_total', counters.views_total],
-      ['completions', counters.completions],
-      ['avg_dwell_ms', counters.avg_dwell_ms],
-      ['clicks_tickets', counters.clicks_tickets],
-      ['clicks_share', counters.clicks_share],
-      ['clicks_comment', counters.clicks_comment],
-      ['likes', counters.likes],
-      ['comments', counters.comments],
-      ['shares', counters.shares],
-      ['engagement_total', totalEngagement],
-      ['ticket_ctr', pct(counters.clicks_tickets, counters.views_unique).toFixed(2)],
-      ['completion_rate', pct(counters.completions, counters.views_total).toFixed(2)],
+    if (!metrics) return;
+    const rows = [
+      ['Metric', 'Value'],
+      ['Total Plays', metrics.total_plays.toString()],
+      ['Unique Viewers', metrics.unique_viewers.toString()],
+      ['Avg Watch Time (s)', Math.round(metrics.avg_watch_time / 1000).toString()],
+      ['Completion Rate', (metrics.completion_rate * 100).toFixed(1) + '%']
     ];
-    const csv = [header, ...data].map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const fname = `${safeFileName(eventTitle)}-video-overview.csv`;
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = fname;
-    document.body.appendChild(a);
+    a.download = `${safeFileName(eventTitle)}-overview-${rangeKey}.csv`;
     a.click();
-    a.remove();
     URL.revokeObjectURL(url);
   };
 
   const exportJSON = () => {
-    const payload = { rangeKey, lastUpdated, counters, topPosts: topPosts?.posts || [] };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const fname = `${safeFileName(eventTitle)}-video-analytics.json`;
+    const data = { metrics, range: rangeKey, exported: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = fname;
-    document.body.appendChild(a);
+    a.download = `${safeFileName(eventTitle)}-analytics-${rangeKey}.json`;
     a.click();
-    a.remove();
     URL.revokeObjectURL(url);
   };
 
-  const copyShareLink = async () => {
-    const url = `${window.location.origin}${window.location.pathname}?event=${eventId}&range=${rangeKey}#video-analytics`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  /* ---------------------------------- UI ----------------------------------- */
-
-  if (analyticsLoading && !analytics) {
+  if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="h-8 bg-muted rounded w-64" />
-          <div className="h-9 bg-muted rounded w-72" />
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="h-4 bg-muted rounded w-20 mb-2" />
-                <div className="h-8 bg-muted rounded w-16" />
-              </CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i} className="p-6">
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="h-8 w-16" />
             </Card>
           ))}
         </div>
@@ -311,58 +129,30 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
     );
   }
 
-  if (!analytics) {
+  if (error || !metrics) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <Card className="p-8">
+        <div className="text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
           <div>
-            <h2 className="text-2xl font-bold">Content &amp; Video Analytics</h2>
-            <p className="text-muted-foreground">{eventTitle}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {(['7d', '30d', '90d'] as DateRangeKey[]).map((k) => (
-              <Button
-                key={k}
-                size="sm"
-                variant={rangeKey === k ? 'default' : 'outline'}
-                onClick={() => setRangeKey(k)}
-              >
-                {k}
-              </Button>
-            ))}
-            <Button variant="outline" onClick={doRefresh}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
+            <h3 className="font-semibold text-lg">No video analytics available</h3>
+            <p className="text-sm text-muted-foreground mt-1">{error || 'Unable to load Mux analytics'}</p>
           </div>
         </div>
-        <div className="text-center py-10 text-muted-foreground">
-          <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>No analytics data available</p>
-          {(analyticsError || postsError) && (
-            <p className="mt-2 text-xs">{String(analyticsError || postsError)}</p>
-          )}
-        </div>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div id="video-analytics" className="space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold">Content &amp; Video Analytics</h2>
+          <h2 className="text-2xl font-bold">Video Analytics</h2>
           <p className="text-muted-foreground">
             {eventTitle}
             {lastUpdated && (
-              <span className="ml-2 text-xs">• Updated {new Date(lastUpdated).toLocaleTimeString()}</span>
-            )}
-            {offline && (
-              <span className="ml-2 inline-flex items-center gap-1 text-xs text-yellow-700">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                Offline
-              </span>
+              <span className="ml-2 text-xs">• Updated {lastUpdated.toLocaleTimeString()}</span>
             )}
           </p>
         </div>
@@ -377,25 +167,13 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
               {k}
             </Button>
           ))}
-          <Button variant={autoRefresh ? 'default' : 'outline'} size="sm" onClick={() => setAutoRefresh((v) => !v)}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
-            {autoRefresh ? 'Auto' : 'Manual'}
-          </Button>
           <Button variant="outline" size="sm" onClick={doRefresh}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
-            <Printer className="w-4 h-4 mr-2" />
-            Print
-          </Button>
-          <Button variant="outline" size="sm" onClick={copyShareLink}>
-            <LinkIcon className="w-4 h-4 mr-2" />
-            Copy link
-          </Button>
           <Button variant="outline" size="sm" onClick={exportOverviewCSV}>
             <Download className="w-4 h-4 mr-2" />
-            Export KPIs
+            Export CSV
           </Button>
           <Button variant="outline" size="sm" onClick={exportJSON}>
             <FileJson className="w-4 h-4 mr-2" />
@@ -404,282 +182,206 @@ export function VideoAnalyticsDashboard({ eventId, eventTitle }: VideoAnalyticsD
         </div>
       </div>
 
-      {/* Realtime nudge */}
-      {realtimeNudge && (
-        <Card className="border-primary/30">
-          <CardContent className="py-3 flex items-center justify-between">
-            <div className="text-sm">New content activity detected. Data may be stale.</div>
-            <Button size="sm" onClick={doRefresh}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Update now
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* KPI Overview */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card role="region" aria-label="Unique views">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <Eye className="w-4 h-4 text-blue-500" />
-              <p className="text-sm font-medium text-muted-foreground">Unique Views</p>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Plays</p>
+              <h3 className="text-2xl font-bold mt-1">{metrics.total_plays.toLocaleString()}</h3>
             </div>
-            <p className="text-2xl font-bold">{safe(counters.views_unique).toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">
-              {safe(counters.views_total).toLocaleString()} total views
-            </p>
-          </CardContent>
+            <Play className="w-8 h-8 text-primary opacity-70" />
+          </div>
         </Card>
 
-        <Card role="region" aria-label="Completions">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <Play className="w-4 h-4 text-green-500" />
-              <p className="text-sm font-medium text-muted-foreground">Completions</p>
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Unique Viewers</p>
+              <h3 className="text-2xl font-bold mt-1">{metrics.unique_viewers.toLocaleString()}</h3>
             </div>
-            <p className="text-2xl font-bold">{safe(counters.completions).toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">
-              {formatCTR(counters.completions, counters.views_total)} completion rate
-            </p>
-          </CardContent>
+            <Eye className="w-8 h-8 text-green-500 opacity-70" />
+          </div>
         </Card>
 
-        <Card role="region" aria-label="Ticket click-through">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <MousePointer className="w-4 h-4 text-purple-500" />
-              <p className="text-sm font-medium text-muted-foreground">Ticket CTR</p>
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Avg Watch Time</p>
+              <h3 className="text-2xl font-bold mt-1">{formatDuration(metrics.avg_watch_time)}</h3>
             </div>
-            <p className="text-2xl font-bold">{formatCTR(counters.clicks_tickets, counters.views_unique)}</p>
-            <p className="text-xs text-muted-foreground">
-              {safe(counters.clicks_tickets).toLocaleString()} ticket clicks
-            </p>
-          </CardContent>
+            <Clock className="w-8 h-8 text-blue-500 opacity-70" />
+          </div>
         </Card>
 
-        <Card role="region" aria-label="Engagement">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <Heart className="w-4 h-4 text-red-500" />
-              <p className="text-sm font-medium text-muted-foreground">Engagement</p>
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Completion Rate</p>
+              <h3 className="text-2xl font-bold mt-1">{(metrics.completion_rate * 100).toFixed(1)}%</h3>
             </div>
-            <p className="text-2xl font-bold">{totalEngagement.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">
-              {safe(counters.likes)} likes • {safe(counters.comments)} comments • {safe(counters.shares)} shares
-            </p>
-          </CardContent>
+            <TrendingUp className="w-8 h-8 text-purple-500 opacity-70" />
+          </div>
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="space-y-4">
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="content">Top Content</TabsTrigger>
+          <TabsTrigger value="videos">Videos</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Watch Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Average watch time</span>
-                    <span className="text-sm font-medium">{formatDuration(counters.avg_dwell_ms)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Total qualified views</span>
-                    <span className="text-sm font-medium">{safe(counters.views_total).toLocaleString()}</span>
-                  </div>
+        <TabsContent value="overview" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="p-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <Play className="w-5 h-5" />
+                Playback Metrics
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Plays</span>
+                  <span className="font-medium">{metrics.total_plays.toLocaleString()}</span>
                 </div>
-              </CardContent>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Unique Viewers</span>
+                  <span className="font-medium">{metrics.unique_viewers.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Avg Watch Time</span>
+                  <span className="font-medium">{formatDuration(metrics.avg_watch_time)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Completion Rate</span>
+                  <span className="font-medium">{(metrics.completion_rate * 100).toFixed(1)}%</span>
+                </div>
+              </div>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Click Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Ticket clicks</span>
-                    <span className="text-sm font-medium">{safe(counters.clicks_tickets).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Share clicks</span>
-                    <span className="text-sm font-medium">{safe(counters.clicks_share).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Comment clicks</span>
-                    <span className="text-sm font-medium">{safe(counters.clicks_comment).toLocaleString()}</span>
-                  </div>
+            <Card className="p-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <BarChart className="w-5 h-5" />
+                Video Performance
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Videos</span>
+                  <span className="font-medium">{metrics.videos.length}</span>
                 </div>
-              </CardContent>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Plays per Video</span>
+                  <span className="font-medium">
+                    {metrics.videos.length > 0 ? Math.round(metrics.total_plays / metrics.videos.length) : 0}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Viewers per Video</span>
+                  <span className="font-medium">
+                    {metrics.videos.length > 0 ? Math.round(metrics.unique_viewers / metrics.videos.length) : 0}
+                  </span>
+                </div>
+              </div>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="content" className="space-y-4">
-          <Card>
-            <CardHeader className="flex items-center justify-between">
-              <CardTitle className="text-lg">Top Performing Posts</CardTitle>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={exportPostsCSV} disabled={!topPosts?.posts?.length}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export CSV
-                </Button>
-                <Button variant="outline" size="sm" onClick={doRefresh}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {postsLoading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="animate-pulse flex gap-4">
-                      <div className="w-16 h-16 bg-muted rounded" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-muted rounded w-3/4" />
-                        <div className="h-3 bg-muted rounded w-1/2" />
-                      </div>
+        <TabsContent value="videos" className="mt-6">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-semibold">Video Performance by Asset</h3>
+              <Button variant="outline" size="sm" onClick={exportVideosCSV}>
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
+            <div className="space-y-4">
+              {metrics.videos && metrics.videos.length > 0 ? (
+                metrics.videos.map((video, idx) => (
+                  <div key={video.asset_id} className="flex items-start gap-4 p-4 rounded-lg border">
+                    <div className="flex-shrink-0 w-12 h-12 rounded bg-primary/10 flex items-center justify-center font-bold text-primary">
+                      #{idx + 1}
                     </div>
-                  ))}
-                </div>
-              ) : topPosts?.posts?.length ? (
-                <div className="space-y-4">
-                  {topPosts.posts.map((post) => {
-                    const thumb = post.media_urls?.[0];
-                    const isVideo = !!thumb && thumb.startsWith('mux:');
-                    return (
-                      <div key={post.post_id} className="flex gap-4 p-4 border rounded-lg">
-                        {thumb && (
-                          <div className="w-16 h-16 rounded overflow-hidden flex-shrink-0">
-                            {isVideo ? (
-                              <div className="w-full h-full bg-muted flex items-center justify-center">
-                                <Play className="w-6 h-6" />
-                              </div>
-                             ) : (
-                               // eslint-disable-next-line @next/next/no-img-element
-                               <img 
-                                 src={thumb} 
-                                 alt="Post thumbnail" 
-                                 className="w-full h-full object-cover" 
-                                 onError={(e) => {
-                                   // Hide broken images
-                                   (e.target as HTMLImageElement).style.display = 'none';
-                                 }}
-                               />
-                            )}
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium truncate">{post.title || 'Post content'}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                              </p>
-                            </div>
-                            <div className="flex gap-2 text-xs">
-                              <Badge variant="secondary">{safe(post.views_unique).toLocaleString()} views</Badge>
-                              <Badge variant="secondary">
-                                {formatCTR(safe(post.clicks_tickets), safe(post.views_unique))} CTR
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-4 mt-2 text-xs text-muted-foreground">
-                            <span>{safe(post.views_total).toLocaleString()} total views</span>
-                            <span>{safe(post.completions).toLocaleString()} completions</span>
-                            <span>{safe(post.clicks_tickets).toLocaleString()} ticket clicks</span>
-                            <span>{safe(post.engagement_total).toLocaleString()} engagement</span>
-                          </div>
+                    <img
+                      src={`https://image.mux.com/${video.asset_id}/thumbnail.jpg?width=160&fit_mode=crop&time=0`}
+                      alt=""
+                      className="w-20 h-20 object-cover rounded"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium font-mono text-sm truncate">{video.asset_id}</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Plays:</span>
+                          <span className="ml-1 font-medium">{video.plays.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Viewers:</span>
+                          <span className="ml-1 font-medium">{video.unique_viewers.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Watch Time:</span>
+                          <span className="ml-1 font-medium">{formatDuration(video.avg_watch_time)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Completion:</span>
+                          <span className="ml-1 font-medium">{(video.completion_rate * 100).toFixed(1)}%</span>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  </div>
+                ))
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>No content data available</p>
+                  No video data available for this period
                 </div>
               )}
-            </CardContent>
+            </div>
           </Card>
         </TabsContent>
 
-        <TabsContent value="performance" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Video Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Avg. watch time</span>
-                    <span>{formatDuration(counters.avg_dwell_ms)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Completion rate</span>
-                    <span>{formatCTR(counters.completions, counters.views_total)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Unique vs total</span>
-                    <span>{formatCTR(counters.views_unique, counters.views_total)}</span>
-                  </div>
+        <TabsContent value="performance" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="p-6">
+              <h3 className="font-semibold mb-4">Engagement Metrics</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Play Rate</span>
+                  <span className="font-medium">
+                    {metrics.videos.length > 0
+                      ? (metrics.total_plays / metrics.videos.length).toFixed(1)
+                      : '0'}
+                  </span>
                 </div>
-              </CardContent>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Completion Rate</span>
+                  <span className="font-medium">{(metrics.completion_rate * 100).toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Avg Watch Time</span>
+                  <span className="font-medium">{formatDuration(metrics.avg_watch_time)}</span>
+                </div>
+              </div>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Click Through Rates</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tickets</span>
-                    <span>{formatCTR(counters.clicks_tickets, counters.views_unique)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shares</span>
-                    <span>{formatCTR(counters.clicks_share, counters.views_unique)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Comments</span>
-                    <span>{formatCTR(counters.clicks_comment, counters.views_unique)}</span>
-                  </div>
+            <Card className="p-6">
+              <h3 className="font-semibold mb-4">Audience Reach</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Unique Viewers</span>
+                  <span className="font-medium">{metrics.unique_viewers.toLocaleString()}</span>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Engagement Metrics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Likes per view</span>
-                    <span>{formatCTR(counters.likes, counters.views_unique)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Comments per view</span>
-                    <span>{formatCTR(counters.comments, counters.views_unique)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shares per view</span>
-                    <span>{formatCTR(counters.shares, counters.views_unique)}</span>
-                  </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Total Plays</span>
+                  <span className="font-medium">{metrics.total_plays.toLocaleString()}</span>
                 </div>
-              </CardContent>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Replays</span>
+                  <span className="font-medium">
+                    {(metrics.total_plays - metrics.unique_viewers).toLocaleString()}
+                  </span>
+                </div>
+              </div>
             </Card>
           </div>
         </TabsContent>
