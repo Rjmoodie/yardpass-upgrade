@@ -4711,6 +4711,25 @@ export type Database = {
           sponsors: Json
         }[]
       }
+      get_campaign_analytics: {
+        Args: {
+          p_campaign_ids: string[]
+          p_end_date: string
+          p_start_date: string
+        }
+        Returns: {
+          campaign_id: string
+          clicks: number
+          conversions: number
+          credits_spent: number
+          date: string
+          impressions: number
+          org_id: string
+          revenue_cents: number
+          unique_sessions: number
+          unique_users: number
+        }[]
+      }
       get_current_user_org_role: {
         Args: { p_org_id: string }
         Returns: string
