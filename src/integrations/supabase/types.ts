@@ -4113,8 +4113,8 @@ export type Database = {
         Args: { p_failure_reason?: string; p_id: string; p_status: string }
         Returns: undefined
       }
-      ensure_wallet_exists: {
-        Args: { p_user_id: string }
+      ensure_wallet_exists_for_auth_user: {
+        Args: Record<PropertyKey, never>
         Returns: string
       }
       execute_sql: {

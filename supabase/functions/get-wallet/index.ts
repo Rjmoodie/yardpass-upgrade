@@ -29,15 +29,13 @@ Deno.serve(async (req) => {
 
     console.log(`[get-wallet] Fetching wallet for user ${user.id}`);
 
-    // Ensure wallet exists
-    const supabaseService = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    // Ensure wallet exists (using authenticated user's RPC)
+    const { data: walletId, error: walletError } = await supabase.rpc("ensure_wallet_exists_for_auth_user");
 
-    const { data: walletId } = await supabaseService.rpc("ensure_wallet_exists", {
-      p_user_id: user.id,
-    });
+    if (walletError) {
+      console.error(`[get-wallet] Failed to ensure wallet:`, walletError);
+      throw new Error("Failed to initialize wallet");
+    }
 
     console.log(`[get-wallet] Wallet ID: ${walletId}`);
 

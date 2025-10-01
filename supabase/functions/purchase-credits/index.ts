@@ -107,10 +107,13 @@ Deno.serve(async (req) => {
 
     const finalAmount = Math.max(price_usd_cents - discount, 0);
 
-    // Ensure wallet exists
-    const { data: walletId } = await supabaseService.rpc("ensure_wallet_exists", {
-      p_user_id: user.id,
-    });
+    // Ensure wallet exists (using authenticated user's RPC)
+    const { data: walletId, error: walletError } = await supabase.rpc("ensure_wallet_exists_for_auth_user");
+
+    if (walletError) {
+      console.error(`[purchase-credits] Failed to ensure wallet:`, walletError);
+      throw new Error("Failed to initialize wallet");
+    }
 
     const { data: wallet } = await supabaseService
       .from("wallets")
