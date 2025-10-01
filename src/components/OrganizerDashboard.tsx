@@ -476,32 +476,34 @@ export default function OrganizerDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
-        <TabsList className="w-full flex-nowrap justify-start gap-1 p-1">
-          <TabsTrigger value="events" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
-            <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-xs sm:text-sm">Events</span>
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
-            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-xs sm:text-sm">Analytics</span>
-          </TabsTrigger>
-          <TabsTrigger value="campaigns" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
-            <Megaphone className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-xs sm:text-sm">Campaigns</span>
-          </TabsTrigger>
-          <TabsTrigger value="teams" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
-            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-xs sm:text-sm">Teams</span>
-          </TabsTrigger>
-          <TabsTrigger value="wallet" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
-            <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-xs sm:text-sm">Wallet</span>
-          </TabsTrigger>
-          <TabsTrigger value="payouts" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
-            <DollarSign className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-xs sm:text-sm">Payouts</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto scrollbar-hide">
+          <TabsList className="inline-flex w-auto min-w-full justify-start gap-2 p-1.5">
+            <TabsTrigger value="events" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <CalendarDays className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Events</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <BarChart3 className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Analytics</span>
+            </TabsTrigger>
+            <TabsTrigger value="campaigns" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <Megaphone className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Campaigns</span>
+            </TabsTrigger>
+            <TabsTrigger value="teams" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <Users className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Teams</span>
+            </TabsTrigger>
+            <TabsTrigger value="wallet" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <Wallet className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Wallet</span>
+            </TabsTrigger>
+            <TabsTrigger value="payouts" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <DollarSign className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Payouts</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="events" className="space-y-6">
           {(events?.length ?? 0) === 0 ? (
