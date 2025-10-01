@@ -46,7 +46,7 @@ interface Event {
 }
 
 // ─────────────────────────────────────────
-const TAB_KEYS = ['dashboard', 'events', 'teams', 'wallet', 'payouts'] as const;
+const TAB_KEYS = ['dashboard', 'events', 'analytics', 'teams', 'payouts'] as const;
 type TabKey = typeof TAB_KEYS[number];
 const DEFAULT_TAB: TabKey = 'dashboard';
 const lastTabKeyFor = (orgId: string) => `organizer.lastTab.${orgId}`;
@@ -352,13 +352,13 @@ export default function OrganizerDashboard() {
             <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Events</span>
           </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
+            <span className="text-xs">Analytics</span>
+          </TabsTrigger>
           <TabsTrigger value="teams" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Teams</span>
-          </TabsTrigger>
-          <TabsTrigger value="wallet" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <Wallet className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Wallet</span>
           </TabsTrigger>
           <TabsTrigger value="payouts" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
@@ -388,33 +388,8 @@ export default function OrganizerDashboard() {
           <OrganizationTeamPanel organizationId={selectedOrgId} />
         </TabsContent>
 
-        <TabsContent value="wallet" className="space-y-6">
-          <div className="rounded-lg border bg-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Wallet className="h-5 w-5" />
-              <h2 className="text-xl font-semibold">Organization Wallet</h2>
-            </div>
-            <div className="space-y-4">
-              <div className="p-4 bg-muted/50 rounded-lg border-l-4 border-primary">
-                <p className="font-medium mb-1">Coming Soon</p>
-                <p className="text-sm text-muted-foreground">
-                  Organization-level wallets are currently being developed. Each organization will have its own shared credit balance for ad campaigns, managed by org admins.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-medium">What to Expect:</h3>
-                <ul className="text-sm space-y-1 text-muted-foreground list-disc list-inside">
-                  <li>Shared credit balance for the organization</li>
-                  <li>Transaction history visible to all admins</li>
-                  <li>Credit purchases managed by org admins and owners</li>
-                  <li>Separate from personal user wallets</li>
-                </ul>
-              </div>
-              <p className="text-sm text-muted-foreground pt-2 border-t">
-                For now, use your personal wallet at <a href="/wallet" className="text-primary hover:underline font-medium">/wallet</a> to manage ad credits.
-              </p>
-            </div>
-          </div>
+        <TabsContent value="analytics" className="space-y-6">
+          <AnalyticsHub />
         </TabsContent>
 
         <TabsContent value="payouts" className="space-y-6">
