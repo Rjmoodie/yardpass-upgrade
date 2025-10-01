@@ -6,10 +6,60 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MUX_WEBHOOK_SECRET = Deno.env.get("MUX_WEBHOOK_SECRET");
 
-function verifyMuxSig(): boolean {
-  if (!MUX_WEBHOOK_SECRET) return true;
-  // Add real HMAC verification here per Mux docs if needed
-  return true;
+async function verifyMuxSignature(req: Request, payload: string): Promise<boolean> {
+  if (!MUX_WEBHOOK_SECRET) {
+    console.warn("⚠️ MUX_WEBHOOK_SECRET not set - skipping signature verification");
+    return true;
+  }
+
+  const signature = req.headers.get("Mux-Signature");
+  if (!signature) {
+    console.error("❌ No Mux-Signature header found");
+    return false;
+  }
+
+  try {
+    // Mux signature format: t=timestamp,v1=signature
+    const parts = signature.split(",");
+    const timestamp = parts.find(p => p.startsWith("t="))?.split("=")[1];
+    const sig = parts.find(p => p.startsWith("v1="))?.split("=")[1];
+
+    if (!timestamp || !sig) {
+      console.error("❌ Invalid signature format");
+      return false;
+    }
+
+    // Create expected signature: timestamp + "." + payload
+    const signedPayload = `${timestamp}.${payload}`;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(MUX_WEBHOOK_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    
+    const expectedSig = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      encoder.encode(signedPayload)
+    );
+    
+    const expectedHex = Array.from(new Uint8Array(expectedSig))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    const isValid = expectedHex === sig;
+    if (!isValid) {
+      console.error("❌ Signature verification failed");
+    }
+    
+    return isValid;
+  } catch (error) {
+    console.error("❌ Signature verification error:", error);
+    return false;
+  }
 }
 
 serve(async (req) => {
@@ -21,11 +71,14 @@ serve(async (req) => {
   }
 
   try {
-    if (!verifyMuxSig()) {
+    const rawBody = await req.text();
+    const payload = JSON.parse(rawBody);
+
+    // Verify signature
+    const isValid = await verifyMuxSignature(req, rawBody);
+    if (!isValid) {
       return createErrorResponse("invalid_signature", 401);
     }
-
-    const payload = await req.json();
     const type = payload?.type as string;
     const data = payload?.data ?? {};
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
