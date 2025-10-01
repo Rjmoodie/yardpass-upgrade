@@ -22,6 +22,7 @@ export type Database = {
           id: string
           metric_type: string
           occurred_at: string
+          org_wallet_id: string | null
           quantity: number
           rate_model: string
           rate_usd_cents: number
@@ -35,6 +36,7 @@ export type Database = {
           id?: string
           metric_type: string
           occurred_at: string
+          org_wallet_id?: string | null
           quantity: number
           rate_model: string
           rate_usd_cents: number
@@ -48,6 +50,7 @@ export type Database = {
           id?: string
           metric_type?: string
           occurred_at?: string
+          org_wallet_id?: string | null
           quantity?: number
           rate_model?: string
           rate_usd_cents?: number
@@ -55,6 +58,13 @@ export type Database = {
           wallet_transaction_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ad_spend_ledger_org_wallet_id_fkey"
+            columns: ["org_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "org_wallets"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ad_spend_ledger_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -1438,6 +1448,7 @@ export type Database = {
           created_at: string
           credits_purchased: number
           id: string
+          org_wallet_id: string | null
           promo_code: string | null
           receipt_url: string | null
           status: string
@@ -1452,6 +1463,7 @@ export type Database = {
           created_at?: string
           credits_purchased: number
           id?: string
+          org_wallet_id?: string | null
           promo_code?: string | null
           receipt_url?: string | null
           status: string
@@ -1466,6 +1478,7 @@ export type Database = {
           created_at?: string
           credits_purchased?: number
           id?: string
+          org_wallet_id?: string | null
           promo_code?: string | null
           receipt_url?: string | null
           status?: string
@@ -1476,6 +1489,13 @@ export type Database = {
           wallet_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_org_wallet_id_fkey"
+            columns: ["org_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "org_wallets"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoices_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -1897,6 +1917,100 @@ export type Database = {
             foreignKeyName: "org_memberships_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_wallet_transactions: {
+        Row: {
+          created_at: string
+          credits_delta: number
+          description: string | null
+          id: string
+          invoice_id: string | null
+          metadata: Json | null
+          reference_id: string | null
+          reference_type: string | null
+          stripe_event_id: string | null
+          transaction_type: string
+          wallet_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_delta: number
+          description?: string | null
+          id?: string
+          invoice_id?: string | null
+          metadata?: Json | null
+          reference_id?: string | null
+          reference_type?: string | null
+          stripe_event_id?: string | null
+          transaction_type: string
+          wallet_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_delta?: number
+          description?: string | null
+          id?: string
+          invoice_id?: string | null
+          metadata?: Json | null
+          reference_id?: string | null
+          reference_type?: string | null
+          stripe_event_id?: string | null
+          transaction_type?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_wallet_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "org_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_wallets: {
+        Row: {
+          auto_reload_enabled: boolean
+          auto_reload_topup_credits: number | null
+          balance_credits: number
+          created_at: string
+          id: string
+          low_balance_threshold: number
+          org_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          auto_reload_enabled?: boolean
+          auto_reload_topup_credits?: number | null
+          balance_credits?: number
+          created_at?: string
+          id?: string
+          low_balance_threshold?: number
+          org_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          auto_reload_enabled?: boolean
+          auto_reload_topup_credits?: number | null
+          balance_credits?: number
+          created_at?: string
+          id?: string
+          low_balance_threshold?: number
+          org_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_wallets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -4113,6 +4227,10 @@ export type Database = {
         Args: { p_failure_reason?: string; p_id: string; p_status: string }
         Returns: undefined
       }
+      ensure_org_wallet_exists: {
+        Args: { p_org_id: string }
+        Returns: string
+      }
       ensure_wallet_exists_for_auth_user: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -4486,6 +4604,16 @@ export type Database = {
         Args: { txt: string }
         Returns: string
       }
+      org_wallet_apply_purchase: {
+        Args: {
+          p_credits: number
+          p_description?: string
+          p_invoice_id: string
+          p_stripe_event_id: string
+          p_wallet_id: string
+        }
+        Returns: string
+      }
       prune_dead_letters: {
         Args: { p_keep_days?: number }
         Returns: undefined
@@ -4493,6 +4621,10 @@ export type Database = {
       prune_request_logs: {
         Args: { p_keep_days?: number }
         Returns: undefined
+      }
+      recompute_org_wallet_balance: {
+        Args: { p_wallet_id: string }
+        Returns: number
       }
       recompute_wallet_balance: {
         Args: { p_wallet: string }
