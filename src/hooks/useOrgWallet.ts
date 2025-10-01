@@ -103,9 +103,9 @@ export const useOrgWallet = (orgId: string) => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["org-wallet", orgId] });
-      // Redirect to Stripe checkout
+      // Open Stripe checkout in a new tab (required for iframe environments)
       if (data.session_url) {
-        window.location.href = data.session_url;
+        window.open(data.session_url, '_blank');
       }
     },
     onError: (error: Error) => {
