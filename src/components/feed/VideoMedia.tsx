@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Volume2, VolumeX, Bookmark } from 'lucide-react';
-import { muxToPoster, buildMuxUrl } from '@/utils/mux';
-import { useSmartHlsVideo } from '@/hooks/useSmartHlsVideo';
+import { extractMuxPlaybackId } from '@/utils/mux';
+import MuxPlayer from '@mux/mux-player-react';
+
+type MuxPlayerRefElement = React.ElementRef<typeof MuxPlayer>;
 
 export function VideoMedia({
   url,
@@ -16,82 +18,76 @@ export function VideoMedia({
   onAttachAnalytics?: (v: HTMLVideoElement) => VoidFunction | void;
 }) {
   const [muted, setMuted] = useState(true);
-  const [ready, setReady] = useState(false);
+  const playerRef = useRef<MuxPlayerRefElement | null>(null);
 
-  const manifest = useMemo(() => {
-    const muxUrl = buildMuxUrl(url);
-    console.log('🎬 Building manifest URL:', { originalUrl: url, muxUrl });
-    if (muxUrl?.includes('stream.mux.com')) {
-      const finalUrl = `${muxUrl}?redundant_streams=true`;
-      console.log('📺 Final manifest URL:', finalUrl);
-      return finalUrl;
-    }
-    console.log('🔄 Using original URL as manifest:', muxUrl || url);
-    return muxUrl || url;
-  }, [url]);
+  // Extract Mux playback ID from URL (supports mux:ABC or stream.mux.com/ABC)
+  const playbackId = useMemo(() => extractMuxPlaybackId(url), [url]);
 
-  const poster = useMemo(() => muxToPoster(url, 'fit_mode=smartcrop&time=1'), [url]);
-
-  const { videoRef } = useSmartHlsVideo(manifest, visible);
-
-  // Attach analytics safely (depend on ref object, not ref.current)
+  // Attach analytics tracking to the underlying video element (MuxPlayer.media)
   useEffect(() => {
-    const v = videoRef.current;
-    if (!visible || !v) return;
-    const cleanup = onAttachAnalytics?.(v);
+    const muxPlayer = playerRef.current;
+    if (!visible || !muxPlayer?.media) return;
+    // Cast to HTMLVideoElement for compatibility with analytics hook
+    const cleanup = onAttachAnalytics?.(muxPlayer.media as unknown as HTMLVideoElement);
     return () => {
       if (typeof cleanup === 'function') cleanup();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, videoRef, onAttachAnalytics]);
+  }, [visible, onAttachAnalytics]);
 
-  // Try to start/resume when it becomes visible
+  // Control playback based on visibility
   useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
+    const muxPlayer = playerRef.current;
+    if (!muxPlayer) return;
+    
     if (visible) {
-      v.muted = muted;
-      // Don't block UI if autoplay fails; it's fine silently.
-      v.play().catch(() => {});
+      muxPlayer.muted = muted;
+      muxPlayer.play().catch(() => {});
     } else {
-      try { v.pause(); } catch {}
+      try { muxPlayer.pause(); } catch {}
     }
-  }, [visible, muted, videoRef]);
+  }, [visible, muted]);
+
+  if (!playbackId) {
+    return (
+      <div className="w-full max-h-80 rounded-lg bg-muted flex items-center justify-center">
+        <p className="text-muted-foreground">Invalid video URL</p>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
-      {/* Optimized poster */}
-      <img
-        src={poster}
-        alt={`Video thumbnail for post by ${post?.user_profiles?.display_name ?? 'User'}`}
-        className="w-full max-h-80 object-cover rounded-lg absolute inset-0 z-10"
-        loading="eager"
-        fetchPriority="high"
-        style={{ opacity: ready ? 0 : 1, transition: 'opacity 180ms ease-in' }}
-      />
-
-      <video
-        ref={videoRef}
-        className="w-full max-h-80 object-cover rounded-lg relative z-20"
-        playsInline
+      <MuxPlayer
+        ref={playerRef}
+        playbackId={playbackId}
+        envKey="5i41hf91q117pfu1fgli0glfs"
+        streamType="on-demand"
+        autoPlay={visible ? "muted" : false}
         muted={muted}
-        preload="metadata"
-        poster={poster}
-        aria-label={`Video in post by ${post?.user_profiles?.display_name ?? 'User'}`}
-        controls={false}
-        onLoadedData={() => setReady(true)}
+        loop
+        style={{
+          width: '100%',
+          maxHeight: '320px',
+          objectFit: 'cover',
+          borderRadius: '0.5rem',
+        }}
+        className="relative z-20"
+        metadata={{
+          video_title: `Post by ${post?.user_profiles?.display_name ?? 'User'}`,
+          viewer_user_id: post?.author_user_id,
+        }}
       />
 
-      <div className="absolute top-2 right-2 flex flex-col gap-2">
+      <div className="absolute top-2 right-2 flex flex-col gap-2 z-30">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => {
-            const v = videoRef.current;
-            if (!v) return;
+            const player = playerRef.current;
+            if (!player) return;
             const next = !muted;
             setMuted(next);
-            v.muted = next;
+            player.muted = next;
           }}
           className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm rounded-full"
           aria-label={muted ? 'Unmute video' : 'Mute video'}
