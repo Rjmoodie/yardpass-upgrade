@@ -139,6 +139,8 @@ export default {
         rail: "40",
         toast: "50",
         modal: "50",
+        popover: "100",
+        dropdown: "100",
       },
       opacity: {
         15: "0.15",
