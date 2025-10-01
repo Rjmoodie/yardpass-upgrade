@@ -137,3 +137,12 @@ verify_jwt = false
 
 [functions.wallet-admin-credit]
 verify_jwt = true
+
+[functions.get-org-wallet]
+verify_jwt = true
+
+[functions.purchase-org-credits]
+verify_jwt = true
+
+[functions.org-wallet-transactions]
+verify_jwt = true

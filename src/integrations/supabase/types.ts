@@ -4614,6 +4614,10 @@ export type Database = {
         }
         Returns: string
       }
+      org_wallet_freeze_if_negative: {
+        Args: { p_wallet_id: string }
+        Returns: undefined
+      }
       prune_dead_letters: {
         Args: { p_keep_days?: number }
         Returns: undefined

@@ -66,9 +66,11 @@ Deno.serve(async (req) => {
         const meta = session.metadata || {};
         const invoiceId = meta.invoice_id ?? null;
         const walletId = meta.wallet_id ?? null;
+        const orgWalletId = meta.org_wallet_id ?? null;
         const creditsStr = meta.credits ?? null;
+        const isOrgWallet = !!orgWalletId;
 
-        if (!invoiceId || !walletId || !creditsStr) {
+        if (!invoiceId || (!walletId && !orgWalletId) || !creditsStr) {
           console.error(`[wallet-webhook:${requestId}] Missing metadata (invoice_id/wallet_id/credits).`);
           break;
         }
@@ -91,18 +93,29 @@ Deno.serve(async (req) => {
           await sb.from("invoices").update({ stripe_payment_intent_id: paymentIntentId }).eq("id", invoiceId);
         }
 
-        // Atomic apply
-        const { error: applyErr } = await sb.rpc("wallet_apply_purchase", {
-          p_invoice_id: invoiceId,
-          p_wallet_id: walletId,
-          p_credits: credits,
-          p_usd_cents: amountCents ?? credits,
-          p_receipt_url: receiptUrl,
-          p_idempotency_key: event.id
-        });
-        if (applyErr) throw applyErr;
-
-        console.log(`[wallet-webhook:${requestId}] Purchase applied: +${credits} credits to wallet ${walletId}`);
+        // Atomic apply - org or user wallet
+        if (isOrgWallet) {
+          const { error: applyErr } = await sb.rpc("org_wallet_apply_purchase", {
+            p_wallet_id: orgWalletId,
+            p_credits: credits,
+            p_invoice_id: invoiceId,
+            p_stripe_event_id: event.id,
+            p_description: "Credit purchase"
+          });
+          if (applyErr) throw applyErr;
+          console.log(`[wallet-webhook:${requestId}] Purchase applied: +${credits} credits to org wallet ${orgWalletId}`);
+        } else {
+          const { error: applyErr } = await sb.rpc("wallet_apply_purchase", {
+            p_invoice_id: invoiceId,
+            p_wallet_id: walletId,
+            p_credits: credits,
+            p_usd_cents: amountCents ?? credits,
+            p_receipt_url: receiptUrl,
+            p_idempotency_key: event.id
+          });
+          if (applyErr) throw applyErr;
+          console.log(`[wallet-webhook:${requestId}] Purchase applied: +${credits} credits to wallet ${walletId}`);
+        }
         break;
       }
 
@@ -112,7 +125,7 @@ Deno.serve(async (req) => {
 
         const { data: inv, error: invErr } = await sb
           .from("invoices")
-          .select("id, wallet_id, credits_purchased, amount_usd_cents")
+          .select("id, wallet_id, org_wallet_id, credits_purchased, amount_usd_cents")
           .eq("stripe_payment_intent_id", piId)
           .maybeSingle();
         if (invErr) throw invErr;
@@ -121,18 +134,30 @@ Deno.serve(async (req) => {
         const receiptUrl = await getReceiptUrlFromPaymentIntent(piId);
         const credits = inv.credits_purchased;
         const amountCents = inv.amount_usd_cents ?? credits;
+        const isOrgWallet = !!inv.org_wallet_id;
 
-        const { error: applyErr } = await sb.rpc("wallet_apply_purchase", {
-          p_invoice_id: inv.id,
-          p_wallet_id: inv.wallet_id,
-          p_credits: credits,
-          p_usd_cents: amountCents,
-          p_receipt_url: receiptUrl,
-          p_idempotency_key: event.id
-        });
-        if (applyErr) throw applyErr;
-
-        console.log(`[wallet-webhook:${requestId}] Purchase applied via PI: +${credits} credits`);
+        if (isOrgWallet) {
+          const { error: applyErr } = await sb.rpc("org_wallet_apply_purchase", {
+            p_wallet_id: inv.org_wallet_id,
+            p_credits: credits,
+            p_invoice_id: inv.id,
+            p_stripe_event_id: event.id,
+            p_description: "Credit purchase"
+          });
+          if (applyErr) throw applyErr;
+          console.log(`[wallet-webhook:${requestId}] Purchase applied via PI: +${credits} credits to org wallet`);
+        } else {
+          const { error: applyErr } = await sb.rpc("wallet_apply_purchase", {
+            p_invoice_id: inv.id,
+            p_wallet_id: inv.wallet_id,
+            p_credits: credits,
+            p_usd_cents: amountCents,
+            p_receipt_url: receiptUrl,
+            p_idempotency_key: event.id
+          });
+          if (applyErr) throw applyErr;
+          console.log(`[wallet-webhook:${requestId}] Purchase applied via PI: +${credits} credits`);
+        }
         break;
       }
 
@@ -143,7 +168,7 @@ Deno.serve(async (req) => {
 
         const { data: inv, error: invErr } = await sb
           .from("invoices")
-          .select("id, wallet_id")
+          .select("id, wallet_id, org_wallet_id")
           .eq("stripe_payment_intent_id", piId)
           .maybeSingle();
         if (invErr) throw invErr;
@@ -154,19 +179,37 @@ Deno.serve(async (req) => {
 
         const refundCents = charge.amount_refunded ?? 0;
         if (refundCents <= 0) break;
+        const isOrgWallet = !!inv.org_wallet_id;
 
-        const { error: refErr } = await sb.rpc("wallet_apply_refund", {
-          p_invoice_id: inv.id,
-          p_wallet_id: inv.wallet_id,
-          p_refund_usd_cents: refundCents,
-          p_idempotency_key: event.id
-        });
-        if (refErr) throw refErr;
-
-        // Freeze if negative
-        await sb.rpc("wallet_freeze_if_negative", { p_wallet_id: inv.wallet_id });
-
-        console.log(`[wallet-webhook:${requestId}] Refund applied: -${refundCents} cents (${refundCents} credits)`);
+        if (isOrgWallet) {
+          // For org wallets: create negative transaction
+          const refundCredits = refundCents; // 1 cent = 1 credit
+          await sb.from("org_wallet_transactions").insert({
+            wallet_id: inv.org_wallet_id,
+            credits_delta: -refundCredits,
+            transaction_type: "refund",
+            description: "Refund",
+            invoice_id: inv.id,
+            stripe_event_id: event.id
+          });
+          
+          await sb.from("org_wallets")
+            .update({ balance_credits: sb.raw(`balance_credits - ${refundCredits}`) })
+            .eq("id", inv.org_wallet_id);
+          
+          await sb.rpc("org_wallet_freeze_if_negative", { p_wallet_id: inv.org_wallet_id });
+          console.log(`[wallet-webhook:${requestId}] Org refund applied: -${refundCents} credits`);
+        } else {
+          const { error: refErr } = await sb.rpc("wallet_apply_refund", {
+            p_invoice_id: inv.id,
+            p_wallet_id: inv.wallet_id,
+            p_refund_usd_cents: refundCents,
+            p_idempotency_key: event.id
+          });
+          if (refErr) throw refErr;
+          await sb.rpc("wallet_freeze_if_negative", { p_wallet_id: inv.wallet_id });
+          console.log(`[wallet-webhook:${requestId}] Refund applied: -${refundCents} cents`);
+        }
         break;
       }
 
@@ -177,12 +220,17 @@ Deno.serve(async (req) => {
 
         const { data: inv } = await sb
           .from("invoices")
-          .select("id, wallet_id")
+          .select("id, wallet_id, org_wallet_id")
           .eq("stripe_payment_intent_id", piId)
           .maybeSingle();
         if (inv) {
-          await sb.from("wallets").update({ status: "frozen" }).eq("id", inv.wallet_id);
-          console.log(`[wallet-webhook:${requestId}] Wallet ${inv.wallet_id} frozen due to dispute`);
+          if (inv.org_wallet_id) {
+            await sb.from("org_wallets").update({ status: "frozen" }).eq("id", inv.org_wallet_id);
+            console.log(`[wallet-webhook:${requestId}] Org wallet ${inv.org_wallet_id} frozen due to dispute`);
+          } else if (inv.wallet_id) {
+            await sb.from("wallets").update({ status: "frozen" }).eq("id", inv.wallet_id);
+            console.log(`[wallet-webhook:${requestId}] Wallet ${inv.wallet_id} frozen due to dispute`);
+          }
         }
         break;
       }

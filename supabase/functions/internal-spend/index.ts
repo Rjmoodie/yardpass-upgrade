@@ -28,6 +28,7 @@ Deno.serve(async (req) => {
     const {
       campaign_id,
       wallet_id,
+      org_wallet_id,
       metric_type,
       quantity,
       rate_model,
@@ -35,8 +36,16 @@ Deno.serve(async (req) => {
       occurred_at,
     } = body;
 
+    // Validate exactly one wallet type
+    if ((!wallet_id && !org_wallet_id) || (wallet_id && org_wallet_id)) {
+      throw new Error("Exactly one of wallet_id or org_wallet_id must be provided");
+    }
+
+    const isOrgWallet = !!org_wallet_id;
+    const activeWalletId = isOrgWallet ? org_wallet_id : wallet_id;
+
     console.log(
-      `[internal-spend] Campaign ${campaign_id}, ${quantity} ${metric_type}s @ ${rate_model}`
+      `[internal-spend] Campaign ${campaign_id}, ${quantity} ${metric_type}s @ ${rate_model} (${isOrgWallet ? 'org' : 'user'} wallet)`
     );
 
     const supabase = createClient(
@@ -44,11 +53,12 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Check idempotency
+    // Check idempotency (check both tables)
+    const txTable = isOrgWallet ? "org_wallet_transactions" : "wallet_transactions";
     const { data: existing } = await supabase
-      .from("wallet_transactions")
+      .from(txTable)
       .select("*")
-      .eq("idempotency_key", idempotencyKey)
+      .eq("metadata->idempotency_key", idempotencyKey)
       .maybeSingle();
 
     if (existing) {
@@ -70,10 +80,11 @@ Deno.serve(async (req) => {
     }
 
     // Lock wallet and check balance
+    const walletTable = isOrgWallet ? "org_wallets" : "wallets";
     const { data: wallet, error: lockError } = await supabase
-      .from("wallets")
+      .from(walletTable)
       .select("balance_credits, status")
-      .eq("id", wallet_id)
+      .eq("id", activeWalletId)
       .single();
 
     if (lockError) throw lockError;
@@ -90,50 +101,76 @@ Deno.serve(async (req) => {
     }
 
     // Create wallet transaction (deduction)
-    const { data: transaction, error: txError } = await supabase
-      .from("wallet_transactions")
-      .insert({
-        wallet_id,
-        type: "spend",
-        credits_delta: -creditsCharged,
-        reference_type: "campaign",
-        reference_id: campaign_id,
-        memo: `${metric_type} spend (${rate_model.toUpperCase()})`,
-        idempotency_key,
-      })
-      .select()
-      .single();
-
-    if (txError) throw txError;
+    let transaction: any;
+    if (isOrgWallet) {
+      const { data: tx, error: txError } = await supabase
+        .from("org_wallet_transactions")
+        .insert({
+          wallet_id: activeWalletId,
+          credits_delta: -creditsCharged,
+          transaction_type: "spend",
+          description: `${metric_type} spend (${rate_model.toUpperCase()})`,
+          reference_type: "campaign",
+          reference_id: campaign_id,
+          metadata: { idempotency_key: idempotencyKey }
+        })
+        .select()
+        .single();
+      if (txError) throw txError;
+      transaction = tx;
+    } else {
+      const { data: tx, error: txError } = await supabase
+        .from("wallet_transactions")
+        .insert({
+          wallet_id: activeWalletId,
+          type: "spend",
+          credits_delta: -creditsCharged,
+          reference_type: "campaign",
+          reference_id: campaign_id,
+          memo: `${metric_type} spend (${rate_model.toUpperCase()})`,
+          idempotency_key,
+        })
+        .select()
+        .single();
+      if (txError) throw txError;
+      transaction = tx;
+    }
 
     // Update wallet balance
     const { error: balError } = await supabase
-      .from("wallets")
+      .from(walletTable)
       .update({
         balance_credits: wallet.balance_credits - creditsCharged,
       })
-      .eq("id", wallet_id);
+      .eq("id", activeWalletId);
 
     if (balError) {
       // Rollback transaction if balance update fails
-      await supabase.from("wallet_transactions").delete().eq("id", transaction.id);
+      await supabase.from(txTable).delete().eq("id", transaction.id);
       throw balError;
     }
 
     // Record in ad_spend_ledger
+    const ledgerRow: any = {
+      campaign_id,
+      metric_type,
+      quantity,
+      rate_model,
+      rate_usd_cents,
+      credits_charged: creditsCharged,
+      occurred_at: occurred_at || new Date().toISOString(),
+      wallet_transaction_id: transaction.id,
+    };
+
+    if (isOrgWallet) {
+      ledgerRow.org_wallet_id = activeWalletId;
+    } else {
+      ledgerRow.wallet_id = activeWalletId;
+    }
+
     const { error: ledgerError } = await supabase
       .from("ad_spend_ledger")
-      .insert({
-        campaign_id,
-        wallet_id,
-        metric_type,
-        quantity,
-        rate_model,
-        rate_usd_cents,
-        credits_charged: creditsCharged,
-        occurred_at: occurred_at || new Date().toISOString(),
-        wallet_transaction_id: transaction.id,
-      });
+      .insert(ledgerRow);
 
     if (ledgerError) {
       console.error(`[internal-spend] Ledger insert failed:`, ledgerError);
@@ -147,16 +184,16 @@ Deno.serve(async (req) => {
 
     // Check if auto-reload needed
     const { data: walletSettings } = await supabase
-      .from("wallets")
+      .from(walletTable)
       .select("auto_reload_enabled, low_balance_threshold, auto_reload_topup_credits")
-      .eq("id", wallet_id)
+      .eq("id", activeWalletId)
       .single();
 
     if (
       walletSettings?.auto_reload_enabled &&
       newBalance < walletSettings.low_balance_threshold
     ) {
-      console.log(`[internal-spend] Triggering auto-reload for wallet ${wallet_id}`);
+      console.log(`[internal-spend] Triggering auto-reload for ${isOrgWallet ? 'org' : 'user'} wallet ${activeWalletId}`);
       // TODO: Trigger auto-reload via separate function
     }
 
