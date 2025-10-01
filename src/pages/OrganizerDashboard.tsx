@@ -71,6 +71,17 @@ export default function OrganizerDashboard() {
   const [selectedOrganization, setSelectedOrganization] = useState<string | null>(initialOrgParam);
   const scopeKey = selectedOrganization || 'individual';
 
+  // Auto-select first organization if user has orgs but no URL param on first load
+  useEffect(() => {
+    if (!orgsLoading && organizations.length > 0 && !initialOrgParam && !selectedOrganization) {
+      console.log('🔄 Auto-selecting first organization:', organizations[0].id);
+      const next = new URLSearchParams(searchParams);
+      next.set('org', organizations[0].id);
+      setSearchParams(next, { replace: true });
+      setSelectedOrganization(organizations[0].id);
+    }
+  }, [organizations, orgsLoading, initialOrgParam, selectedOrganization, searchParams, setSearchParams]);
+
   // Keep selectedOrganization in sync with URL
   useEffect(() => {
     const orgFromUrl = searchParams.get('org');
@@ -114,6 +125,8 @@ export default function OrganizerDashboard() {
     if (!user?.id) return;
     setLoadingScoped(true);
     try {
+      console.log('🔍 Fetching events for scope:', selectedOrganization ? `org:${selectedOrganization}` : 'personal');
+      
       // Get events for this scope
       let query = supabase
         .from('events')
@@ -121,8 +134,10 @@ export default function OrganizerDashboard() {
         .order('start_at', { ascending: false });
 
       if (selectedOrganization) {
+        console.log('📊 Filtering by organization:', selectedOrganization);
         query = query.eq('owner_context_type', 'organization').eq('owner_context_id', selectedOrganization);
       } else {
+        console.log('👤 Filtering by personal events for user:', user.id);
         query = query.eq('owner_context_type', 'individual').eq('owner_context_id', user.id);
       }
 
@@ -130,7 +145,10 @@ export default function OrganizerDashboard() {
       if (error) throw error;
 
       const rows = (eventData || []) as any[];
+      console.log(`✅ Found ${rows.length} events for this scope`);
+      
       if (rows.length === 0) {
+        console.log('⚠️ No events found for this scope');
         if (mountedRef.current) setScopedEvents([]);
         return;
       }
@@ -141,11 +159,18 @@ export default function OrganizerDashboard() {
       const now = new Date();
       const fromDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); // Last year
 
-      const { data: kpisData } = await supabase.rpc('get_event_kpis_daily', {
+      console.log('📈 Fetching KPIs for event IDs:', eventIds);
+      const { data: kpisData, error: kpisError } = await supabase.rpc('get_event_kpis_daily', {
         p_event_ids: eventIds,
         p_from_date: fromDate.toISOString().split('T')[0],
         p_to_date: now.toISOString().split('T')[0]
       });
+      
+      if (kpisError) {
+        console.error('❌ KPIs error:', kpisError);
+      } else {
+        console.log('💰 KPIs data rows:', kpisData?.length || 0);
+      }
 
       // Get scan data
       const { data: scanData } = await supabase.rpc('get_event_scans_daily', {
@@ -470,8 +495,17 @@ export default function OrganizerDashboard() {
           {(events?.length ?? 0) === 0 ? (
             <div className="text-center py-16 border rounded-lg">
               <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-              <h3 className="text-lg font-semibold mb-1">No events yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
+              <h3 className="text-lg font-semibold mb-1">
+                {selectedOrganization ? 'No events yet' : 'No personal events'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {selectedOrganization 
+                  ? 'Create your first event for this organization to get started.'
+                  : organizations.length > 0
+                    ? 'You have no personal events. Switch to an organization above to view organization events, or create a personal event.'
+                    : 'Create your first event to get started.'
+                }
+              </p>
               <Button onClick={goCreateEvent}>
                 <Plus className="mr-2 h-4 w-4" />
                 Create Event
