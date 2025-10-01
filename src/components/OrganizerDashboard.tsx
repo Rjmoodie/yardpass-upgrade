@@ -346,7 +346,7 @@ export default function OrganizerDashboard() {
         <TabsList className="grid w-full grid-cols-5 h-auto p-1">
           <TabsTrigger value="events" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Events</span>
+            <span className="text-xs">Event Management</span>
           </TabsTrigger>
           <TabsTrigger value="analytics" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
