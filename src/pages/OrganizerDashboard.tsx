@@ -75,12 +75,12 @@ export default function OrganizerDashboard() {
   useEffect(() => {
     if (!orgsLoading && organizations.length > 0 && !initialOrgParam && !selectedOrganization) {
       console.log('🔄 Auto-selecting first organization:', organizations[0].id);
+      setSelectedOrganization(organizations[0].id);
       const next = new URLSearchParams(searchParams);
       next.set('org', organizations[0].id);
       setSearchParams(next, { replace: true });
-      setSelectedOrganization(organizations[0].id);
     }
-  }, [organizations, orgsLoading, initialOrgParam, selectedOrganization, searchParams, setSearchParams]);
+  }, [organizations, orgsLoading, initialOrgParam, selectedOrganization]);
 
   // Keep selectedOrganization in sync with URL
   useEffect(() => {
@@ -122,7 +122,11 @@ export default function OrganizerDashboard() {
   const mountedRef = useRef(true);
 
   const fetchScopedEvents = useCallback(async () => {
-    if (!user?.id) return;
+    console.log('🚀 fetchScopedEvents called - selectedOrganization:', selectedOrganization, 'user:', user?.id);
+    if (!user?.id) {
+      console.log('⚠️ No user ID, skipping fetch');
+      return;
+    }
     setLoadingScoped(true);
     try {
       console.log('🔍 Fetching events for scope:', selectedOrganization ? `org:${selectedOrganization}` : 'personal');
@@ -160,6 +164,8 @@ export default function OrganizerDashboard() {
       const fromDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); // Last year
 
       console.log('📈 Fetching KPIs for event IDs:', eventIds);
+      console.log('📅 Date range:', fromDate.toISOString().split('T')[0], 'to', now.toISOString().split('T')[0]);
+      
       const { data: kpisData, error: kpisError } = await supabase.rpc('get_event_kpis_daily', {
         p_event_ids: eventIds,
         p_from_date: fromDate.toISOString().split('T')[0],
@@ -170,6 +176,10 @@ export default function OrganizerDashboard() {
         console.error('❌ KPIs error:', kpisError);
       } else {
         console.log('💰 KPIs data rows:', kpisData?.length || 0);
+        if (kpisData && kpisData.length > 0) {
+          console.log('📊 Sample KPI row:', kpisData[0]);
+          console.log('💵 Total revenue (cents):', kpisData.reduce((sum: number, row: any) => sum + (row.gmv_cents || 0), 0));
+        }
       }
 
       // Get scan data
