@@ -1149,43 +1149,14 @@ const AnalyticsHub: React.FC<{ initialOrgId?: string | null }> = ({ initialOrgId
       <div className="container mx-auto p-6 max-w-7xl">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold mb-2">YardPass Analytics Hub</h1>
-              <p className="text-sm sm:text-base text-muted-foreground">Comprehensive insights across your events and content</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => setAutoRefresh((v) => !v)} className="h-8 px-3 text-xs">
-                {autoRefresh ? <><PauseIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> <span className="hidden sm:inline">Auto-refresh</span></> : <><ResumeIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> <span className="hidden sm:inline">Auto-refresh</span></>}
-              </Button>
-              <Button variant={realtime ? 'default' : 'outline'} size="sm" onClick={() => setRealtime((v) => !v)} className="h-8 px-3 text-xs">
-                <RadioIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> <span className="hidden sm:inline">Realtime</span>
-              </Button>
-              <Button variant="outline" size="sm" onClick={shareLink} title="Copy deep link" className="h-8 px-3 text-xs">
-                <ShareIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> <span className="hidden sm:inline">Share</span>
-              </Button>
-            </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">YardPass Analytics Hub</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Comprehensive insights across your events and content</p>
           </div>
         </div>
 
         {/* Controls */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          <Select value={selectedOrg} onValueChange={(orgId) => {
-            setSelectedOrg(orgId);
-            trackEvent('analytics_org_change', { organization_id: orgId, date_range: dateRange, active_tab: activeTab });
-          }}>
-            <SelectTrigger className="w-full sm:w-64" aria-label="Select organization">
-              <SelectValue placeholder={organizations.length ? 'Select organization' : 'No organizations'} />
-            </SelectTrigger>
-            <SelectContent>
-              {organizations.map((org) => (
-                <SelectItem key={org.id} value={org.id}>
-                  {org.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
           <Select value={dateRange} onValueChange={(range) => {
             setDateRange(range);
             trackEvent('analytics_date_range_change', { from_range: dateRange, to_range: range, organization_id: selectedOrg, active_tab: activeTab });
@@ -1199,14 +1170,6 @@ const AnalyticsHub: React.FC<{ initialOrgId?: string | null }> = ({ initialOrgId
               <SelectItem value="90d">Last 90 days</SelectItem>
             </SelectContent>
           </Select>
-
-          <Button onClick={() => {
-            trackEvent('analytics_refresh_click', { organization_id: selectedOrg, date_range: dateRange, active_tab: activeTab });
-            fetchAnalytics();
-          }} disabled={loading} variant="outline" size="sm" className="h-8 px-3 text-xs">
-            <RefreshIcon className={`h-3 w-3 sm:h-4 sm:w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
         </div>
 
         {/* Main Content */}
