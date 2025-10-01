@@ -30,7 +30,6 @@ export type Screen =
   | 'scanner'
   | 'ticket-success'
   | 'posts-test'
-  | 'analytics'
   | 'sponsor';
 
 export type UserRole = 'attendee' | 'organizer';
@@ -49,7 +48,6 @@ const AUTH_REQUIRED: Record<string, Screen> = {
   '/profile': 'profile',
   '/tickets': 'tickets',
   '/scanner': 'scanner',
-  '/analytics': 'analytics',
   '/sponsor': 'sponsor',
 };
 
@@ -80,7 +78,6 @@ export default function Navigation({ userRole }: NavigationProps) {
           // Attendees see Tickets
           { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: userRole === 'attendee' },
           { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
-          { id: 'analytics' as Screen, path: '/analytics', icon: TrendingUp, label: 'Analytics', show: userRole === 'organizer' },
           { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
           { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
         ] as const
@@ -151,7 +148,6 @@ export default function Navigation({ userRole }: NavigationProps) {
       'profile': '/profile',
       'tickets': '/tickets',
       'scanner': '/scanner',
-      'analytics': '/analytics',
       'sponsor': '/sponsor',
     };
     const path = pathMap[pendingNavigation];
