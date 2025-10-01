@@ -476,30 +476,30 @@ export default function OrganizerDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6 h-auto p-1">
-          <TabsTrigger value="events" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Event Management</span>
+        <TabsList className="w-full flex-nowrap justify-start gap-1 p-1">
+          <TabsTrigger value="events" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
+            <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm">Events</span>
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Analytics</span>
+          <TabsTrigger value="analytics" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
+            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm">Analytics</span>
           </TabsTrigger>
-          <TabsTrigger value="campaigns" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <Megaphone className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Campaigns</span>
+          <TabsTrigger value="campaigns" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
+            <Megaphone className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm">Campaigns</span>
           </TabsTrigger>
-          <TabsTrigger value="teams" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Teams</span>
+          <TabsTrigger value="teams" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
+            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm">Teams</span>
           </TabsTrigger>
-          <TabsTrigger value="wallet" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <Wallet className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Wallet</span>
+          <TabsTrigger value="wallet" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
+            <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm">Wallet</span>
           </TabsTrigger>
-          <TabsTrigger value="payouts" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Payouts</span>
+          <TabsTrigger value="payouts" className="flex-col gap-1 min-w-[100px] sm:min-w-[120px]">
+            <DollarSign className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm">Payouts</span>
           </TabsTrigger>
         </TabsList>
 
