@@ -1456,7 +1456,7 @@ export type Database = {
           stripe_payment_intent_id: string | null
           tax_usd_cents: number
           updated_at: string
-          wallet_id: string
+          wallet_id: string | null
         }
         Insert: {
           amount_usd_cents: number
@@ -1471,7 +1471,7 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           tax_usd_cents?: number
           updated_at?: string
-          wallet_id: string
+          wallet_id?: string | null
         }
         Update: {
           amount_usd_cents?: number
@@ -1486,7 +1486,7 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           tax_usd_cents?: number
           updated_at?: string
-          wallet_id?: string
+          wallet_id?: string | null
         }
         Relationships: [
           {
