@@ -116,11 +116,11 @@ export default function OrganizerDashboard() {
     try {
       let query = supabase
         .from('events')
-        .select(`id, title, created_at, start_at, end_at, venue, category,
-                 cover_image_url, description, city, visibility,
-                 owner_context_type, owner_context_id,
-                 attendees, revenue, views, likes, shares,
-                 tickets_sold, capacity, conversion_rate, engagement_rate`)
+        .select(`
+          id, title, created_at, start_at, end_at, venue, category,
+          cover_image_url, description, city, visibility,
+          owner_context_type, owner_context_id
+        `)
         .order('start_at', { ascending: false });
 
       if (selectedOrganization) {
@@ -133,45 +133,118 @@ export default function OrganizerDashboard() {
           .eq('owner_context_id', user.id);
       }
 
-      const { data, error } = await query;
+      const { data: eventData, error } = await query;
       if (error) throw error;
 
-      const rows = (data || []) as any[];
+      const rows = (eventData || []) as any[];
 
-      const mapped: Event[] = rows.map((e) => ({
-        id: e.id,
-        title: e.title || 'Untitled Event',
-        status: e.visibility === 'draft' ? 'draft' : 'published',
-        date: e.start_at ? new Date(e.start_at).toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric',
-          timeZone: 'UTC'
-        }) : 'Date TBD',
-        attendees: e.attendees ?? 0,
-        revenue: e.revenue ?? 0,
-        views: e.views ?? 0,
-        likes: e.likes ?? 0,
-        shares: e.shares ?? 0,
-        tickets_sold: e.tickets_sold ?? 0,
-        capacity: e.capacity ?? 0,
-        conversion_rate: e.conversion_rate ?? 0,
-        engagement_rate: e.engagement_rate ?? 0,
-        created_at: e.created_at,
-        start_at: e.start_at,
-        end_at: e.end_at,
-        venue: e.venue || 'Venue TBD',
-        category: e.category || 'General',
-        cover_image_url: e.cover_image_url,
-        description: e.description || '',
-        city: e.city || 'Location TBD',
-        visibility: e.visibility || 'public',
-        owner_context_type: e.owner_context_type,
-        owner_context_id: e.owner_context_id,
-      }));
+      // Fetch metrics for all events in parallel
+      const eventsWithMetrics = await Promise.all(
+        rows.map(async (e) => {
+          // Get ticket metrics
+          const { data: ticketData } = await supabase
+            .from('tickets')
+            .select('id, status')
+            .eq('event_id', e.id);
+          
+          const attendees = (ticketData || []).filter(t => 
+            ['issued', 'transferred', 'redeemed'].includes(t.status)
+          ).length;
 
-      if (mountedRef.current) setScopedEvents(mapped);
+          // Get revenue from orders
+          const { data: orderData } = await supabase
+            .from('orders')
+            .select('total_cents')
+            .eq('event_id', e.id)
+            .eq('status', 'paid');
+          
+          const revenue = (orderData || []).reduce((sum, o) => sum + (o.total_cents || 0), 0) / 100;
+
+          // Get engagement metrics from posts
+          const { data: postData } = await supabase
+            .from('event_posts')
+            .select('id')
+            .eq('event_id', e.id)
+            .is('deleted_at', null);
+
+          const postIds = (postData || []).map(p => p.id);
+
+          let likes = 0;
+          if (postIds.length > 0) {
+            const { data: reactionData } = await supabase
+              .from('event_reactions')
+              .select('kind')
+              .in('post_id', postIds);
+
+            likes = (reactionData || []).filter(r => r.kind === 'like').length;
+          }
+
+          // Get views from video counters
+          const { data: videoData } = await supabase
+            .from('event_video_counters')
+            .select('views_total')
+            .eq('event_id', e.id)
+            .single();
+
+          const views = videoData?.views_total || 0;
+
+          // Get sponsor data
+          const { data: sponsorData } = await supabase
+            .from('event_sponsorships')
+            .select('sponsor_id, amount_cents')
+            .eq('event_id', e.id)
+            .eq('status', 'active');
+
+          const sponsor_count = sponsorData?.length || 0;
+          const sponsor_revenue = (sponsorData || []).reduce((sum, s) => sum + (s.amount_cents || 0), 0) / 100;
+
+          // Get ticket tiers for capacity
+          const { data: tierData } = await supabase
+            .from('ticket_tiers')
+            .select('total_quantity')
+            .eq('event_id', e.id);
+          
+          const capacity = (tierData || []).reduce((sum, t) => sum + (t.total_quantity || 0), 0);
+          const tickets_sold = attendees;
+
+          return {
+            id: e.id,
+            title: e.title || 'Untitled Event',
+            status: e.visibility === 'draft' ? 'draft' : 'published',
+            date: e.start_at ? new Date(e.start_at).toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric',
+              timeZone: 'UTC'
+            }) : 'Date TBD',
+            attendees,
+            revenue,
+            views,
+            likes,
+            shares: 0, // TODO: implement share tracking
+            tickets_sold,
+            capacity,
+            conversion_rate: capacity > 0 ? (tickets_sold / capacity) * 100 : 0,
+            engagement_rate: views > 0 ? (likes / views) * 100 : 0,
+            created_at: e.created_at,
+            start_at: e.start_at,
+            end_at: e.end_at,
+            venue: e.venue || 'Venue TBD',
+            category: e.category || 'General',
+            cover_image_url: e.cover_image_url,
+            description: e.description || '',
+            city: e.city || 'Location TBD',
+            visibility: e.visibility || 'public',
+            owner_context_type: e.owner_context_type,
+            owner_context_id: e.owner_context_id,
+            sponsor_count,
+            sponsor_revenue,
+          } as Event & { sponsor_count: number; sponsor_revenue: number };
+        })
+      );
+
+      if (mountedRef.current) setScopedEvents(eventsWithMetrics);
     } catch (e: any) {
       console.error('fetchScopedEvents', e);
       toast({ title: 'Error loading events', description: e.message || 'Please try again.', variant: 'destructive' });

@@ -64,7 +64,7 @@ export function DashboardOverview({ events, onEventSelect }: DashboardOverviewPr
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{events.length}</div>
-            <p className="text-xs text-muted-foreground">+2 from last month</p>
+            <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
 
@@ -75,7 +75,7 @@ export function DashboardOverview({ events, onEventSelect }: DashboardOverviewPr
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${totals.totalRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+15% from last month</p>
+            <p className="text-xs text-muted-foreground">From ticket sales</p>
           </CardContent>
         </Card>
 
@@ -86,7 +86,7 @@ export function DashboardOverview({ events, onEventSelect }: DashboardOverviewPr
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${totals.totalSponsorRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+22% from last month</p>
+            <p className="text-xs text-muted-foreground">From sponsorships</p>
           </CardContent>
         </Card>
 
@@ -97,7 +97,7 @@ export function DashboardOverview({ events, onEventSelect }: DashboardOverviewPr
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totals.totalAttendees.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+8% from last month</p>
+            <p className="text-xs text-muted-foreground">Tickets issued</p>
           </CardContent>
         </Card>
 
@@ -119,7 +119,7 @@ export function DashboardOverview({ events, onEventSelect }: DashboardOverviewPr
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totals.totalViews.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+12% from last month</p>
+            <p className="text-xs text-muted-foreground">Video views</p>
           </CardContent>
         </Card>
       </div>
