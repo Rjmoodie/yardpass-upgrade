@@ -98,11 +98,10 @@ Deno.serve(async (req) => {
     // Create a request idempotency key
     const requestKey = crypto.randomUUID();
 
-    // Create invoice (org) - using both wallet_id and org_wallet_id for compatibility
+    // Create invoice (org) - only use org_wallet_id, wallet_id is for individual users
     const { data: invoice, error: invErr } = await admin
       .from("invoices")
       .insert({
-        wallet_id: orgWalletId,
         org_wallet_id: orgWalletId,
         amount_usd_cents: price_cents,
         credits_purchased: credits,
