@@ -84,9 +84,11 @@ Deno.serve(async (req) => {
     }
 
     // Create invoice using admin client to bypass RLS
+    // Note: wallet_id is required (NOT NULL), so we use the org_wallet_id for it
     const { data: invoice, error: invoiceError } = await supabaseAdmin
       .from("invoices")
       .insert({
+        wallet_id: walletId,
         org_wallet_id: walletId,
         amount_usd_cents: price_cents,
         credits_purchased: credits,

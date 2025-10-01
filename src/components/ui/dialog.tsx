@@ -36,7 +36,7 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         "fixed left-1/2 top-1/2 z-modal grid w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 " +
-          "gap-4 rounded-2xl border bg-[var(--modal-bg)] border-[var(--modal-border)] " +
+          "gap-4 rounded-2xl border bg-card text-card-foreground border-[var(--modal-border)] " +
           "shadow-[var(--shadow-modal)] p-6 duration-200 " +
           "data-[state=open]:animate-in data-[state=closed]:animate-out " +
           "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 " +
@@ -48,7 +48,7 @@ const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100
-                   focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+                   focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none text-foreground"
       >
         <X className="h-5 w-5" />
         <span className="sr-only">Close</span>
@@ -69,7 +69,7 @@ const BottomSheetContent = React.forwardRef<
       ref={ref}
       className={cn(
         "fixed inset-x-0 bottom-0 z-modal w-full " +
-          "rounded-t-3xl border-t border-[var(--modal-border)] bg-[var(--modal-bg)] " +
+          "rounded-t-3xl border-t border-[var(--modal-border)] bg-card text-card-foreground " +
           "shadow-[var(--shadow-modal)] p-4 pt-2 rail-safe " +
           "data-[state=open]:animate-in data-[state=closed]:animate-out " +
           "data-[state=open]:slide-in-from-bottom-10 data-[state=closed]:slide-out-to-bottom-10 " +
@@ -83,7 +83,7 @@ const BottomSheetContent = React.forwardRef<
       <div className="px-2 pb-2">{children}</div>
       <DialogPrimitive.Close
         className="absolute right-4 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100
-                   focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                   focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground"
       >
         <X className="h-5 w-5" />
         <span className="sr-only">Close</span>
