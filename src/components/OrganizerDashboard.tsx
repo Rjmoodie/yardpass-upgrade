@@ -133,6 +133,13 @@ export default function OrganizerDashboard() {
   const [loadingEvents, setLoadingEvents] = useState<boolean>(true);
   const mountedRef = useRef(true);
 
+  // Dashboard aggregated metrics from orders/tickets
+  const [dashboardTotals, setDashboardTotals] = useState({
+    events: 0,
+    attendees: 0,
+    revenue: 0,
+  });
+
   const fetchScopedEvents = useCallback(async () => {
     if (!selectedOrgId) return;
     setLoadingEvents(true);
@@ -183,6 +190,60 @@ export default function OrganizerDashboard() {
     }
   }, [selectedOrgId]);
 
+  // Fetch aggregated dashboard metrics
+  const fetchDashboardMetrics = useCallback(async () => {
+    if (!selectedOrgId) return;
+    try {
+      const { data: eventsData, error } = await supabase
+        .from('events')
+        .select(`
+          id,
+          orders:orders!orders_event_id_fkey(
+            total_cents,
+            status
+          ),
+          tickets:tickets!tickets_event_id_fkey(
+            status
+          )
+        `)
+        .eq('owner_context_type', 'organization')
+        .eq('owner_context_id', selectedOrgId);
+
+      if (error) throw error;
+
+      const totalEvents = eventsData?.length || 0;
+      let revenueCents = 0;
+      let attendeesCount = 0;
+
+      for (const event of eventsData || []) {
+        const paidOrders = (event.orders || []).filter(
+          (o: any) => o.status === 'paid'
+        );
+        revenueCents += paidOrders.reduce(
+          (sum: number, o: any) => sum + (o.total_cents || 0),
+          0
+        );
+        const redeemedTickets = (event.tickets || []).filter(
+          (t: any) => t.status === 'redeemed'
+        );
+        attendeesCount += redeemedTickets.length;
+      }
+
+      setDashboardTotals({
+        events: totalEvents,
+        revenue: revenueCents / 100, // convert cents to dollars
+        attendees: attendeesCount,
+      });
+    } catch (err) {
+      console.error('Error fetching dashboard metrics:', err);
+      setDashboardTotals({ events: 0, revenue: 0, attendees: 0 });
+    }
+  }, [selectedOrgId]);
+
+  useEffect(() => {
+    fetchDashboardMetrics();
+  }, [fetchDashboardMetrics]);
+
   useEffect(() => {
     mountedRef.current = true;
     fetchScopedEvents();
@@ -192,7 +253,10 @@ export default function OrganizerDashboard() {
       .channel(`events-org-${selectedOrgId}`)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'events', filter: `owner_context_type=eq.organization,owner_context_id=eq.${selectedOrgId}` },
-        () => fetchScopedEvents()
+        () => {
+          fetchScopedEvents();
+          fetchDashboardMetrics();
+        }
       )
       .subscribe();
 
@@ -200,15 +264,7 @@ export default function OrganizerDashboard() {
       mountedRef.current = false;
       try { supabase.removeChannel(ch); } catch {}
     };
-  }, [selectedOrgId, fetchScopedEvents]);
-
-  // Totals
-  const totals = useMemo(() => {
-    const evs = events || [];
-    const revenue = evs.reduce((s, e) => s + (e.revenue || 0), 0);
-    const attendees = evs.reduce((s, e) => s + (e.attendees || 0), 0);
-    return { events: evs.length, revenue, attendees };
-  }, [events]);
+  }, [selectedOrgId, fetchScopedEvents, fetchDashboardMetrics]);
 
   // Event select
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -371,9 +427,9 @@ export default function OrganizerDashboard() {
                 <CheckCircle2 className="h-4 w-4" /> Verified
               </span>
             )}
-            <span>• {totals.events} event{totals.events === 1 ? '' : 's'}</span>
-            <span>• {totals.attendees} attendees</span>
-            <span>• ${totals.revenue.toLocaleString()} revenue</span>
+            <span>• {dashboardTotals.events} event{dashboardTotals.events === 1 ? '' : 's'}</span>
+            <span>• {dashboardTotals.attendees} attendees</span>
+            <span>• ${dashboardTotals.revenue.toLocaleString()} revenue</span>
           </p>
         </div>
 
