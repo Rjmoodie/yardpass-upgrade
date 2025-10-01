@@ -40,13 +40,13 @@ Deno.serve(async (req) => {
     console.log(`[get-wallet] Wallet ID: ${walletId}`);
 
     // Fetch wallet
-    const { data: wallet, error: walletError } = await supabase
+    const { data: wallet, error: fetchError } = await supabase
       .from("wallets")
       .select("*")
       .eq("user_id", user.id)
       .single();
 
-    if (walletError) throw walletError;
+    if (fetchError) throw fetchError;
 
     // Fetch recent transactions (last 10)
     const { data: transactions, error: txError } = await supabase
