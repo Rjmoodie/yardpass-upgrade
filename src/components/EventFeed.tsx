@@ -543,7 +543,6 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                              url={url}
                              post={post}
                              visible={!!visibleMap[post.id]}
-                             onAttachAnalytics={(v) => trackVideoProgress(post.id, post.event_id, v)}
                            />
                         ) : (
                           <div className="relative">
