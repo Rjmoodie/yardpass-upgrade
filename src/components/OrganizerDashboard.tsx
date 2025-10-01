@@ -223,10 +223,11 @@ export default function OrganizerDashboard() {
           (sum: number, o: any) => sum + (o.total_cents || 0),
           0
         );
-        const redeemedTickets = (event.tickets || []).filter(
-          (t: any) => t.status === 'redeemed'
+        // Count all issued tickets (purchased tickets), not just redeemed ones
+        const issuedTickets = (event.tickets || []).filter(
+          (t: any) => t.status === 'issued' || t.status === 'transferred' || t.status === 'redeemed'
         );
-        attendeesCount += redeemedTickets.length;
+        attendeesCount += issuedTickets.length;
       }
 
       setDashboardTotals({
