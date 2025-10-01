@@ -19,11 +19,14 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization")!;
 
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
     });
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -80,8 +83,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create invoice
-    const { data: invoice, error: invoiceError } = await supabase
+    // Create invoice using admin client to bypass RLS
+    const { data: invoice, error: invoiceError } = await supabaseAdmin
       .from("invoices")
       .insert({
         org_wallet_id: walletId,
