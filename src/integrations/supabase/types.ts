@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_spend_ledger: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          credits_charged: number
+          id: string
+          metric_type: string
+          occurred_at: string
+          quantity: number
+          rate_model: string
+          rate_usd_cents: number
+          wallet_id: string
+          wallet_transaction_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          credits_charged: number
+          id?: string
+          metric_type: string
+          occurred_at: string
+          quantity: number
+          rate_model: string
+          rate_usd_cents: number
+          wallet_id: string
+          wallet_transaction_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          credits_charged?: number
+          id?: string
+          metric_type?: string
+          occurred_at?: string
+          quantity?: number
+          rate_model?: string
+          rate_usd_cents?: number
+          wallet_id?: string
+          wallet_transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_spend_ledger_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_spend_ledger_wallet_transaction_id_fkey"
+            columns: ["wallet_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_events: {
         Row: {
           created_at: string
@@ -107,6 +164,42 @@ export type Database = {
           state?: string | null
           timeout_seconds?: number | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      credit_packages: {
+        Row: {
+          created_at: string
+          credits: number
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          price_usd_cents: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credits: number
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          price_usd_cents: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credits?: number
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          price_usd_cents?: number
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1339,6 +1432,59 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          amount_usd_cents: number
+          created_at: string
+          credits_purchased: number
+          id: string
+          promo_code: string | null
+          receipt_url: string | null
+          status: string
+          stripe_invoice_id: string | null
+          stripe_payment_intent_id: string | null
+          tax_usd_cents: number
+          updated_at: string
+          wallet_id: string
+        }
+        Insert: {
+          amount_usd_cents: number
+          created_at?: string
+          credits_purchased: number
+          id?: string
+          promo_code?: string | null
+          receipt_url?: string | null
+          status: string
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          tax_usd_cents?: number
+          updated_at?: string
+          wallet_id: string
+        }
+        Update: {
+          amount_usd_cents?: number
+          created_at?: string
+          credits_purchased?: number
+          id?: string
+          promo_code?: string | null
+          receipt_url?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          tax_usd_cents?: number
+          updated_at?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kv_store_d42c04e8: {
         Row: {
           key: string
@@ -1959,6 +2105,45 @@ export type Database = {
           user_agent?: string | null
           user_id?: string | null
           watch_percentage?: number | null
+        }
+        Relationships: []
+      }
+      promos: {
+        Row: {
+          code: string
+          created_at: string
+          discount_type: string
+          ends_at: string | null
+          id: string
+          max_uses: number | null
+          per_user_limit: number | null
+          starts_at: string | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          discount_type: string
+          ends_at?: string | null
+          id?: string
+          max_uses?: number | null
+          per_user_limit?: number | null
+          starts_at?: string | null
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          discount_type?: string
+          ends_at?: string | null
+          id?: string
+          max_uses?: number | null
+          per_user_limit?: number | null
+          starts_at?: string | null
+          updated_at?: string
+          value?: number
         }
         Relationships: []
       }
@@ -3078,6 +3263,92 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_transactions: {
+        Row: {
+          created_at: string
+          credits_delta: number
+          id: string
+          idempotency_key: string | null
+          memo: string | null
+          reference_id: string | null
+          reference_type: string | null
+          type: string
+          usd_cents: number | null
+          wallet_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_delta: number
+          id?: string
+          idempotency_key?: string | null
+          memo?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          type: string
+          usd_cents?: number | null
+          wallet_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_delta?: number
+          id?: string
+          idempotency_key?: string | null
+          memo?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          type?: string
+          usd_cents?: number | null
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          auto_reload_enabled: boolean
+          auto_reload_topup_credits: number | null
+          balance_credits: number
+          created_at: string
+          default_payment_method_id: string | null
+          id: string
+          low_balance_threshold: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_reload_enabled?: boolean
+          auto_reload_topup_credits?: number | null
+          balance_credits?: number
+          created_at?: string
+          default_payment_method_id?: string | null
+          id?: string
+          low_balance_threshold?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_reload_enabled?: boolean
+          auto_reload_topup_credits?: number | null
+          balance_credits?: number
+          created_at?: string
+          default_payment_method_id?: string | null
+          id?: string
+          low_balance_threshold?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       event_connect: {
@@ -3842,6 +4113,10 @@ export type Database = {
         Args: { p_failure_reason?: string; p_id: string; p_status: string }
         Returns: undefined
       }
+      ensure_wallet_exists: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
       execute_sql: {
         Args: { sql_query: string }
         Returns: Json
@@ -4218,6 +4493,10 @@ export type Database = {
       prune_request_logs: {
         Args: { p_keep_days?: number }
         Returns: undefined
+      }
+      recompute_wallet_balance: {
+        Args: { p_wallet: string }
+        Returns: number
       }
       refresh_analytics_views: {
         Args: Record<PropertyKey, never>
