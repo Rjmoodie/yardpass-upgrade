@@ -146,3 +146,6 @@ verify_jwt = true
 
 [functions.org-wallet-transactions]
 verify_jwt = true
+
+[functions.org-wallet-auto-reload]
+verify_jwt = true

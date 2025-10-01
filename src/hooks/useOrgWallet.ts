@@ -44,11 +44,27 @@ export const useOrgWallet = (orgId: string) => {
   const { data: wallet, isLoading, error } = useQuery<OrgWalletData>({
     queryKey: ["org-wallet", orgId],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("get-org-wallet", {
-        body: { org_id: orgId },
-      });
-      if (error) throw error;
-      return data as OrgWalletData;
+      const supabaseUrl = "https://yieslxnrfeqchbcmgavz.supabase.co";
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      
+      if (!token) throw new Error("Not authenticated");
+
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/get-org-wallet?org_id=${orgId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to fetch wallet");
+      }
+
+      return (await response.json()) as OrgWalletData;
     },
     enabled: !!orgId,
   });

@@ -122,8 +122,8 @@ Deno.serve(async (req) => {
           },
         },
       ],
-      success_url: `${supabaseUrl.replace('.supabase.co', '')}/orgs/${org_id}/wallet?success=1`,
-      cancel_url: `${supabaseUrl.replace('.supabase.co', '')}/orgs/${org_id}/wallet?canceled=1`,
+      success_url: `https://lovable.app/orgs/${org_id}/wallet?success=1`,
+      cancel_url: `https://lovable.app/orgs/${org_id}/wallet?canceled=1`,
       metadata: {
         org_wallet_id: walletId,
         invoice_id: invoice.id,

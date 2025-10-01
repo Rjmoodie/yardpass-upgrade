@@ -4614,6 +4614,26 @@ export type Database = {
         }
         Returns: string
       }
+      org_wallet_apply_refund: {
+        Args: {
+          p_description?: string
+          p_invoice_id: string
+          p_refund_credits: number
+          p_stripe_event_id: string
+          p_wallet_id: string
+        }
+        Returns: string
+      }
+      org_wallet_apply_spend: {
+        Args: {
+          p_credits: number
+          p_description?: string
+          p_reference_id: string
+          p_reference_type: string
+          p_wallet_id: string
+        }
+        Returns: string
+      }
       org_wallet_freeze_if_negative: {
         Args: { p_wallet_id: string }
         Returns: undefined

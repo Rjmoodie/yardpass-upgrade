@@ -182,20 +182,16 @@ Deno.serve(async (req) => {
         const isOrgWallet = !!inv.org_wallet_id;
 
         if (isOrgWallet) {
-          // For org wallets: create negative transaction
+          // For org wallets: use apply_refund function
           const refundCredits = refundCents; // 1 cent = 1 credit
-          await sb.from("org_wallet_transactions").insert({
-            wallet_id: inv.org_wallet_id,
-            credits_delta: -refundCredits,
-            transaction_type: "refund",
-            description: "Refund",
-            invoice_id: inv.id,
-            stripe_event_id: event.id
+          const { error: refErr } = await sb.rpc("org_wallet_apply_refund", {
+            p_wallet_id: inv.org_wallet_id,
+            p_refund_credits: refundCredits,
+            p_invoice_id: inv.id,
+            p_stripe_event_id: event.id,
+            p_description: "Refund"
           });
-          
-          await sb.from("org_wallets")
-            .update({ balance_credits: sb.raw(`balance_credits - ${refundCredits}`) })
-            .eq("id", inv.org_wallet_id);
+          if (refErr) throw refErr;
           
           await sb.rpc("org_wallet_freeze_if_negative", { p_wallet_id: inv.org_wallet_id });
           console.log(`[wallet-webhook:${requestId}] Org refund applied: -${refundCents} credits`);
