@@ -14,6 +14,286 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_clicks: {
+        Row: {
+          campaign_id: string
+          conversion_value_cents: number | null
+          converted: boolean | null
+          created_at: string
+          id: string
+          impression_id: string | null
+          session_id: string | null
+          ticket_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          conversion_value_cents?: number | null
+          converted?: boolean | null
+          created_at?: string
+          id?: string
+          impression_id?: string | null
+          session_id?: string | null
+          ticket_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          conversion_value_cents?: number | null
+          converted?: boolean | null
+          created_at?: string
+          id?: string
+          impression_id?: string | null
+          session_id?: string | null
+          ticket_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_impression_id_fkey"
+            columns: ["impression_id"]
+            isOneToOne: false
+            referencedRelation: "ad_impressions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets_enhanced"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_creatives: {
+        Row: {
+          active: boolean
+          body_text: string | null
+          campaign_id: string
+          created_at: string
+          cta_label: string
+          cta_url: string | null
+          headline: string
+          id: string
+          media_type: Database["public"]["Enums"]["creative_media_type"]
+          media_url: string | null
+          post_id: string | null
+          poster_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          body_text?: string | null
+          campaign_id: string
+          created_at?: string
+          cta_label?: string
+          cta_url?: string | null
+          headline: string
+          id?: string
+          media_type: Database["public"]["Enums"]["creative_media_type"]
+          media_url?: string | null
+          post_id?: string | null
+          poster_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          body_text?: string | null
+          campaign_id?: string
+          created_at?: string
+          cta_label?: string
+          cta_url?: string | null
+          headline?: string
+          id?: string
+          media_type?: Database["public"]["Enums"]["creative_media_type"]
+          media_url?: string | null
+          post_id?: string | null
+          poster_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_creatives_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_creatives_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_creatives_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_creatives_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts_with_meta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_creatives_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_recent_posts_top3"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_creatives_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "trending_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_impressions: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          event_id: string | null
+          id: string
+          ip_address: string | null
+          placement: Database["public"]["Enums"]["ad_placement"]
+          post_id: string | null
+          session_id: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          ip_address?: string | null
+          placement: Database["public"]["Enums"]["ad_placement"]
+          post_id?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          ip_address?: string | null
+          placement?: Database["public"]["Enums"]["ad_placement"]
+          post_id?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_impressions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_connect"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_sponsorships"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_sponsorship_revenue"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts_with_meta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_recent_posts_top3"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "trending_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ad_spend_ledger: {
         Row: {
           campaign_id: string
@@ -140,6 +420,167 @@ export type Database = {
           utm_term?: string | null
         }
         Relationships: []
+      }
+      campaign_placements: {
+        Row: {
+          campaign_id: string
+          enabled: boolean
+          placement: Database["public"]["Enums"]["ad_placement"]
+        }
+        Insert: {
+          campaign_id: string
+          enabled?: boolean
+          placement: Database["public"]["Enums"]["ad_placement"]
+        }
+        Update: {
+          campaign_id?: string
+          enabled?: boolean
+          placement?: Database["public"]["Enums"]["ad_placement"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_placements_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "campaign_placements_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_targeting: {
+        Row: {
+          campaign_id: string
+          categories: string[] | null
+          estimated_reach: number | null
+          exclude_past_attendees: boolean | null
+          exclude_ticket_holders: boolean | null
+          keywords: string[] | null
+          locations: Json | null
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          categories?: string[] | null
+          estimated_reach?: number | null
+          exclude_past_attendees?: boolean | null
+          exclude_ticket_holders?: boolean | null
+          keywords?: string[] | null
+          locations?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          categories?: string[] | null
+          estimated_reach?: number | null
+          exclude_past_attendees?: boolean | null
+          exclude_ticket_holders?: boolean | null
+          keywords?: string[] | null
+          locations?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_targeting_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
+            referencedRelation: "campaign_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "campaign_targeting_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string
+          daily_budget_credits: number | null
+          description: string | null
+          end_date: string | null
+          frequency_cap_per_user: number | null
+          frequency_cap_period:
+            | Database["public"]["Enums"]["frequency_period"]
+            | null
+          id: string
+          name: string
+          objective: Database["public"]["Enums"]["campaign_objective"]
+          org_id: string
+          pacing_strategy: Database["public"]["Enums"]["pacing_strategy"]
+          spent_credits: number
+          start_date: string
+          status: Database["public"]["Enums"]["campaign_status"]
+          timezone: string
+          total_budget_credits: number
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by: string
+          daily_budget_credits?: number | null
+          description?: string | null
+          end_date?: string | null
+          frequency_cap_per_user?: number | null
+          frequency_cap_period?:
+            | Database["public"]["Enums"]["frequency_period"]
+            | null
+          id?: string
+          name: string
+          objective?: Database["public"]["Enums"]["campaign_objective"]
+          org_id: string
+          pacing_strategy?: Database["public"]["Enums"]["pacing_strategy"]
+          spent_credits?: number
+          start_date: string
+          status?: Database["public"]["Enums"]["campaign_status"]
+          timezone?: string
+          total_budget_credits: number
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string
+          daily_budget_credits?: number | null
+          description?: string | null
+          end_date?: string | null
+          frequency_cap_per_user?: number | null
+          frequency_cap_period?:
+            | Database["public"]["Enums"]["frequency_period"]
+            | null
+          id?: string
+          name?: string
+          objective?: Database["public"]["Enums"]["campaign_objective"]
+          org_id?: string
+          pacing_strategy?: Database["public"]["Enums"]["pacing_strategy"]
+          spent_credits?: number
+          start_date?: string
+          status?: Database["public"]["Enums"]["campaign_status"]
+          timezone?: string
+          total_budget_credits?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       circuit_breaker_state: {
         Row: {
@@ -3465,6 +3906,29 @@ export type Database = {
       }
     }
     Views: {
+      campaign_analytics_daily: {
+        Row: {
+          campaign_id: string | null
+          clicks: number | null
+          conversions: number | null
+          credits_spent: number | null
+          date: string | null
+          impressions: number | null
+          org_id: string | null
+          revenue_cents: number | null
+          unique_sessions: number | null
+          unique_users: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_connect: {
         Row: {
           event_id: string | null
@@ -4564,6 +5028,10 @@ export type Database = {
         Args: { p_org_id: string; p_roles: string[] }
         Returns: boolean
       }
+      is_service_role: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       ivfflat_bit_support: {
         Args: { "": unknown }
         Returns: unknown
@@ -4847,14 +5315,30 @@ export type Database = {
       }
     }
     Enums: {
+      ad_placement: "feed" | "story" | "event_banner" | "search_results"
+      campaign_objective:
+        | "ticket_sales"
+        | "brand_awareness"
+        | "engagement"
+        | "event_promotion"
+      campaign_status:
+        | "draft"
+        | "scheduled"
+        | "active"
+        | "paused"
+        | "completed"
+        | "archived"
+      creative_media_type: "image" | "video" | "existing_post"
       event_visibility: "public" | "unlisted" | "private"
       follow_target: "organizer" | "event"
+      frequency_period: "session" | "day" | "week"
       invite_status: "pending" | "accepted" | "expired" | "revoked"
       job_status: "draft" | "queued" | "sending" | "sent" | "failed"
       message_channel: "email" | "sms"
       order_status: "pending" | "paid" | "refunded" | "canceled"
       org_role: "viewer" | "editor" | "admin" | "owner"
       owner_context: "individual" | "organization"
+      pacing_strategy: "even" | "accelerated"
       recurrence_pattern: "weekly" | "monthly"
       role_type:
         | "organizer"
@@ -5016,14 +5500,32 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ad_placement: ["feed", "story", "event_banner", "search_results"],
+      campaign_objective: [
+        "ticket_sales",
+        "brand_awareness",
+        "engagement",
+        "event_promotion",
+      ],
+      campaign_status: [
+        "draft",
+        "scheduled",
+        "active",
+        "paused",
+        "completed",
+        "archived",
+      ],
+      creative_media_type: ["image", "video", "existing_post"],
       event_visibility: ["public", "unlisted", "private"],
       follow_target: ["organizer", "event"],
+      frequency_period: ["session", "day", "week"],
       invite_status: ["pending", "accepted", "expired", "revoked"],
       job_status: ["draft", "queued", "sending", "sent", "failed"],
       message_channel: ["email", "sms"],
       order_status: ["pending", "paid", "refunded", "canceled"],
       org_role: ["viewer", "editor", "admin", "owner"],
       owner_context: ["individual", "organization"],
+      pacing_strategy: ["even", "accelerated"],
       recurrence_pattern: ["weekly", "monthly"],
       role_type: [
         "organizer",
