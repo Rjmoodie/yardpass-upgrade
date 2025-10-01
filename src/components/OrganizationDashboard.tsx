@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
+import { Alert, AlertDescription } from './ui/alert';
 import {
   ArrowLeft,
   Building2,
@@ -25,6 +26,7 @@ import {
   Share,
   RefreshCw,
   Download,
+  Wallet,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -492,9 +494,10 @@ export function OrganizationDashboard({
       <div className="flex-1 overflow-auto p-4">
         <Tabs defaultValue="overview">
           <div className="sticky top-0 bg-background z-20 pb-2">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="team">Team ({teamMembers.length})</TabsTrigger>
+              <TabsTrigger value="wallet">Wallet</TabsTrigger>
               <TabsTrigger value="verification">Verification</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
@@ -682,6 +685,42 @@ export function OrganizationDashboard({
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* WALLET */}
+          <TabsContent value="wallet" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wallet className="w-5 h-5" />
+                  Organization Wallet
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Alert>
+                  <DollarSign className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Coming Soon</strong> - Organization-level wallets are currently being developed. 
+                    Each organization will have its own shared credit balance for ad campaigns, 
+                    managed by org admins.
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="mt-4 p-4 border rounded-lg bg-muted/30">
+                  <h4 className="font-medium mb-2">What to Expect:</h4>
+                  <ul className="text-sm space-y-1 text-muted-foreground list-disc list-inside">
+                    <li>Shared credit balance for the organization</li>
+                    <li>Transaction history visible to all admins</li>
+                    <li>Credit purchases managed by org admins and owners</li>
+                    <li>Separate from personal user wallets</li>
+                  </ul>
+                </div>
+
+                <p className="text-sm text-muted-foreground mt-4">
+                  For now, use your personal wallet at <a href="/wallet" className="text-primary hover:underline">/wallet</a> to manage ad credits.
+                </p>
               </CardContent>
             </Card>
           </TabsContent>
