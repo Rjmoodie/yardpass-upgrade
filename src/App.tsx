@@ -55,7 +55,6 @@ const SponsorDashboard = lazy(() => import('@/components/sponsor/SponsorDashboar
 import { SponsorGuard } from '@/components/access/SponsorGuard';
 const WalletPage = lazy(() => import('@/pages/WalletPage'));
 const OrgWalletPage = lazy(() => import('@/pages/OrgWalletPage'));
-const CampaignDashboardPage = lazy(() => import('@/pages/CampaignDashboardPage'));
 
 // Auth guard
 import { AuthGuard } from '@/components/AuthGuard';
@@ -498,14 +497,6 @@ function AppContent() {
                 element={
                   <AuthGuard>
                     <OrgWalletPage />
-                  </AuthGuard>
-                }
-              />
-              <Route
-                path="/campaigns"
-                element={
-                  <AuthGuard>
-                    <CampaignDashboardPage />
                   </AuthGuard>
                 }
               />

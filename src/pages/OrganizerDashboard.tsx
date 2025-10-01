@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Megaphone } from 'lucide-react';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -17,6 +17,7 @@ import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
 import { useOrganizerData } from '@/hooks/useOrganizerData';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import { CampaignDashboard } from '@/components/campaigns/CampaignDashboard';
 
 type OwnerContextType = 'individual' | 'organization';
 
@@ -47,7 +48,7 @@ interface Event {
   owner_context_id?: string | null;
 }
 
-const TAB_KEYS = ['dashboard', 'events', 'analytics', 'teams', 'payouts'] as const;
+const TAB_KEYS = ['dashboard', 'events', 'analytics', 'campaigns', 'teams', 'payouts'] as const;
 type TabKey = typeof TAB_KEYS[number];
 const DEFAULT_TAB: TabKey = 'dashboard';
 const lastTabKeyFor = (scope: string) => `organizer.lastTab.${scope}`;
@@ -472,7 +473,7 @@ export default function OrganizerDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-6 h-auto p-1">
           <TabsTrigger value="dashboard" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Dashboard</span>
@@ -484,6 +485,10 @@ export default function OrganizerDashboard() {
           <TabsTrigger value="analytics" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Analytics</span>
+          </TabsTrigger>
+          <TabsTrigger value="campaigns" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
+            <Megaphone className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
+            <span className="text-xs">Campaigns</span>
           </TabsTrigger>
           <TabsTrigger value="teams" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
@@ -529,6 +534,21 @@ export default function OrganizerDashboard() {
         {/* ANALYTICS */}
         <TabsContent value="analytics" className="space-y-6">
           <AnalyticsHub />
+        </TabsContent>
+
+        {/* CAMPAIGNS (org-scoped only) */}
+        <TabsContent value="campaigns" className="space-y-6">
+          {selectedOrganization ? (
+            <CampaignDashboard />
+          ) : (
+            <div className="text-center py-16 border rounded-lg">
+              <Megaphone className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-lg font-semibold mb-1">Campaign Management</h3>
+              <p className="text-muted-foreground mb-4">
+                Switch to an organization to create and manage ad campaigns.
+              </p>
+            </div>
+          )}
         </TabsContent>
 
         {/* TEAMS (org-scoped only) */}
