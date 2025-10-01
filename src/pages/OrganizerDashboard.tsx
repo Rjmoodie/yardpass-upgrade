@@ -47,7 +47,7 @@ interface Event {
   owner_context_id?: string | null;
 }
 
-const TAB_KEYS = ['dashboard', 'events', 'teams', 'payouts'] as const;
+const TAB_KEYS = ['dashboard', 'events', 'analytics', 'teams', 'payouts'] as const;
 type TabKey = typeof TAB_KEYS[number];
 const DEFAULT_TAB: TabKey = 'dashboard';
 const lastTabKeyFor = (scope: string) => `organizer.lastTab.${scope}`;
@@ -472,7 +472,7 @@ export default function OrganizerDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-5 h-auto p-1">
           <TabsTrigger value="dashboard" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Dashboard</span>
@@ -480,6 +480,10 @@ export default function OrganizerDashboard() {
           <TabsTrigger value="events" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Events</span>
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
+            <span className="text-xs">Analytics</span>
           </TabsTrigger>
           <TabsTrigger value="teams" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
@@ -494,10 +498,6 @@ export default function OrganizerDashboard() {
         {/* DASHBOARD */}
         <TabsContent value="dashboard" className="space-y-6">
           <DashboardOverview events={events} onEventSelect={handleEventSelect} />
-          {/* Optional: AI insights */}
-          <div className="hidden">
-            <AnalyticsHub />
-          </div>
         </TabsContent>
 
         {/* EVENTS */}
@@ -524,6 +524,11 @@ export default function OrganizerDashboard() {
           ) : (
             <EventsList events={events} onEventSelect={handleEventSelect} />
           )}
+        </TabsContent>
+
+        {/* ANALYTICS */}
+        <TabsContent value="analytics" className="space-y-6">
+          <AnalyticsHub />
         </TabsContent>
 
         {/* TEAMS (org-scoped only) */}
