@@ -287,11 +287,59 @@ export default function OrganizerDashboard() {
 
   // Event select
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [eventDetails, setEventDetails] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(true);
+  
   const handleEventSelect = useCallback((event: Event) => {
     if (!selectedOrgId) return;
     trackEvent('dashboard_event_selected', { event_id: event.id, org_id: selectedOrgId });
     setSelectedEvent(event);
   }, [selectedOrgId, trackEvent]);
+
+  // Fetch event details when an event is selected
+  useEffect(() => {
+    if (!selectedEvent) return;
+
+    const fetchEventDetails = async () => {
+      setLoadingDetails(true);
+      try {
+        // Fetch ticket tiers
+        const { data: tiers } = await supabase
+          .from('ticket_tiers')
+          .select('id, name, price_cents, total_quantity, reserved_quantity, issued_quantity')
+          .eq('event_id', selectedEvent.id)
+          .order('price_cents', { ascending: true });
+
+        // Fetch posts
+        const { data: posts } = await supabase
+          .from('event_posts')
+          .select('id, text, created_at, media_urls, like_count, comment_count')
+          .eq('event_id', selectedEvent.id)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        setEventDetails({
+          ticketTiers: (tiers || []).map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            price: t.price_cents / 100,
+            total: t.total_quantity,
+            available: t.total_quantity - t.reserved_quantity - t.issued_quantity,
+            sold: t.issued_quantity
+          })),
+          posts: posts || []
+        });
+      } catch (error) {
+        console.error('Error fetching event details:', error);
+        setEventDetails({ ticketTiers: [], posts: [] });
+      } finally {
+        setLoadingDetails(false);
+      }
+    };
+    
+    fetchEventDetails();
+  }, [selectedEvent]);
 
   // Create event (pre-fills owner context to selected org)
   const goCreateEvent = () => {
@@ -325,49 +373,6 @@ export default function OrganizerDashboard() {
   // Event drill-in
   if (selectedEvent) {
     const e = selectedEvent;
-    const [eventDetails, setEventDetails] = useState<any>(null);
-    const [loadingDetails, setLoadingDetails] = useState(true);
-
-    useEffect(() => {
-      const fetchEventDetails = async () => {
-        setLoadingDetails(true);
-        try {
-          // Fetch ticket tiers
-          const { data: tiers } = await supabase
-            .from('ticket_tiers')
-            .select('id, name, price_cents, total_quantity, reserved_quantity, issued_quantity')
-            .eq('event_id', e.id)
-            .order('price_cents', { ascending: true });
-
-          // Fetch posts
-          const { data: posts } = await supabase
-            .from('event_posts')
-            .select('id, text, created_at, media_urls, like_count, comment_count')
-            .eq('event_id', e.id)
-            .is('deleted_at', null)
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-          setEventDetails({
-            ticketTiers: (tiers || []).map((t: any) => ({
-              id: t.id,
-              name: t.name,
-              price: t.price_cents / 100,
-              total: t.total_quantity,
-              available: t.total_quantity - t.reserved_quantity - t.issued_quantity,
-              sold: t.issued_quantity
-            })),
-            posts: posts || []
-          });
-        } catch (error) {
-          console.error('Error fetching event details:', error);
-          setEventDetails({ ticketTiers: [], posts: [] });
-        } finally {
-          setLoadingDetails(false);
-        }
-      };
-      fetchEventDetails();
-    }, [e.id]);
 
     if (loadingDetails) {
       return (
