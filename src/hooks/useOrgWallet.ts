@@ -41,7 +41,7 @@ export const useOrgWallet = (orgId: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: wallet, isLoading, error } = useQuery<OrgWalletData>({
+  const { data: wallet, isLoading, error } = useQuery<OrgWalletData | null>({
     queryKey: ["org-wallet", orgId],
     queryFn: async () => {
       const supabaseUrl = "https://yieslxnrfeqchbcmgavz.supabase.co";
@@ -64,7 +64,14 @@ export const useOrgWallet = (orgId: string) => {
         throw new Error(error.error || "Failed to fetch wallet");
       }
 
-      return (await response.json()) as OrgWalletData;
+      const data = await response.json();
+      
+      // If no wallet exists (empty state), return null
+      if (!data || !data.id) {
+        return null;
+      }
+
+      return data as OrgWalletData;
     },
     enabled: !!orgId,
   });

@@ -55,7 +55,7 @@ export const OrgWalletDashboard = ({ orgId }: OrgWalletDashboardProps) => {
         </Alert>
       )}
 
-      {isLowBalance && !isFrozen && (
+      {isLowBalance && !isFrozen && wallet && (
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
@@ -77,10 +77,10 @@ export const OrgWalletDashboard = ({ orgId }: OrgWalletDashboardProps) => {
           <div className="space-y-4">
             <div>
               <div className="text-4xl font-bold">
-                {wallet.balance_credits.toLocaleString()} credits
+                {(wallet?.balance_credits ?? 0).toLocaleString()} credits
               </div>
               <div className="text-sm text-muted-foreground">
-                ≈ ${wallet.usd_equiv.toFixed(2)} USD
+                ≈ ${(wallet?.usd_equiv ?? 0).toFixed(2)} USD
               </div>
             </div>
 
@@ -99,7 +99,7 @@ export const OrgWalletDashboard = ({ orgId }: OrgWalletDashboardProps) => {
           <CardDescription>Last 20 wallet transactions</CardDescription>
         </CardHeader>
         <CardContent>
-          {wallet.recent_transactions.length === 0 ? (
+          {!wallet?.recent_transactions || wallet.recent_transactions.length === 0 ? (
             <p className="text-muted-foreground text-sm">No transactions yet</p>
           ) : (
             <div className="space-y-2">
