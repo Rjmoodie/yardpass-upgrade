@@ -114,135 +114,165 @@ export default function OrganizerDashboard() {
     if (!user?.id) return;
     setLoadingScoped(true);
     try {
+      // Get events for this scope
       let query = supabase
         .from('events')
-        .select(`
-          id, title, created_at, start_at, end_at, venue, category,
-          cover_image_url, description, city, visibility,
-          owner_context_type, owner_context_id
-        `)
+        .select('id, title, created_at, start_at, end_at, venue, category, cover_image_url, description, city, visibility, owner_context_type, owner_context_id')
         .order('start_at', { ascending: false });
 
       if (selectedOrganization) {
-        query = query
-          .eq('owner_context_type', 'organization')
-          .eq('owner_context_id', selectedOrganization);
+        query = query.eq('owner_context_type', 'organization').eq('owner_context_id', selectedOrganization);
       } else {
-        query = query
-          .eq('owner_context_type', 'individual')
-          .eq('owner_context_id', user.id);
+        query = query.eq('owner_context_type', 'individual').eq('owner_context_id', user.id);
       }
 
       const { data: eventData, error } = await query;
       if (error) throw error;
 
       const rows = (eventData || []) as any[];
+      if (rows.length === 0) {
+        if (mountedRef.current) setScopedEvents([]);
+        return;
+      }
 
-      // Fetch metrics for all events in parallel
-      const eventsWithMetrics = await Promise.all(
-        rows.map(async (e) => {
-          // Get ticket metrics
-          const { data: ticketData } = await supabase
-            .from('tickets')
-            .select('id, status')
-            .eq('event_id', e.id);
-          
-          const attendees = (ticketData || []).filter(t => 
-            ['issued', 'transferred', 'redeemed'].includes(t.status)
-          ).length;
+      const eventIds = rows.map(e => e.id);
 
-          // Get revenue from orders
-          const { data: orderData } = await supabase
-            .from('orders')
-            .select('total_cents')
-            .eq('event_id', e.id)
-            .eq('status', 'paid');
-          
-          const revenue = (orderData || []).reduce((sum, o) => sum + (o.total_cents || 0), 0) / 100;
+      // Use database function to get accurate KPIs
+      const now = new Date();
+      const fromDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); // Last year
 
-          // Get engagement metrics from posts
-          const { data: postData } = await supabase
-            .from('event_posts')
-            .select('id')
-            .eq('event_id', e.id)
-            .is('deleted_at', null);
+      const { data: kpisData } = await supabase.rpc('get_event_kpis_daily', {
+        p_event_ids: eventIds,
+        p_from_date: fromDate.toISOString().split('T')[0],
+        p_to_date: now.toISOString().split('T')[0]
+      });
 
-          const postIds = (postData || []).map(p => p.id);
+      // Get scan data
+      const { data: scanData } = await supabase.rpc('get_event_scans_daily', {
+        p_event_ids: eventIds,
+        p_from_date: fromDate.toISOString().split('T')[0],
+        p_to_date: now.toISOString().split('T')[0]
+      });
 
-          let likes = 0;
-          if (postIds.length > 0) {
-            const { data: reactionData } = await supabase
-              .from('event_reactions')
-              .select('kind')
-              .in('post_id', postIds);
+      // Get video views
+      const { data: videoData } = await supabase
+        .from('event_video_counters')
+        .select('event_id, views_total')
+        .in('event_id', eventIds);
 
-            likes = (reactionData || []).filter(r => r.kind === 'like').length;
-          }
+      // Get engagement data
+      const { data: engagementData } = await supabase.rpc('get_post_engagement_daily', {
+        p_event_ids: eventIds,
+        p_from_date: fromDate.toISOString().split('T')[0],
+        p_to_date: now.toISOString().split('T')[0]
+      });
 
-          // Get views from video counters
-          const { data: videoData } = await supabase
-            .from('event_video_counters')
-            .select('views_total')
-            .eq('event_id', e.id)
-            .single();
+      // Get sponsor data
+      const { data: sponsorData } = await supabase
+        .from('event_sponsorships')
+        .select('event_id, sponsor_id, amount_cents')
+        .in('event_id', eventIds)
+        .eq('status', 'active');
 
-          const views = videoData?.views_total || 0;
+      // Aggregate metrics by event
+      const eventMetrics = new Map<string, any>();
+      
+      // Initialize metrics for all events
+      eventIds.forEach(id => {
+        eventMetrics.set(id, {
+          revenue: 0,
+          attendees: 0,
+          views: 0,
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          sponsor_count: 0,
+          sponsor_revenue: 0
+        });
+      });
 
-          // Get sponsor data
-          const { data: sponsorData } = await supabase
-            .from('event_sponsorships')
-            .select('sponsor_id, amount_cents')
-            .eq('event_id', e.id)
-            .eq('status', 'active');
+      // Aggregate KPI data (revenue, tickets)
+      kpisData?.forEach((row: any) => {
+        const metrics = eventMetrics.get(row.event_id);
+        if (metrics) {
+          metrics.revenue += row.gmv_cents / 100;
+          metrics.attendees += row.units;
+        }
+      });
 
-          const sponsor_count = sponsorData?.length || 0;
-          const sponsor_revenue = (sponsorData || []).reduce((sum, s) => sum + (s.amount_cents || 0), 0) / 100;
+      // Add video views
+      videoData?.forEach((row: any) => {
+        const metrics = eventMetrics.get(row.event_id);
+        if (metrics) metrics.views = row.views_total || 0;
+      });
 
-          // Get ticket tiers for capacity
-          const { data: tierData } = await supabase
-            .from('ticket_tiers')
-            .select('total_quantity')
-            .eq('event_id', e.id);
-          
-          const capacity = (tierData || []).reduce((sum, t) => sum + (t.total_quantity || 0), 0);
-          const tickets_sold = attendees;
+      // Add engagement
+      engagementData?.forEach((row: any) => {
+        const metrics = eventMetrics.get(row.event_id);
+        if (metrics) {
+          metrics.likes += row.likes || 0;
+          metrics.comments += row.comments || 0;
+          metrics.shares += row.shares || 0;
+        }
+      });
 
-          return {
-            id: e.id,
-            title: e.title || 'Untitled Event',
-            status: e.visibility === 'draft' ? 'draft' : 'published',
-            date: e.start_at ? new Date(e.start_at).toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric',
-              timeZone: 'UTC'
-            }) : 'Date TBD',
-            attendees,
-            revenue,
-            views,
-            likes,
-            shares: 0, // TODO: implement share tracking
-            tickets_sold,
-            capacity,
-            conversion_rate: capacity > 0 ? (tickets_sold / capacity) * 100 : 0,
-            engagement_rate: views > 0 ? (likes / views) * 100 : 0,
-            created_at: e.created_at,
-            start_at: e.start_at,
-            end_at: e.end_at,
-            venue: e.venue || 'Venue TBD',
-            category: e.category || 'General',
-            cover_image_url: e.cover_image_url,
-            description: e.description || '',
-            city: e.city || 'Location TBD',
-            visibility: e.visibility || 'public',
-            owner_context_type: e.owner_context_type,
-            owner_context_id: e.owner_context_id,
-            sponsor_count,
-            sponsor_revenue,
-          } as Event & { sponsor_count: number; sponsor_revenue: number };
-        })
-      );
+      // Add sponsor data
+      sponsorData?.forEach((row: any) => {
+        const metrics = eventMetrics.get(row.event_id);
+        if (metrics) {
+          metrics.sponsor_count += 1;
+          metrics.sponsor_revenue += (row.amount_cents || 0) / 100;
+        }
+      });
+
+      // Map events with their metrics
+      const eventsWithMetrics = rows.map((e) => {
+        const metrics = eventMetrics.get(e.id) || {
+          revenue: 0,
+          attendees: 0,
+          views: 0,
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          sponsor_count: 0,
+          sponsor_revenue: 0
+        };
+
+        return {
+          id: e.id,
+          title: e.title || 'Untitled Event',
+          status: e.visibility === 'draft' ? 'draft' : 'published',
+          date: e.start_at ? new Date(e.start_at).toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            timeZone: 'UTC'
+          }) : 'Date TBD',
+          attendees: metrics.attendees,
+          revenue: metrics.revenue,
+          views: metrics.views,
+          likes: metrics.likes,
+          shares: metrics.shares,
+          tickets_sold: metrics.attendees,
+          capacity: 0, // TODO: Calculate from tiers if needed
+          conversion_rate: 0,
+          engagement_rate: metrics.views > 0 ? (metrics.likes / metrics.views) * 100 : 0,
+          created_at: e.created_at,
+          start_at: e.start_at,
+          end_at: e.end_at,
+          venue: e.venue || 'Venue TBD',
+          category: e.category || 'General',
+          cover_image_url: e.cover_image_url,
+          description: e.description || '',
+          city: e.city || 'Location TBD',
+          visibility: e.visibility || 'public',
+          owner_context_type: e.owner_context_type,
+          owner_context_id: e.owner_context_id,
+          sponsor_count: metrics.sponsor_count,
+          sponsor_revenue: metrics.sponsor_revenue,
+        } as Event & { sponsor_count: number; sponsor_revenue: number };
+      });
 
       if (mountedRef.current) setScopedEvents(eventsWithMetrics);
     } catch (e: any) {
