@@ -250,6 +250,58 @@ export default function OrganizerDashboard() {
   // Event drill-in
   if (selectedEvent) {
     const e = selectedEvent;
+    const [eventDetails, setEventDetails] = useState<any>(null);
+    const [loadingDetails, setLoadingDetails] = useState(true);
+
+    useEffect(() => {
+      const fetchEventDetails = async () => {
+        setLoadingDetails(true);
+        try {
+          // Fetch ticket tiers
+          const { data: tiers } = await supabase
+            .from('ticket_tiers')
+            .select('id, name, price_cents, total_quantity, reserved_quantity, issued_quantity')
+            .eq('event_id', e.id)
+            .order('price_cents', { ascending: true });
+
+          // Fetch posts
+          const { data: posts } = await supabase
+            .from('event_posts')
+            .select('id, text, created_at, media_urls, like_count, comment_count')
+            .eq('event_id', e.id)
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+          setEventDetails({
+            ticketTiers: (tiers || []).map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price_cents / 100,
+              total: t.total_quantity,
+              available: t.total_quantity - t.reserved_quantity - t.issued_quantity,
+              sold: t.issued_quantity
+            })),
+            posts: posts || []
+          });
+        } catch (error) {
+          console.error('Error fetching event details:', error);
+          setEventDetails({ ticketTiers: [], posts: [] });
+        } finally {
+          setLoadingDetails(false);
+        }
+      };
+      fetchEventDetails();
+    }, [e.id]);
+
+    if (loadingDetails) {
+      return (
+        <div className="container mx-auto p-6">
+          <LoadingSpinner />
+        </div>
+      );
+    }
+
     const eventWithDetails = {
       ...e,
       created_at: e.created_at || new Date().toISOString(),
@@ -274,11 +326,11 @@ export default function OrganizerDashboard() {
             dateLabel: new Date(eventWithDetails.start_at).toLocaleDateString(),
             location: eventWithDetails.venue || '',
             coverImage: eventWithDetails.cover_image_url || '',
-            ticketTiers: [],
+            ticketTiers: eventDetails?.ticketTiers || [],
             attendeeCount: eventWithDetails.attendees,
             likes: eventWithDetails.likes,
             shares: eventWithDetails.shares,
-            posts: [],
+            posts: eventDetails?.posts || [],
           }}
           onBack={() => setSelectedEvent(null)}
         />
