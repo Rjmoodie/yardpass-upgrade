@@ -916,9 +916,7 @@ const AnalyticsHub: React.FC<{ initialOrgId?: string | null }> = ({ initialOrgId
   const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
   const [loading, setLoading] = useState(false);
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'videos' | 'audience' | 'ai-assistant'>(
-    (new URLSearchParams(location.search).get('tab') as any) || 'overview'
-  );
+  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'videos' | 'audience' | 'ai-assistant'>('overview');
 
   const [autoRefresh, setAutoRefresh] = useState<boolean>(() => localStorage.getItem('ah.autoRefresh') === 'true');
   const [realtime, setRealtime] = useState<boolean>(() => localStorage.getItem('ah.realtime') === 'true');
