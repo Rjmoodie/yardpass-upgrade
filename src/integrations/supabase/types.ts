@@ -4661,6 +4661,34 @@ export type Database = {
         Args: { "": unknown[] }
         Returns: number
       }
+      wallet_apply_purchase: {
+        Args: {
+          p_credits: number
+          p_idempotency_key: string
+          p_invoice_id: string
+          p_receipt_url: string
+          p_usd_cents: number
+          p_wallet_id: string
+        }
+        Returns: {
+          new_balance: number
+        }[]
+      }
+      wallet_apply_refund: {
+        Args: {
+          p_idempotency_key: string
+          p_invoice_id: string
+          p_refund_usd_cents: number
+          p_wallet_id: string
+        }
+        Returns: {
+          new_balance: number
+        }[]
+      }
+      wallet_freeze_if_negative: {
+        Args: { p_wallet_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       event_visibility: "public" | "unlisted" | "private"
