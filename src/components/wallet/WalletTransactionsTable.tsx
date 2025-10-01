@@ -48,23 +48,21 @@ export const WalletTransactionsTable = ({ transactions }: WalletTransactionsTabl
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Date</TableHead>
+          <TableHead>
+            <ArrowUpCircle className="h-4 w-4" />
+          </TableHead>
           <TableHead>Type</TableHead>
           <TableHead>Amount</TableHead>
           <TableHead>Notes</TableHead>
+          <TableHead>Date</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {transactions.map((tx) => (
           <TableRow key={tx.id}>
-            <TableCell className="text-sm">
-              {format(new Date(tx.created_at), "MMM dd, yyyy HH:mm")}
-            </TableCell>
+            <TableCell>{getTypeIcon(tx.type)}</TableCell>
             <TableCell>
-              <div className="flex items-center gap-2">
-                {getTypeIcon(tx.type)}
-                <Badge variant={getTypeColor(tx.type)}>{tx.type}</Badge>
-              </div>
+              <Badge variant={getTypeColor(tx.type)}>{tx.type}</Badge>
             </TableCell>
             <TableCell>
               <span
@@ -77,14 +75,17 @@ export const WalletTransactionsTable = ({ transactions }: WalletTransactionsTabl
                 {tx.credits_delta > 0 ? "+" : ""}
                 {tx.credits_delta.toLocaleString()} credits
               </span>
-              {tx.usd_cents && (
+              {typeof tx.usd_cents === "number" && (
                 <span className="text-xs text-muted-foreground ml-2">
-                  (${(Math.abs(tx.usd_cents) / 100).toFixed(2)})
+                  ({new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(Math.abs(tx.usd_cents) / 100)})
                 </span>
               )}
             </TableCell>
+            <TableCell className="text-sm text-muted-foreground max-w-[320px] truncate">
+              {tx.memo || tx.reference_type || "—"}
+            </TableCell>
             <TableCell className="text-sm text-muted-foreground">
-              {tx.memo || tx.reference_type || "-"}
+              {format(new Date(tx.created_at), "MMM d, yyyy h:mm a")}
             </TableCell>
           </TableRow>
         ))}

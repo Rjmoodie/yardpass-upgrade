@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export interface WalletData {
+  id: string;
   balance_credits: number;
-  usd_equiv: string;
+  usd_equiv: number;
   low_balance_threshold: number;
   auto_reload_enabled: boolean;
   auto_reload_topup_credits: number | null;
@@ -16,10 +17,10 @@ export interface WalletTransaction {
   id: string;
   type: "purchase" | "spend" | "refund" | "adjustment" | "promo";
   credits_delta: number;
-  usd_cents: number | null;
-  reference_type: string | null;
-  reference_id: string | null;
-  memo: string | null;
+  usd_cents?: number | null;
+  reference_type?: string | null;
+  reference_id?: string | null;
+  memo?: string | null;
   created_at: string;
 }
 
@@ -28,10 +29,14 @@ export interface CreditPackage {
   name: string;
   credits: number;
   price_usd_cents: number;
-  is_default: boolean;
-  is_active: boolean;
-  sort_order: number;
+  is_default?: boolean;
+  is_active?: boolean;
+  sort_order?: number;
 }
+
+type PurchaseArgs =
+  | { package_id: string; promo_code?: string }
+  | { custom_credits: number; promo_code?: string };
 
 export const useWallet = () => {
   const { toast } = useToast();
@@ -42,11 +47,16 @@ export const useWallet = () => {
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("get-wallet");
       if (error) throw error;
-      return data;
+      // Ensure usd_equiv is a number and provide defaults
+      return {
+        ...data,
+        usd_equiv: typeof data.usd_equiv === 'string' ? parseFloat(data.usd_equiv) : (data.usd_equiv || 0),
+        recent_transactions: data.recent_transactions || [],
+      };
     },
   });
 
-  const { data: packages } = useQuery<CreditPackage[]>({
+  const { data: packages, isLoading: isLoadingPackages } = useQuery<CreditPackage[]>({
     queryKey: ["credit-packages"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -55,23 +65,19 @@ export const useWallet = () => {
         .eq("is_active", true)
         .order("sort_order");
       if (error) throw error;
-      return data;
+      return data || [];
     },
   });
 
   const purchaseMutation = useMutation({
-    mutationFn: async ({
-      package_id,
-      custom_credits,
-      promo_code,
-    }: {
-      package_id?: string;
-      custom_credits?: number;
-      promo_code?: string;
-    }) => {
+    mutationFn: async (args: PurchaseArgs) => {
+      const body = 'package_id' in args 
+        ? { package_id: args.package_id, promo_code: args.promo_code }
+        : { custom_credits: args.custom_credits, promo_code: args.promo_code };
+      
       const idempotencyKey = crypto.randomUUID();
       const { data, error } = await supabase.functions.invoke("purchase-credits", {
-        body: { package_id, custom_credits, promo_code },
+        body,
         headers: {
           "Idempotency-Key": idempotencyKey,
         },
@@ -80,6 +86,8 @@ export const useWallet = () => {
       return data;
     },
     onSuccess: (data) => {
+      // Refetch wallet after successful purchase initiation
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
       // Redirect to Stripe checkout
       if (data.session_url) {
         window.location.href = data.session_url;
@@ -135,12 +143,13 @@ export const useWallet = () => {
 
   return {
     wallet,
-    packages,
+    packages: packages || [],
     isLoading,
+    isLoadingPackages,
     error,
     isLowBalance,
     isFrozen,
-    purchaseCredits: purchaseMutation.mutate,
+    purchaseCredits: purchaseMutation.mutateAsync,
     isPurchasing: purchaseMutation.isPending,
     updateAutoReload: autoReloadMutation.mutate,
     isUpdatingAutoReload: autoReloadMutation.isPending,

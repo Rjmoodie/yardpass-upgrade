@@ -76,16 +76,16 @@ export const WalletDashboard = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-4" aria-live="polite">
             <div>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold">
+                <span className="text-4xl font-bold" data-testid="wallet-balance">
                   {wallet.balance_credits.toLocaleString()}
                 </span>
                 <span className="text-muted-foreground">credits</span>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                = {wallet.usd_equiv} USD
+                = {new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(wallet.usd_equiv)}
               </p>
             </div>
 
@@ -94,12 +94,17 @@ export const WalletDashboard = () => {
                 {wallet.status}
               </Badge>
               {wallet.auto_reload_enabled && (
-                <Badge variant="outline">Auto-reload enabled</Badge>
+                <Badge 
+                  variant="outline" 
+                  title={`Top-up: ${wallet.auto_reload_topup_credits?.toLocaleString() ?? 0} credits`}
+                >
+                  Auto-reload on
+                </Badge>
               )}
             </div>
 
             {wallet.balance_credits === 0 && (
-              <Alert>
+              <Alert aria-live="polite">
                 <AlertDescription>
                   You have 0 credits. Add credits to launch campaigns.
                 </AlertDescription>
@@ -116,7 +121,14 @@ export const WalletDashboard = () => {
           <CardDescription>Your latest wallet transactions</CardDescription>
         </CardHeader>
         <CardContent>
-          <WalletTransactionsTable transactions={wallet.recent_transactions} />
+          {wallet.recent_transactions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No transactions yet</p>
+              <p className="text-sm mt-1">Purchase credits to get started</p>
+            </div>
+          ) : (
+            <WalletTransactionsTable transactions={wallet.recent_transactions} />
+          )}
         </CardContent>
       </Card>
 
