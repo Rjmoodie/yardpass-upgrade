@@ -21,7 +21,11 @@ export function VideoMedia({
   const playerRef = useRef<MuxPlayerRefElement | null>(null);
 
   // Extract Mux playback ID from URL (supports mux:ABC or stream.mux.com/ABC)
-  const playbackId = useMemo(() => extractMuxPlaybackId(url), [url]);
+  const playbackId = useMemo(() => {
+    const id = extractMuxPlaybackId(url);
+    console.log('🎥 Extracted Mux playback ID:', { url, playbackId: id });
+    return id;
+  }, [url]);
 
   // Mux Player handles analytics automatically via envKey
 
@@ -64,9 +68,21 @@ export function VideoMedia({
         }}
         className="relative z-20"
         metadata={{
+          video_id: playbackId,
           video_title: `Post by ${post?.user_profiles?.display_name ?? 'User'}`,
           viewer_user_id: post?.author_user_id,
         }}
+        onLoadStart={() => console.log('🎬 Mux: Load started -', playbackId)}
+        onLoadedMetadata={() => console.log('📊 Mux: Metadata loaded -', playbackId)}
+        onPlay={() => console.log('▶️ Mux: Playing -', playbackId)}
+        onPlaying={() => console.log('▶️ Mux: Playback active -', playbackId)}
+        onTimeUpdate={(e) => {
+          const target = e.target as HTMLVideoElement;
+          if (target.currentTime > 0 && target.currentTime < 1) {
+            console.log('⏱️ Mux: First second played -', playbackId);
+          }
+        }}
+        onError={(e) => console.error('❌ Mux player error:', playbackId, e)}
       />
 
       <div className="absolute top-2 right-2 flex flex-col gap-2 z-30">
