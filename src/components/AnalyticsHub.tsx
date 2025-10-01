@@ -906,10 +906,12 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
 
 /* --------------------------- Main Hub --------------------------- */
 
-const AnalyticsHub: React.FC = () => {
+const AnalyticsHub: React.FC<{ initialOrgId?: string | null }> = ({ initialOrgId }) => {
   const { user } = useAuth();
   const { trackEvent } = useAnalyticsIntegration();
-  const [selectedOrg, setSelectedOrg] = useState<string>(() => new URLSearchParams(location.search).get('org') || localStorage.getItem('ah.selectedOrg') || '');
+  const [selectedOrg, setSelectedOrg] = useState<string>(() => 
+    initialOrgId || new URLSearchParams(location.search).get('org') || localStorage.getItem('ah.selectedOrg') || ''
+  );
   const [dateRange, setDateRange] = useState<string>(() => new URLSearchParams(location.search).get('range') || localStorage.getItem('ah.dateRange') || '30d');
   const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
   const [loading, setLoading] = useState(false);
@@ -926,6 +928,13 @@ const AnalyticsHub: React.FC = () => {
 
   // cache key
   const aiCacheKey = useMemo(() => (selectedOrg ? `ah.ai.${selectedOrg}.${dateRange}` : ''), [selectedOrg, dateRange]);
+
+  // Sync with initialOrgId prop changes
+  useEffect(() => {
+    if (initialOrgId && initialOrgId !== selectedOrg) {
+      setSelectedOrg(initialOrgId);
+    }
+  }, [initialOrgId]);
 
   // Organizations
   useEffect(() => {

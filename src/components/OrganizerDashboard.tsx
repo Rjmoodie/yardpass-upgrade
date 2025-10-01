@@ -384,7 +384,7 @@ export default function OrganizerDashboard() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
-          <AnalyticsHub />
+          <AnalyticsHub initialOrgId={selectedOrgId} />
         </TabsContent>
 
         <TabsContent value="wallet" className="space-y-6">
