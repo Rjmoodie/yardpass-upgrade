@@ -2,8 +2,10 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type CreativeAnalyticsPoint = {
+export type CreativeSeriesPoint = {
   creative_id: string;
+  campaign_id: string;
+  org_id: string;
   date: string; // YYYY-MM-DD
   impressions: number;
   clicks: number;
@@ -12,12 +14,15 @@ export type CreativeAnalyticsPoint = {
   credits_spent: number;
 };
 
-export type CreativeAnalyticsTotals = {
+export type CreativeTotals = {
+  creative_id: string;
+  campaign_id: string;
   impressions: number;
   clicks: number;
-  ctr: number; // 0..1
   conversions: number;
+  revenue_cents: number;
   credits_spent: number;
+  ctr: number; // 0..1
 };
 
 export function useCreativeAnalytics({
@@ -27,107 +32,76 @@ export function useCreativeAnalytics({
   campaignIds,
   creativeIds,
 }: {
-  orgId?: string;
+  orgId: string;
   from: Date | string;
   to: Date | string;
-  campaignIds?: string[];
-  creativeIds?: string[];
+  campaignIds?: string[] | null;
+  creativeIds?: string[] | null;
 }) {
-  const fromISO = typeof from === "string" ? from : from.toISOString();
-  const toISO = typeof to === "string" ? to : to.toISOString();
+  const fromStr = typeof from === "string" ? from.slice(0, 10) : toDateStr(from);
+  const toStr = typeof to === "string" ? to.slice(0, 10) : toDateStr(to);
 
   const q = useQuery({
     queryKey: [
       "creative-analytics",
       orgId,
-      fromISO,
-      toISO,
+      fromStr,
+      toStr,
       campaignIds?.join(",") ?? "",
       creativeIds?.join(",") ?? "",
     ],
-    queryFn: async (): Promise<CreativeAnalyticsPoint[]> => {
-      if (!orgId) return [];
-
-      // Use the secure RPC that enforces org membership
+    queryFn: async (): Promise<CreativeSeriesPoint[]> => {
       const { data, error } = await supabase.rpc("rpc_creative_analytics_daily", {
         p_org_id: orgId,
-        p_from: fromISO.slice(0, 10), // "YYYY-MM-DD"
-        p_to: toISO.slice(0, 10),
-        p_campaign_ids: campaignIds?.length ? campaignIds : null,
-        p_creative_ids: creativeIds?.length ? creativeIds : null,
+        p_from: fromStr,
+        p_to: toStr,
+        p_campaign_ids: campaignIds && campaignIds.length ? campaignIds : null,
+        p_creative_ids: creativeIds && creativeIds.length ? creativeIds : null,
       });
-
       if (error) throw error;
-
-      return (data ?? []).map((row) => ({
-        creative_id: row.creative_id,
-        date: row.date as string,
-        impressions: row.impressions ?? 0,
-        clicks: row.clicks ?? 0,
-        conversions: row.conversions ?? 0,
-        revenue_cents: row.revenue_cents ?? 0,
-        credits_spent: row.credits_spent ?? 0,
-      }));
+      return (data ?? []) as CreativeSeriesPoint[];
     },
-    enabled: !!orgId && !!fromISO && !!toISO,
+    enabled: !!orgId && !!fromStr && !!toStr,
   });
 
-  const totals: CreativeAnalyticsTotals = useMemo(() => {
-    const pts = q.data ?? [];
-    const impressions = pts.reduce((s, p) => s + p.impressions, 0);
-    const clicks = pts.reduce((s, p) => s + p.clicks, 0);
-    const conversions = pts.reduce((s, p) => s + p.conversions, 0);
-    const credits_spent = pts.reduce((s, p) => s + p.credits_spent, 0);
-    const ctr = impressions ? clicks / impressions : 0;
-    return { impressions, clicks, ctr, conversions, credits_spent };
-  }, [q.data]);
-
-  // Per-creative lifetime stats (for displaying in a table)
-  const perCreative = useMemo(() => {
-    const byCreative = new Map<
-      string,
-      {
-        creative_id: string;
-        impressions: number;
-        clicks: number;
-        conversions: number;
-        credits_spent: number;
-        ctr: number;
-      }
-    >();
-
-    for (const row of q.data ?? []) {
-      const prev = byCreative.get(row.creative_id) ?? {
-        creative_id: row.creative_id,
+  // Totals per creative (over selected date range)
+  const totalsByCreative: CreativeTotals[] = useMemo(() => {
+    const map = new Map<string, CreativeTotals>();
+    for (const r of q.data ?? []) {
+      const key = r.creative_id;
+      const prev = map.get(key) ?? {
+        creative_id: r.creative_id,
+        campaign_id: r.campaign_id,
         impressions: 0,
         clicks: 0,
         conversions: 0,
+        revenue_cents: 0,
         credits_spent: 0,
         ctr: 0,
       };
-
-      byCreative.set(row.creative_id, {
-        creative_id: row.creative_id,
-        impressions: prev.impressions + row.impressions,
-        clicks: prev.clicks + row.clicks,
-        conversions: prev.conversions + row.conversions,
-        credits_spent: prev.credits_spent + row.credits_spent,
-        ctr: 0, // will compute after summing
-      });
+      prev.impressions += r.impressions ?? 0;
+      prev.clicks += r.clicks ?? 0;
+      prev.conversions += r.conversions ?? 0;
+      prev.revenue_cents += r.revenue_cents ?? 0;
+      prev.credits_spent += r.credits_spent ?? 0;
+      map.set(key, prev);
     }
-
-    // Compute CTR for each creative
-    return Array.from(byCreative.values()).map((c) => ({
-      ...c,
-      ctr: c.impressions ? c.clicks / c.impressions : 0,
-    }));
+    // compute CTR
+    map.forEach((v) => {
+      v.ctr = v.impressions ? v.clicks / v.impressions : 0;
+    });
+    return Array.from(map.values());
   }, [q.data]);
 
   return {
     isLoading: q.isLoading,
     error: q.error as any,
     series: q.data ?? [],
-    totals,
-    perCreative, // For displaying creative performance table
+    totalsByCreative,
   };
+}
+
+function toDateStr(d: Date) {
+  const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  return z.toISOString().slice(0, 10); // YYYY-MM-DD
 }
