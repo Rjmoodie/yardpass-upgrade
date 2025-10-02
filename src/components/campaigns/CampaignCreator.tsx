@@ -12,12 +12,21 @@ import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useCreateCampaign } from "@/hooks/useCampaigns";
+import { useCampaigns } from "@/hooks/useCampaigns";
+
+import type { CampaignObjective, PacingStrategy } from "@/types/campaigns";
 
 export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
   const { toast } = useToast();
-  const createCampaign = useCreateCampaign();
-  const [form, setForm] = useState({
+  const { createCampaign, isCreating } = useCampaigns(orgId);
+  const [form, setForm] = useState<{
+    name: string;
+    description: string;
+    objective: CampaignObjective;
+    pacing: PacingStrategy;
+    totalBudget: string;
+    dailyBudget: string;
+  }>({
     name: "",
     description: "",
     objective: "ticket_sales",
@@ -66,7 +75,7 @@ export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
     };
 
     try {
-      await createCampaign.mutateAsync(payload);
+      await createCampaign(payload);
       toast({ title: "Campaign created" });
       setForm({ name: "", description: "", objective: "ticket_sales", pacing: "even", totalBudget: "", dailyBudget: "" });
       setStartDate(undefined);
@@ -120,7 +129,7 @@ export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
                 <Label htmlFor="objective">Campaign Objective</Label>
                 <Select
                   value={form.objective}
-                  onValueChange={(v) => setForm((f) => ({ ...f, objective: v }))}
+                  onValueChange={(v) => setForm((f) => ({ ...f, objective: v as CampaignObjective }))}
                 >
                   <SelectTrigger id="objective">
                     <SelectValue placeholder="Select objective" />
@@ -135,7 +144,7 @@ export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="pacing">Pacing Strategy</Label>
-                <Select value={form.pacing} onValueChange={(v) => setForm((f) => ({ ...f, pacing: v }))}>
+                <Select value={form.pacing} onValueChange={(v) => setForm((f) => ({ ...f, pacing: v as PacingStrategy }))}>
                   <SelectTrigger id="pacing">
                     <SelectValue placeholder="Select pacing" />
                   </SelectTrigger>
@@ -218,8 +227,8 @@ export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
           {/* Actions */}
           <div className="flex gap-3 justify-end">
             <Button variant="outline" type="button">Cancel</Button>
-            <Button type="button" onClick={onSubmit} disabled={createCampaign.isPending}>
-              {createCampaign.isPending ? "Creating…" : "Create Campaign"}
+            <Button type="button" onClick={onSubmit} disabled={isCreating}>
+              {isCreating ? "Creating…" : "Create Campaign"}
             </Button>
           </div>
         </CardContent>

@@ -7,11 +7,16 @@ import { CreativeManager } from "./CreativeManager";
 import { BarChart3, FileText, Target, TrendingUp } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
+import { addDays } from "date-fns";
 
 export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
   const [selectedTab, setSelectedTab] = useState<string>(() => window.location.hash.replace("#", "") || "campaigns");
-  const { data: campaigns = [], isLoading: loadingCampaigns } = useCampaigns(orgId);
-  const { data: analytics, isLoading: loadingAnalytics } = useCampaignAnalytics(orgId);
+  const { campaigns, isLoading: loadingCampaigns, pause, resume, archive } = useCampaigns(orgId);
+  const { totals, series, isLoading: loadingAnalytics } = useCampaignAnalytics({
+    orgId,
+    from: addDays(new Date(), -13),
+    to: new Date(),
+  });
 
   useEffect(() => {
     const onHash = () => setSelectedTab(window.location.hash.replace("#", "") || "campaigns");
@@ -51,7 +56,24 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         </TabsList>
 
         <TabsContent value="campaigns">
-          <CampaignList campaigns={campaigns} loading={loadingCampaigns} />
+          <CampaignList 
+            campaigns={campaigns.map((c) => ({
+              id: c.id,
+              name: c.name,
+              status: c.status,
+              budget: c.total_budget_credits,
+              spent: c.spent_credits,
+              impressions: 0,
+              clicks: 0,
+              startDate: c.start_date.slice(0, 10),
+              endDate: c.end_date?.slice(0, 10),
+            }))}
+            loading={loadingCampaigns}
+            onPause={pause}
+            onResume={resume}
+            onArchive={archive}
+            orgId={orgId}
+          />
         </TabsContent>
 
         <TabsContent value="creatives">
@@ -61,8 +83,8 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         <TabsContent value="analytics">
           <CampaignAnalytics
             loading={loadingAnalytics}
-            totals={analytics?.totals}
-            series={analytics?.series}
+            totals={totals}
+            series={series}
           />
         </TabsContent>
 
