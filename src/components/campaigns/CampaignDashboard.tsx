@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card } from "@/components/ui/card";
 import { CampaignList } from "./CampaignList";
 import { CampaignCreator } from "./CampaignCreator";
 import { CampaignAnalytics } from "./CampaignAnalytics";
@@ -12,6 +13,20 @@ import { addDays, format } from "date-fns";
 
 export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
   const [selectedTab, setSelectedTab] = useState<string>(() => window.location.hash.replace("#", "") || "campaigns");
+  
+  // Require org context for campaigns
+  if (!orgId) {
+    return (
+      <Card className="p-12 text-center">
+        <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+        <h2 className="text-2xl font-bold mb-2">Organization Required</h2>
+        <p className="text-muted-foreground mb-6">
+          Campaigns are organization-scoped. Please select or create an organization to manage campaigns.
+        </p>
+      </Card>
+    );
+  }
+  
   const { campaigns, isLoading: loadingCampaigns, pause, resume, archive } = useCampaigns(orgId);
   
   const dateRange = {

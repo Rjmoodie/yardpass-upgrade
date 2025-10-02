@@ -527,7 +527,7 @@ export default function OrganizerDashboard() {
         </TabsContent>
 
         <TabsContent value="campaigns" className="space-y-6">
-          <CampaignDashboard />
+          <CampaignDashboard orgId={selectedOrgId} />
         </TabsContent>
 
         <TabsContent value="wallet" className="space-y-6">
