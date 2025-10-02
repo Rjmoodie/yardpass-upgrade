@@ -15,7 +15,10 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
   const [selectedTab, setSelectedTab] = useState<string>(() => window.location.hash.replace("#", "") || "campaigns");
   
   // Require org context for campaigns
+  console.log("[CampaignDashboard] orgId:", orgId);
+  
   if (!orgId) {
+    console.warn("[CampaignDashboard] No orgId provided");
     return (
       <Card className="p-12 text-center">
         <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />

@@ -20,6 +20,7 @@ export function useCampaignAnalytics({
   const q = useQuery({
     queryKey: ["campaign-analytics", orgId, fromISO, toISO, campaignIds?.join(",") ?? ""],
     queryFn: async (): Promise<{ series: AnalyticsPoint[]; rawData: any[] }> => {
+      console.log("[useCampaignAnalytics] Fetching analytics for org:", orgId);
       if (!orgId) return { series: [], rawData: [] };
       
       // Use the secure RPC that enforces org membership
@@ -30,7 +31,11 @@ export function useCampaignAnalytics({
         p_campaign_ids: campaignIds?.length ? campaignIds : null,
       });
 
-      if (error) throw error;
+      console.log("[useCampaignAnalytics] RPC result:", { data, error, dataLength: data?.length });
+      if (error) {
+        console.error("[useCampaignAnalytics] Error fetching analytics:", error);
+        throw error;
+      }
 
       // Aggregate per day across selected campaigns if multiple campaigns returned
       const byDate = new Map<string, AnalyticsPoint>();
@@ -60,6 +65,12 @@ export function useCampaignAnalytics({
       };
     },
     enabled: !!orgId && !!fromISO && !!toISO,
+  });
+
+  console.log("[useCampaignAnalytics] Query state:", { 
+    isLoading: q.isLoading, 
+    error: q.error, 
+    seriesLength: q.data?.series?.length ?? 0 
   });
 
   const totals: AnalyticsTotals = useMemo(() => {

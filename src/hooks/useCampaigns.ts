@@ -8,13 +8,18 @@ export function useCampaigns(orgId?: string) {
   const campaignsQ = useQuery({
     queryKey: ["campaigns", orgId],
     queryFn: async (): Promise<CampaignRow[]> => {
+      console.log("[useCampaigns] Fetching campaigns for org:", orgId);
       if (!orgId) return [];
       const { data, error } = await supabase
         .from("campaigns")
         .select("*")
         .eq("org_id", orgId)
         .order("created_at", { ascending: false });
-      if (error) throw error;
+      console.log("[useCampaigns] Query result:", { data, error });
+      if (error) {
+        console.error("[useCampaigns] Error fetching campaigns:", error);
+        throw error;
+      }
       return data ?? [];
     },
     enabled: !!orgId,
