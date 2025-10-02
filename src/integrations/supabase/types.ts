@@ -5145,6 +5145,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      refresh_campaign_analytics: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       refresh_covis: {
         Args: Record<PropertyKey, never>
         Returns: undefined
