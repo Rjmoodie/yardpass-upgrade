@@ -5528,12 +5528,14 @@ export type Database = {
           creative_id: string
           credits_spent: number
           ctr: number
+          daily_series: Json
           headline: string
           impressions: number
           media_type: string
+          media_url: string
           org_id: string
+          poster_url: string
           revenue_cents: number
-          series: Json
         }[]
       }
       search_all: {
