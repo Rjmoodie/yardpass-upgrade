@@ -60,6 +60,13 @@ export type Database = {
             foreignKeyName: "ad_clicks_campaign_id_fkey"
             columns: ["campaign_id"]
             isOneToOne: false
+            referencedRelation: "campaign_analytics_daily_secured"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
@@ -144,6 +151,13 @@ export type Database = {
             foreignKeyName: "ad_creatives_campaign_id_fkey"
             columns: ["campaign_id"]
             isOneToOne: false
+            referencedRelation: "campaign_analytics_daily_secured"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_creatives_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
@@ -220,6 +234,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaign_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_analytics_daily_secured"
             referencedColumns: ["campaign_id"]
           },
           {
@@ -449,6 +470,13 @@ export type Database = {
             foreignKeyName: "campaign_placements_campaign_id_fkey"
             columns: ["campaign_id"]
             isOneToOne: false
+            referencedRelation: "campaign_analytics_daily_secured"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "campaign_placements_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
@@ -491,6 +519,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: true
             referencedRelation: "campaign_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "campaign_targeting_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
+            referencedRelation: "campaign_analytics_daily_secured"
             referencedColumns: ["campaign_id"]
           },
           {
@@ -3916,8 +3951,27 @@ export type Database = {
           impressions: number | null
           org_id: string | null
           revenue_cents: number | null
-          unique_sessions: number | null
-          unique_users: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_analytics_daily_secured: {
+        Row: {
+          campaign_id: string | null
+          clicks: number | null
+          conversions: number | null
+          credits_spent: number | null
+          date: string | null
+          impressions: number | null
+          org_id: string | null
+          revenue_cents: number | null
         }
         Relationships: [
           {
@@ -5146,7 +5200,7 @@ export type Database = {
         Returns: undefined
       }
       refresh_campaign_analytics: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { p_concurrently?: boolean }
         Returns: undefined
       }
       refresh_covis: {
@@ -5199,6 +5253,24 @@ export type Database = {
           p_user_id?: string
         }
         Returns: Json
+      }
+      rpc_campaign_analytics_daily: {
+        Args: {
+          p_campaign_ids?: string[]
+          p_from: string
+          p_org_id: string
+          p_to: string
+        }
+        Returns: {
+          campaign_id: string
+          clicks: number
+          conversions: number
+          credits_spent: number
+          date: string
+          impressions: number
+          org_id: string
+          revenue_cents: number
+        }[]
       }
       search_all: {
         Args: {
