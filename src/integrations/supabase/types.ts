@@ -5507,31 +5507,18 @@ export type Database = {
         }[]
       }
       rpc_creative_analytics_rollup: {
-        Args:
-          | {
-              p_campaign_ids?: string[]
-              p_creative_ids?: string[]
-              p_dir?: string
-              p_from: string
-              p_include_series?: boolean
-              p_limit?: number
-              p_offset?: number
-              p_org_id: string
-              p_sort?: string
-              p_to: string
-            }
-          | {
-              p_campaign_ids?: string[]
-              p_creative_ids?: string[]
-              p_dir?: string
-              p_from: string
-              p_include_series?: boolean
-              p_limit?: number
-              p_offset?: number
-              p_org_id: string
-              p_sort?: string
-              p_to: string
-            }
+        Args: {
+          p_campaign_ids?: string[]
+          p_creative_ids?: string[]
+          p_dir?: string
+          p_from: string
+          p_include_series?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_org_id: string
+          p_sort?: string
+          p_to: string
+        }
         Returns: {
           active: boolean
           campaign_id: string

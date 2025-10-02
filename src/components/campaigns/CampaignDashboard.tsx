@@ -46,6 +46,7 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
     to: dateRange.to,
   });
 
+  // Format dates as YYYY-MM-DD strings for the RPC
   const { data: creativeData, isLoading: loadingCreatives, error: creativesError } = useCreativeRollup({
     orgId: orgId || "",
     from: format(dateRange.from, "yyyy-MM-dd"),

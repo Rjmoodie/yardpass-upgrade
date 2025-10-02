@@ -68,6 +68,7 @@ export const CampaignList = ({
   return (
     <div className="space-y-4">
       {sorted.map((c) => {
+        // CTR is already a ratio (0..1) from the RPC
         const ctr = c.impressions ? c.clicks / c.impressions : 0;
         const pct = Math.min(100, Math.round((c.spent / Math.max(1, c.budget)) * 100));
         return (

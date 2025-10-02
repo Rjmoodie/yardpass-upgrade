@@ -4,8 +4,8 @@ import type { CreativeRollup } from "@/types/campaigns";
 
 export function useCreativeRollup(opts: {
   orgId: string;
-  from: string; // "YYYY-MM-DD"
-  to: string;   // "YYYY-MM-DD"
+  from: string; // "YYYY-MM-DD" format expected
+  to: string;   // "YYYY-MM-DD" format expected
   campaignIds?: string[] | null;
   creativeIds?: string[] | null;
   includeSeries?: boolean;
