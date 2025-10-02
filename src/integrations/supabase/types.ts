@@ -20,6 +20,7 @@ export type Database = {
           conversion_value_cents: number | null
           converted: boolean | null
           created_at: string
+          creative_id: string | null
           id: string
           impression_id: string | null
           session_id: string | null
@@ -31,6 +32,7 @@ export type Database = {
           conversion_value_cents?: number | null
           converted?: boolean | null
           created_at?: string
+          creative_id?: string | null
           id?: string
           impression_id?: string | null
           session_id?: string | null
@@ -42,6 +44,7 @@ export type Database = {
           conversion_value_cents?: number | null
           converted?: boolean | null
           created_at?: string
+          creative_id?: string | null
           id?: string
           impression_id?: string | null
           session_id?: string | null
@@ -69,6 +72,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily_secured"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "ad_creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily"
+            referencedColumns: ["creative_id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily_secured"
+            referencedColumns: ["creative_id"]
           },
           {
             foreignKeyName: "ad_clicks_impression_id_fkey"
@@ -162,6 +200,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ad_creatives_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_creatives_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily_secured"
+            referencedColumns: ["campaign_id"]
+          },
+          {
             foreignKeyName: "ad_creatives_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
@@ -195,6 +247,7 @@ export type Database = {
         Row: {
           campaign_id: string
           created_at: string
+          creative_id: string | null
           event_id: string | null
           id: string
           ip_address: string | null
@@ -207,6 +260,7 @@ export type Database = {
         Insert: {
           campaign_id: string
           created_at?: string
+          creative_id?: string | null
           event_id?: string | null
           id?: string
           ip_address?: string | null
@@ -219,6 +273,7 @@ export type Database = {
         Update: {
           campaign_id?: string
           created_at?: string
+          creative_id?: string | null
           event_id?: string | null
           id?: string
           ip_address?: string | null
@@ -249,6 +304,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily_secured"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "ad_creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily"
+            referencedColumns: ["creative_id"]
+          },
+          {
+            foreignKeyName: "ad_impressions_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily_secured"
+            referencedColumns: ["creative_id"]
           },
           {
             foreignKeyName: "ad_impressions_event_id_fkey"
@@ -319,6 +409,7 @@ export type Database = {
         Row: {
           campaign_id: string
           created_at: string
+          creative_id: string | null
           credits_charged: number
           id: string
           metric_type: string
@@ -333,6 +424,7 @@ export type Database = {
         Insert: {
           campaign_id: string
           created_at?: string
+          creative_id?: string | null
           credits_charged: number
           id?: string
           metric_type: string
@@ -347,6 +439,7 @@ export type Database = {
         Update: {
           campaign_id?: string
           created_at?: string
+          creative_id?: string | null
           credits_charged?: number
           id?: string
           metric_type?: string
@@ -359,6 +452,27 @@ export type Database = {
           wallet_transaction_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ad_spend_ledger_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "ad_creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_spend_ledger_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily"
+            referencedColumns: ["creative_id"]
+          },
+          {
+            foreignKeyName: "ad_spend_ledger_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily_secured"
+            referencedColumns: ["creative_id"]
+          },
           {
             foreignKeyName: "ad_spend_ledger_org_wallet_id_fkey"
             columns: ["org_wallet_id"]
@@ -480,6 +594,20 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "campaign_placements_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "campaign_placements_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "creative_analytics_daily_secured"
+            referencedColumns: ["campaign_id"]
+          },
         ]
       }
       campaign_targeting: {
@@ -534,6 +662,20 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_targeting_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
+            referencedRelation: "creative_analytics_daily"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "campaign_targeting_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
+            referencedRelation: "creative_analytics_daily_secured"
+            referencedColumns: ["campaign_id"]
           },
         ]
       }
@@ -4007,6 +4149,50 @@ export type Database = {
           },
         ]
       }
+      creative_analytics_daily: {
+        Row: {
+          campaign_id: string | null
+          clicks: number | null
+          conversions: number | null
+          creative_id: string | null
+          credits_spent: number | null
+          date: string | null
+          impressions: number | null
+          org_id: string | null
+          revenue_cents: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creative_analytics_daily_secured: {
+        Row: {
+          campaign_id: string | null
+          clicks: number | null
+          conversions: number | null
+          creative_id: string | null
+          credits_spent: number | null
+          date: string | null
+          impressions: number | null
+          org_id: string | null
+          revenue_cents: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_connect: {
         Row: {
           event_id: string | null
@@ -4024,13 +4210,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
-            columns: ["event_a"]
-            isOneToOne: false
-            referencedRelation: "event_connect"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_b"]
             isOneToOne: false
             referencedRelation: "event_connect"
@@ -4040,8 +4219,8 @@ export type Database = {
             foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_a"]
             isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
+            referencedRelation: "event_connect"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
@@ -4054,7 +4233,7 @@ export type Database = {
             foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_a"]
             isOneToOne: false
-            referencedRelation: "events_enhanced"
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
@@ -4068,8 +4247,8 @@ export type Database = {
             foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_a"]
             isOneToOne: false
-            referencedRelation: "marketplace_sponsorships"
-            referencedColumns: ["event_id"]
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
@@ -4081,13 +4260,20 @@ export type Database = {
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_a"]
+            isOneToOne: false
+            referencedRelation: "marketplace_sponsorships"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_b"]
             isOneToOne: false
             referencedRelation: "mv_sponsorship_revenue"
             referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
-            columns: ["event_b"]
+            columns: ["event_a"]
             isOneToOne: false
             referencedRelation: "mv_sponsorship_revenue"
             referencedColumns: ["event_id"]
@@ -5219,6 +5405,10 @@ export type Database = {
         Args: { p_wallet: string }
         Returns: number
       }
+      refresh_ads_analytics: {
+        Args: { p_concurrently?: boolean }
+        Returns: undefined
+      }
       refresh_analytics_views: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -5289,6 +5479,26 @@ export type Database = {
           campaign_id: string
           clicks: number
           conversions: number
+          credits_spent: number
+          date: string
+          impressions: number
+          org_id: string
+          revenue_cents: number
+        }[]
+      }
+      rpc_creative_analytics_daily: {
+        Args: {
+          p_campaign_ids?: string[]
+          p_creative_ids?: string[]
+          p_from: string
+          p_org_id: string
+          p_to: string
+        }
+        Returns: {
+          campaign_id: string
+          clicks: number
+          conversions: number
+          creative_id: string
           credits_spent: number
           date: string
           impressions: number
