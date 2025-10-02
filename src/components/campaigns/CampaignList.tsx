@@ -56,8 +56,11 @@ export const CampaignList = ({
     console.log("[CampaignList] Showing empty state");
     return (
       <Card className="p-12 text-center">
-        <p className="text-muted-foreground mb-4">No campaigns yet</p>
-        <Button asChild><a href={`#create`}>Create Your First Campaign</a></Button>
+        <p className="text-muted-foreground mb-2">No campaigns yet for this organization.</p>
+        <p className="text-muted-foreground mb-4">
+          Create your first campaign to start seeing analytics here.
+        </p>
+        <Button asChild><a href="#create">Create Your First Campaign</a></Button>
       </Card>
     );
   }

@@ -6,8 +6,13 @@ import { Card } from "@/components/ui/card";
 
 const CampaignDashboardPage = () => {
   const { organizations, loading } = useOrganizations();
+  
+  // Get orgId from URL query parameter first, then fall back to first org
+  const params = new URLSearchParams(location.search);
+  const urlOrgId = params.get("org");
+  
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
-    organizations[0]?.id || null
+    urlOrgId || organizations[0]?.id || null
   );
 
   if (loading) {

@@ -12,7 +12,10 @@ import { useCreativeRollup } from "@/hooks/useCreativeRollup";
 import { addDays, format } from "date-fns";
 
 export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
-  const [selectedTab, setSelectedTab] = useState<string>(() => window.location.hash.replace("#", "") || "campaigns");
+  const [selectedTab, setSelectedTab] = useState<string>(() => {
+    const hash = window.location.hash.replace("#", "");
+    return ["campaigns", "creatives", "analytics", "create"].includes(hash) ? hash : "campaigns";
+  });
   
   // Require org context for campaigns
   console.log("[CampaignDashboard] orgId:", orgId);
@@ -37,13 +40,13 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
     to: new Date(),
   };
   
-  const { totals, series, isLoading: loadingAnalytics, totalsByCampaign } = useCampaignAnalytics({
+  const { totals, series, isLoading: loadingAnalytics, error: analyticsError, totalsByCampaign } = useCampaignAnalytics({
     orgId,
     from: dateRange.from,
     to: dateRange.to,
   });
 
-  const { data: creativeData, isLoading: loadingCreatives } = useCreativeRollup({
+  const { data: creativeData, isLoading: loadingCreatives, error: creativesError } = useCreativeRollup({
     orgId: orgId || "",
     from: format(dateRange.from, "yyyy-MM-dd"),
     to: format(dateRange.to, "yyyy-MM-dd"),
@@ -68,6 +71,18 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         <h1 className="text-4xl font-bold mb-2">Campaign Manager</h1>
         <p className="text-muted-foreground">Create and manage your ad campaigns across YardPass</p>
       </div>
+
+      {/* Error Banner */}
+      {(analyticsError || creativesError) && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 mb-6 text-sm">
+          <p className="font-semibold mb-1">Failed to load campaign data</p>
+          <p className="text-muted-foreground">
+            {analyticsError ? "Analytics: " + (analyticsError as any)?.message : ""}
+            {creativesError ? "Creatives: " + (creativesError as any)?.message : ""}
+          </p>
+          <p className="text-muted-foreground mt-2">Please check that you have access to this organization.</p>
+        </div>
+      )}
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
@@ -98,7 +113,7 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
                 loadingAnalytics 
               });
               return campaigns.map((c) => {
-                const stats = totalsByCampaign.find((t) => t.campaign_id === c.id);
+                const stats = totalsByCampaign?.find((t) => t.campaign_id === c.id);
                 return {
                   id: c.id,
                   name: c.name,
