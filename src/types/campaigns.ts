@@ -59,3 +59,27 @@ export type AnalyticsTotals = {
   ctr: number;                  // 0..1
   credits_spent: number;
 };
+
+export type CreativeRollup = {
+  creative_id: string;
+  campaign_id: string;
+  org_id: string;
+  campaign_name: string | null;
+  headline: string | null;
+  media_type: "image" | "video" | "existing_post" | string;
+  active: boolean;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  revenue_cents: number;
+  credits_spent: number;
+  ctr: number; // 0..1
+  series?: Array<{
+    date: string;
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    revenue_cents: number;
+    credits_spent: number;
+  }> | null;
+};

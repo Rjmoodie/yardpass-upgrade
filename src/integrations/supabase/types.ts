@@ -5506,6 +5506,36 @@ export type Database = {
           revenue_cents: number
         }[]
       }
+      rpc_creative_analytics_rollup: {
+        Args: {
+          p_campaign_ids?: string[]
+          p_creative_ids?: string[]
+          p_dir?: string
+          p_from: string
+          p_include_series?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_org_id: string
+          p_sort?: string
+          p_to: string
+        }
+        Returns: {
+          active: boolean
+          campaign_id: string
+          campaign_name: string
+          clicks: number
+          conversions: number
+          creative_id: string
+          credits_spent: number
+          ctr: number
+          headline: string
+          impressions: number
+          media_type: string
+          org_id: string
+          revenue_cents: number
+          series: Json
+        }[]
+      }
       search_all: {
         Args: {
           p_category?: string
