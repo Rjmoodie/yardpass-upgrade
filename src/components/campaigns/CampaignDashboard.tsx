@@ -91,22 +91,29 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
 
         <TabsContent value="campaigns">
           <CampaignList 
-            campaigns={campaigns.map((c) => {
-              const stats = totalsByCampaign.find((t) => t.campaign_id === c.id);
-              return {
-                id: c.id,
-                name: c.name,
-                status: c.status,
-                budget: c.total_budget_credits,
-                spent: c.spent_credits,
-                impressions: stats?.impressions ?? 0,
-                clicks: stats?.clicks ?? 0,
-                conversions: stats?.conversions ?? 0,
-                revenue: stats?.revenue_cents ?? 0,
-                startDate: c.start_date.slice(0, 10),
-                endDate: c.end_date?.slice(0, 10),
-              };
-            })}
+            campaigns={(() => {
+              console.log("[CampaignDashboard] Rendering campaigns tab", { 
+                campaignsLength: campaigns.length, 
+                loadingCampaigns, 
+                loadingAnalytics 
+              });
+              return campaigns.map((c) => {
+                const stats = totalsByCampaign.find((t) => t.campaign_id === c.id);
+                return {
+                  id: c.id,
+                  name: c.name,
+                  status: c.status,
+                  budget: c.total_budget_credits,
+                  spent: c.spent_credits,
+                  impressions: stats?.impressions ?? 0,
+                  clicks: stats?.clicks ?? 0,
+                  conversions: stats?.conversions ?? 0,
+                  revenue: stats?.revenue_cents ?? 0,
+                  startDate: c.start_date.slice(0, 10),
+                  endDate: c.end_date?.slice(0, 10),
+                };
+              });
+            })()}
             loading={loadingCampaigns || loadingAnalytics}
             onPause={pause}
             onResume={resume}

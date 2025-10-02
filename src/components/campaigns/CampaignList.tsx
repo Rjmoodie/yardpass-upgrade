@@ -41,6 +41,7 @@ export const CampaignList = ({
   );
 
   if (loading) {
+    console.log("[CampaignList] Showing loading state");
     return (
       <div className="space-y-4">
         <Skeleton className="h-48 w-full" />
@@ -49,7 +50,10 @@ export const CampaignList = ({
     );
   }
 
+  console.log("[CampaignList] Sorted campaigns:", sorted.length);
+
   if (sorted.length === 0) {
+    console.log("[CampaignList] Showing empty state");
     return (
       <Card className="p-12 text-center">
         <p className="text-muted-foreground mb-4">No campaigns yet</p>
