@@ -1,72 +1,83 @@
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Plus, Image, Video, FileText, MoreVertical } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export const CreativeManager = () => {
-  const creatives = [
-    {
-      id: "1",
-      type: "image",
-      headline: "Join Us This Summer!",
-      campaign: "Summer Festival Promo",
-      active: true,
-      impressions: 25300,
-      clicks: 456
-    },
-    {
-      id: "2",
-      type: "video",
-      headline: "Get Your Tickets Early",
-      campaign: "Early Bird Tickets",
-      active: true,
-      impressions: 18900,
-      clicks: 423
-    },
-    {
-      id: "3",
-      type: "image",
-      headline: "Limited Time Offer",
-      campaign: "Summer Festival Promo",
-      active: false,
-      impressions: 12400,
-      clicks: 198
-    }
-  ];
+type Creative = {
+  id: string;
+  type: "image" | "video" | "existing_post";
+  headline: string;
+  campaign?: string;
+  active: boolean;
+  impressions: number;
+  clicks: number;
+};
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case "video":
-        return Video;
-      case "image":
-        return Image;
-      default:
-        return FileText;
-    }
-  };
+export const CreativeManager = ({
+  creatives = [],
+  onCreate,
+  onEdit,
+  onToggleActive,
+  onDelete,
+}: {
+  creatives?: Creative[];
+  onCreate?: () => void;
+  onEdit?: (id: string) => void;
+  onToggleActive?: (id: string, next: boolean) => void;
+  onDelete?: (id: string) => void;
+}) => {
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const filtered = useMemo(() => {
+    return creatives.filter((c) => {
+      const tOk = typeFilter === "all" || c.type === typeFilter;
+      const sOk = statusFilter === "all" || (statusFilter === "active" ? c.active : !c.active);
+      return tOk && sOk;
+    });
+  }, [creatives, typeFilter, statusFilter]);
+
+  const IconFor = (t: Creative["type"]) => (t === "video" ? Video : t === "image" ? Image : FileText);
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold">Ad Creatives</h2>
           <p className="text-muted-foreground">Manage your ad content and media</p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          New Creative
-        </Button>
+        <div className="flex gap-2">
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[140px]"><SelectValue placeholder="Type" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="image">Image</SelectItem>
+              <SelectItem value="video">Video</SelectItem>
+              <SelectItem value="existing_post">Existing Post</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={onCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Creative
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {creatives.map((creative) => {
-          const Icon = getIcon(creative.type);
+        {filtered.map((creative) => {
+          const Icon = IconFor(creative.type);
+          const ctr = creative.impressions ? creative.clicks / creative.impressions : 0;
           return (
             <Card key={creative.id}>
               <CardHeader>
@@ -84,12 +95,11 @@ export const CreativeManager = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Edit</DropdownMenuItem>
-                      <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEdit?.(creative.id)}>Edit</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onToggleActive?.(creative.id, !creative.active)}>
                         {creative.active ? "Deactivate" : "Activate"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(creative.id)}>
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -97,17 +107,18 @@ export const CreativeManager = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Creative Preview Placeholder */}
+                {/* Preview Placeholder */}
                 <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
                   <Icon className="h-12 w-12 text-muted-foreground" />
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="font-semibold">{creative.headline}</h3>
-                  <p className="text-sm text-muted-foreground">{creative.campaign}</p>
+                  <h3 className="font-semibold line-clamp-2">{creative.headline}</h3>
+                  {creative.campaign && <p className="text-sm text-muted-foreground">{creative.campaign}</p>}
                   <div className="flex gap-4 text-sm text-muted-foreground">
                     <span>{creative.impressions.toLocaleString()} views</span>
-                    <span>{creative.clicks} clicks</span>
+                    <span>{creative.clicks.toLocaleString()} clicks</span>
+                    <span>{new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 }).format(ctr)} CTR</span>
                   </div>
                 </div>
               </CardContent>
@@ -116,11 +127,11 @@ export const CreativeManager = () => {
         })}
       </div>
 
-      {creatives.length === 0 && (
+      {filtered.length === 0 && (
         <Card className="p-12 text-center">
           <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground mb-4">No creatives yet</p>
-          <Button>
+          <p className="text-muted-foreground mb-4">No creatives match your filters</p>
+          <Button onClick={onCreate}>
             <Plus className="h-4 w-4 mr-2" />
             Create Your First Creative
           </Button>

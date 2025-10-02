@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Card } from "@/components/ui/card";
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CampaignList } from "./CampaignList";
 import { CampaignCreator } from "./CampaignCreator";
@@ -7,16 +6,24 @@ import { CampaignAnalytics } from "./CampaignAnalytics";
 import { CreativeManager } from "./CreativeManager";
 import { BarChart3, FileText, Target, TrendingUp } from "lucide-react";
 
-export const CampaignDashboard = () => {
-  const [selectedTab, setSelectedTab] = useState("campaigns");
+export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
+  const [selectedTab, setSelectedTab] = useState<string>(() => window.location.hash.replace("#", "") || "campaigns");
+
+  useEffect(() => {
+    const onHash = () => setSelectedTab(window.location.hash.replace("#", "") || "campaigns");
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  useEffect(() => {
+    if (selectedTab) window.location.hash = selectedTab;
+  }, [selectedTab]);
 
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2">Campaign Manager</h1>
-        <p className="text-muted-foreground">
-          Create and manage your ad campaigns across YardPass
-        </p>
+        <p className="text-muted-foreground">Create and manage your ad campaigns across YardPass</p>
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
@@ -40,19 +47,27 @@ export const CampaignDashboard = () => {
         </TabsList>
 
         <TabsContent value="campaigns">
-          <CampaignList />
+          <CampaignList orgId={orgId} />
         </TabsContent>
 
         <TabsContent value="creatives">
-          <CreativeManager />
+          <CreativeManager orgId={orgId} />
         </TabsContent>
 
         <TabsContent value="analytics">
-          <CampaignAnalytics />
+          <CampaignAnalytics
+            loading={false}
+            totals={{ impressions: 68600, clicks: 1459, ctr: 0.0213, credits_spent: 3550, trend: { impressions: 0.125, clicks: 0.082, ctr: 0.003 } }}
+            series={[
+              { date: "2025-09-19", impressions: 1200, clicks: 22, credits_spent: 60 },
+              { date: "2025-09-20", impressions: 2100, clicks: 45, credits_spent: 105 },
+              // ...map your MV here
+            ]}
+          />
         </TabsContent>
 
         <TabsContent value="create">
-          <CampaignCreator />
+          <CampaignCreator orgId={orgId} />
         </TabsContent>
       </Tabs>
     </div>

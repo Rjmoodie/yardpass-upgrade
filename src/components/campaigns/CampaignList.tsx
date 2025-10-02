@@ -3,35 +3,42 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, DollarSign, Eye, MousePointerClick, Play, Pause, Archive } from "lucide-react";
+import { useMemo } from "react";
 
-export const CampaignList = () => {
-  const isLoading = false; // TODO: Hook up to actual data
-  const campaigns = [
-    {
-      id: "1",
-      name: "Summer Festival Promo",
-      status: "active",
-      budget: 5000,
-      spent: 2350,
-      impressions: 45200,
-      clicks: 892,
-      startDate: "2025-06-01",
-      endDate: "2025-08-31"
-    },
-    {
-      id: "2",
-      name: "Early Bird Tickets",
-      status: "paused",
-      budget: 3000,
-      spent: 1200,
-      impressions: 23400,
-      clicks: 567,
-      startDate: "2025-05-15",
-      endDate: "2025-06-15"
-    }
-  ];
+type CampaignRow = {
+  id: string;
+  name: string;
+  status: "draft" | "scheduled" | "active" | "paused" | "completed" | "archived";
+  budget: number;
+  spent: number;
+  impressions: number;
+  clicks: number;
+  startDate: string;
+  endDate?: string;
+};
+export const CampaignList = ({
+  loading = false,
+  campaigns = [],
+  onPause,
+  onResume,
+  onEdit,
+  onArchive,
+  orgId,
+}: {
+  orgId?: string;
+  loading?: boolean;
+  campaigns?: CampaignRow[];
+  onPause?: (id: string) => void;
+  onResume?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onArchive?: (id: string) => void;
+}) => {
+  const sorted = useMemo(
+    () => [...campaigns].sort((a, b) => (a.status === "active" ? -1 : 1)),
+    [campaigns]
+  );
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-48 w-full" />
@@ -40,88 +47,85 @@ export const CampaignList = () => {
     );
   }
 
+  if (sorted.length === 0) {
+    return (
+      <Card className="p-12 text-center">
+        <p className="text-muted-foreground mb-4">No campaigns yet</p>
+        <Button asChild><a href={`#create`}>Create Your First Campaign</a></Button>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      {campaigns.map((campaign) => (
-        <Card key={campaign.id} className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-xl">{campaign.name}</CardTitle>
-                <CardDescription className="flex items-center gap-2 mt-2">
-                  <Calendar className="h-4 w-4" />
-                  {campaign.startDate} → {campaign.endDate}
-                </CardDescription>
+      {sorted.map((c) => {
+        const ctr = c.impressions ? c.clicks / c.impressions : 0;
+        const pct = Math.min(100, Math.round((c.spent / Math.max(1, c.budget)) * 100));
+        return (
+          <Card key={c.id} className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-xl">{c.name}</CardTitle>
+                  <CardDescription className="flex items-center gap-2 mt-2">
+                    <Calendar className="h-4 w-4" />
+                    {c.startDate} {c.endDate ? `→ ${c.endDate}` : ""}
+                  </CardDescription>
+                </div>
+                <Badge variant={c.status === "active" ? "default" : "secondary"} className="capitalize">
+                  {c.status}
+                </Badge>
               </div>
-              <Badge 
-                variant={campaign.status === "active" ? "default" : "secondary"}
-                className="capitalize"
-              >
-                {campaign.status}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" />
-                  Budget
-                </p>
-                <p className="text-lg font-semibold">{campaign.budget} credits</p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                <Stat label="Budget" value={`${c.budget.toLocaleString()} credits`} icon={<DollarSign className="h-3 w-3" />} />
+                <Stat label="Spent" value={`${c.spent.toLocaleString()} credits`} />
+                <Stat label="Impressions" value={c.impressions.toLocaleString()} icon={<Eye className="h-3 w-3" />} />
+                <Stat label="Clicks" value={c.clicks.toLocaleString()} icon={<MousePointerClick className="h-3 w-3" />} />
+                <Stat label="CTR" value={new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 }).format(ctr)} />
               </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Spent</p>
-                <p className="text-lg font-semibold">{campaign.spent} credits</p>
+
+              {/* Spend progress */}
+              <div className="w-full bg-muted h-2 rounded">
+                <div className="h-2 bg-primary rounded" style={{ width: `${pct}%` }} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} role="progressbar" />
               </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Eye className="h-3 w-3" />
-                  Impressions
-                </p>
-                <p className="text-lg font-semibold">{campaign.impressions.toLocaleString()}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <MousePointerClick className="h-3 w-3" />
-                  Clicks
-                </p>
-                <p className="text-lg font-semibold">{campaign.clicks}</p>
-              </div>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                {campaign.status === "active" ? (
-                  <>
+              <p className="text-xs text-muted-foreground mt-1">{pct}% of budget spent</p>
+
+              <div className="flex gap-2 mt-4">
+                {c.status === "active" ? (
+                  <Button variant="outline" size="sm" onClick={() => onPause?.(c.id)}>
                     <Pause className="h-4 w-4 mr-1" />
                     Pause
-                  </>
+                  </Button>
                 ) : (
-                  <>
+                  <Button variant="outline" size="sm" onClick={() => onResume?.(c.id)}>
                     <Play className="h-4 w-4 mr-1" />
                     Resume
-                  </>
+                  </Button>
                 )}
-              </Button>
-              <Button variant="outline" size="sm">
-                Edit
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Archive className="h-4 w-4 mr-1" />
-                Archive
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-
-      {campaigns.length === 0 && (
-        <Card className="p-12 text-center">
-          <p className="text-muted-foreground mb-4">No campaigns yet</p>
-          <Button>Create Your First Campaign</Button>
-        </Card>
-      )}
+                <Button variant="outline" size="sm" onClick={() => onEdit?.(c.id)}>Edit</Button>
+                <Button variant="ghost" size="sm" onClick={() => onArchive?.(c.id)}>
+                  <Archive className="h-4 w-4 mr-1" />
+                  Archive
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 };
+
+function Stat({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-sm text-muted-foreground flex items-center gap-1">
+        {icon}
+        {label}
+      </p>
+      <p className="text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
