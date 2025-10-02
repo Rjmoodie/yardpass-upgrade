@@ -539,7 +539,7 @@ export default function OrganizerDashboard() {
         {/* CAMPAIGNS (org-scoped only) */}
         <TabsContent value="campaigns" className="space-y-6">
           {selectedOrganization ? (
-            <CampaignDashboard />
+            <CampaignDashboard orgId={selectedOrganization} />
           ) : (
             <div className="text-center py-16 border rounded-lg">
               <Megaphone className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
