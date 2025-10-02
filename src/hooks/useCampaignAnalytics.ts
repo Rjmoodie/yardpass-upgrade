@@ -22,23 +22,17 @@ export function useCampaignAnalytics({
     queryFn: async (): Promise<AnalyticsPoint[]> => {
       if (!orgId) return [];
       
-      // Query the MV and filter by org + date range
-      let req = supabase
-        .from("campaign_analytics_daily")
-        .select("campaign_id, org_id, date, impressions, clicks, conversions, revenue_cents, credits_spent")
-        .eq("org_id", orgId)
-        .gte("date", fromISO.slice(0, 10))
-        .lte("date", toISO.slice(0, 10))
-        .order("date", { ascending: true });
+      // Use the secure RPC that enforces org membership
+      const { data, error } = await supabase.rpc("rpc_campaign_analytics_daily", {
+        p_org_id: orgId,
+        p_from: fromISO.slice(0, 10), // "YYYY-MM-DD"
+        p_to: toISO.slice(0, 10),
+        p_campaign_ids: campaignIds?.length ? campaignIds : null,
+      });
 
-      if (campaignIds?.length) {
-        req = req.in("campaign_id", campaignIds);
-      }
-
-      const { data, error } = await req;
       if (error) throw error;
 
-      // Aggregate per day across selected campaigns
+      // Aggregate per day across selected campaigns if multiple campaigns returned
       const byDate = new Map<string, AnalyticsPoint>();
       for (const row of data ?? []) {
         const d = row.date as string;

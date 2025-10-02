@@ -2175,6 +2175,30 @@ export type Database = {
           },
         ]
       }
+      mv_refresh_log: {
+        Row: {
+          concurrent: boolean
+          duration_ms: number | null
+          id: number
+          note: string | null
+          ran_at: string | null
+        }
+        Insert: {
+          concurrent: boolean
+          duration_ms?: number | null
+          id?: number
+          note?: string | null
+          ran_at?: string | null
+        }
+        Update: {
+          concurrent?: boolean
+          duration_ms?: number | null
+          id?: number
+          note?: string | null
+          ran_at?: string | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string | null
