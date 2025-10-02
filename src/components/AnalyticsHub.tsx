@@ -180,7 +180,7 @@ const InlineAIInsightsPanel: React.FC<{
   onFeedback: (helpful: boolean) => void;
 }> = ({ loading, insights, error, onRefresh, onFeedback }) => {
   return (
-    <Card className="border-primary/30">
+    <Card className="border-primary/30" data-insights-panel>
       <CardHeader className="flex items-center justify-between">
         <CardTitle className="flex items-center gap-2">
           <Lightbulb className="h-5 w-5 text-primary" />
@@ -1111,6 +1111,13 @@ const AnalyticsHub: React.FC<{ initialOrgId?: string | null }> = ({ initialOrgId
 
   const explainKPI = async (question: string) => {
     if (!analytics || !selectedOrg) return;
+    
+    // Scroll to insights panel
+    const insightsPanel = document.querySelector('[data-insights-panel]');
+    if (insightsPanel) {
+      insightsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
     const payload = {
       org_id: selectedOrg,
       date_range: dateRange,
@@ -1123,6 +1130,12 @@ const AnalyticsHub: React.FC<{ initialOrgId?: string | null }> = ({ initialOrgId
     if (res && aiCacheKey) {
       localStorage.setItem(aiCacheKey, JSON.stringify(res));
     }
+    
+    // Show toast notification
+    toast({ 
+      title: "AI Explanation Generated", 
+      description: "Check the AI Insights panel above for your explanation" 
+    });
   };
 
   const feedbackAI = async (helpful: boolean) => {
