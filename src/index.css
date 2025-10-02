@@ -61,6 +61,11 @@
   --shadow-glow: 0 0 24px hsl(var(--primary) / 0.3);
   --shadow-elevated: 0 2px 16px hsl(0 0% 0% / 0.08);
   
+  /* Toast/Notification Colors */
+  --toast-bg: 0 0% 100%;
+  --toast-text: 215 25% 8%;
+  --toast-border: 210 17% 89%;
+  
   /* iOS-Style Border Radius */
   --radius-xs: 0.25rem;    /* 4px */
   --radius-sm: 0.5rem;     /* 8px */
@@ -153,6 +158,11 @@
     --tab-active-bg: 210 22% 15%;
     --tab-active-border: 210 22% 22%;
     --input-background: 210 22% 11%;
+    
+    /* Toast/Notification Colors for dark mode */
+    --toast-bg: 210 22% 11%;
+    --toast-text: 210 17% 95%;
+    --toast-border: 210 22% 18%;
   }
 }
 
