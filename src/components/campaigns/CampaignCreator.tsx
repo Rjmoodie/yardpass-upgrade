@@ -11,10 +11,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
+import { useCreateCampaign } from "@/hooks/useCampaigns";
 
 export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
   const { toast } = useToast();
+  const createCampaign = useCreateCampaign();
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -25,7 +27,6 @@ export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
   });
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
-  const [submitting, setSubmitting] = useState(false);
 
   const onSubmit = async () => {
     if (!form.name.trim()) {
@@ -65,20 +66,13 @@ export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
     };
 
     try {
-      setSubmitting(true);
-      const res = await fetch("/api/campaigns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await createCampaign.mutateAsync(payload);
       toast({ title: "Campaign created" });
       setForm({ name: "", description: "", objective: "ticket_sales", pacing: "even", totalBudget: "", dailyBudget: "" });
-      setStartDate(undefined); setEndDate(undefined);
+      setStartDate(undefined);
+      setEndDate(undefined);
     } catch (e: any) {
       toast({ title: "Failed to create", description: e?.message ?? "Please try again", variant: "destructive" });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -224,8 +218,8 @@ export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
           {/* Actions */}
           <div className="flex gap-3 justify-end">
             <Button variant="outline" type="button">Cancel</Button>
-            <Button type="button" onClick={onSubmit} disabled={submitting}>
-              {submitting ? "Creating…" : "Create Campaign"}
+            <Button type="button" onClick={onSubmit} disabled={createCampaign.isPending}>
+              {createCampaign.isPending ? "Creating…" : "Create Campaign"}
             </Button>
           </div>
         </CardContent>
