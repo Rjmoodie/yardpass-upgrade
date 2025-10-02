@@ -4210,13 +4210,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
-            columns: ["event_b"]
-            isOneToOne: false
-            referencedRelation: "event_connect"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_a"]
             isOneToOne: false
             referencedRelation: "event_connect"
@@ -4226,8 +4219,8 @@ export type Database = {
             foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_b"]
             isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
+            referencedRelation: "event_connect"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
@@ -4240,7 +4233,7 @@ export type Database = {
             foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_b"]
             isOneToOne: false
-            referencedRelation: "events_enhanced"
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
@@ -4254,8 +4247,8 @@ export type Database = {
             foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_b"]
             isOneToOne: false
-            referencedRelation: "marketplace_sponsorships"
-            referencedColumns: ["event_id"]
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
@@ -4267,13 +4260,20 @@ export type Database = {
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
             columns: ["event_b"]
+            isOneToOne: false
+            referencedRelation: "marketplace_sponsorships"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "user_event_interactions_event_id_fkey"
+            columns: ["event_a"]
             isOneToOne: false
             referencedRelation: "mv_sponsorship_revenue"
             referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "user_event_interactions_event_id_fkey"
-            columns: ["event_a"]
+            columns: ["event_b"]
             isOneToOne: false
             referencedRelation: "mv_sponsorship_revenue"
             referencedColumns: ["event_id"]
@@ -5507,18 +5507,31 @@ export type Database = {
         }[]
       }
       rpc_creative_analytics_rollup: {
-        Args: {
-          p_campaign_ids?: string[]
-          p_creative_ids?: string[]
-          p_dir?: string
-          p_from: string
-          p_include_series?: boolean
-          p_limit?: number
-          p_offset?: number
-          p_org_id: string
-          p_sort?: string
-          p_to: string
-        }
+        Args:
+          | {
+              p_campaign_ids?: string[]
+              p_creative_ids?: string[]
+              p_dir?: string
+              p_from: string
+              p_include_series?: boolean
+              p_limit?: number
+              p_offset?: number
+              p_org_id: string
+              p_sort?: string
+              p_to: string
+            }
+          | {
+              p_campaign_ids?: string[]
+              p_creative_ids?: string[]
+              p_dir?: string
+              p_from: string
+              p_include_series?: boolean
+              p_limit?: number
+              p_offset?: number
+              p_org_id: string
+              p_sort?: string
+              p_to: string
+            }
         Returns: {
           active: boolean
           campaign_id: string
