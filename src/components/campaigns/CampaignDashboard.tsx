@@ -7,15 +7,31 @@ import { CreativeManager } from "./CreativeManager";
 import { BarChart3, FileText, Target, TrendingUp } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
-import { addDays } from "date-fns";
+import { useCreativeRollup } from "@/hooks/useCreativeRollup";
+import { addDays, format } from "date-fns";
 
 export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
   const [selectedTab, setSelectedTab] = useState<string>(() => window.location.hash.replace("#", "") || "campaigns");
   const { campaigns, isLoading: loadingCampaigns, pause, resume, archive } = useCampaigns(orgId);
-  const { totals, series, isLoading: loadingAnalytics } = useCampaignAnalytics({
-    orgId,
+  
+  const dateRange = {
     from: addDays(new Date(), -13),
     to: new Date(),
+  };
+  
+  const { totals, series, isLoading: loadingAnalytics, totalsByCampaign } = useCampaignAnalytics({
+    orgId,
+    from: dateRange.from,
+    to: dateRange.to,
+  });
+
+  const { data: creativeData, isLoading: loadingCreatives } = useCreativeRollup({
+    orgId: orgId || "",
+    from: format(dateRange.from, "yyyy-MM-dd"),
+    to: format(dateRange.to, "yyyy-MM-dd"),
+    includeSeries: false,
+    sort: "impressions",
+    limit: 100,
   });
 
   useEffect(() => {
@@ -57,18 +73,23 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
 
         <TabsContent value="campaigns">
           <CampaignList 
-            campaigns={campaigns.map((c) => ({
-              id: c.id,
-              name: c.name,
-              status: c.status,
-              budget: c.total_budget_credits,
-              spent: c.spent_credits,
-              impressions: 0,
-              clicks: 0,
-              startDate: c.start_date.slice(0, 10),
-              endDate: c.end_date?.slice(0, 10),
-            }))}
-            loading={loadingCampaigns}
+            campaigns={campaigns.map((c) => {
+              const stats = totalsByCampaign.find((t) => t.campaign_id === c.id);
+              return {
+                id: c.id,
+                name: c.name,
+                status: c.status,
+                budget: c.total_budget_credits,
+                spent: c.spent_credits,
+                impressions: stats?.impressions ?? 0,
+                clicks: stats?.clicks ?? 0,
+                conversions: stats?.conversions ?? 0,
+                revenue: stats?.revenue_cents ?? 0,
+                startDate: c.start_date.slice(0, 10),
+                endDate: c.end_date?.slice(0, 10),
+              };
+            })}
+            loading={loadingCampaigns || loadingAnalytics}
             onPause={pause}
             onResume={resume}
             onArchive={archive}
@@ -77,7 +98,22 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         </TabsContent>
 
         <TabsContent value="creatives">
-          <CreativeManager />
+          <CreativeManager 
+            creatives={(creativeData ?? []).map((cr: any) => ({
+              id: cr.creative_id,
+              type: cr.media_type,
+              headline: cr.headline || "Untitled",
+              campaign: cr.campaign_name || "Unknown Campaign",
+              active: cr.active,
+              impressions: Number(cr.impressions) || 0,
+              clicks: Number(cr.clicks) || 0,
+              conversions: Number(cr.conversions) || 0,
+              revenue: Number(cr.revenue_cents) || 0,
+              poster_url: cr.poster_url,
+              media_url: cr.media_url,
+            }))}
+            loading={loadingCreatives}
+          />
         </TabsContent>
 
         <TabsContent value="analytics">

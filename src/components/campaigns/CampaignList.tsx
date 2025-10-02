@@ -13,6 +13,8 @@ type CampaignRow = {
   spent: number;
   impressions: number;
   clicks: number;
+  conversions?: number;
+  revenue?: number;
   startDate: string;
   endDate?: string;
 };
@@ -78,12 +80,14 @@ export const CampaignList = ({
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-4">
                 <Stat label="Budget" value={`${c.budget.toLocaleString()} credits`} icon={<DollarSign className="h-3 w-3" />} />
                 <Stat label="Spent" value={`${c.spent.toLocaleString()} credits`} />
                 <Stat label="Impressions" value={c.impressions.toLocaleString()} icon={<Eye className="h-3 w-3" />} />
                 <Stat label="Clicks" value={c.clicks.toLocaleString()} icon={<MousePointerClick className="h-3 w-3" />} />
                 <Stat label="CTR" value={new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 }).format(ctr)} />
+                {c.conversions !== undefined && <Stat label="Conversions" value={c.conversions.toLocaleString()} />}
+                {c.revenue !== undefined && <Stat label="Revenue" value={`$${(c.revenue / 100).toFixed(2)}`} />}
               </div>
 
               {/* Spend progress */}

@@ -14,21 +14,39 @@ type Creative = {
   active: boolean;
   impressions: number;
   clicks: number;
+  conversions?: number;
+  revenue?: number;
+  poster_url?: string;
+  media_url?: string;
 };
 
 export const CreativeManager = ({
   creatives = [],
+  loading = false,
   onCreate,
   onEdit,
   onToggleActive,
   onDelete,
 }: {
   creatives?: Creative[];
+  loading?: boolean;
   onCreate?: () => void;
   onEdit?: (id: string) => void;
   onToggleActive?: (id: string, next: boolean) => void;
   onDelete?: (id: string) => void;
 }) => {
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-12 bg-muted animate-pulse rounded" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-64 bg-muted animate-pulse rounded" />
+          ))}
+        </div>
+      </div>
+    );
+  }
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -107,19 +125,50 @@ export const CreativeManager = ({
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Preview Placeholder */}
-                <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-                  <Icon className="h-12 w-12 text-muted-foreground" />
+                {/* Preview with real media */}
+                <div className="aspect-video bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+                  {creative.poster_url ? (
+                    <img 
+                      src={creative.poster_url} 
+                      alt={creative.headline}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Icon className="h-12 w-12 text-muted-foreground" />
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="font-semibold line-clamp-2">{creative.headline}</h3>
                   {creative.campaign && <p className="text-sm text-muted-foreground">{creative.campaign}</p>}
-                  <div className="flex gap-4 text-sm text-muted-foreground">
-                    <span>{creative.impressions.toLocaleString()} views</span>
-                    <span>{creative.clicks.toLocaleString()} clicks</span>
-                    <span>{new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 }).format(ctr)} CTR</span>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-muted-foreground">
+                      <div className="font-medium text-foreground">{creative.impressions.toLocaleString()}</div>
+                      <div>Impressions</div>
+                    </div>
+                    <div className="text-muted-foreground">
+                      <div className="font-medium text-foreground">{creative.clicks.toLocaleString()}</div>
+                      <div>Clicks</div>
+                    </div>
+                    <div className="text-muted-foreground">
+                      <div className="font-medium text-foreground">
+                        {new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 }).format(ctr)}
+                      </div>
+                      <div>CTR</div>
+                    </div>
+                    {creative.conversions !== undefined && (
+                      <div className="text-muted-foreground">
+                        <div className="font-medium text-foreground">{creative.conversions.toLocaleString()}</div>
+                        <div>Conversions</div>
+                      </div>
+                    )}
                   </div>
+                  {creative.revenue !== undefined && creative.revenue > 0 && (
+                    <div className="pt-2 border-t">
+                      <span className="text-sm text-muted-foreground">Revenue: </span>
+                      <span className="font-semibold">${(creative.revenue / 100).toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

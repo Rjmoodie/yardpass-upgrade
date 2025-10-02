@@ -19,8 +19,8 @@ export function useCampaignAnalytics({
 
   const q = useQuery({
     queryKey: ["campaign-analytics", orgId, fromISO, toISO, campaignIds?.join(",") ?? ""],
-    queryFn: async (): Promise<AnalyticsPoint[]> => {
-      if (!orgId) return [];
+    queryFn: async (): Promise<{ series: AnalyticsPoint[]; rawData: any[] }> => {
+      if (!orgId) return { series: [], rawData: [] };
       
       // Use the secure RPC that enforces org membership
       const { data, error } = await supabase.rpc("rpc_campaign_analytics_daily", {
@@ -54,13 +54,16 @@ export function useCampaignAnalytics({
         });
       }
 
-      return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+      return {
+        series: Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date)),
+        rawData: data ?? [],
+      };
     },
     enabled: !!orgId && !!fromISO && !!toISO,
   });
 
   const totals: AnalyticsTotals = useMemo(() => {
-    const pts = q.data ?? [];
+    const pts = q.data?.series ?? [];
     const impressions = pts.reduce((s, p) => s + p.impressions, 0);
     const clicks = pts.reduce((s, p) => s + p.clicks, 0);
     const credits_spent = pts.reduce((s, p) => s + p.credits_spent, 0);
@@ -68,10 +71,39 @@ export function useCampaignAnalytics({
     return { impressions, clicks, ctr, credits_spent };
   }, [q.data]);
 
+  // Aggregate by campaign
+  const totalsByCampaign = useMemo(() => {
+    const map = new Map<string, AnalyticsTotals & { campaign_id: string }>();
+    for (const row of q.data?.rawData ?? []) {
+      const key = row.campaign_id;
+      const prev = map.get(key) ?? {
+        campaign_id: key,
+        impressions: 0,
+        clicks: 0,
+        conversions: 0,
+        revenue_cents: 0,
+        credits_spent: 0,
+        ctr: 0,
+      };
+      prev.impressions += row.impressions ?? 0;
+      prev.clicks += row.clicks ?? 0;
+      prev.conversions += row.conversions ?? 0;
+      prev.revenue_cents += row.revenue_cents ?? 0;
+      prev.credits_spent += row.credits_spent ?? 0;
+      map.set(key, prev);
+    }
+    // Compute CTR
+    map.forEach((v) => {
+      v.ctr = v.impressions ? v.clicks / v.impressions : 0;
+    });
+    return Array.from(map.values());
+  }, [q.data]);
+
   return {
     isLoading: q.isLoading,
     error: q.error as any,
-    series: q.data ?? [],
+    series: q.data?.series ?? [],
     totals,
+    totalsByCampaign,
   };
 }

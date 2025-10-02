@@ -56,6 +56,8 @@ export type AnalyticsPoint = {
 export type AnalyticsTotals = {
   impressions: number;
   clicks: number;
+  conversions?: number;
+  revenue_cents?: number;
   ctr: number;                  // 0..1
   credits_spent: number;
 };
