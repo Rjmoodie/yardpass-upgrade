@@ -476,44 +476,41 @@ export default function OrganizerDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
-        <div className="flex items-center justify-between gap-2">
-          <div className="w-full overflow-x-auto scrollbar-hide">
-            <TabsList className="inline-flex w-auto min-w-full justify-start gap-2 p-1.5">
-              <TabsTrigger value="events" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-                <CalendarDays className="h-5 w-5" />
-                <span className="text-xs whitespace-nowrap">Events</span>
-              </TabsTrigger>
-              <TabsTrigger value="analytics" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-                <BarChart3 className="h-5 w-5" />
-                <span className="text-xs whitespace-nowrap">Analytics</span>
-              </TabsTrigger>
-              <TabsTrigger value="campaigns" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-                <Megaphone className="h-5 w-5" />
-                <span className="text-xs whitespace-nowrap">Campaigns</span>
-              </TabsTrigger>
-              <TabsTrigger value="teams" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-                <Users className="h-5 w-5" />
-                <span className="text-xs whitespace-nowrap">Teams</span>
-              </TabsTrigger>
-              <TabsTrigger value="wallet" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-                <Wallet className="h-5 w-5" />
-                <span className="text-xs whitespace-nowrap">Wallet</span>
-              </TabsTrigger>
-              <TabsTrigger value="payouts" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-                <DollarSign className="h-5 w-5" />
-                <span className="text-xs whitespace-nowrap">Payouts</span>
-              </TabsTrigger>
-            </TabsList>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => (window.location.href = `/organization-dashboard/${selectedOrgId}?tab=settings`)}
-            title="Edit organization settings"
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            Edit Org
-          </Button>
+        <div className="w-full overflow-x-auto scrollbar-hide">
+          <TabsList className="inline-flex w-auto min-w-full justify-start gap-2 p-1.5">
+            <TabsTrigger value="events" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <CalendarDays className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Events</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <BarChart3 className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Analytics</span>
+            </TabsTrigger>
+            <TabsTrigger value="campaigns" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <Megaphone className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Campaigns</span>
+            </TabsTrigger>
+            <TabsTrigger value="teams" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <Users className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Teams</span>
+            </TabsTrigger>
+            <TabsTrigger value="wallet" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <Wallet className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Wallet</span>
+            </TabsTrigger>
+            <TabsTrigger value="payouts" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <DollarSign className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Payouts</span>
+            </TabsTrigger>
+            <button
+              onClick={() => (window.location.href = `/organization-dashboard/${selectedOrgId}?tab=settings`)}
+              className="flex-col gap-1.5 min-w-[90px] flex-shrink-0 inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted hover:text-accent-foreground"
+              title="Edit organization settings"
+            >
+              <Settings className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Edit Org</span>
+            </button>
+          </TabsList>
         </div>
 
         <TabsContent value="events" className="space-y-6">
