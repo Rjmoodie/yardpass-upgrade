@@ -112,13 +112,12 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
       marker.setPopup(popup).togglePopup();
     }
 
-    // Add minimal custom attribution
+    // Add ultra-compact attribution
     map.current.addControl(
       new mapboxgl.AttributionControl({
         compact: true,
-        customAttribution: '© YardPass'
       }),
-      'bottom-right'
+      'bottom-left'
     );
 
     // Add navigation controls
@@ -240,7 +239,7 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
         </div>
       )}
       
-      {/* Custom styles for Mapbox popup */}
+      {/* Custom styles for Mapbox popup and minimal attribution */}
       <style dangerouslySetInnerHTML={{
         __html: `
           .mapbox-popup-custom .mapbox-popup-content {
@@ -252,6 +251,24 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
           }
           .mapbox-popup-custom .mapbox-popup-tip {
             border-top-color: hsl(var(--background));
+          }
+          .mapboxgl-ctrl-attrib {
+            opacity: 0.4;
+            font-size: 9px !important;
+            padding: 0 4px !important;
+            background: rgba(255, 255, 255, 0.5) !important;
+            backdrop-filter: blur(4px);
+          }
+          .mapboxgl-ctrl-attrib:hover {
+            opacity: 0.8;
+          }
+          .mapboxgl-ctrl-logo {
+            opacity: 0.3 !important;
+            width: 65px !important;
+            height: 18px !important;
+          }
+          .mapboxgl-ctrl-logo:hover {
+            opacity: 0.6 !important;
           }
         `
       }} />
