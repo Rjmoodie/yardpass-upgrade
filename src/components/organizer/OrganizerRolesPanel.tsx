@@ -149,9 +149,9 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
   return (
     <div className="space-y-6">
       {/* Invite Form */}
-      <Card className="card-enhanced">
+      <Card className="border-border">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-accent">
+          <CardTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
             Invite Team Member
           </CardTitle>
@@ -159,17 +159,17 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="role-select" className="text-accent">Role</Label>
+              <Label htmlFor="role-select">Role</Label>
               <Select value={role} onValueChange={(v: RoleType) => setRole(v)}>
-                <SelectTrigger id="role-select" className="input-enhanced">
+                <SelectTrigger id="role-select">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
                   {ROLES.map(r => (
                     <SelectItem key={r} value={r}>
                       <div>
-                        <div className="font-medium text-accent">{ROLE_MATRIX[r].label}</div>
-                        <div className="text-xs text-accent-muted">{ROLE_MATRIX[r].description}</div>
+                        <div className="font-medium">{ROLE_MATRIX[r].label}</div>
+                        <div className="text-xs text-muted-foreground">{ROLE_MATRIX[r].description}</div>
                       </div>
                     </SelectItem>
                   ))}
@@ -177,25 +177,23 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
               </Select>
             </div>
             <div>
-              <Label htmlFor="email-input" className="text-accent">Email (optional)</Label>
+              <Label htmlFor="email-input">Email (optional)</Label>
               <Input 
                 id="email-input"
                 placeholder="team@example.com" 
                 value={email} 
                 onChange={e => setEmail(e.target.value)} 
                 type="email"
-                className="input-enhanced"
               />
             </div>
             <div>
-              <Label htmlFor="phone-input" className="text-accent">Phone (optional)</Label>
+              <Label htmlFor="phone-input">Phone (optional)</Label>
               <Input 
                 id="phone-input"
                 placeholder="+1234567890" 
                 value={phone} 
                 onChange={e => setPhone(e.target.value)} 
                 type="tel"
-                className="input-enhanced"
               />
             </div>
           </div>
@@ -203,7 +201,7 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
             <Button 
               onClick={onInvite} 
               disabled={loading} 
-              className="btn-enhanced flex-1 md:flex-none"
+              className="flex-1 md:flex-none"
             >
               {loading ? 'Sending...' : 'Send Invite'}
             </Button>
@@ -211,7 +209,6 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
               variant="outline" 
               onClick={refresh} 
               disabled={refreshing}
-              className="btn-enhanced border-accent"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
@@ -221,18 +218,18 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
       </Card>
 
       {/* Current Members */}
-      <Card className="card-enhanced">
+      <Card className="border-border">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-accent">
+          <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             Team Members ({members.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {refreshing ? (
-            <div className="text-center py-4 text-accent-muted">Loading...</div>
+            <div className="text-center py-4 text-muted-foreground">Loading...</div>
           ) : members.length === 0 ? (
-            <div className="text-center py-8 text-accent-muted">
+            <div className="text-center py-8 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
               <p>No team members yet.</p>
               <p className="text-sm">Send invites to build your team.</p>
@@ -240,21 +237,21 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
           ) : (
             <div className="space-y-3">
               {members.map(member => (
-                <div key={member.id} className="flex items-center justify-between p-3 border border-accent rounded-lg hover:border-strong transition-colors">
+                <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/5 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center border border-accent">
-                      <Users className="h-4 w-4" />
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <div className="font-medium text-accent">
+                      <div className="font-medium">
                         {member.user_profile?.display_name || 'Unknown User'}
                       </div>
-                      <div className="text-sm text-accent-muted">
+                      <div className="text-sm text-muted-foreground">
                         Added {new Date(member.created_at).toLocaleDateString()}
                       </div>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="badge-enhanced">
+                  <Badge variant="secondary">
                     {ROLE_MATRIX[member.role].label}
                   </Badge>
                 </div>
@@ -265,9 +262,9 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
       </Card>
 
       {/* Pending Invites */}
-      <Card className="card-enhanced">
+      <Card className="border-border">
         <CardHeader>
-          <CardTitle className="text-accent">Pending Invites ({invites.filter(i => i.status === 'pending').length})</CardTitle>
+          <CardTitle>Pending Invites ({invites.filter(i => i.status === 'pending').length})</CardTitle>
         </CardHeader>
         <CardContent>
           {invites.length === 0 ? (

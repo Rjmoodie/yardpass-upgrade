@@ -57,50 +57,53 @@ export function OrganizationSuccess({
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={onCreateEvent}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold">Create Event</h3>
-                <p className="text-sm text-muted-foreground">Start planning your first event</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-muted-foreground" />
+        <button 
+          onClick={onCreateEvent}
+          className="group text-left bg-card hover:bg-accent/5 border border-border rounded-xl p-6 transition-all hover:shadow-md"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+              <Calendar className="w-6 h-6 text-primary" />
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold mb-1">Create Event</h3>
+              <p className="text-sm text-muted-foreground">Start planning your first event</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform flex-shrink-0" />
+          </div>
+        </button>
 
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={onManageOrganization}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Settings className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold">Manage Profile</h3>
-                <p className="text-sm text-muted-foreground">Add social links & team members</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-muted-foreground" />
+        <button 
+          onClick={onManageOrganization}
+          className="group text-left bg-card hover:bg-accent/5 border border-border rounded-xl p-6 transition-all hover:shadow-md"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center group-hover:bg-blue-500/20 transition-colors flex-shrink-0">
+              <Settings className="w-6 h-6 text-blue-600" />
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold mb-1">Manage Profile</h3>
+              <p className="text-sm text-muted-foreground">Add social links & team members</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform flex-shrink-0" />
+          </div>
+        </button>
 
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowStripeSetup(!showStripeSetup)}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-green-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold">Enable Payouts</h3>
-                <p className="text-sm text-muted-foreground">Connect Stripe for payments</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-muted-foreground" />
+        <button 
+          onClick={() => setShowStripeSetup(!showStripeSetup)}
+          className="group text-left bg-card hover:bg-accent/5 border border-border rounded-xl p-6 transition-all hover:shadow-md"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center group-hover:bg-green-500/20 transition-colors flex-shrink-0">
+              <CreditCard className="w-6 h-6 text-green-600" />
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold mb-1">Enable Payouts</h3>
+              <p className="text-sm text-muted-foreground">Connect Stripe for payments</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform flex-shrink-0" />
+          </div>
+        </button>
       </div>
 
       {/* View Organization Profile CTA */}

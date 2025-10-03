@@ -447,85 +447,85 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
           <TabsContent value="overview" className="space-y-4">
             {/* Enhanced Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-              <Card className="card-enhanced">
+              <Card className="border-border hover:shadow-md transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center border border-accent">
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                       <Calendar className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-accent">{soldTickets}</div>
-                      <div className="text-sm text-accent-muted">Tickets Sold</div>
+                      <div className="text-2xl font-bold">{soldTickets}</div>
+                      <div className="text-sm text-muted-foreground">Tickets Sold</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="card-enhanced">
+              <Card className="border-border hover:shadow-md transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center border border-accent">
-                      <Users className="w-5 h-5 text-green-500" />
+                    <div className="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center">
+                      <Users className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-accent">{totalAttendees}</div>
-                      <div className="text-sm text-accent-muted">Total Attendees</div>
+                      <div className="text-2xl font-bold">{totalAttendees}</div>
+                      <div className="text-sm text-muted-foreground">Total Attendees</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="card-enhanced">
+              <Card className="border-border hover:shadow-md transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center border border-accent">
-                      <DollarSign className="w-5 h-5 text-blue-500" />
+                    <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-accent">${ticketStats.totalRevenue.toLocaleString()}</div>
-                      <div className="text-sm text-accent-muted">Net Revenue</div>
+                      <div className="text-2xl font-bold">${ticketStats.totalRevenue.toLocaleString()}</div>
+                      <div className="text-sm text-muted-foreground">Net Revenue</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="card-enhanced">
+              <Card className="border-border hover:shadow-md transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center border border-accent">
-                      <Scan className="w-5 h-5 text-purple-500" />
+                    <div className="w-10 h-10 bg-purple-500/10 rounded-full flex items-center justify-center">
+                      <Scan className="w-5 h-5 text-purple-600" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-accent">{checkedInCount}</div>
-                      <div className="text-sm text-accent-muted">Checked In</div>
+                      <div className="text-2xl font-bold">{checkedInCount}</div>
+                      <div className="text-sm text-muted-foreground">Checked In</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="card-enhanced">
+              <Card className="border-border hover:shadow-md transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center border border-accent">
-                      <TrendingUp className="w-5 h-5 text-orange-500" />
+                    <div className="w-10 h-10 bg-orange-500/10 rounded-full flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-orange-600" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-accent">${ticketStats.averagePrice.toFixed(0)}</div>
-                      <div className="text-sm text-accent-muted">Avg Price</div>
+                      <div className="text-2xl font-bold">${ticketStats.averagePrice.toFixed(0)}</div>
+                      <div className="text-sm text-muted-foreground">Avg Price</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="card-enhanced">
+              <Card className="border-border hover:shadow-md transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center border border-accent">
-                      <BarChart3 className="w-5 h-5 text-red-500" />
+                    <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center">
+                      <BarChart3 className="w-5 h-5 text-red-600" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-accent">{ticketStats.refundRate.toFixed(1)}%</div>
-                      <div className="text-sm text-accent-muted">Refund Rate</div>
+                      <div className="text-2xl font-bold">{ticketStats.refundRate.toFixed(1)}%</div>
+                      <div className="text-sm text-muted-foreground">Refund Rate</div>
                     </div>
                   </div>
                 </CardContent>
@@ -777,19 +777,19 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
 
           <TabsContent value="settings" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="card-enhanced">
+              <Card className="border-border">
                 <CardHeader>
-                  <CardTitle className="text-accent">Event Details</CardTitle>
+                  <CardTitle>Event Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-accent">Event Title</label>
-                    <Input value={event.title} className="input-enhanced" readOnly />
+                    <label className="text-sm font-medium">Event Title</label>
+                    <Input value={event.title} readOnly />
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-accent">Status</label>
+                    <label className="text-sm font-medium">Status</label>
                     <Select defaultValue="active">
-                      <SelectTrigger className="input-enhanced">
+                      <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -802,7 +802,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                     </Select>
                   </div>
                   <Button 
-                    className="btn-enhanced w-full"
+                    className="w-full"
                     onClick={() => {
                       toast({
                         title: "Edit Event",
@@ -816,9 +816,9 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                 </CardContent>
               </Card>
 
-              <Card className="card-enhanced">
+              <Card className="border-border border-destructive/50 bg-destructive/5">
                 <CardHeader>
-                  <CardTitle className="text-accent">Danger Zone</CardTitle>
+                  <CardTitle className="text-destructive">Danger Zone</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="p-4 border border-red-200 rounded-lg bg-red-50">
