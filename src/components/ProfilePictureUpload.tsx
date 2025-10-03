@@ -54,19 +54,22 @@ export function ProfilePictureUpload({
     setUploading(true);
 
     try {
-      // Create unique filename
+      // Create unique filename with user folder
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('user-avatars')
         .upload(fileName, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError);
+        throw uploadError;
+      }
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
