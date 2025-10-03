@@ -508,7 +508,7 @@ export default function OrganizerDashboard() {
               title="Edit organization settings"
             >
               <Settings className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Edit Org</span>
+              <span className="text-xs whitespace-nowrap">Org Settings</span>
             </button>
           </TabsList>
         </div>
