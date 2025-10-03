@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { ArrowLeft, Calendar, Users, BarChart3, Settings, Scan, Download, ExternalLink, MoreVertical, Search, Filter, RefreshCw, Edit, Trash2, Plus, Eye, Share, MessageSquare, Bell, Mail, QrCode, CheckCircle, Clock, AlertCircle, SortAsc, SortDesc, CheckSquare, Square, UserCheck, UserX, Send, FileText, DollarSign, TrendingUp, Handshake } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { ArrowLeft, Calendar, Users, BarChart3, Settings, Scan, Download, ExternalLink, MoreVertical, Search, Filter, RefreshCw, Edit, Trash2, Plus, Eye, Share, MessageSquare, Bell, Mail, QrCode, CheckCircle, Clock, AlertCircle, SortAsc, SortDesc, CheckSquare, Square, UserCheck, UserX, Send, FileText, DollarSign, TrendingUp, Handshake, Upload } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GuestManagement } from '@/components/GuestManagement';
 import { OrganizerRolesPanel } from './organizer/OrganizerRolesPanel';
@@ -13,6 +15,7 @@ import { EnhancedTicketManagement } from '@/components/EnhancedTicketManagement'
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { EventSponsorshipManagement } from './EventSponsorshipManagement';
+import { LocationAutocomplete } from './LocationAutocomplete';
 
 import { Event, TicketTier } from '@/types/events';
 
@@ -53,6 +56,25 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     refundRate: 0,
     conversionRate: 0
   });
+  
+  // Edit dialog state
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: event.title || '',
+    description: event.description || '',
+    category: event.category || '',
+    location: event.location || '',
+    city: '',
+    venue: '',
+    address: '',
+    country: '',
+    coverImage: event.coverImage || '',
+    startDate: event.startAtISO ? new Date(event.startAtISO).toISOString().split('T')[0] : '',
+    startTime: event.startAtISO ? new Date(event.startAtISO).toTimeString().slice(0, 5) : '',
+    endDate: event.endAtISO ? new Date(event.endAtISO).toISOString().split('T')[0] : '',
+    endTime: event.endAtISO ? new Date(event.endAtISO).toTimeString().slice(0, 5) : '',
+  });
+  const [uploading, setUploading] = useState(false);
 
   // Safety checks for undefined event or ticketTiers
   if (!event) {
@@ -377,6 +399,92 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
   const unique = <T,>(arr: T[]): T[] => [...new Set(arr)];
   const availableTiers = unique(attendees.map(a => a.badge));
   const toggleSortOrder = () => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+
+  // Handle image upload
+  const handleImageUpload = async (file: File) => {
+    try {
+      setUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${event.id}-${Date.now()}.${fileExt}`;
+      const filePath = `event-covers/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('event-assets')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('event-assets')
+        .getPublicUrl(filePath);
+
+      setEditForm(prev => ({ ...prev, coverImage: publicUrl }));
+      
+      toast({
+        title: "Success",
+        description: "Cover image uploaded successfully",
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Upload failed",
+        description: "Could not upload cover image",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Handle edit submission
+  const handleEditEvent = async () => {
+    try {
+      setLoading(true);
+      
+      const startAt = editForm.startDate && editForm.startTime
+        ? new Date(`${editForm.startDate}T${editForm.startTime}`)
+        : null;
+      
+      const endAt = editForm.endDate && editForm.endTime
+        ? new Date(`${editForm.endDate}T${editForm.endTime}`)
+        : null;
+
+      const { error } = await supabase
+        .from('events')
+        .update({
+          title: editForm.title,
+          description: editForm.description,
+          category: editForm.category,
+          city: editForm.city,
+          venue: editForm.venue,
+          address: editForm.address,
+          country: editForm.country,
+          cover_image_url: editForm.coverImage,
+          start_at: startAt?.toISOString(),
+          end_at: endAt?.toISOString(),
+        })
+        .eq('id', event.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Event updated",
+        description: "Your changes have been saved successfully.",
+      });
+      
+      setShowEditDialog(false);
+      window.location.reload(); // Refresh to show updated data
+    } catch (error) {
+      console.error('Error updating event:', error);
+      toast({
+        title: "Update failed",
+        description: "Could not update event details",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="h-full bg-background flex flex-col">
@@ -803,12 +911,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                   </div>
                   <Button 
                     className="w-full"
-                    onClick={() => {
-                      toast({
-                        title: "Edit Event",
-                        description: "Edit functionality will be implemented soon.",
-                      });
-                    }}
+                    onClick={() => setShowEditDialog(true)}
                   >
                     <Edit className="w-4 h-4 mr-2" />
                     Edit Event
@@ -847,6 +950,214 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Edit Event Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Event</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Basic Information</h3>
+              
+              <div>
+                <label className="text-sm font-medium">Event Title *</label>
+                <Input
+                  value={editForm.title}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Enter event title"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <Textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Describe your event"
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Category</label>
+                <Select
+                  value={editForm.category}
+                  onValueChange={(value) => setEditForm(prev => ({ ...prev, category: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Music">Music</SelectItem>
+                    <SelectItem value="Food & Drink">Food & Drink</SelectItem>
+                    <SelectItem value="Art & Culture">Art & Culture</SelectItem>
+                    <SelectItem value="Sports & Fitness">Sports & Fitness</SelectItem>
+                    <SelectItem value="Business & Professional">Business & Professional</SelectItem>
+                    <SelectItem value="Community">Community</SelectItem>
+                    <SelectItem value="Technology">Technology</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Cover Image */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Cover Image</h3>
+              
+              {editForm.coverImage && (
+                <div className="relative w-full h-48 rounded-lg overflow-hidden">
+                  <img
+                    src={editForm.coverImage}
+                    alt="Cover preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              
+              <div>
+                <label htmlFor="cover-upload" className="cursor-pointer">
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors">
+                    <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm font-medium">
+                      {uploading ? 'Uploading...' : 'Click to upload cover image'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      PNG, JPG up to 10MB
+                    </p>
+                  </div>
+                  <input
+                    id="cover-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                    }}
+                    disabled={uploading}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Date & Time */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Date & Time</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Start Date</label>
+                  <Input
+                    type="date"
+                    value={editForm.startDate}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Start Time</label>
+                  <Input
+                    type="time"
+                    value={editForm.startTime}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, startTime: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">End Date</label>
+                  <Input
+                    type="date"
+                    value={editForm.endDate}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">End Time</label>
+                  <Input
+                    type="time"
+                    value={editForm.endTime}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, endTime: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Location */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Location</h3>
+              
+              <div>
+                <label className="text-sm font-medium">Search Location</label>
+                <LocationAutocomplete
+                  value={editForm.location}
+                  onChange={(location) => setEditForm(prev => ({ ...prev, location }))}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Venue Name</label>
+                  <Input
+                    value={editForm.venue}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, venue: e.target.value }))}
+                    placeholder="e.g., Madison Square Garden"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">City</label>
+                  <Input
+                    value={editForm.city}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))}
+                    placeholder="e.g., New York"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Address</label>
+                <Input
+                  value={editForm.address}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="Street address"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Country</label>
+                <Input
+                  value={editForm.country}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, country: e.target.value }))}
+                  placeholder="e.g., USA"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditDialog(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleEditEvent}
+                disabled={loading || !editForm.title}
+                className="flex-1"
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
