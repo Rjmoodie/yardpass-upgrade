@@ -1,4 +1,5 @@
 // src/components/OrganizationDashboard.tsx
+import { ChangeEvent, useRef } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -116,7 +117,13 @@ export function OrganizationDashboard({
     description: '',
     website_url: '',
     location: '',
+    logo_url: '',
+    banner_url: '',
   });
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   // Light refresh to re-pull members + analytics
   const refresh = async () => {
@@ -365,6 +372,43 @@ export function OrganizationDashboard({
     URL.revokeObjectURL(url);
   };
 
+  const handleImageUpload = async (file: File, type: 'logo' | 'banner') => {
+    try {
+      const setUploading = type === 'logo' ? setUploadingLogo : setUploadingBanner;
+      setUploading(true);
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${organizationId}-${type}-${Date.now()}.${fileExt}`;
+      const filePath = `org-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('org-logos')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('org-logos')
+        .getPublicUrl(filePath);
+
+      setEditForm(prev => ({
+        ...prev,
+        [type === 'logo' ? 'logo_url' : 'banner_url']: publicUrl
+      }));
+
+      toast({ title: `${type === 'logo' ? 'Logo' : 'Banner'} uploaded successfully` });
+    } catch (error: any) {
+      toast({
+        title: 'Upload failed',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      const setUploading = type === 'logo' ? setUploadingLogo : setUploadingBanner;
+      setUploading(false);
+    }
+  };
+
   const handleEditOrg = async () => {
     try {
       const { error } = await supabase
@@ -374,6 +418,8 @@ export function OrganizationDashboard({
           description: editForm.description || null,
           website_url: editForm.website_url || null,
           location: editForm.location || null,
+          logo_url: editForm.logo_url || null,
+          banner_url: editForm.banner_url || null,
         })
         .eq('id', organizationId);
 
@@ -385,6 +431,8 @@ export function OrganizationDashboard({
         description: editForm.description || null,
         website_url: editForm.website_url || null,
         location: editForm.location || null,
+        logo_url: editForm.logo_url || null,
+        banner_url: editForm.banner_url || null,
       } : prev);
 
       toast({
@@ -409,6 +457,8 @@ export function OrganizationDashboard({
         description: organization.description || '',
         website_url: organization.website_url || '',
         location: organization.location || '',
+        logo_url: organization.logo_url || '',
+        banner_url: organization.banner_url || '',
       });
     }
   }, [editingOrg, organization]);
@@ -877,48 +927,138 @@ export function OrganizationDashboard({
 
       {/* Edit Organization Modal */}
       <Dialog open={editingOrg} onOpenChange={setEditingOrg}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Edit Organization</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="org-name">Organization Name</Label>
-              <Input
-                id="org-name"
-                value={editForm.name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter organization name"
-              />
+          <div className="space-y-6 overflow-y-auto max-h-[calc(90vh-160px)] pr-2">
+            {/* Images Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold">Visual Identity</h3>
+              
+              {/* Logo */}
+              <div className="space-y-2">
+                <Label>Organization Logo</Label>
+                <div className="flex items-center gap-4">
+                  {editForm.logo_url && (
+                    <img
+                      src={editForm.logo_url}
+                      alt="Logo preview"
+                      className="w-20 h-20 rounded-lg object-cover border"
+                    />
+                  )}
+                  <div className="flex-1">
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file, 'logo');
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={uploadingLogo}
+                    >
+                      {uploadingLogo ? 'Uploading...' : editForm.logo_url ? 'Change Logo' : 'Upload Logo'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Recommended: Square image, at least 400x400px
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Banner */}
+              <div className="space-y-2">
+                <Label>Banner Image</Label>
+                <div className="space-y-2">
+                  {editForm.banner_url && (
+                    <img
+                      src={editForm.banner_url}
+                      alt="Banner preview"
+                      className="w-full h-32 rounded-lg object-cover border"
+                    />
+                  )}
+                  <div>
+                    <input
+                      ref={bannerInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file, 'banner');
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => bannerInputRef.current?.click()}
+                      disabled={uploadingBanner}
+                    >
+                      {uploadingBanner ? 'Uploading...' : editForm.banner_url ? 'Change Banner' : 'Upload Banner'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Recommended: 1200x400px or larger
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="org-description">Description</Label>
-              <Textarea
-                id="org-description"
-                value={editForm.description}
-                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe your organization"
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="org-website">Website URL</Label>
-              <Input
-                id="org-website"
-                value={editForm.website_url}
-                onChange={(e) => setEditForm(prev => ({ ...prev, website_url: e.target.value }))}
-                placeholder="https://example.com"
-                type="url"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="org-location">Location</Label>
-              <Input
-                id="org-location"
-                value={editForm.location}
-                onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
-                placeholder="City, State/Country"
-              />
+
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold">Basic Information</h3>
+              
+              <div className="space-y-2">
+                <Label htmlFor="org-name">Organization Name *</Label>
+                <Input
+                  id="org-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter organization name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="org-description">About / Description</Label>
+                <Textarea
+                  id="org-description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Tell people about your organization..."
+                  rows={4}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This will be displayed on your organization profile and event pages
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="org-location">Location</Label>
+                <Input
+                  id="org-location"
+                  value={editForm.location}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                  placeholder="City, State/Country"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="org-website">Website URL</Label>
+                <Input
+                  id="org-website"
+                  value={editForm.website_url}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, website_url: e.target.value }))}
+                  placeholder="https://example.com"
+                  type="url"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
