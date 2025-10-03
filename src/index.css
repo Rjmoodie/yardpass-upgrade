@@ -166,6 +166,51 @@
   }
 }
 
+/* Enable manual dark mode via .dark class or [data-theme="dark"] */
+:where(.dark, [data-theme="dark"]) {
+  --background: 210 22% 9%;
+  --foreground: 210 17% 95%;
+  --card: 210 22% 11%;
+  --card-foreground: 210 17% 95%;
+  --popover: 210 22% 11%;
+  --popover-foreground: 210 17% 95%;
+  --primary: 35 100% 65%;
+  --primary-foreground: 0 0% 100%;
+  --primary-glow: 35 100% 75%;
+  --secondary: 210 22% 15%;
+  --secondary-foreground: 210 17% 85%;
+  --muted: 210 22% 15%;
+  --muted-foreground: 210 17% 60%;
+  --accent: 35 100% 65%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 358 75% 65%;
+  --destructive-foreground: 210 22% 9%;
+  --success: 145 63% 55%;
+  --success-foreground: 210 22% 9%;
+  --warning: 41 97% 60%;
+  --warning-foreground: 210 22% 9%;
+  --border: 210 22% 18%;
+  --input: 210 22% 15%;
+  --ring: 35 100% 65%;
+  --glass-bg: hsl(210 22% 11% / 0.8);
+  --glass-border: hsl(210 17% 95% / 0.1);
+  --overlay: hsla(0, 0%, 0%, 0.60);
+  --modal-bg: hsl(210 22% 11% / 0.98);
+  --modal-border: hsl(210 22% 18%);
+  --shadow-modal: 0 24px 64px hsl(0 0% 0% / 0.45), 0 6px 24px hsl(0 0% 0% / 0.25);
+  --shadow-card: 0 10px 24px hsl(0 0% 0% / 0.25);
+  --text-accent: 35 100% 65%;
+  --text-accent-muted: 210 17% 60%;
+  --border-accent: 210 22% 18%;
+  --border-strong: 210 22% 26%;
+  --tab-active-bg: 210 22% 15%;
+  --tab-active-border: 210 22% 22%;
+  --input-background: 210 22% 11%;
+  --toast-bg: 210 22% 11%;
+  --toast-text: 210 17% 95%;
+  --toast-border: 210 22% 18%;
+}
+
 /* iOS-Native Base Styles */
 html {
   font-size: 16px;
@@ -470,6 +515,59 @@ p {
 
 /* Enhanced UI Components */
 @layer components {
+  /* iOS-style toggle switch */
+  .toggle-ios {
+    @apply relative inline-flex items-center cursor-pointer select-none;
+    width: 52px;
+    height: 32px;
+  }
+  
+  .toggle-track {
+    @apply absolute inset-0 rounded-full transition-colors duration-200;
+    background: hsl(var(--muted));
+    box-shadow: var(--shadow-sm) inset;
+  }
+  
+  .toggle-thumb {
+    @apply absolute top-1 left-1 h-6 w-6 rounded-full transition-all duration-200;
+    background: hsl(0 0% 100%);
+    box-shadow: 0 2px 6px hsl(0 0% 0% / 0.2), inset 0 0 0 1px hsl(var(--border));
+  }
+  
+  /* ON state */
+  .toggle-ios[aria-checked="true"] .toggle-track {
+    background: hsl(var(--primary));
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .toggle-ios[aria-checked="true"] .toggle-thumb {
+    transform: translateX(20px);
+    box-shadow: 0 2px 10px hsl(var(--primary) / 0.5);
+  }
+  
+  /* Focus ring */
+  .toggle-ios:focus-visible .toggle-track {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  
+  /* Disabled */
+  .toggle-ios[aria-disabled="true"] {
+    @apply opacity-60 pointer-events-none;
+  }
+
+  /* System pill button */
+  .pill-button {
+    @apply px-3 py-1.5 text-sm font-medium rounded-full transition-all duration-200;
+    @apply border border-border bg-background text-foreground;
+    @apply hover:bg-muted hover:border-primary/30;
+  }
+  
+  .pill-button-active {
+    @apply bg-primary/10 border-primary text-primary;
+    @apply hover:bg-primary/20;
+  }
+
   /* Enhanced Button Styles */
   .btn-enhanced {
     @apply relative overflow-hidden;

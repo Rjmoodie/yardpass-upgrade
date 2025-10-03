@@ -1,20 +1,42 @@
-import { Moon, Sun } from "lucide-react";
+"use client";
+import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => setMounted(true), []);
+  
+  // Avoid hydration mismatch
+  if (!mounted) return null;
+
+  const isDark = resolvedTheme === "dark";
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="relative"
-      aria-label="Toggle theme"
-    >
-      <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-      <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-    </Button>
+    <div className="flex items-center gap-3">
+      {/* System button (pill) */}
+      <button
+        type="button"
+        onClick={() => setTheme("system")}
+        className={`pill-button ${theme === "system" ? "pill-button-active" : ""}`}
+        aria-pressed={theme === "system"}
+      >
+        System
+      </button>
+
+      {/* iOS switch to force dark/light */}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={isDark}
+        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        onClick={() => setTheme(isDark ? "light" : "dark")}
+        className="toggle-ios"
+      >
+        <span className="toggle-track" />
+        <span className="toggle-thumb" />
+      </button>
+    </div>
   );
 }
