@@ -8,6 +8,8 @@ import { Calendar, MapPin, Users, Share2, ArrowLeft } from 'lucide-react';
 import MapboxEventMap from '@/components/MapboxEventMap';
 import { format } from 'date-fns';
 
+import { normalizeMapboxFeature } from '@/utils/mapbox/normalize';
+
 type EventRow = {
   id: string;
   title: string;
@@ -28,7 +30,8 @@ export default function EventDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [event, setEvent] = useState<EventRow | null>(null);
-  const [loading, setLoading] = useState(true);
+const [loading, setLoading] = useState(true);
+const [displayAddress, setDisplayAddress] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -87,6 +90,29 @@ export default function EventDetails() {
       }
     })();
   }, [id]);
+
+  // If no saved address but we have coords, reverse geocode once for display
+  useEffect(() => {
+    const fetchAddress = async () => {
+      if (!event || event.address || !event.lat || !event.lng) return;
+      try {
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        if (error || !data?.token) return;
+        const token: string = data.token;
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${event.lng},${event.lat}.json?limit=1&types=address,poi&access_token=${token}`;
+        const resp = await fetch(url);
+        const json = await resp.json();
+        const feature = json?.features?.[0];
+        if (feature) {
+          const norm = normalizeMapboxFeature(feature);
+          setDisplayAddress(norm.address || feature.place_name || null);
+        }
+      } catch (e) {
+        console.error('Reverse geocode failed', e);
+      }
+    };
+    fetchAddress();
+  }, [event]);
 
   const formatEventDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -214,7 +240,7 @@ export default function EventDetails() {
               <CardContent className="space-y-1">
                 {event.venue && <p className="font-medium">{event.venue}</p>}
                 <p className="text-muted-foreground">
-                  {[event.address, event.city, event.country].filter(Boolean).join(', ') || locationText}
+                  {[event.address || displayAddress, event.city, event.country].filter(Boolean).join(', ') || locationText}
                 </p>
                 
                 {/* Add map if coordinates are available */}
@@ -224,7 +250,7 @@ export default function EventDetails() {
                       lat={event.lat}
                       lng={event.lng}
                       venue={event.venue || undefined}
-                      address={event.address || undefined}
+                      address={event.address || displayAddress || undefined}
                       city={event.city || undefined}
                       country={event.country || undefined}
                       className="w-full h-48 rounded-lg"
