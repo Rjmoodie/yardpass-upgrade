@@ -33,6 +33,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SocialLinkManager } from './SocialLinkManager';
 import { SocialLinkDisplay } from './SocialLinkDisplay';
+import { LocationAutocomplete } from './LocationAutocomplete';
 
 interface User {
   id: string;
@@ -1041,12 +1042,13 @@ export function OrganizationDashboard({
 
               <div className="space-y-2">
                 <Label htmlFor="org-location">Location</Label>
-                <Input
-                  id="org-location"
+                <LocationAutocomplete
                   value={editForm.location}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
-                  placeholder="City, State/Country"
+                  onChange={(location) => setEditForm(prev => ({ ...prev, location }))}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Start typing to search for a location
+                </p>
               </div>
 
               <div className="space-y-2">
