@@ -15,7 +15,7 @@ import { EnhancedTicketManagement } from '@/components/EnhancedTicketManagement'
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { EventSponsorshipManagement } from './EventSponsorshipManagement';
-import { LocationAutocomplete } from './LocationAutocomplete';
+import { MapboxLocationPicker } from './MapboxLocationPicker';
 
 import { Event, TicketTier } from '@/types/events';
 
@@ -63,11 +63,14 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     title: event.title || '',
     description: event.description || '',
     category: event.category || '',
-    location: event.location || '',
-    city: '',
+    location: {
+      address: '',
+      city: '',
+      country: '',
+      lat: 0,
+      lng: 0,
+    },
     venue: '',
-    address: '',
-    country: '',
     coverImage: event.coverImage || '',
     startDate: event.startAtISO ? new Date(event.startAtISO).toISOString().split('T')[0] : '',
     startTime: event.startAtISO ? new Date(event.startAtISO).toTimeString().slice(0, 5) : '',
@@ -455,10 +458,12 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
           title: editForm.title,
           description: editForm.description,
           category: editForm.category,
-          city: editForm.city,
           venue: editForm.venue,
-          address: editForm.address,
-          country: editForm.country,
+          address: editForm.location.address,
+          city: editForm.location.city,
+          country: editForm.location.country,
+          lat: editForm.location.lat,
+          lng: editForm.location.lng,
           cover_image_url: editForm.coverImage,
           start_at: startAt?.toISOString(),
           end_at: endAt?.toISOString(),
@@ -1093,47 +1098,19 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
               <h3 className="font-semibold text-sm">Location</h3>
               
               <div>
+                <label className="text-sm font-medium">Venue Name</label>
+                <Input
+                  value={editForm.venue}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, venue: e.target.value }))}
+                  placeholder="e.g., Madison Square Garden"
+                />
+              </div>
+
+              <div>
                 <label className="text-sm font-medium">Search Location</label>
-                <LocationAutocomplete
+                <MapboxLocationPicker
                   value={editForm.location}
                   onChange={(location) => setEditForm(prev => ({ ...prev, location }))}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Venue Name</label>
-                  <Input
-                    value={editForm.venue}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, venue: e.target.value }))}
-                    placeholder="e.g., Madison Square Garden"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">City</label>
-                  <Input
-                    value={editForm.city}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))}
-                    placeholder="e.g., New York"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Address</label>
-                <Input
-                  value={editForm.address}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
-                  placeholder="Street address"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Country</label>
-                <Input
-                  value={editForm.country}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, country: e.target.value }))}
-                  placeholder="e.g., USA"
                 />
               </div>
             </div>
