@@ -211,9 +211,11 @@ export default function EventDetails() {
                   <h3 className="font-semibold">Location</h3>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {locationText && <p className="font-medium">{locationText}</p>}
-                {event.address && <p className="text-sm text-muted-foreground">{event.address}</p>}
+              <CardContent className="space-y-1">
+                {event.venue && <p className="font-medium">{event.venue}</p>}
+                <p className="text-muted-foreground">
+                  {[event.address, event.city, event.country].filter(Boolean).join(', ') || locationText}
+                </p>
                 
                 {/* Add map if coordinates are available */}
                 {event.lat && event.lng && (
