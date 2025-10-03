@@ -27,6 +27,7 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const [resolved, setResolved] = useState<{ lat: number; lng: number } | null>(null);
 
   // Fetch Mapbox token from Supabase edge function
   useEffect(() => {
@@ -52,6 +53,13 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
 
     fetchMapboxToken();
   }, []);
+
+  // Debug incoming props
+  useEffect(() => {
+    try {
+      console.debug('[MapboxEventMap] props', { lat, lng, venue, address, city, country });
+    } catch {}
+  }, [lat, lng, venue, address, city, country]);
 
   useEffect(() => {
     if (!mapContainer.current || !mapboxToken) return;
@@ -198,6 +206,18 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
       {!mapLoaded && (
         <div className={`absolute inset-0 ${className} bg-gradient-to-br from-muted via-muted to-muted/50 animate-pulse flex items-center justify-center`}>
           <div className="text-sm text-muted-foreground">Loading map...</div>
+        </div>
+      )}
+      
+      {/* Address overlay for clarity */}
+      {(address || city || country || venue) && (
+        <div className="absolute top-3 left-3 max-w-[75%]">
+          <div className="px-3 py-2 rounded-xl bg-card/90 border border-border/50 shadow-sm">
+            <div className="text-sm font-medium truncate">{venue || address || 'Location'}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {address ? address : [city, country].filter(Boolean).join(', ')}
+            </div>
+          </div>
         </div>
       )}
       
