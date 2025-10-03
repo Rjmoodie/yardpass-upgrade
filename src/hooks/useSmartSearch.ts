@@ -87,7 +87,54 @@ export function useSmartSearch(initialQ = '') {
       } catch (e) {
         if (myVersion !== reqVersion.current) return;
         console.error('Search failed:', e);
-        setError(e);
+        // Fallback: basic events query so the page still renders
+        try {
+          const fromISO = filters.dateFrom || null;
+          const toISO = filters.dateTo || null;
+
+          // Base query for public events
+          let qBuilder = supabase
+            .from('events')
+            .select('id,title,description,category,created_at,cover_image_url,city,venue,start_at,visibility')
+            .eq('visibility', 'public');
+
+          if (debouncedQ) {
+            // Try matching title (simple fallback). For richer matching, the RPC handles it when available.
+            qBuilder = qBuilder.ilike('title', `%${debouncedQ}%`);
+          }
+          if (filters.category) qBuilder = qBuilder.eq('category', filters.category);
+          if (fromISO) qBuilder = qBuilder.gte('start_at', fromISO);
+          if (toISO) qBuilder = qBuilder.lte('start_at', toISO);
+
+          qBuilder = qBuilder
+            .order('start_at', { ascending: true })
+            .range(reset ? 0 : page * pageSize, (reset ? 0 : page * pageSize) + pageSize - 1);
+
+          const { data: evts, error: evErr } = await qBuilder;
+          if (!evErr && Array.isArray(evts)) {
+            const rows: SearchRow[] = evts.map((ev: any) => ({
+              item_type: 'event',
+              item_id: ev.id,
+              parent_event_id: null,
+              title: ev.title,
+              description: ev.description ?? '',
+              content: ev.description ?? '',
+              category: ev.category ?? null,
+              created_at: ev.created_at,
+              cover_image_url: ev.cover_image_url ?? null,
+              organizer_name: null,
+              location: ev.city || ev.venue || null,
+              start_at: ev.start_at ?? null,
+              visibility: ev.visibility,
+            }));
+            setResults(prev => (reset ? rows : [...prev, ...rows]));
+            setError(null);
+          } else {
+            setError(e);
+          }
+        } catch {
+          setError(e);
+        }
       } finally {
         if (myVersion === reqVersion.current) {
           setLoading(false);
