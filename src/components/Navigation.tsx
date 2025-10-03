@@ -11,6 +11,7 @@ import { OrganizerMenu } from './OrganizerMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useSponsorMode } from '@/hooks/useSponsorMode';
+import { ThemeToggle } from './ThemeToggle';
 
 export type Screen =
   | 'feed'
@@ -178,6 +179,11 @@ export default function Navigation({ userRole }: NavigationProps) {
             </NavButton>
           );
         })}
+        
+        {/* Theme toggle in navigation */}
+        <div className="flex items-center justify-center min-w-[56px]">
+          <ThemeToggle />
+        </div>
       </div>
 
       {/* Modals */}
