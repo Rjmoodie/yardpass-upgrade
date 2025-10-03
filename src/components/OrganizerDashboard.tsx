@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Wallet, Megaphone } from 'lucide-react';
+import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Wallet, Megaphone, Settings } from 'lucide-react';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -462,6 +462,15 @@ export default function OrganizerDashboard() {
           <Button className="w-full sm:w-auto" onClick={goCreateEvent}>
             <Plus className="mr-2 h-4 w-4" />
             Create Event
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => (window.location.href = `/organization-dashboard/${selectedOrgId}?tab=settings`)}
+            title="Edit organization settings"
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            Edit Org
           </Button>
           <Button
             variant="outline"
