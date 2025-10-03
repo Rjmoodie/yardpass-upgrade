@@ -9,6 +9,8 @@ interface MapboxEventMapProps {
   lng: number;
   venue?: string;
   address?: string;
+  city?: string;
+  country?: string;
   className?: string;
 }
 
@@ -17,6 +19,8 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
   lng,
   venue,
   address,
+  city,
+  country,
   className = "w-full h-56 rounded-lg"
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -76,8 +80,14 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
       .setLngLat([lng, lat])
       .addTo(map.current);
 
-    // Add popup with venue info
-    if (venue || address) {
+    // Add popup with venue/address info
+    const lines: string[] = [];
+    if (venue) lines.push(`<div class="font-semibold">${venue}</div>`);
+    if (address) lines.push(`<div class="text-muted-foreground">${address}</div>`);
+    const locLine = [city, country].filter(Boolean).join(', ');
+    if (locLine) lines.push(`<div class="text-muted-foreground">${locLine}</div>`);
+
+    if (lines.length) {
       const popup = new mapboxgl.Popup({
         offset: 25,
         closeButton: false,
@@ -85,14 +95,9 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
         className: 'mapbox-popup-custom',
       })
         .setLngLat([lng, lat])
-        .setHTML(`
-          <div class="p-2 text-sm">
-            ${venue ? `<div class="font-semibold">${venue}</div>` : ''}
-            ${address ? `<div class="text-muted-foreground">${address}</div>` : ''}
-          </div>
-        `);
+        .setHTML(`<div class="p-2 text-sm">${lines.join('')}</div>`);
 
-      marker.setPopup(popup);
+      marker.setPopup(popup).togglePopup();
     }
 
     // Add minimal custom attribution

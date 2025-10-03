@@ -25,6 +25,7 @@ interface Event {
   venue?: string;
   address?: string;
   city?: string;
+  country?: string;
   category?: string;
   cover_image_url?: string;
   slug?: string;
@@ -374,6 +375,8 @@ export default function EventsPage() {
                       lng={event.lng}
                       venue={event.venue}
                       address={event.address}
+                      city={event.city as any}
+                      country={event.country as any}
                       className="w-full h-56 rounded-lg"
                     />
                   </div>

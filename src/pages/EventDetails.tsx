@@ -221,8 +221,10 @@ export default function EventDetails() {
                     <MapboxEventMap
                       lat={event.lat}
                       lng={event.lng}
-                      venue={event.venue}
-                      address={event.address}
+                      venue={event.venue || undefined}
+                      address={event.address || undefined}
+                      city={event.city || undefined}
+                      country={event.country || undefined}
                       className="w-full h-48 rounded-lg"
                     />
                   </div>
