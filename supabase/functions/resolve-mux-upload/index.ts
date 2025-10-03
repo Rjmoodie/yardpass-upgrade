@@ -86,6 +86,18 @@ serve(async (req) => {
 
     const { data: assetData } = await assetRes.json();
     const playbackId = assetData.playback_ids?.[0]?.id;
+    const assetStatus: string | undefined = assetData.status;
+    
+    // Ensure the asset is fully ready before returning the playback ID
+    if (assetStatus && assetStatus !== "ready") {
+      console.log("Asset not ready yet:", assetStatus);
+      return createResponse({
+        status: "processing",
+        playback_id: null,
+        asset_id: assetId,
+        asset_status: assetStatus
+      });
+    }
     
     if (!playbackId) {
       console.error("No playback ID found in asset data");
