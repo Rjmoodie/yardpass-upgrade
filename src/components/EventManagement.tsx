@@ -99,6 +99,42 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
   const totalAttendees = attendees.length;
   const checkedInCount = attendees.filter(a => a.checkedIn).length;
 
+  // Load event details when edit dialog opens
+  useEffect(() => {
+    if (showEditDialog && event?.id) {
+      const loadEventDetails = async () => {
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', event.id)
+          .single();
+        
+        if (data && !error) {
+          setEditForm({
+            title: data.title || '',
+            description: data.description || '',
+            category: data.category || '',
+            location: {
+              address: data.address || '',
+              city: data.city || '',
+              country: data.country || '',
+              lat: data.lat || 0,
+              lng: data.lng || 0,
+            },
+            venue: data.venue || '',
+            coverImage: data.cover_image_url || '',
+            startDate: data.start_at ? new Date(data.start_at).toISOString().split('T')[0] : '',
+            startTime: data.start_at ? new Date(data.start_at).toTimeString().slice(0, 5) : '',
+            endDate: data.end_at ? new Date(data.end_at).toISOString().split('T')[0] : '',
+            endTime: data.end_at ? new Date(data.end_at).toTimeString().slice(0, 5) : '',
+          });
+        }
+      };
+      
+      loadEventDetails();
+    }
+  }, [showEditDialog, event?.id]);
+
   // Fetch real attendee data
   useEffect(() => {
     if (event?.id) {
