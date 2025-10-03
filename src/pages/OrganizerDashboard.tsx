@@ -3,7 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Megaphone } from 'lucide-react';
+import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Megaphone, Settings } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -56,6 +60,10 @@ const lastTabKeyFor = (scope: string) => `organizer.lastTab.${scope}`;
 export default function OrganizerDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { trackEvent } = useAnalyticsIntegration();
+
+  // Edit organization state
+  const [editingOrg, setEditingOrg] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', description: '', website_url: '', location: '' });
 
   // --- Auth ---
   const [user, setUser] = useState<any>(null);
@@ -416,6 +424,52 @@ export default function OrganizerDashboard() {
   const headerName = activeOrg?.name || 'Personal Dashboard';
   const isVerified = !!activeOrg?.is_verified;
 
+  // Handle edit organization
+  const handleEditOrg = async () => {
+    if (!selectedOrganization) return;
+    
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({
+          name: editForm.name,
+          description: editForm.description || null,
+          website_url: editForm.website_url || null,
+          location: editForm.location || null,
+        })
+        .eq('id', selectedOrganization);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Organization updated',
+        description: 'Organization details have been saved.',
+      });
+      setEditingOrg(false);
+      
+      // Refresh organizations list
+      window.location.reload();
+    } catch (error: any) {
+      toast({
+        title: 'Failed to update organization',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Initialize edit form when opening
+  useEffect(() => {
+    if (editingOrg && activeOrg) {
+      setEditForm({
+        name: activeOrg.name,
+        description: (activeOrg as any).description || '',
+        website_url: (activeOrg as any).website_url || '',
+        location: (activeOrg as any).location || '',
+      });
+    }
+  }, [editingOrg, activeOrg]);
+
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
       {/* Header */}
@@ -425,20 +479,32 @@ export default function OrganizerDashboard() {
             <h1 className="text-2xl sm:text-3xl font-bold">Organizer Dashboard</h1>
 
             {!!organizations.length && (
-              <OrgSwitcher
-                organizations={organizations}
-                value={selectedOrganization}   // null => personal
-                onSelect={(value) => {
-                  const next = new URLSearchParams(searchParams);
-                  if (value) next.set('org', value);
-                  else next.delete('org');
-                  setSearchParams(next, { replace: true });
-                  setSelectedOrganization(value);
-                  trackEvent('dashboard_org_selected', { org_id: value || 'individual', source: 'switcher' });
-                }}
-                onCreateOrgPath="/create-organization"
-                className="w-[280px]"
-              />
+              <div className="flex items-center gap-2">
+                <OrgSwitcher
+                  organizations={organizations}
+                  value={selectedOrganization}   // null => personal
+                  onSelect={(value) => {
+                    const next = new URLSearchParams(searchParams);
+                    if (value) next.set('org', value);
+                    else next.delete('org');
+                    setSearchParams(next, { replace: true });
+                    setSelectedOrganization(value);
+                    trackEvent('dashboard_org_selected', { org_id: value || 'individual', source: 'switcher' });
+                  }}
+                  onCreateOrgPath="/create-organization"
+                  className="w-[280px]"
+                />
+                {selectedOrganization && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setEditingOrg(true)}
+                    title="Edit organization"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
@@ -575,6 +641,63 @@ export default function OrganizerDashboard() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* Edit Organization Modal */}
+      <Dialog open={editingOrg} onOpenChange={setEditingOrg}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Organization</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="org-name">Organization Name</Label>
+              <Input
+                id="org-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter organization name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="org-description">Description</Label>
+              <Textarea
+                id="org-description"
+                value={editForm.description}
+                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe your organization"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="org-website">Website URL</Label>
+              <Input
+                id="org-website"
+                value={editForm.website_url}
+                onChange={(e) => setEditForm(prev => ({ ...prev, website_url: e.target.value }))}
+                placeholder="https://example.com"
+                type="url"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="org-location">Location</Label>
+              <Input
+                id="org-location"
+                value={editForm.location}
+                onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                placeholder="City, State/Country"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingOrg(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditOrg}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
