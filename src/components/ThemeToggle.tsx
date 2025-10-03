@@ -1,59 +1,20 @@
-import { useEffect, useState, useCallback } from "react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
 
 export function ThemeToggle() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-
-  const html = document.documentElement;
-  const isDark = resolvedTheme === "dark";
-
-  const applyClassSafely = useCallback((mode: "light" | "dark" | "system") => {
-    if (mode === "system") {
-      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-      html.classList.toggle("dark", prefersDark);
-    } else {
-      html.classList.toggle("dark", mode === "dark");
-    }
-  }, [html]);
-
-  const handleSystem = () => {
-    setTheme("system");
-    applyClassSafely("system");
-  };
-
-  const handleToggle = () => {
-    const next = isDark ? "light" : "dark";
-    setTheme(next);
-    applyClassSafely(next);
-  };
+  const { theme, setTheme } = useTheme();
 
   return (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        onClick={handleSystem}
-        className={`pill-button ${theme === "system" ? "pill-button-active" : ""}`}
-        aria-pressed={theme === "system"}
-      >
-        System
-      </button>
-
-      <button
-        type="button"
-        role="switch"
-        aria-checked={isDark}
-        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-        onClick={handleToggle}
-        className="toggle-ios"
-      >
-        <span className="toggle-track" />
-        <span className="toggle-thumb" />
-      </button>
-    </div>
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      className="relative"
+      aria-label="Toggle theme"
+    >
+      <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+    </Button>
   );
 }
-
