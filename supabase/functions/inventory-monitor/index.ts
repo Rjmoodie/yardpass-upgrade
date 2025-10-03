@@ -22,41 +22,30 @@ serve(async (req) => {
     );
 
     // Check for oversold tiers (critical alert)
-    const { data: oversoldTiers, error: oversoldError } = await supabaseService
+    const { data: allTiers, error: tiersError } = await supabaseService
       .from('ticket_tiers')
-      .select(`
-        id, 
-        name,
-        event_id,
-        total_quantity, 
-        reserved_quantity, 
-        issued_quantity,
-        (total_quantity - reserved_quantity - issued_quantity) as available
-      `)
-      .lt('total_quantity', 'reserved_quantity + issued_quantity');
+      .select('id, name, event_id, total_quantity, reserved_quantity, issued_quantity');
 
-    if (oversoldError) {
-      throw new Error(`Failed to check oversold tiers: ${oversoldError.message}`);
+    if (tiersError) {
+      throw new Error(`Failed to fetch tiers: ${tiersError.message}`);
     }
 
-    // Check for low inventory (warning alert)
-    const { data: lowInventoryTiers, error: lowInventoryError } = await supabaseService
-      .from('ticket_tiers')
-      .select(`
-        id, 
-        name,
-        event_id,
-        total_quantity, 
-        reserved_quantity, 
-        issued_quantity,
-        (total_quantity - reserved_quantity - issued_quantity) as available
-      `)
-      .gte('total_quantity', 'reserved_quantity + issued_quantity')
-      .lte('total_quantity - reserved_quantity - issued_quantity', 5); // Less than 5 available
+    // Filter oversold tiers in memory
+    const oversoldTiers = allTiers?.filter(tier => 
+      (tier.reserved_quantity + tier.issued_quantity) > tier.total_quantity
+    ).map(tier => ({
+      ...tier,
+      available: tier.total_quantity - tier.reserved_quantity - tier.issued_quantity
+    })) || [];
 
-    if (lowInventoryError) {
-      throw new Error(`Failed to check low inventory: ${lowInventoryError.message}`);
-    }
+    // Filter low inventory tiers in memory
+    const lowInventoryTiers = allTiers?.filter(tier => {
+      const available = tier.total_quantity - tier.reserved_quantity - tier.issued_quantity;
+      return available >= 0 && available <= 5;
+    }).map(tier => ({
+      ...tier,
+      available: tier.total_quantity - tier.reserved_quantity - tier.issued_quantity
+    })) || [];
 
     // Check for stale holds (over 30 minutes old)
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();

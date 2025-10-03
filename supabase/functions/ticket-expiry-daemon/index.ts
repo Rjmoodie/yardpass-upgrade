@@ -54,15 +54,20 @@ serve(async (req) => {
       tierUpdates.set(hold.tier_id, currentQuantity + hold.quantity);
     }
 
-    // Mark holds as expired
-    const { error: markExpiredError } = await supabaseService
-      .from('ticket_holds')
-      .update({ status: 'expired' })
-      .in('id', expiredHolds.map(h => h.id));
+    // Mark holds as expired in batches to avoid 414 error
+    const batchSize = 100;
+    for (let i = 0; i < expiredHolds.length; i += batchSize) {
+      const batch = expiredHolds.slice(i, i + batchSize);
+      const { error: markExpiredError } = await supabaseService
+        .from('ticket_holds')
+        .update({ status: 'expired' })
+        .in('id', batch.map(h => h.id));
 
-    if (markExpiredError) {
-      console.error('❌ Failed to mark holds as expired:', markExpiredError);
-      throw markExpiredError;
+      if (markExpiredError) {
+        console.error(`❌ Failed to mark holds as expired (batch ${i / batchSize + 1}):`, markExpiredError);
+        throw markExpiredError;
+      }
+      console.log(`✅ Marked ${batch.length} holds as expired (batch ${i / batchSize + 1})`);
     }
 
     // Release reserved quantities back to available
