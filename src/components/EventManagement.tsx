@@ -558,42 +558,50 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
             </Card>
 
             {/* Quick Actions */}
-            <Card className="card-enhanced">
-              <CardHeader>
-                <CardTitle className="text-accent">Quick Actions</CardTitle>
+            <Card className="border-none shadow-none bg-transparent">
+              <CardHeader className="px-0">
+                <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <CardContent className="grid grid-cols-2 gap-3 px-0">
                 <Button 
-                  variant="outline" 
-                  className="h-auto flex-col gap-2 p-4"
+                  variant="ghost" 
+                  className="h-auto flex-col gap-3 p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
                   onClick={() => setActiveTab('scanner')}
                 >
-                  <Scan className="w-6 h-6" />
-                  <span>Check-in Scanner</span>
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Scan className="w-6 h-6 text-primary" />
+                  </div>
+                  <span className="text-sm font-medium">Check-in Scanner</span>
                 </Button>
                 <Button 
-                  variant="outline" 
-                  className="h-auto flex-col gap-2 p-4"
+                  variant="ghost" 
+                  className="h-auto flex-col gap-3 p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
                   onClick={handleExportAttendees}
                 >
-                  <Download className="w-6 h-6" />
-                  <span>Export Guest List</span>
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Download className="w-6 h-6 text-primary" />
+                  </div>
+                  <span className="text-sm font-medium">Export Guest List</span>
                 </Button>
                 <Button 
-                  variant="outline" 
-                  className="h-auto flex-col gap-2 p-4"
+                  variant="ghost" 
+                  className="h-auto flex-col gap-3 p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
                   onClick={() => setActiveTab('attendees')}
                 >
-                  <Users className="w-6 h-6" />
-                  <span>View Attendees</span>
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Users className="w-6 h-6 text-primary" />
+                  </div>
+                  <span className="text-sm font-medium">View Attendees</span>
                 </Button>
                 <Button 
-                  variant="outline" 
-                  className="h-auto flex-col gap-2 p-4"
+                  variant="ghost" 
+                  className="h-auto flex-col gap-3 p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
                   onClick={() => setActiveTab('settings')}
                 >
-                  <Settings className="w-6 h-6" />
-                  <span>Event Settings</span>
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Settings className="w-6 h-6 text-primary" />
+                  </div>
+                  <span className="text-sm font-medium">Event Settings</span>
                 </Button>
               </CardContent>
             </Card>
