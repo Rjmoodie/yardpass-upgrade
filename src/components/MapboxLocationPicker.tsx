@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { MapPin, Search, ExternalLink } from 'lucide-react';
 import { openMap } from '@/utils/platform';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeMapboxFeature } from '@/utils/mapbox/normalize';
 
 interface Location {
   address: string;
@@ -97,19 +98,17 @@ export function MapboxLocationPicker({ value, onChange, className }: MapboxLocat
     }, 300);
   };
 
-  const handleLocationSelect = (result: any) => {
-    // Extract location information from Mapbox response
-    const location: Location = {
-      address: result.place_name,
-      city: result.context?.find((c: any) => c.id.includes('place'))?.text || 
-            result.context?.find((c: any) => c.id.includes('locality'))?.text || '',
-      country: result.context?.find((c: any) => c.id.includes('country'))?.text || '',
-      lat: result.center[1],
-      lng: result.center[0]
-    };
-    
-    setSearchQuery(result.place_name);
-    onChange(location);
+  const handleLocationSelect = (feature: any) => {
+    const norm = normalizeMapboxFeature(feature);
+
+    setSearchQuery(norm.address);
+    onChange({
+      address: norm.address,
+      city: norm.city,
+      country: norm.countryCode || norm.country,
+      lat: norm.lat,
+      lng: norm.lng,
+    });
     setShowSuggestions(false);
     setSuggestions([]);
   };
@@ -135,7 +134,7 @@ export function MapboxLocationPicker({ value, onChange, className }: MapboxLocat
             if (response.ok) {
               const data = await response.json();
               if (data.features && data.features.length > 0) {
-                handleLocationSelect(data.features[0]);
+                handleLocationSelect(data.features[0]); // this now normalizes too
               } else {
                 // Fallback if reverse geocoding fails
                 const fallbackLocation: Location = {

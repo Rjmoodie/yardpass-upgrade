@@ -54,11 +54,12 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
     fetchMapboxToken();
   }, []);
 
-  // Debug incoming props
+  // Debug incoming props and validate coordinates
   useEffect(() => {
-    try {
-      console.debug('[MapboxEventMap] props', { lat, lng, venue, address, city, country });
-    } catch {}
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      console.warn('[MapboxEventMap] Invalid coords', { lat, lng });
+    }
+    console.debug('[MapboxEventMap] props', { lat, lng, venue, address, city, country });
   }, [lat, lng, venue, address, city, country]);
 
   useEffect(() => {
@@ -88,12 +89,15 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
       .setLngLat([lng, lat])
       .addTo(map.current);
 
-    // Add popup with venue/address info
+    // Add popup with venue/address info - show exactly what was saved
     const lines: string[] = [];
     if (venue) lines.push(`<div class="font-semibold">${venue}</div>`);
-    if (address) lines.push(`<div class="text-muted-foreground">${address}</div>`);
-    const locLine = [city, country].filter(Boolean).join(', ');
-    if (locLine) lines.push(`<div class="text-muted-foreground">${locLine}</div>`);
+    if (address) {
+      lines.push(`<div>${address}</div>`);
+    } else {
+      const locLine = [city, country].filter(Boolean).join(', ');
+      if (locLine) lines.push(`<div class="text-muted-foreground">${locLine}</div>`);
+    }
 
     if (lines.length) {
       const popup = new mapboxgl.Popup({
@@ -209,13 +213,13 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
         </div>
       )}
       
-      {/* Address overlay for clarity */}
+      {/* Address overlay - show exactly what was saved */}
       {(address || city || country || venue) && (
         <div className="absolute top-3 left-3 max-w-[75%]">
           <div className="px-3 py-2 rounded-xl bg-card/90 border border-border/50 shadow-sm">
-            <div className="text-sm font-medium truncate">{venue || address || 'Location'}</div>
+            <div className="text-sm font-medium truncate">{venue || 'Location'}</div>
             <div className="text-xs text-muted-foreground truncate">
-              {address ? address : [city, country].filter(Boolean).join(', ')}
+              {address || [city, country].filter(Boolean).join(', ')}
             </div>
           </div>
         </div>
