@@ -130,6 +130,13 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
     setCurrentIndex((i) => Math.min(Math.max(0, i), Math.max(0, items.length - 1)));
   }, [items.length]);
 
+  // Refresh feed after a post is created anywhere in the app
+  useEffect(() => {
+    const handlePostCreated = () => setTimeout(() => refresh(), 750);
+    window.addEventListener('postCreated', handlePostCreated);
+    return () => window.removeEventListener('postCreated', handlePostCreated);
+  }, [refresh]);
+
   // ---------- Input handling: keyboard + touch ----------
   const lockRef = useRef(false);
   const lockFor = (ms = 220) => {
