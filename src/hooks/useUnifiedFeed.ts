@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-const SMART_FEED_ENABLED = false; // Disabled to ensure guest users can see feed
+const SMART_FEED_ENABLED = true; // Enabled to use smart edge function with full pagination
 const PAGE_SIZE = 40;
 
 export type FeedItem =
@@ -238,26 +238,17 @@ export function useUnifiedFeed(userId?: string) {
 
   // SMART (Edge Function) — expects posts to include viewer_has_liked for the JWT user
   const fetchSmart = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/home-feed`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({
-          user_id: userId ?? null,
-          limit: PAGE_SIZE,
-          offset: offsetRef.current,
-          mode: 'smart',
-        }),
-      }
-    );
+    const { data, error } = await supabase.functions.invoke('home-feed', {
+      body: {
+        user_id: userId ?? null,
+        limit: PAGE_SIZE,
+        offset: offsetRef.current,
+        mode: 'smart',
+      },
+    });
+    if (error) throw error;
 
-    if (!res.ok) throw new Error(`Feed request failed: ${res.status}`);
-    const { items } = await res.json();
+    const items = (data as any)?.items ?? [];
 
     const transformed: FeedItem[] = (items ?? []).map((it: any) => ({
       item_type: it.item_type,
@@ -293,14 +284,14 @@ export function useUnifiedFeed(userId?: string) {
 
     // Enrich with proper like status
     return await enrichWithLikeStatus(transformed);
-  }, [enrichWithLikeStatus]);
+  }, [enrichWithLikeStatus, userId]);
 
   // BASIC (legacy RPC)
   const fetchBasic = useCallback(async () => {
     const { data, error } = await supabase.rpc('get_home_feed', {
       p_user_id: userId || null,
       p_limit: PAGE_SIZE,
-      p_offset: 0,
+      p_offset: offsetRef.current,
     });
     if (error) throw error;
 
