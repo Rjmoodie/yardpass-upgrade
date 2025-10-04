@@ -25,6 +25,7 @@ export type FeedItem =
       event_owner_context_type?: string;
       event_location?: string;
       media_urls?: string[] | null;
+      content?: string;
       like_count?: number;
       comment_count?: number;
       viewer_has_liked?: boolean;

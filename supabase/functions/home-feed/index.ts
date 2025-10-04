@@ -94,7 +94,7 @@ export const handler = withCORS(async (req: Request) => {
       postIds.length
         ? supabase
             .from("event_posts")
-            .select("id, event_id, media_urls, like_count, comment_count, author_user_id")
+            .select("id, event_id, text, media_urls, like_count, comment_count, author_user_id")
             .in("id", postIds)
         : Promise.resolve({ data: [] as any[], error: null }),
     ]);
@@ -179,6 +179,7 @@ export const handler = withCORS(async (req: Request) => {
           event_owner_context_type: ev?.owner_context_type ?? "individual",
           event_location: [ev?.venue, ev?.city].filter(Boolean).join(", ") || "TBA",
           media_urls: po?.media_urls ?? [],
+          content: po?.text ?? "",
           like_count: po?.like_count ?? 0,
           comment_count: po?.comment_count ?? 0,
           viewer_has_liked: likedPostIds.has(row.item_id),
