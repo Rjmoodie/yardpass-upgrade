@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
+import React from 'npm:react@18.3.1'
+import { renderAsync } from 'npm:@react-email/components@0.0.22'
+import { MessageEmail } from './_templates/message.tsx'
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -137,7 +140,25 @@ serve(async (req) => {
 
         if (job.channel === "email" && recipientEmail && RESEND_API_KEY) {
           const subject = await renderTemplate(job.subject || eventTitle, recipient);
-          const body = await renderTemplate(job.body || "", recipient);
+          const bodyText = await renderTemplate(job.body || "", recipient);
+          
+          // Extract preheader from special HTML comment if present
+          const preheaderMatch = bodyText.match(/<!--\s*preheader:\s*(.+?)\s*-->/i);
+          const preheader = preheaderMatch ? preheaderMatch[1].trim() : undefined;
+          const bodyWithoutPreheader = preheaderMatch ? bodyText.replace(preheaderMatch[0], '').trim() : bodyText;
+
+          // Render the React Email template
+          const html = await renderAsync(
+            React.createElement(MessageEmail, {
+              subject,
+              body: bodyWithoutPreheader,
+              preheader,
+              event_title: eventTitle,
+              event_cover_image: event?.cover_image_url || undefined,
+              org_name: orgInfo?.name || undefined,
+              org_logo_url: orgInfo?.logoUrl || undefined,
+            })
+          );
 
           const emailResponse = await fetch("https://api.resend.com/emails", {
             method: "POST",
@@ -151,7 +172,7 @@ serve(async (req) => {
                 : job.from_email || "YardPass <noreply@yardpass.tech>",
               to: [recipientEmail],
               subject,
-              html: body,
+              html,
               reply_to: job.reply_to || "support@yardpass.tech",
             }),
           });
