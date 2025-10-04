@@ -63,14 +63,14 @@ export function OrgSwitcher({
         <Button
           type="button"
           variant="outline"
-          className={className || "w-[260px] justify-between"}
+          className={className || "w-full sm:w-[260px] justify-between"}
           aria-label="Switch organization"
         >
-          <div className="flex items-center gap-2 truncate">
-            <Building2 className="h-4 w-4" />
+          <div className="flex items-center gap-2 truncate min-w-0 flex-1">
+            <Building2 className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">{displayText}</span>
           </div>
-          <ChevronsUpDown className="h-4 w-4 opacity-60" />
+          <ChevronsUpDown className="h-4 w-4 opacity-60 flex-shrink-0" />
         </Button>
       </DropdownMenuTrigger>
 

@@ -472,15 +472,15 @@ export default function OrganizerDashboard() {
   }, [editingOrg, activeOrg]);
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-w-full overflow-x-hidden">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-4 mb-2">
-            <h1 className="text-2xl sm:text-3xl font-bold">Organizer Dashboard</h1>
+      <div className="flex flex-col gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Organizer Dashboard</h1>
 
             {!!organizations.length && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-2">
                 <OrgSwitcher
                   organizations={organizations}
                   value={selectedOrganization}   // null => personal
@@ -493,7 +493,7 @@ export default function OrganizerDashboard() {
                     trackEvent('dashboard_org_selected', { org_id: value || 'individual', source: 'switcher' });
                   }}
                   onCreateOrgPath="/create-organization"
-                  className="w-[280px]"
+                  className="w-full sm:w-[240px] md:w-[280px]"
                 />
                 {selectedOrganization && (
                   <Button
@@ -501,73 +501,75 @@ export default function OrganizerDashboard() {
                     size="icon"
                     onClick={() => setEditingOrg(true)}
                     title="Edit organization"
+                    className="flex-shrink-0"
                   >
-                    <Settings className="h-5 w-5" />
+                    <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                   </Button>
                 )}
               </div>
             )}
+
+            <div className="text-sm sm:text-base text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-medium truncate max-w-[200px] sm:max-w-none">{headerName}</span>
+              {isVerified && (
+                <span className="inline-flex items-center gap-1 text-xs text-blue-600 flex-shrink-0">
+                  <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" /> Verified
+                </span>
+              )}
+              <span className="flex-shrink-0">• {totals.events} event{totals.events === 1 ? '' : 's'}</span>
+              <span className="flex-shrink-0">• {totals.attendees} attendees</span>
+              <span className="flex-shrink-0">• ${totals.revenue.toLocaleString()} revenue</span>
+            </div>
           </div>
 
-          <p className="text-muted-foreground flex items-center gap-2">
-            <span className="font-medium">{headerName}</span>
-            {isVerified && (
-              <span className="inline-flex items-center gap-1 text-xs text-blue-600">
-                <CheckCircle2 className="h-4 w-4" /> Verified
-              </span>
-            )}
-            <span>• {totals.events} event{totals.events === 1 ? '' : 's'}</span>
-            <span>• {totals.attendees} attendees</span>
-            <span>• ${totals.revenue.toLocaleString()} revenue</span>
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <Button className="w-full sm:w-auto" onClick={goCreateEvent}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Event
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => (window.location.href = '/create-organization')}
-          >
-            <Building2 className="mr-2 h-4 w-4" />
-            New Org
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button className="flex-1 sm:flex-initial sm:w-auto" onClick={goCreateEvent}>
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Create Event</span>
+              <span className="sm:hidden">Create</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 sm:flex-initial sm:w-auto"
+              onClick={() => (window.location.href = '/create-organization')}
+            >
+              <Building2 className="mr-2 h-4 w-4" />
+              New Org
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7 h-auto p-1">
-          <TabsTrigger value="dashboard" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Dashboard</span>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-7 h-auto p-0.5 sm:p-1 gap-0.5 overflow-x-auto">
+          <TabsTrigger value="dashboard" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Dash</span>
           </TabsTrigger>
-          <TabsTrigger value="events" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Events</span>
+          <TabsTrigger value="events" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Events</span>
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Analytics</span>
+          <TabsTrigger value="analytics" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Analytics</span>
           </TabsTrigger>
-          <TabsTrigger value="campaigns" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <Megaphone className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Campaigns</span>
+          <TabsTrigger value="campaigns" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <Megaphone className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Camps</span>
           </TabsTrigger>
-          <TabsTrigger value="messaging" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <Mail className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Messaging</span>
+          <TabsTrigger value="messaging" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <Mail className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Messages</span>
           </TabsTrigger>
-          <TabsTrigger value="teams" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Teams</span>
+          <TabsTrigger value="teams" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Teams</span>
           </TabsTrigger>
-          <TabsTrigger value="payouts" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
-            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
-            <span className="text-xs">Payouts</span>
+          <TabsTrigger value="payouts" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Payouts</span>
           </TabsTrigger>
         </TabsList>
 
