@@ -100,21 +100,55 @@ export const MessageEmail = ({
 
           {/* Footer */}
           <Section style={footer}>
-            <Text style={footerCopyright}>
-              © {new Date().getFullYear()} {org_name || "YardPass"}. All rights reserved.
+            {/* Social Media Icons */}
+            <Section style={socialSection}>
+              <Link href="https://www.instagram.com/yard_pass" style={socialLink}>
+                <Img
+                  src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png"
+                  width={24}
+                  height={24}
+                  alt="Instagram"
+                  style={socialIcon}
+                />
+              </Link>
+            </Section>
+
+            {/* Email explanation and unsubscribe */}
+            <Text style={footerText}>
+              This email was sent to you because you are part of an event organized by {org_name || "YardPass"}.
             </Text>
+            <Text style={footerText}>
+              To manage your notifications or unsubscribe, visit your{' '}
+              <Link href="https://yardpass.app/settings" style={footerLink}>
+                account settings
+              </Link>
+              {' '}or{' '}
+              <Link href="https://yardpass.app/unsubscribe" style={footerLink}>
+                click here
+              </Link>.
+            </Text>
+
+            {/* Privacy and Links */}
             <Text style={footerLinks}>
               <Link href="https://yardpass.app" style={footerLink}>
-                {org_name || "YardPass"}
+                YardPass
               </Link>
-              {' · '}
-              <Link href="https://yardpass.app/help" style={footerLink}>
-                Help Center
+              {' | '}
+              <Link href="https://yardpass.app/privacy-policy" style={footerLink}>
+                Privacy Policy
               </Link>
-              {' · '}
-              <Link href="https://yardpass.app/privacy" style={footerLink}>
-                Privacy
+              {' | '}
+              <Link href="https://yardpass.app/terms-of-service" style={footerLink}>
+                Terms of Service
               </Link>
+            </Text>
+
+            {/* Copyright */}
+            <Text style={footerCopyright}>
+              Copyright © {new Date().getFullYear()} YardPass. All rights reserved.
+            </Text>
+            <Text style={footerAddress}>
+              YardPass | Events that connect communities
             </Text>
           </Section>
         </Container>
@@ -197,11 +231,42 @@ const footer = {
   marginTop: '32px',
 }
 
+const socialSection = {
+  textAlign: 'center' as const,
+  margin: '24px 0',
+}
+
+const socialLink = {
+  display: 'inline-block',
+  margin: '0 8px',
+}
+
+const socialIcon = {
+  width: '24px',
+  height: '24px',
+}
+
+const footerText = {
+  color: '#737373',
+  fontSize: '13px',
+  lineHeight: '18px',
+  margin: '12px 0',
+  textAlign: 'center' as const,
+}
+
 const footerCopyright = {
   color: '#a3a3a3',
   fontSize: '12px',
   lineHeight: '16px',
-  margin: '8px 0',
+  margin: '16px 0 4px',
+  textAlign: 'center' as const,
+}
+
+const footerAddress = {
+  color: '#a3a3a3',
+  fontSize: '12px',
+  lineHeight: '16px',
+  margin: '4px 0 24px',
   textAlign: 'center' as const,
 }
 
@@ -209,7 +274,7 @@ const footerLinks = {
   color: '#a3a3a3',
   fontSize: '12px',
   lineHeight: '16px',
-  margin: '8px 0',
+  margin: '16px 0',
   textAlign: 'center' as const,
 }
 
