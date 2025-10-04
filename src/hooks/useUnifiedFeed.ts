@@ -250,37 +250,74 @@ export function useUnifiedFeed(userId?: string) {
 
     const items = (data as any)?.items ?? [];
 
-    const transformed: FeedItem[] = (items ?? []).map((it: any) => ({
-      item_type: it.item_type,
-      sort_ts:
-        it.item_type === 'event'
-          ? it.event_starts_at ?? new Date().toISOString()
-          : it.created_at ?? new Date().toISOString(),
-      item_id: it.item_id,
-      event_id: it.event_id,
-      event_title: it.event_title || 'Event',
-      event_description: it.event_description || '',
-      event_starts_at: it.event_starts_at ?? null,
-      event_cover_image: it.event_cover_image || '',
-      event_organizer: it.event_organizer || 'Organizer',
-      event_organizer_id: it.event_organizer_id || '',
-      event_owner_context_type: it.event_owner_context_type || 'individual',
-      event_location: it.event_location || 'TBA',
-      author_id: it.author_user_id || null,
-      author_name: it.author_name || null,
-      author_badge: null,
-      author_social_links: null,
-      media_urls: it.media_urls || null,
-      content: it.content ?? null,
-      metrics: {
-        likes: it.like_count || 0,
-        comments: it.comment_count || 0,
-        // IMPORTANT: keep this exact name so the UI reads the correct initial state
-        viewer_has_liked: Boolean(it.viewer_has_liked),
-      },
-      sponsor: null,
-      sponsors: null,
-    }));
+    const transformed: FeedItem[] = (items ?? []).map((it: any) => {
+      const itemType = it.item_type;
+      // Fallbacks for inconsistent shapes coming from edge/RPC
+      const postId = it.item_id || it.post_id || it.id || null;
+      const eventId = it.event_id || it.parent_event_id || (itemType === 'event' ? (it.id || it.item_id) : null);
+      const createdTs = it.created_at || it.sort_ts || new Date().toISOString();
+      const startsTs = it.event_starts_at || it.start_at || null;
+      const media = Array.isArray(it.media_urls)
+        ? it.media_urls
+        : (typeof it.media_urls === 'string' && it.media_urls)
+          ? [it.media_urls]
+          : null;
+
+      if (itemType === 'event') {
+        return {
+          item_type: 'event',
+          sort_ts: startsTs || createdTs,
+          item_id: eventId || postId || '',
+          event_id: eventId || '',
+          event_title: it.event_title || it.title || 'Event',
+          event_description: it.event_description || it.description || '',
+          event_starts_at: startsTs,
+          event_cover_image: it.event_cover_image || it.cover_image_url || '',
+          event_organizer: it.event_organizer || 'Organizer',
+          event_organizer_id: it.event_organizer_id || '',
+          event_owner_context_type: it.event_owner_context_type || 'individual',
+          event_location: it.event_location || [it.venue, it.city].filter(Boolean).join(', ') || 'TBA',
+          author_id: null,
+          author_name: null,
+          author_badge: null,
+          media_urls: null,
+          content: null,
+          metrics: { likes: 0, comments: 0 },
+          sponsor: null,
+          sponsors: null,
+        } as FeedItem;
+      }
+
+      // Default to post
+      return {
+        item_type: 'post',
+        sort_ts: createdTs,
+        item_id: postId || '',
+        event_id: eventId || it.event_id || '',
+        event_title: it.event_title || it.title || 'Event',
+        event_description: it.event_description || it.description || '',
+        event_starts_at: startsTs,
+        event_cover_image: it.event_cover_image || it.cover_image_url || '',
+        event_organizer: it.event_organizer || 'Organizer',
+        event_organizer_id: it.event_organizer_id || '',
+        event_owner_context_type: it.event_owner_context_type || 'individual',
+        event_location: it.event_location || [it.venue, it.city].filter(Boolean).join(', ') || 'TBA',
+        author_id: it.author_user_id || it.author_id || null,
+        author_name: it.author_name || null,
+        author_badge: null,
+        author_social_links: null,
+        media_urls: media,
+        content: it.content ?? it.text ?? null,
+        metrics: {
+          likes: it.like_count || it.metrics?.likes || 0,
+          comments: it.comment_count || it.metrics?.comments || 0,
+          // IMPORTANT: keep this exact name so the UI reads the correct initial state
+          viewer_has_liked: Boolean(it.viewer_has_liked ?? it.metrics?.viewer_has_liked),
+        },
+        sponsor: null,
+        sponsors: null,
+      } as FeedItem;
+    });
 
     // Enrich with proper like status
     return await enrichWithLikeStatus(transformed);
