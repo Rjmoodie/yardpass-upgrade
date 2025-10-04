@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Wallet, Megaphone, Settings } from 'lucide-react';
+import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Wallet, Megaphone, Settings, Mail } from 'lucide-react';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -17,6 +17,7 @@ import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import { OrgWalletDashboard } from '@/components/wallet/OrgWalletDashboard';
 import { CampaignDashboard } from '@/components/campaigns/CampaignDashboard';
+import { OrganizerCommsPanel } from '@/components/organizer/OrganizerCommsPanel';
 
 type OwnerContextType = 'individual' | 'organization';
 
@@ -48,7 +49,7 @@ interface Event {
 }
 
 // ─────────────────────────────────────────
-const TAB_KEYS = ['events', 'analytics', 'campaigns', 'teams', 'wallet', 'payouts'] as const;
+const TAB_KEYS = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'wallet', 'payouts'] as const;
 type TabKey = typeof TAB_KEYS[number];
 const DEFAULT_TAB: TabKey = 'events';
 const lastTabKeyFor = (orgId: string) => `organizer.lastTab.${orgId}`;
@@ -490,6 +491,10 @@ export default function OrganizerDashboard() {
               <Megaphone className="h-5 w-5" />
               <span className="text-xs whitespace-nowrap">Campaigns</span>
             </TabsTrigger>
+            <TabsTrigger value="messaging" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <Mail className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Messaging</span>
+            </TabsTrigger>
             <TabsTrigger value="teams" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
               <Users className="h-5 w-5" />
               <span className="text-xs whitespace-nowrap">Teams</span>
@@ -536,6 +541,35 @@ export default function OrganizerDashboard() {
 
         <TabsContent value="campaigns" className="space-y-6">
           <CampaignDashboard orgId={selectedOrgId} />
+        </TabsContent>
+
+        <TabsContent value="messaging" className="space-y-6">
+          {events && events.length > 0 ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Mail className="h-5 w-5" />
+                <h2 className="text-xl font-semibold">Event Communications</h2>
+              </div>
+              {events.map((event) => (
+                <div key={event.id} className="border rounded-lg p-4">
+                  <h3 className="font-semibold mb-2">{event.title}</h3>
+                  <OrganizerCommsPanel eventId={event.id} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 border rounded-lg">
+              <Mail className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-lg font-semibold mb-1">Event Messaging</h3>
+              <p className="text-muted-foreground mb-4">
+                Create an event first to send messages to attendees.
+              </p>
+              <Button onClick={goCreateEvent}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Event
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="wallet" className="space-y-6">
