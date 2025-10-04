@@ -30,6 +30,7 @@ export function useMessaging() {
     smsBody?: string;
     fromName?: string;
     fromEmail?: string;
+    replyTo?: string;
     scheduledAt?: string | null;
     segment: Segment;
     batchSize?: number;
@@ -65,6 +66,7 @@ export function useMessaging() {
           sms_body: input.smsBody ?? null,
           from_name: input.fromName ?? null,
           from_email: input.fromEmail ?? null,
+          reply_to: input.replyTo ?? null,
           batch_size: input.batchSize ?? 200,
           status: input.dryRun ? 'draft' : 'queued',
           scheduled_at: input.scheduledAt ?? null,

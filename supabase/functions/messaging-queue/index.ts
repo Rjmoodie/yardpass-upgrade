@@ -123,6 +123,7 @@ serve(async (req) => {
               to: [recipientEmail],
               subject,
               html: body,
+              reply_to: job.reply_to || "support@yardpass.tech",
             }),
           });
 

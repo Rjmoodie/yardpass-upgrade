@@ -140,6 +140,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const [preheader, setPreheader] = useState('');
   const [body, setBody] = useState('');
   const [smsBody, setSmsBody] = useState('');
+  const [replyTo, setReplyTo] = useState('support@yardpass.tech');
   const [segment, setSegment] = useState<'all_attendees' | 'roles'>('all_attendees');
   const [selectedRoles, setSelectedRoles] = useState<RoleType[]>(['scanner']);
 
@@ -215,6 +216,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     setPreheader('');
     setBody('');
     setSmsBody('');
+    setReplyTo('support@yardpass.tech');
     setAiOutput(null);
     setStep(1);
   };
@@ -244,6 +246,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       smsBody,
       fromName: 'YardPass',
       fromEmail: 'onboarding@resend.dev',
+      replyTo,
       segment: segment === 'all_attendees' ? { type: 'all_attendees' } : { type: 'roles', roles: selectedRoles },
       dryRun,
     });
@@ -293,6 +296,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         smsBody,
         fromName: 'YardPass',
         fromEmail: 'onboarding@resend.dev',
+        replyTo,
         segment: { type: 'roles', roles: [] },
         dryRun: true,
       });
@@ -525,6 +529,18 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
               </Button>
             </div>
             <Input id="preheader-input" placeholder="A short teaser that boosts opens…" value={preheader} onChange={e => setPreheader(e.target.value)} />
+
+            <div>
+              <Label htmlFor="reply-to-input">Reply-To Email</Label>
+              <Input 
+                id="reply-to-input" 
+                type="email" 
+                placeholder="support@yardpass.tech" 
+                value={replyTo} 
+                onChange={e => setReplyTo(e.target.value)}
+              />
+              <div className="text-xs text-muted-foreground mt-1">Recipients will reply to this address</div>
+            </div>
           </>
         )}
 
