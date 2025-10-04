@@ -2190,6 +2190,7 @@ export type Database = {
           from_email: string | null
           from_name: string | null
           id: string
+          reply_to: string | null
           scheduled_at: string | null
           sms_body: string | null
           status: Database["public"]["Enums"]["job_status"]
@@ -2206,6 +2207,7 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          reply_to?: string | null
           scheduled_at?: string | null
           sms_body?: string | null
           status?: Database["public"]["Enums"]["job_status"]
@@ -2222,6 +2224,7 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          reply_to?: string | null
           scheduled_at?: string | null
           sms_body?: string | null
           status?: Database["public"]["Enums"]["job_status"]
