@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Megaphone, Settings } from 'lucide-react';
+import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Megaphone, Settings, Mail } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ import { useOrganizerData } from '@/hooks/useOrganizerData';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import { CampaignDashboard } from '@/components/campaigns/CampaignDashboard';
+import { OrganizerCommsPanel } from '@/components/organizer/OrganizerCommsPanel';
 
 type OwnerContextType = 'individual' | 'organization';
 
@@ -52,7 +53,7 @@ interface Event {
   owner_context_id?: string | null;
 }
 
-const TAB_KEYS = ['dashboard', 'events', 'analytics', 'campaigns', 'teams', 'payouts'] as const;
+const TAB_KEYS = ['dashboard', 'events', 'analytics', 'campaigns', 'messaging', 'teams', 'payouts'] as const;
 type TabKey = typeof TAB_KEYS[number];
 const DEFAULT_TAB: TabKey = 'dashboard';
 const lastTabKeyFor = (scope: string) => `organizer.lastTab.${scope}`;
@@ -539,7 +540,7 @@ export default function OrganizerDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-7 h-auto p-1">
           <TabsTrigger value="dashboard" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Dashboard</span>
@@ -555,6 +556,10 @@ export default function OrganizerDashboard() {
           <TabsTrigger value="campaigns" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <Megaphone className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
             <span className="text-xs">Campaigns</span>
+          </TabsTrigger>
+          <TabsTrigger value="messaging" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
+            <Mail className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
+            <span className="text-xs">Messaging</span>
           </TabsTrigger>
           <TabsTrigger value="teams" className="flex-col h-auto py-2 sm:py-3 px-1 sm:px-2">
             <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-1" />
@@ -613,6 +618,36 @@ export default function OrganizerDashboard() {
               <p className="text-muted-foreground mb-4">
                 Switch to an organization to create and manage ad campaigns.
               </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* MESSAGING */}
+        <TabsContent value="messaging" className="space-y-6">
+          {events && events.length > 0 ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Mail className="h-5 w-5" />
+                <h2 className="text-xl font-semibold">Event Communications</h2>
+              </div>
+              {events.map((event) => (
+                <div key={event.id} className="border rounded-lg p-4">
+                  <h3 className="font-semibold mb-2">{event.title}</h3>
+                  <OrganizerCommsPanel eventId={event.id} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 border rounded-lg">
+              <Mail className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-lg font-semibold mb-1">Event Messaging</h3>
+              <p className="text-muted-foreground mb-4">
+                Create an event first to send messages to attendees.
+              </p>
+              <Button onClick={goCreateEvent}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Event
+              </Button>
             </div>
           )}
         </TabsContent>
