@@ -210,16 +210,16 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
     <div className="h-full bg-background flex flex-col w-full overflow-x-hidden">
       {/* Header */}
       <div className="border-b bg-card p-3 sm:p-4">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors" aria-label="Back">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors flex-shrink-0" aria-label="Back">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex-1">
-            <h1>Profile</h1>
+          <div className="flex-1 min-w-0">
+            <h1 className="truncate">Profile</h1>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2 flex-shrink-0">
             <ThemeToggle />
-            <Button variant="ghost" size="sm" onClick={onShare} aria-label="Share profile">
+            <Button variant="ghost" size="sm" onClick={onShare} aria-label="Share profile" className="p-2">
               <ShareIcon className="w-4 h-4" />
             </Button>
             {user.role === 'organizer' && (
@@ -229,6 +229,7 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                 variant="outline"
                 size="sm"
                 showStatus={false}
+                className="hidden sm:flex"
               />
             )}
             <Button 
