@@ -44,9 +44,8 @@ export const handler = withCORS(async (req: Request) => {
 
     if (mode === "smart") {
       const { data, error } = await supabase.rpc("get_home_feed_ids", {
-        p_user: user_id ?? null,
+        p_user_id: user_id ?? null,
         p_limit: limit,
-        p_offset: offset,
       });
       if (error) {
         // If smart RPC missing, fall back to basic
@@ -57,20 +56,21 @@ export const handler = withCORS(async (req: Request) => {
     }
 
     if (!ranked) {
-      // Basic fallback (should return the already-expanded items if your legacy RPC did so;
-      // if yours returns IDs instead, we'll expand below just the same)
-      const { data, error } = await supabase.rpc("get_home_feed", {
-        p_user: user_id ?? null,
-        p_limit: limit,
-        p_offset: offset,
-      });
+      // Basic fallback - fetch recent public events
+      const { data: recentEvents, error } = await supabase
+        .from("events")
+        .select("id")
+        .eq("visibility", "public")
+        .gte("start_at", new Date().toISOString())
+        .order("start_at", { ascending: true })
+        .limit(limit);
+      
       if (error) throw error;
-      // If your legacy RPC already returns the full shape, we can return early.
-      // Heuristic: if it has event_title for the first row, assume expanded.
-      if (Array.isArray(data) && data.length && "event_title" in data[0]) {
-        return json(200, { items: data, mode: "basic" });
-      }
-      ranked = (data ?? []) as any[];
+      ranked = (recentEvents ?? []).map(e => ({ 
+        item_type: "event" as const, 
+        item_id: e.id, 
+        event_id: e.id 
+      }));
     }
 
     // 2) expand (events, posts, authors) in batched queries
