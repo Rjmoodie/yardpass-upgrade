@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { routes } from '@/lib/routes';
 import { StripeConnectButton } from './StripeConnectButton';
+import { ThemeToggle } from './ThemeToggle';
 
 type UserPost = {
   id: string;
@@ -212,6 +213,7 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
             <h1>Profile</h1>
           </div>
           <div className="flex gap-2">
+            <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={onShare} aria-label="Share profile">
               <ShareIcon className="w-4 h-4" />
             </Button>
