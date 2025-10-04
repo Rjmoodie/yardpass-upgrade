@@ -1,12 +1,32 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-// Using direct fetch to avoid npm dependency issues
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
+import React from 'https://esm.sh/react@18.3.1';
+import { renderToStaticMarkup } from 'https://esm.sh/react-dom@18.3.1/server';
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+interface OrgInfo {
+  name: string;
+  logoUrl?: string;
+  websiteUrl?: string;
+  supportEmail?: string;
+}
+
+interface EventInfo {
+  title: string;
+  date: string;
+  location: string;
+  venue?: string;
+  coverImageUrl?: string;
+  description?: string;
+}
 
 interface PurchaseConfirmationRequest {
   customerName: string;
@@ -20,87 +40,149 @@ interface PurchaseConfirmationRequest {
   orderId: string;
   ticketIds: string[];
   qrCodeUrl?: string;
+  eventId?: string;
+  orgInfo?: OrgInfo;
+  eventInfo?: EventInfo;
 }
 
-const generatePurchaseConfirmationHtml = (data: PurchaseConfirmationRequest): string => {
-  const baseUrl = Deno.env.get("SUPABASE_URL")?.replace("/rest/v1", "") || "https://app.yardpass.com";
-  const ticketUrl = `${baseUrl}/tickets`;
+// Fetch org and event info from database
+async function fetchEmailContext(eventId: string) {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  const { data: event } = await supabase
+    .from('events')
+    .select(`
+      title,
+      start_at,
+      venue,
+      city,
+      cover_image_url,
+      description,
+      owner_context_type,
+      owner_context_id
+    `)
+    .eq('id', eventId)
+    .single();
 
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Purchase Confirmation</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    </head>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h1 style="color: #1e293b; margin: 0 0 10px 0; font-size: 24px;">Purchase Confirmation</h1>
-        <p style="color: #64748b; margin: 0; font-size: 16px;">Your tickets have been confirmed!</p>
-      </div>
+  if (!event) return {};
 
-      <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h2 style="color: #1e293b; margin: 0 0 15px 0; font-size: 20px;">Hi ${data.customerName},</h2>
-        <p style="color: #374151; line-height: 1.6; margin: 0 0 15px 0; font-size: 16px;">
-          Thank you for your purchase! Your tickets for <strong>${data.eventTitle}</strong> have been confirmed.
-        </p>
+  const eventInfo: EventInfo = {
+    title: event.title,
+    date: event.start_at,
+    location: event.city || event.venue || 'TBA',
+    venue: event.venue || undefined,
+    coverImageUrl: event.cover_image_url || undefined,
+    description: event.description || undefined,
+  };
 
-        <div style="background-color: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
-          <h3 style="color: #1e293b; margin: 0 0 10px 0; font-size: 18px;">Event Details</h3>
-          <p style="margin: 5px 0; color: #374151; font-size: 14px;"><strong>Event:</strong> ${data.eventTitle}</p>
-          <p style="margin: 5px 0; color: #374151; font-size: 14px;"><strong>Date:</strong> ${data.eventDate}</p>
-          <p style="margin: 5px 0; color: #374151; font-size: 14px;"><strong>Location:</strong> ${data.eventLocation}</p>
-        </div>
+  let orgInfo: OrgInfo | undefined;
+  
+  if (event.owner_context_type === 'organization' && event.owner_context_id) {
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('name, logo_url, handle')
+      .eq('id', event.owner_context_id)
+      .single();
 
-        <div style="background-color: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
-          <h3 style="color: #1e293b; margin: 0 0 10px 0; font-size: 18px;">Ticket Information</h3>
-          <p style="margin: 5px 0; color: #374151; font-size: 14px;"><strong>Ticket Type:</strong> ${data.ticketType}</p>
-          <p style="margin: 5px 0; color: #374151; font-size: 14px;"><strong>Quantity:</strong> ${data.quantity}</p>
-          <p style="margin: 5px 0; color: #374151; font-size: 14px;"><strong>Total Amount:</strong> $${(data.totalAmount / 100).toFixed(2)}</p>
-          <p style="margin: 5px 0; color: #374151; font-size: 14px;"><strong>Order ID:</strong> ${data.orderId}</p>
-        </div>
+    if (org) {
+      orgInfo = {
+        name: org.name,
+        logoUrl: org.logo_url || undefined,
+        websiteUrl: org.handle ? `https://yardpass.tech/org/${org.handle}` : undefined,
+        supportEmail: 'support@yardpass.tech',
+      };
+    }
+  }
 
-        ${data.qrCodeUrl ? `
-        <div style="text-align: center; margin: 20px 0;">
-          <img src="${data.qrCodeUrl}" alt="QR Code" style="max-width: 200px; height: auto;" />
-          <p style="color: #64748b; font-size: 14px; margin: 10px 0 0 0;">
-            Show this QR code at the event entrance
-          </p>
-        </div>
-        ` : ''}
+  return { orgInfo, eventInfo };
+}
 
-        <div style="text-align: center; margin: 30px 0;">
-          <a
-            href="${ticketUrl}"
-            style="background-color: #3b82f6; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 16px;"
-          >
-            View Your Tickets
-          </a>
-        </div>
+// Import email template components (inline for edge function)
+function BaseEmailLayout({ children, orgInfo }: { children: any; orgInfo?: OrgInfo }) {
+  const baseUrl = SUPABASE_URL?.replace('/rest/v1', '') || 'https://yardpass.tech';
+  const logoUrl = orgInfo?.logoUrl || `${baseUrl}/yardpass-logo.png`;
+  
+  return React.createElement('html', {},
+    React.createElement('head', {},
+      React.createElement('meta', { charSet: 'utf-8' }),
+      React.createElement('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1.0' })
+    ),
+    React.createElement('body', { style: { fontFamily: 'Arial, sans-serif', margin: 0, padding: 0, backgroundColor: '#f9fafb' } },
+      React.createElement('div', { style: { maxWidth: '600px', margin: '0 auto', backgroundColor: '#ffffff' } },
+        // Header
+        React.createElement('div', { style: { backgroundColor: '#1a1a1a', padding: '24px', textAlign: 'center' } },
+          React.createElement('img', { src: logoUrl, alt: orgInfo?.name || 'YardPass', style: { height: '40px', maxWidth: '200px' } })
+        ),
+        // Content
+        React.createElement('div', { style: { padding: '32px 24px' } }, children),
+        // Footer
+        React.createElement('div', { style: { backgroundColor: '#f9fafb', padding: '24px', textAlign: 'center', fontSize: '14px', color: '#6b7280' } },
+          React.createElement('p', { style: { margin: '0 0 8px 0' } }, 
+            `Powered by YardPass ${orgInfo?.name ? `· Organized by ${orgInfo.name}` : ''}`
+          ),
+          React.createElement('p', { style: { margin: '0' } },
+            `Questions? Contact `,
+            React.createElement('a', { href: `mailto:${orgInfo?.supportEmail || 'support@yardpass.tech'}`, style: { color: '#3b82f6' } },
+              orgInfo?.supportEmail || 'support@yardpass.tech'
+            )
+          )
+        )
+      )
+    )
+  );
+}
 
-        <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 20px;">
-          <h3 style="color: #1e293b; margin: 0 0 10px 0; font-size: 18px;">What's Next?</h3>
-          <ul style="color: #374151; line-height: 1.6; padding-left: 20px; font-size: 14px;">
-            <li>Save this confirmation email for your records</li>
-            <li>Add the event to your calendar</li>
-            <li>Arrive 15 minutes early for check-in</li>
-            <li>Bring a valid ID and show your QR code</li>
-          </ul>
-        </div>
-      </div>
-
-      <div style="text-align: center; color: #64748b; font-size: 14px;">
-        <p>Need help? Contact us at support@yardpass.com</p>
-        <p>© 2024 YardPass. All rights reserved.</p>
-      </div>
-    </body>
-    </html>
-  `;
-};
+function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: PurchaseConfirmationRequest; orgInfo?: OrgInfo; eventInfo?: EventInfo }) {
+  const baseUrl = SUPABASE_URL?.replace('/rest/v1', '') || 'https://yardpass.tech';
+  
+  return React.createElement(BaseEmailLayout, { orgInfo },
+    React.createElement('div', { style: { backgroundColor: '#10b981', color: 'white', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center' } },
+      React.createElement('h1', { style: { margin: '0 0 8px 0', fontSize: '24px' } }, '🎉 Purchase Confirmed!'),
+      React.createElement('p', { style: { margin: 0, fontSize: '16px' } }, 'Your tickets are ready')
+    ),
+    React.createElement('h2', { style: { fontSize: '20px', marginBottom: '16px' } }, `Hi ${data.customerName},`),
+    React.createElement('p', { style: { lineHeight: '1.6', color: '#374151' } },
+      `Thank you for your purchase! Your tickets for ${eventInfo?.title || data.eventTitle} have been confirmed.`
+    ),
+    eventInfo?.coverImageUrl && React.createElement('img', { 
+      src: eventInfo.coverImageUrl, 
+      alt: eventInfo.title,
+      style: { width: '100%', borderRadius: '8px', marginTop: '16px', marginBottom: '16px' }
+    }),
+    React.createElement('div', { style: { backgroundColor: '#f3f4f6', padding: '16px', borderRadius: '8px', marginTop: '24px' } },
+      React.createElement('h3', { style: { margin: '0 0 12px 0', fontSize: '18px' } }, 'Event Details'),
+      React.createElement('p', { style: { margin: '4px 0', fontSize: '14px' } }, `📅 ${eventInfo?.date || data.eventDate}`),
+      React.createElement('p', { style: { margin: '4px 0', fontSize: '14px' } }, `📍 ${eventInfo?.location || data.eventLocation}`),
+      eventInfo?.venue && React.createElement('p', { style: { margin: '4px 0', fontSize: '14px' } }, `🏛️ ${eventInfo.venue}`)
+    ),
+    React.createElement('div', { style: { backgroundColor: '#f3f4f6', padding: '16px', borderRadius: '8px', marginTop: '16px' } },
+      React.createElement('h3', { style: { margin: '0 0 12px 0', fontSize: '18px' } }, 'Ticket Details'),
+      React.createElement('p', { style: { margin: '4px 0', fontSize: '14px' } }, `🎫 ${data.ticketType} × ${data.quantity}`),
+      React.createElement('p', { style: { margin: '4px 0', fontSize: '14px' } }, `💰 Total: $${(data.totalAmount / 100).toFixed(2)}`),
+      React.createElement('p', { style: { margin: '4px 0', fontSize: '14px', color: '#6b7280' } }, `Order #${data.orderId}`)
+    ),
+    data.qrCodeUrl && React.createElement('div', { style: { textAlign: 'center', margin: '24px 0' } },
+      React.createElement('img', { src: data.qrCodeUrl, alt: 'QR Code', style: { width: '200px', height: '200px' } }),
+      React.createElement('p', { style: { fontSize: '14px', color: '#6b7280', marginTop: '8px' } }, 'Show this at the entrance')
+    ),
+    React.createElement('div', { style: { textAlign: 'center', marginTop: '32px' } },
+      React.createElement('a', { 
+        href: `${baseUrl}/tickets`,
+        style: { 
+          display: 'inline-block',
+          backgroundColor: '#3b82f6',
+          color: 'white',
+          padding: '12px 32px',
+          borderRadius: '8px',
+          textDecoration: 'none',
+          fontWeight: 'bold'
+        }
+      }, 'View Your Tickets')
+    )
+  );
+}
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -111,14 +193,24 @@ const handler = async (req: Request): Promise<Response> => {
     if (!data.customerEmail || !data.customerName || !data.eventTitle) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const html = generatePurchaseConfirmationHtml(data);
+    // Fetch org/event context if eventId provided
+    let orgInfo = data.orgInfo;
+    let eventInfo = data.eventInfo;
+    
+    if (data.eventId && (!orgInfo || !eventInfo)) {
+      const context = await fetchEmailContext(data.eventId);
+      orgInfo = orgInfo || context.orgInfo;
+      eventInfo = eventInfo || context.eventInfo;
+    }
+
+    // Render React template
+    const html = '<!DOCTYPE html>' + renderToStaticMarkup(
+      React.createElement(PurchaseConfirmationTemplate, { data, orgInfo, eventInfo })
+    );
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -127,11 +219,11 @@ const handler = async (req: Request): Promise<Response> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: "YardPass <noreply@yardpass.tech>",
+        from: orgInfo?.name ? `${orgInfo.name} via YardPass <noreply@yardpass.tech>` : "YardPass <noreply@yardpass.tech>",
         to: [data.customerEmail],
-        subject: `Ticket Confirmation - ${data.eventTitle}`,
+        subject: `✅ Ticket Confirmation - ${eventInfo?.title || data.eventTitle}`,
         html,
-        reply_to: "support@yardpass.tech",
+        reply_to: orgInfo?.supportEmail || "support@yardpass.tech",
       }),
     });
 
@@ -140,24 +232,17 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const emailResponse = await response.json();
+    console.log("Purchase confirmation sent:", emailResponse);
 
-    console.log("Purchase confirmation email sent:", emailResponse);
-
-    return new Response(JSON.stringify(emailResponse), {
+    return new Response(JSON.stringify({ success: true, ...emailResponse }), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders,
-      },
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
-    console.error("Error in send-purchase-confirmation function:", error);
+    console.error("Error in send-purchase-confirmation:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 };
