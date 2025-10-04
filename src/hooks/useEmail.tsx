@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { emailService, EmailOptions, PurchaseConfirmationData, TicketReminderData } from '@/lib/emailService';
 import { renderPurchaseConfirmationHTML, renderTicketReminderHTML } from '@/components/EmailTemplates';
+import { getEmailContext } from '@/lib/emailHelpers';
 
 type SendOpts = {
   previewInBrowser?: boolean;
   baseUrl?: string;
   silent?: boolean;
+  eventId?: string; // For auto-fetching org/event context
 };
 
 function maybePreview(html: string, preview?: boolean) {
@@ -44,19 +46,31 @@ export function useEmail() {
   const sendPurchaseConfirmation = async (data: PurchaseConfirmationData, opts?: SendOpts) => {
     setIsLoading(true);
     try {
-      const specialized = await emailService.sendPurchaseConfirmation(data);
+      // Auto-fetch org/event context if eventId provided and not already in data
+      let enhancedData = { ...data };
+      if (opts?.eventId && (!data.orgInfo || !data.eventInfo)) {
+        const context = await getEmailContext(opts.eventId);
+        enhancedData = {
+          ...data,
+          orgInfo: data.orgInfo || context.orgInfo,
+          eventInfo: data.eventInfo || context.eventInfo,
+        };
+      }
+
+      const specialized = await emailService.sendPurchaseConfirmation(enhancedData);
       if (specialized.success) {
         notify(true, 'Confirmation sent', '', opts?.silent);
         return specialized;
       }
+      
       const html = renderPurchaseConfirmationHTML({
-        ...data,
+        ...enhancedData,
         baseUrl: opts?.baseUrl,
       });
       maybePreview(html, opts?.previewInBrowser && import.meta.env.DEV);
       const res = await emailService.sendEmail({
-        to: data.customerEmail,
-        subject: `Your tickets to ${data.eventTitle} are confirmed`,
+        to: enhancedData.customerEmail,
+        subject: `Your tickets to ${enhancedData.eventTitle} are confirmed`,
         html,
       });
       notify(res.success, 'Confirmation sent', res.error || '', opts?.silent);
@@ -69,16 +83,28 @@ export function useEmail() {
   const sendTicketReminder = async (data: TicketReminderData, opts?: SendOpts) => {
     setIsLoading(true);
     try {
-      const specialized = await emailService.sendTicketReminder(data);
+      // Auto-fetch org/event context if eventId provided and not already in data
+      let enhancedData = { ...data };
+      if (opts?.eventId && (!data.orgInfo || !data.eventInfo)) {
+        const context = await getEmailContext(opts.eventId);
+        enhancedData = {
+          ...data,
+          orgInfo: data.orgInfo || context.orgInfo,
+          eventInfo: data.eventInfo || context.eventInfo,
+        };
+      }
+
+      const specialized = await emailService.sendTicketReminder(enhancedData);
       if (specialized.success) {
         notify(true, 'Reminder sent', '', opts?.silent);
         return specialized;
       }
-      const html = renderTicketReminderHTML({ ...data, baseUrl: opts?.baseUrl });
+      
+      const html = renderTicketReminderHTML({ ...enhancedData, baseUrl: opts?.baseUrl });
       maybePreview(html, opts?.previewInBrowser && import.meta.env.DEV);
       const res = await emailService.sendEmail({
-        to: data.customerEmail,
-        subject: `Reminder: ${data.eventTitle} is coming up`,
+        to: enhancedData.customerEmail,
+        subject: `Reminder: ${enhancedData.eventTitle} is coming up`,
         html,
       });
       notify(res.success, 'Reminder sent', res.error || '', opts?.silent);

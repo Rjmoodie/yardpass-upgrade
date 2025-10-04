@@ -63,12 +63,38 @@ serve(async (req) => {
     // Get event details for templating
     const { data: event } = await supabase
       .from("events")
-      .select("title, start_at")
+      .select(`
+        title,
+        start_at,
+        venue,
+        city,
+        cover_image_url,
+        owner_context_type,
+        owner_context_id
+      `)
       .eq("id", job.event_id)
       .single();
 
     const eventTitle = event?.title || "Event";
     const eventDate = event?.start_at ? new Date(event.start_at).toLocaleDateString() : "";
+    
+    // Get organization info if event is owned by an org
+    let orgInfo = null;
+    if (event?.owner_context_type === 'organization' && event?.owner_context_id) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("name, logo_url, handle")
+        .eq("id", event.owner_context_id)
+        .single();
+      
+      if (org) {
+        orgInfo = {
+          name: org.name,
+          logoUrl: org.logo_url,
+          websiteUrl: org.handle ? `https://yardpass.tech/org/${org.handle}` : undefined,
+        };
+      }
+    }
 
     // Template replacement function
     const renderTemplate = async (template: string, recipient: any) => {
@@ -90,7 +116,8 @@ serve(async (req) => {
       return template
         .replace(/{{event_title}}/g, eventTitle)
         .replace(/{{event_date}}/g, eventDate)
-        .replace(/{{first_name}}/g, firstName);
+        .replace(/{{first_name}}/g, firstName)
+        .replace(/{{org_name}}/g, orgInfo?.name || eventTitle);
     };
 
     let processed = 0;

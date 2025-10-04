@@ -1,5 +1,6 @@
 // src/lib/emailService.ts
 import { supabase } from '@/integrations/supabase/client';
+import type { OrgInfo, EventInfo } from '@/components/EmailTemplates';
 
 export interface EmailOptions {
   to: string;
@@ -21,6 +22,8 @@ export interface PurchaseConfirmationData {
   orderId: string;
   ticketIds: string[];
   qrCodeUrl?: string;
+  orgInfo?: OrgInfo;
+  eventInfo?: EventInfo;
 }
 
 export interface TicketReminderData {
@@ -31,7 +34,11 @@ export interface TicketReminderData {
   eventLocation: string;
   ticketType: string;
   qrCodeUrl?: string;
+  orgInfo?: OrgInfo;
+  eventInfo?: EventInfo;
 }
+
+export { type OrgInfo, type EventInfo };
 
 type Result = { success: boolean; error?: string; provider?: string; id?: string };
 
