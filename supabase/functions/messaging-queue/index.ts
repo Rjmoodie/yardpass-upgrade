@@ -119,7 +119,9 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: job.from_email || "YardPass <onboarding@resend.dev>",
+              from: job.from_email && job.from_name 
+                ? `${job.from_name} <${job.from_email}>` 
+                : job.from_email || "YardPass <noreply@yardpass.tech>",
               to: [recipientEmail],
               subject,
               html: body,
