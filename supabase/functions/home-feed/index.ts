@@ -145,6 +145,7 @@ export const handler = withCORS(async (req: Request) => {
           item_id: row.item_id,
           event_id: row.event_id,
           event_title: ev?.title ?? "Event",
+          event_description: ev?.description ?? "",
           event_cover_image: ev?.cover_image_url ?? null,
           event_starts_at: ev?.start_at ?? null,
           event_location: [ev?.venue, ev?.city].filter(Boolean).join(", ") || null,

@@ -4,6 +4,7 @@ export type FeedItem =
       item_id: string;
       event_id: string;
       event_title: string;
+      event_description?: string;
       event_cover_image?: string | null;
       event_starts_at?: string | null;
       event_location?: string | null;
