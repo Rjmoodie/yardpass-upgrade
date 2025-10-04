@@ -129,6 +129,8 @@ export const handler = withCORS(async (req: Request) => {
     // 4) project to the exact shape the UI expects
     const items: FeedItem[] = ranked.map((row) => {
       const ev = eMap.get(row.event_id);
+      if (!ev) return null; // Drop orphan rows safely
+
       if (row.item_type === "event") {
         // Determine organizer name and ID based on ownership context
         const organizerName = ev?.owner_context_type === "organization" 
@@ -150,14 +152,31 @@ export const handler = withCORS(async (req: Request) => {
           event_organizer_id: organizerId ?? null,
           event_owner_context_type: ev?.owner_context_type ?? null,
         };
-      } else {
+      } else if (row.item_type === "post") {
+        // Handle post items
         const po = pMap.get(row.item_id);
+        if (!po) return null; // Drop posts we couldn't fetch
+
         const author = po?.author_user_id ? profMap.get(po.author_user_id) : null;
+        const organizerName = ev?.owner_context_type === "organization"
+          ? ev?.organizations?.name ?? "Organization"
+          : ev?.user_profiles?.display_name ?? "Organizer";
+        const organizerId = ev?.owner_context_type === "organization"
+          ? ev?.owner_context_id ?? ""
+          : ev?.created_by ?? "";
+
         return {
           item_type: "post",
           item_id: row.item_id,
           event_id: row.event_id,
           event_title: ev?.title ?? "Event",
+          event_description: ev?.description ?? "",
+          event_starts_at: ev?.start_at ?? null,
+          event_cover_image: ev?.cover_image_url ?? "",
+          event_organizer: organizerName,
+          event_organizer_id: organizerId,
+          event_owner_context_type: ev?.owner_context_type ?? "individual",
+          event_location: [ev?.venue, ev?.city].filter(Boolean).join(", ") || "TBA",
           media_urls: po?.media_urls ?? [],
           like_count: po?.like_count ?? 0,
           comment_count: po?.comment_count ?? 0,
@@ -166,7 +185,8 @@ export const handler = withCORS(async (req: Request) => {
           author_name: author?.display_name ?? null,
         };
       }
-    });
+      return null;
+    }).filter(Boolean) as FeedItem[];
 
     // 5) cache hints (optional; tweak as you like)
     return json(200, { items, mode: ranked ? "smart" : "basic" }, {

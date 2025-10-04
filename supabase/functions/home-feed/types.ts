@@ -16,10 +16,17 @@ export type FeedItem =
       item_id: string; // post_id
       event_id: string;
       event_title: string;
-       media_urls?: string[] | null;
-       like_count?: number;
-       comment_count?: number;
-       viewer_has_liked?: boolean;
-       author_user_id?: string | null;
-       author_name?: string | null;
+      event_description?: string;
+      event_starts_at?: string | null;
+      event_cover_image?: string;
+      event_organizer?: string;
+      event_organizer_id?: string;
+      event_owner_context_type?: string;
+      event_location?: string;
+      media_urls?: string[] | null;
+      like_count?: number;
+      comment_count?: number;
+      viewer_has_liked?: boolean;
+      author_user_id?: string | null;
+      author_name?: string | null;
     };
