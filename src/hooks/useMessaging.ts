@@ -88,22 +88,29 @@ export function useMessaging() {
       console.log('[useMessaging] Building recipients for segment:', input.segment);
 
       if (input.segment.type === 'all_attendees') {
-        const { data: tickets } = await supabase
+        const { data: tickets, error: ticketsError } = await supabase
           .from('tickets')
           .select(`
             owner_user_id,
-            user_profiles(phone)
+            user_profiles!owner_user_id(phone)
           `)
           .eq('event_id', input.eventId)
           .eq('status', 'issued');
+
+        if (ticketsError) {
+          console.error('[useMessaging] Error fetching tickets:', ticketsError);
+          throw ticketsError;
+        }
 
         console.log('[useMessaging] Found tickets:', tickets?.length || 0);
 
         const userIds = [...new Set((tickets || []).map(t => t.owner_user_id))];
 
         if (input.channel === 'email') {
+          // For email, just pass user_id - the edge function will fetch email from auth.users
           recipients = userIds.map(userId => ({ user_id: userId, email: null, phone: null }));
         } else {
+          // For SMS, we need phone numbers from user_profiles
           const seen = new Set<string>();
           recipients = (tickets || [])
             .map((t: any) => ({ user_id: t.owner_user_id, email: null, phone: t.user_profiles?.phone }))
@@ -114,11 +121,16 @@ export function useMessaging() {
             });
         }
       } else {
-        const { data: roleUsers } = await supabase
+        const { data: roleUsers, error: rolesError } = await supabase
           .from('event_roles')
-          .select(`user_id, user_profiles(phone)`)
+          .select(`user_id, user_profiles!user_id(phone)`)
           .eq('event_id', input.eventId)
           .in('role', input.segment.roles ?? []);
+
+        if (rolesError) {
+          console.error('[useMessaging] Error fetching role users:', rolesError);
+          throw rolesError;
+        }
 
         console.log('[useMessaging] Found role users:', roleUsers?.length || 0);
 
