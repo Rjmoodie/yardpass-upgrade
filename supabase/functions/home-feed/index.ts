@@ -74,6 +74,36 @@ export const handler = withCORS(async (req: Request) => {
     }
 
     // 2) expand (events, posts, authors) in batched queries
+    // If any ranked post rows are missing item_id (causing empty media/IDs),
+    // patch them by picking the most recent post for that event; drop rows with no posts.
+    const missingPostEventIds = (ranked || [])
+      .filter((r) => r.item_type === "post" && (!r.item_id || String(r.item_id).trim() === ""))
+      .map((r) => r.event_id);
+
+    if (missingPostEventIds.length) {
+      const { data: recentPosts, error: rpErr } = await supabase
+        .from("event_posts")
+        .select("id, event_id, created_at")
+        .in("event_id", missingPostEventIds)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+
+      const latestByEvent = new Map<string, any>();
+      (recentPosts || []).forEach((p: any) => {
+        if (!latestByEvent.has(p.event_id)) latestByEvent.set(p.event_id, p);
+      });
+
+      ranked = ranked
+        .map((r) => {
+          if (r.item_type === "post" && (!r.item_id || String(r.item_id).trim() === "")) {
+            const rp = latestByEvent.get(r.event_id);
+            return rp ? { ...r, item_id: rp.id } : null;
+          }
+          return r;
+        })
+        .filter(Boolean) as typeof ranked;
+    }
+
     const eventIds = dedupe(ranked.map(r => r.event_id));
     const postIds  = ranked.filter(r => r.item_type === "post").map(r => r.item_id);
 
