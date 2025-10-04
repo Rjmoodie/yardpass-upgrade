@@ -33,7 +33,7 @@ export const MessageEmail = ({
   org_logo_url,
 }: MessageEmailProps) => {
   // Convert plain text to HTML paragraphs
-  const bodyParagraphs = body.split('\n\n').filter(p => p.trim());
+  const bodyParagraphs = (body ?? '').split('\n\n').filter(p => p.trim());
 
   return (
     <Html>
@@ -45,8 +45,8 @@ export const MessageEmail = ({
           <Section style={header}>
             <Img
               src={org_logo_url || "https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/assets/yardpass-logo.png"}
-              width="120"
-              height="40"
+              width={120}
+              height={40}
               alt={org_name || "YardPass"}
               style={logo}
             />
@@ -59,6 +59,8 @@ export const MessageEmail = ({
                 src={event_cover_image}
                 alt={event_title || "Event"}
                 style={coverImage}
+                width={600}
+                height={300}
               />
             </Section>
           )}

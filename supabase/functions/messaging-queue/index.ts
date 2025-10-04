@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
 import React from 'npm:react@18.3.1'
-import { renderAsync } from 'npm:@react-email/components@0.0.22'
+import { render } from 'npm:@react-email/render@0.0.15'
 import { MessageEmail } from './_templates/message.tsx'
 
 const supabase = createClient(
@@ -148,17 +148,31 @@ serve(async (req) => {
           const bodyWithoutPreheader = preheaderMatch ? bodyText.replace(preheaderMatch[0], '').trim() : bodyText;
 
           // Render the React Email template
-          const html = await renderAsync(
-            React.createElement(MessageEmail, {
-              subject,
-              body: bodyWithoutPreheader,
-              preheader,
-              event_title: eventTitle,
-              event_cover_image: event?.cover_image_url || undefined,
-              org_name: orgInfo?.name || undefined,
-              org_logo_url: orgInfo?.logoUrl || undefined,
-            })
-          );
+          let html: string | null = null;
+          try {
+            html = await render(
+              React.createElement(MessageEmail, {
+                subject,
+                body: bodyWithoutPreheader,
+                preheader,
+                event_title: eventTitle,
+                event_cover_image: event?.cover_image_url || undefined,
+                org_name: orgInfo?.name || undefined,
+                org_logo_url: orgInfo?.logoUrl || undefined,
+              })
+            );
+          } catch (renderError) {
+            console.error('[messaging-queue] Email render error for:', recipientEmail, renderError);
+            await supabase
+              .from("message_job_recipients")
+              .update({
+                status: "failed",
+                error: `Render error: ${String(renderError)}`,
+              })
+              .eq("id", recipient.id);
+            errors++;
+            continue;
+          }
 
           const emailResponse = await fetch("https://api.resend.com/emails", {
             method: "POST",
