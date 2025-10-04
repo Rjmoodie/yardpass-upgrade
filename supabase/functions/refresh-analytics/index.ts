@@ -18,15 +18,17 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    console.log('Starting analytics refresh...');
+    console.log('Starting impression analytics refresh...');
 
     // Call the refresh function
-    const { error } = await supabaseClient.rpc('refresh_video_analytics');
+    const { error } = await supabaseClient.rpc('refresh_impression_rollups', {}, {
+      schema: 'analytics'
+    });
     
     if (error) {
       console.error('Analytics refresh error:', error);
       return new Response(JSON.stringify({ 
-        error: 'Failed to refresh analytics',
+        error: 'Failed to refresh impression analytics',
         details: error.message 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -34,18 +36,18 @@ serve(async (req) => {
       });
     }
 
-    console.log('Analytics refresh completed successfully');
+    console.log('Impression analytics refresh completed successfully');
 
     return new Response(JSON.stringify({ 
       success: true,
-      message: 'Analytics refreshed successfully',
+      message: 'Impression analytics refreshed successfully',
       timestamp: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Refresh analytics error:', error);
+    console.error('Refresh impression analytics error:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       details: (error as any)?.message || 'Unknown error'

@@ -20,6 +20,7 @@ import { muxToPoster } from '@/utils/media';
 import { PreconnectMux } from '@/components/Perf/PreconnectMux';
 import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
 import { PreloadNextPoster } from '@/components/Perf/PreloadNextPoster';
+import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 
 interface IndexProps {
   onEventSelect: (eventId: string) => void;
@@ -68,6 +69,15 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
 
   // ---------- Feed ----------
   const { items, loading, error, prependItem, hasMore, loadMore, refresh, bumpPostCommentCount, bumpPostLikeCount } = useUnifiedFeed(userId);
+
+  // ---------- Impression Tracking ----------
+  // Pause impression accrual while comment modal is open
+  useImpressionTracker({
+    items,
+    currentIndex,
+    userId,
+    isSuspended: showCommentModal,
+  });
 
   useEffect(() => {
     if (error) {
