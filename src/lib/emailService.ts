@@ -34,7 +34,7 @@ export interface TicketReminderData {
 
 type Result = { success: boolean; error?: string; provider?: string; id?: string };
 
-const FROM_DEFAULT = (import.meta as any)?.env?.VITE_EMAIL_FROM ?? 'YardPass <onboarding@resend.dev>';
+const FROM_DEFAULT = 'YardPass <support@yardpass.tech>';
 
 export class EmailService {
   async sendEmail(options: EmailOptions): Promise<Result> {
