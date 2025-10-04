@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { useMessaging } from '@/hooks/useMessaging';
 import { toast } from '@/hooks/use-toast';
 import { MessageChannel, RoleType, ROLES, ROLE_MATRIX } from '@/types/roles';
@@ -156,6 +157,13 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   // template state
   const [templateKey, setTemplateKey] = useState<TemplateKey | ''>('');
 
+  // recent messages ui
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const [recentLimit, setRecentLimit] = useState(10);
+  const [filterChannel, setFilterChannel] = useState<'all' | 'email' | 'sms'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'queued' | 'failed' | 'draft' | 'sending'>('all');
+  const [searchSubject, setSearchSubject] = useState('');
+
   const [eventDetails, setEventDetails] = useState<{ title?: string; date?: string }>({});
   const currentText = useMemo(() => (channel === 'email' ? body : smsBody), [channel, body, smsBody]);
   const { len, segments } = smsLength(smsBody);
@@ -204,10 +212,20 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       .select('*')
       .eq('event_id', eventId)
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(recentLimit);
     if (!error) setRecentJobs(data || []);
-  }, [eventId]);
+  }, [eventId, recentLimit]);
   useEffect(() => { refreshRecent(); }, [refreshRecent]);
+
+  // Derived, filtered view
+  const recentJobsFiltered = useMemo(() => {
+    return (recentJobs || []).filter(j => {
+      const channelOk = filterChannel === 'all' || j.channel === filterChannel;
+      const statusOk = filterStatus === 'all' || j.status === filterStatus;
+      const searchOk = !searchSubject.trim() || (j.subject || 'SMS Message').toLowerCase().includes(searchSubject.toLowerCase());
+      return channelOk && statusOk && searchOk;
+    });
+  }, [recentJobs, filterChannel, filterStatus, searchSubject]);
 
   /* ------------------------------- actions ------------------------------ */
 
@@ -266,6 +284,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     });
     resetComposer();
     await refreshRecent();
+    setMessagesOpen(true);
   }
 
   async function retry(jobId: string) {
@@ -750,7 +769,16 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   /* --------------------------------- UI -------------------------------- */
 
   return (
-    <div className="space-y-6">
+    <div 
+      className="space-y-6" 
+      onKeyDown={(e) => { 
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
+          e.preventDefault();
+          setMessagesOpen(v => !v);
+        }
+      }} 
+      tabIndex={0}
+    >
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -802,57 +830,131 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         </CardContent>
       </Card>
 
-      {/* Recent Messages */}
+      {/* Recent Messages (compact, collapsible) */}
       <Card>
-        <CardHeader>
+        <CardHeader className="py-3">
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
             Recent Messages
-            <Button variant="ghost" size="icon" onClick={refreshRecent} title="Refresh" className="ml-auto">
+            <span className="text-xs text-muted-foreground">({recentJobs.length})</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={refreshRecent}
+              title="Refresh"
+              className="ml-auto"
+            >
               <RefreshCw className="h-4 w-4" />
             </Button>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          {recentJobs.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Send className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No messages yet. Your last 5 sends will appear here.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recentJobs.map(job => (
-                <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      {job.channel === 'email' ? <Mail className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
-                    </div>
-                    <div>
-                      <div className="font-medium truncate max-w-[40ch]">{job.subject || 'SMS Message'}</div>
-                      <div className="text-sm text-muted-foreground">{new Date(job.created_at).toLocaleString()}</div>
-                    </div>
+        <CardContent className="pt-0">
+          <Accordion type="single" collapsible value={messagesOpen ? 'rm' : ''} onValueChange={(v) => setMessagesOpen(v === 'rm')}>
+            <AccordionItem value="rm" className="border-none">
+              <AccordionTrigger className="py-2 text-sm hover:no-underline">
+                {messagesOpen ? 'Hide list' : 'Show list'}
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                {/* Filters */}
+                <div className="flex flex-wrap items-end gap-2 mb-3">
+                  <div className="min-w-[140px]">
+                    <Label className="text-xs">Channel</Label>
+                    <Select value={filterChannel} onValueChange={(v: any) => setFilterChannel(v)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="sms">SMS</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">{job.channel.toUpperCase()}</Badge>
-                    <Separator orientation="vertical" className="h-4" />
-                    {(() => {
-                      const common = "text-xs";
-                      const clickable = (label: string, cb: () => void, variant: any, extra = "") =>
-                        <Badge variant={variant} className={cn(common, "cursor-pointer", extra)} onClick={cb}>{label}</Badge>;
-                      switch (job.status) {
-                        case 'draft': return <Badge variant="secondary" className={common}>Draft</Badge>;
-                        case 'queued': return clickable('Queued (run)', () => retry(job.id), "outline", "animate-pulse border-yellow-400 text-yellow-600");
-                        case 'sending': return <Badge variant="default" className={cn(common, "bg-blue-500 animate-pulse")}>Sending…</Badge>;
-                        case 'sent': return <Badge variant="default" className={cn(common, "bg-green-500")}>Sent</Badge>;
-                        case 'failed': return clickable('Failed (retry)', () => retry(job.id), "destructive");
-                        default: return <Badge variant="secondary" className={common}>{job.status}</Badge>;
-                      }
-                    })()}
+                  <div className="min-w-[160px]">
+                    <Label className="text-xs">Status</Label>
+                    <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="sent">Sent</SelectItem>
+                        <SelectItem value="queued">Queued</SelectItem>
+                        <SelectItem value="sending">Sending</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                        <SelectItem value="draft">Draft</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 min-w-[180px]">
+                    <Label className="text-xs" htmlFor="rm-search">Search subject</Label>
+                    <Input 
+                      id="rm-search" 
+                      className="h-8 text-xs" 
+                      placeholder="e.g. Reminder" 
+                      value={searchSubject} 
+                      onChange={e => setSearchSubject(e.target.value)} 
+                    />
+                  </div>
+                  <div className="min-w-[120px]">
+                    <Label className="text-xs">Show</Label>
+                    <Select value={String(recentLimit)} onValueChange={(v) => setRecentLimit(Number(v))}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                {/* Scrollable list */}
+                {recentJobs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Send className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No messages yet. Your last sends will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {recentJobsFiltered.length === 0 ? (
+                      <div className="text-sm text-muted-foreground px-1 py-6 text-center">
+                        No messages match your filters.
+                      </div>
+                    ) : recentJobsFiltered.map(job => (
+                      <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg bg-background">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            {job.channel === 'email' ? <Mail className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-medium truncate max-w-[40ch]">{job.subject || 'SMS Message'}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(job.created_at).toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="outline" className="text-xs">{job.channel.toUpperCase()}</Badge>
+                          <Separator orientation="vertical" className="h-4" />
+                          {(() => {
+                            const common = "text-xs";
+                            const clickable = (label: string, cb: () => void, variant: any, extra = "") =>
+                              <Badge variant={variant} className={cn(common, "cursor-pointer", extra)} onClick={cb}>{label}</Badge>;
+                            switch (job.status) {
+                              case 'draft': return <Badge variant="secondary" className={common}>Draft</Badge>;
+                              case 'queued': return clickable('Queued (run)', () => retry(job.id), "outline", "animate-pulse border-yellow-400 text-yellow-600");
+                              case 'sending': return <Badge variant="default" className={cn(common, "bg-blue-500 animate-pulse")}>Sending…</Badge>;
+                              case 'sent': return <Badge variant="default" className={cn(common, "bg-green-500")}>Sent</Badge>;
+                              case 'failed': return clickable('Failed (retry)', () => retry(job.id), "destructive");
+                              default: return <Badge variant="secondary" className={common}>{job.status}</Badge>;
+                            }
+                          })()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </CardContent>
       </Card>
     </div>
