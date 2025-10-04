@@ -34,7 +34,7 @@ export interface TicketReminderData {
 
 type Result = { success: boolean; error?: string; provider?: string; id?: string };
 
-const FROM_DEFAULT = 'YardPass <support@yardpass.tech>';
+const FROM_DEFAULT = 'YardPass <noreply@yardpass.tech>';
 
 export class EmailService {
   async sendEmail(options: EmailOptions): Promise<Result> {

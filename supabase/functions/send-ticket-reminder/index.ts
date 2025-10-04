@@ -116,7 +116,7 @@ const handler = async (req: Request): Promise<Response> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: "YardPass <onboarding@resend.dev>",
+        from: "YardPass <noreply@yardpass.tech>",
         to: [data.customerEmail],
         subject: `Reminder: ${data.eventTitle} is coming up!`,
         html,
