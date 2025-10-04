@@ -1,5 +1,5 @@
 // src/components/OrganizerCommsPanel.tsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -13,10 +13,13 @@ import { MessageChannel, RoleType, ROLES, ROLE_MATRIX } from '@/types/roles';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Mail, MessageSquare, Users, Send, Clock, Beaker, RefreshCw, TestTube2,
-  Sparkles, Wand2, Volume2, Scissors, Expand, ShieldCheck, CheckCheck, ListChecks
+  Sparkles, Wand2, Volume2, Scissors, Expand, ShieldCheck, CheckCheck, ListChecks,
+  Eye, ChevronRight, ChevronLeft
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+
+/* --------------------------- helpers & types --------------------------- */
 
 interface OrganizerCommsPanelProps {
   eventId: string;
@@ -34,36 +37,57 @@ type AiResult = {
   insights?: string;
 };
 
+type Step = 1 | 2 | 3 | 4;
+
+/* ------------------------------ component ------------------------------ */
+
 export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const { createJob, getRecipientCount, retryJob, loading } = useMessaging();
+
+  // core state
   const [channel, setChannel] = useState<MessageChannel>('email');
   const [subject, setSubject] = useState('');
-  const [preheader, setPreheader] = useState(''); // NEW
+  const [preheader, setPreheader] = useState('');
   const [body, setBody] = useState('');
   const [smsBody, setSmsBody] = useState('');
   const [segment, setSegment] = useState<'all_attendees' | 'roles'>('all_attendees');
   const [selectedRoles, setSelectedRoles] = useState<RoleType[]>(['scanner']);
+
+  // ui/derived
   const [audienceCount, setAudienceCount] = useState<number>(0);
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
   const [sendingTest, setSendingTest] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [eventDetails, setEventDetails] = useState<{ title?: string; date?: string }>({});
-  const [aiPanelOpen, setAiPanelOpen] = useState(true); // NEW
   const [aiOutput, setAiOutput] = useState<AiResult | null>(null);
+  const [step, setStep] = useState<Step>(1);
+  const [isPending, startTransition] = useTransition();
 
-  // Derived
+  const [eventDetails, setEventDetails] = useState<{ title?: string; date?: string }>({});
   const currentText = useMemo(() => (channel === 'email' ? body : smsBody), [channel, body, smsBody]);
   const { len, segments } = smsLength(smsBody);
 
-  // Audience count
+  const canProceedFromStep1 = true; // channel always chosen
+  const canProceedFromStep2 = audienceCount > 0 || segment === 'roles'; // allow picking roles before count resolves
+  const canSend =
+    (channel === 'email' ? !!subject.trim() && !!body.trim() : !!smsBody.trim()) &&
+    audienceCount > 0 &&
+    !loading &&
+    !aiLoading;
+
+  /* ---------------------------- data fetching --------------------------- */
+
+  // Audience count (debounced)
   useEffect(() => {
-    (async () => {
+    let ignore = false;
+    const run = async () => {
       const count = await getRecipientCount(
         eventId,
         segment === 'all_attendees' ? { type: 'all_attendees' } : { type: 'roles', roles: selectedRoles }
       );
-      setAudienceCount(count);
-    })();
+      if (!ignore) setAudienceCount(count);
+    };
+    const id = setTimeout(run, 250); // gentle debounce for UX
+    return () => { ignore = true; clearTimeout(id); };
   }, [eventId, segment, selectedRoles, getRecipientCount]);
 
   // Event details
@@ -80,29 +104,42 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   }, [eventId]);
 
   // Recent jobs
-  const refreshRecent = async () => {
-    const { data } = await supabase
+  const refreshRecent = useCallback(async () => {
+    const { data, error } = await supabase
       .from('message_jobs')
       .select('*')
       .eq('event_id', eventId)
       .order('created_at', { ascending: false })
       .limit(5);
-    setRecentJobs(data || []);
-  };
-  useEffect(() => { refreshRecent(); }, [eventId]);
+    if (!error) setRecentJobs(data || []);
+  }, [eventId]);
+  useEffect(() => { refreshRecent(); }, [refreshRecent]);
 
-  // --- Sending ---
+  /* ------------------------------- actions ------------------------------ */
+
+  const resetComposer = () => {
+    setSubject('');
+    setPreheader('');
+    setBody('');
+    setSmsBody('');
+    setAiOutput(null);
+    setStep(1);
+  };
+
   async function send(dryRun = false) {
     if (channel === 'email' && !subject.trim()) {
-      toast({ title: 'Subject is required for email', variant: 'destructive' });
+      toast({ title: 'Add a subject', description: 'Email subject is required.', variant: 'destructive' });
+      setStep(3);
       return;
     }
     if (!body.trim() && !smsBody.trim()) {
-      toast({ title: 'Message body is required', variant: 'destructive' });
+      toast({ title: 'Write a message', description: 'Message body is required.', variant: 'destructive' });
+      setStep(3);
       return;
     }
     if (!dryRun && audienceCount === 0) {
-      toast({ title: 'No recipients found', description: 'Please select a valid audience', variant: 'destructive' });
+      toast({ title: 'No recipients found', description: 'Pick a different audience or roles.', variant: 'destructive' });
+      setStep(2);
       return;
     }
 
@@ -110,7 +147,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       eventId,
       channel,
       subject,
-      body: preheader ? `<!-- preheader: ${preheader} -->\n${body}` : body, // embed preheader marker
+      body: preheader ? `<!-- preheader: ${preheader} -->\n${body}` : body,
       smsBody,
       fromName: 'YardPass',
       fromEmail: 'onboarding@resend.dev',
@@ -119,12 +156,19 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     });
 
     if (dryRun) {
-      toast({ title: 'Dry-run (no messages sent)', description: `${jobRes.recipientCount} recipients would be targeted.` });
+      toast({
+        title: 'Dry run ready',
+        description: `${jobRes.recipientCount} recipient${jobRes.recipientCount === 1 ? '' : 's'} would be targeted.`,
+      });
+      setStep(4);
       return;
     }
 
-    toast({ title: 'Message queued', description: `Your ${channel} will be sent to ${jobRes.recipientCount} recipients` });
-    setSubject(''); setPreheader(''); setBody(''); setSmsBody('');
+    toast({
+      title: 'Queued',
+      description: `Your ${channel} will be sent to ${jobRes.recipientCount} recipient${jobRes.recipientCount === 1 ? '' : 's'}.`,
+    });
+    resetComposer();
     await refreshRecent();
   }
 
@@ -146,7 +190,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         toast({ title: 'Your account has no email', variant: 'destructive' });
         return;
       }
-      // Draft-only job, then direct function for email test
+
+      // Save a draft-only job for parity
       await createJob({
         eventId,
         channel,
@@ -166,7 +211,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         });
         if (error) throw new Error(error.message);
       } else {
-        toast({ title: 'Use a test phone via queue or Twilio console.' });
+        toast({ title: 'Tip', description: 'Use a test phone via queue or Twilio console.' });
       }
       toast({ title: 'Test sent' });
     } catch (e: any) {
@@ -176,7 +221,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     }
   }
 
-  // --- AI actions ---
+  /* ------------------------------ AI actions --------------------------- */
+
   async function callAI(action: string, opt?: { tone?: string; maxWords?: number }) {
     setAiLoading(true);
     setAiOutput(null);
@@ -184,9 +230,10 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       const { data, error } = await supabase.functions.invoke('ai-writing-assistant', {
         body: {
           action,
-          text: action === 'generate_subject' || action === 'subject_variants' || action === 'generate_preheader'
-            ? (body || smsBody || `Reminder for ${eventDetails.title || 'your event'}`)
-            : currentText,
+          text:
+            action === 'generate_subject' || action === 'subject_variants' || action === 'generate_preheader'
+              ? (body || smsBody || `Reminder for ${eventDetails.title || 'your event'}`)
+              : currentText,
           eventTitle: eventDetails.title,
           eventDate: eventDetails.date,
           tone: opt?.tone,
@@ -196,7 +243,6 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         }
       });
       if (error) throw new Error(error.message);
-      setAiPanelOpen(true);
       setAiOutput(data as AiResult);
       return data as AiResult;
     } catch (e: any) {
@@ -206,7 +252,6 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     }
   }
 
-  // Convenience wrappers
   const aiGenerateSubject = () => callAI('generate_subject');
   const aiSubjectVariants = () => callAI('subject_variants');
   const aiPreheader = () => callAI('generate_preheader');
@@ -218,255 +263,204 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const aiSpam = () => callAI('optimize_for_spam');
   const aiGrammar = () => callAI('grammar_check');
 
-  // Apply helpers
-  function applyText(t?: string) {
-    if (!t) return;
-    if (channel === 'email') setBody(t); else setSmsBody(t);
-    toast({ title: 'Applied', description: 'Suggestion inserted.' });
-  }
+  function applyToBody(t?: string) { if (!t) return; channel === 'email' ? setBody(t) : setSmsBody(t); }
+  function applySubject(t?: string) { if (!t) return; setSubject(t); }
+  function applyPreheader(t?: string) { if (!t) return; setPreheader(t); }
 
-  function applyVariant(t?: string) {
-    if (!t) return;
-    if (channel === 'email') setBody(t); else setSmsBody(t);
-    toast({ title: 'Variant applied' });
-  }
+  /* ------------------------------ sub-views ----------------------------- */
 
-  function applySubject(t?: string) {
-    if (!t) return;
-    setSubject(t);
-    toast({ title: 'Subject applied' });
-  }
+  const Stepper = () => (
+    <div className="flex items-center gap-2 text-sm">
+      {[
+        { n: 1, label: 'Channel' },
+        { n: 2, label: 'Audience' },
+        { n: 3, label: 'Content' },
+        { n: 4, label: 'Review & Send' },
+      ].map(({ n, label }) => {
+        const active = step === (n as Step);
+        const done = step > (n as Step);
+        return (
+          <div key={n} className={cn("flex items-center gap-2", n !== 1 && "opacity-90")}>
+            {n !== 1 && <Separator orientation="vertical" className="h-5" />}
+            <Badge variant={active ? "default" : done ? "secondary" : "outline"}>
+              {n}. {label}
+            </Badge>
+          </div>
+        );
+      })}
+      <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+        <Users className="w-4 h-4" />
+        {isPending ? 'Counting…' : `Recipients: ${audienceCount}`}
+      </div>
+    </div>
+  );
 
-  function applyPreheader(t?: string) {
-    if (!t) return;
-    setPreheader(t);
-    toast({ title: 'Preheader applied' });
-  }
+  const ChannelStep = () => (
+    <div className="grid gap-4 md:grid-cols-2">
+      <div>
+        <Label htmlFor="channel-select">Channel</Label>
+        <Select value={channel} onValueChange={(v: MessageChannel) => setChannel(v)}>
+          <SelectTrigger id="channel-select"><SelectValue placeholder="Select channel" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="email"><div className="flex items-center gap-2"><Mail className="h-4 w-4" /> Email</div></SelectItem>
+            <SelectItem value="sms"><div className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> SMS</div></SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="p-3 bg-muted/50 rounded-lg text-sm">
+        <div className="font-medium mb-1">Tip</div>
+        <div>Email supports subject, preheader, and rich content. SMS is best for short, time-sensitive reminders.</div>
+      </div>
+    </div>
+  );
 
-  return (
-    <div className="space-y-6">
-      {/* Message Composer */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Send className="h-5 w-5" />
-            Send Message
-            <div className="ml-auto flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setAiPanelOpen((v) => !v)}>
-                <Sparkles className="w-4 h-4 mr-1" />
-                {aiPanelOpen ? 'Hide AI' : 'Show AI'}
+  const AudienceStep = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="audience-select">Audience</Label>
+          <Select value={segment} onValueChange={(v: 'all_attendees' | 'roles') => setSegment(v)}>
+            <SelectTrigger id="audience-select"><SelectValue placeholder="Select audience" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all_attendees"><div className="flex items-center gap-2"><Users className="h-4 w-4" /> All Attendees</div></SelectItem>
+              <SelectItem value="roles"><div className="flex items-center gap-2"><Users className="h-4 w-4" /> Specific Roles</div></SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="p-3 bg-muted/50 rounded-lg text-sm">
+          {segment === 'all_attendees'
+            ? <div>Includes all ticket holders for this event.</div>
+            : <div>Choose one or more roles below.</div>}
+        </div>
+      </div>
+
+      {segment === 'roles' && (
+        <div>
+          <Label>Select Roles</Label>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {ROLES.map(role => (
+              <Badge
+                key={role}
+                variant={selectedRoles.includes(role) ? "default" : "outline"}
+                className="cursor-pointer"
+                onClick={() =>
+                  setSelectedRoles(prev =>
+                    prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+                  )
+                }
+              >
+                {ROLE_MATRIX[role].label}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const ContentStep = () => (
+    <div className="grid gap-6 md:grid-cols-2">
+      {/* Editor */}
+      <div className="space-y-4">
+        {channel === 'email' && (
+          <>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="subject-input">Subject</Label>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" onClick={aiGenerateSubject} disabled={aiLoading} className="text-xs">
+                  <Sparkles className="w-3 h-3 mr-1" /> AI Subject
+                </Button>
+                <Button variant="ghost" size="sm" onClick={aiSubjectVariants} disabled={aiLoading} className="text-xs">
+                  <ListChecks className="w-3 h-3 mr-1" /> 3 Variants
+                </Button>
+              </div>
+            </div>
+            <Input id="subject-input" placeholder="Event update: {{event_title}}" value={subject} onChange={e => setSubject(e.target.value)} />
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="preheader-input">Preheader (optional)</Label>
+              <Button variant="ghost" size="sm" onClick={aiPreheader} disabled={aiLoading} className="text-xs">
+                <Sparkles className="w-3 h-3 mr-1" /> AI Preheader
               </Button>
             </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Channel & Audience */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="channel-select">Channel</Label>
-              <Select value={channel} onValueChange={(v: MessageChannel) => setChannel(v)}>
-                <SelectTrigger id="channel-select"><SelectValue placeholder="Select channel" /></SelectTrigger>
+            <Input id="preheader-input" placeholder="A short teaser that boosts opens…" value={preheader} onChange={e => setPreheader(e.target.value)} />
+          </>
+        )}
+
+        <div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="body-input">{channel === 'email' ? 'Email Body' : 'SMS Message'}</Label>
+            <div className="flex flex-wrap gap-1">
+              <Button variant="ghost" size="sm" onClick={aiImprove} disabled={aiLoading || !currentText} className="text-xs">
+                <Wand2 className="w-3 h-3 mr-1" /> Improve
+              </Button>
+              <Select onValueChange={(tone) => aiTone(tone)} disabled={aiLoading || !currentText}>
+                <SelectTrigger className="w-auto h-8 text-xs">
+                  <Volume2 className="w-3 h-3 mr-1" /> Tone
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="email"><div className="flex items-center gap-2"><Mail className="h-4 w-4" /> Email</div></SelectItem>
-                  <SelectItem value="sms"><div className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> SMS</div></SelectItem>
+                  <SelectItem value="professional">Professional</SelectItem>
+                  <SelectItem value="friendly">Friendly</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="casual">Casual</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label htmlFor="audience-select">Audience</Label>
-              <Select value={segment} onValueChange={(v: 'all_attendees' | 'roles') => setSegment(v)}>
-                <SelectTrigger id="audience-select"><SelectValue placeholder="Select audience" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_attendees"><div className="flex items-center gap-2"><Users className="h-4 w-4" /> All Attendees</div></SelectItem>
-                  <SelectItem value="roles"><div className="flex items-center gap-2"><Users className="h-4 w-4" /> Specific Roles</div></SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Role chips */}
-          {segment === 'roles' && (
-            <div>
-              <Label>Select Roles</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {ROLES.map(role => (
-                  <Badge
-                    key={role}
-                    variant={selectedRoles.includes(role) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => setSelectedRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role])}
-                  >
-                    {ROLE_MATRIX[role].label}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Audience Count */}
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <div className="text-sm font-medium">Recipients: {audienceCount}</div>
-            <div className="text-xs text-muted-foreground">
-              {segment === 'all_attendees'
-                ? 'All ticket holders for this event'
-                : `Users with roles: ${selectedRoles.map(r => ROLE_MATRIX[r].label).join(', ') || '—'}`}
+              <Button variant="ghost" size="sm" onClick={aiShorten} disabled={aiLoading || !currentText} className="text-xs">
+                <Scissors className="w-3 h-3 mr-1" /> Shorten
+              </Button>
+              <Button variant="ghost" size="sm" onClick={aiExpand} disabled={aiLoading || !currentText} className="text-xs">
+                <Expand className="w-3 h-3 mr-1" /> Expand
+              </Button>
+              <Button variant="ghost" size="sm" onClick={aiCTAs} disabled={aiLoading} className="text-xs">
+                <CheckCheck className="w-3 h-3 mr-1" /> CTAs
+              </Button>
+              <Button variant="ghost" size="sm" onClick={aiSpam} disabled={aiLoading || !currentText} className="text-xs">
+                <ShieldCheck className="w-3 h-3 mr-1" /> Minimize spam
+              </Button>
+              <Button variant="ghost" size="sm" onClick={aiGrammar} disabled={aiLoading || !currentText} className="text-xs">
+                <CheckCheck className="w-3 h-3 mr-1" /> Grammar
+              </Button>
             </div>
           </div>
 
-          {/* Subject / Preheader */}
-          {channel === 'email' && (
-            <>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="subject-input">Subject</Label>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" onClick={aiGenerateSubject} disabled={aiLoading} className="text-xs">
-                    <Sparkles className="w-3 h-3 mr-1" /> AI Subject
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={aiSubjectVariants} disabled={aiLoading} className="text-xs">
-                    <ListChecks className="w-3 h-3 mr-1" /> 3 Variants
-                  </Button>
-                </div>
-              </div>
-              <Input id="subject-input" placeholder="Event update: {{event_title}}" value={subject} onChange={e => setSubject(e.target.value)} />
-
-              <div className="flex items-center justify-between">
-                <Label htmlFor="preheader-input">Preheader (optional)</Label>
-                <Button variant="ghost" size="sm" onClick={aiPreheader} disabled={aiLoading} className="text-xs">
-                  <Sparkles className="w-3 h-3 mr-1" /> AI Preheader
-                </Button>
-              </div>
-              <Input id="preheader-input" placeholder="A quick teaser to boost opens…" value={preheader} onChange={e => setPreheader(e.target.value)} />
-            </>
-          )}
-
-          {/* Body */}
-          <div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="body-input">{channel === 'email' ? 'Email Body' : 'SMS Message'}</Label>
-              <div className="flex flex-wrap gap-1">
-                <Button variant="ghost" size="sm" onClick={aiImprove} disabled={aiLoading || !currentText} className="text-xs">
-                  <Wand2 className="w-3 h-3 mr-1" /> Improve
-                </Button>
-                <Select onValueChange={(tone) => aiTone(tone)} disabled={aiLoading || !currentText}>
-                  <SelectTrigger className="w-auto h-8 text-xs">
-                    <Volume2 className="w-3 h-3 mr-1" /> Tone
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="professional">Professional</SelectItem>
-                    <SelectItem value="friendly">Friendly</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                    <SelectItem value="casual">Casual</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="ghost" size="sm" onClick={aiShorten} disabled={aiLoading || !currentText} className="text-xs">
-                  <Scissors className="w-3 h-3 mr-1" /> Shorten
-                </Button>
-                <Button variant="ghost" size="sm" onClick={aiExpand} disabled={aiLoading || !currentText} className="text-xs">
-                  <Expand className="w-3 h-3 mr-1" /> Expand
-                </Button>
-                <Button variant="ghost" size="sm" onClick={aiCTAs} disabled={aiLoading} className="text-xs">
-                  <CheckCheck className="w-3 h-3 mr-1" /> CTAs
-                </Button>
-                <Button variant="ghost" size="sm" onClick={aiSpam} disabled={aiLoading || !currentText} className="text-xs">
-                  <ShieldCheck className="w-3 h-3 mr-1" /> Minimize spam
-                </Button>
-                <Button variant="ghost" size="sm" onClick={aiGrammar} disabled={aiLoading || !currentText} className="text-xs">
-                  <CheckCheck className="w-3 h-3 mr-1" /> Grammar
-                </Button>
-              </div>
-            </div>
-
-            <Textarea
-              id="body-input"
-              rows={channel === 'email' ? 10 : 5}
-              value={channel === 'email' ? body : smsBody}
-              onChange={e => channel === 'email' ? setBody(e.target.value) : setSmsBody(e.target.value)}
-              placeholder={channel === 'email'
-                ? "Hi {{first_name}},\n\nYour event {{event_title}} is on {{event_date}}.\n\nSee you there!"
-                : "Hi {{first_name}}! {{event_title}} is on {{event_date}}. See you there!"}
-            />
-            <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
-              <span>Variables: <code>{"{{event_title}}"}</code>, <code>{"{{event_date}}"}</code>, <code>{"{{first_name}}"}</code></span>
-              {channel === 'sms' && <span>{len} chars · ~{segments} SMS segment{segments>1?'s':''}</span>}
-            </div>
+          <Textarea
+            id="body-input"
+            rows={channel === 'email' ? 10 : 5}
+            value={channel === 'email' ? body : smsBody}
+            onChange={e => channel === 'email' ? setBody(e.target.value) : setSmsBody(e.target.value)}
+            placeholder={channel === 'email'
+              ? "Hi {{first_name}},\n\nYour event {{event_title}} is on {{event_date}}.\n\nSee you there!"
+              : "Hi {{first_name}}! {{event_title}} is on {{event_date}}. See you there!"}
+          />
+          <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
+            <span>Variables: <code>{"{{event_title}}"}</code>, <code>{"{{event_date}}"}</code>, <code>{"{{first_name}}"}</code></span>
+            {channel === 'sms' && <span>{len} chars · ~{segments} SMS segment{segments>1?'s':''}</span>}
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => send(false)} disabled={loading || aiLoading}>
-              {loading ? 'Sending…' : `Send ${channel === 'email' ? 'Email' : 'SMS'} to ${audienceCount}`}
-            </Button>
-            <Button variant="outline" onClick={() => send(true)} disabled={loading || aiLoading}>
-              <Beaker className="w-4 h-4 mr-1" /> Dry-run (no send)
-            </Button>
-            <Button variant="secondary" onClick={sendTestToMe} disabled={sendingTest || loading || aiLoading}>
-              <TestTube2 className="w-4 h-4 mr-1" /> Send test to me
-            </Button>
+        {aiLoading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Sparkles className="w-4 h-4 animate-pulse" />
+            AI is crafting suggestions…
           </div>
+        )}
 
-          {aiLoading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Sparkles className="w-4 h-4 animate-pulse" />
-              AI is crafting suggestions…
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* AI Assistant Panel */}
-      {aiPanelOpen && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-600" />
-              AI Writing Assistant
-              <Badge variant="outline" className="ml-auto text-xs">Powered by GPT-4</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!aiOutput && (
-              <div className="text-center py-6 text-muted-foreground">
-                <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Use the AI buttons above to generate subjects, improve copy, adjust tone, or get CTAs.</p>
-                <p className="text-xs mt-1">AI suggestions will appear here instantly.</p>
-              </div>
-            )}
-
-            {/* Main AI suggestion */}
-            {aiOutput?.text && (
-              <div className="space-y-3">
+        {/* Inline AI output, next to editor for immediate apply */}
+        {aiOutput && (
+          <div className="space-y-4">
+            {aiOutput.text && (
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-medium flex items-center gap-2">
                     <Wand2 className="w-4 h-4 text-purple-600" />
                     AI Suggestion
                   </div>
                   <div className="flex gap-1">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => applyText(aiOutput.text)}
-                      className="text-xs"
-                    >
-                      Apply to Body
-                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { applyToBody(aiOutput.text); toast({ title: 'Applied to body' }); }} className="text-xs">Apply to Body</Button>
                     {channel === 'email' && (
                       <>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => applySubject(aiOutput.text)}
-                          className="text-xs"
-                        >
-                          Use as Subject
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => applyPreheader(aiOutput.text)}
-                          className="text-xs"
-                        >
-                          Use as Preheader
-                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => { applySubject(aiOutput.text); toast({ title: 'Subject applied' }); }} className="text-xs">Use as Subject</Button>
+                        <Button size="sm" variant="ghost" onClick={() => { applyPreheader(aiOutput.text); toast({ title: 'Preheader applied' }); }} className="text-xs">Use as Preheader</Button>
                       </>
                     )}
                   </div>
@@ -477,51 +471,21 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
               </div>
             )}
 
-            {/* Multiple variants */}
-            {aiOutput?.variants && aiOutput.variants.length > 0 && (
-              <div className="space-y-3">
+            {aiOutput?.variants?.length ? (
+              <div className="space-y-2">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <ListChecks className="w-4 h-4 text-blue-600" />
-                  Alternative Options
+                  Alternatives
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {aiOutput.variants.map((v, i) => (
                     <div key={i} className="group border rounded-lg p-3 hover:border-purple-200 transition-colors">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm leading-relaxed break-words">{v.text}</div>
-                          {typeof v.score === 'number' && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge variant="secondary" className="text-xs">
-                                Score: {v.score}/10
-                              </Badge>
-                              <div className="h-1 bg-muted rounded-full flex-1 max-w-20">
-                                <div 
-                                  className="h-1 bg-gradient-to-r from-red-400 via-yellow-400 to-green-400 rounded-full transition-all"
-                                  style={{ width: `${(v.score || 0) * 10}%` }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => applyVariant(v.text)}
-                            className="text-xs shrink-0"
-                          >
-                            Apply
-                          </Button>
+                        <div className="flex-1 min-w-0 text-sm leading-relaxed break-words">{v.text}</div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <Button size="sm" variant="outline" className="text-xs" onClick={() => { applyToBody(v.text); toast({ title: 'Applied to body' }); }}>Apply</Button>
                           {channel === 'email' && (
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              onClick={() => applySubject(v.text)}
-                              className="text-xs shrink-0"
-                            >
-                              Subject
-                            </Button>
+                            <Button size="sm" variant="ghost" className="text-xs" onClick={() => { applySubject(v.text); toast({ title: 'Subject applied' }); }}>Subject</Button>
                           )}
                         </div>
                       </div>
@@ -529,11 +493,10 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
 
-            {/* AI insights */}
             {aiOutput?.insights && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <CheckCheck className="w-4 h-4 text-amber-600" />
                   AI Insights
@@ -544,25 +507,143 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
               </div>
             )}
 
-            {/* Actions */}
-            {aiOutput && (
-              <div className="pt-3 border-t flex items-center justify-between">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setAiOutput(null)}
-                  className="text-xs text-muted-foreground"
+            <div className="pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setAiOutput(null)} className="text-xs text-muted-foreground">Clear AI results</Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Live Preview */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Eye className="w-4 h-4" /> Live Preview
+        </div>
+
+        {channel === 'email' ? (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="p-3 border-b bg-muted/50">
+              <div className="text-sm font-medium truncate">{subject || '— subject —'}</div>
+              <div className="text-xs text-muted-foreground truncate">{preheader || '— preheader (optional) —'}</div>
+            </div>
+            <div className="p-4 text-sm whitespace-pre-wrap min-h-[180px]">
+              {(body || `Hi {{first_name}},\n\nYour event {{event_title}} is on {{event_date}}.\n\nSee you there!`)
+                .replaceAll('{{event_title}}', eventDetails.title || 'your event')
+                .replaceAll('{{event_date}}', eventDetails.date || 'your date')}
+            </div>
+          </div>
+        ) : (
+          <div className="border rounded-lg p-4 text-sm">
+            {(smsBody || `Hi {{first_name}}! {{event_title}} is on {{event_date}}. See you there!`)
+              .replaceAll('{{event_title}}', eventDetails.title || 'your event')
+              .replaceAll('{{event_date}}', eventDetails.date || 'your date')}
+            <div className="mt-3 text-xs text-muted-foreground">{len} chars · ~{segments} SMS segment{segments>1?'s':''}</div>
+          </div>
+        )}
+
+        <div className="text-xs text-muted-foreground">
+          Preview shows merge tags with your latest event details: {eventDetails.title || '—' } • {eventDetails.date || '—'}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ReviewStep = () => (
+    <div className="space-y-4">
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <div className="text-sm font-medium">Summary</div>
+          <div className="text-sm p-3 border rounded-lg bg-muted/30">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="outline">{channel.toUpperCase()}</Badge>
+              <Separator orientation="vertical" className="h-4" />
+              <div>Recipients: {audienceCount}</div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Audience: {segment === 'all_attendees' ? 'All attendees' : selectedRoles.map(r => ROLE_MATRIX[r].label).join(', ') || '—'}
+            </div>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="text-sm font-medium">Quick Actions</div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={sendTestToMe} disabled={sendingTest || loading || aiLoading}>
+              <TestTube2 className="w-4 h-4 mr-1" /> Send test to me
+            </Button>
+            <Button variant="outline" onClick={() => send(true)} disabled={loading || aiLoading}>
+              <Beaker className="w-4 h-4 mr-1" /> Dry run
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => send(false)} disabled={!canSend}>
+          {loading ? 'Sending…' : `Send ${channel === 'email' ? 'Email' : 'SMS'} to ${audienceCount}`}
+        </Button>
+        <Button variant="outline" onClick={() => setStep(3)}>
+          <ChevronLeft className="w-4 h-4 mr-1" /> Back to content
+        </Button>
+      </div>
+    </div>
+  );
+
+  /* --------------------------------- UI -------------------------------- */
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Send className="h-5 w-5" />
+            Send Message
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Stepper />
+
+          {/* Step content */}
+          {step === 1 && <ChannelStep />}
+          {step === 2 && <AudienceStep />}
+          {step === 3 && <ContentStep />}
+          {step === 4 && <ReviewStep />}
+
+          {/* Step controls */}
+          <div className="flex items-center justify-between pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => startTransition(() => setStep(prev => (prev > 1 ? ((prev - 1) as Step) : prev)))}
+              disabled={step === 1}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" /> Back
+            </Button>
+
+            <div className="flex items-center gap-2">
+              {step < 4 && (
+                <Button
+                  size="sm"
+                  onClick={() => startTransition(() => setStep(prev => {
+                    if (prev === 1 && !canProceedFromStep1) return prev;
+                    if (prev === 2 && !canProceedFromStep2) return prev;
+                    return ((prev + 1) as Step);
+                  }))}
+                  disabled={(step === 2 && !canProceedFromStep2) || (step === 3 && !(channel === 'email' ? body.trim() || subject.trim() : smsBody.trim()))}
                 >
-                  Clear Results
+                  Next <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
-                <div className="text-xs text-muted-foreground">
-                  Tip: Use different tones and actions for varied results
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              )}
+              {step === 3 && (
+                <Button variant="secondary" size="sm" onClick={() => setStep(4)}>
+                  Review <Eye className="w-4 h-4 ml-1" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Recent Messages */}
       <Card>
@@ -579,7 +660,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
           {recentJobs.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Send className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No messages sent yet.</p>
+              <p>No messages yet. Your last 5 sends will appear here.</p>
             </div>
           ) : (
             <div className="space-y-3">
