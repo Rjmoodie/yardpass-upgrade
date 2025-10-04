@@ -39,6 +39,96 @@ type AiResult = {
 
 type Step = 1 | 2 | 3 | 4;
 
+/* --------------------------- templates catalog -------------------------- */
+
+type TemplateKey = 'reminder' | 'change' | 'thanks' | 'volunteer' | 'weather';
+
+const TEMPLATES: Record<TemplateKey, {
+  label: string;
+  email: { subject: string; preheader?: string; body: string };
+  sms: { body: string };
+}> = {
+  reminder: {
+    label: 'Reminder',
+    email: {
+      subject: 'Reminder: {{event_title}} is on {{event_date}}',
+      preheader: 'Quick heads-up with details inside.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Friendly reminder that {{event_title}} is on {{event_date}}.\n\n` +
+        `• Location: {{event_title}} venue\n` +
+        `• Time: Doors open 30 minutes before start\n\n` +
+        `See you there!\n— Team`,
+    },
+    sms: {
+      body: `Reminder: {{event_title}} is on {{event_date}}. See you there!`,
+    },
+  },
+  change: {
+    label: 'Last-minute change',
+    email: {
+      subject: 'Updated info for {{event_title}} ({{event_date}})',
+      preheader: 'Please read—time/location update.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `We have an update for {{event_title}} on {{event_date}}.\n\n` +
+        `• New time: __\n` +
+        `• New location: __\n\n` +
+        `Thanks for your flexibility.\n— Team`,
+    },
+    sms: {
+      body: `Update for {{event_title}} on {{event_date}}: new time/location. Check email for details.`,
+    },
+  },
+  thanks: {
+    label: 'Thanks / Follow-up',
+    email: {
+      subject: 'Thank you for joining {{event_title}}!',
+      preheader: 'Quick recap and next steps.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Thanks for being part of {{event_title}} on {{event_date}}.\n\n` +
+        `We'd love feedback (2 mins): __\n` +
+        `Photos & recap: __\n\n` +
+        `Until next time!\n— Team`,
+    },
+    sms: {
+      body: `Thanks for joining {{event_title}}! Got 2 mins for feedback? __`,
+    },
+  },
+  volunteer: {
+    label: 'Volunteer call',
+    email: {
+      subject: 'Lend a hand at {{event_title}}?',
+      preheader: 'We could use your help—quick shifts available.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `We're looking for volunteers for {{event_title}} on {{event_date}}.\n\n` +
+        `Roles: check-in, ushers, scanners.\n` +
+        `Shifts: 1–2 hours. Sign-up: __\n\n` +
+        `Thank you!\n— Team`,
+    },
+    sms: {
+      body: `Can you volunteer for {{event_title}} on {{event_date}}? Quick shifts. Signup: __`,
+    },
+  },
+  weather: {
+    label: 'Weather delay',
+    email: {
+      subject: 'Weather update for {{event_title}} ({{event_date}})',
+      preheader: 'Start time adjusted due to weather.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Due to weather, {{event_title}} on {{event_date}} will start later.\n\n` +
+        `New start time: __\n` +
+        `We'll keep you posted with any changes.\n— Team`,
+    },
+    sms: {
+      body: `Weather update: {{event_title}} on {{event_date}} delayed. New start: __`,
+    },
+  },
+};
+
 /* ------------------------------ component ------------------------------ */
 
 export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
@@ -61,6 +151,9 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const [aiOutput, setAiOutput] = useState<AiResult | null>(null);
   const [step, setStep] = useState<Step>(1);
   const [isPending, startTransition] = useTransition();
+
+  // template state
+  const [templateKey, setTemplateKey] = useState<TemplateKey | ''>('');
 
   const [eventDetails, setEventDetails] = useState<{ title?: string; date?: string }>({});
   const currentText = useMemo(() => (channel === 'email' ? body : smsBody), [channel, body, smsBody]);
@@ -267,6 +360,31 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   function applySubject(t?: string) { if (!t) return; setSubject(t); }
   function applyPreheader(t?: string) { if (!t) return; setPreheader(t); }
 
+  const applyTemplate = (mode: 'replace' | 'append') => {
+    if (!templateKey) return;
+    const tpl = TEMPLATES[templateKey];
+
+    if (channel === 'email') {
+      if (mode === 'replace') {
+        setSubject(tpl.email.subject || '');
+        setPreheader(tpl.email.preheader || '');
+        setBody(tpl.email.body || '');
+      } else {
+        setSubject(prev => prev || tpl.email.subject || '');
+        setPreheader(prev => prev || tpl.email.preheader || '');
+        setBody(prev => (prev ? `${prev}\n\n${tpl.email.body}` : tpl.email.body || ''));
+      }
+    } else {
+      // SMS
+      if (mode === 'replace') {
+        setSmsBody(tpl.sms.body || '');
+      } else {
+        setSmsBody(prev => (prev ? `${prev}\n${tpl.sms.body}` : tpl.sms.body || ''));
+      }
+    }
+    toast({ title: mode === 'replace' ? 'Template applied' : 'Template appended' });
+  };
+
   /* ------------------------------ sub-views ----------------------------- */
 
   const Stepper = () => (
@@ -362,6 +480,29 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     <div className="grid gap-6 md:grid-cols-2">
       {/* Editor */}
       <div className="space-y-4">
+        {/* Template picker */}
+        <div className="flex items-end justify-between gap-2">
+          <div className="flex-1">
+            <Label htmlFor="template-select">Template</Label>
+            <Select value={templateKey} onValueChange={(v: TemplateKey | '') => setTemplateKey(v)}>
+              <SelectTrigger id="template-select"><SelectValue placeholder="Choose a template (optional)" /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(TEMPLATES).map(([k, v]) => (
+                  <SelectItem key={k} value={k as TemplateKey}>{v.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2 pt-6">
+            <Button type="button" variant="outline" size="sm" disabled={!templateKey} onClick={() => applyTemplate('replace')}>
+              Apply
+            </Button>
+            <Button type="button" variant="secondary" size="sm" disabled={!templateKey} onClick={() => applyTemplate('append')}>
+              Append
+            </Button>
+          </div>
+        </div>
+
         {channel === 'email' && (
           <>
             <div className="flex items-center justify-between">
@@ -528,15 +669,15 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
             </div>
             <div className="p-4 text-sm whitespace-pre-wrap min-h-[180px]">
               {(body || `Hi {{first_name}},\n\nYour event {{event_title}} is on {{event_date}}.\n\nSee you there!`)
-                .replaceAll('{{event_title}}', eventDetails.title || 'your event')
-                .replaceAll('{{event_date}}', eventDetails.date || 'your date')}
+                .replace(/\{\{event_title\}\}/g, eventDetails.title || 'your event')
+                .replace(/\{\{event_date\}\}/g, eventDetails.date || 'your date')}
             </div>
           </div>
         ) : (
           <div className="border rounded-lg p-4 text-sm">
             {(smsBody || `Hi {{first_name}}! {{event_title}} is on {{event_date}}. See you there!`)
-              .replaceAll('{{event_title}}', eventDetails.title || 'your event')
-              .replaceAll('{{event_date}}', eventDetails.date || 'your date')}
+              .replace(/\{\{event_title\}\}/g, eventDetails.title || 'your event')
+              .replace(/\{\{event_date\}\}/g, eventDetails.date || 'your date')}
             <div className="mt-3 text-xs text-muted-foreground">{len} chars · ~{segments} SMS segment{segments>1?'s':''}</div>
           </div>
         )}
