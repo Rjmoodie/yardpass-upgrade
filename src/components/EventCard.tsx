@@ -140,13 +140,13 @@ export const EventCard = memo(function EventCard({
       <div className="absolute inset-0 flex flex-col justify-end pointer-events-none">
         <PeekSheet minHeight="168px" maxHeight="78vh">
           {/* Header grid keeps CTA fixed and title tidy */}
-          <div className="grid grid-cols-[1fr,auto] items-center gap-3">
-            <h2 className="text-[clamp(20px,4vw,28px)] font-extrabold leading-snug line-clamp-2 pr-1">
+          <div className="grid grid-cols-[1fr,auto] items-center gap-2 sm:gap-3">
+            <h2 className="text-[clamp(18px,4.5vw,28px)] font-extrabold leading-snug line-clamp-2 pr-1">
               {item.event_title}
             </h2>
 
             <Button
-              className="shrink-0 min-w-[9.5rem] h-11 px-5 bg-amber-500 hover:bg-amber-600 text-black font-bold"
+              className="shrink-0 min-w-[8rem] sm:min-w-[9.5rem] h-10 sm:h-11 px-3 sm:px-5 text-xs sm:text-sm bg-amber-500 hover:bg-amber-600 text-black font-bold"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenTickets(item.event_id);

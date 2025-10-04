@@ -207,9 +207,9 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
   };
 
   return (
-    <div className="h-full bg-background flex flex-col">
+    <div className="h-full bg-background flex flex-col w-full overflow-x-hidden">
       {/* Header */}
-      <div className="border-b bg-card p-4">
+      <div className="border-b bg-card p-3 sm:p-4">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors" aria-label="Back">
             <ArrowLeft className="w-5 h-5" />
@@ -266,8 +266,8 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {/* Profile Header */}
-        <div className="p-6 text-center border-b">
-          <Avatar className="w-20 h-20 mx-auto mb-4">
+        <div className="p-4 sm:p-6 text-center border-b">
+          <Avatar className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4">
             <AvatarImage src={photoUrl} alt={user.name} />
             <AvatarFallback className="text-xl bg-gradient-to-br from-primary/20 to-accent/20">
               {initials || 'U'}

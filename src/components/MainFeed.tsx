@@ -249,7 +249,7 @@ function Header({ onCreatePost }: { onCreatePost: () => void }) {
           size="lg"
           variant="glass"
           onClick={() => requireAuth(onCreatePost, 'Sign in to create')}
-          className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[44px] px-4 font-semibold backdrop-blur-md shadow-lg"
+          className="bg-white/20 text-white border-white/30 hover:bg-white/30 min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 text-xs sm:text-sm font-semibold backdrop-blur-md shadow-lg"
         >
           + Create Event
           </Button>
@@ -390,7 +390,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
             )}
           </div>
             <div className="flex gap-3 flex-wrap">
-              <Button 
+                <Button 
                 size="lg" 
                 variant="default"
                 onClick={() =>
@@ -399,7 +399,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
                     setShowTicketModal(true);
                   }, 'Sign in to buy tickets')
                 }
-                className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[44px] min-w-[44px] px-6 font-bold shadow-lg touch-manipulation"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-4 sm:px-6 text-sm sm:text-base font-bold shadow-lg touch-manipulation"
               >
                 Get Tickets
               </Button>
@@ -410,7 +410,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
                   capture('feed_click', { target: 'details', event_id: event.id });
                   navigate(routes.event(event.id));
                 }}
-                className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[44px] min-w-[44px] px-6 font-semibold backdrop-blur-md touch-manipulation"
+                className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-4 sm:px-6 text-sm sm:text-base font-semibold backdrop-blur-md touch-manipulation"
               >
                 Details
               </Button>

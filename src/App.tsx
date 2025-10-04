@@ -255,7 +255,7 @@ function AppContent() {
         {/* Main Content Area */}
         <main
           className="
-          flex-1 overflow-y-auto
+          flex-1 overflow-y-auto w-full
           pb-[calc(env(safe-area-inset-bottom)+88px)]
           [@supports(-webkit-touch-callout:none)]:[-webkit-overflow-scrolling:touch]
         "

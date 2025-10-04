@@ -163,8 +163,8 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div className="glass-nav px-4 py-2 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 safe-bottom">
-      <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-1 w-full max-w-md mx-auto justify-evenly">
+    <div className="glass-nav px-2 sm:px-4 py-2 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 safe-bottom">
+      <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-0.5 sm:gap-1 w-full max-w-md mx-auto justify-evenly">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -246,7 +246,7 @@ function NavButton({ children, label, active, onClick }: { children: React.React
       aria-current={active ? 'page' : undefined}
       role="tab"
       tabIndex={0}
-      className={`group flex flex-col items-center gap-1 flex-1 max-w-[72px] p-2 rounded-2xl transition-all duration-200 active:scale-90 min-h-[56px] min-w-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 relative touch-manipulation ${
+      className={`group flex flex-col items-center gap-0.5 sm:gap-1 flex-1 max-w-[72px] p-1.5 sm:p-2 rounded-2xl transition-all duration-200 active:scale-90 min-h-[52px] sm:min-h-[56px] min-w-[48px] sm:min-w-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 relative touch-manipulation ${
         active
           ? 'text-primary bg-primary/10 border border-primary/20 shadow-md'
           : 'text-muted-foreground hover:text-primary hover:bg-muted/50'
@@ -258,7 +258,7 @@ function NavButton({ children, label, active, onClick }: { children: React.React
       </div>
       
       {/* Label with better typography */}
-      <span className={`relative z-10 text-xs font-medium leading-none transition-all duration-200 truncate max-w-full ${
+      <span className={`relative z-10 text-[10px] sm:text-xs font-medium leading-none transition-all duration-200 truncate max-w-full ${
         active 
           ? 'font-bold text-primary' 
           : 'group-hover:font-semibold group-hover:text-primary'
