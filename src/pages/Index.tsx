@@ -105,8 +105,41 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
               p_post_id: postId,
             });
             if (!error) {
-              const item = Array.isArray(data) ? data[0] : data;
-              if (item) prependItem(item as any);
+              const raw: any = Array.isArray(data) ? data[0] : data;
+              if (raw) {
+                const normalized = {
+                  item_type: 'post' as const,
+                  sort_ts: raw.sort_ts || raw.created_at || new Date().toISOString(),
+                  item_id: raw.item_id || raw.id || postId,
+                  event_id: raw.event_id,
+                  event_title: raw.event_title || raw.title || 'Event',
+                  event_description: raw.event_description || raw.description || '',
+                  event_starts_at: raw.event_starts_at || raw.start_at || null,
+                  event_cover_image: raw.event_cover_image || raw.cover_image_url || '',
+                  event_organizer: raw.event_organizer || 'Organizer',
+                  event_organizer_id: raw.event_organizer_id || '',
+                  event_owner_context_type: raw.event_owner_context_type || 'individual',
+                  event_location: raw.event_location || [raw.venue, raw.city].filter(Boolean).join(', ') || 'TBA',
+                  author_id: raw.author_id || raw.author_user_id || null,
+                  author_name: raw.author_name || null,
+                  author_badge: raw.author_badge || raw.author_badge_label || null,
+                  author_social_links: null,
+                  media_urls: Array.isArray(raw.media_urls)
+                    ? raw.media_urls
+                    : (typeof raw.media_urls === 'string' && raw.media_urls)
+                      ? [raw.media_urls]
+                      : null,
+                  content: raw.content ?? raw.text ?? null,
+                  metrics: {
+                    likes: raw.metrics?.likes ?? raw.like_count ?? 0,
+                    comments: raw.metrics?.comments ?? raw.comment_count ?? 0,
+                    viewer_has_liked: Boolean(raw.metrics?.viewer_has_liked),
+                  },
+                  sponsor: null,
+                  sponsors: null,
+                };
+                prependItem(normalized as any);
+              }
             }
           } catch {
             // best-effort; ignore
