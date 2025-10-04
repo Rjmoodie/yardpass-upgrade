@@ -88,12 +88,10 @@ export function useMessaging() {
       console.log('[useMessaging] Building recipients for segment:', input.segment);
 
       if (input.segment.type === 'all_attendees') {
+        // Fetch only user IDs from tickets to avoid FK join requirements
         const { data: tickets, error: ticketsError } = await supabase
           .from('tickets')
-          .select(`
-            owner_user_id,
-            user_profiles!owner_user_id(phone)
-          `)
+          .select('owner_user_id')
           .eq('event_id', input.eventId)
           .eq('status', 'issued');
 
@@ -102,18 +100,24 @@ export function useMessaging() {
           throw ticketsError;
         }
 
-        console.log('[useMessaging] Found tickets:', tickets?.length || 0);
-
         const userIds = [...new Set((tickets || []).map(t => t.owner_user_id))];
+        console.log('[useMessaging] Found tickets:', tickets?.length || 0, 'unique users:', userIds.length);
 
         if (input.channel === 'email') {
-          // For email, just pass user_id - the edge function will fetch email from auth.users
+          // For email, pass user_id only; the edge function will fetch email from auth.users
           recipients = userIds.map(userId => ({ user_id: userId, email: null, phone: null }));
         } else {
-          // For SMS, we need phone numbers from user_profiles
+          // For SMS, fetch phones from user_profiles in a separate query
+          const { data: profiles, error: profilesError } = await supabase
+            .from('user_profiles')
+            .select('user_id, phone')
+            .in('user_id', userIds);
+          if (profilesError) {
+            console.error('[useMessaging] Error fetching user profiles for phones:', profilesError);
+          }
           const seen = new Set<string>();
-          recipients = (tickets || [])
-            .map((t: any) => ({ user_id: t.owner_user_id, email: null, phone: t.user_profiles?.phone }))
+          recipients = (profiles || [])
+            .map((p: any) => ({ user_id: p.user_id, email: null, phone: p.phone }))
             .filter(r => {
               if (!r.phone || seen.has(r.phone)) return false;
               seen.add(r.phone);
@@ -121,9 +125,10 @@ export function useMessaging() {
             });
         }
       } else {
+        // Roles segment: fetch role user IDs first
         const { data: roleUsers, error: rolesError } = await supabase
           .from('event_roles')
-          .select(`user_id, user_profiles!user_id(phone)`)
+          .select('user_id')
           .eq('event_id', input.eventId)
           .in('role', input.segment.roles ?? []);
 
@@ -132,12 +137,20 @@ export function useMessaging() {
           throw rolesError;
         }
 
-        console.log('[useMessaging] Found role users:', roleUsers?.length || 0);
+        const userIds = [...new Set((roleUsers || []).map((r: any) => r.user_id))];
+        console.log('[useMessaging] Found role users:', userIds.length);
 
         if (input.channel === 'email') {
-          recipients = (roleUsers || []).map((r: any) => ({ user_id: r.user_id, email: null, phone: null }));
+          recipients = userIds.map(userId => ({ user_id: userId, email: null, phone: null }));
         } else {
-          recipients = (roleUsers || []).map((r: any) => ({ user_id: r.user_id, email: null, phone: r.user_profiles?.phone }));
+          const { data: profiles, error: profilesError } = await supabase
+            .from('user_profiles')
+            .select('user_id, phone')
+            .in('user_id', userIds);
+          if (profilesError) {
+            console.error('[useMessaging] Error fetching user profiles for phones:', profilesError);
+          }
+          recipients = (profiles || []).map((p: any) => ({ user_id: p.user_id, email: null, phone: p.phone }));
         }
       }
 
