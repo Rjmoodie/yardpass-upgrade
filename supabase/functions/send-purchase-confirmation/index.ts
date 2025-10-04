@@ -131,6 +131,7 @@ const handler = async (req: Request): Promise<Response> => {
         to: [data.customerEmail],
         subject: `Ticket Confirmation - ${data.eventTitle}`,
         html,
+        reply_to: "support@yardpass.tech",
       }),
     });
 

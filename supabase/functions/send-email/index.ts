@@ -13,6 +13,7 @@ interface EmailRequest {
   subject: string;
   html: string;
   from?: string;
+  replyTo?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -22,7 +23,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { to, subject, html, from }: EmailRequest = await req.json();
+    const { to, subject, html, from, replyTo }: EmailRequest = await req.json();
 
     if (!to || !subject || !html) {
       return new Response(
@@ -45,6 +46,7 @@ const handler = async (req: Request): Promise<Response> => {
         to: [to],
         subject,
         html,
+        reply_to: replyTo || "support@yardpass.tech",
       }),
     });
 

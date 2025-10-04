@@ -6,6 +6,7 @@ export interface EmailOptions {
   subject: string;
   html: string;
   from?: string;
+  replyTo?: string;
 }
 
 export interface PurchaseConfirmationData {
@@ -49,6 +50,7 @@ export class EmailService {
           subject: options.subject,
           html: options.html,
           from: options.from || FROM_DEFAULT,
+          replyTo: options.replyTo || 'support@yardpass.tech',
         },
       });
 

@@ -120,6 +120,7 @@ const handler = async (req: Request): Promise<Response> => {
         to: [data.customerEmail],
         subject: `Reminder: ${data.eventTitle} is coming up!`,
         html,
+        reply_to: "support@yardpass.tech",
       }),
     });
 
