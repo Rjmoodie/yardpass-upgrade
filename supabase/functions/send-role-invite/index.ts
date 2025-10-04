@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
+import React from 'npm:react@18.3.1'
+import { renderAsync } from 'npm:@react-email/components@0.0.22'
+import { RoleInviteEmail } from './_templates/role-invite.tsx'
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -70,11 +73,35 @@ serve(async (req) => {
       .single();
 
     const eventTitle = event?.title || "Event";
+    const eventDate = event?.start_at 
+      ? new Date(event.start_at).toLocaleDateString('en-US', { 
+          month: 'numeric', 
+          day: 'numeric', 
+          year: 'numeric' 
+        })
+      : "TBA";
+    
     const link = `${req.headers.get("origin") || "https://app.yardpass.app"}/roles/accept?token=${token}`;
 
     // Send email if provided and Resend is configured
     if (email && RESEND_API_KEY) {
       try {
+        // Extract first name from email if not provided
+        const first_name = email.split('@')[0].split('.')[0].charAt(0).toUpperCase() + 
+                          email.split('@')[0].split('.')[0].slice(1);
+
+        // Render the React Email template
+        const html = await renderAsync(
+          React.createElement(RoleInviteEmail, {
+            first_name,
+            event_title: eventTitle,
+            event_date: eventDate,
+            role,
+            invite_link: link,
+            expires_in_hours,
+          })
+        );
+
         await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -82,22 +109,11 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "YardPass <noreply@yardpass.app>",
+            from: "YardPass <noreply@yardpass.tech>",
             to: [email],
-            subject: `You're invited as ${role} for ${eventTitle}`,
-            html: `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-                <h1>You're invited!</h1>
-                <p>You've been invited as <strong>${role}</strong> for the event: <strong>${eventTitle}</strong></p>
-                <p>
-                  <a href="${link}" style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                    Accept Invitation
-                  </a>
-                </p>
-                <p><small>This invitation expires in ${expires_in_hours} hours.</small></p>
-                <p><small>If the button doesn't work, copy and paste this link: ${link}</small></p>
-              </div>
-            `,
+            subject: `Lend a hand at ${eventTitle}?`,
+            html,
+            reply_to: "support@yardpass.tech",
           }),
         });
       } catch (emailError) {
