@@ -311,7 +311,7 @@ export function useUnifiedFeed(userId?: string) {
         author_badge: null,
         author_social_links: null,
         media_urls: media,
-        content: it.content ?? it.text ?? null,
+        content: (typeof it.content === 'string' ? it.content.trim() : (typeof it.text === 'string' ? it.text.trim() : null)) || null,
         metrics: {
           likes: it.like_count || it.metrics?.likes || 0,
           comments: it.comment_count || it.metrics?.comments || 0,

@@ -327,7 +327,7 @@ export const UserPostCard = memo(function UserPostCard({
 
       {/* Post overlay */}
       <div className="absolute inset-0 flex flex-col justify-end pointer-events-none">
-        <PeekSheet minHeight="156px" maxHeight="76vh">
+        <PeekSheet minHeight="200px" maxHeight="76vh">
           {/* Author + social */}
           <div className="flex items-center gap-2 min-w-0">
             <button
