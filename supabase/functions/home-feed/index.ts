@@ -37,26 +37,27 @@ export const handler = withCORS(async (req: Request) => {
     // Get current user for liked state
     const { data: { user } } = await supabase.auth.getUser();
 
-    // 1) fetch ranked IDs (smart or basic)
+    // 1) Fetch ranked items using the new unified RPC or fallback
     let ranked:
-      | { item_type: "event" | "post"; item_id: string; event_id: string; score?: number }[]
+      | { item_type: "event" | "post"; item_id: string; event_id: string; sort_ts?: string; score?: number }[]
       | null = null;
 
     if (mode === "smart") {
-      const { data, error } = await supabase.rpc("get_home_feed_ids", {
-        p_user_id: user_id ?? null,
+      const { data, error } = await supabase.rpc("get_home_feed_ranked", {
+        p_user_id: user?.id ?? user_id ?? null,
         p_limit: limit,
+        p_offset: offset,
       });
+
       if (error) {
-        // If smart RPC missing, fall back to basic
-        console.warn("get_home_feed_ids error => falling back to basic:", error.message);
+        console.warn("get_home_feed_ranked error => falling back to basic:", error.message);
       } else {
-        ranked = (data ?? []) as any[];
+        ranked = data ?? [];
       }
     }
 
+    // Fallback: public upcoming events
     if (!ranked) {
-      // Basic fallback - fetch recent public events
       const { data: recentEvents, error } = await supabase
         .from("events")
         .select("id")
@@ -66,43 +67,16 @@ export const handler = withCORS(async (req: Request) => {
         .limit(limit);
       
       if (error) throw error;
-      ranked = (recentEvents ?? []).map(e => ({ 
-        item_type: "event" as const, 
-        item_id: e.id, 
-        event_id: e.id 
+      ranked = (recentEvents ?? []).map(e => ({
+        item_type: "event" as const,
+        item_id: e.id,
+        event_id: e.id,
+        sort_ts: new Date().toISOString(),
+        score: 0.1,
       }));
     }
 
     // 2) expand (events, posts, authors) in batched queries
-    // If any ranked post rows are missing item_id (causing empty media/IDs),
-    // patch them by picking the most recent post for that event; drop rows with no posts.
-    const missingPostEventIds = (ranked || [])
-      .filter((r) => r.item_type === "post" && (!r.item_id || String(r.item_id).trim() === ""))
-      .map((r) => r.event_id);
-
-    if (missingPostEventIds.length) {
-      const { data: recentPosts, error: rpErr } = await supabase
-        .from("event_posts")
-        .select("id, event_id, created_at")
-        .in("event_id", missingPostEventIds)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
-
-      const latestByEvent = new Map<string, any>();
-      (recentPosts || []).forEach((p: any) => {
-        if (!latestByEvent.has(p.event_id)) latestByEvent.set(p.event_id, p);
-      });
-
-      ranked = ranked
-        .map((r) => {
-          if (r.item_type === "post" && (!r.item_id || String(r.item_id).trim() === "")) {
-            const rp = latestByEvent.get(r.event_id);
-            return rp ? { ...r, item_id: rp.id } : null;
-          }
-          return r;
-        })
-        .filter(Boolean) as typeof ranked;
-    }
 
     const eventIds = dedupe(ranked.map(r => r.event_id));
     const postIds  = ranked.filter(r => r.item_type === "post").map(r => r.item_id);
