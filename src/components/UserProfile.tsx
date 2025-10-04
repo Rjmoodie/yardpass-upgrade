@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Avatar, AvatarFallback } from './ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
@@ -70,6 +70,7 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
   const [userPosts, setUserPosts] = useState<UserPost[]>([]);
   const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
   const [socialLinks, setSocialLinks] = useState<Array<{platform: string; url: string; is_primary: boolean}>>([]);
+  const [photoUrl, setPhotoUrl] = useState<string>('');
   const [loadingPosts, setLoadingPosts] = useState(false);
   const { tickets, loading: ticketsLoading } = useTickets();
   const navigate = useNavigate();
@@ -162,7 +163,7 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
     try {
       const { data: profile, error } = await supabase
         .from('user_profiles')
-        .select('social_links')
+        .select('social_links, photo_url')
         .eq('user_id', user.id)
         .single();
 
@@ -170,6 +171,10 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
       
       if (profile?.social_links && Array.isArray(profile.social_links)) {
         setSocialLinks(profile.social_links as Array<{platform: string; url: string; is_primary: boolean}>);
+      }
+      
+      if (profile?.photo_url) {
+        setPhotoUrl(profile.photo_url);
       }
     } catch (err) {
       console.error('Error fetching social links:', err);
@@ -263,6 +268,7 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
         {/* Profile Header */}
         <div className="p-6 text-center border-b">
           <Avatar className="w-20 h-20 mx-auto mb-4">
+            <AvatarImage src={photoUrl} alt={user.name} />
             <AvatarFallback className="text-xl bg-gradient-to-br from-primary/20 to-accent/20">
               {initials || 'U'}
             </AvatarFallback>
