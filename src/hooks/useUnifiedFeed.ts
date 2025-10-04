@@ -104,7 +104,7 @@ export function useUnifiedFeed(userId?: string) {
 
     // Get all post IDs that need like status
     const postIds = items
-      .filter((it: FeedItem) => it.item_type === 'post')
+      .filter((it: FeedItem) => it.item_type === 'post' && it.item_id) // Filter out undefined/null IDs
       .map((it: FeedItem) => it.item_id);
 
     if (postIds.length === 0) return items;
