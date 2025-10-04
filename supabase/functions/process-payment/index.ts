@@ -82,7 +82,13 @@ serve(async (req) => {
       // Get order items
       const { data: orderItems, error: itemsError } = await supabaseService
         .from("order_items")
-        .select("*")
+        .select(`
+          *,
+          ticket_tiers (
+            name,
+            price_cents
+          )
+        `)
         .eq("order_id", order.id);
 
       if (itemsError) {
@@ -105,9 +111,10 @@ serve(async (req) => {
         }
       }
 
-      const { error: ticketsError } = await supabaseService
+      const { data: createdTickets, error: ticketsError } = await supabaseService
         .from("tickets")
-        .insert(ticketsToCreate);
+        .insert(ticketsToCreate)
+        .select('id');
 
       if (ticketsError) {
         logStep("Failed to create tickets", { error: ticketsError.message });
@@ -115,7 +122,12 @@ serve(async (req) => {
       }
 
       logStep("Tickets created successfully", { count: ticketsToCreate.length });
-      return ticketsToCreate.length;
+      
+      return { 
+        count: ticketsToCreate.length, 
+        items: orderItems,
+        ticketIds: (createdTickets || []).map(t => t.id)
+      };
     })();
 
     // Mark order as paid first
@@ -135,7 +147,70 @@ serve(async (req) => {
     logStep("Order marked as paid");
 
     // Wait for tickets to be created
-    const ticketCount = await ticketCreationPromise;
+    const ticketResult = await ticketCreationPromise;
+    const ticketCount = ticketResult.count;
+    const ticketIds = ticketResult.ticketIds;
+
+    // Send purchase confirmation email
+    try {
+      // Get user profile for email
+      const { data: userProfile } = await supabaseService
+        .from("user_profiles")
+        .select("display_name, email")
+        .eq("user_id", order.user_id)
+        .single();
+
+      if (userProfile?.email) {
+        logStep("Sending purchase confirmation email", { email: userProfile.email });
+
+        // Get first ticket tier name for the email
+        const ticketType = ticketResult.items?.[0]?.ticket_tiers?.name || "General Admission";
+        
+        // Format event date
+        const eventDate = order.events?.start_at 
+          ? new Date(order.events.start_at).toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit'
+            })
+          : 'TBA';
+
+        const eventLocation = [order.events?.venue, order.events?.city]
+          .filter(Boolean)
+          .join(', ') || 'TBA';
+
+        // Call send-purchase-confirmation edge function
+        const emailResponse = await supabaseService.functions.invoke('send-purchase-confirmation', {
+          body: {
+            customerName: userProfile.display_name || 'Customer',
+            customerEmail: userProfile.email,
+            eventTitle: order.events?.title || 'Event',
+            eventDate,
+            eventLocation,
+            ticketType,
+            quantity: ticketCount,
+            totalAmount: order.total_cents,
+            orderId: order.id,
+            ticketIds,
+            eventId: order.event_id, // This will trigger auto-fetch of org/event context
+          }
+        });
+
+        if (emailResponse.error) {
+          logStep("Email sending failed (non-critical)", { error: emailResponse.error });
+        } else {
+          logStep("Purchase confirmation email sent successfully");
+        }
+      } else {
+        logStep("No email address found for user", { userId: order.user_id });
+      }
+    } catch (emailError) {
+      // Don't fail the whole payment if email fails
+      logStep("Email error (non-critical)", { error: emailError });
+    }
 
     logStep("Payment processed successfully", { 
       orderId: order.id, 
