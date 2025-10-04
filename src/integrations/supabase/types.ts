@@ -1052,6 +1052,72 @@ export type Database = {
           },
         ]
       }
+      event_impressions: {
+        Row: {
+          completed: boolean | null
+          created_at: string
+          dwell_ms: number | null
+          event_id: string
+          id: string
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string
+          dwell_ms?: number | null
+          event_id: string
+          id?: string
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string
+          dwell_ms?: number | null
+          event_id?: string
+          id?: string
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_impressions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_connect"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "event_impressions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_impressions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_enhanced"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_impressions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_sponsorships"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "event_impressions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_sponsorship_revenue"
+            referencedColumns: ["event_id"]
+          },
+        ]
+      }
       event_invites: {
         Row: {
           created_at: string | null
@@ -2344,6 +2410,33 @@ export type Database = {
         }
         Relationships: []
       }
+      negative_feedback: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string | null
+          target_id: string
+          target_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          target_id: string
+          target_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          target_id?: string
+          target_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string | null
@@ -2818,6 +2911,65 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      post_impressions: {
+        Row: {
+          completed: boolean | null
+          created_at: string
+          dwell_ms: number | null
+          id: string
+          post_id: string
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string
+          dwell_ms?: number | null
+          id?: string
+          post_id: string
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string
+          dwell_ms?: number | null
+          id?: string
+          post_id?: string
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_impressions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_impressions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_posts_with_meta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_impressions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "event_recent_posts_top3"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_impressions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "trending_posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       post_views: {
         Row: {
