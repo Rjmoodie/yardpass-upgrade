@@ -250,24 +250,27 @@ export function useUnifiedFeed(userId?: string) {
 
     const items = (data as any)?.items ?? [];
 
-    const transformed: FeedItem[] = (items ?? []).map((it: any) => {
+    const transformed: (FeedItem | null)[] = (items ?? []).map((it: any) => {
       const itemType = it.item_type;
       // Fallbacks for inconsistent shapes coming from edge/RPC
       const postId = it.item_id || it.post_id || it.id || null;
       const eventId = it.event_id || it.parent_event_id || (itemType === 'event' ? (it.id || it.item_id) : null);
       const createdTs = it.created_at || it.sort_ts || new Date().toISOString();
       const startsTs = it.event_starts_at || it.start_at || null;
-      const media = Array.isArray(it.media_urls)
+      const mediaRaw = Array.isArray(it.media_urls)
         ? it.media_urls
         : (typeof it.media_urls === 'string' && it.media_urls)
           ? [it.media_urls]
           : null;
+      const media = (Array.isArray(mediaRaw) && mediaRaw.length > 0) ? mediaRaw : null;
 
+      // Guard against malformed rows from backends
       if (itemType === 'event') {
+        if (!eventId) return null;
         return {
           item_type: 'event',
           sort_ts: startsTs || createdTs,
-          item_id: eventId || postId || '',
+          item_id: eventId || '',
           event_id: eventId || '',
           event_title: it.event_title || it.title || 'Event',
           event_description: it.event_description || it.description || '',
@@ -289,10 +292,11 @@ export function useUnifiedFeed(userId?: string) {
       }
 
       // Default to post
+      if (!postId) return null; // do not surface invalid posts
       return {
         item_type: 'post',
         sort_ts: createdTs,
-        item_id: postId || '',
+        item_id: postId,
         event_id: eventId || it.event_id || '',
         event_title: it.event_title || it.title || 'Event',
         event_description: it.event_description || it.description || '',
@@ -317,7 +321,7 @@ export function useUnifiedFeed(userId?: string) {
         sponsor: null,
         sponsors: null,
       } as FeedItem;
-    });
+    }).filter(Boolean) as FeedItem[];
 
     // Enrich with proper like status
     return await enrichWithLikeStatus(transformed);
