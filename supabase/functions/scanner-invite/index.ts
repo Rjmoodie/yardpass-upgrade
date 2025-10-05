@@ -1,152 +1,147 @@
+// /functions/scanner-invite/index.ts
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0'
+
+type InviteResponse = {
+  success: boolean
+  message: string
+  event_id?: string
+  user_email?: string
+  user_id?: string
+  status?: 'enabled' | 'pending_invite'
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
+const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+const ok = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: jsonHeaders })
 
-interface InviteRequest {
-  event_id: string;
-  user_email: string;
-}
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i as RegExp
+const EMAIL_RE =
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/i as RegExp
 
-interface InviteResponse {
-  success: boolean;
-  message: string;
+async function safeJson<T = any>(req: Request): Promise<T | null> {
+  try { return await req.json() } catch { return null }
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {
-    const supabaseAdmin = createClient(
+    // Admin client (writes & user lookup)
+    const admin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const supabaseClient = createClient(
+    // Authed client (who is calling?)
+    const client = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } }
     )
 
-    // Get the session/user data
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser()
+    // Caller
+    const { data: auth } = await client.auth.getUser()
+    const caller = auth?.user
+    if (!caller) return ok(<InviteResponse>{ success: false, message: 'Not signed in' })
 
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
+    // Input: GET (query) or POST (json)
+    const url = new URL(req.url)
+    const qsEventId   = url.searchParams.get('event_id')?.trim()
+    const qsEmail     = url.searchParams.get('user_email')?.trim()
+
+    const body = req.method === 'GET'
+      ? null
+      : await safeJson<{ event_id?: string; user_email?: string }>(req)
+
+    const event_id   = (body?.event_id   ?? qsEventId   ?? '').trim()
+    const user_email = (body?.user_email ?? qsEmail     ?? '').trim().toLowerCase()
+
+    // Validate
+    if (!event_id || !UUID_RE.test(event_id)) {
+      return ok(<InviteResponse>{ success: false, message: 'Invalid or missing event_id' })
+    }
+    if (!user_email || !EMAIL_RE.test(user_email)) {
+      return ok(<InviteResponse>{ success: false, message: 'Invalid or missing user_email' })
     }
 
-    const { event_id, user_email }: InviteRequest = await req.json()
-
-    if (!event_id || !user_email) {
-      return new Response(
-        JSON.stringify({ error: 'Missing event_id or user_email' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
-    }
-
-    console.log(`Inviting scanner ${user_email} for event ${event_id}`)
-
-    // Check if user is authorized (event manager)
-    const { data: isManager } = await supabaseClient
-      .rpc('is_event_manager', { p_event_id: event_id })
-
+    // AuthZ: caller must manage this event
+    const { data: isManager, error: mgrErr } = await client.rpc('is_event_manager', { p_event_id: event_id })
+    if (mgrErr) console.warn('[scanner-invite] is_event_manager RPC error:', mgrErr?.message)
     if (!isManager) {
-      return new Response(
-        JSON.stringify({ error: 'Not authorized to manage scanners for this event' }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
+      return ok(<InviteResponse>{ success: false, message: 'Not authorized to manage scanners for this event' })
     }
 
-    // Find the user by email
-    const { data: targetUser, error: userError } = await supabaseAdmin.auth.admin.listUsers()
-    
-    if (userError) {
-      console.error('Error listing users:', userError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to find user' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
+    // Look up user by email (Admin API)
+    const { data: userRes, error: getUserErr } = await admin.auth.admin.getUserByEmail(user_email)
+    if (getUserErr) {
+      console.error('[scanner-invite] getUserByEmail error:', getUserErr)
+      // fall through as "not found"
     }
 
-    const foundUser = targetUser.users.find(u => u.email === user_email)
-    
-    if (!foundUser) {
-      const response: InviteResponse = {
-        success: false,
-        message: 'User not found. They need to sign up first.'
+    if (userRes?.user) {
+      // User exists → idempotent upsert into event_scanners
+      const targetId = userRes.user.id
+      const { error: upErr } = await admin
+        .from('event_scanners')
+        .upsert(
+          { event_id, user_id: targetId, status: 'enabled', invited_by: caller.id },
+          { onConflict: 'event_id,user_id' }
+        )
+      if (upErr) {
+        console.error('[scanner-invite] upsert error:', upErr)
+        return ok(<InviteResponse>{
+          success: false,
+          message: 'Failed to add scanner',
+          event_id, user_email
+        })
       }
-      return new Response(JSON.stringify(response), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
 
-    // Upsert scanner invitation
-    const { error: scannerError } = await supabaseAdmin
-      .from('event_scanners')
-      .upsert({
+      return ok(<InviteResponse>{
+        success: true,
+        message: `Scanner enabled for ${user_email}`,
         event_id,
-        user_id: foundUser.id,
+        user_email,
+        user_id: targetId,
         status: 'enabled',
-        invited_by: user.id
-      }, {
-        onConflict: 'event_id,user_id'
       })
+    }
 
-    if (scannerError) {
-      console.error('Error inviting scanner:', scannerError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to invite scanner' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+    // User not found → create/update invite row (case-insensitive uniqueness)
+    // Requires unique index:  ON public.event_invites(event_id, lower(email)) WHERE email IS NOT NULL
+    const { error: invErr } = await admin
+      .from('event_invites')
+      .upsert(
+        { event_id, user_id: null, email: user_email, invited_by: caller.id },
+        { onConflict: 'event_id,email' } // relies on functional unique index with lower(email)
       )
+
+    if (invErr) {
+      console.error('[scanner-invite] invite upsert error:', invErr)
+      return ok(<InviteResponse>{
+        success: false,
+        message: 'Failed to create invitation',
+        event_id, user_email
+      })
     }
 
-    const response: InviteResponse = {
+    // (Optional) you can also send an email invite via auth if desired:
+    // await admin.auth.admin.inviteUserByEmail(user_email, { redirectTo: 'https://yourapp.com/welcome' })
+
+    return ok(<InviteResponse>{
       success: true,
-      message: `Successfully invited ${user_email} as a scanner`
-    }
-
-    console.log(`Scanner invited successfully: ${user_email}`)
-
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      message: `Invitation recorded for ${user_email}. Ask them to sign up with this email.`,
+      event_id,
+      user_email,
+      status: 'pending_invite',
     })
-
-  } catch (error) {
-    console.error('Error in scanner-invite:', error)
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    )
+  } catch (e: any) {
+    console.error('[scanner-invite] fatal error:', e?.message || e)
+    // Keep response 200 to avoid breaking the UI loop; surface as structured failure
+    return ok(<InviteResponse>{ success: false, message: 'Unexpected error' })
   }
 })
