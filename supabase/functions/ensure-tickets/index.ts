@@ -51,12 +51,7 @@ serve(async (req) => {
       return err("Order not found", 404);
     }
 
-    if (!["paid", "succeeded", "complete"].includes(String(order.status))) {
-      console.log(`[ENSURE-TICKETS] Order not paid (status=${order.status})`);
-      return err(`Order not paid (status=${order.status})`, 409);
-    }
-
-    // 2) Idempotency: if tickets already exist, return them
+    // 2) Idempotency: if tickets already exist, return them even if order status hasn't updated yet
     const { count: existingCount } = await admin
       .from("tickets")
       .select("*", { count: "exact", head: true })
@@ -65,6 +60,12 @@ serve(async (req) => {
     if ((existingCount ?? 0) > 0) {
       console.log(`[ENSURE-TICKETS] Tickets already exist: ${existingCount}`);
       return ok({ issued: 0, already_issued: existingCount, status: "ok" });
+    }
+
+    // 3) Require paid status otherwise
+    if (!["paid", "succeeded", "complete"].includes(String(order.status))) {
+      console.log(`[ENSURE-TICKETS] Order not paid (status=${order.status})`);
+      return err(`Order not paid (status=${order.status})`, 409);
     }
 
     // 3) Load items WITHOUT embed to avoid "multiple relationships" error
