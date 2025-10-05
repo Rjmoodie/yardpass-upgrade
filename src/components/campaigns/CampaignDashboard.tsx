@@ -78,6 +78,14 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2">Campaign Manager</h1>
         <p className="text-muted-foreground">Create and manage your ad campaigns across YardPass</p>
+        
+        {/* TODO: Campaign Manager UI - Still under review and development */}
+        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            <strong>🚧 Campaign Manager UI - Still Under Review</strong><br/>
+            This interface is currently in development. Features may be limited and data may not reflect production values.
+          </p>
+        </div>
       </div>
 
       {/* Error Banner */}
