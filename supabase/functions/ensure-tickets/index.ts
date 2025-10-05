@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import Stripe from "https://esm.sh/stripe@14.23.0?target=deno";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +14,10 @@ const admin = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   { auth: { persistSession: false } }
 );
+
+const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
+  apiVersion: "2024-06-20",
+});
 
 const paidStates = new Set(["paid","succeeded","complete","completed"]);
 
@@ -72,12 +78,34 @@ serve(async (req) => {
       return ok({ status: "already_issued", issued: existingCount });
     }
 
-    // 3) If not paid yet, don't throw - return 200 with pending state
-    const isPaid = paidStates.has(String(order.status).toLowerCase());
-    if (!isPaid) {
-      console.log("[ENSURE-TICKETS] order not paid yet", { status: order.status });
-      return ok({ status: "pending", order_status: order.status });
+// 3) If not paid, verify with Stripe; flip to paid if session shows paid
+let isPaid = paidStates.has(String(order.status).toLowerCase());
+if (!isPaid) {
+  const sid = session_id || order.checkout_session_id || "";
+  if (sid) {
+    try {
+      const s = await stripe.checkout.sessions.retrieve(sid);
+      if (s.payment_status === "paid" || s.status === "complete") {
+        await admin.from("orders").update({
+          status: "paid",
+          paid_at: new Date().toISOString(),
+          checkout_session_id: order.checkout_session_id ?? sid,
+        }).eq("id", order_id);
+        isPaid = true;
+      } else {
+        console.log("[ENSURE-TICKETS] stripe not paid yet", { status: s.status, payment_status: s.payment_status });
+        return ok({ status: "pending", stripe_status: s.status, payment_status: s.payment_status });
+      }
+    } catch (se) {
+      console.error("[ENSURE-TICKETS] Stripe verify failed", { message: (se as any)?.message });
+      return ok({ status: "pending" });
     }
+  } else {
+    console.log("[ENSURE-TICKETS] order not paid yet (no session_id)");
+    return ok({ status: "pending", order_status: order.status });
+  }
+}
+
 
     // 4) Claim advisory lock to serialize concurrent issuers
     const { data: locked, error: lockErr } = await admin.rpc('claim_order_ticketing', { p_order_id: order_id });
