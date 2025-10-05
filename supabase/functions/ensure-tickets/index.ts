@@ -15,9 +15,7 @@ const admin = createClient(
   { auth: { persistSession: false } }
 );
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
-  apiVersion: "2024-06-20",
-});
+// Stripe client is created on-demand inside the handler to avoid boot-time crashes
 
 const paidStates = new Set(["paid","succeeded","complete","completed"]);
 
@@ -84,6 +82,12 @@ if (!isPaid) {
   const sid = session_id || order.checkout_session_id || "";
   if (sid) {
     try {
+      const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+      if (!stripeKey) {
+        console.warn("[ENSURE-TICKETS] missing STRIPE_SECRET_KEY; treating as pending");
+        return ok({ status: "pending" });
+      }
+      const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
       const s = await stripe.checkout.sessions.retrieve(sid);
       if (s.payment_status === "paid" || s.status === "complete") {
         await admin.from("orders").update({
@@ -118,7 +122,7 @@ if (!isPaid) {
     // 5) Load items
     const { data: items, error: itErr } = await admin
       .from("order_items")
-      .select("id, ticket_tier_id, tier_id, quantity")
+      .select("id, tier_id, quantity")
       .eq("order_id", order_id);
     if (itErr) return err(`Load items failed: ${itErr.message}`, 500);
     if (!items?.length) return err("No order items found", 422);
