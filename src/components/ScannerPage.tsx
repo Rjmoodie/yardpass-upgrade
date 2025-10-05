@@ -325,6 +325,16 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     }
   }, []);
 
+  const stopCamera = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setTorchOn(false);
+  }, []);
+
   const startCamera = useCallback(async () => {
     try {
       stopCamera();
@@ -399,16 +409,6 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       setScanMode('manual');
     }
   }, [toast, validateTicket, selectedDeviceId, paused, torchOn, applyTorch, stopCamera]);
-
-  const stopCamera = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    setTorchOn(false);
-  }, []);
 
   const handleModeChange = useCallback((mode: 'manual' | 'camera') => {
     setScanMode(mode);
