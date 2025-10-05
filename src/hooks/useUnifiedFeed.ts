@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const SMART_FEED_ENABLED = true; // Enabled to use smart edge function with full pagination
-const PAGE_SIZE = 40;
+const PAGE_SIZE = 80; // Increased from 40 to show more content per page
 
 export type FeedItem =
   | {

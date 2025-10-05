@@ -278,7 +278,7 @@ export default function Index({ onEventSelect, onCreatePost }: IndexProps) {
   // ---------- Progressive fetching ----------
   useEffect(() => {
     // start fetching next items a bit early
-    if (!loading && hasMore && currentIndex >= items.length - 3) {
+    if (!loading && hasMore && currentIndex >= items.length - 10) {
       loadMore().catch(() => {});
     }
   }, [currentIndex, items.length, hasMore, loadMore, loading]);

@@ -2,16 +2,15 @@
 // GET or POST supported
 // Query/body params:
 //   user_id?: string
-//   limit?: number (default 40)
-//   offset?: number (default 0)
+//   limit?: number (default 40, clamped to 1-100)
+//   offset?: number (default 0, clamped to 0-10000)
 //   mode?: 'smart' | 'basic' (default 'smart', falls back to 'basic' if RPC missing)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withCORS } from "../_shared/cors.ts";
-import type { FeedItem } from "./types.ts";
 
 const DEFAULT_LIMIT = 40;
-const ALLOWED_ORIGINS = ["*"]; // tighten if you want
+const ALLOWED_ORIGINS = ["*"]; // TODO: tighten to your real origins when ready
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -24,10 +23,11 @@ export const handler = withCORS(async (req: Request) => {
     // read params (GET -> query, POST -> json body)
     const q = isGet ? Object.fromEntries(url.searchParams.entries()) : await safeJson(req);
 
-    const user_id   = str(q.user_id);
-    const limit     = num(q.limit, DEFAULT_LIMIT);
-    const offset    = num(q.offset, 0);
-    const modeRaw   = (q.mode ?? "").toString().toLowerCase();
+    const user_id = str(q.user_id);
+    // Clamp inputs to prevent abuse
+    const limit = Math.max(1, Math.min(num(q.limit, DEFAULT_LIMIT), 100));
+    const offset = Math.max(0, Math.min(num(q.offset, 0), 10_000));
+    const modeRaw = (q.mode ?? "").toString().toLowerCase();
     const mode: "smart" | "basic" = modeRaw === "basic" ? "basic" : "smart";
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -37,7 +37,7 @@ export const handler = withCORS(async (req: Request) => {
     // Get current user for liked state
     const { data: { user } } = await supabase.auth.getUser();
 
-    // 1) Fetch ranked items using the new unified RPC or fallback
+    // 1) Fetch ranked items using the unified RPC or fallback
     let ranked:
       | { item_type: "event" | "post"; item_id: string; event_id: string; sort_ts?: string; score?: number }[]
       | null = null;
@@ -49,10 +49,11 @@ export const handler = withCORS(async (req: Request) => {
         p_offset: offset,
       });
 
-      if (error) {
+      // Only use ranked data if RPC succeeded and returned data
+      if (!error && data && data.length > 0) {
+        ranked = data;
+      } else if (error) {
         console.warn("get_home_feed_ranked error => falling back to basic:", error.message);
-      } else {
-        ranked = data ?? [];
       }
     }
 
@@ -72,62 +73,63 @@ export const handler = withCORS(async (req: Request) => {
         item_id: e.id,
         event_id: e.id,
         sort_ts: new Date().toISOString(),
-        score: 0.1,
+        score: 0.1
       }));
     }
 
     // 2) expand (events, posts, authors) in batched queries
-
     const eventIds = dedupe(ranked.map(r => r.event_id));
-    const postIds  = ranked.filter(r => r.item_type === "post").map(r => r.item_id);
+    const postIds = ranked.filter(r => r.item_type === "post").map(r => r.item_id);
 
     const [{ data: events }, postsRes] = await Promise.all([
       supabase
         .from("events")
         .select(`
-          id, title, cover_image_url, start_at, venue, city, created_by,
+          id, title, description, cover_image_url, start_at, venue, city, created_by,
           owner_context_type, owner_context_id,
-          user_profiles!events_created_by_fkey(display_name),
-          organizations!events_owner_context_id_fkey(name)
+          user_profiles!created_by(display_name),
+          organizations!owner_context_id(name)
         `)
         .in("id", eventIds.length ? eventIds : ["00000000-0000-0000-0000-000000000000"]),
-      postIds.length
+      
+      postIds.length 
         ? supabase
             .from("event_posts")
             .select("id, event_id, text, media_urls, like_count, comment_count, author_user_id")
             .in("id", postIds)
-        : Promise.resolve({ data: [] as any[], error: null }),
+        : Promise.resolve({ data: [], error: null })
     ]);
 
     const posts = postsRes?.data ?? [];
 
-    // Get viewer's like states for posts if user is authenticated
-    const { data: viewerLikes } = user && postIds.length 
+    // Get viewer's like states for posts if user is authenticated (with RLS tolerance)
+    const { data: viewerLikes = [] } = user && postIds.length
       ? await supabase
           .from("event_reactions")
           .select("post_id")
           .eq("user_id", user.id)
           .eq("kind", "like")
           .in("post_id", postIds)
+          .throwOnError(false)
       : { data: [] as any[] };
 
-    const likedPostIds = new Set((viewerLikes || []).map((like: any) => like.post_id));
+    const likedPostIds = new Set((viewerLikes || []).map(like => like.post_id));
 
-    const authorIds = dedupe(posts.map((p: any) => p.author_user_id).filter(Boolean));
+    const authorIds = dedupe(posts.map(p => p.author_user_id).filter(Boolean));
     const { data: profiles } = authorIds.length
       ? await supabase
           .from("user_profiles")
           .select("user_id, display_name")
           .in("user_id", authorIds)
-      : { data: [] as any[] };
+      : { data: [] };
 
     // 3) maps for quick expansion
-    const eMap = new Map(events?.map((e: any) => [e.id, e]) ?? []);
-    const pMap = new Map(posts?.map((p: any) => [p.id, p]) ?? []);
-    const profMap = new Map(profiles?.map((p: any) => [p.user_id, p]) ?? []);
+    const eMap = new Map(events?.map(e => [e.id, e]) ?? []);
+    const pMap = new Map(posts?.map(p => [p.id, p]) ?? []);
+    const profMap = new Map(profiles?.map(p => [p.user_id, p]) ?? []);
 
     // 4) project to the exact shape the UI expects
-    const items: FeedItem[] = ranked.map((row) => {
+    const items = ranked.map(row => {
       const ev = eMap.get(row.event_id);
       if (!ev) return null; // Drop orphan rows safely
 
@@ -139,7 +141,7 @@ export const handler = withCORS(async (req: Request) => {
         const organizerId = ev?.owner_context_type === "organization" 
           ? ev?.owner_context_id 
           : ev?.created_by;
-        
+
         return {
           item_type: "event",
           item_id: row.item_id,
@@ -151,7 +153,7 @@ export const handler = withCORS(async (req: Request) => {
           event_location: [ev?.venue, ev?.city].filter(Boolean).join(", ") || null,
           event_organizer: organizerName ?? "Organizer",
           event_organizer_id: organizerId ?? null,
-          event_owner_context_type: ev?.owner_context_type ?? null,
+          event_owner_context_type: ev?.owner_context_type ?? null
         };
       } else if (row.item_type === "post") {
         // Handle post items
@@ -159,11 +161,11 @@ export const handler = withCORS(async (req: Request) => {
         if (!po) return null; // Drop posts we couldn't fetch
 
         const author = po?.author_user_id ? profMap.get(po.author_user_id) : null;
-        const organizerName = ev?.owner_context_type === "organization"
-          ? ev?.organizations?.name ?? "Organization"
+        const organizerName = ev?.owner_context_type === "organization" 
+          ? ev?.organizations?.name ?? "Organization" 
           : ev?.user_profiles?.display_name ?? "Organizer";
-        const organizerId = ev?.owner_context_type === "organization"
-          ? ev?.owner_context_id ?? ""
+        const organizerId = ev?.owner_context_type === "organization" 
+          ? ev?.owner_context_id ?? "" 
           : ev?.created_by ?? "";
 
         return {
@@ -184,18 +186,19 @@ export const handler = withCORS(async (req: Request) => {
           comment_count: po?.comment_count ?? 0,
           viewer_has_liked: likedPostIds.has(row.item_id),
           author_user_id: po?.author_user_id ?? null,
-          author_name: author?.display_name ?? null,
+          author_name: author?.display_name ?? null
         };
       }
       return null;
-    }).filter(Boolean) as FeedItem[];
+    }).filter(Boolean);
 
-    // 5) cache hints (optional; tweak as you like)
-    return json(200, { items, mode: ranked ? "smart" : "basic" }, {
-      "Cache-Control": "private, max-age=20", // short since feed is dynamic
+    // 5) cache hints and response
+    const usedMode = ranked ? "smart" : "basic";
+    return json(200, { items, mode: usedMode }, {
+      "Cache-Control": "private, max-age=20"
     });
 
-  } catch (err: any) {
+  } catch (err) {
     console.error("home-feed error:", err);
     return json(500, { error: err?.message ?? "Internal error" });
   }
@@ -203,31 +206,35 @@ export const handler = withCORS(async (req: Request) => {
 
 /* ---------------- helpers ---------------- */
 
-function json(status: number, body: unknown, extraHeaders?: Record<string, string>) {
+function json(status: number, body: any, extraHeaders?: Record<string, string>) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      ...extraHeaders,
-    },
+      ...extraHeaders
+    }
   });
 }
 
-async function safeJson(req: Request): Promise<Record<string, unknown>> {
-  try { return await req.json(); } catch { return {}; }
+async function safeJson(req: Request) {
+  try {
+    return await req.json();
+  } catch {
+    return {};
+  }
 }
 
-function str(x: unknown): string | undefined {
+function str(x: any): string | undefined {
   if (typeof x === "string" && x.trim()) return x.trim();
   return undefined;
 }
 
-function num(x: unknown, def: number): number {
+function num(x: any, def: number): number {
   const n = Number(x);
   return Number.isFinite(n) ? n : def;
 }
 
-function dedupe<T>(arr: T[]): T[] {
+function dedupe(arr: any[]): any[] {
   return Array.from(new Set(arr));
 }
 

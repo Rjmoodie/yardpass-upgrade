@@ -1,0 +1,186 @@
+name: Build iOS App for Ad Hoc Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_version:
+        description: 'Build version (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/ios-adhoc-build.yml'
+
+jobs:
+  build-adhoc:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Install dependencies
+      run: |
+        rm -f package-lock.json
+        npm install
+      
+    - name: Create environment file
+      run: |
+        echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env.local
+        echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env.local
+        echo "VITE_SUPABASE_FUNCTIONS_URL=${{ secrets.VITE_SUPABASE_FUNCTIONS_URL }}" >> .env.local
+        echo "VITE_STRIPE_PUBLISHABLE_KEY=${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}" >> .env.local
+        echo "VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }}" >> .env.local
+        
+    - name: Build web assets
+      run: npm run build
+      
+    - name: Install Capacitor CLI
+      run: npm install -g @capacitor/cli
+        
+    - name: Add iOS platform
+      run: |
+        echo "Adding iOS platform..."
+        npx cap add ios
+        echo "iOS platform added successfully"
+        
+    - name: Sync Capacitor
+      run: |
+        echo "Syncing Capacitor..."
+        npx cap sync ios
+        echo "Capacitor sync completed"
+        
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+        
+    - name: Update iOS project settings
+      run: |
+        echo "Updating iOS project configuration..."
+        if [ -f "ios/App/App.xcodeproj/project.pbxproj" ]; then
+          # Update bundle ID and app name
+          sed -i '' 's/app\.lovable\.[a-zA-Z0-9]*/com.yardpass.app/g' ios/App/App.xcodeproj/project.pbxproj
+          sed -i '' 's/yardpass-upgrade/YardPass/g' ios/App/App.xcodeproj/project.pbxproj
+          
+          # Set iOS deployment target to 15.0 (broader device support)
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9][0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/App/App.xcodeproj/project.pbxproj
+          
+          echo "iOS project updated successfully"
+          echo "Deployment target set to iOS 15.0"
+        else
+          echo "iOS project file not found, skipping update"
+        fi
+
+    - name: Create Keychain and Import Certificates
+      env:
+        BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+        P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+        BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+        KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      run: |
+        # Create variables
+        CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+        PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+        KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+        # Import certificate and provisioning profile from secrets
+        echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode --output $CERTIFICATE_PATH
+        echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode --output $PP_PATH
+
+        # Create temporary keychain
+        security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+        security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+        # Import certificate to keychain
+        security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+        security list-keychain -d user -s $KEYCHAIN_PATH
+
+        # Apply provisioning profile
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
+    - name: Build iOS app for Ad Hoc Distribution
+      env:
+        KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      run: |
+        cd ios/App
+        echo "Building iOS app for ad hoc distribution..."
+        
+        # Clean build directory
+        rm -rf ../../build/ios
+        
+        # Build for iOS Device using ad hoc provisioning profile
+        xcodebuild -workspace App.xcworkspace \
+                   -scheme App \
+                   -configuration Release \
+                   -sdk iphoneos \
+                   -derivedDataPath ../../build/ios \
+                   -archivePath ../../build/ios/YardPass.xcarchive \
+                   -allowProvisioningUpdates \
+                   archive
+                   
+        echo "iOS archive completed successfully!"
+        
+    - name: Export IPA
+      run: |
+        cd ios/App
+        
+        # Create export options plist
+        cat > ../../build/ios/ExportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>ad-hoc</string>
+            <key>teamID</key>
+            <string>${{ secrets.APPLE_TEAM_ID }}</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>compileBitcode</key>
+            <false/>
+        </dict>
+        </plist>
+        EOF
+        
+        # Export IPA
+        xcodebuild -exportArchive \
+                   -archivePath ../../build/ios/YardPass.xcarchive \
+                   -exportPath ../../build/ios/ipa \
+                   -exportOptionsPlist ../../build/ios/ExportOptions.plist
+                   
+        echo "IPA export completed successfully!"
+        
+    - name: Upload Ad Hoc IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: YardPass-AdHoc-${{ github.event.inputs.build_version || github.sha }}
+        path: build/ios/ipa/YardPass.ipa
+        retention-days: 90
+
+    - name: Upload App Info
+      run: |
+        echo "Build completed successfully!"
+        echo "Version: ${{ github.event.inputs.build_version || 'dev' }}"
+        echo "Commit: ${{ github.sha }}"
+        echo "IPA file: build/ios/ipa/YardPass.ipa"
+        ls -la build/ios/ipa/
+        
+    - name: Clean up keychain and provisioning profile
+      if: always()
+      env:
+        KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      run: |
+        security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
+        rm ~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision
+
