@@ -19,7 +19,7 @@ import { DeferredImports } from '@/components/Perf/DeferredImports';
 
 // Lazy load heavy components
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
-const EventAttendeesPage = lazy(() => import('@/pages/EventAttendeesPage'));
+const EventAttendeesPage = lazy(() => import('@/pages/EventAttendeesPageEnhanced'));
 const CreateEventFlow = lazy(() =>
   import('@/components/CreateEventFlow').then((m) => ({ default: m.CreateEventFlow })),
 );
