@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Camera, Keyboard, Ban, QrCode, Volume2, VolumeX,
-  Pause, Play, Flashlight, RefreshCw, Smartphone, Upload, Download
+  Pause, Play, Flashlight, RefreshCw, Smartphone, Upload, Download, Copy, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
@@ -34,6 +34,7 @@ interface ScanResult {
   };
   message: string;
   timestamp: string;
+  raw_code?: string; // we add this so rows are clickable/useful for copy/retry
 }
 
 interface AuthorizeResponse {
@@ -90,6 +91,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
   const cooldownRef = useRef<number>(0);
   const lastTokensRef = useRef<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Keyboard wedge aggregation (hardware scanners)
   const wedgeBufferRef = useRef<string>('');
@@ -97,6 +99,9 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
 
   // Persist history per-event
   const historyKey = useMemo(() => `scannerHistory:${eventId}`, [eventId]);
+
+  // ARIA id for the manual input
+  const manualInputId = useId();
 
   /* ------------------------------ Effects ------------------------------ */
   useEffect(() => {
@@ -112,14 +117,22 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
   }, [scanHistory, historyKey]);
 
   useEffect(() => {
+    // one-time setup for this event
     checkAuthorization();
     fetchEvent();
     enumerateVideoDevices();
-    document.addEventListener('visibilitychange', handleVisibility);
+
+    // listen for device hot-swap (USB/Bluetooth cameras)
+    const onDeviceChange = () => enumerateVideoDevices();
+    navigator.mediaDevices?.addEventListener?.('devicechange', onDeviceChange);
+
+    document.addEventListener('visibilitychange', handleVisibility, { passive: true });
     window.addEventListener('keydown', handleWedgeKeydown, true);
     window.addEventListener('paste', handlePaste, true);
+
     return () => {
       stopCamera();
+      navigator.mediaDevices?.removeEventListener?.('devicechange', onDeviceChange);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('keydown', handleWedgeKeydown, true);
       window.removeEventListener('paste', handlePaste, true);
@@ -136,7 +149,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
   }, [selectedDeviceId]);
 
   /* --------------------------- Authorization --------------------------- */
-  const checkAuthorization = async () => {
+  const checkAuthorization = useCallback(async () => {
     if (!user || !eventId?.trim()) {
       setAuthorized(false);
       return;
@@ -146,16 +159,16 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
         body: { event_id: eventId }
       });
       if (error) throw error;
-      const response: AuthorizeResponse = data;
+      const response = data as AuthorizeResponse;
       setAuthorized(response.allowed);
       setUserRole(response.role);
     } catch (err) {
       console.error('Authorization error:', err);
       setAuthorized(false);
     }
-  };
+  }, [user, eventId]);
 
-  const fetchEvent = async () => {
+  const fetchEvent = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('events')
@@ -167,10 +180,10 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     } catch (err) {
       console.error('Error fetching event:', err);
     }
-  };
+  }, [eventId]);
 
   /* ------------------------------ Utilities ---------------------------- */
-  const beep = (ok: boolean) => {
+  const beep = useCallback((ok: boolean) => {
     if (!soundOn) return;
     try {
       const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -180,44 +193,63 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       const g = ctx.createGain();
       o.type = 'sine';
       o.frequency.value = ok ? 880 : 220;
-      g.gain.value = 0.03;
+      g.gain.value = 0.045;
       o.connect(g);
       g.connect(ctx.destination);
       o.start();
       setTimeout(() => {
         o.stop();
         ctx.close();
-      }, 120);
+      }, 140);
     } catch { /* ignore */ }
-  };
+  }, [soundOn]);
 
-  const vibrate = (ok: boolean) => {
+  const vibrate = useCallback((ok: boolean) => {
     try {
-      (navigator as any).vibrate?.(ok ? 20 : [10, 60, 10]);
+      (navigator as any).vibrate?.(ok ? 18 : [10, 60, 10]);
     } catch { /* ignore */ }
-  };
+  }, []);
+
+  const copyToClipboard = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: 'Copied', description: text });
+    } catch {
+      toast({ title: 'Copy failed', variant: 'destructive' });
+    }
+  }, [toast]);
 
   /* ------------------------------ Scanning ----------------------------- */
   const validateTicket = useCallback(async (qrToken: string) => {
+    const token = qrToken.trim();
+    if (!token) return;
+
     const now = Date.now();
-    if (now - cooldownRef.current < 800) return; // throttle
+    if (now - cooldownRef.current < 600) return; // gentle throttle
     cooldownRef.current = now;
 
-    if (lastTokensRef.current.has(qrToken)) return;
-    lastTokensRef.current.add(qrToken);
-    setTimeout(() => lastTokensRef.current.delete(qrToken), 10_000);
+    if (lastTokensRef.current.has(token)) return;
+    lastTokensRef.current.add(token);
+    setTimeout(() => lastTokensRef.current.delete(token), 10_000);
+
+    // cancel previous call if still running (rare, but protects against bursts)
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
 
     setScanning(true);
     try {
       const { data, error } = await supabase.functions.invoke('scanner-validate', {
-        body: { event_id: eventId, qr_token: qrToken }
+        body: { event_id: eventId, qr_token: token },
+        // @ts-ignore: supabase-js currently doesn't plumb AbortController through types, but it works
+        signal: abortRef.current.signal
       });
       if (error) throw error;
 
       const result: ScanResult = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        ...data,
-        timestamp: new Date().toISOString()
+        ...(data as Omit<ScanResult, 'id' | 'timestamp'>),
+        timestamp: new Date().toISOString(),
+        raw_code: token
       };
 
       setScanHistory(prev => [result, ...prev].slice(0, 200));
@@ -230,19 +262,27 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
         description: result.message,
         variant: result.success ? 'default' : 'destructive'
       });
-    } catch (err) {
+
+      trackEvent?.('scan_attempt', {
+        success: result.success,
+        outcome: result.result,
+        event_id: eventId,
+        tier: result.ticket?.tier_name ?? null
+      });
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return; // silently ignore
       console.error('Validate error:', err);
       toast({
-        title: "Error",
-        description: "Failed to validate ticket",
+        title: "Validation error",
+        description: "Could not validate this ticket. Please try again.",
         variant: "destructive"
       });
     } finally {
       setScanning(false);
     }
-  }, [eventId, toast, soundOn]);
+  }, [eventId, toast, vibrate, beep, trackEvent]);
 
-  const handleManualScan = async () => {
+  const handleManualScan = useCallback(async () => {
     const token = manualCode.trim();
     if (!token) {
       toast({ title: "Enter a code", description: "Please enter a ticket code", variant: "destructive" });
@@ -250,12 +290,12 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     }
     await validateTicket(token);
     setManualCode('');
-  };
+  }, [manualCode, validateTicket, toast]);
 
   /* --------------------------- Camera Handling ------------------------- */
-  const enumerateVideoDevices = async () => {
+  const enumerateVideoDevices = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       stream.getTracks().forEach(t => t.stop());
       const devs = await navigator.mediaDevices.enumerateDevices();
       const videoDevs = devs.filter(d => d.kind === 'videoinput');
@@ -263,12 +303,13 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       // Prefer back camera
       const back = videoDevs.find(d => /back|rear|environment/i.test(d.label));
       setSelectedDeviceId(prev => prev ?? back?.deviceId ?? videoDevs[0]?.deviceId);
-    } catch {
-      // ignore
+    } catch (e) {
+      // If user blocks camera, we stay in manual mode
+      console.warn('enumerateVideoDevices failed', e);
     }
-  };
+  }, []);
 
-  const applyTorch = async (on: boolean) => {
+  const applyTorch = useCallback(async (on: boolean) => {
     try {
       const track = streamRef.current?.getVideoTracks?.()[0];
       // @ts-ignore
@@ -282,7 +323,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     } catch {
       setTorchOn(false);
     }
-  };
+  }, []);
 
   const startCamera = useCallback(async () => {
     try {
@@ -320,19 +361,34 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
 
       const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
 
-      const detect = async () => {
-        if (!videoRef.current || paused) {
-          rafRef.current = requestAnimationFrame(detect);
-          return;
-        }
+      // Prefer smooth frame clock when available
+      const detectFrame = async () => {
+        if (!videoRef.current || paused) return;
+
         try {
           const codes = await detector.detect(videoRef.current);
           const qr = codes?.[0]?.rawValue;
           if (qr) await validateTicket(qr);
         } catch { /* ignore frame */ }
-        rafRef.current = requestAnimationFrame(detect);
       };
-      rafRef.current = requestAnimationFrame(detect);
+
+      const useRVFC = 'requestVideoFrameCallback' in (videoRef.current as any);
+      if (useRVFC) {
+        const loop = () => {
+          if (!videoRef.current) return;
+          (videoRef.current as any).requestVideoFrameCallback(() => {
+            detectFrame();
+            rafRef.current = requestAnimationFrame(loop);
+          });
+        };
+        rafRef.current = requestAnimationFrame(loop);
+      } else {
+        const loop = async () => {
+          await detectFrame();
+          rafRef.current = requestAnimationFrame(loop);
+        };
+        rafRef.current = requestAnimationFrame(loop);
+      }
     } catch (err) {
       console.error('Camera error:', err);
       toast({
@@ -342,7 +398,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       });
       setScanMode('manual');
     }
-  }, [toast, validateTicket, selectedDeviceId, paused, torchOn]);
+  }, [toast, validateTicket, selectedDeviceId, paused, torchOn, applyTorch, stopCamera]);
 
   const stopCamera = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -354,23 +410,23 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     setTorchOn(false);
   }, []);
 
-  const handleModeChange = (mode: 'manual' | 'camera') => {
+  const handleModeChange = useCallback((mode: 'manual' | 'camera') => {
     setScanMode(mode);
     if (mode === 'camera') startCamera();
     else stopCamera();
-  };
+  }, [startCamera, stopCamera]);
 
-  const handleVisibility = () => {
+  const handleVisibility = useCallback(() => {
     if (document.hidden) {
       stopCamera();
     } else if (scanMode === 'camera') {
       startCamera();
     }
-  };
+  }, [scanMode, startCamera, stopCamera]);
 
   /* ----------------------- Keyboard Wedge Capture ---------------------- */
-  const handleWedgeKeydown = (e: KeyboardEvent) => {
-    // Ignore if focused in an input/textarea/select
+  const handleWedgeKeydown = useCallback((e: KeyboardEvent) => {
+    // Ignore if focused in an input/textarea/select or we’re actively typing in manual field
     const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
     if (['input', 'textarea', 'select'].includes(tag)) return;
 
@@ -393,18 +449,18 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       wedgeBufferRef.current = '';
       if (token) validateTicket(token);
     }, 80); // small gap = end of scan
-  };
+  }, [validateTicket]);
 
   /* ------------------------------ Paste Hook --------------------------- */
-  const handlePaste = (e: ClipboardEvent) => {
+  const handlePaste = useCallback((e: ClipboardEvent) => {
     const text = e.clipboardData?.getData('text')?.trim();
-    if (text && scanMode === 'manual' && !document.activeElement) {
+    if (text && scanMode === 'manual' && !(document.activeElement instanceof HTMLInputElement)) {
       setManualCode(text);
     }
-  };
+  }, [scanMode]);
 
   /* --------------------------- Upload from Image ----------------------- */
-  const scanFromImage = async (file: File) => {
+  const scanFromImage = useCallback(async (file: File) => {
     try {
       if (!('BarcodeDetector' in window)) {
         toast({
@@ -435,7 +491,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  };
+  }, [toast, validateTicket]);
 
   /* ------------------------------ Derived ------------------------------ */
   const totalScans = scanHistory.length;
@@ -443,10 +499,10 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
   const duplicateScans = scanHistory.filter(s => s.result === 'duplicate').length;
   const invalidScans = totalScans - validScans - duplicateScans;
 
-  const exportCSV = () => {
+  const exportCSV = useCallback(() => {
     try {
       const rows = [
-        ['Time', 'Result', 'Success', 'Attendee', 'Tier', 'TicketID', 'Message'],
+        ['Time', 'Result', 'Success', 'Attendee', 'Tier', 'TicketID', 'Code', 'Message'],
         ...scanHistory.map(s => [
           new Date(s.timestamp).toISOString(),
           RESULT_LABEL[s.result] || s.result,
@@ -454,6 +510,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
           s.ticket?.attendee_name || '',
           s.ticket?.tier_name || '',
           s.ticket?.id || '',
+          s.raw_code || '',
           s.message.replace(/\n/g, ' ')
         ])
       ];
@@ -471,7 +528,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
     } catch {
       toast({ title: 'Export failed', description: 'Could not generate CSV file.', variant: 'destructive' });
     }
-  };
+  }, [scanHistory, eventId, toast]);
 
   /* ------------------------------- UI --------------------------------- */
   if (authorized === null) {
@@ -499,10 +556,16 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
           <CardContent className="text-center space-y-4">
             <Ban className="h-16 w-16 text-destructive mx-auto" />
             <p className="text-muted-foreground">You don’t have permission to scan tickets for this event.</p>
-            <Button onClick={onBack} variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Go Back
-            </Button>
+            <div className="flex items-center justify-center gap-2">
+              <Button onClick={checkAuthorization} variant="secondary">
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+              <Button onClick={onBack} variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go Back
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -512,7 +575,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="border-b bg-card">
+      <div className="border-b bg-card sticky top-0 z-20">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-4">
@@ -535,6 +598,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                 variant="ghost"
                 size="icon"
                 aria-label={soundOn ? 'Disable sound' : 'Enable sound'}
+                aria-pressed={soundOn}
                 onClick={() => setSoundOn(s => !s)}
                 title={soundOn ? 'Sound on' : 'Sound off'}
               >
@@ -561,7 +625,8 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                   size="icon"
                   onClick={() => applyTorch(!torchOn)}
                   disabled={!torchSupported}
-                  title={!torchSupported ? 'Torch not supported' : torchOn ? 'Turn torch off' : 'Turn torch on'}
+                  title={!torchSupported ? 'Torch not supported' : (torchOn ? 'Turn torch off' : 'Turn torch on')}
+                  aria-disabled={!torchSupported}
                 >
                   <Flashlight className={`h-4 w-4 ${torchOn ? 'text-yellow-500' : ''}`} />
                 </Button>
@@ -572,7 +637,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
       </div>
 
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {/* Last Result Banner */}
+        {/* Last Result Banner (clickable actions) */}
         {lastResult && (
           <div
             className={`rounded-lg p-3 text-sm ${
@@ -581,16 +646,28 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
             role="status"
             aria-live="polite"
           >
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="font-medium">
+            <div className="flex flex-wrap gap-2 justify-between items-center">
+              <div className="min-w-0">
+                <div className="font-medium truncate">
                   {lastResult.success ? 'Valid Ticket' : RESULT_LABEL[lastResult.result] || 'Invalid'}
                 </div>
-                <div className="opacity-80">{lastResult.message}</div>
+                <div className="opacity-80 truncate">{lastResult.message}</div>
               </div>
-              <Badge variant="outline" className="text-xs">
-                {new Date(lastResult.timestamp).toLocaleTimeString()}
-              </Badge>
+              <div className="flex items-center gap-2">
+                {lastResult.raw_code && (
+                  <Button size="sm" variant="outline" onClick={() => copyToClipboard(lastResult.raw_code!)} title="Copy code">
+                    <Copy className="w-4 h-4 mr-2" /> Copy
+                  </Button>
+                )}
+                {lastResult.raw_code && (
+                  <Button size="sm" variant="outline" onClick={() => validateTicket(lastResult.raw_code!)} title="Re-check this ticket">
+                    <RotateCcw className="w-4 h-4 mr-2" /> Re-check
+                  </Button>
+                )}
+                <Badge variant="outline" className="text-xs">
+                  {new Date(lastResult.timestamp).toLocaleTimeString()}
+                </Badge>
+              </div>
             </div>
           </div>
         )}
@@ -626,14 +703,19 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
           <CardContent className="space-y-4">
             {scanMode === 'manual' ? (
               <>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter ticket code manually"
-                    value={manualCode}
-                    onChange={(e) => setManualCode(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleManualScan()}
-                    disabled={scanning}
-                  />
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <label htmlFor={manualInputId} className="sr-only">Ticket code</label>
+                    <Input
+                      id={manualInputId}
+                      placeholder="Enter ticket code manually"
+                      value={manualCode}
+                      onChange={(e) => setManualCode(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleManualScan()}
+                      disabled={scanning}
+                      autoFocus
+                    />
+                  </div>
                   <Button onClick={handleManualScan} disabled={scanning || !manualCode.trim()}>
                     {scanning ? 'Validating…' : 'Scan'}
                   </Button>
@@ -651,6 +733,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                     className="border rounded-md px-2 py-1 text-sm"
                     value={selectedDeviceId}
                     onChange={(e) => setSelectedDeviceId(e.target.value)}
+                    aria-label="Select camera"
                   >
                     {devices.map(d => (
                       <option key={d.deviceId} value={d.deviceId}>
@@ -692,18 +775,28 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                   </div>
                 </div>
 
-                <div className="bg-black rounded-lg aspect-video flex items-center justify-center overflow-hidden">
+                {/* Camera viewport with subtle overlay; click to pause/resume */}
+                <div
+                  className="relative bg-black rounded-lg aspect-video flex items-center justify-center overflow-hidden"
+                  onClick={() => setPaused(p => !p)}
+                  role="button"
+                  aria-label={paused ? 'Resume scanning' : 'Pause scanning'}
+                  title={paused ? 'Resume scanning' : 'Pause scanning'}
+                >
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
-                    className="w-full h-full object-cover rounded-lg"
+                    className={`w-full h-full object-cover rounded-lg transition-opacity ${paused ? 'opacity-70' : 'opacity-100'}`}
                     muted
-                    aria-label="Camera preview"
                   />
+                  {/* overlay */}
+                  <div className="pointer-events-none absolute inset-0 grid place-items-center">
+                    <div className="w-[64%] max-w-[520px] aspect-square rounded-xl border-2 border-white/40"></div>
+                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground text-center">
-                  Point your camera at a QR code to scan.
+                  {paused ? 'Paused — click video to resume' : 'Point your camera at a QR code to scan.'}
                 </p>
               </>
             )}
@@ -718,7 +811,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
           <Card><CardContent className="pt-6 text-center"><div className="text-2xl font-bold text-destructive">{invalidScans}</div><p className="text-xs text-muted-foreground">Invalid</p></CardContent></Card>
         </div>
 
-        {/* Scan History */}
+        {/* Scan History (clickable rows) */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -751,8 +844,13 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
             ) : (
               <div className="space-y-3">
                 {scanHistory.slice(0, 12).map((scan) => (
-                  <div key={scan.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
+                  <button
+                    key={scan.id}
+                    className="w-full text-left flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition"
+                    onClick={() => scan.raw_code && validateTicket(scan.raw_code)}
+                    title={scan.raw_code ? 'Re-check this ticket' : 'View'}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={`w-3 h-3 rounded-full ${
                           scan.result === 'valid'
@@ -765,19 +863,21 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                         }`}
                         aria-hidden
                       />
-                      <div>
-                        <p className="font-medium">{scan.ticket ? scan.ticket.attendee_name : 'Unknown'}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span className="truncate max-w-[52vw] md:max-w-[38rem]">{scan.message}</span>
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">
+                          {scan.ticket ? scan.ticket.attendee_name : (scan.raw_code || 'Unknown')}
+                        </p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
+                          <span className="truncate">{scan.message}</span>
                           {scan.ticket?.badge_label && (
-                            <Badge variant="outline" className="text-xs whitespace-nowrap">
+                            <Badge variant="outline" className="text-xs whitespace-nowrap shrink-0">
                               {scan.ticket.badge_label}
                             </Badge>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <p className="text-sm font-medium">
                         {RESULT_LABEL[scan.result] || 'Invalid'}
                       </p>
@@ -785,7 +885,7 @@ export function ScannerPage({ eventId, onBack }: ScannerPageProps) {
                         {new Date(scan.timestamp).toLocaleTimeString()}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
