@@ -114,6 +114,9 @@ verify_jwt = false
 [functions.payment-success-handler]
 verify_jwt = false
 
+[functions.ensure-tickets]
+verify_jwt = false
+
 [functions.inventory-monitor]
 verify_jwt = false
 
