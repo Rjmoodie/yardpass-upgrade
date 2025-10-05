@@ -70,7 +70,7 @@ serve(async (req) => {
     // 3) Load items WITHOUT embed to avoid "multiple relationships" error
     const { data: items, error: itErr } = await admin
       .from("order_items")
-      .select("id, tier_id, quantity")
+      .select("id, ticket_tier_id, tier_id, quantity")
       .eq("order_id", order_id);
 
     if (itErr) {
@@ -83,8 +83,11 @@ serve(async (req) => {
       return err("No order items found", 422);
     }
 
-    // Load tiers separately
-    const tierIds = Array.from(new Set(items.map(i => i.tier_id).filter(Boolean)));
+    // Load tiers separately (support both possible FK names)
+    const tierIds = Array.from(new Set(items
+      .map((i: any) => i.tier_id ?? i.ticket_tier_id)
+      .filter(Boolean)
+    ));
     const { data: tiers, error: tErr } = await admin
       .from("ticket_tiers")
       .select("id, event_id, name")
@@ -95,25 +98,25 @@ serve(async (req) => {
       return err(`Load tiers failed: ${tErr.message}`, 500);
     }
 
-    const tierMap = new Map(tiers?.map(t => [t.id, t]) || []);
+    const tierMap = new Map((tiers || []).map((t: any) => [t.id, t]));
 
     // 4) Build ticket rows
     const rows: any[] = [];
-    for (const it of items) {
+    for (const it of items as any[]) {
       const q = Math.max(0, Number(it.quantity) || 0);
       if (!q) continue;
-      const tt = tierMap.get(it.tier_id);
+      const tierId = it.tier_id ?? it.ticket_tier_id;
+      const tt = tierMap.get(tierId);
       if (!tt) {
-        console.error(`[ENSURE-TICKETS] Missing tier ${it.tier_id} for order item ${it.id}`);
-        return err(`Missing tier ${it.tier_id} for order item ${it.id}`, 422);
+        console.error(`[ENSURE-TICKETS] Missing tier ${tierId} for order item ${it.id}`);
+        return err(`Missing tier ${tierId} for order item ${it.id}`, 422);
       }
 
       for (let n = 1; n <= q; n++) {
         rows.push({
           event_id: tt.event_id,
           order_id,
-          tier_id: it.tier_id,
-          serial_no: n,
+          tier_id: tierId,
           qr_code: code(8),
           status: "issued",
           owner_user_id: order.user_id ?? null,

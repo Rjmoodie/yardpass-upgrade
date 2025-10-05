@@ -130,36 +130,47 @@ export function PurchaseSuccessHandler() {
 
   const processPayment = async () => {
     if (!sessionId || processing || hasProcessedPayment) return;
-    
     setProcessing(true);
-    setHasProcessedPayment(true); // Prevent multiple payment processing attempts
-    
+    setHasProcessedPayment(true);
+
     try {
-      console.log('💳 Processing payment for session:', sessionId);
-      
-      const { data, error } = await supabase.functions.invoke('process-payment', {
-        body: { sessionId }  // Keep original parameter name
+      console.log('🧾 Ensuring tickets via ensure-tickets for session:', sessionId);
+
+      // Find order by session id
+      const { data: order, error: orderErr } = await supabase
+        .from('orders')
+        .select('id, status')
+        .eq('stripe_session_id', sessionId)
+        .maybeSingle();
+
+      if (orderErr || !order) {
+        console.error('❌ Order lookup failed:', orderErr);
+        throw new Error('Order not found');
+      }
+
+      // Idempotent: this will no-op if tickets already exist
+      const { data, error } = await supabase.functions.invoke('ensure-tickets', {
+        body: { order_id: order.id },
       });
-      
+
       if (error) {
-        console.error('❌ Payment processing error:', error);
+        console.error('❌ ensure-tickets error:', error);
         throw error;
       }
-      
-      console.log('✅ Payment processed successfully:', data);
-      
-      // Refresh order status after processing
+
+      console.log('✅ ensure-tickets result:', data);
+
+      // Refresh order status and tickets
       setTimeout(() => {
         refetch();
-      }, 1000); // Give a small delay for database to update
-      
+        forceRefreshTickets();
+      }, 800);
     } catch (error) {
-      console.error('❌ Failed to process payment:', error);
-      setHasProcessedPayment(false); // Allow retry on error
+      console.error('❌ Failed to ensure tickets:', error);
+      setHasProcessedPayment(false);
       toast({
-        title: 'Payment Processing Error',
-        description: 'There was an issue processing your payment. Please contact support if this persists.',
-        variant: 'destructive',
+        title: 'Finalizing Tickets',
+        description: 'We are finalizing your tickets. If they don\'t appear, check your Tickets page shortly.',
       });
     } finally {
       setProcessing(false);
