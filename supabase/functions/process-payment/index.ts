@@ -54,82 +54,6 @@ serve(async (req) => {
 
     logStep("Order found", { orderId: order.id, status: order.status });
 
-    // If already paid, return success immediately
-    if (order.status === 'paid') {
-      const { data: tickets } = await supabaseService
-        .from("tickets")
-        .select("id")
-        .eq("order_id", order.id);
-
-      logStep("Order already paid, returning existing data", { ticketCount: tickets?.length || 0 });
-
-      return createResponse({
-        order: {
-          id: order.id,
-          event_title: order.events?.title || "Event",
-          event_start_at: order.events?.start_at,
-          event_venue: order.events?.venue,
-          event_city: order.events?.city,
-          tickets_count: tickets?.length || 0,
-          total_amount: order.total_cents / 100,
-          status: 'paid'
-        }
-      });
-    }
-
-    // Start background ticket creation immediately
-    const ticketCreationPromise = (async () => {
-      // Get order items
-      const { data: orderItems, error: itemsError } = await supabaseService
-        .from("order_items")
-        .select(`
-          *,
-          ticket_tiers (
-            name,
-            price_cents
-          )
-        `)
-        .eq("order_id", order.id);
-
-      if (itemsError) {
-        logStep("Failed to fetch order items", { error: itemsError.message });
-        throw new Error("Failed to fetch order items");
-      }
-
-      // Create tickets
-      const ticketsToCreate = [];
-      for (const item of orderItems || []) {
-        for (let i = 0; i < item.quantity; i++) {
-          ticketsToCreate.push({
-            event_id: order.event_id,
-            tier_id: item.tier_id,
-            order_id: order.id,
-            owner_user_id: order.user_id,
-            qr_code: `ticket_${order.id}_${item.tier_id}_${Date.now()}_${i}`,
-            status: 'issued'
-          });
-        }
-      }
-
-      const { data: createdTickets, error: ticketsError } = await supabaseService
-        .from("tickets")
-        .insert(ticketsToCreate)
-        .select('id');
-
-      if (ticketsError) {
-        logStep("Failed to create tickets", { error: ticketsError.message });
-        throw new Error("Failed to create tickets");
-      }
-
-      logStep("Tickets created successfully", { count: ticketsToCreate.length });
-      
-      return { 
-        count: ticketsToCreate.length, 
-        items: orderItems,
-        ticketIds: (createdTickets || []).map(t => t.id)
-      };
-    })();
-
     // Mark order as paid first
     const { error: updateError } = await supabaseService
       .from("orders")
@@ -146,10 +70,27 @@ serve(async (req) => {
 
     logStep("Order marked as paid");
 
-    // Wait for tickets to be created
-    const ticketResult = await ticketCreationPromise;
-    const ticketCount = ticketResult.count;
-    const ticketIds = ticketResult.ticketIds;
+    // Use ensure-tickets function for idempotent ticket creation
+    const ensureTicketsResponse = await supabaseService.functions.invoke('ensure-tickets', {
+      body: { order_id: order.id }
+    });
+
+    if (ensureTicketsResponse.error) {
+      logStep("Ensure tickets failed", { error: ensureTicketsResponse.error });
+      throw new Error(`Failed to ensure tickets: ${ensureTicketsResponse.error.message}`);
+    }
+
+    const ticketCount = ensureTicketsResponse.data?.issued || ensureTicketsResponse.data?.already_issued || 0;
+    
+    // Get ticket IDs for email
+    const { data: tickets } = await supabaseService
+      .from("tickets")
+      .select("id")
+      .eq("order_id", order.id);
+    
+    const ticketIds = (tickets || []).map(t => t.id);
+
+    logStep("Tickets ensured", { count: ticketCount });
 
     // Send purchase confirmation email
     try {
@@ -164,7 +105,14 @@ serve(async (req) => {
         logStep("Sending purchase confirmation email", { email: userProfile.email });
 
         // Get first ticket tier name for the email
-        const ticketType = ticketResult.items?.[0]?.ticket_tiers?.name || "General Admission";
+        const { data: firstTier } = await supabaseService
+          .from("order_items")
+          .select("ticket_tiers(name)")
+          .eq("order_id", order.id)
+          .limit(1)
+          .maybeSingle();
+        
+        const ticketType = firstTier?.ticket_tiers?.name || "General Admission";
         
         // Format event date
         const eventDate = order.events?.start_at 
