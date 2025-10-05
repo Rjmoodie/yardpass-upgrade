@@ -113,36 +113,36 @@
 }
 
 /* Dark Theme - iOS-inspired dark colors */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: 210 22% 9%;           /* iOS Dark Background */
-    --foreground: 210 17% 95%;
-    --card: 210 22% 11%;                /* iOS Dark Card */
-    --card-foreground: 210 17% 95%;
-    --popover: 210 22% 11%;
-    --popover-foreground: 210 17% 95%;
-    --primary: 35 100% 65%;             /* Bright orange for dark mode */
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 35 100% 75%;        /* Bright amber glow */
-    --secondary: 210 22% 15%;           /* iOS Dark Secondary */
-    --secondary-foreground: 210 17% 85%;
-    --muted: 210 22% 15%;
-    --muted-foreground: 210 17% 60%;
-    --accent: 35 100% 65%;              /* Match primary orange */
-    --accent-foreground: 0 0% 100%;
-    --destructive: 358 75% 65%;         /* Slightly lighter red for dark mode */
-    --destructive-foreground: 210 22% 9%;
-    --success: 145 63% 55%;             /* Slightly lighter green for dark mode */
-    --success-foreground: 210 22% 9%;
-    --warning: 41 97% 60%;              /* Slightly lighter orange for dark mode */
-    --warning-foreground: 210 22% 9%;
-    --border: 210 22% 18%;
-    --input: 210 22% 15%;
-    --ring: 35 100% 65%;                /* Match primary orange */
-    
-    /* Dark mode glassmorphism */
-    --glass-bg: hsl(210 22% 11% / 0.8);
-    --glass-border: hsl(210 17% 95% / 0.1);
+/* Dark mode variables - using .dark class selector for next-themes */
+.dark {
+  --background: 210 22% 9%;           /* iOS Dark Background */
+  --foreground: 210 17% 95%;
+  --card: 210 22% 11%;                /* iOS Dark Card */
+  --card-foreground: 210 17% 95%;
+  --popover: 210 22% 11%;
+  --popover-foreground: 210 17% 95%;
+  --primary: 35 100% 65%;             /* Bright orange for dark mode */
+  --primary-foreground: 0 0% 100%;
+  --primary-glow: 35 100% 75%;        /* Bright amber glow */
+  --secondary: 210 22% 15%;           /* iOS Dark Secondary */
+  --secondary-foreground: 210 17% 85%;
+  --muted: 210 22% 15%;
+  --muted-foreground: 210 17% 60%;
+  --accent: 35 100% 65%;              /* Match primary orange */
+  --accent-foreground: 0 0% 100%;
+  --destructive: 358 75% 65%;         /* Slightly lighter red for dark mode */
+  --destructive-foreground: 210 22% 9%;
+  --success: 145 63% 55%;             /* Slightly lighter green for dark mode */
+  --success-foreground: 210 22% 9%;
+  --warning: 41 97% 60%;              /* Slightly lighter orange for dark mode */
+  --warning-foreground: 210 22% 9%;
+  --border: 210 22% 18%;
+  --input: 210 22% 15%;
+  --ring: 35 100% 65%;                /* Match primary orange */
+  
+  /* Dark mode glassmorphism */
+  --glass-bg: hsl(210 22% 11% / 0.8);
+  --glass-border: hsl(210 17% 95% / 0.1);
 
     /* Dark mode counterparts */
     --overlay: hsla(0, 0%, 0%, 0.60);
@@ -163,7 +163,6 @@
     --toast-bg: 210 22% 11%;
     --toast-text: 210 17% 95%;
     --toast-border: 210 22% 18%;
-  }
 }
 
 /* iOS-Native Base Styles */
