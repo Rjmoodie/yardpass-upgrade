@@ -40,7 +40,21 @@ export function PurchaseSuccessHandler() {
 
         if (error) {
           console.error('❌ ensure-tickets network error:', error);
-          // Network/server-500 case; retry with backoff
+          // Check if it's a 404 (function not deployed)
+          const status = (error as any)?.context?.status ?? (error as any)?.status;
+          if (status === 404) {
+            // Function not found → fallback: refresh wallet and redirect
+            localStorage.setItem(triedKey, 'done');
+            try { await forceRefreshTickets(); } catch {}
+            toast({
+              title: 'Tickets Ready',
+              description: "We're finalizing in the background. Taking you to your ticket wallet.",
+            });
+            setRedirecting(true);
+            setTimeout(() => navigate('/tickets', { replace: true }), 1500);
+            return;
+          }
+          // Other transient errors → retry with backoff
           if (attempts < 8) {
             setTimeout(() => setAttempts(a => a + 1), backoffMs(attempts));
           }
