@@ -5080,6 +5080,10 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_order_ticketing: {
+        Args: { p_order_id: string }
+        Returns: boolean
+      }
       cleanup_expired_holds: {
         Args: Record<PropertyKey, never>
         Returns: Json
