@@ -194,7 +194,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       const iso = new Date(`${formData.startDate}T${formData.startTime}`).toISOString();
       series.setState(s => ({ ...s, seriesStartISO: iso }));
     }
-  }, [formData.startDate, formData.startTime, series]);
+  }, [formData.startDate, formData.startTime]); // Removed 'series' to prevent infinite loop
 
   // Auto-end time default & keep duration if user sets end later
   useEffect(() => {
