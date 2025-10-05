@@ -2510,6 +2510,7 @@ export type Database = {
           stripe_payment_intent_id: string | null
           stripe_session_id: string | null
           subtotal_cents: number
+          tickets_issued_count: number | null
           total_cents: number
           user_id: string
         }
@@ -2529,6 +2530,7 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           subtotal_cents?: number
+          tickets_issued_count?: number | null
           total_cents?: number
           user_id: string
         }
@@ -2548,6 +2550,7 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           subtotal_cents?: number
+          tickets_issued_count?: number | null
           total_cents?: number
           user_id?: string
         }
@@ -3923,6 +3926,7 @@ export type Database = {
           owner_user_id: string
           qr_code: string
           redeemed_at: string | null
+          serial_no: number | null
           status: Database["public"]["Enums"]["ticket_status"]
           tier_id: string
           wallet_pass_url: string | null
@@ -3935,6 +3939,7 @@ export type Database = {
           owner_user_id: string
           qr_code: string
           redeemed_at?: string | null
+          serial_no?: number | null
           status?: Database["public"]["Enums"]["ticket_status"]
           tier_id: string
           wallet_pass_url?: string | null
@@ -3947,6 +3952,7 @@ export type Database = {
           owner_user_id?: string
           qr_code?: string
           redeemed_at?: string | null
+          serial_no?: number | null
           status?: Database["public"]["Enums"]["ticket_status"]
           tier_id?: string
           wallet_pass_url?: string | null
