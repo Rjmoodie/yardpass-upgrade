@@ -240,7 +240,7 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         event_id: eventId,
-        stripe_session_id: session.id,
+        checkout_session_id: session.id,
         status: "pending",
         subtotal_cents: totalAmount,
         total_cents: totalAmount,

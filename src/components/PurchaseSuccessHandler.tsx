@@ -44,11 +44,10 @@ export function PurchaseSuccessHandler() {
           const status = (error as any)?.context?.status ?? (error as any)?.status;
           if (status === 404) {
             // Function not found → fallback: refresh wallet and redirect
-            localStorage.setItem(triedKey, 'done');
             try { await forceRefreshTickets(); } catch {}
             toast({
-              title: 'Tickets Ready',
-              description: "We're finalizing in the background. Taking you to your ticket wallet.",
+              title: 'Checking your wallet',
+              description: "Finalizing in the background. If you don't see new tickets, try again shortly.",
             });
             setRedirecting(true);
             setTimeout(() => navigate('/tickets', { replace: true }), 1500);
