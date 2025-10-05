@@ -24,11 +24,18 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
     console.warn("[CampaignDashboard] No orgId provided");
     return (
       <Card className="p-12 text-center">
-        <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+        <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
+          <Target className="h-12 w-12 text-muted-foreground" />
+        </div>
         <h2 className="text-2xl font-bold mb-2">Organization Required</h2>
-        <p className="text-muted-foreground mb-6">
-          Campaigns are organization-scoped. Please select or create an organization to manage campaigns.
+        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+          Campaigns are organization-scoped. Please select or create an organization to manage advertising campaigns.
         </p>
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            You need to be part of an organization to create and manage campaigns
+          </p>
+        </div>
       </Card>
     );
   }

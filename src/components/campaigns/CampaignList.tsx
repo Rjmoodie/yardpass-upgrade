@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, DollarSign, Eye, MousePointerClick, Play, Pause, Archive } from "lucide-react";
+import { Calendar, DollarSign, Eye, MousePointerClick, Play, Pause, Archive, Target } from "lucide-react";
 import { useMemo } from "react";
 
 type CampaignRow = {
@@ -56,11 +56,22 @@ export const CampaignList = ({
     console.log("[CampaignList] Showing empty state");
     return (
       <Card className="p-12 text-center">
-        <p className="text-muted-foreground mb-2">No campaigns yet for this organization.</p>
-        <p className="text-muted-foreground mb-4">
-          Create your first campaign to start seeing analytics here.
+        <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
+          <Target className="h-12 w-12 text-muted-foreground" />
+        </div>
+        <h3 className="text-xl font-semibold mb-2">No campaigns yet</h3>
+        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+          You haven't created any advertising campaigns for this organization yet. 
+          Create your first campaign to start promoting your events and tracking performance.
         </p>
-        <Button asChild><a href="#create">Create Your First Campaign</a></Button>
+        <div className="space-y-2">
+          <Button asChild size="lg">
+            <a href="#create">Create Your First Campaign</a>
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            Campaigns help you promote events and reach more attendees
+          </p>
+        </div>
       </Card>
     );
   }

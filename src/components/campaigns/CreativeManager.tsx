@@ -178,12 +178,27 @@ export const CreativeManager = ({
 
       {filtered.length === 0 && (
         <Card className="p-12 text-center">
-          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground mb-4">No creatives match your filters</p>
-          <Button onClick={onCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Your First Creative
-          </Button>
+          <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
+            <FileText className="h-12 w-12 text-muted-foreground" />
+          </div>
+          <h3 className="text-xl font-semibold mb-2">
+            {creatives.length === 0 ? "No creatives yet" : "No creatives match your filters"}
+          </h3>
+          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+            {creatives.length === 0 
+              ? "Create ad creatives to promote your campaigns. Upload images, videos, or use existing posts to reach your audience."
+              : "Try adjusting your filters to see more creatives, or create new ones."
+            }
+          </p>
+          <div className="space-y-2">
+            <Button onClick={onCreate} size="lg">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Creative
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              Creatives are the visual content that users will see in your ads
+            </p>
+          </div>
         </Card>
       )}
     </div>

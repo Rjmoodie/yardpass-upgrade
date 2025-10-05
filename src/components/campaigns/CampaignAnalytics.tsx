@@ -77,6 +77,9 @@ export const CampaignAnalytics = ({
     });
   }, [series, range]);
 
+  // Check if we have any data at all
+  const hasData = totals.impressions > 0 || totals.clicks > 0 || totals.credits_spent > 0;
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -87,6 +90,30 @@ export const CampaignAnalytics = ({
         </div>
         <Skeleton className="h-96 w-full" />
       </div>
+    );
+  }
+
+  // Show empty state if no campaigns or data
+  if (!hasData) {
+    return (
+      <Card className="p-12 text-center">
+        <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
+          <BarChart3 className="h-12 w-12 text-muted-foreground" />
+        </div>
+        <h3 className="text-xl font-semibold mb-2">No analytics data yet</h3>
+        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+          Analytics data will appear here once you create and run your first campaign. 
+          Track impressions, clicks, conversions, and spending across all your advertising campaigns.
+        </p>
+        <div className="space-y-2">
+          <Button asChild size="lg">
+            <a href="#create">Create Your First Campaign</a>
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            Start with a campaign to see detailed performance analytics
+          </p>
+        </div>
+      </Card>
     );
   }
 
