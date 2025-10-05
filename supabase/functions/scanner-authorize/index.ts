@@ -1,78 +1,88 @@
+// /functions/scanner-authorize/index.ts
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
 }
 
-interface AuthorizeRequest {
-  event_id: string;
+const jsonHeaders = {
+  ...corsHeaders,
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store',
 }
+
+type Role = 'owner' | 'editor' | 'scanner' | 'none'
 
 interface AuthorizeResponse {
-  allowed: boolean;
-  role: 'owner' | 'editor' | 'scanner' | 'none';
+  allowed: boolean
+  role: Role
+}
+
+function ok(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: jsonHeaders })
+}
+
+async function safeJson<T = any>(req: Request): Promise<T | null> {
+  try {
+    return await req.json()
+  } catch {
+    return null
+  }
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {
-    const supabaseClient = createClient(
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } }
     )
 
-    // Get the session/user data
+    // Accept event_id from query string (GET) or JSON body (POST)
+    const url = new URL(req.url)
+    const qsEventId = url.searchParams.get('event_id')?.trim()
+    const body = req.method === 'GET' ? null : await safeJson<{ event_id?: string }>(req)
+    const bodyEventId = body?.event_id?.trim()
+    const event_id = qsEventId || bodyEventId || ''
+
+    // If event_id is missing, return a harmless "no access" (200) instead of throwing
+    if (!event_id) {
+      return ok(<AuthorizeResponse>{ allowed: false, role: 'none' })
+    }
+
+    // Resolve the end user (based on the bearer token from the client)
     const {
       data: { user },
-    } = await supabaseClient.auth.getUser()
+      error: userErr,
+    } = await supabase.auth.getUser()
 
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
+    // No session → treat as not allowed (200), keeps client console clean
+    if (userErr || !user) {
+      return ok(<AuthorizeResponse>{ allowed: false, role: 'none' })
     }
 
-    const { event_id }: AuthorizeRequest = await req.json()
+    console.log(`[scanner-authorize] user=${user.id} event=${event_id}`)
 
-    if (!event_id) {
-      return new Response(
-        JSON.stringify({ error: 'Missing event_id' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
+    // --- 1) Check for manager/organizer rights via RPC (your existing function) ---
+    // is_event_manager should return boolean; if it errors we fall back gracefully
+    const { data: isMgr, error: mgrErr } = await supabase.rpc('is_event_manager', { p_event_id: event_id })
+
+    if (mgrErr) {
+      console.warn('[scanner-authorize] is_event_manager RPC error:', mgrErr?.message)
     }
 
-    console.log(`Checking authorization for user ${user.id} on event ${event_id}`)
-
-    // Check if user is event manager (owner/editor)
-    const { data: isManager } = await supabaseClient
-      .rpc('is_event_manager', { p_event_id: event_id })
-
-    if (isManager) {
-      console.log('User is event manager')
-      const response: AuthorizeResponse = { allowed: true, role: 'owner' }
-      return new Response(JSON.stringify(response), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    if (isMgr === true) {
+      // If you later add a role-returning RPC, map that to 'owner' | 'editor' here.
+      const resp: AuthorizeResponse = { allowed: true, role: 'owner' }
+      return ok(resp)
     }
 
-    // Check if user is an enabled scanner for this event
-    const { data: scannerData, error: scannerError } = await supabaseClient
+    // --- 2) Check explicit scanner enablement for this event ---
+    const { data: scannerRow, error: scannerErr } = await supabase
       .from('event_scanners')
       .select('status')
       .eq('event_id', event_id)
@@ -80,39 +90,22 @@ Deno.serve(async (req) => {
       .eq('status', 'enabled')
       .maybeSingle()
 
-    if (scannerError) {
-      console.error('Error checking scanner status:', scannerError)
-      return new Response(
-        JSON.stringify({ error: 'Database error' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
+    if (scannerErr) {
+      // Database hiccup — surface as a soft "no" rather than 500 to avoid UI retry storms
+      console.warn('[scanner-authorize] event_scanners query error:', scannerErr?.message)
+      return ok(<AuthorizeResponse>{ allowed: false, role: 'none' })
     }
 
-    if (scannerData) {
-      console.log('User is enabled scanner')
-      const response: AuthorizeResponse = { allowed: true, role: 'scanner' }
-      return new Response(JSON.stringify(response), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    if (scannerRow) {
+      const resp: AuthorizeResponse = { allowed: true, role: 'scanner' }
+      return ok(resp)
     }
 
-    console.log('User has no access')
-    const response: AuthorizeResponse = { allowed: false, role: 'none' }
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-
-  } catch (error) {
-    console.error('Error in scanner-authorize:', error)
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    )
+    // --- 3) Default: no access ---
+    return ok(<AuthorizeResponse>{ allowed: false, role: 'none' })
+  } catch (e: any) {
+    // Truly unexpected error
+    console.error('[scanner-authorize] fatal error:', e?.message || e)
+    return ok(<AuthorizeResponse>{ allowed: false, role: 'none' }, 200)
   }
 })
