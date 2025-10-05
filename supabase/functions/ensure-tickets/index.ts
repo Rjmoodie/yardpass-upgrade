@@ -33,15 +33,26 @@ serve(async (req) => {
 
     console.log("[ENSURE-TICKETS] start", { order_id });
 
-    // 1) Order must exist
+    // 1) Claim advisory lock to prevent concurrent issuance
+    const { data: locked, error: lockErr } = await admin.rpc('claim_order_ticketing', { p_order_id: order_id });
+    if (lockErr) return err(`Lock failed: ${lockErr.message}`, 500);
+
+    // If we couldn't grab the lock, treat as idempotent (another worker is issuing or already issued)
+    if (!locked) {
+      const { count } = await admin.from('tickets').select('*', { head: true, count: 'exact' }).eq('order_id', order_id);
+      console.log("[ENSURE-TICKETS] lock contention, tickets already exist", { count });
+      return ok({ issued: 0, already_issued: count ?? 0, status: 'ok' });
+    }
+
+    // 2) Order must exist
     const { data: order, error: oErr } = await admin
       .from("orders")
-      .select("id, status, user_id, event_id, tickets_issued_count")
+      .select("id, status, user_id, event_id")
       .eq("id", order_id)
       .single();
     if (oErr || !order) return err("Order not found", 404);
 
-    // 2) Idempotency fast-path: any existing tickets?
+    // 3) Re-check idempotency AFTER we own the lock
     const { count: existingCount } = await admin
       .from("tickets")
       .select("*", { head: true, count: "exact" })
@@ -51,13 +62,13 @@ serve(async (req) => {
       return ok({ issued: 0, already_issued: existingCount, status: "ok" });
     }
 
-    // 3) Must be paid (or equivalent)
+    // 4) Must be paid (or equivalent)
     const paidStates = new Set(["paid","succeeded","complete","completed"]);
     if (!paidStates.has(String(order.status).toLowerCase())) {
       return err(`Order not paid (status=${order.status})`, 409);
     }
 
-    // 4) Load items (no embed; avoid relationship ambiguity)
+    // 5) Load items (no embed; avoid relationship ambiguity)
     const { data: items, error: itErr } = await admin
       .from("order_items")
       .select("id, ticket_tier_id, tier_id, quantity")
@@ -73,11 +84,11 @@ serve(async (req) => {
     })).filter(i => i.tier_id && i.quantity > 0);
     if (!normalized.length) return err("Nothing to issue (all quantities = 0)", 422);
 
-    // 5) Fetch tiers once, build map
+    // 6) Fetch tiers once, build map (only need event_id and name for ticket creation)
     const tierIds = Array.from(new Set(normalized.map(i => i.tier_id)));
     const { data: tiers, error: tErr } = await admin
       .from("ticket_tiers")
-      .select("id, event_id, name, total_quantity, sold_quantity")
+      .select("id, event_id, name")
       .in("id", tierIds.length ? tierIds : ["00000000-0000-0000-0000-000000000000"]);
     if (tErr) return err(`Load tiers failed: ${tErr.message}`, 500);
 
@@ -88,21 +99,8 @@ serve(async (req) => {
       }
     }
 
-    // 6) Optional capacity check (only if total/sold exist)
-    for (const it of normalized) {
-      const tt = tierMap.get(it.tier_id)!;
-      const hasInventory = Number.isFinite(tt?.total_quantity);
-      if (hasInventory) {
-        const sold = Number(tt.sold_quantity ?? 0);
-        const total = Number(tt.total_quantity ?? 0);
-        const available = Math.max(0, total - sold);
-        if (it.quantity > available) {
-          return err(`Tier ${it.tier_id} over capacity: request=${it.quantity} available=${available}`, 409);
-        }
-      }
-    }
-
-    // 7) Build ticket rows - DB assigns serial_no via trigger and qr_code via DEFAULT
+    // 7) Build ticket rows - DB enforces capacity via BEFORE INSERT trigger
+    // DB assigns serial_no via trigger and qr_code via DEFAULT
     const rows: any[] = [];
     for (const it of normalized) {
       const tt = tierMap.get(it.tier_id)!;
@@ -121,20 +119,24 @@ serve(async (req) => {
     }
 
     // 8) Insert tickets (serial_no & qr_code auto-assigned by DB)
-    // Note: We use insert instead of upsert since serial_no is assigned by trigger
-    const { error: insErr, count: insCount } = await admin
+    // Capacity enforced by BEFORE INSERT trigger, counts updated by AFTER INSERT trigger
+    const { error: insErr } = await admin
       .from("tickets")
-      .insert(rows, { count: "exact" });
+      .insert(rows);
     if (insErr) {
       console.error("[ENSURE-TICKETS] insert failed", { error: insErr.message, code: insErr.code });
+      // Capacity errors will be EXCEPTION from trigger
+      if (insErr.message?.includes('at capacity')) {
+        return err(insErr.message, 409);
+      }
       return err(`Insert tickets failed: ${insErr.message}`, 500);
     }
 
-    // 9) Mark order as complete (don't downgrade status if it's already complete)
+    // 9) Mark order as complete (trigger updates tickets_issued_count automatically)
     const nextStatus = paidStates.has(String(order.status).toLowerCase()) ? "complete" : order.status;
     await admin
       .from("orders")
-      .update({ status: nextStatus, tickets_issued_count: insCount ?? 0, paid_at: new Date().toISOString() })
+      .update({ status: nextStatus, paid_at: new Date().toISOString() })
       .eq("id", order_id);
 
     const { count: finalCount } = await admin
