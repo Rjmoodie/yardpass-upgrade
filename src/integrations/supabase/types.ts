@@ -2495,6 +2495,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          checkout_session_id: string | null
           created_at: string | null
           currency: string
           event_id: string
@@ -2515,6 +2516,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          checkout_session_id?: string | null
           created_at?: string | null
           currency?: string
           event_id: string
@@ -2535,6 +2537,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          checkout_session_id?: string | null
           created_at?: string | null
           currency?: string
           event_id?: string
@@ -3922,11 +3925,11 @@ export type Database = {
           created_at: string | null
           event_id: string
           id: string
-          order_id: string | null
+          order_id: string
           owner_user_id: string
           qr_code: string
           redeemed_at: string | null
-          serial_no: number | null
+          serial_no: number
           status: Database["public"]["Enums"]["ticket_status"]
           tier_id: string
           wallet_pass_url: string | null
@@ -3935,11 +3938,11 @@ export type Database = {
           created_at?: string | null
           event_id: string
           id?: string
-          order_id?: string | null
+          order_id: string
           owner_user_id: string
           qr_code: string
           redeemed_at?: string | null
-          serial_no?: number | null
+          serial_no: number
           status?: Database["public"]["Enums"]["ticket_status"]
           tier_id: string
           wallet_pass_url?: string | null
@@ -3948,11 +3951,11 @@ export type Database = {
           created_at?: string | null
           event_id?: string
           id?: string
-          order_id?: string | null
+          order_id?: string
           owner_user_id?: string
           qr_code?: string
           redeemed_at?: string | null
-          serial_no?: number | null
+          serial_no?: number
           status?: Database["public"]["Enums"]["ticket_status"]
           tier_id?: string
           wallet_pass_url?: string | null
@@ -3994,7 +3997,21 @@ export type Database = {
             referencedColumns: ["event_id"]
           },
           {
+            foreignKeyName: "fk_tickets_orders"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_tickets_tier_id"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_tickets_tiers"
             columns: ["tier_id"]
             isOneToOne: false
             referencedRelation: "ticket_tiers"
@@ -4833,7 +4850,21 @@ export type Database = {
             referencedColumns: ["event_id"]
           },
           {
+            foreignKeyName: "fk_tickets_orders"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_tickets_tier_id"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_tickets_tiers"
             columns: ["tier_id"]
             isOneToOne: false
             referencedRelation: "ticket_tiers"
