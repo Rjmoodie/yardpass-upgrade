@@ -15,7 +15,7 @@ const admin = createClient(
 
 const paidStates = new Set(["paid","succeeded","complete","completed"]);
 
-const ok  = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "content-type": "application/json" }});
+const ok  = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "content-type": "application/json", "cache-control": "no-store" }});
 const err = (m: string, s = 400) => ok({ error: m }, s);
 
 function safeJson(req: Request) {
@@ -41,15 +41,15 @@ serve(async (req) => {
     if (order_id_in) {
       const { data, error } = await admin
         .from("orders")
-        .select("id, status, user_id, event_id, tickets_issued_count, stripe_session_id")
+        .select("id, status, user_id, event_id, tickets_issued_count, checkout_session_id")
         .eq("id", order_id_in).maybeSingle();
       if (error) return err(`Order lookup failed: ${error.message}`, 500);
       order = data;
     } else if (session_id) {
       const { data, error } = await admin
         .from("orders")
-        .select("id, status, user_id, event_id, tickets_issued_count, stripe_session_id")
-        .eq("stripe_session_id", session_id).maybeSingle();
+        .select("id, status, user_id, event_id, tickets_issued_count, checkout_session_id")
+        .eq("checkout_session_id", session_id).maybeSingle();
       if (error) return err(`Order lookup by session failed: ${error.message}`, 500);
       order = data;
     } else {
