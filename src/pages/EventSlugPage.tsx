@@ -475,8 +475,7 @@ export default function EventSlugPage() {
                   <div>
                     <div className="font-medium">Location</div>
                     <div className="text-muted-foreground">
-                      {event.venue && <div>{event.venue}</div>}
-                      <div>{[event.city, event.country].filter(Boolean).join(', ')}</div>
+                      {fullAddress}
                     </div>
                   </div>
                 </div>
