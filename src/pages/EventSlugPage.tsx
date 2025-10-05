@@ -202,8 +202,9 @@ export default function EventSlugPage() {
     linkToken: event.visibility === 'unlisted' ? event.link_token ?? null : null,
   });
 
-  const fullAddress =
-    [event.venue, event.city, event.country].filter(Boolean).join(', ') || undefined;
+  // Construct address with better validation
+  const fullAddress = [event.venue, event.city, event.country].filter(Boolean).join(', ') || '';
+  const hasMappable = Boolean(event.city || event.venue || event.country);
 
   const meta = buildMeta(event, when, `${safeOrigin}${shareUrl}`);
 
@@ -401,7 +402,7 @@ export default function EventSlugPage() {
       </div>
 
       {/* MAP */}
-      {fullAddress ? (
+      {hasMappable && (
         <div className="max-w-3xl mx-auto px-4 mt-4">
           <Suspense
             fallback={<div className="h-64 w-full bg-muted animate-pulse rounded-lg" />}
@@ -411,10 +412,12 @@ export default function EventSlugPage() {
               title={event.title}
               height={280}
               showControls={false}
+              // If you store ISO-2 country codes, pass them for better accuracy:
+              // countryBias={event.country_code ?? undefined}
             />
           </Suspense>
         </div>
-      ) : null}
+      )}
 
       {/* EVENT DESCRIPTION */}
       {event.description ? (
