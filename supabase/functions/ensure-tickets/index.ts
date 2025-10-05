@@ -13,6 +13,8 @@ const admin = createClient(
   { auth: { persistSession: false } }
 );
 
+const paidStates = new Set(["paid","succeeded","complete","completed"]);
+
 const ok  = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "content-type": "application/json" }});
 const err = (m: string, s = 400) => ok({ error: m }, s);
 
@@ -20,55 +22,72 @@ function safeJson(req: Request) {
   return req.json().catch(() => ({}));
 }
 
-// Removed: DB now handles QR generation via gen_qr_code() DEFAULT
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const url = new URL(req.url);
-    const body = req.method === "GET" ? { order_id: url.searchParams.get("order_id") } : await safeJson(req);
-    const order_id = String(body.order_id || "").trim();
-    if (!order_id) return err("Missing order_id", 422);
+    const body = req.method === "GET" ? {
+      order_id: url.searchParams.get("order_id"),
+      session_id: url.searchParams.get("session_id"),
+    } : await safeJson(req);
 
-    console.log("[ENSURE-TICKETS] start", { order_id });
+    const order_id_in = String(body.order_id || "").trim();
+    const session_id = String(body.session_id || "").trim();
 
-    // 1) Claim advisory lock to prevent concurrent issuance
-    const { data: locked, error: lockErr } = await admin.rpc('claim_order_ticketing', { p_order_id: order_id });
-    if (lockErr) return err(`Lock failed: ${lockErr.message}`, 500);
+    // 1) Resolve order either by id or by checkout_session_id
+    let order: any | null = null;
 
-    // If we couldn't grab the lock, treat as idempotent (another worker is issuing or already issued)
-    if (!locked) {
-      const { count } = await admin.from('tickets').select('*', { head: true, count: 'exact' }).eq('order_id', order_id);
-      console.log("[ENSURE-TICKETS] lock contention, tickets already exist", { count });
-      return ok({ issued: 0, already_issued: count ?? 0, status: 'ok' });
+    if (order_id_in) {
+      const { data, error } = await admin
+        .from("orders")
+        .select("id, status, user_id, event_id, tickets_issued_count, stripe_session_id")
+        .eq("id", order_id_in).maybeSingle();
+      if (error) return err(`Order lookup failed: ${error.message}`, 500);
+      order = data;
+    } else if (session_id) {
+      const { data, error } = await admin
+        .from("orders")
+        .select("id, status, user_id, event_id, tickets_issued_count, stripe_session_id")
+        .eq("stripe_session_id", session_id).maybeSingle();
+      if (error) return err(`Order lookup by session failed: ${error.message}`, 500);
+      order = data;
+    } else {
+      return err("Provide order_id or session_id", 422);
     }
 
-    // 2) Order must exist
-    const { data: order, error: oErr } = await admin
-      .from("orders")
-      .select("id, status, user_id, event_id")
-      .eq("id", order_id)
-      .single();
-    if (oErr || !order) return err("Order not found", 404);
+    if (!order) return err("Order not found", 404);
+    const order_id = order.id as string;
 
-    // 3) Re-check idempotency AFTER we own the lock
-    const { count: existingCount } = await admin
+    console.log("[ENSURE-TICKETS] start", { order_id, session_id });
+
+    // 2) Fast-path if tickets already exist
+    const { count: existingCount, error: cErr } = await admin
       .from("tickets")
       .select("*", { head: true, count: "exact" })
       .eq("order_id", order_id);
+    if (cErr) return err(`Count failed: ${cErr.message}`, 500);
     if ((existingCount ?? 0) > 0) {
       console.log("[ENSURE-TICKETS] already issued", { existingCount });
-      return ok({ issued: 0, already_issued: existingCount, status: "ok" });
+      return ok({ status: "already_issued", issued: existingCount });
     }
 
-    // 4) Must be paid (or equivalent)
-    const paidStates = new Set(["paid","succeeded","complete","completed"]);
-    if (!paidStates.has(String(order.status).toLowerCase())) {
-      return err(`Order not paid (status=${order.status})`, 409);
+    // 3) If not paid yet, don't throw - return 200 with pending state
+    const isPaid = paidStates.has(String(order.status).toLowerCase());
+    if (!isPaid) {
+      console.log("[ENSURE-TICKETS] order not paid yet", { status: order.status });
+      return ok({ status: "pending", order_status: order.status });
     }
 
-    // 5) Load items (no embed; avoid relationship ambiguity)
+    // 4) Claim advisory lock to serialize concurrent issuers
+    const { data: locked, error: lockErr } = await admin.rpc('claim_order_ticketing', { p_order_id: order_id });
+    if (lockErr) return err(`Lock failed: ${lockErr.message}`, 500);
+    if (!locked) {
+      console.log("[ENSURE-TICKETS] lock contention, another process is issuing");
+      return ok({ status: "busy" });
+    }
+
+    // 5) Load items
     const { data: items, error: itErr } = await admin
       .from("order_items")
       .select("id, ticket_tier_id, tier_id, quantity")
@@ -118,22 +137,21 @@ serve(async (req) => {
       }
     }
 
-    // 8) Insert tickets (serial_no & qr_code auto-assigned by DB)
-    // Capacity enforced by BEFORE INSERT trigger, counts updated by AFTER INSERT trigger
+    // 6) Insert tickets (DB assigns serial_no + qr_code; triggers handle capacity & counts)
     const { error: insErr } = await admin
       .from("tickets")
       .insert(rows);
     if (insErr) {
       console.error("[ENSURE-TICKETS] insert failed", { error: insErr.message, code: insErr.code });
-      // Capacity errors will be EXCEPTION from trigger
-      if (insErr.message?.includes('at capacity')) {
-        return err(insErr.message, 409);
+      // Capacity errors are graceful - trigger raises exception
+      if (insErr.message?.includes('capacity') || insErr.message?.includes('Tier')) {
+        return ok({ status: "capacity_error", message: insErr.message });
       }
       return err(`Insert tickets failed: ${insErr.message}`, 500);
     }
 
-    // 9) Mark order as complete (trigger updates tickets_issued_count automatically)
-    const nextStatus = paidStates.has(String(order.status).toLowerCase()) ? "complete" : order.status;
+    // 7) Mark order complete and return final count
+    const nextStatus = "complete";
     await admin
       .from("orders")
       .update({ status: nextStatus, paid_at: new Date().toISOString() })
@@ -145,7 +163,7 @@ serve(async (req) => {
       .eq("order_id", order_id);
 
     console.log("[ENSURE-TICKETS] success", { order_id, issued: finalCount ?? 0 });
-    return ok({ issued: finalCount ?? 0, status: "ok" });
+    return ok({ status: "issued", issued: finalCount ?? 0 });
   } catch (e: any) {
     console.error("[ENSURE-TICKETS] error", { message: e?.message, stack: e?.stack });
     return err(`ensure-tickets error: ${e?.message || String(e)}`, 500);
