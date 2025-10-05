@@ -3940,7 +3940,7 @@ export type Database = {
           id?: string
           order_id: string
           owner_user_id: string
-          qr_code: string
+          qr_code?: string
           redeemed_at?: string | null
           serial_no: number
           status?: Database["public"]["Enums"]["ticket_status"]
@@ -5158,6 +5158,10 @@ export type Database = {
       execute_sql: {
         Args: { sql_query: string }
         Returns: Json
+      }
+      gen_qr_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       get_active_event_sponsors: {
         Args: { p_event_ids: string[] }
