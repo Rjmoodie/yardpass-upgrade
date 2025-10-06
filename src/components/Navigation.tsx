@@ -163,7 +163,7 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div className="glass-nav px-2 sm:px-4 py-2 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 safe-bottom">
+    <div className="glass-nav px-2 sm:px-4 pt-2 pb-safe-or-2 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 backdrop-blur-xl bg-background/80 shadow-[0_-1px_3px_rgba(0,0,0,0.1)]">
       <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-0.5 sm:gap-1 w-full max-w-md mx-auto justify-evenly">
         {navItems.map((item) => {
           const Icon = item.icon;

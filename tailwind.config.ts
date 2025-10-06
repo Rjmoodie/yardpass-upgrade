@@ -103,6 +103,8 @@ export default {
         "safe-bottom": "var(--safe-area-inset-bottom)",
         "safe-left": "var(--safe-area-inset-left)",
         "safe-right": "var(--safe-area-inset-right)",
+        "safe-or-2": "max(env(safe-area-inset-bottom, 0rem), 0.5rem)",
+        "safe-or-4": "max(env(safe-area-inset-bottom, 0rem), 1rem)",
       },
       borderRadius: {
         xs: "var(--radius-xs)",
