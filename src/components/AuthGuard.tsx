@@ -88,6 +88,7 @@ export function AuthGuard({
   const { user, profile, loading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const from = `${location.pathname}${location.search}${location.hash}`;
 
   // Full-auth status
   const isAuthed = !!user;
@@ -143,7 +144,7 @@ export function AuthGuard({
 
     // Optional redirect instead of rendering fallback
     if (redirectTo) {
-      const next = encodeURIComponent(location.pathname + location.search);
+      const next = encodeURIComponent(from);
       // Only navigate on the client
       if (typeof window !== 'undefined') {
         // Avoid double navigation in StrictMode
