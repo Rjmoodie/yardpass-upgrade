@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import "@mux/mux-player/themes/microvideo.css";
 import MuxPlayer from "@mux/mux-player-react";
 import { Button } from "@/components/ui/button";
 import { Volume2, VolumeX, Bookmark } from "lucide-react";
