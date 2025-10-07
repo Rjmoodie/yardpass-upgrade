@@ -73,7 +73,6 @@ export function VideoMedia({ url, post, visible }: { url: string; post: any; vis
           viewer_user_id: viewerId,
         }}
         poster={poster}
-        preferMse
         style={{
           width: "100%",
           maxHeight: "320px",
