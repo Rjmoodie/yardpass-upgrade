@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 
 interface OrderStatus {
   id: string;
@@ -28,43 +29,25 @@ export function useOrderStatus(sessionId: string | null) {
     setError(null);
 
     try {
-      console.log('🔍 Fetching order status for session:', sessionId);
-      
-      // Construct the URL with session_id parameter
-      const functionUrl = `https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/get-order-status?session_id=${encodeURIComponent(sessionId)}`;
-      
-      const response = await fetch(functionUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await api.getOrderStatus(sessionId);
 
-      if (!response.ok) {
-        throw new Error(`Edge Function returned a non-2xx status code`);
+      if (response.error || !response.data) {
+        throw new Error(response.error || 'Failed to fetch order status');
       }
 
-      const data = await response.json();
+      const data = response.data as Partial<OrderStatus> & { status?: string };
+      const status = data.status as OrderStatus['status'] | 'not_found' | undefined;
 
-      console.log('📡 get-order-status response:', { data });
-
-      if (data.error) {
-        throw new Error(data.error || 'Failed to fetch order status');
-      }
-
-      if (data.status === 'not_found') {
-        console.log('❌ Order not found for session:', sessionId);
+      if (status === 'not_found') {
         setError('Order not found');
         setOrderStatus(null);
       } else {
-        console.log('✅ Order status received:', data);
         setOrderStatus({
-          id: data.order_id || data.id,
-          status: data.status as OrderStatus['status'],
+          id: (data as any).order_id || data.id || '',
+          status: status || 'pending',
           event_title: data.event_title || 'Event',
-          tickets_count: data.tickets_count || 0,
-          total_amount: data.total_amount || 0,
+          tickets_count: data.tickets_count ?? 0,
+          total_amount: data.total_amount ?? 0,
           created_at: data.created_at || new Date().toISOString(),
           paid_at: data.paid_at || undefined,
         });
