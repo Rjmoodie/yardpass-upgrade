@@ -1,4 +1,6 @@
+import { env } from '@/config/env';
 import { supabase } from '@/integrations/supabase/client';
+import type { RoleType } from '@/types/roles';
 
 export interface ApiResponse<T> {
   data: T | null;
@@ -16,7 +18,11 @@ class ApiClient {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1';
+    this.baseUrl = env.supabaseFunctionsUrl;
+
+    if (!this.baseUrl && !import.meta.env?.VITEST) {
+      throw new Error('Supabase Functions URL is not configured. Set VITE_SUPABASE_URL or VITE_SUPABASE_FUNCTIONS_URL.');
+    }
   }
 
   private async makeRequest<T>(
@@ -121,7 +127,9 @@ export const api = {
   
   // Tickets
   getUserTickets: () => apiClient.get('get-user-tickets'),
-  getOrderStatus: (sessionId: string) => apiClient.get(`get-order-status?session_id=${sessionId}`),
+  getOrderStatus: (sessionId: string) =>
+    apiClient.get(`get-order-status?session_id=${encodeURIComponent(sessionId)}`),
+  getOrgWallet: (orgId: string) => apiClient.get(`get-org-wallet?org_id=${orgId}`),
   
   // Posts
   getPosts: (eventId?: string) => {
@@ -130,7 +138,16 @@ export const api = {
   },
   createPost: (data: { event_id: string; text?: string; media_urls?: string[]; ticket_tier_id?: string }) =>
     apiClient.post('posts-create', data),
-  
+
+  // Role invites
+  sendRoleInvite: (data: {
+    event_id: string;
+    role: RoleType;
+    email?: string;
+    phone?: string;
+    expires_in_hours?: number;
+  }) => apiClient.post('send-role-invite', data),
+
   // Analytics
   trackAnalytics: (data: { event: string; properties?: Record<string, unknown> }) =>
     apiClient.post('track-analytics', data),

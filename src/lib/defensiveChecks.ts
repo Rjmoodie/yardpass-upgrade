@@ -1,3 +1,4 @@
+import { envDiagnostics } from '@/config/env';
 import { api } from './api';
 import { toast } from '@/hooks/use-toast';
 
@@ -85,18 +86,13 @@ export async function retryApiCall<T>(
 /**
  * Validate required environment variables
  */
-export function validateEnvironment(): { valid: boolean; missing: string[] } {
-  const required = [
-    'VITE_SUPABASE_URL',
-    'VITE_SUPABASE_ANON_KEY',
-    'VITE_SUPABASE_FUNCTIONS_URL',
-  ];
-  
-  const missing = required.filter(key => !import.meta.env[key]);
-  
+export function validateEnvironment(): { valid: boolean; missing: string[]; issues?: string[] } {
+  const missing = envDiagnostics.missingKeys;
+
   return {
-    valid: missing.length === 0,
+    valid: envDiagnostics.isValid && missing.length === 0,
     missing,
+    issues: envDiagnostics.issues,
   };
 }
 

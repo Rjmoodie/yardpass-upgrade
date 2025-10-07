@@ -1,8 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import type { RoleType } from '@/types/roles';
-
-const EDGE_BASE = "https://yieslxnrfeqchbcmgavz.supabase.co";
 
 function normalizePhone(e164?: string) {
   if (!e164) return undefined;
@@ -29,15 +28,6 @@ function asErrorMessage(e: unknown) {
 export function useRoleInvites() {
   const [loading, setLoading] = useState(false);
 
-  const headers = useMemo(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Not authenticated');
-    return {
-      Authorization: `Bearer ${session.access_token}`,
-      'Content-Type': 'application/json',
-    };
-  }, []);
-
   async function sendInvite(params: {
     eventId: string;
     role: RoleType;
@@ -62,23 +52,19 @@ export function useRoleInvites() {
         throw new Error('Invalid phone format. Use E.164 format (+1234567890).');
       }
 
-      const resp = await fetch(`${EDGE_BASE}/functions/v1/send-role-invite`, {
-        method: 'POST',
-        headers: await headers,
-        body: JSON.stringify({
-          event_id: params.eventId,
-          role: params.role,
-          email,
-          phone,
-          expires_in_hours: params.expiresInHours ?? 72,
-        }),
+      const response = await api.sendRoleInvite({
+        event_id: params.eventId,
+        role: params.role,
+        email,
+        phone,
+        expires_in_hours: params.expiresInHours ?? 72,
       });
 
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(text || 'Failed to send invite.');
+      if (response.error) {
+        throw new Error(response.error);
       }
-      return await resp.json();
+
+      return response.data;
     } catch (e) {
       throw new Error(asErrorMessage(e));
     } finally {

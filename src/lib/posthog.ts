@@ -1,12 +1,13 @@
 import posthog from 'posthog-js';
+import { env } from '@/config/env';
 
 // Initialize PostHog
-if (typeof window !== 'undefined') {
-  posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY, {
-    api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
+if (typeof window !== 'undefined' && env.posthogKey) {
+  posthog.init(env.posthogKey, {
+    api_host: env.posthogHost,
     capture_pageview: true,
-    loaded: (posthog) => {
-      if (import.meta.env.DEV) posthog.debug();
+    loaded: (client) => {
+      if (import.meta.env.DEV) client.debug();
     }
   });
 }
