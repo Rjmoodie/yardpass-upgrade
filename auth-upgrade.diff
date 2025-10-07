@@ -1,0 +1,1048 @@
+*** /dev/null
+--- b/src/hooks/useCountdown.ts
+@@ -0,0 +1,20 @@
++import { useEffect, useRef, useState } from 'react';
++
++export function useCountdown(initial: number = 30) {
++  const [seconds, setSeconds] = useState<number>(initial);
++  const intervalRef = useRef<number | null>(null);
++
++  useEffect(() => {
++    if (seconds <= 0) return;
++    intervalRef.current = window.setInterval(() => {
++      setSeconds(s => Math.max(0, s - 1));
++    }, 1000);
++    return () => {
++      if (intervalRef.current) window.clearInterval(intervalRef.current);
++    };
++  }, [seconds]);
++
++  const reset = (n: number = initial) => setSeconds(n);
++  return { seconds, reset, isRunning: seconds > 0 };
++}
++
+*** /dev/null
+--- b/src/lib/authErrors.ts
+@@ -0,0 +1,11 @@
++export function mapAuthError(err: unknown, fallback = 'Something went wrong. Please try again.') {
++  const msg = (typeof err === 'object' && err && 'message' in err) ? String((err as any).message) : '';
++  if (/Invalid login credentials/i.test(msg)) return 'Email or password is incorrect.';
++  if (/Email not confirmed/i.test(msg)) return 'Please confirm your email before signing in.';
++  if (/rate limit/i.test(msg)) return 'Too many attempts. Please wait and try again.';
++  if (/OTP/i.test(msg)) return 'The code you entered is invalid or expired.';
++  if (/phone.*invalid/i.test(msg)) return 'Please enter a valid phone number.';
++  if (/email.*invalid/i.test(msg)) return 'Please enter a valid email address.';
++  return fallback;
++}
++
+*** a/src/components/AuthModal.tsx
+--- b/src/components/AuthModal.tsx
+@@ -1,4 +1,4 @@
+-import React, { useCallback, useMemo, useState } from 'react';
++import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+ import { Button } from '@/components/ui/button';
+ import { Input } from '@/components/ui/input';
+ import { Label } from '@/components/ui/label';
+@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+ import { useAuthFlow } from '@/hooks/useAuthFlow';
+ import { Mail, Phone, RotateCcw } from 'lucide-react';
+ import { supabase } from '@/integrations/supabase/client';
++import { mapAuthError } from '@/lib/authErrors';
++import { X } from 'lucide-react';
+ import { toast } from '@/hooks/use-toast';
+ 
+ interface AuthModalProps {
+@@ -26,6 +28,12 @@ interface AuthModalProps {
+   allowGuestTicketAccess?: boolean;
+ 
+   /** Optional event scope (guest session limited to this event). */
++  guestScopeEventId?: string;
++
++  /** Guest session duration in minutes (default: 30). */
++  guestSessionMinutes?: number;
++
++  /** Default tab to show. */
+   defaultTab?: 'guest' | 'signin' | 'signup';
+ }
+ 
+@@ -37,537 +45,119 @@ type GuestMethod = 'phone' | 'email';
++// Split heavy tab content so only the visible panel mounts:
++const GuestPanel = lazy(() => import('./panels/GuestPanel'));
++const PhonePanel = lazy(() => import('./panels/PhonePanel'));
++const EmailPanel = lazy(() => import('./panels/EmailPanel'));
++
+ export default function AuthModal({
+   isOpen,
+   onClose,
+   onSuccess,
+   title = 'Sign in to continue',
+   description = 'You need to be signed in to perform this action',
+   allowGuestTicketAccess = true,
+   guestScopeEventId,
+   guestSessionMinutes = 30,
+   defaultTab = 'signin',
+ }: AuthModalProps) {
+-  /** Existing full-auth flow */
+-  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('phone');
+-  const { isLoading, showOtpInput, phoneForOtp, handleSignIn, handleSignUp, resetOtpState } =
+-    useAuthFlow();
+-
+-  /** NEW: Guest ticket flow (OTP) */
+-  const [guestTab, setGuestTab] = useState<'guest' | 'signin' | 'signup'>(defaultTab);
+-  const [guestMethod, setGuestMethod] = useState<GuestMethod>('phone');
+-  const [guestContact, setGuestContact] = useState('');
+-  const [guestOtp, setGuestOtp] = useState('');
+-  const [guestLoading, setGuestLoading] = useState(false);
+-  const [guestStep, setGuestStep] = useState<'collect' | 'otp'>('collect');
+-  const [resendSecs, setResendSecs] = useState<number>(0);
+-
+-  const maskedContact = useMemo(() => {
+-    if (!guestContact) return '';
+-    if (guestMethod === 'email') {
+-      const [u, d] = guestContact.split('@');
+-      if (!u || !d) return guestContact;
+-      const ux = u.length <= 2 ? u[0] + '*' : u[0] + '*'.repeat(Math.max(1, u.length - 2)) + u[u.length - 1];
+-      return `${ux}@${d}`;
+-    } else {
+-      const cleaned = guestContact.replace(/\D/g, '');
+-      if (cleaned.length <= 4) return cleaned;
+-      return cleaned.slice(0, -4).replace(/\d/g, '*') + cleaned.slice(-4);
+-    }
+-  }, [guestContact, guestMethod]);
+-
+-  const startResendTimer = useCallback((seconds = 30) => {
+-    setResendSecs(seconds);
+-    const i = setInterval(() => {
+-      setResendSecs((s) => {
+-        if (s <= 1) {
+-          clearInterval(i);
+-          return 0;
+-        }
+-        return s - 1;
+-      });
+-    }, 1000);
+-  }, []);
+-
+-  const clearGuestState = useCallback(() => {
+-    setGuestContact('');
+-    setGuestOtp('');
+-    setGuestLoading(false);
+-    setGuestStep('collect');
+-    setResendSecs(0);
+-  }, []);
++  const [tab, setTab] = useState<'guest' | 'signin' | 'signup'>(defaultTab);
++  const dialogRef = useRef<HTMLDivElement>(null);
++  const lastActive = useRef<HTMLElement | null>(null);
++
++  const flow = useAuthFlow({
++    onSuccess: () => { 
++      onSuccess?.(); 
++      onClose(); 
++    },
++    mapError: mapAuthError,
++    guestScopeEventId,
++    guestSessionMinutes,
++  });
++
++  // Focus management and keyboard handling
++  useEffect(() => {
++    function onKey(e: KeyboardEvent) {
++      if (e.key === 'Escape') onClose();
++    }
++    if (isOpen) {
++      lastActive.current = document.activeElement as HTMLElement;
++      document.addEventListener('keydown', onKey, { passive: true });
++      document.body.style.overflow = 'hidden';
++      queueMicrotask(() => dialogRef.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus());
++    }
++    return () => {
++      document.removeEventListener('keydown', onKey);
++      document.body.style.overflow = '';
++      lastActive.current?.focus?.();
++    };
++  }, [isOpen, onClose]);
+ 
+   const handleClose = () => {
+-    resetOtpState();
+-    clearGuestState();
++    flow.resetOtpState();
+     onClose();
+   };
+ 
+-  /** ---------- Full-account Sign In / Sign Up ---------- */
+-  const handleSignInSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+-    await handleSignIn(e, authMethod);
+-    handleClose();
+-  };
+-
+-  const handleSignUpSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+-    await handleSignUp(e, authMethod);
+-    handleClose();
+-  };
+-
+-  /** ---------- Guest Ticket OTP ---------- */
+-  async function sendGuestOtp() {
+-    if (!guestContact.trim()) {
+-      toast({ title: 'Please enter your phone or email', variant: 'destructive' });
+-      return;
+-    }
+-    setGuestLoading(true);
+-    try {
+-      // Suppose we have a signInWithOtp that works for both phone/email
+-      if (guestMethod === 'phone') {
+-        const { error } = await supabase.auth.signInWithOtp({ phone: guestContact });
+-        if (error) throw error;
+-      } else {
+-        const { error } = await supabase.auth.signInWithOtp({ email: guestContact });
+-        if (error) throw error;
+-      }
+-      setGuestStep('otp');
+-      startResendTimer(30);
+-      toast({ title: 'OTP sent!', description: `Check your ${guestMethod}.` });
+-    } catch (err: any) {
+-      toast({ title: 'Error sending OTP', description: err.message, variant: 'destructive' });
+-    } finally {
+-      setGuestLoading(false);
+-    }
++  if (!isOpen) return null;
++
++  return (
++    <div
++      role="dialog"
++      aria-modal="true"
++      aria-labelledby="auth-title"
++      aria-describedby="auth-desc"
++      className="fixed inset-0 z-50 flex items-center justify-center p-4"
++    >
++      {/* Backdrop */}
++      <div 
++        className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
++        onClick={handleClose}
++        aria-hidden="true"
++      />
++      
++      {/* Modal */}
++      <div 
++        ref={dialogRef} 
++        className="relative w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-2xl overflow-hidden"
++      >
++        {/* Header */}
++        <div className="flex items-start justify-between p-6 border-b">
++          <div>
++            <h2 id="auth-title" className="text-xl font-semibold">{title}</h2>
++            <p id="auth-desc" className="text-sm text-muted-foreground mt-1">{description}</p>
++          </div>
++          <button 
++            aria-label="Close" 
++            onClick={handleClose} 
++            className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
++          >
++            <X className="h-4 w-4" />
++          </button>
++        </div>
++        
++        {/* Tabs */}
++        <div className="px-6 pt-4">
++          <div role="tablist" aria-label="Authentication options" className="flex gap-2 border-b">
++            {allowGuestTicketAccess && (
++              <button 
++                role="tab" 
++                aria-selected={tab === 'guest'} 
++                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
++                  tab === 'guest' 
++                    ? 'border-primary text-primary' 
++                    : 'border-transparent text-muted-foreground hover:text-foreground'
++                }`}
++                onClick={() => setTab('guest')}
++              >
++                Guest
++              </button>
++            )}
++            <button 
++              role="tab" 
++              aria-selected={tab === 'signin'} 
++              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
++                tab === 'signin' 
++                  ? 'border-primary text-primary' 
++                  : 'border-transparent text-muted-foreground hover:text-foreground'
++              }`}
++              onClick={() => setTab('signin')}
++            >
++              Sign in
++            </button>
++            <button 
++              role="tab" 
++              aria-selected={tab === 'signup'} 
++              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
++                tab === 'signup' 
++                  ? 'border-primary text-primary' 
++                  : 'border-transparent text-muted-foreground hover:text-foreground'
++              }`}
++              onClick={() => setTab('signup')}
++            >
++              Sign up
++            </button>
++          </div>
++        </div>
++        
++        {/* Tab content */}
++        <div className="p-6">
++          <Suspense fallback={<div className="animate-pulse h-24 rounded-xl bg-gray-100 dark:bg-gray-800" />}>
++            {tab === 'guest' && allowGuestTicketAccess && (
++              <GuestPanel flow={flow} />
++            )}
++            {tab === 'signin' && (
++              <div className="space-y-6">
++                <PhonePanel mode="signin" flow={flow} />
++                <div className="relative">
++                  <div className="absolute inset-0 flex items-center">
++                    <div className="w-full border-t border-gray-200 dark:border-gray-700" />
++                  </div>
++                  <div className="relative flex justify-center text-xs uppercase">
++                    <span className="bg-white dark:bg-gray-900 px-2 text-muted-foreground">or</span>
++                  </div>
++                </div>
++                <EmailPanel mode="signin" flow={flow} />
++              </div>
++            )}
++            {tab === 'signup' && (
++              <div className="space-y-6">
++                <PhonePanel mode="signup" flow={flow} />
++                <div className="relative">
++                  <div className="absolute inset-0 flex items-center">
++                    <div className="w-full border-t border-gray-200 dark:border-gray-700" />
++                  </div>
++                  <div className="relative flex justify-center text-xs uppercase">
++                    <span className="bg-white dark:bg-gray-900 px-2 text-muted-foreground">or</span>
++                  </div>
++                </div>
++                <EmailPanel mode="signup" flow={flow} />
++              </div>
++            )}
++          </Suspense>
++        </div>
++      </div>
++    </div>
++  );
++}
++
+*** /dev/null
+--- b/src/components/panels/PhonePanel.tsx
+@@ -0,0 +1,66 @@
++import React from 'react';
++import { useCountdown } from '@/hooks/useCountdown';
++import { Button } from '@/components/ui/button';
++import { Input } from '@/components/ui/input';
++import { Label } from '@/components/ui/label';
++
++export default function PhonePanel({ mode, flow }: { mode: 'signin' | 'signup'; flow: any }) {
++  const { seconds, reset, isRunning } = useCountdown(30);
++  const {
++    isLoading,
++    showOtpInput,
++    phoneForOtp,
++    sendPhoneOtp,
++    verifyOtp,
++    setPhone,
++    setOtp,
++    phone,
++    otp,
++    error,
++  } = flow;
++
++  return (
++    <div aria-label="Phone authentication" className="space-y-4">
++      {error?.phone && (
++        <div role="alert" className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
++          {error.phone}
++        </div>
++      )}
++      {!showOtpInput ? (
++        <>
++          <div className="space-y-2">
++            <Label htmlFor="phone">Phone</Label>
++            <Input 
++              id="phone"
++              data-autofocus 
++              type="tel" 
++              value={phone} 
++              onChange={e => setPhone(e.target.value)} 
++              placeholder="+1 555 123 4567"
++              disabled={isLoading}
++            />
++          </div>
++          <Button
++            disabled={isLoading || isRunning || !phone}
++            onClick={async () => {
++              const ok = await sendPhoneOtp(mode);
++              if (ok) reset(30);
++            }}
++            className="w-full"
++          >
++            {isLoading ? 'Sending…' : `Send code${isRunning ? ` (${seconds}s)` : ''}`}
++          </Button>
++        </>
++      ) : (
++        <>
++          <p className="text-sm text-muted-foreground">
++            We sent a 6-digit code to <strong>{phoneForOtp}</strong>.
++          </p>
++          <div className="space-y-2">
++            <Label htmlFor="otp">Verification Code</Label>
++            <Input 
++              id="otp"
++              data-autofocus
++              inputMode="numeric" 
++              maxLength={6} 
++              value={otp} 
++              onChange={e => setOtp(e.target.value)} 
++              className="tracking-widest text-center text-lg"
++              placeholder="000000"
++              disabled={isLoading}
++            />
++          </div>
++          <div className="flex gap-2">
++            <Button 
++              disabled={isLoading || otp.length < 6} 
++              onClick={() => verifyOtp(mode)} 
++              className="flex-1"
++            >
++              {isLoading ? 'Verifying…' : 'Verify'}
++            </Button>
++            <Button 
++              variant="outline"
++              disabled={isRunning || isLoading} 
++              onClick={async () => { 
++                const ok = await sendPhoneOtp(mode); 
++                if (ok) reset(30); 
++              }} 
++              className="w-32"
++            >
++              {isRunning ? `${seconds}s` : 'Resend'}
++            </Button>
++          </div>
++        </>
++      )}
++    </div>
++  );
++}
++
+*** /dev/null
+--- b/src/components/panels/EmailPanel.tsx
+@@ -0,0 +1,58 @@
++import React from 'react';
++import { Button } from '@/components/ui/button';
++import { Input } from '@/components/ui/input';
++import { Label } from '@/components/ui/label';
++
++export default function EmailPanel({ mode, flow }: { mode: 'signin' | 'signup'; flow: any }) {
++  const { isLoading, email, password, displayName, setEmail, setPassword, setDisplayName, emailPasswordAuth, error } = flow;
++  
++  return (
++    <div aria-label="Email authentication" className="space-y-4">
++      {mode === 'signup' && (
++        <div className="space-y-2">
++          <Label htmlFor="displayName">Display name</Label>
++          <Input 
++            id="displayName"
++            type="text" 
++            value={displayName} 
++            onChange={e => setDisplayName(e.target.value)} 
++            placeholder="Your name"
++            disabled={isLoading}
++          />
++        </div>
++      )}
++      <div className="space-y-2">
++        <Label htmlFor="email">Email</Label>
++        <Input 
++          id="email"
++          type="email" 
++          value={email} 
++          onChange={e => setEmail(e.target.value)} 
++          placeholder="you@example.com"
++          autoComplete="email"
++          disabled={isLoading}
++        />
++      </div>
++      <div className="space-y-2">
++        <Label htmlFor="password">Password</Label>
++        <Input 
++          id="password"
++          type="password" 
++          value={password} 
++          onChange={e => setPassword(e.target.value)} 
++          placeholder="••••••••"
++          autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
++          disabled={isLoading}
++        />
++      </div>
++      {error?.email && (
++        <div role="alert" className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
++          {error.email}
++        </div>
++      )}
++      <Button disabled={isLoading || !email || !password} onClick={() => emailPasswordAuth(mode)} className="w-full">
++        {isLoading ? (mode === 'signin' ? 'Signing in…' : 'Creating account…') : (mode === 'signin' ? 'Sign in' : 'Create account')}
++      </Button>
++    </div>
++  );
++}
++
+*** /dev/null
+--- b/src/components/panels/GuestPanel.tsx
+@@ -0,0 +1,73 @@
++import React from 'react';
++import { useCountdown } from '@/hooks/useCountdown';
++import { Button } from '@/components/ui/button';
++import { Input } from '@/components/ui/input';
++import { Label } from '@/components/ui/label';
++
++export default function GuestPanel({ flow }: { flow: any }) {
++  const { seconds, reset, isRunning } = useCountdown(30);
++  const { 
++    isLoading, 
++    guestContact, 
++    setGuestContact, 
++    error, 
++    sendGuestOtp, 
++    verifyGuestOtp, 
++    showGuestOtp, 
++    guestOtp, 
++    setGuestOtp 
++  } = flow;
++
++  return (
++    <div aria-label="Guest access" className="space-y-4">
++      {error?.guest && (
++        <div role="alert" className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
++          {error.guest}
++        </div>
++      )}
++      {!showGuestOtp ? (
++        <>
++          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
++            <p className="text-sm text-blue-700 dark:text-blue-300">
++              <strong>Guest access</strong> lets you view your tickets without creating a full account.
++            </p>
++          </div>
++          <div className="space-y-2">
++            <Label htmlFor="guestContact">Phone or Email</Label>
++            <Input 
++              id="guestContact"
++              data-autofocus 
++              value={guestContact} 
++              onChange={e => setGuestContact(e.target.value)} 
++              placeholder="+1 555 123 4567 or you@example.com"
++              disabled={isLoading}
++            />
++          </div>
++          <Button
++            disabled={isLoading || isRunning || !guestContact}
++            onClick={async () => { 
++              const ok = await sendGuestOtp(); 
++              if (ok) reset(30); 
++            }}
++            className="w-full"
++          >
++            {isLoading ? 'Sending…' : `Send code${isRunning ? ` (${seconds}s)` : ''}`}
++          </Button>
++        </>
++      ) : (
++        <>
++          <div className="space-y-2">
++            <Label htmlFor="guestOtp">Verification Code</Label>
++            <Input 
++              id="guestOtp"
++              data-autofocus
++              inputMode="numeric" 
++              maxLength={6} 
++              value={guestOtp} 
++              onChange={e => setGuestOtp(e.target.value)} 
++              className="tracking-widest text-center text-lg"
++              placeholder="000000"
++              disabled={isLoading}
++            />
++          </div>
++          <div className="flex gap-2">
++            <Button 
++              disabled={isLoading || guestOtp.length < 6} 
++              onClick={verifyGuestOtp} 
++              className="flex-1"
++            >
++              {isLoading ? 'Verifying…' : 'Verify'}
++            </Button>
++            <Button 
++              variant="outline"
++              disabled={isRunning || isLoading} 
++              onClick={async () => { 
++                const ok = await sendGuestOtp(); 
++                if (ok) reset(30); 
++              }} 
++              className="w-32"
++            >
++              {isRunning ? `${seconds}s` : 'Resend'}
++            </Button>
++          </div>
++        </>
++      )}
++    </div>
++  );
++}
++
+*** a/src/hooks/useAuthFlow.tsx
+--- b/src/hooks/useAuthFlow.tsx
+@@ -1,169 +1,213 @@
+-import { useState } from 'react';
++import { useEffect, useRef, useState } from 'react';
+ import { useAuth } from '@/contexts/AuthContext';
+ import { useToast } from '@/hooks/use-toast';
+ import { useNavigate, useLocation } from 'react-router-dom';
++import { mapAuthError } from '@/lib/authErrors';
+ 
+-export function useAuthFlow() {
+-  const [isLoading, setIsLoading] = useState(false);
+-  const [showOtpInput, setShowOtpInput] = useState(false);
+-  const [phoneForOtp, setPhoneForOtp] = useState('');
+-  const { signIn, signInWithPhone, verifyPhoneOtp, signUp, signUpWithPhone } = useAuth();
++type Options = {
++  onSuccess?: () => void;
++  mapError?: (e: unknown, fallback?: string) => string;
++  guestScopeEventId?: string;
++  guestSessionMinutes?: number;
++};
++
++export function useAuthFlow(opts: Options = {}) {
+   const { toast } = useToast();
+   const navigate = useNavigate();
+   const location = useLocation();
++  const { signIn, signInWithPhone, verifyPhoneOtp, signUp, signUpWithPhone } = useAuth();
++  
++  const [isLoading, setIsLoading] = useState(false);
++  const busyRef = useRef(false);
++  const abortRef = useRef<AbortController | null>(null);
+ 
+-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>, authMethod: 'email' | 'phone') => {
+-    e.preventDefault();
+-    setIsLoading(true);
++  // email/password
++  const [email, setEmail] = useState('');
++  const [password, setPassword] = useState('');
++  const [displayName, setDisplayName] = useState('');
+ 
+-    const formData = new FormData(e.currentTarget);
+-    
+-    if (authMethod === 'phone' && !showOtpInput) {
+-      // First step: send OTP
+-      const phone = formData.get('phone') as string;
+-      const { error } = await signInWithPhone(phone);
+-      
+-      if (error) {
+-        toast({
+-          title: "Failed to send verification code",
+-          description: error.message,
+-          variant: "destructive",
+-        });
+-      } else {
+-        setPhoneForOtp(phone);
+-        setShowOtpInput(true);
+-        toast({
+-          title: "Verification code sent",
+-          description: "Please check your phone for the verification code.",
+-        });
+-      }
+-    } else if (authMethod === 'phone' && showOtpInput) {
+-      // Second step: verify OTP
+-      const otp = formData.get('otp') as string;
+-      const { error } = await verifyPhoneOtp(phoneForOtp, otp);
+-      
+-      if (error) {
+-        toast({
+-          title: "Verification failed",
+-          description: error.message,
+-          variant: "destructive",
+-        });
+-      } else {
+-        toast({
+-          title: "Welcome back!",
+-          description: "You've successfully signed in.",
+-        });
+-        handleSuccess();
+-      }
+-    } else {
+-      // Email authentication
+-      const email = formData.get('email') as string;
+-      const password = formData.get('password') as string;
+-      const { error } = await signIn(email, password);
+-      
+-      if (error) {
+-        toast({
+-          title: "Sign in failed",
+-          description: error.message,
+-          variant: "destructive",
+-        });
+-      } else {
+-        toast({
+-          title: "Welcome back!",
+-          description: "You've successfully signed in.",
+-        });
+-        handleSuccess();
+-      }
+-    }
+-    
+-    setIsLoading(false);
+-  };
++  // phone
++  const [phone, setPhone] = useState('');
++  const [otp, setOtp] = useState('');
++  const [showOtpInput, setShowOtpInput] = useState(false);
++  const [phoneForOtp, setPhoneForOtp] = useState('');
+ 
+-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>, authMethod: 'email' | 'phone') => {
+-    e.preventDefault();
+-    setIsLoading(true);
++  // guest
++  const [guestContact, setGuestContact] = useState('');
++  const [guestOtp, setGuestOtp] = useState('');
++  const [showGuestOtp, setShowGuestOtp] = useState(false);
+ 
+-    const formData = new FormData(e.currentTarget);
+-    const displayName = formData.get('displayName') as string;
++  const [error, setError] = useState<{ email?: string; phone?: string; guest?: string } | null>(null);
+ 
+-    if (authMethod === 'phone' && !showOtpInput) {
+-      // First step: send OTP for sign up
+-      const phone = formData.get('phone') as string;
+-      const { error } = await signUpWithPhone(phone, displayName);
+-      
+-      if (error) {
+-        toast({
+-          title: "Failed to send verification code",
+-          description: error.message,
+-          variant: "destructive",
+-        });
+-      } else {
+-        setPhoneForOtp(phone);
+-        setShowOtpInput(true);
+-        toast({
+-          title: "Verification code sent",
+-          description: "Please check your phone for the verification code.",
+-        });
+-      }
+-    } else if (authMethod === 'phone' && showOtpInput) {
+-      // Second step: verify OTP for sign up
+-      const otp = formData.get('otp') as string;
+-      const { error } = await verifyPhoneOtp(phoneForOtp, otp);
+-      
+-      if (error) {
+-        toast({
+-          title: "Verification failed",
+-          description: error.message,
+-          variant: "destructive",
+-        });
+-      } else {
+-        toast({
+-          title: "Welcome to YardPass!",
+-          description: "Your account has been created successfully.",
+-        });
+-        handleSuccess();
+-      }
+-    } else {
+-      // Email authentication
+-      const email = formData.get('email') as string;
+-      const password = formData.get('password') as string;
+-      const phone = formData.get('phone') as string;
+-      const { error } = await signUp(email, password, displayName, phone);
+-      
+-      if (error) {
+-        toast({
+-          title: "Sign up failed",
+-          description: error.message,
+-          variant: "destructive",
+-        });
+-      } else {
+-        toast({
+-          title: "Welcome to YardPass!",
+-          description: "Please check your email to verify your account.",
+-        });
+-        handleSuccess();
+-      }
++  // Cleanup on unmount
++  useEffect(() => () => {
++    abortRef.current?.abort();
++  }, []);
++
++  function startBusy() {
++    if (busyRef.current) return false;
++    busyRef.current = true;
++    setIsLoading(true);
++    abortRef.current?.abort();
++    abortRef.current = new AbortController();
++    return true;
++  }
++
++  function endBusy() {
++    busyRef.current = false;
++    setIsLoading(false);
++  }
++
++  function successRedirect() {
++    const redirectTo = (location.state as any)?.from ?? '/';
++    navigate(redirectTo, { replace: true });
++    opts.onSuccess?.();
++  }
++
++  async function emailPasswordAuth(mode: 'signin' | 'signup') {
++    setError(null);
++    if (!startBusy()) return;
++    try {
++      if (mode === 'signin') {
++        const { error } = await signIn(email, password);
++        if (error) throw error;
++        toast({ title: 'Welcome back!', description: 'Successfully signed in.' });
++      } else {
++        const { error } = await signUp(email, password, displayName, undefined);
++        if (error) throw error;
++        toast({ title: 'Account created', description: 'Please check your email to verify (optional).' });
++      }
++      successRedirect();
++    } catch (e) {
++      setError({ email: (opts.mapError ?? mapAuthError)(e, 'Unable to authenticate.') });
++    } finally {
++      endBusy();
+     }
+-    
+-    setIsLoading(false);
+-  };
++  }
++
++  function resetOtpState() { 
++    setShowOtpInput(false); 
++    setOtp(''); 
++    setPhoneForOtp(''); 
++  }
++
++  async function sendPhoneOtp(mode: 'signin' | 'signup') {
++    setError(null);
++    if (!phone) { 
++      setError({ phone: 'Enter your phone number.' }); 
++      return false; 
++    }
++    if (!startBusy()) return false;
++    try {
++      const { error } = await signInWithPhone(phone);
++      if (error) throw error;
++      setShowOtpInput(true);
++      setPhoneForOtp(phone);
++      toast({ title: 'Verification code sent', description: 'Please check your phone.' });
++      return true;
++    } catch (e) {
++      setError({ phone: (opts.mapError ?? mapAuthError)(e, 'Could not send code.') });
++      return false;
++    } finally {
++      endBusy();
++    }
++  }
+ 
+-  const handleSuccess = () => {
+-    const redirectTo = location.state?.redirectTo || '/';
+-    navigate(redirectTo, { replace: true });
+-  };
++  async function verifyOtp(mode: 'signin' | 'signup') {
++    setError(null);
++    if (otp.length < 6) { 
++      setError({ phone: 'Enter the 6-digit code.' }); 
++      return; 
++    }
++    if (!startBusy()) return;
++    try {
++      const { error } = await verifyPhoneOtp(phoneForOtp || phone, otp);
++      if (error) throw error;
++      toast({ title: mode === 'signin' ? 'Signed in' : 'Phone verified', description: 'Successfully authenticated.' });
++      successRedirect();
++    } catch (e) {
++      setError({ phone: (opts.mapError ?? mapAuthError)(e, 'Could not verify code.') });
++    } finally {
++      endBusy();
++    }
++  }
+ 
+-  const resetOtpState = () => {
+-    setShowOtpInput(false);
+-    setPhoneForOtp('');
+-  };
++  // Guest ticket access (localStorage, event-scoped)
++  async function sendGuestOtp() {
++    setError(null);
++    if (!guestContact) { 
++      setError({ guest: 'Enter your phone or email.' }); 
++      return false; 
++    }
++    if (!startBusy()) return false;
++    try {
++      const { error } = await signInWithPhone(guestContact);
++      if (error) throw error;
++      setShowGuestOtp(true);
++      toast({ title: 'Verification code sent' });
++      return true;
++    } catch (e) {
++      setError({ guest: (opts.mapError ?? mapAuthError)(e, 'Could not send code.') });
++      return false;
++    } finally {
++      endBusy();
++    }
++  }
++
++  async function verifyGuestOtp() {
++    setError(null);
++    if (guestOtp.length < 6) { 
++      setError({ guest: 'Enter the 6-digit code.' }); 
++      return; 
++    }
++    if (!startBusy()) return;
++    try {
++      // Create a scoped guest session in localStorage
++      const exp = Date.now() + (opts.guestSessionMinutes ?? 30) * 60 * 1000;
++      const scope = opts.guestScopeEventId ? { eventIds: [opts.guestScopeEventId] } : { all: true };
++      const token = `guest_${Math.random().toString(36).slice(2, 10)}`;
++      const sess = { token, contact: guestContact, exp, scope };
++      localStorage.setItem('ticket-guest-session', JSON.stringify(sess));
++      toast({ title: 'Guest access granted', description: 'You can now view your tickets.' });
++      successRedirect();
++    } catch (e) {
++      setError({ guest: (opts.mapError ?? mapAuthError)(e, 'Could not verify code.') });
++    } finally {
++      endBusy();
++    }
++  }
+ 
+   return {
+     isLoading,
+-    showOtpInput,
+-    phoneForOtp,
+-    handleSignIn,
+-    handleSignUp,
++    showOtpInput, 
++    phoneForOtp, 
+     resetOtpState,
++    email, 
++    password, 
++    displayName, 
++    setEmail, 
++    setPassword, 
++    setDisplayName,
++    emailPasswordAuth,
++    phone, 
++    setPhone, 
++    otp, 
++    setOtp, 
++    sendPhoneOtp, 
++    verifyOtp,
++    guestContact, 
++    setGuestContact, 
++    guestOtp, 
++    setGuestOtp, 
++    showGuestOtp, 
++    sendGuestOtp, 
++    verifyGuestOtp,
++    error,
+   };
+ }
++
+*** a/src/components/AuthGuard.tsx
+--- b/src/components/AuthGuard.tsx
+@@ -87,7 +87,8 @@ export function AuthGuard({
+ }: AuthGuardProps) {
+   const { user, profile, loading } = useAuth();
+   const location = useLocation();
+   const navigate = useNavigate();
++  const from = `${location.pathname}${location.search}${location.hash}`;
+ 
+   // Full-auth status
+   const isAuthed = !!user;
+@@ -140,7 +141,7 @@ export function AuthGuard({
+ 
+     // Optional redirect instead of rendering fallback
+     if (redirectTo) {
+-      const next = encodeURIComponent(location.pathname + location.search);
++      const next = encodeURIComponent(from);
+       // Only navigate on the client
+       if (typeof window !== 'undefined') {
+         // Avoid double navigation in StrictMode
+@@ -170,3 +171,4 @@ export function AuthGuard({
+ }
+ 
+ export default AuthGuard;
++
+*** a/src/pages/AuthPage.tsx
+--- b/src/pages/AuthPage.tsx
+@@ -1,4 +1,4 @@
+-import React, { useState, useEffect } from 'react';
++import React, { lazy, Suspense, useState, useEffect } from 'react';
+ import { useNavigate, useLocation } from 'react-router-dom';
+ import { useAuth } from '@/contexts/AuthContext';
+ import { Button } from '@/components/ui/button';
+@@ -9,6 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+ import { useAuthFlow } from '@/hooks/useAuthFlow';
+ import { Mail, Phone } from 'lucide-react';
+ 
++// Lazy load auth forms to reduce initial bundle size
++const PhonePanel = lazy(() => import('@/components/panels/PhonePanel'));
++const EmailPanel = lazy(() => import('@/components/panels/EmailPanel'));
++
+ export default function AuthPage() {
+   const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('phone');
+   const { user } = useAuth();
+@@ -24,20 +28,6 @@ export default function AuthPage() {
+     }
+   }, [user, navigate, location]);
+ 
+-  const handleSignInSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+-    await handleSignIn(e, authMethod);
+-  };
+-
+-  const handleSignUpSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+-    await handleSignUp(e, authMethod);
+-  };
++  const flow = useAuthFlow({
++    onSuccess: () => {
++      const redirectTo = location.state?.redirectTo || '/';
++      navigate(redirectTo, { replace: true });
++    },
++  });
+ 
+   return (
+-    <div className="min-h-screen flex items-center justify-center p-4">{/* Removed dark background here since AuthGuard handles it */}
++    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/20 to-secondary/20">
+       <Card className="w-full max-w-md">
+         <CardHeader className="text-center">
+           <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+@@ -74,7 +64,21 @@ export default function AuthPage() {
+         </div>
+         
+         <Tabs defaultValue="signin" className="w-full">
+-          {/* ... rest of tabs and content ... */}
++          <TabsList className="grid w-full grid-cols-2">
++            <TabsTrigger value="signin">Sign in</TabsTrigger>
++            <TabsTrigger value="signup">Sign up</TabsTrigger>
++          </TabsList>
++          <TabsContent value="signin" className="space-y-6">
++            <Suspense fallback={<div className="animate-pulse h-24 rounded-xl bg-gray-100" />}>
++              <PhonePanel mode="signin" flow={flow} />
++              <div className="relative"><div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-muted-foreground">or</span></div></div>
++              <EmailPanel mode="signin" flow={flow} />
++            </Suspense>
++          </TabsContent>
++          <TabsContent value="signup" className="space-y-6">
++            <Suspense fallback={<div className="animate-pulse h-24 rounded-xl bg-gray-100" />}>
++              <PhonePanel mode="signup" flow={flow} />
++              <div className="relative"><div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-muted-foreground">or</span></div></div>
++              <EmailPanel mode="signup" flow={flow} />
++            </Suspense>
++          </TabsContent>
+         </Tabs>
+       </Card>
+     </div>
+   );
+ }
+
