@@ -1,9 +1,34 @@
 // iOS Capacitor Runtime Configuration
 // Handles StatusBar overlay, Keyboard behavior, and theme-aware styling
 
-import { Capacitor } from '@capacitor/core';
-import { StatusBar, Style } from '@capacitor/status-bar';
-import { Keyboard } from '@capacitor/keyboard';
+// Conditional imports for Capacitor packages (only available in native builds)
+let Capacitor: any;
+let StatusBar: any;
+let Style: any;
+let Keyboard: any;
+
+try {
+  // Try to import Capacitor packages - these will only be available in native builds
+  Capacitor = require('@capacitor/core').Capacitor;
+  StatusBar = require('@capacitor/status-bar').StatusBar;
+  Style = require('@capacitor/status-bar').Style;
+  Keyboard = require('@capacitor/keyboard').Keyboard;
+} catch (error) {
+  // Capacitor packages not available (web build) - create no-op implementations
+  Capacitor = {
+    isNativePlatform: () => false,
+    getPlatform: () => 'web'
+  };
+  StatusBar = {
+    setOverlaysWebView: () => Promise.resolve(),
+    setStyle: () => Promise.resolve()
+  };
+  Style = { Light: 'LIGHT', Dark: 'DARK' };
+  Keyboard = {
+    setResizeMode: () => Promise.resolve(),
+    addListener: () => ({ remove: () => {} })
+  };
+}
 
 /**
  * Initialize iOS-specific Capacitor settings

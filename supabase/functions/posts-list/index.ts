@@ -12,10 +12,12 @@ serve(async (req) => {
     const url = new URL(req.url);
     const eventId = url.searchParams.get("event_id");
     const authorId = url.searchParams.get("user_id");
-    const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10), 50);
-    const cursor = url.searchParams.get("cursor"); // created_at|id format
+    // 🔄 Backward-compatible pagination: support either page/limit OR cursor.
+    const page = url.searchParams.get("page");
+    const limit = parseInt(url.searchParams.get("limit") || "30", 10);
+    const cursor = url.searchParams.get("cursor");
 
-    console.log('Query params:', { eventId, authorId, limit, cursor });
+    console.log('Query params:', { eventId, authorId, limit, cursor, page });
 
     // Create Supabase client
     const supabaseClient = createClient(
@@ -30,95 +32,59 @@ serve(async (req) => {
 
     const { data: { user } } = await supabaseClient.auth.getUser();
 
-    // Build query using the new view
-    let query = supabaseClient
-      .from('event_posts_with_meta')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(limit + 1); // Get one extra to check if there are more
-
-    // Apply filters
-    if (eventId) {
-      query = query.eq('event_id', eventId);
-    }
-    if (authorId) {
-      query = query.eq('author_user_id', authorId);
-    }
-
-    // Apply cursor pagination
     if (cursor) {
-      const [cCreated, cId] = cursor.split("|");
-      if (cCreated && cId) {
-        query = query.or(`created_at.lt.${cCreated},and(created_at.eq.${cCreated},id.lt.${cId})`);
+      // Cursor format: base64("timestamp_ms:id")
+      const raw = Buffer.from(String(cursor), 'base64').toString('utf8');
+      const [tsMsStr, idStr] = raw.split(':');
+      const ts = new Date(Number(tsMsStr));
+      const lastId = Number(idStr);
+
+      const { data: posts, error: postsError } = await supabaseClient
+        .from('event_posts_with_meta')
+        .select('id, created_at, title, preview, author_user_id, like_count, comment_count')
+        .or(`created_at.lt.${ts.toISOString()},and(created_at.eq.${ts.toISOString()},id.lt.${lastId})`)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(Number(limit) + 1);
+
+      if (postsError) {
+        console.error('Error fetching posts:', postsError);
+        return createErrorResponse(postsError.message, 500);
       }
+
+      const hasMore = posts && posts.length > Number(limit);
+      const items = hasMore ? posts.slice(0, Number(limit)) : (posts || []);
+      const tail = items[items.length - 1];
+      const nextCursor = tail
+        ? Buffer.from(`${new Date(tail.created_at).getTime()}:${tail.id}`, 'utf8').toString('base64')
+        : undefined;
+
+      // Optional: basic cache hints
+      const response = createResponse({ items, nextCursor });
+      response.headers.set('Cache-Control', 'private, max-age=10');
+      return response;
+    } else {
+      // Legacy path: still supported
+      const safeLimit = Math.min(Number(limit), 50);
+      const safePage = Math.max(Number(page ?? 1), 1);
+      const offset = (safePage - 1) * safeLimit;
+
+      const { data: posts, error: postsError } = await supabaseClient
+        .from('event_posts_with_meta')
+        .select('id, created_at, title, preview, author_user_id, like_count, comment_count')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(offset, offset + safeLimit - 1);
+
+      if (postsError) {
+        console.error('Error fetching posts:', postsError);
+        return createErrorResponse(postsError.message, 500);
+      }
+
+      const response = createResponse({ items: posts || [] });
+      response.headers.set('Cache-Control', 'private, max-age=10');
+      return response;
     }
-
-    const { data: posts, error: postsError } = await query;
-
-    if (postsError) {
-      console.error('Error fetching posts:', postsError);
-      return createErrorResponse(postsError.message, 500);
-    }
-
-    console.log(`Fetched ${posts?.length || 0} posts`);
-
-    const items = posts || [];
-    const hasMore = items.length > limit;
-    const page = hasMore ? items.slice(0, -1) : items;
-    const nextCursor = hasMore && page.length > 0
-      ? `${page[page.length - 1].created_at}|${page[page.length - 1].id}`
-      : null;
-
-    // Get liked_by_me data for authenticated users
-    let likedMap: Record<string, boolean> = {};
-    if (user && page.length > 0) {
-      const postIds = page.map(p => p.id);
-      const { data: likes } = await supabaseClient
-        .from('event_reactions')
-        .select('post_id')
-        .eq('user_id', user.id)
-        .eq('kind', 'like')
-        .in('post_id', postIds);
-
-      likedMap = Object.fromEntries((likes || []).map(l => [l.post_id, true]));
-    }
-
-    // Transform data to include liked_by_me and author profile fields
-    const transformedPosts = page.map(post => ({
-      ...post,
-      liked_by_me: !!likedMap[post.id],
-      // Map badge_label for backward compatibility
-      badge_label: post.author_badge_label || (
-        post.author_is_organizer ? 'ORGANIZER' : null
-      ),
-      // Include computed fields for compatibility
-      is_organizer: post.author_is_organizer,
-      // Add author fields for profile routing
-      author_id: post.author_user_id,
-      author_display_name: post.author_name,
-      author_is_organizer: post.author_is_organizer,
-      // Ensure media_urls is always an array
-      media_urls: post.media_urls || [],
-      // Map other fields for frontend compatibility
-      author_username: post.author_name,
-      author_instagram: null,
-      author_twitter: null,
-      author_website: null
-    }));
-
-    console.log('🎯 Transformed posts with badges:', transformedPosts.map(p => ({ 
-      author: p.author_name, 
-      badge_label: p.badge_label, 
-      author_badge_label: p.author_badge_label,
-      is_organizer: p.is_organizer 
-    })));
-
-    return createResponse({
-      data: transformedPosts,
-      next_cursor: nextCursor,
-      has_more: hasMore,
-    });
 
   } catch (error) {
     console.error('Error in posts-list function:', error);
