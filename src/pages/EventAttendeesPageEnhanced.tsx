@@ -72,23 +72,21 @@ export default function EventAttendeesPageEnhanced() {
         setEventId(ev.data.id);
         setTitle(ev.data.title);
 
-        // Get total count using RPC
-        const { data: countData, error: countError } = await supabase
-          .rpc('count_event_attendees', { p_event: ev.data.id });
-
-        if (countError) {
-          console.warn('Failed to get attendee count:', countError);
-        } else {
-          setTotalCount(countData || 0);
-        }
-
-        // Get first page using RPC
-        const { data, error } = await supabase
-          .rpc('get_event_attendees', { 
-            p_event: ev.data.id, 
-            p_limit: PAGE_SIZE, 
-            p_offset: 0 
-          });
+        // Get attendees directly from tickets with deduplication
+        const { data, error, count } = await supabase
+          .from('tickets')
+          .select(`
+            owner_user_id,
+            user_profiles!inner(
+              display_name,
+              photo_url
+            ),
+            created_at
+          `, { count: 'exact' })
+          .eq('event_id', ev.data.id)
+          .in('status', ['issued', 'transferred', 'redeemed'])
+          .order('created_at', { ascending: false })
+          .range(0, PAGE_SIZE - 1);
 
         if (error) {
           setError(`Failed to load attendees: ${error.message}`);
@@ -96,8 +94,23 @@ export default function EventAttendeesPageEnhanced() {
           return;
         }
 
-        setAttendees(data || []);
-        setHasMore((data?.length || 0) === PAGE_SIZE);
+        // Deduplicate on client side
+        const uniqueAttendees = new Map<string, Attendee>();
+        data?.forEach(ticket => {
+          if (!uniqueAttendees.has(ticket.owner_user_id)) {
+            uniqueAttendees.set(ticket.owner_user_id, {
+              user_id: ticket.owner_user_id,
+              display_name: (ticket.user_profiles as any)?.display_name || null,
+              photo_url: (ticket.user_profiles as any)?.photo_url || null,
+              joined_at: ticket.created_at
+            });
+          }
+        });
+
+        const attendeesList = Array.from(uniqueAttendees.values());
+        setAttendees(attendeesList);
+        setTotalCount(count || 0);
+        setHasMore(attendeesList.length === PAGE_SIZE);
         setPage(1);
         setLoading(false);
       } catch {
@@ -116,14 +129,37 @@ export default function EventAttendeesPageEnhanced() {
     try {
       const from = page * PAGE_SIZE;
       const { data, error } = await supabase
-        .rpc('get_event_attendees', { 
-          p_event: eventId, 
-          p_limit: PAGE_SIZE, 
-          p_offset: from 
-        });
+        .from('tickets')
+        .select(`
+          owner_user_id,
+          user_profiles!inner(
+            display_name,
+            photo_url
+          ),
+          created_at
+        `)
+        .eq('event_id', eventId)
+        .in('status', ['issued', 'transferred', 'redeemed'])
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
 
       if (error) throw error;
-      setAttendees(prev => [...prev, ...(data || [])]);
+
+      // Deduplicate new attendees
+      const uniqueAttendees = new Map<string, Attendee>();
+      attendees.forEach(a => uniqueAttendees.set(a.user_id, a));
+      data?.forEach(ticket => {
+        if (!uniqueAttendees.has(ticket.owner_user_id)) {
+          uniqueAttendees.set(ticket.owner_user_id, {
+            user_id: ticket.owner_user_id,
+            display_name: (ticket.user_profiles as any)?.display_name || null,
+            photo_url: (ticket.user_profiles as any)?.photo_url || null,
+            joined_at: ticket.created_at
+          });
+        }
+      });
+
+      setAttendees(Array.from(uniqueAttendees.values()));
       setHasMore((data?.length || 0) === PAGE_SIZE);
       setPage(prev => prev + 1);
     } catch (e: any) {
