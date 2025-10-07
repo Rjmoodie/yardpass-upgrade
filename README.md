@@ -36,9 +36,10 @@ Copy `.env.example` to `.env.local` and fill in your values:
 
 ```bash
 # Supabase Configuration
-VITE_SUPABASE_URL=https://yieslxnrfeqchbcmgavz.supabase.co
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_SUPABASE_FUNCTIONS_URL=https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1
+# Optional if your functions are hosted separately; defaults to ${VITE_SUPABASE_URL}/functions/v1
+VITE_SUPABASE_FUNCTIONS_URL=
 
 # Stripe Configuration
 VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { FeedItem } from '@/hooks/useUnifiedFeed';
+import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { getOrCreateSessionId } from '@/utils/session';
 
 type Args = {

@@ -1,6 +1,5 @@
 // src/pages/OrganizerDashboard.tsx
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Megaphone, Settings, Mail } from 'lucide-react';
@@ -18,361 +17,36 @@ import EventManagement from '@/components/EventManagement';
 import { DashboardOverview } from '@/components/dashboard/DashboardOverview';
 import { EventsList } from '@/components/dashboard/EventsList';
 import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
-import { useOrganizerData } from '@/hooks/useOrganizerData';
-import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
-import { useOrganizations } from '@/hooks/useOrganizations';
 import { CampaignDashboard } from '@/components/campaigns/CampaignDashboard';
 import { OrganizerCommsPanel } from '@/components/organizer/OrganizerCommsPanel';
-
-type OwnerContextType = 'individual' | 'organization';
-
-interface Event {
-  id: string;
-  title: string;
-  status: string;
-  date: string;
-  attendees: number;
-  revenue: number;
-  views: number;
-  likes: number;
-  shares: number;
-  tickets_sold: number;
-  capacity: number;
-  conversion_rate: number;
-  engagement_rate: number;
-  created_at: string;
-  start_at: string;
-  end_at: string;
-  venue?: string;
-  category?: string;
-  cover_image_url?: string;
-  description?: string;
-  city?: string;
-  visibility?: string;
-  owner_context_type?: OwnerContextType;
-  owner_context_id?: string | null;
-}
-
-const TAB_KEYS = ['dashboard', 'events', 'analytics', 'campaigns', 'messaging', 'teams', 'payouts'] as const;
-type TabKey = typeof TAB_KEYS[number];
-const DEFAULT_TAB: TabKey = 'dashboard';
-const lastTabKeyFor = (scope: string) => `organizer.lastTab.${scope}`;
+import { useOrganizerDashboardState } from '@/hooks/useOrganizerDashboardState';
+import type { OrganizerEventSummary } from '@/types/organizer';
 
 export default function OrganizerDashboard() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { trackEvent } = useAnalyticsIntegration();
+  const {
+    user,
+    organizations,
+    orgsLoading,
+    selectedOrganization,
+    activeTab,
+    setActiveTab,
+    handleOrganizationSelect,
+    events,
+    eventsLoading,
+    totals,
+    goCreateEvent,
+    logEventSelect,
+  } = useOrganizerDashboardState();
 
-  // Edit organization state
   const [editingOrg, setEditingOrg] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '', website_url: '', location: '' });
+  const loading = eventsLoading;
 
-  // --- Auth ---
-  const [user, setUser] = useState<any>(null);
-  useEffect(() => {
-    let mounted = true;
-    supabase.auth.getUser().then(({ data: { user } }) => mounted && setUser(user));
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => setUser(sess?.user || null));
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  // --- Orgs & scope ---
-  const { organizations, loading: orgsLoading } = useOrganizations(user?.id);
-  const initialOrgParam = searchParams.get('org'); // uuid or null
-  const [selectedOrganization, setSelectedOrganization] = useState<string | null>(initialOrgParam);
-  const scopeKey = selectedOrganization || 'individual';
-
-  // Auto-select first organization if user has orgs but no URL param on first load
-  useEffect(() => {
-    if (!orgsLoading && organizations.length > 0 && !initialOrgParam && !selectedOrganization) {
-      console.log('🔄 Auto-selecting first organization:', organizations[0].id);
-      setSelectedOrganization(organizations[0].id);
-      const next = new URLSearchParams(searchParams);
-      next.set('org', organizations[0].id);
-      setSearchParams(next, { replace: true });
-    }
-  }, [organizations, orgsLoading, initialOrgParam, selectedOrganization]);
-
-  // Keep selectedOrganization in sync with URL
-  useEffect(() => {
-    const orgFromUrl = searchParams.get('org');
-    if (orgFromUrl !== selectedOrganization) {
-      setSelectedOrganization(orgFromUrl);
-    }
-  }, [searchParams, selectedOrganization]);
-
-  // --- Tabs (per-scope memory) ---
-  const initialTabFromStorage = (localStorage.getItem(lastTabKeyFor(scopeKey)) as TabKey) || DEFAULT_TAB;
-  const initialTabFromUrl = (searchParams.get('tab') as TabKey) || initialTabFromStorage || DEFAULT_TAB;
-  const [activeTab, setActiveTab] = useState<TabKey>(TAB_KEYS.includes(initialTabFromUrl) ? initialTabFromUrl : DEFAULT_TAB);
-
-  useEffect(() => {
-    const current = searchParams.get('tab');
-    if (current !== activeTab) {
-      const next = new URLSearchParams(searchParams);
-      next.set('tab', activeTab);
-      setSearchParams(next, { replace: true });
-    }
-    localStorage.setItem(lastTabKeyFor(scopeKey), activeTab);
-  }, [activeTab, scopeKey, searchParams, setSearchParams]);
-
-  useEffect(() => {
-    trackEvent('organizer_tab_view', { tab: activeTab, scope: scopeKey });
-  }, [activeTab, scopeKey, trackEvent]);
-
-  // On scope change, restore that scope's last tab
-  useEffect(() => {
-    const saved = (localStorage.getItem(lastTabKeyFor(scopeKey)) as TabKey) || DEFAULT_TAB;
-    setActiveTab(TAB_KEYS.includes(saved) ? saved : DEFAULT_TAB);
-  }, [scopeKey]);
-
-  // --- Events (server-scoped) ---
-  const { userEvents, loading: hookLoading } = useOrganizerData(user); // kept for compatibility; not used here
-  const [scopedEvents, setScopedEvents] = useState<Event[]>([]);
-  const [loadingScoped, setLoadingScoped] = useState<boolean>(true);
-  const mountedRef = useRef(true);
-
-  const fetchScopedEvents = useCallback(async () => {
-    console.log('🚀 fetchScopedEvents called - selectedOrganization:', selectedOrganization, 'user:', user?.id);
-    if (!user?.id) {
-      console.log('⚠️ No user ID, skipping fetch');
-      return;
-    }
-    setLoadingScoped(true);
-    try {
-      console.log('🔍 Fetching events for scope:', selectedOrganization ? `org:${selectedOrganization}` : 'personal');
-      
-      // Get events for this scope
-      let query = supabase
-        .from('events')
-        .select('id, title, created_at, start_at, end_at, venue, category, cover_image_url, description, city, visibility, owner_context_type, owner_context_id')
-        .order('start_at', { ascending: false });
-
-      if (selectedOrganization) {
-        console.log('📊 Filtering by organization:', selectedOrganization);
-        query = query.eq('owner_context_type', 'organization').eq('owner_context_id', selectedOrganization);
-      } else {
-        console.log('👤 Filtering by personal events for user:', user.id);
-        query = query.eq('owner_context_type', 'individual').eq('owner_context_id', user.id);
-      }
-
-      const { data: eventData, error } = await query;
-      if (error) throw error;
-
-      const rows = (eventData || []) as any[];
-      console.log(`✅ Found ${rows.length} events for this scope`);
-      
-      if (rows.length === 0) {
-        console.log('⚠️ No events found for this scope');
-        if (mountedRef.current) setScopedEvents([]);
-        return;
-      }
-
-      const eventIds = rows.map(e => e.id);
-
-      // Use database function to get accurate KPIs
-      const now = new Date();
-      const fromDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); // Last year
-
-      console.log('📈 Fetching KPIs for event IDs:', eventIds);
-      console.log('📅 Date range:', fromDate.toISOString().split('T')[0], 'to', now.toISOString().split('T')[0]);
-      
-      const { data: kpisData, error: kpisError } = await supabase.rpc('get_event_kpis_daily', {
-        p_event_ids: eventIds,
-        p_from_date: fromDate.toISOString().split('T')[0],
-        p_to_date: now.toISOString().split('T')[0]
-      });
-      
-      if (kpisError) {
-        console.error('❌ KPIs error:', kpisError);
-      } else {
-        console.log('💰 KPIs data rows:', kpisData?.length || 0);
-        if (kpisData && kpisData.length > 0) {
-          console.log('📊 Sample KPI row:', kpisData[0]);
-          console.log('💵 Total revenue (cents):', kpisData.reduce((sum: number, row: any) => sum + (row.gmv_cents || 0), 0));
-        }
-      }
-
-      // Get scan data
-      const { data: scanData } = await supabase.rpc('get_event_scans_daily', {
-        p_event_ids: eventIds,
-        p_from_date: fromDate.toISOString().split('T')[0],
-        p_to_date: now.toISOString().split('T')[0]
-      });
-
-      // Get video views
-      const { data: videoData } = await supabase
-        .from('event_video_counters')
-        .select('event_id, views_total')
-        .in('event_id', eventIds);
-
-      // Get engagement data
-      const { data: engagementData } = await supabase.rpc('get_post_engagement_daily', {
-        p_event_ids: eventIds,
-        p_from_date: fromDate.toISOString().split('T')[0],
-        p_to_date: now.toISOString().split('T')[0]
-      });
-
-      // Get sponsor data
-      const { data: sponsorData } = await supabase
-        .from('event_sponsorships')
-        .select('event_id, sponsor_id, amount_cents')
-        .in('event_id', eventIds)
-        .eq('status', 'active');
-
-      // Aggregate metrics by event
-      const eventMetrics = new Map<string, any>();
-      
-      // Initialize metrics for all events
-      eventIds.forEach(id => {
-        eventMetrics.set(id, {
-          revenue: 0,
-          attendees: 0,
-          views: 0,
-          likes: 0,
-          comments: 0,
-          shares: 0,
-          sponsor_count: 0,
-          sponsor_revenue: 0
-        });
-      });
-
-      // Aggregate KPI data (revenue, tickets)
-      kpisData?.forEach((row: any) => {
-        const metrics = eventMetrics.get(row.event_id);
-        if (metrics) {
-          metrics.revenue += row.gmv_cents / 100;
-          metrics.attendees += row.units;
-        }
-      });
-
-      // Add video views
-      videoData?.forEach((row: any) => {
-        const metrics = eventMetrics.get(row.event_id);
-        if (metrics) metrics.views = row.views_total || 0;
-      });
-
-      // Add engagement
-      engagementData?.forEach((row: any) => {
-        const metrics = eventMetrics.get(row.event_id);
-        if (metrics) {
-          metrics.likes += row.likes || 0;
-          metrics.comments += row.comments || 0;
-          metrics.shares += row.shares || 0;
-        }
-      });
-
-      // Add sponsor data
-      sponsorData?.forEach((row: any) => {
-        const metrics = eventMetrics.get(row.event_id);
-        if (metrics) {
-          metrics.sponsor_count += 1;
-          metrics.sponsor_revenue += (row.amount_cents || 0) / 100;
-        }
-      });
-
-      // Map events with their metrics
-      const eventsWithMetrics = rows.map((e) => {
-        const metrics = eventMetrics.get(e.id) || {
-          revenue: 0,
-          attendees: 0,
-          views: 0,
-          likes: 0,
-          comments: 0,
-          shares: 0,
-          sponsor_count: 0,
-          sponsor_revenue: 0
-        };
-
-        return {
-          id: e.id,
-          title: e.title || 'Untitled Event',
-          status: e.visibility === 'draft' ? 'draft' : 'published',
-          date: e.start_at ? new Date(e.start_at).toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric',
-            timeZone: 'UTC'
-          }) : 'Date TBD',
-          attendees: metrics.attendees,
-          revenue: metrics.revenue,
-          views: metrics.views,
-          likes: metrics.likes,
-          shares: metrics.shares,
-          tickets_sold: metrics.attendees,
-          capacity: 0, // TODO: Calculate from tiers if needed
-          conversion_rate: 0,
-          engagement_rate: metrics.views > 0 ? (metrics.likes / metrics.views) * 100 : 0,
-          created_at: e.created_at,
-          start_at: e.start_at,
-          end_at: e.end_at,
-          venue: e.venue || 'Venue TBD',
-          category: e.category || 'General',
-          cover_image_url: e.cover_image_url,
-          description: e.description || '',
-          city: e.city || 'Location TBD',
-          visibility: e.visibility || 'public',
-          owner_context_type: e.owner_context_type,
-          owner_context_id: e.owner_context_id,
-          sponsor_count: metrics.sponsor_count,
-          sponsor_revenue: metrics.sponsor_revenue,
-        } as Event & { sponsor_count: number; sponsor_revenue: number };
-      });
-
-      if (mountedRef.current) setScopedEvents(eventsWithMetrics);
-    } catch (e: any) {
-      console.error('fetchScopedEvents', e);
-      toast({ title: 'Error loading events', description: e.message || 'Please try again.', variant: 'destructive' });
-      if (mountedRef.current) setScopedEvents([]);
-    } finally {
-      if (mountedRef.current) setLoadingScoped(false);
-    }
-  }, [selectedOrganization, user?.id]);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    fetchScopedEvents();
-
-    const filter = selectedOrganization
-      ? `owner_context_type=eq.organization,owner_context_id=eq.${selectedOrganization}`
-      : `owner_context_type=eq.individual,owner_context_id=eq.${user?.id || 'null'}`;
-
-    const ch = supabase
-      .channel(`events-scope-${scopeKey}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter }, () => fetchScopedEvents())
-      .subscribe();
-
-    return () => {
-      mountedRef.current = false;
-      try { supabase.removeChannel(ch); } catch {}
-    };
-  }, [fetchScopedEvents, selectedOrganization, user?.id, scopeKey]);
-
-  const events = scopedEvents;
-  const loading = loadingScoped;
-
-  // --- Event drill-in ---
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const handleEventSelect = useCallback((event: Event) => {
-    trackEvent('dashboard_event_selected', { event_id: event.id, scope: scopeKey, user_id: user?.id });
+  const [selectedEvent, setSelectedEvent] = useState<OrganizerEventSummary | null>(null);
+  const handleEventSelect = useCallback((event: OrganizerEventSummary) => {
+    logEventSelect(event.id);
     setSelectedEvent(event);
-  }, [trackEvent, scopeKey, user?.id]);
-
-  // --- Totals ---
-  const totals = useMemo(() => {
-    const evs = events || [];
-    const revenue = evs.reduce((s, e) => s + (e.revenue || 0), 0);
-    const attendees = evs.reduce((s, e) => s + (e.attendees || 0), 0);
-    return { events: evs.length, revenue, attendees };
-  }, [events, scopeKey]);
-
-  // --- Create event (prefill owner context) ---
-  const goCreateEvent = () => {
-    const params = new URLSearchParams();
-    params.set('owner_context_type', selectedOrganization ? 'organization' : 'individual');
-    params.set('owner_context_id', selectedOrganization || user?.id || '');
-    window.location.href = `/create-event?${params.toString()}`;
-  };
+  }, [logEventSelect]);
 
   // --- Early loading ---
   if ((loading && !(events?.length)) || (orgsLoading && !organizations.length)) {
@@ -483,15 +157,8 @@ export default function OrganizerDashboard() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-2">
                 <OrgSwitcher
                   organizations={organizations}
-                  value={selectedOrganization}   // null => personal
-                  onSelect={(value) => {
-                    const next = new URLSearchParams(searchParams);
-                    if (value) next.set('org', value);
-                    else next.delete('org');
-                    setSearchParams(next, { replace: true });
-                    setSelectedOrganization(value);
-                    trackEvent('dashboard_org_selected', { org_id: value || 'individual', source: 'switcher' });
-                  }}
+                  value={selectedOrganization}
+                  onSelect={handleOrganizationSelect}
                   onCreateOrgPath="/create-organization"
                   className="w-full sm:w-[240px] md:w-[280px]"
                 />
@@ -541,7 +208,7 @@ export default function OrganizerDashboard() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-4 sm:space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
         <TabsList className="grid w-full grid-cols-7 h-auto p-0.5 sm:p-1 gap-0.5 overflow-x-auto">
           <TabsTrigger value="dashboard" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />

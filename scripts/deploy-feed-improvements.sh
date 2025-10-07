@@ -26,6 +26,10 @@ echo "  - Creating get_home_feed_ranked wrapper function..."
 psql -h yieslxnrfeqchbcmgavz.supabase.co -p 5432 -U postgres -d postgres \
     -f supabase/migrations/20250101000001_create_feed_ranked_wrapper.sql
 
+echo "  - Enabling cursor pagination for home feed..."
+psql -h yieslxnrfeqchbcmgavz.supabase.co -p 5432 -U postgres -d postgres \
+    -f supabase/migrations/20250301000000_update_home_feed_cursor.sql
+
 echo "✅ SQL migrations applied successfully!"
 
 echo "📝 Edge function updated in supabase/functions/home-feed/index.ts"
@@ -42,6 +46,7 @@ echo "   ✅ Post capping: Max 3 posts per event to prevent spam"
 echo "   ✅ Input validation: Limits clamped to prevent abuse"
 echo "   ✅ Better error handling: Graceful fallbacks and RLS tolerance"
 echo "   ✅ Consistent naming: Edge function calls correct SQL function"
+echo "   ✅ Cursor pagination: Stable infinite scroll without offsets"
 
 echo ""
 echo "🚀 Ready to deploy! The feed will now show:"
