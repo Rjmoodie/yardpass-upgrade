@@ -31,6 +31,7 @@ const SearchPage = lazy(() => import('@/components/SearchPage'));
 const EventManagement = lazy(() => import('@/components/EventManagement'));
 const OrganizationCreator = lazy(() => import('@/components/OrganizationCreator'));
 const OrganizationDashboard = lazy(() => import('@/components/OrganizationDashboard'));
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
 const RefundPolicy = lazy(() => import('@/pages/RefundPolicy'));
@@ -336,7 +337,9 @@ function AppContent() {
                 path="/dashboard"
                 element={
                   <AuthGuard>
-                    <OrganizerDashboard />
+                    <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                      <OrganizerDashboard />
+                    </Suspense>
                   </AuthGuard>
                 }
               />
@@ -433,7 +436,9 @@ function AppContent() {
                 path="/organization-dashboard/:id"
                 element={
                   <AuthGuard>
-                    <OrganizationDashboardRouteComponent selectedOrganizationFallback={selectedOrganizationId} />
+                    <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                      <OrganizationDashboardRouteComponent selectedOrganizationFallback={selectedOrganizationId} />
+                    </Suspense>
                   </AuthGuard>
                 }
               />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -6,18 +6,20 @@ import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircl
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import AnalyticsHub from '@/components/AnalyticsHub';
-import { PayoutPanel } from '@/components/PayoutPanel';
-import { OrganizationTeamPanel } from '@/components/OrganizationTeamPanel';
-import EventManagement from './EventManagement';
-import { DashboardOverview } from '@/components/dashboard/DashboardOverview';
-import { EventsList } from '@/components/dashboard/EventsList';
-import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useOrganizations } from '@/hooks/useOrganizations';
-import { OrgWalletDashboard } from '@/components/wallet/OrgWalletDashboard';
-import { CampaignDashboard } from '@/components/campaigns/CampaignDashboard';
-import { OrganizerCommsPanel } from '@/components/organizer/OrganizerCommsPanel';
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+
+// Lazy load dashboard components
+const AnalyticsHub = lazy(() => import('@/components/AnalyticsHub'));
+const PayoutPanel = lazy(() => import('@/components/PayoutPanel'));
+const OrganizationTeamPanel = lazy(() => import('@/components/OrganizationTeamPanel'));
+const EventManagement = lazy(() => import('./EventManagement'));
+const DashboardOverview = lazy(() => import('@/components/dashboard/DashboardOverview'));
+const EventsList = lazy(() => import('@/components/dashboard/EventsList'));
+const OrgWalletDashboard = lazy(() => import('@/components/wallet/OrgWalletDashboard'));
+const CampaignDashboard = lazy(() => import('@/components/campaigns/CampaignDashboard'));
+const OrganizerCommsPanel = lazy(() => import('@/components/organizer/OrganizerCommsPanel'));
 
 type OwnerContextType = 'individual' | 'organization';
 
@@ -59,6 +61,7 @@ const LAST_ORG_KEY = 'organizer.lastOrgId';
 export default function OrganizerDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { trackEvent } = useAnalyticsIntegration();
+  const orgId = useMemo(() => searchParams.get('org') ?? null, [searchParams]);
 
   // Auth (we still need user for create-event param, but dashboard is strictly org-scoped)
   const [user, setUser] = useState<any>(null);
@@ -519,69 +522,83 @@ export default function OrganizerDashboard() {
         </div>
 
         <TabsContent value="events" className="space-y-6">
-          {(events?.length ?? 0) === 0 ? (
-            <div className="text-center py-16 border rounded-lg">
-              <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-              <h3 className="text-lg font-semibold mb-1">No events yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
-              <Button onClick={goCreateEvent}><Plus className="mr-2 h-4 w-4" />Create Event</Button>
-            </div>
-          ) : (
-            <EventsList events={events} onEventSelect={handleEventSelect} />
-          )}
+          <Suspense fallback={<LoadingSpinner />}>
+            {(events?.length ?? 0) === 0 ? (
+              <div className="text-center py-16 border rounded-lg">
+                <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                <h3 className="text-lg font-semibold mb-1">No events yet</h3>
+                <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
+                <Button onClick={goCreateEvent}><Plus className="mr-2 h-4 w-4" />Create Event</Button>
+              </div>
+            ) : (
+              <EventsList events={events} onEventSelect={handleEventSelect} />
+            )}
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="teams" className="space-y-6">
-          <OrganizationTeamPanel organizationId={selectedOrgId} />
+          <Suspense fallback={<LoadingSpinner />}>
+            <OrganizationTeamPanel organizationId={selectedOrgId} />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
-          <AnalyticsHub initialOrgId={selectedOrgId} />
+          <Suspense fallback={<LoadingSpinner />}>
+            <AnalyticsHub initialOrgId={selectedOrgId} />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="campaigns" className="space-y-6">
-          <CampaignDashboard orgId={selectedOrgId} />
+          <Suspense fallback={<LoadingSpinner />}>
+            <CampaignDashboard orgId={selectedOrgId} />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="messaging" className="space-y-6">
-          {events && events.length > 0 ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Mail className="h-5 w-5" />
-                <h2 className="text-xl font-semibold">Event Communications</h2>
-              </div>
-              {events.map((event) => (
-                <div key={event.id} className="border rounded-lg p-4">
-                  <h3 className="font-semibold mb-2">{event.title}</h3>
-                  <OrganizerCommsPanel eventId={event.id} />
+          <Suspense fallback={<LoadingSpinner />}>
+            {events && events.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Mail className="h-5 w-5" />
+                  <h2 className="text-xl font-semibold">Event Communications</h2>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16 border rounded-lg">
-              <Mail className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-              <h3 className="text-lg font-semibold mb-1">Event Messaging</h3>
-              <p className="text-muted-foreground mb-4">
-                Create an event first to send messages to attendees.
-              </p>
-              <Button onClick={goCreateEvent}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Event
-              </Button>
-            </div>
-          )}
+                {events.map((event) => (
+                  <div key={event.id} className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-2">{event.title}</h3>
+                    <OrganizerCommsPanel eventId={event.id} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16 border rounded-lg">
+                <Mail className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                <h3 className="text-lg font-semibold mb-1">Event Messaging</h3>
+                <p className="text-muted-foreground mb-4">
+                  Create an event first to send messages to attendees.
+                </p>
+                <Button onClick={goCreateEvent}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Event
+                </Button>
+              </div>
+            )}
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="wallet" className="space-y-6">
-          <OrgWalletDashboard orgId={selectedOrgId} />
+          <Suspense fallback={<LoadingSpinner />}>
+            <OrgWalletDashboard orgId={selectedOrgId} />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="payouts" className="space-y-6">
-          <PayoutPanel
-            key={`${selectedOrgId}-payouts`}
-            contextType="organization"
-            contextId={selectedOrgId}
-          />
+          <Suspense fallback={<LoadingSpinner />}>
+            <PayoutPanel
+              key={`${selectedOrgId}-payouts`}
+              contextType="organization"
+              contextId={selectedOrgId}
+            />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </div>

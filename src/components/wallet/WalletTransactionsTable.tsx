@@ -1,95 +1,52 @@
-import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { WalletTransaction } from "@/hooks/useWallet";
-import { ArrowDownCircle, ArrowUpCircle, RefreshCw, Settings } from "lucide-react";
+import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { fetchWalletTx } from '@/lib/api/wallet';
 
-interface WalletTransactionsTableProps {
-  transactions: WalletTransaction[];
-}
+export default function WalletTransactionsTable({ orgId }: { orgId: string }) {
+  const [page, setPage] = useState(1);
+  const limit = 50;
 
-export const WalletTransactionsTable = ({ transactions }: WalletTransactionsTableProps) => {
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "purchase":
-        return <ArrowDownCircle className="h-4 w-4 text-green-500" />;
-      case "spend":
-        return <ArrowUpCircle className="h-4 w-4 text-red-500" />;
-      case "refund":
-        return <RefreshCw className="h-4 w-4 text-blue-500" />;
-      default:
-        return <Settings className="h-4 w-4 text-gray-500" />;
-    }
-  };
+  const { data, isFetching } = useQuery({
+    queryKey: ['wallet-tx', orgId, page, limit],
+    queryFn: () => fetchWalletTx({ orgId, page, limit }),
+    keepPreviousData: true,
+    staleTime: 60_000,
+  });
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "purchase":
-      case "promo":
-        return "default";
-      case "spend":
-        return "destructive";
-      case "refund":
-        return "secondary";
-      default:
-        return "outline";
-    }
-  };
-
-  if (!transactions || transactions.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No transactions yet.
-      </div>
-    );
-  }
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total]);
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>
-            <ArrowUpCircle className="h-4 w-4" />
-          </TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Notes</TableHead>
-          <TableHead>Date</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {transactions.map((tx) => (
-          <TableRow key={tx.id}>
-            <TableCell>{getTypeIcon(tx.type)}</TableCell>
-            <TableCell>
-              <Badge variant={getTypeColor(tx.type)}>{tx.type}</Badge>
-            </TableCell>
-            <TableCell>
-              <span
-                className={
-                  tx.credits_delta > 0
-                    ? "text-green-600 font-medium"
-                    : "text-red-600 font-medium"
-                }
-              >
-                {tx.credits_delta > 0 ? "+" : ""}
-                {tx.credits_delta.toLocaleString()} credits
-              </span>
-              {typeof tx.usd_cents === "number" && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  ({new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(Math.abs(tx.usd_cents) / 100)})
-                </span>
-              )}
-            </TableCell>
-            <TableCell className="text-sm text-muted-foreground max-w-[320px] truncate">
-              {tx.memo || tx.reference_type || "—"}
-            </TableCell>
-            <TableCell className="text-sm text-muted-foreground">
-              {format(new Date(tx.created_at), "MMM d, yyyy h:mm a")}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className="space-y-2">
+      <div className="border rounded-xl overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="text-left">
+              <th className="px-3 py-2">When</th>
+              <th className="px-3 py-2">Type</th>
+              <th className="px-3 py-2">Credits Δ</th>
+              <th className="px-3 py-2">Memo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r: any) => (
+              <tr key={r.id} className="border-t">
+                <td className="px-3 py-2">{new Date(r.created_at).toLocaleString()}</td>
+                <td className="px-3 py-2">{r.type}</td>
+                <td className="px-3 py-2">{r.credits_delta}</td>
+                <td className="px-3 py-2">{r.memo ?? '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center gap-2">
+        <button disabled={page===1} onClick={() => setPage(p => p-1)} className="btn">Prev</button>
+        <span className="text-sm opacity-70">Page {page} / {totalPages}</span>
+        <button disabled={page>=totalPages} onClick={() => setPage(p => p+1)} className="btn">Next</button>
+        {isFetching && <span className="text-sm opacity-70">Loading…</span>}
+      </div>
+    </div>
   );
-};
+}
