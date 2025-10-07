@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 export interface OrgWalletData {
@@ -44,34 +45,17 @@ export const useOrgWallet = (orgId: string) => {
   const { data: wallet, isLoading, error } = useQuery<OrgWalletData | null>({
     queryKey: ["org-wallet", orgId],
     queryFn: async () => {
-      const supabaseUrl = "https://yieslxnrfeqchbcmgavz.supabase.co";
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      
-      if (!token) throw new Error("Not authenticated");
+      const response = await api.getOrgWallet(orgId);
 
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/get-org-wallet?org_id=${orgId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to fetch wallet");
+      if (response.error) {
+        throw new Error(response.error);
       }
 
-      const data = await response.json();
-      
-      // If no wallet exists (empty state), return null
-      if (!data || !data.id) {
+      if (!response.data) {
         return null;
       }
 
-      return data as OrgWalletData;
+      return response.data as OrgWalletData;
     },
     enabled: !!orgId,
   });
