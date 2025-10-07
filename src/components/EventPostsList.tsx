@@ -1,15 +1,27 @@
 import React, { useCallback, memo } from 'react';
 import { FixedSizeList as List } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
-import { useUnifiedFeedInfinite } from '@/hooks/useUnifiedFeedInfinite';
-import { EventCard } from '@/components/EventCard';
+import { useEventPostsInfinite } from '@/hooks/useEventPostsInfinite';
 import { UserPostCard } from '@/components/UserPostCard';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Keep item height stable; adjust if your cards differ
 const ITEM_HEIGHT = 132;
 
-export default function UnifiedFeedList() {
-  const { items, fetchNextPage, hasNextPage, isFetchingNextPage, status } = useUnifiedFeedInfinite(30);
+interface EventPostsListProps {
+  eventId: string;
+}
+
+export default function EventPostsList({ eventId }: EventPostsListProps) {
+  const { user } = useAuth();
+  
+  const {
+    status,
+    items,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useEventPostsInfinite(eventId, user?.id);
 
   const onItemsRendered = useCallback(
     ({ visibleStopIndex }: { visibleStopIndex: number }) => {
@@ -20,8 +32,8 @@ export default function UnifiedFeedList() {
     [hasNextPage, isFetchingNextPage, items.length, fetchNextPage]
   );
 
-  if (status === 'pending') return <FeedSkeleton />;
-  if (status === 'error') return <div className="p-4 text-sm text-red-600">Couldn't load feed.</div>;
+  if (status === 'pending') return <PostsSkeleton />;
+  if (status === 'error') return <div className="p-4 text-sm text-red-600">Couldn't load posts.</div>;
 
   return (
     <div className="h-[calc(100vh-80px)] w-full">
@@ -51,14 +63,20 @@ const Row = memo(function Row({
   style: React.CSSProperties;
   items: Array<any>;
 }) {
-  const it = items[index];
-  if (!it) return null;
-  return it.kind === 'event'
-    ? <EventCard key={it.id} style={style} event={it.event} />
-    : <UserPostCard key={it.id} style={style} post={it.post} />;
+  const post = items[index];
+  if (!post) return null;
+  
+  // Transform the post data to match UserPostCard expectations
+  const transformedPost = {
+    ...post,
+    kind: 'post' as const,
+    // Add any additional transformations needed
+  };
+  
+  return <UserPostCard key={post.id} style={style} post={transformedPost} />;
 });
 
-function FeedSkeleton() {
+function PostsSkeleton() {
   return (
     <div className="p-4 space-y-3">
       {Array.from({ length: 6 }).map((_, i) => (

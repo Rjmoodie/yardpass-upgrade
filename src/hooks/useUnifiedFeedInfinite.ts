@@ -1,53 +1,93 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
-type UnifiedItemEvent = { kind: 'event'; id: string; created_at: string; /* ... */ };
-type UnifiedItemPost  = { kind: 'post';  id: string; created_at: string; /* ... */ };
-export type UnifiedItem = UnifiedItemEvent | UnifiedItemPost;
+export type UnifiedEvent = {
+  kind: 'event';
+  id: string;
+  created_at: string;
+  event: {
+    id: string;
+    title: string;
+    cover_image_url: string | null;
+    start_at: string;
+    end_at: string;
+    city: string | null;
+    created_at: string;
+  };
+};
 
-type Page = { items: UnifiedItem[]; nextCursor?: string };
+export type UnifiedPost = {
+  kind: 'post';
+  id: string;
+  created_at: string;
+  post: {
+    id: string;
+    event_id: string;
+    author_user_id: string;
+    text: string | null;
+    media_urls: string[] | null;
+    created_at: string;
+    like_count: number;
+    comment_count: number;
+    author_display_name: string;
+    author_photo_url: string | null;
+  };
+};
 
-async function fetchUnifiedPage(cursor?: string): Promise<Page> {
-  // Backward compatible: your edge function can ignore cursor if not implemented yet
-  const res = await fetch(`/functions/v1/home-feed${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, {
+export type UnifiedItem = UnifiedEvent | UnifiedPost;
+
+type Page = {
+  items: UnifiedItem[];
+  nextCursor: { cursorTs: string; cursorId: string } | null;
+};
+
+async function fetchPage(cursor?: { cursorTs: string; cursorId: string }, limit = 30): Promise<Page> {
+  const res = await fetch('/functions/v1/home-feed', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
+    credentials: 'include', // forward cookies for Supabase Auth helpers, if used
+    body: JSON.stringify({
+      limit,
+      cursorTs: cursor?.cursorTs,
+      cursorId: cursor?.cursorId,
+    }),
   });
-  if (!res.ok) throw new Error('Unified feed fetch failed');
+  if (!res.ok) {
+    const e = await res.text().catch(() => '');
+    throw new Error(`home-feed failed: ${res.status} ${e}`);
+  }
   return res.json();
 }
 
-export function useUnifiedFeedInfinite() {
+export function useUnifiedFeedInfinite(limit = 30) {
   const qc = useQueryClient();
+
   const q = useInfiniteQuery<Page, Error>({
-    queryKey: ['unifiedFeed'],
-    queryFn: ({ pageParam }) => fetchUnifiedPage(pageParam as string | undefined),
+    queryKey: ['unifiedFeed', { limit }],
+    queryFn: ({ pageParam }) => fetchPage(pageParam as any, limit),
     initialPageParam: undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     staleTime: 15_000,
   });
 
-  // Example: targeted realtime updates can call this updater
+  const items = q.data?.pages.flatMap((p) => p.items) ?? [];
+
+  // For realtime/optimistic updates
   function applyEngagementDelta(postId: string, delta: Partial<Record<'like_count' | 'comment_count', number>>) {
-    qc.setQueryData(['unifiedFeed'], (data: any) => {
-      if (!data) return data;
-      for (const page of data.pages) {
-        const idx = page.items.findIndex((x: any) => x.id === postId && x.kind === 'post');
-        if (idx >= 0) {
-          page.items[idx] = { ...page.items[idx], ...Object.fromEntries(
-            Object.entries(delta).map(([k, v]) => [k, ((page.items[idx] as any)[k] ?? 0) + (v ?? 0)])
-          ) };
-          break;
-        }
-      }
-      return { ...data };
+    qc.setQueryData(['unifiedFeed', { limit }], (oldData: any) => {
+      if (!oldData) return oldData;
+      const pages = oldData.pages.map((page: Page) => {
+        const updatedItems = page.items.map((it) => {
+          if (it.kind !== 'post' || it.id !== postId) return it;
+          const post = { ...it.post };
+          if (delta.like_count != null) post.like_count = Math.max(0, (post.like_count ?? 0) + delta.like_count);
+          if (delta.comment_count != null) post.comment_count = Math.max(0, (post.comment_count ?? 0) + delta.comment_count);
+          return { ...it, post };
+        });
+        return { ...page, items: updatedItems };
+      });
+      return { ...oldData, pages };
     });
   }
 
-  const items = q.data?.pages.flatMap(p => p.items) ?? [];
-  return {
-    ...q,
-    items,
-    applyEngagementDelta,
-  };
+  return { ...q, items, applyEngagementDelta };
 }
