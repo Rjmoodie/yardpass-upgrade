@@ -10,7 +10,8 @@
     <!-- Removed X-Frame-Options and frame-ancestors meta (must be set via HTTP headers) -->
     <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
-    <meta http-equiv="Permissions-Policy" content="vr=(), ambient-light-sensor=(), battery=(), payment=(), geolocation=(self), camera=(), microphone=()" />
+    <!-- Permissions-Policy: removed camera/mic blocks, keep minimal for iOS compatibility -->
+    <meta http-equiv="Permissions-Policy" content="geolocation=(self); payment=(); vr=(); battery=()" />
     
     <!-- PWA and Mobile App Meta Tags -->
     <link rel="manifest" href="/manifest.json" />

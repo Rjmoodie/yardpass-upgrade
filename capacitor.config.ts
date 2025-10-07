@@ -4,39 +4,34 @@ const config: CapacitorConfig = {
   appId: 'com.yardpass.app',
   appName: 'YardPass',
   webDir: 'dist',
-  server: {
-    url: 'https://f63ed2d9-b24c-482a-bacd-65518a3b8e6f.lovableproject.com?forceHideBadge=true',
-    cleartext: true,
-    androidScheme: 'https'
-  },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
-      backgroundColor: '#f59e0b',
+      // Let the native storyboard show, then hide ASAP when your web app is ready
+      launchShowDuration: 0,
+      backgroundColor: '#ffffff',
       showSpinner: false,
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
       iosSpinnerStyle: 'large',
-      spinnerColor: '#ffffff'
+      spinnerColor: '#000000'
     },
-    StatusBar: {
-      style: 'dark',
-      backgroundColor: '#f59e0b'
-    },
+    // We'll set StatusBar style at runtime based on theme; keep config minimal
+    StatusBar: {},
     Haptics: {},
     Share: {},
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert']
     }
   },
-  android: {
-    allowMixedContent: true,
-    captureInput: true,
-    webContentsDebuggingEnabled: true
-  },
   ios: {
     contentInset: 'automatic',
-    scrollEnabled: true
+    scrollEnabled: true,
+    backgroundColor: '#ffffff'
+  },
+  android: {
+    allowMixedContent: false,          // safer default
+    captureInput: true,
+    webContentsDebuggingEnabled: false // disable for release
   }
 };
 

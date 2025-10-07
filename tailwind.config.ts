@@ -105,6 +105,9 @@ export default {
         "safe-right": "var(--safe-area-inset-right)",
         "safe-or-2": "max(env(safe-area-inset-bottom, 0rem), 0.5rem)",
         "safe-or-4": "max(env(safe-area-inset-bottom, 0rem), 1rem)",
+        // iOS-specific spacing for top safe area
+        "safe-top-or-2": "max(env(safe-area-inset-top, 0rem), 0.5rem)",
+        "safe-top-or-4": "max(env(safe-area-inset-top, 0rem), 1rem)",
       },
       borderRadius: {
         xs: "var(--radius-xs)",
@@ -143,6 +146,13 @@ export default {
         modal: "50",
         popover: "100",
         dropdown: "100",
+      },
+      minHeight: {
+        'dvh': '100dvh', // dynamic viewport height for iOS
+      },
+      overscrollBehavior: {
+        'none': 'none',
+        'contain': 'contain',
       },
       opacity: {
         15: "0.15",

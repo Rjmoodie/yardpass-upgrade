@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
+import { initIOSCapacitor, setupKeyboardListeners } from '@/lib/ios-capacitor';
 import Index from '@/pages/Index';
 import Navigation from '@/components/Navigation';
 import { ShareModal } from '@/components/ShareModal';
@@ -154,6 +155,12 @@ function AppContent() {
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
 
+  // Initialize iOS Capacitor settings on app load
+  useEffect(() => {
+    initIOSCapacitor();
+    setupKeyboardListeners();
+  }, []);
+
   // Redirect component for legacy profile routes
   function RedirectToUserProfile() {
     const { id } = useParams<{ id: string }>();
@@ -244,7 +251,7 @@ function AppContent() {
       <WarmHlsOnIdle />
       <DeferredImports />
       <AnalyticsWrapper>
-        <div className="flex min-h-[100dvh] flex-col bg-background relative">
+        <div className="flex min-h-dvh flex-col bg-background relative no-page-bounce page-with-bottom-bar">
         {/* Subtle Background Pattern */}
         <div className="absolute inset-0 opacity-5 pointer-events-none">
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/20 via-transparent to-accent/20" />
@@ -253,13 +260,7 @@ function AppContent() {
         </div>
 
         {/* Main Content Area */}
-        <main
-          className="
-          flex-1 overflow-y-auto w-full
-          pb-[calc(env(safe-area-inset-bottom)+88px)]
-          [@supports(-webkit-touch-callout:none)]:[-webkit-overflow-scrolling:touch]
-        "
-        >
+        <main className="flex-1 overflow-y-auto w-full scroll-area">
           <Suspense fallback={<PageLoadingSpinner />}>
             <Routes>
               {/* Public Routes */}

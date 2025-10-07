@@ -163,7 +163,7 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div className="glass-nav px-2 sm:px-4 pt-2 pb-safe-or-2 flex items-center justify-around fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 backdrop-blur-xl bg-background/80 shadow-[0_-1px_3px_rgba(0,0,0,0.1)]">
+    <div className="fixed inset-x-0 bottom-0 z-rail flex items-center justify-around px-4 py-2 border-t border-border/50 bg-background/90 backdrop-blur-md pb-safe-or-2">
       <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-0.5 sm:gap-1 w-full max-w-md mx-auto justify-evenly">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -248,7 +248,7 @@ function NavButton({ children, label, active, onClick }: { children: React.React
       tabIndex={0}
       className={`group flex flex-col items-center gap-0.5 sm:gap-1 flex-1 max-w-[72px] p-1.5 sm:p-2 rounded-2xl transition-all duration-200 active:scale-90 min-h-[52px] sm:min-h-[56px] min-w-[48px] sm:min-w-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 relative touch-manipulation ${
         active
-          ? 'text-primary bg-primary/10 border border-primary/20 shadow-md'
+          ? 'text-primary bg-primary/10 border border-primary/20 shadow-sm'
           : 'text-muted-foreground hover:text-primary hover:bg-muted/50'
       }`}
     >

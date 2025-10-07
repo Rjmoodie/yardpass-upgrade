@@ -10,7 +10,8 @@ type Attendee = {
   user_id: string; 
   display_name: string | null; 
   photo_url: string | null; 
-  joined_at: string 
+  joined_at: string;
+  ticket_count: number;
 };
 
 const PAGE_SIZE = 60;
@@ -215,6 +216,12 @@ export default function EventAttendeesPageEnhanced() {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Joined {new Date(attendee.joined_at).toLocaleDateString()}
+                  </div>
+                  <div className="text-xs text-blue-600 font-medium">
+                    {attendee.ticket_count === 1 
+                      ? '1 ticket' 
+                      : `${attendee.ticket_count} tickets`
+                    }
                   </div>
                 </div>
               </Link>
