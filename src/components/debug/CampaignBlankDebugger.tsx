@@ -65,7 +65,8 @@ export const CampaignBlankDebugger: React.FC = () => {
       if (orgsLoading) {
         addIssue('warning', 'Organizations still loading', 'Wait for organizations to load');
       } else if (orgsError) {
-        addIssue('error', 'Failed to load organizations', orgsError.message);
+        const errorMsg = typeof orgsError === 'string' ? orgsError : (orgsError as Error)?.message || 'Unknown error';
+        addIssue('error', 'Failed to load organizations', errorMsg);
       } else if (organizations.length === 0) {
         addIssue('error', 'No organizations found', 'You need to create or join an organization to access campaigns');
       } else {
