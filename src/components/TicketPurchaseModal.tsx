@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useContext } from 'react';
+import { useState, useEffect, useMemo, useContext, useRef, useCallback, lazy, Suspense } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -8,6 +8,8 @@ import { Plus, Minus, CreditCard, Key, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { toast } from '@/hooks/use-toast';
+import { createHold, createCheckoutSession } from '@/lib/ticketApi';
+const SkeletonList = lazy(() => import('@/components/common/SkeletonList'));
 
 interface TicketTier {
   id: string;
@@ -51,6 +53,8 @@ export function TicketPurchaseModal({
   const { trackEvent } = useAnalyticsIntegration();
   const [selections, setSelections] = useState<TicketSelection>({});
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const busyRef = useRef(false);
   const [user, setUser] = useState<any>(null);
   const [guestCode, setGuestCode] = useState('');
   const [validatingCode, setValidatingCode] = useState(false);
@@ -212,8 +216,14 @@ export function TicketPurchaseModal({
   const totalTickets = summary.totalQuantity;
   const totalAmount = Math.round(summary.grandTotal * 100); // Convert to cents
 
-  const handlePurchase = async () => {
+  const handlePurchase = useCallback(async () => {
     console.log('🎫 Purchase button clicked!');
+    
+    // Double-submit guard
+    if (busyRef.current || submitting) {
+      console.log('⚠️ Already processing, ignoring duplicate click');
+      return;
+    }
     
     // Track checkout initiation
     trackEvent('checkout_started', {
@@ -254,25 +264,45 @@ export function TicketPurchaseModal({
       return;
     }
 
+    busyRef.current = true;
+    setSubmitting(true);
     setLoading(true);
+    
     try {
-      const ticketSelections = Object.entries(selections)
-        .filter(([_, qty]) => qty > 0)
-        .map(([tierId, quantity]) => ({ 
-          tierId, 
-          quantity,
-          faceValue: ticketTiers.find(t => t.id === tierId)?.price_cents || 0
-        }));
+      const items = Object.fromEntries(
+        Object.entries(selections).filter(([_, qty]) => (qty ?? 0) > 0)
+      );
 
-      console.log('🚀 Calling create-checkout with:', {
-        eventId: event.id,
-        ticketSelections
+      console.log('🚀 Creating hold for checkout with:', {
+        event_id: event.id,
+        items,
+        guest_code: guestCode || null
       });
 
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: {
-          eventId: event.id,
-          ticketSelections
+      // Use hold-based checkout to prevent overselling
+      try {
+        const hold = await createHold({ 
+          event_id: event.id, 
+          items, 
+          guest_code: guestCode || null 
+        });
+        const { url } = await createCheckoutSession({ hold_id: hold.id });
+        window.location.href = url;
+      } catch (holdError: any) {
+        // Fallback to legacy checkout if holds not implemented yet
+        console.log('⚠️ Hold API not available, using legacy checkout');
+        const ticketSelections = Object.entries(selections)
+          .filter(([_, qty]) => qty > 0)
+          .map(([tierId, quantity]) => ({ 
+            tierId, 
+            quantity,
+            faceValue: ticketTiers.find(t => t.id === tierId)?.price_cents || 0
+          }));
+
+        const { data, error } = await supabase.functions.invoke('create-checkout', {
+          body: {
+            eventId: event.id,
+            ticketSelections
         }
       });
 
@@ -317,6 +347,7 @@ export function TicketPurchaseModal({
         }, 1000);
       }
 
+      }
     } catch (error: any) {
       console.error('❌ Purchase error:', error);
       toast({
@@ -325,9 +356,11 @@ export function TicketPurchaseModal({
         variant: "destructive"
       });
     } finally {
+      busyRef.current = false;
+      setSubmitting(false);
       setLoading(false);
     }
-  };
+  }, [event.id, selections, submitting, user, totalTickets, totalAmount, trackEvent, guestCode, ticketTiers, onSuccess]);
 
   if (!isOpen) return null;
 
@@ -516,10 +549,10 @@ export function TicketPurchaseModal({
             </Button>
             <Button 
               onClick={handlePurchase} 
-              disabled={loading || totalTickets === 0}
+              disabled={submitting || loading || totalTickets === 0}
               className="flex-1"
             >
-              {loading ? 'Processing...' : `Purchase ${totalTickets > 0 ? `(${totalTickets} ticket${totalTickets !== 1 ? 's' : ''})` : 'Tickets'}`}
+              {submitting || loading ? 'Processing...' : `Purchase ${totalTickets > 0 ? `(${totalTickets} ticket${totalTickets !== 1 ? 's' : ''})` : 'Tickets'}`}
             </Button>
           </div>
         </div>
