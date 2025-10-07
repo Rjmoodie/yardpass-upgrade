@@ -21,9 +21,11 @@ export function PreloadCriticalAssets({
       tags.push(link);
     };
 
-    // Preconnect + DNS hint to Mux
+    // Preconnect + DNS hints to Mux (both hosts: stream + image)
     add({ rel: "preconnect", href: "https://stream.mux.com", crossOrigin: "" as any });
     add({ rel: "dns-prefetch", href: "https://stream.mux.com" });
+    add({ rel: "preconnect", href: "https://image.mux.com", crossOrigin: "" as any });
+    add({ rel: "dns-prefetch", href: "https://image.mux.com" });
 
     // Preload first manifest (bigger win than just posters)
     const firstMux = extractMuxPlaybackId(posts?.[0]?.media_urls?.[0] ?? "");
@@ -47,6 +49,7 @@ export function PreloadCriticalAssets({
           rel: "preload",
           as: "image",
           href: posterUrl({ playbackId: id }, { time: 1, width: 800, fitMode: "smartcrop" }),
+          fetchPriority: "high" as any,
         });
         count++;
         if (count >= posterLimit) break;

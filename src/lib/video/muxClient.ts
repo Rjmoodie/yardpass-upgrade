@@ -1,5 +1,6 @@
 // Canonical Mux URL & ID helpers
-const MUX_BASE = "https://stream.mux.com";
+const STREAM_BASE = "https://stream.mux.com"; // HLS manifests
+const IMAGE_BASE  = "https://image.mux.com";  // thumbnails & storyboards
 
 export type MuxIds = { playbackId: string };
 
@@ -25,7 +26,7 @@ export function extractMuxPlaybackId(input?: string | null): string | null {
 }
 
 export function hlsUrl({ playbackId }: MuxIds) {
-  return `${MUX_BASE}/${playbackId}.m3u8`;
+  return `${STREAM_BASE}/${playbackId}.m3u8`;
 }
 
 export function posterUrl(
@@ -38,11 +39,11 @@ export function posterUrl(
   if (params?.width) q.set("width", String(params.width));
   if (params?.height) q.set("height", String(params.height));
   if (params?.fitMode) q.set("fit_mode", params.fitMode);
-  return `${MUX_BASE}/${playbackId}/thumbnail.jpg?${q.toString()}`;
+  return `${IMAGE_BASE}/${playbackId}/thumbnail.jpg?${q.toString()}`;
 }
 
 export function storyboardVtt({ playbackId }: MuxIds) {
-  return `${MUX_BASE}/${playbackId}/storyboard.vtt`;
+  return `${IMAGE_BASE}/${playbackId}/storyboard.vtt`;
 }
 
 /** Backwards-compat helpers (so existing calls keep working) */
@@ -54,6 +55,6 @@ export function muxToHls(input: string) {
 export function muxToPoster(input: string, rawQuery?: string) {
   const id = extractMuxPlaybackId(input);
   if (!id) return input;
-  const base = `${MUX_BASE}/${id}/thumbnail.jpg`;
+  const base = `${IMAGE_BASE}/${id}/thumbnail.jpg`;
   return rawQuery ? `${base}?${rawQuery}` : posterUrl({ playbackId: id });
 }
