@@ -38,12 +38,12 @@ type PurchaseArgs =
   | { package_id: string; promo_code?: string }
   | { custom_credits: number; promo_code?: string };
 
-export const useOrgWallet = (orgId: string) => {
+export const useOrgWallet = (orgId?: string | null) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: wallet, isLoading, error } = useQuery<OrgWalletData | null>({
-    queryKey: ["org-wallet", orgId],
+    queryKey: ["org-wallet", orgId ?? ""],
     queryFn: async () => {
       const response = await api.getOrgWallet(orgId);
 
@@ -75,10 +75,11 @@ export const useOrgWallet = (orgId: string) => {
 
   const purchaseMutation = useMutation({
     mutationFn: async (args: PurchaseArgs) => {
-      const body = 'package_id' in args 
+      if (!orgId) throw new Error("Organization ID required");
+      const body = 'package_id' in args
         ? { org_id: orgId, package_id: args.package_id, promo_code: args.promo_code }
         : { org_id: orgId, custom_credits: args.custom_credits, promo_code: args.promo_code };
-      
+
       const { data, error } = await supabase.functions.invoke("purchase-org-credits", {
         body,
       });
@@ -86,7 +87,9 @@ export const useOrgWallet = (orgId: string) => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["org-wallet", orgId] });
+      if (orgId) {
+        queryClient.invalidateQueries({ queryKey: ["org-wallet", orgId] });
+      }
       // Open Stripe checkout in a new tab (required for iframe environments)
       if (data.session_url) {
         window.open(data.session_url, '_blank');

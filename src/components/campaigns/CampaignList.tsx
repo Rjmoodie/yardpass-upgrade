@@ -11,6 +11,7 @@ type CampaignRow = {
   status: "draft" | "scheduled" | "active" | "paused" | "completed" | "archived";
   budget: number;
   spent: number;
+  remainingCredits?: number;
   impressions: number;
   clicks: number;
   conversions?: number;
@@ -26,6 +27,7 @@ export const CampaignList = ({
   onEdit,
   onArchive,
   orgId,
+  resumeDisabledReasons,
 }: {
   orgId?: string;
   loading?: boolean;
@@ -34,6 +36,7 @@ export const CampaignList = ({
   onResume?: (id: string) => void;
   onEdit?: (id: string) => void;
   onArchive?: (id: string) => void;
+  resumeDisabledReasons?: Record<string, string>;
 }) => {
   const sorted = useMemo(
     () => [...campaigns].sort((a, b) => (a.status === "active" ? -1 : 1)),
@@ -82,6 +85,7 @@ export const CampaignList = ({
         // CTR is already a ratio (0..1) from the RPC
         const ctr = c.impressions ? c.clicks / c.impressions : 0;
         const pct = Math.min(100, Math.round((c.spent / Math.max(1, c.budget)) * 100));
+        const resumeDisabledReason = resumeDisabledReasons?.[c.id];
         return (
           <Card key={c.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
@@ -98,10 +102,14 @@ export const CampaignList = ({
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent>
+              <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-4">
                 <Stat label="Budget" value={`${c.budget.toLocaleString()} credits`} icon={<DollarSign className="h-3 w-3" />} />
                 <Stat label="Spent" value={`${c.spent.toLocaleString()} credits`} />
+                <Stat
+                  label="Remaining"
+                  value={`${Math.max(0, (c.remainingCredits ?? c.budget - c.spent)).toLocaleString()} credits`}
+                />
                 <Stat label="Impressions" value={c.impressions.toLocaleString()} icon={<Eye className="h-3 w-3" />} />
                 <Stat label="Clicks" value={c.clicks.toLocaleString()} icon={<MousePointerClick className="h-3 w-3" />} />
                 <Stat label="CTR" value={new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 }).format(ctr)} />
@@ -122,7 +130,13 @@ export const CampaignList = ({
                     Pause
                   </Button>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={() => onResume?.(c.id)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onResume?.(c.id)}
+                    disabled={!!resumeDisabledReason}
+                    title={resumeDisabledReason ?? undefined}
+                  >
                     <Play className="h-4 w-4 mr-1" />
                     Resume
                   </Button>
