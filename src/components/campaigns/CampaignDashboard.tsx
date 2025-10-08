@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { CampaignList } from "./CampaignList";
 import { CampaignCreator } from "./CampaignCreator";
-import { CampaignAnalytics } from "./CampaignAnalytics";
+import CampaignAnalytics from "./CampaignAnalytics";
 import { CreativeManager } from "./CreativeManager";
 import { BarChart3, FileText, Target, TrendingUp } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
