@@ -1,0 +1,22 @@
+# Ticketing System Review
+
+## Strengths
+- **Robust checkout guardrails.** The purchase modal forces shoppers to sign in (or create an account) before they can place an order, prevents duplicate submissions with a `busyRef`, and prefers a hold-based checkout flow before redirecting to Stripe, which helps prevent overselling and race conditions.【F:src/components/TicketPurchaseModal.tsx†L219-L320】
+- **Guest code validation UX.** Guest codes are validated client-side with clear feedback for expiration, usage limits, and tier targeting, keeping the redemption experience transparent for buyers.【F:src/components/TicketPurchaseModal.tsx†L80-L148】
+- **Scanner ergonomics.** The scanner throttles duplicate scans, cancels in-flight validations, and provides haptic/audio feedback alongside analytics tracking so staff can confidently manage entry.【F:src/components/ScannerPage.tsx†L223-L283】
+- **Post-purchase lifecycle handling.** The success page auto-refreshes order status, refreshes cached tickets, and generates calendar payloads, reducing manual follow-up when Stripe takes time to confirm payment.【F:src/components/TicketSuccessPage.tsx†L105-L200】
+- **Offline-aware ticket wallet.** The `useTickets` hook hydrates from an offline cache and surfaces an offline mode toast, keeping attendees functional when connectivity drops at a venue.【F:src/hooks/useTickets.tsx†L135-L155】
+
+## Gaps & Risks
+- **Client-calculated fees.** Fees are computed entirely on the client with a hard-coded formula; if backend fee logic diverges, the amount collected may not match the server expectation. Consider requesting computed totals from the hold/checkout endpoint and only using client math for display.【F:src/components/TicketPurchaseModal.tsx†L150-L217】
+- **Legacy checkout fallback scope.** The fallback path posts raw tier selections straight to the `create-checkout` function without referencing the hold totals, which reopens oversell and tampering risks if the hold service is unavailable. Ensure the fallback verifies inventory and prices server-side before session creation.【F:src/components/TicketPurchaseModal.tsx†L291-L320】
+- **Guest code exposure.** Guest code validation queries tables directly from the browser. Unless row-level security is airtight, tier assignments and usage counts could be enumerated by determined users. Moving validation into an RPC or Edge Function would better encapsulate that logic.【F:src/components/TicketPurchaseModal.tsx†L80-L148】
+- **Monolithic scanner component.** At nearly 900 lines, `ScannerPage` is difficult to audit and test. Pulling camera management, keyboard wedge handling, and history UI into smaller hooks/components would improve maintainability and reduce the surface area for regressions.【F:src/components/ScannerPage.tsx†L1-L320】
+- **Implicit Supabase session use.** Several flows fetch the current session immediately before invoking functions, but no retry/backoff is in place when tokens expire. A shared API client that auto-refreshes tokens would harden the wallet and success flows.【F:src/hooks/useTickets.tsx†L158-L175】【F:src/components/TicketSuccessPage.tsx†L145-L178】
+
+## Recommendations
+1. **Server-source pricing.** Extend the hold response to include per-tier pricing and fee breakdowns, and render those totals instead of calculating them locally to prevent drift and tampering.【F:src/components/TicketPurchaseModal.tsx†L150-L217】
+2. **Encapsulate privileged logic.** Replace client-side guest code lookups with a signed Edge Function that validates and redeems codes atomically, ensuring limits cannot be bypassed by manipulating network requests.【F:src/components/TicketPurchaseModal.tsx†L80-L148】
+3. **Modularize scanning.** Split `ScannerPage` into a scanning hook (debounce, abort, analytics) and focused UI components so access-control checks and camera lifecycles can be unit-tested independently.【F:src/components/ScannerPage.tsx†L1-L320】
+4. **Centralize session refresh.** Route Supabase function calls through a single helper that automatically refreshes tokens and retries once, reducing the chance that long-running success flows mislead users with stale credentials.【F:src/hooks/useTickets.tsx†L158-L175】【F:src/components/TicketSuccessPage.tsx†L145-L178】
+5. **Document fallback expectations.** If the legacy checkout path must remain, document operational expectations and monitor for its usage so the team can prioritize stabilizing the hold-based API instead of silently degrading to riskier behavior.【F:src/components/TicketPurchaseModal.tsx†L291-L320】

@@ -6,7 +6,7 @@ import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import ActionRail from './ActionRail';
 import ClampText from '@/components/ui/ClampText';
 import PeekSheet from '@/components/overlays/PeekSheet';
-import type { FeedItem } from '@/hooks/useUnifiedFeed';
+import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 
 interface EventCardProps {
   item: Extract<FeedItem, { item_type: 'event' }>;
