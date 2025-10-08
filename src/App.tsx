@@ -265,17 +265,7 @@ function AppContent() {
           <Suspense fallback={<PageLoadingSpinner />}>
             <Routes>
               {/* Public Routes */}
-              <Route
-                path="/"
-                element={
-                  <Index
-                    onEventSelect={handleEventSelect}
-                    onCreatePost={() => navigate('/create-post')}
-                    onCategorySelect={(category) => navigate('/search?category=' + encodeURIComponent(category))}
-                    onOrganizerSelect={(organizerId) => navigate('/search?organizer=' + organizerId)}
-                  />
-                }
-              />
+              <Route path="/" element={<Index />} />
               <Route
                 path="/search"
                 element={<SearchPage onBack={() => navigate('/')} onEventSelect={handleEventSelect} />}

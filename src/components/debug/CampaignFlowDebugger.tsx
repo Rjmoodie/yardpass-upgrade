@@ -163,7 +163,7 @@ export const CampaignFlowDebugger: React.FC = () => {
                   <div key={org.id} className="flex items-center justify-between p-2 border rounded">
                     <div>
                       <span className="font-medium">{org.name}</span>
-                      <span className="text-sm text-muted-foreground ml-2">@{org.handle}</span>
+                      <span className="text-sm text-muted-foreground ml-2">@{org.id.slice(0, 8)}</span>
                     </div>
                     <Button
                       size="sm"

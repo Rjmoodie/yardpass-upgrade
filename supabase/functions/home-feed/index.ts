@@ -7,6 +7,8 @@ const ALLOWED_ORIGINS = [
   "https://app.yardpass.com",
   "https://staging.yardpass.com",
   "http://localhost:5173",
+  "https://*.lovable.app",
+  "https://*.lovableproject.com",
 ];
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -85,10 +87,8 @@ const handler = withCORS(async (req) => {
     }
 
     const items = await expandRows({ supabase, rows: ranked, viewerId });
-    const promoted = await loadFeedPromotions({ supabase, limit, viewerId });
-    const merged = mergePromotedItems(items, promoted);
 
-    return json(200, { items: merged, nextCursor }, {
+    return json(200, { items, nextCursor }, {
       "Cache-Control": "private, max-age=10",
     });
   } catch (err) {
@@ -98,7 +98,41 @@ const handler = withCORS(async (req) => {
   }
 }, { allowOrigins: ALLOWED_ORIGINS });
 
-Deno.serve(handler);
+Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("Origin") || "";
+
+  // Compute allowed origin (single value)
+  const allowOrigin = (() => {
+    const match = ALLOWED_ORIGINS.some((allowed) => {
+      if (allowed === origin) return true;
+      if (allowed.includes("*")) {
+        const pattern = allowed.replace(/\./g, "\\.").replace(/\*/g, ".*");
+        return new RegExp(`^${pattern}$`).test(origin);
+      }
+      return false;
+    });
+    return match ? origin : "*";
+  })();
+
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": allowOrigin,
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
+
+  const res = await handler(req);
+  const headers = new Headers(res.headers);
+  headers.set("Access-Control-Allow-Origin", allowOrigin);
+  headers.set("Vary", "Origin");
+  return new Response(res.body, { status: res.status, headers });
+});
 
 async function expandRows({ supabase, rows, viewerId }) {
   if (!rows.length) return [];
@@ -299,182 +333,4 @@ function normalizeCursor(cursor) {
     : undefined;
   if (!ts && !id && score == null) return null;
   return { ts, id, score };
-}
-
-async function loadFeedPromotions({ supabase, limit, viewerId }) {
-  try {
-    const maxPromotions = Math.max(1, Math.floor(limit / 2));
-    const { data, error } = await supabase.rpc("get_active_campaign_creatives", {
-      p_placement: "feed",
-      p_limit: maxPromotions,
-      p_user_id: viewerId ?? null,
-    });
-
-    if (error) {
-      console.warn("get_active_campaign_creatives failed", error.message);
-      return [];
-    }
-
-    let rows = Array.isArray(data) ? data : [];
-    if (!rows.length) return [];
-
-    const now = Date.now();
-    const viewerCampaignIds = rows
-      .filter((row) => row.frequency_cap_per_user && row.frequency_cap_period)
-      .map((row) => row.campaign_id);
-
-    if (viewerId && viewerCampaignIds.length) {
-      const lookbackDays = rows.reduce((days, row) => {
-        if (row.frequency_cap_period === "week") return Math.max(days, 7);
-        if (row.frequency_cap_period === "day") return Math.max(days, 1);
-        return days;
-      }, 0);
-
-      if (lookbackDays > 0) {
-        const sinceIso = new Date(now - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
-        const { data: impressions } = await supabase
-          .from("ad_impressions")
-          .select("campaign_id, created_at")
-          .eq("placement", "feed")
-          .eq("user_id", viewerId)
-          .in("campaign_id", viewerCampaignIds)
-          .gte("created_at", sinceIso);
-
-        if (Array.isArray(impressions) && impressions.length) {
-          const grouped = impressions.reduce((acc, row) => {
-            const list = acc.get(row.campaign_id) ?? [];
-            list.push(row.created_at);
-            acc.set(row.campaign_id, list);
-            return acc;
-          }, new Map());
-
-          rows = rows.filter((row) => {
-            const cap = row.frequency_cap_per_user;
-            const period = row.frequency_cap_period;
-            if (!cap || !period) return true;
-            const list = grouped.get(row.campaign_id) ?? [];
-            if (!list.length) return true;
-            const windowMs = period === "week"
-              ? 7 * 24 * 60 * 60 * 1000
-              : period === "day"
-                ? 24 * 60 * 60 * 1000
-                : 0;
-            if (!windowMs) return true;
-            const cutoff = now - windowMs;
-            const count = list.filter((iso) => {
-              const ts = new Date(iso).getTime();
-              return Number.isFinite(ts) && ts >= cutoff;
-            }).length;
-            return count < cap;
-          });
-        }
-      }
-    }
-
-    return rows
-      .filter((row) => row?.event_id)
-      .map((row) => toPromotionFeedItem(row))
-      .filter((item) => item != null);
-  } catch (err) {
-    console.warn("loadFeedPromotions error", err);
-    return [];
-  }
-}
-
-function mergePromotedItems(organic, promotions) {
-  if (!promotions?.length) return organic;
-
-  const items = Array.isArray(organic) ? organic.map((item) => ({ ...item })) : [];
-  const unmatched = [];
-
-  const organicIndex = new Map();
-  items.forEach((item, index) => {
-    if (item.item_type === "event") {
-      organicIndex.set(item.event_id, index);
-    }
-  });
-
-  for (const promo of promotions) {
-    if (!promo?.event_id) continue;
-    if (organicIndex.has(promo.event_id)) {
-      const idx = organicIndex.get(promo.event_id);
-      const original = items[idx];
-      items[idx] = {
-        ...original,
-        promotion: promo.promotion,
-        is_promoted: true,
-      };
-    } else {
-      unmatched.push(promo);
-    }
-  }
-
-  if (!unmatched.length) {
-    return items;
-  }
-
-  const interval = Math.max(3, Math.round(items.length / (unmatched.length + 1))) || 4;
-  const merged = [];
-  let promoIndex = 0;
-  for (let i = 0; i < items.length; i++) {
-    if (promoIndex < unmatched.length && i > 0 && i % interval === 0) {
-      merged.push(unmatched[promoIndex++]);
-    }
-    merged.push(items[i]);
-  }
-
-  while (promoIndex < unmatched.length) {
-    merged.push(unmatched[promoIndex++]);
-  }
-
-  return merged;
-}
-
-function toPromotionFeedItem(row) {
-  if (!row?.event_id) return null;
-  const sortTs = row.event_starts_at ?? new Date().toISOString();
-  const promotion = {
-    placement: "feed",
-    campaignId: row.campaign_id,
-    creativeId: row.creative_id ?? null,
-    objective: row.objective ?? "",
-    ctaLabel: row.cta_label ?? null,
-    ctaUrl: row.cta_url ?? null,
-    headline: row.headline ?? null,
-    priority: typeof row.priority === "number" ? row.priority : null,
-    frequencyCapPerUser: row.frequency_cap_per_user ?? null,
-    frequencyCapPeriod: row.frequency_cap_period ?? null,
-    targeting: row.targeting ?? null,
-    rateModel: row.default_rate_model ?? "cpm",
-    cpmRateCredits: row.cpm_rate_credits ?? null,
-    cpcRateCredits: row.cpc_rate_credits ?? null,
-    remainingCredits: row.remaining_credits ?? null,
-    dailyRemainingCredits: row.daily_remaining ?? null,
-  };
-
-  return {
-    item_type: "event",
-    sort_ts: sortTs,
-    item_id: row.creative_id ?? row.campaign_id,
-    event_id: row.event_id,
-    event_title: row.event_title ?? row.headline ?? "Promoted Event",
-    event_description: row.event_description ?? row.body_text ?? "",
-    event_starts_at: row.event_starts_at ?? null,
-    event_cover_image: row.event_cover_image ?? "",
-    event_organizer: row.organizer_name ?? "Organizer",
-    event_organizer_id: row.organizer_id ?? null,
-    event_owner_context_type: row.owner_context_type ?? "organization",
-    event_location: row.event_location ?? row.event_city ?? "",
-    author_id: null,
-    author_name: null,
-    author_badge: null,
-    author_social_links: null,
-    media_urls: null,
-    content: null,
-    metrics: { likes: 0, comments: 0, viewer_has_liked: false },
-    sponsor: null,
-    sponsors: null,
-    promotion,
-    is_promoted: true,
-  };
 }

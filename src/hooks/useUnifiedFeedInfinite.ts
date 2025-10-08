@@ -3,14 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import type { FeedCursor, FeedItem, FeedPage } from './unifiedFeedTypes';
 
 async function fetchPage(cursor: FeedCursor | undefined, limit: number, accessToken: string | null): Promise<FeedPage> {
-  const res = await fetch('/functions/v1/home-feed', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    credentials: 'include',
-    body: JSON.stringify({
+  const { data, error } = await supabase.functions.invoke('home-feed', {
+    body: {
       limit,
       cursor: cursor
         ? {
@@ -19,15 +13,14 @@ async function fetchPage(cursor: FeedCursor | undefined, limit: number, accessTo
             score: cursor.cursorScore ?? null,
           }
         : null,
-    }),
+    },
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`home-feed failed: ${res.status} ${text}`);
+  if (error) {
+    throw new Error(`home-feed failed: ${error.message}`);
   }
 
-  return res.json();
+  return data;
 }
 
 export function useUnifiedFeedInfinite(limit = 30) {

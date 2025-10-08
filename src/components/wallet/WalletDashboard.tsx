@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Wallet, AlertTriangle, ShieldAlert, Plus } from "lucide-react";
 import { BuyCreditsModal } from "./BuyCreditsModal";
-import { WalletTransactionsTable } from "./WalletTransactionsTable";
+import WalletTransactionsTable from "./WalletTransactionsTable";
 import { useWallet } from "@/hooks/useWallet";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -127,7 +127,7 @@ export const WalletDashboard = () => {
               <p className="text-sm mt-1">Purchase credits to get started</p>
             </div>
           ) : (
-            <WalletTransactionsTable transactions={wallet.recent_transactions} />
+            <WalletTransactionsTable orgId={wallet.id} />
           )}
         </CardContent>
       </Card>

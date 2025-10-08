@@ -1,22 +1,3 @@
-export type FeedPromotionMeta = {
-  placement: 'feed' | 'search_results' | 'story' | 'event_banner';
-  campaignId: string;
-  creativeId: string | null;
-  objective: string;
-  ctaLabel: string | null;
-  ctaUrl: string | null;
-  headline?: string | null;
-  priority?: number | null;
-  frequencyCapPerUser?: number | null;
-  frequencyCapPeriod?: 'session' | 'day' | 'week' | null;
-  targeting?: Record<string, unknown> | null;
-  rateModel?: 'cpm' | 'cpc' | string | null;
-  cpmRateCredits?: number | null;
-  cpcRateCredits?: number | null;
-  remainingCredits?: number | null;
-  dailyRemainingCredits?: number | null;
-};
-
 export type FeedItem =
   | {
       item_type: 'event';
@@ -55,8 +36,6 @@ export type FeedItem =
         tier: string;
         amount_cents: number;
       }> | null;
-      promotion?: FeedPromotionMeta | null;
-      is_promoted?: boolean;
     }
   | {
       item_type: 'post';
@@ -85,8 +64,6 @@ export type FeedItem =
       };
       sponsor?: null;
       sponsors?: null;
-      promotion?: FeedPromotionMeta | null;
-      is_promoted?: boolean;
     };
 
 export type FeedCursor = {

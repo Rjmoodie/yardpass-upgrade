@@ -31,14 +31,31 @@ export function withCORS(
   handler: (req: Request) => Promise<Response>,
   opts: WithCORSOpts = {},
 ) {
-  const allow = opts.allowOrigins?.length ? opts.allowOrigins.join(",") : "*";
   return async (req: Request) => {
+    const origin = req.headers.get("Origin") || "";
+    
+    // Determine which origin to allow
+    let allowOrigin = "*";
+    if (opts.allowOrigins?.length) {
+      const isAllowed = opts.allowOrigins.some(allowed => {
+        if (allowed === origin) return true;
+        // Support wildcard patterns like *.lovable.app
+        if (allowed.includes("*")) {
+          const pattern = allowed.replace(/\./g, "\\.").replace(/\*/g, ".*");
+          return new RegExp(`^${pattern}$`).test(origin);
+        }
+        return false;
+      });
+      
+      allowOrigin = isAllowed ? origin : "*";
+    }
+
     // Preflight
     if (req.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
         headers: {
-          "Access-Control-Allow-Origin": allow,
+          "Access-Control-Allow-Origin": allowOrigin,
           "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
           "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
           "Access-Control-Max-Age": "86400",
@@ -48,7 +65,7 @@ export function withCORS(
 
     const res = await handler(req);
     const headers = new Headers(res.headers);
-    headers.set("Access-Control-Allow-Origin", allow);
+    headers.set("Access-Control-Allow-Origin", allowOrigin);
     headers.set("Vary", "Origin");
     return new Response(res.body, { status: res.status, headers });
   };

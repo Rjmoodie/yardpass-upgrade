@@ -1,6 +1,5 @@
 // src/pages/OrganizerDashboard.tsx
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,18 +9,15 @@ import {
   Plus,
   BarChart3,
   Building2,
-  CheckCircle2,
   Megaphone,
   Settings,
   Mail,
-  LayoutDashboard,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/card';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -31,96 +27,30 @@ import { OrganizationTeamPanel } from '@/components/OrganizationTeamPanel';
 import EventManagement from '@/components/EventManagement';
 import { DashboardOverview } from '@/components/dashboard/DashboardOverview';
 import { EventsList } from '@/components/dashboard/EventsList';
-import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { CampaignDashboard } from '@/components/campaigns/CampaignDashboard';
 import { OrganizerCommsPanel } from '@/components/organizer/OrganizerCommsPanel';
 import { useOrganizerDashboardState } from '@/hooks/useOrganizerDashboardState';
 import type { OrganizerEventSummary } from '@/types/organizer';
-import type { TabKey } from '@/utils/organizer/tabs';
 
-const formatNumber = (value: number) =>
-  new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: value >= 1000 ? 0 : 2,
-  }).format(value);
-
-const formatPercent = (value: number) => `${Math.round(value * 10) / 10}%`;
-
-type TabConfig = {
-  value: TabKey;
-  label: string;
-  icon: LucideIcon;
-  description: string;
-};
-
-const TAB_CONFIG: TabConfig[] = [
-  {
-    value: 'dashboard',
-    label: 'Overview',
-    icon: LayoutDashboard,
-    description: 'Performance snapshot',
-  },
-  {
-    value: 'events',
-    label: 'Events',
-    icon: CalendarDays,
-    description: 'Manage and review events',
-  },
-  {
-    value: 'analytics',
-    label: 'Analytics',
-    icon: BarChart3,
-    description: 'Deep-dive metrics',
-  },
-  {
-    value: 'campaigns',
-    label: 'Campaigns',
-    icon: Megaphone,
-    description: 'Promote experiences',
-  },
-  {
-    value: 'messaging',
-    label: 'Messaging',
-    icon: Mail,
-    description: 'Reach attendees',
-  },
-  {
-    value: 'teams',
-    label: 'Teams',
-    icon: Users,
-    description: 'Collaborate with staff',
-  },
-  {
-    value: 'payouts',
-    label: 'Payouts',
-    icon: DollarSign,
-    description: 'Track disbursements',
-  },
-];
-
-type StatTileProps = {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  helper?: string;
-};
-
-const StatTile = ({ icon: Icon, label, value, helper }: StatTileProps) => (
-  <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-background/70 p-4 shadow-sm">
-    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-      <Icon className="h-5 w-5" />
+// Helper components
+function StatTile({ icon: Icon, label, value, helper }: any) {
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border bg-card p-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Icon className="h-4 w-4" />
+        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
+      </div>
+      <div className="text-2xl font-bold">{value}</div>
+      {helper && <div className="text-xs text-muted-foreground">{helper}</div>}
     </div>
-    <div className="flex flex-col">
-      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-lg font-semibold text-foreground">{value}</span>
-      {helper ? <span className="text-xs text-muted-foreground">{helper}</span> : null}
-    </div>
-  </div>
-);
+  );
+}
+
+// Helper formatters
+const formatNumber = (n: number) => n.toLocaleString();
+const formatCurrency = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatPercent = (n: number) => `${(n * 100).toFixed(1)}%`;
 
 export default function OrganizerDashboard() {
   const {
@@ -196,8 +126,6 @@ export default function OrganizerDashboard() {
     ? organizations.find(o => o.id === selectedOrganization)
     : null;
 
-  const headerName = activeOrg?.name || 'Personal Dashboard';
-  const isVerified = !!activeOrg?.is_verified;
   const eventList = events ?? [];
   const hasEvents = eventList.length > 0;
 
@@ -233,7 +161,7 @@ export default function OrganizerDashboard() {
       averageConversion: totalConversion / eventList.length,
       averageEngagement: totalEngagement / eventList.length,
     };
-  }, [events]);
+  }, [eventList]);
 
   const conversionDisplay = hasEvents ? formatPercent(averageConversion) : '—';
   const engagementDisplay = hasEvents ? formatPercent(averageEngagement) : '—';
@@ -285,23 +213,35 @@ export default function OrganizerDashboard() {
   }, [editingOrg, activeOrg]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-6">
-        <Card className="border-none bg-card/70 shadow-lg shadow-primary/5">
-          <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                Organizer dashboard
-              </span>
-              <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-2xl sm:text-3xl md:text-4xl">{headerName}</CardTitle>
-                {isVerified && (
-                  <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1 text-xs font-semibold">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Verified
-                  </Badge>
-                )}
-              </div>
+    <div className="container mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-w-full overflow-x-hidden">
+      {/* Header */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Organizer Dashboard</h1>
+              {!!organizations.length && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-2">
+                  <OrgSwitcher
+                    organizations={organizations}
+                    value={selectedOrganization}
+                    onSelect={handleOrganizationSelect}
+                    onCreateOrgPath="/create-organization"
+                    className="w-full sm:w-[240px] md:w-[280px]"
+                  />
+                  {selectedOrganization && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setEditingOrg(true)}
+                      title="Edit organization"
+                      className="flex-shrink-0"
+                    >
+                      <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </Button>
+                  )}
+                </div>
+              )}
               <CardDescription>
                 Manage events, payouts, and messaging for your {selectedOrganization ? 'organization' : 'personal profile'}.
               </CardDescription>
@@ -321,248 +261,238 @@ export default function OrganizerDashboard() {
                 <span className="ml-2">New organization</span>
               </Button>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-1 flex-col gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Working as</span>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <OrgSwitcher
-                    organizations={organizations}
-                    value={selectedOrganization}
-                    onSelect={handleOrganizationSelect}
-                    onCreateOrgPath="/create-organization"
-                    className="w-full sm:w-[260px] md:w-[300px]"
-                  />
-                  {selectedOrganization && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEditingOrg(true)}
-                      title="Edit organization"
-                      className="h-11 w-11 flex-shrink-0"
-                      type="button"
-                    >
-                      <Settings className="h-5 w-5" />
-                      <span className="sr-only">Edit organization</span>
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                <span>
-                  {formatNumber(totals.events)} event{totals.events === 1 ? '' : 's'}
-                </span>
-                <span>• {formatNumber(totals.attendees)} attendees</span>
-                <span>• {formatCurrency(totals.revenue)} gross</span>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              <StatTile
-                icon={CalendarDays}
-                label={selectedOrganization ? 'Org events' : 'Your events'}
-                value={formatNumber(totals.events)}
-                helper={selectedOrganization ? 'Currently selected organization' : 'Personal scope'}
-              />
-              <StatTile
-                icon={Users}
-                label="Total attendees"
-                value={formatNumber(totals.attendees)}
-                helper="Confirmed check-ins"
-              />
-              <StatTile
-                icon={DollarSign}
-                label="Gross revenue"
-                value={formatCurrency(totals.revenue)}
-                helper={topRevenueEvent ? `Top: ${topRevenueEvent.title}` : 'All events combined'}
-              />
-              <StatTile
-                icon={BarChart3}
-                label="Avg conversion"
-                value={conversionDisplay}
-                helper="Tickets sold vs. capacity"
-              />
-              <StatTile
-                icon={Megaphone}
-                label="Avg engagement"
-                value={engagementDisplay}
-                helper="Likes vs. views on posts"
-              />
-            </div>
-
-            {hasEvents && (
-              <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
-                <div className="flex flex-col justify-between gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
-                    <CalendarDays className="h-4 w-4" />
-                    Upcoming highlight
-                  </div>
-                  {upcomingEvent ? (
-                    <>
-                      <div className="text-base font-semibold text-foreground">{upcomingEvent.title}</div>
-                      <p className="text-sm text-muted-foreground">{upcomingEvent.date}</p>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{formatNumber(upcomingEvent.attendees ?? 0)} attendees</span>
-                        <span>{formatCurrency(upcomingEvent.revenue ?? 0)}</span>
-                      </div>
-                      <Button
-                        variant="link"
-                        className="px-0 text-sm font-semibold"
-                        onClick={() => handleEventSelect(upcomingEvent)}
-                        type="button"
-                      >
-                        Open workspace
-                      </Button>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No upcoming events yet—schedule one to see it here.
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-col justify-between gap-3 rounded-xl border border-dashed border-secondary/40 bg-secondary/10 p-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-secondary-foreground">
-                    <DollarSign className="h-4 w-4" />
-                    Top earner
-                  </div>
-                  <div className="text-base font-semibold text-foreground">{topRevenueEvent?.title}</div>
-                  <p className="text-sm text-muted-foreground">
-                    {formatCurrency(topRevenueEvent?.revenue ?? 0)} total revenue
-                  </p>
-                  <Button
-                    variant="link"
-                    className="px-0 text-sm font-semibold"
-                    onClick={() => topRevenueEvent && handleEventSelect(topRevenueEvent)}
-                    type="button"
-                  >
-                    View performance
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <div className="-mx-1 overflow-x-auto pb-2">
-            <TabsList className="flex w-max items-stretch gap-1 rounded-full bg-muted/60 p-1">
-              {TAB_CONFIG.map(tab => {
-                const Icon = tab.icon;
-                return (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className="flex min-w-[104px] flex-col items-center gap-1 rounded-full px-3 py-2 text-xs font-semibold text-muted-foreground transition-transform sm:text-sm"
-                    title={tab.description}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{tab.label}</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <StatTile
+              icon={CalendarDays}
+              label={selectedOrganization ? 'Org events' : 'Your events'}
+              value={formatNumber(totals.events)}
+              helper={selectedOrganization ? 'Currently selected organization' : 'Personal scope'}
+            />
+            <StatTile
+              icon={Users}
+              label="Total attendees"
+              value={formatNumber(totals.attendees)}
+              helper="Confirmed check-ins"
+            />
+            <StatTile
+              icon={DollarSign}
+              label="Gross revenue"
+              value={formatCurrency(totals.revenue)}
+              helper={topRevenueEvent ? `Top: ${topRevenueEvent.title}` : 'All events combined'}
+            />
+            <StatTile
+              icon={BarChart3}
+              label="Avg conversion"
+              value={conversionDisplay}
+              helper="Tickets sold vs. capacity"
+            />
+            <StatTile
+              icon={Megaphone}
+              label="Avg engagement"
+              value={engagementDisplay}
+              helper="Likes vs. views on posts"
+            />
           </div>
 
-          <TabsContent value="dashboard" className="space-y-6">
-            <DashboardOverview events={eventList} onEventSelect={handleEventSelect} />
-          </TabsContent>
-
-          <TabsContent value="events" className="space-y-6">
-            {!hasEvents ? (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-16 text-center">
-                <CalendarDays className="h-10 w-10 text-muted-foreground" />
-                <h3 className="text-lg font-semibold">{selectedOrganization ? 'No events yet' : 'No personal events'}</h3>
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  {selectedOrganization
-                    ? 'Create your first event for this organization to kick things off.'
-                    : organizations.length > 0
-                      ? 'You have no personal events. Switch to an organization above or create a new event to get started.'
-                      : 'Create your first event to start selling tickets.'}
-                </p>
-                <Button onClick={goCreateEvent} type="button">
-                  <Plus className="h-4 w-4" />
-                  <span className="ml-2">Create event</span>
-                </Button>
-              </div>
-            ) : (
-              <EventsList events={eventList} onEventSelect={handleEventSelect} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="analytics" className="space-y-6">
-            <AnalyticsHub initialOrgId={selectedOrganization ?? undefined} />
-          </TabsContent>
-
-          <TabsContent value="campaigns" className="space-y-6">
-            {selectedOrganization ? (
-              <CampaignDashboard orgId={selectedOrganization} />
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-16 text-center">
-                <Megaphone className="h-10 w-10 text-muted-foreground" />
-                <h3 className="text-lg font-semibold">Campaign management</h3>
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  Switch to an organization to build paid campaigns and monitor acquisition funnels.
-                </p>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="messaging" className="space-y-6">
-            {hasEvents ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  <h2 className="text-xl font-semibold">Event communications</h2>
+          {hasEvents && (
+            <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
+              <div className="flex flex-col justify-between gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                  <CalendarDays className="h-4 w-4" />
+                  Upcoming highlight
                 </div>
-                {eventList.map(event => (
-                  <div key={event.id} className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm">
-                    <h3 className="font-semibold">{event.title}</h3>
-                    <p className="text-xs text-muted-foreground">{event.date}</p>
-                    <div className="mt-3">
-                      <OrganizerCommsPanel eventId={event.id} />
+                {upcomingEvent ? (
+                  <>
+                    <div className="text-base font-semibold text-foreground">{upcomingEvent.title}</div>
+                    <p className="text-sm text-muted-foreground">{upcomingEvent.date}</p>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{formatNumber(upcomingEvent.attendees ?? 0)} attendees</span>
+                      <span>{formatCurrency(upcomingEvent.revenue ?? 0)}</span>
                     </div>
-                  </div>
-                ))}
+                    <Button
+                      variant="link"
+                      className="px-0 text-sm font-semibold"
+                      onClick={() => handleEventSelect(upcomingEvent)}
+                      type="button"
+                    >
+                      Open workspace
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No upcoming events yet—schedule one to see it here.
+                  </p>
+                )}
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-16 text-center">
-                <Mail className="h-10 w-10 text-muted-foreground" />
-                <h3 className="text-lg font-semibold">Event messaging</h3>
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  Create an event first to send targeted updates to attendees.
+              <div className="flex flex-col justify-between gap-3 rounded-xl border border-dashed border-secondary/40 bg-secondary/10 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-secondary-foreground">
+                  <DollarSign className="h-4 w-4" />
+                  Top earner
+                </div>
+                <div className="text-base font-semibold text-foreground">{topRevenueEvent?.title}</div>
+                <p className="text-sm text-muted-foreground">
+                  {formatCurrency(topRevenueEvent?.revenue ?? 0)} total revenue
                 </p>
-                <Button onClick={goCreateEvent} type="button">
-                  <Plus className="h-4 w-4" />
-                  <span className="ml-2">Create event</span>
+                <Button
+                  variant="link"
+                  className="px-0 text-sm font-semibold"
+                  onClick={() => topRevenueEvent && handleEventSelect(topRevenueEvent)}
+                  type="button"
+                >
+                  View performance
                 </Button>
               </div>
-            )}
-          </TabsContent>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-          <TabsContent value="teams" className="space-y-6">
-            {selectedOrganization ? (
-              <OrganizationTeamPanel organizationId={selectedOrganization} />
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-16 text-center">
-                <Users className="h-10 w-10 text-muted-foreground" />
-                <h3 className="text-lg font-semibold">Team management</h3>
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  Switch to an organization to manage team members and roles.
-                </p>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-7 h-auto p-0.5 sm:p-1 gap-0.5 overflow-x-auto">
+          <TabsTrigger value="dashboard" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Dash</span>
+          </TabsTrigger>
+          <TabsTrigger value="events" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Events</span>
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Analytics</span>
+          </TabsTrigger>
+          <TabsTrigger value="campaigns" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <Megaphone className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Camps</span>
+          </TabsTrigger>
+          <TabsTrigger value="messaging" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <Mail className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Messages</span>
+          </TabsTrigger>
+          <TabsTrigger value="teams" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Teams</span>
+          </TabsTrigger>
+          <TabsTrigger value="payouts" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Payouts</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* DASHBOARD */}
+        <TabsContent value="dashboard" className="space-y-6">
+          <DashboardOverview events={events} onEventSelect={handleEventSelect} />
+        </TabsContent>
+
+        {/* EVENTS */}
+        <TabsContent value="events" className="space-y-6">
+          {(events?.length ?? 0) === 0 ? (
+            <div className="text-center py-16 border rounded-lg">
+              <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-lg font-semibold mb-1">
+                {selectedOrganization ? 'No events yet' : 'No personal events'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {selectedOrganization 
+                  ? 'Create your first event for this organization to get started.'
+                  : organizations.length > 0
+                    ? 'You have no personal events. Switch to an organization above to view organization events, or create a personal event.'
+                    : 'Create your first event to get started.'
+                }
+              </p>
+              <Button onClick={goCreateEvent}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Event
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>Event list temporarily unavailable</p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ANALYTICS */}
+        <TabsContent value="analytics" className="space-y-6">
+          <AnalyticsHub />
+        </TabsContent>
+
+        {/* CAMPAIGNS (org-scoped only) */}
+        <TabsContent value="campaigns" className="space-y-6">
+          {selectedOrganization ? (
+            <CampaignDashboard orgId={selectedOrganization} />
+          ) : (
+            <div className="text-center py-16 border rounded-lg">
+              <Megaphone className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-lg font-semibold mb-1">Campaign Management</h3>
+              <p className="text-muted-foreground mb-4">
+                Switch to an organization to create and manage ad campaigns.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* MESSAGING */}
+        <TabsContent value="messaging" className="space-y-6">
+          {hasEvents ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                <h2 className="text-xl font-semibold">Event communications</h2>
               </div>
-            )}
-          </TabsContent>
+              {eventList.map(event => (
+                <div key={event.id} className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm">
+                  <h3 className="font-semibold">{event.title}</h3>
+                  <p className="text-xs text-muted-foreground">{event.date}</p>
+                  <div className="mt-3">
+                    <OrganizerCommsPanel eventId={event.id} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-16 text-center">
+              <Mail className="h-10 w-10 text-muted-foreground" />
+              <h3 className="text-lg font-semibold">Event messaging</h3>
+              <p className="max-w-sm text-sm text-muted-foreground">
+                Create an event first to send targeted updates to attendees.
+              </p>
+              <Button onClick={goCreateEvent} type="button">
+                <Plus className="h-4 w-4" />
+                <span className="ml-2">Create event</span>
+              </Button>
+            </div>
+          )}
+        </TabsContent>
 
-          <TabsContent value="payouts" className="space-y-6">
-            <PayoutPanel
-              key={`${selectedOrganization || 'individual'}-payouts`}
-              contextType={selectedOrganization ? 'organization' : 'individual'}
-              contextId={selectedOrganization || user?.id}
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
+        {/* TEAMS */}
+        <TabsContent value="teams" className="space-y-6">
+          {selectedOrganization ? (
+            <OrganizationTeamPanel organizationId={selectedOrganization} />
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-16 text-center">
+              <Users className="h-10 w-10 text-muted-foreground" />
+              <h3 className="text-lg font-semibold">Team management</h3>
+              <p className="max-w-sm text-sm text-muted-foreground">
+                Switch to an organization to manage team members and roles.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* PAYOUTS */}
+        <TabsContent value="payouts" className="space-y-6">
+          <PayoutPanel
+            key={`${selectedOrganization || 'individual'}-payouts`}
+            contextType={selectedOrganization ? 'organization' : 'individual'}
+            contextId={selectedOrganization || user?.id}
+          />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={editingOrg} onOpenChange={setEditingOrg}>
         <DialogContent className="sm:max-w-md">

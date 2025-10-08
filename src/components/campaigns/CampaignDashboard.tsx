@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CampaignList } from "./CampaignList";
 import { CampaignCreator } from "./CampaignCreator";
-import { CampaignAnalytics } from "./CampaignAnalytics";
+import CampaignAnalytics from "./CampaignAnalytics";
 import { CreativeManager } from "./CreativeManager";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -273,11 +273,9 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <CampaignAnalytics
-            loading={loadingAnalytics}
-            totals={totals}
-            series={series}
-          />
+          <div className="p-4 text-center text-muted-foreground">
+            Select a campaign from the Campaigns tab to view analytics
+          </div>
         </TabsContent>
 
         <TabsContent value="create">

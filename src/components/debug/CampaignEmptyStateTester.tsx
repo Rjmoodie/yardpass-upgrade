@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CampaignList } from '@/components/campaigns/CampaignList';
-import { CampaignAnalytics } from '@/components/campaigns/CampaignAnalytics';
+import CampaignAnalytics from '@/components/campaigns/CampaignAnalytics';
 import { CreativeManager } from '@/components/campaigns/CreativeManager';
 import { Target, BarChart3, FileText, CheckCircle, XCircle } from 'lucide-react';
 
@@ -247,11 +247,7 @@ export const CampaignEmptyStateTester: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="analytics" className="mt-6">
-              <CampaignAnalytics
-                loading={testData.loading}
-                totals={testData.analytics}
-                series={testData.series}
-              />
+              <CampaignAnalytics campaignId="test-campaign-id" />
             </TabsContent>
 
             <TabsContent value="creatives" className="mt-6">
