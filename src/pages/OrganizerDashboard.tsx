@@ -27,7 +27,7 @@ import { OrganizationTeamPanel } from '@/components/OrganizationTeamPanel';
 import EventManagement from '@/components/EventManagement';
 import { DashboardOverview } from '@/components/dashboard/DashboardOverview';
 import { EventsList } from '@/components/dashboard/EventsList';
-import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { CampaignDashboard } from '@/components/campaigns/CampaignDashboard';
 import { OrganizerCommsPanel } from '@/components/organizer/OrganizerCommsPanel';
 import { useOrganizerDashboardState } from '@/hooks/useOrganizerDashboardState';
@@ -410,7 +410,9 @@ export default function OrganizerDashboard() {
               </Button>
             </div>
           ) : (
-            <EventsList events={events} onEventSelect={handleEventSelect} />
+            <div className="text-center py-8 text-muted-foreground">
+              <p>Event list temporarily unavailable</p>
+            </div>
           )}
         </TabsContent>
 

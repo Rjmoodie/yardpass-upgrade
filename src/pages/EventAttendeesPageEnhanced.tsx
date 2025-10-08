@@ -98,12 +98,13 @@ export default function EventAttendeesPageEnhanced() {
         const uniqueAttendees = new Map<string, Attendee>();
         data?.forEach(ticket => {
           if (!uniqueAttendees.has(ticket.owner_user_id)) {
-            uniqueAttendees.set(ticket.owner_user_id, {
-              user_id: ticket.owner_user_id,
-              display_name: (ticket.user_profiles as any)?.display_name || null,
-              photo_url: (ticket.user_profiles as any)?.photo_url || null,
-              joined_at: ticket.created_at
-            });
+          uniqueAttendees.set(ticket.owner_user_id, {
+            user_id: ticket.owner_user_id,
+            display_name: (ticket.user_profiles as any)?.display_name || null,
+            photo_url: (ticket.user_profiles as any)?.photo_url || null,
+            joined_at: ticket.created_at,
+            ticket_count: 1
+          });
           }
         });
 
@@ -154,7 +155,8 @@ export default function EventAttendeesPageEnhanced() {
             user_id: ticket.owner_user_id,
             display_name: (ticket.user_profiles as any)?.display_name || null,
             photo_url: (ticket.user_profiles as any)?.photo_url || null,
-            joined_at: ticket.created_at
+            joined_at: ticket.created_at,
+            ticket_count: 1
           });
         }
       });

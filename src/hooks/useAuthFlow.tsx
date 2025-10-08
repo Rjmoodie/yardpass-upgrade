@@ -177,6 +177,32 @@ export function useAuthFlow(opts: Options = {}) {
     }
   }
 
+  const handleSignIn = async (e: React.FormEvent, method: 'email' | 'phone') => {
+    e.preventDefault();
+    if (method === 'email') {
+      await emailPasswordAuth('signin');
+    } else {
+      if (!showOtpInput) {
+        await sendPhoneOtp('signin');
+      } else {
+        await verifyOtp('signin');
+      }
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent, method: 'email' | 'phone') => {
+    e.preventDefault();
+    if (method === 'email') {
+      await emailPasswordAuth('signup');
+    } else {
+      if (!showOtpInput) {
+        await sendPhoneOtp('signup');
+      } else {
+        await verifyOtp('signup');
+      }
+    }
+  };
+
   return {
     isLoading,
     showOtpInput, 
@@ -189,6 +215,8 @@ export function useAuthFlow(opts: Options = {}) {
     setPassword, 
     setDisplayName,
     emailPasswordAuth,
+    handleSignIn,
+    handleSignUp,
     phone, 
     setPhone, 
     otp, 

@@ -127,7 +127,7 @@ export const WalletDashboard = () => {
               <p className="text-sm mt-1">Purchase credits to get started</p>
             </div>
           ) : (
-            <WalletTransactionsTable transactions={wallet.recent_transactions} />
+            <WalletTransactionsTable orgId={wallet.id} />
           )}
         </CardContent>
       </Card>

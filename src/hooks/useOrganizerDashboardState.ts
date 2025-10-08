@@ -111,7 +111,7 @@ function useOrganizerScopedEvents({ userId, organizationId, scopeKey }: UseOrgan
         eventMetrics.set(row.id, {
           id: row.id,
           title: row.title || 'Untitled Event',
-          status: row.visibility === 'draft' ? 'draft' : 'published',
+          status: row.visibility === 'public' ? 'published' : 'draft',
           date: formatEventDate(row.start_at),
           attendees: 0,
           revenue: 0,

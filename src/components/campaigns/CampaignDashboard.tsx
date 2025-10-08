@@ -173,11 +173,9 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <CampaignAnalytics
-            loading={loadingAnalytics}
-            totals={totals}
-            series={series}
-          />
+          <div className="p-4 text-center text-muted-foreground">
+            Select a campaign from the Campaigns tab to view analytics
+          </div>
         </TabsContent>
 
         <TabsContent value="create">
