@@ -7,6 +7,8 @@ const ALLOWED_ORIGINS = [
   "https://app.yardpass.com",
   "https://staging.yardpass.com",
   "http://localhost:5173",
+  "https://*.lovable.app",
+  "https://*.lovableproject.com",
 ];
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
