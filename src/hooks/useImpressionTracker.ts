@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { FeedItem } from '@/hooks/useUnifiedFeed';
+import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { getOrCreateSessionId } from '@/utils/session';
+import { logAdImpression } from '@/lib/adTracking';
 
 type Args = {
   items: FeedItem[];
@@ -11,14 +12,23 @@ type Args = {
   isSuspended?: boolean;
 };
 
+type PromotionMeta = {
+  campaignId: string;
+  creativeId: string | null;
+  placement: 'feed' | 'search_results';
+  frequencyCapPerUser?: number | null;
+  frequencyCapPeriod?: 'session' | 'day' | 'week' | null;
+};
+
 type PendingImpression =
-  | { kind: 'event'; event_id: string; dwell_ms: number; completed: boolean; startedAt: number }
-  | { kind: 'post';  event_id: string; post_id: string; dwell_ms: number; completed: boolean; startedAt: number };
+  | { kind: 'event'; event_id: string; dwell_ms: number; completed: boolean; startedAt: number; promotion?: PromotionMeta }
+  | { kind: 'post';  event_id: string; post_id: string; dwell_ms: number; completed: boolean; startedAt: number; promotion?: PromotionMeta };
 
 const TICK_MS = 250;                 // high-resolution dwell tracking without busy looping
 const EVENT_COMPLETE_MS = 2000;      // "viewed" rule of thumb for event cards (2s)
 const IMAGE_POST_COMPLETE_MS = 3000; // images/text need slightly longer (3s)
 const VIDEO_COMPLETE_FRAC = 0.9;     // 90% watched
+const MIN_AD_DWELL_MS = 500;
 
 export function useImpressionTracker({ items, currentIndex, userId, isSuspended }: Args) {
   const sessionIdRef = useRef<string>(getOrCreateSessionId());
@@ -139,6 +149,26 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
     } else {
       enqueueFlush({ __t: 'post', post_id: cur.post_id, event_id: cur.event_id, ...base });
     }
+
+    if (cur.promotion && cur.dwell_ms >= MIN_AD_DWELL_MS) {
+      void logAdImpression(
+        {
+          campaignId: cur.promotion.campaignId,
+          creativeId: cur.promotion.creativeId,
+          eventId: cur.event_id,
+          postId: cur.kind === 'post' ? cur.post_id : null,
+          placement: cur.promotion.placement,
+        },
+        {
+          userId,
+          sessionId: session_id,
+          frequencyCap: {
+            cap: cur.promotion.frequencyCapPerUser,
+            period: cur.promotion.frequencyCapPeriod,
+          },
+        },
+      ).catch(() => undefined);
+    }
     currentRef.current = null;
   }, [enqueueFlush, userId]);
 
@@ -152,14 +182,33 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
     if (!item) return;
 
     if (item.item_type === 'event') {
+      const promotion = item.promotion
+        ? {
+            campaignId: item.promotion.campaignId,
+            creativeId: item.promotion.creativeId ?? null,
+            placement: item.promotion.placement,
+            frequencyCapPerUser: item.promotion.frequencyCapPerUser ?? null,
+            frequencyCapPeriod: item.promotion.frequencyCapPeriod ?? null,
+          }
+        : undefined;
       currentRef.current = {
         kind: 'event',
         event_id: item.event_id,
         dwell_ms: 0,
         completed: false,
         startedAt: performance.now(),
+        promotion,
       };
     } else {
+      const promotion = item.promotion
+        ? {
+            campaignId: item.promotion.campaignId,
+            creativeId: item.promotion.creativeId ?? null,
+            placement: item.promotion.placement,
+            frequencyCapPerUser: item.promotion.frequencyCapPerUser ?? null,
+            frequencyCapPeriod: item.promotion.frequencyCapPeriod ?? null,
+          }
+        : undefined;
       currentRef.current = {
         kind: 'post',
         event_id: item.event_id,
@@ -167,6 +216,7 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
         dwell_ms: 0,
         completed: false,
         startedAt: performance.now(),
+        promotion,
       };
 
       // For video completion detection, observe timeupdate (best-effort)

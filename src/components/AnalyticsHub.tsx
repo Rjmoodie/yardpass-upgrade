@@ -12,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -259,6 +261,8 @@ const InlineAIInsightsPanel: React.FC<{
 const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
   const [videoData, setVideoData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [dataSource, setDataSource] = useState<'live' | 'sample' | 'empty'>('live');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchVideoAnalytics = useCallback(async () => {
     setLoading(true);
@@ -274,6 +278,8 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
 
       if (error) throw error;
       setVideoData(data);
+      setDataSource((data as any)?.videos?.length ? 'live' : 'empty');
+      setErrorMessage(null);
     } catch (err) {
       console.error('Video analytics error:', err);
       setVideoData({
@@ -287,6 +293,8 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
           { title: 'Venue Tour & Amenities', plays: 1420, ctr: 5.1 },
         ],
       });
+      setDataSource('sample');
+      setErrorMessage(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
@@ -319,11 +327,21 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
 
   return (
     <>
+      <Alert variant={dataSource === 'sample' ? 'destructive' : 'default'} className="mb-3">
+        <AlertTitle>Video analytics source</AlertTitle>
+        <AlertDescription>
+          Metrics come from the <strong>analytics-video-mux</strong> Edge Function using your Mux playback data.
+          {dataSource === 'live' && ' Numbers reflect actual viewer behaviour for the selected range.'}
+          {dataSource === 'empty' && ' No videos reported activity for this window yet.'}
+          {dataSource === 'sample' && ` Showing sample benchmarks because ${errorMessage || 'Mux analytics is temporarily unavailable'}.`}
+        </AlertDescription>
+      </Alert>
+
       <div className="flex items-center justify-between mb-2">
-        <div />
+        <Badge variant="secondary">Powered by Mux</Badge>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={exportCSV} className="h-8 px-3 text-xs">
-            <DownloadIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+            <DownloadIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
             <span className="hidden sm:inline">CSV</span>
           </Button>
           <Button size="sm" variant="outline" onClick={exportJSON} className="h-8 px-3 text-xs">
@@ -414,6 +432,7 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
 const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
   const [audienceData, setAudienceData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchAudienceAnalytics = useCallback(async () => {
     setLoading(true);
@@ -431,6 +450,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
       if (error) throw error;
       const responseData = (data && (data.data ?? data)) || {};
       setAudienceData(responseData);
+      setErrorMessage(null);
     } catch (err) {
       console.error('Audience analytics error:', err);
       setAudienceData({
@@ -452,6 +472,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
           { device: 'tablet', sessions: 60, conversion_rate: 5.2 },
         ],
       });
+      setErrorMessage(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
@@ -492,6 +513,16 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
 
   return (
     <>
+      <Alert variant={errorMessage ? 'destructive' : 'default'} className="mb-3">
+        <AlertTitle>Audience pipeline</AlertTitle>
+        <AlertDescription>
+          Data comes from the <strong>analytics-posthog-funnel</strong> Edge Function backed by PostHog events.
+          {errorMessage
+            ? ` Showing cached benchmarks because ${errorMessage}. Verify the Edge Function deployment and PostHog keys.`
+            : ' Ensure PostHog capture is enabled to populate these steps.'}
+        </AlertDescription>
+      </Alert>
+
       <div className="flex items-center justify-end mb-2">
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={exportCSV}>
@@ -595,6 +626,8 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
   const { trackEvent } = useAnalyticsIntegration();
   const [eventData, setEventData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dataSource, setDataSource] = useState<'live' | 'sample' | 'empty'>('live');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchEventAnalytics = useCallback(async () => {
     setLoading(true);
@@ -658,6 +691,8 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
         }) || [];
 
       setEventData(mapped);
+      setDataSource(mapped.length ? 'live' : 'empty');
+      setErrorMessage(null);
     } catch (err) {
       console.error('Event analytics error:', err);
       setEventData([
@@ -695,6 +730,8 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
           status: 'upcoming',
         },
       ]);
+      setDataSource('sample');
+      setErrorMessage(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
@@ -746,6 +783,13 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
           <CardTitle>Event Analytics</CardTitle>
         </CardHeader>
         <CardContent>
+          <Alert className="mb-4">
+            <AlertTitle>Recent events only</AlertTitle>
+            <AlertDescription>
+              This list is temporarily limited to events created in the last 90 days while we migrate historical data to the analytics warehouse.
+              Export the CSV to review older performances.
+            </AlertDescription>
+          </Alert>
           <div className="text-center py-12">
             <p className="text-muted-foreground">No events found for this organization</p>
           </div>
@@ -756,6 +800,13 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
 
   return (
     <>
+      <Alert variant={dataSource === 'sample' ? 'destructive' : 'default'} className="mb-4">
+        <AlertTitle>Recent event visibility</AlertTitle>
+        <AlertDescription>
+          Events from the past 90 days appear here while the long-term archive finalizes. Use the export buttons for the full ledger.
+          {dataSource === 'sample' && ` Showing example data because ${errorMessage || 'we could not reach Supabase analytics.'}`}
+        </AlertDescription>
+      </Alert>
       {/* Summary & Export */}
       <div className="flex items-center justify-between mb-2">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">

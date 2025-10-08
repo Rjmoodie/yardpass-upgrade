@@ -6,12 +6,12 @@ import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import ActionRail from './ActionRail';
 import ClampText from '@/components/ui/ClampText';
 import PeekSheet from '@/components/overlays/PeekSheet';
-import type { FeedItem } from '@/hooks/useUnifiedFeed';
+import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 
 interface EventCardProps {
   item: Extract<FeedItem, { item_type: 'event' }>;
-  onOpenTickets: (eventId: string) => void;
-  onEventClick: (eventId: string) => void;
+  onOpenTickets: (eventId: string, item?: Extract<FeedItem, { item_type: 'event' }>) => void;
+  onEventClick: (eventId: string, item?: FeedItem) => void;
   onCreatePost?: () => void;
   onReport?: () => void;
   onSoundToggle?: () => void;
@@ -34,6 +34,18 @@ export const EventCard = memo(function EventCard({
   const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+
+  const rateSummary = useMemo(() => {
+    if (!item.promotion) return null;
+    const model = item.promotion.rateModel?.toLowerCase();
+    if (model === 'cpm' && typeof item.promotion.cpmRateCredits === 'number') {
+      return `${item.promotion.cpmRateCredits.toLocaleString()} credits / 1k impressions`;
+    }
+    if (model === 'cpc' && typeof item.promotion.cpcRateCredits === 'number') {
+      return `${item.promotion.cpcRateCredits.toLocaleString()} credits / click`;
+    }
+    return null;
+  }, [item.promotion]);
 
   const formatDate = useCallback((dateStr: string | null) => {
     if (!dateStr) return 'TBA';
@@ -58,7 +70,7 @@ export const EventCard = memo(function EventCard({
   const goToEvent = useCallback(
     (e?: React.MouseEvent | React.KeyboardEvent) => {
       e?.stopPropagation?.();
-      onEventClick(item.event_id);
+      onEventClick(item.event_id, item);
       // Also update route without full reload
       navigate(`/event/${item.event_id}`);
     },
@@ -141,6 +153,23 @@ export const EventCard = memo(function EventCard({
         <PeekSheet minHeight="168px" maxHeight="78vh">
           {/* Header grid keeps CTA fixed and title tidy */}
           <div className="grid grid-cols-[1fr,auto] items-center gap-2 sm:gap-3">
+            {item.promotion && (
+              <div className="col-span-2 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-xs font-semibold text-amber-100">
+                  Promoted
+                </span>
+                {item.promotion.headline && (
+                  <span className="text-xs text-white/80 truncate">
+                    {item.promotion.headline}
+                  </span>
+                )}
+                {rateSummary && (
+                  <span className="text-[11px] text-white/60 truncate">
+                    {rateSummary}
+                  </span>
+                )}
+              </div>
+            )}
             <h2 className="text-[clamp(18px,4.5vw,28px)] font-extrabold leading-snug line-clamp-2 pr-1">
               {item.event_title}
             </h2>
@@ -149,10 +178,10 @@ export const EventCard = memo(function EventCard({
               className="shrink-0 min-w-[8rem] sm:min-w-[9.5rem] h-10 sm:h-11 px-3 sm:px-5 text-xs sm:text-sm bg-amber-500 hover:bg-amber-600 text-black font-bold"
               onClick={(e) => {
                 e.stopPropagation();
-                onOpenTickets(item.event_id);
+                onOpenTickets(item.event_id, item);
               }}
             >
-              🎟️ Get Tickets
+              {item.promotion?.ctaLabel ? item.promotion.ctaLabel : '🎟️ Get Tickets'}
             </Button>
           </div>
 
