@@ -12,14 +12,14 @@ import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 // Lazy load dashboard components
 const AnalyticsHub = lazy(() => import('@/components/AnalyticsHub'));
-const PayoutPanel = lazy(() => import('@/components/PayoutPanel'));
-const OrganizationTeamPanel = lazy(() => import('@/components/OrganizationTeamPanel'));
+const PayoutPanel = lazy(() => import('@/components/PayoutPanel').then(m => ({ default: m.PayoutPanel })));
+const OrganizationTeamPanel = lazy(() => import('@/components/OrganizationTeamPanel').then(m => ({ default: m.OrganizationTeamPanel })));
 const EventManagement = lazy(() => import('./EventManagement'));
-const DashboardOverview = lazy(() => import('@/components/dashboard/DashboardOverview'));
-const EventsList = lazy(() => import('@/components/dashboard/EventsList'));
-const OrgWalletDashboard = lazy(() => import('@/components/wallet/OrgWalletDashboard'));
-const CampaignDashboard = lazy(() => import('@/components/campaigns/CampaignDashboard'));
-const OrganizerCommsPanel = lazy(() => import('@/components/organizer/OrganizerCommsPanel'));
+const DashboardOverview = lazy(() => import('@/components/dashboard/DashboardOverview').then(m => ({ default: m.DashboardOverview })));
+const EventsList = lazy(() => import('@/components/dashboard/EventsList').then(m => ({ default: m.EventsList })));
+const OrgWalletDashboard = lazy(() => import('@/components/wallet/OrgWalletDashboard').then(m => ({ default: m.OrgWalletDashboard })));
+const CampaignDashboard = lazy(() => import('@/components/campaigns/CampaignDashboard').then(m => ({ default: m.CampaignDashboard })));
+const OrganizerCommsPanel = lazy(() => import('@/components/organizer/OrganizerCommsPanel').then(m => ({ default: m.OrganizerCommsPanel })));
 
 type OwnerContextType = 'individual' | 'organization';
 
@@ -531,7 +531,9 @@ export default function OrganizerDashboard() {
                 <Button onClick={goCreateEvent}><Plus className="mr-2 h-4 w-4" />Create Event</Button>
               </div>
             ) : (
-              <EventsList events={events} onEventSelect={handleEventSelect} />
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Event list temporarily unavailable</p>
+              </div>
             )}
           </Suspense>
         </TabsContent>

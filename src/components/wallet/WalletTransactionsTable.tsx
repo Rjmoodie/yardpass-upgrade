@@ -9,7 +9,7 @@ export default function WalletTransactionsTable({ orgId }: { orgId: string }) {
   const { data, isFetching } = useQuery({
     queryKey: ['wallet-tx', orgId, page, limit],
     queryFn: () => fetchWalletTx({ orgId, page, limit }),
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
     staleTime: 60_000,
   });
 

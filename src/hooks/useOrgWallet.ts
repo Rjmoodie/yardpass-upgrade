@@ -45,7 +45,6 @@ export const useOrgWallet = (orgId?: string | null) => {
   const { data: wallet, isLoading, error } = useQuery<OrgWalletData | null>({
     queryKey: ["org-wallet", orgId ?? ""],
     queryFn: async () => {
-      if (!orgId) return null;
       const response = await api.getOrgWallet(orgId);
 
       if (response.error) {

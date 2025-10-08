@@ -1,21 +1,17 @@
-import React from 'react';
-import dynamic from 'next/dynamic';
-// New: split keyboard + gesture wiring into memoized hooks/components
-import { FeedKeymap } from '@/components/FeedKeymap';
-import { FeedGestures } from '@/components/FeedGestures';
-// New: virtualized list renderer that consumes the unified feed
-const UnifiedFeedList = dynamic(() => import('@/components/UnifiedFeedList'), { ssr: false });
+import React, { lazy, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+
+const UnifiedFeedList = lazy(() => import('@/components/UnifiedFeedList'));
 
 export default function Index() {
-  // Replace heavy inline handlers with stable, memoized hooks.
-  const gestures = FeedGestures();   // stable refs + handlers
-  const keymap = FeedKeymap();       // memoized hotkeys layer
+  const navigate = useNavigate();
 
   return (
-    <div {...gestures.containerProps}>
-      {keymap.layer}
-      {/* Virtualized renderer; still uses your EventCard/UserPostCard via the hook */}
-      <UnifiedFeedList />
+    <div className="w-full h-full">
+      <Suspense fallback={<div className="flex items-center justify-center h-screen"><LoadingSpinner /></div>}>
+        <UnifiedFeedList />
+      </Suspense>
     </div>
   );
 }

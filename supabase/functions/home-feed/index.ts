@@ -7,6 +7,8 @@ const ALLOWED_ORIGINS = [
   "https://app.yardpass.com",
   "https://staging.yardpass.com",
   "http://localhost:5173",
+  "https://*.lovable.app",
+  "https://*.lovableproject.com",
 ];
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -96,7 +98,41 @@ const handler = withCORS(async (req) => {
   }
 }, { allowOrigins: ALLOWED_ORIGINS });
 
-Deno.serve(handler);
+Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("Origin") || "";
+
+  // Compute allowed origin (single value)
+  const allowOrigin = (() => {
+    const match = ALLOWED_ORIGINS.some((allowed) => {
+      if (allowed === origin) return true;
+      if (allowed.includes("*")) {
+        const pattern = allowed.replace(/\./g, "\\.").replace(/\*/g, ".*");
+        return new RegExp(`^${pattern}$`).test(origin);
+      }
+      return false;
+    });
+    return match ? origin : "*";
+  })();
+
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": allowOrigin,
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
+
+  const res = await handler(req);
+  const headers = new Headers(res.headers);
+  headers.set("Access-Control-Allow-Origin", allowOrigin);
+  headers.set("Vary", "Origin");
+  return new Response(res.body, { status: res.status, headers });
+});
 
 async function expandRows({ supabase, rows, viewerId }) {
   if (!rows.length) return [];

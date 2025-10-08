@@ -19,27 +19,38 @@ type Page = { items: EventPost[]; nextCursor?: { cursorTs: string; cursorId: str
 
 async function fetchEventPostsPage(
   eventId: string, 
-  cursor?: { cursorTs: string; cursorId: string }
+  cursor?: { cursorTs: string; cursorId: string; limit?: number }
 ): Promise<Page> {
-  const { cursorTs, cursorId, limit = 30 } = cursor || {};
+  const limit = cursor?.limit || 30;
+  const cursorTs = cursor?.cursorTs;
+  const cursorId = cursor?.cursorId;
   
-  // Call the new RPC function for event posts
-  const { data: items, error } = await supabase.rpc('get_event_posts_cursor_v2', {
-    in_event_id: eventId,
-    in_limit: limit,
-    in_cursor_ts: cursorTs || null,
-    in_cursor_id: cursorId || null,
-  });
+  // Fallback to direct query since RPC doesn't exist
+  const query = supabase
+    .from('event_posts')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+    
+  if (cursorTs && cursorId) {
+    query.lt('created_at', cursorTs);
+  }
   
-  if (error) throw new Error(`RPC error: ${error.message}`);
+  const { data: items, error } = await query;
+  
+  if (error) throw new Error(`Query error: ${error.message}`);
+  
+  const itemsArray = (items || []) as unknown as EventPost[];
   
   // Create next cursor
-  const next = items?.length ? { 
-    cursorTs: items.at(-1)!.created_at, 
-    cursorId: items.at(-1)!.id 
+  const next = itemsArray.length ? { 
+    cursorTs: itemsArray[itemsArray.length - 1].created_at, 
+    cursorId: itemsArray[itemsArray.length - 1].id,
+    limit
   } : null;
   
-  return { items: items || [], nextCursor: next };
+  return { items: itemsArray, nextCursor: next };
 }
 
 export function useEventPostsInfinite(eventId: string, userId?: string) {

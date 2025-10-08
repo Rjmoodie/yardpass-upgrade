@@ -4,8 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Users, Loader2 } from 'lucide-react';
 
-type Profile = { id: string; display_name: string | null; photo_url: string | null };
-type TicketRow = { user_profiles: Profile };
+type TicketRow = { 
+  owner_user_id: string;
+  created_at: string;
+  user_profiles: { id: string; display_name: string | null; photo_url: string | null } | null;
+};
 
 const PAGE_SIZE = 60;
 
@@ -81,7 +84,7 @@ export default function EventAttendeesPage() {
         // first page
         const { data, error } = await supabase
           .from('tickets')
-          .select('owner_user_id, user_profiles!tickets_owner_user_id_fkey(id, display_name, photo_url), created_at')
+          .select('owner_user_id, user_profiles!inner(id, display_name, photo_url), created_at')
           .eq('event_id', ev.data.id)
           .in('status', ['issued', 'transferred', 'redeemed'])
           .order('created_at', { ascending: false })
@@ -93,7 +96,7 @@ export default function EventAttendeesPage() {
           return;
         }
 
-        setRows(data || []);
+        setRows((data || []) as unknown as TicketRow[]);
         setHasMore((data?.length || 0) === PAGE_SIZE);
         setPage(1);
         setLoading(false);
@@ -115,14 +118,14 @@ export default function EventAttendeesPage() {
       const to = from + PAGE_SIZE - 1;
       const { data, error } = await supabase
         .from('tickets')
-        .select('owner_user_id, user_profiles!tickets_owner_user_id_fkey(id, display_name, photo_url), created_at')
+        .select('owner_user_id, user_profiles!inner(id, display_name, photo_url), created_at')
         .eq('event_id', eventId)
         .in('status', ['issued', 'transferred', 'redeemed'])
         .order('created_at', { ascending: false })
         .range(from, to);
 
       if (error) throw error;
-      setRows(prev => [...prev, ...(data || [])]);
+      setRows(prev => [...prev, ...((data || []) as unknown as TicketRow[])]);
       setHasMore((data?.length || 0) === PAGE_SIZE);
       setPage(prev => prev + 1);
     } catch (e: any) {
@@ -190,7 +193,7 @@ export default function EventAttendeesPage() {
           </p>
 
           <div className="grid sm:grid-cols-2 gap-3">
-            {attendees.map(({ user_profiles }) => (
+            {attendees.map(({ user_profiles }) => user_profiles && (
               <Link
                 key={user_profiles.id}
                 to={`/u/${user_profiles.id}`}

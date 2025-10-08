@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CampaignList } from '@/components/campaigns/CampaignList';
-import { CampaignAnalytics } from '@/components/campaigns/CampaignAnalytics';
+import CampaignAnalytics from '@/components/campaigns/CampaignAnalytics';
 import { CreativeManager } from '@/components/campaigns/CreativeManager';
 
 export default function CampaignEmptyStates() {
@@ -32,11 +32,7 @@ export default function CampaignEmptyStates() {
             <CardTitle>Analytics Tab - Empty State</CardTitle>
           </CardHeader>
           <CardContent>
-            <CampaignAnalytics 
-              loading={false}
-              totals={{ impressions: 0, clicks: 0, ctr: 0, credits_spent: 0 }}
-              series={[]}
-            />
+            <CampaignAnalytics campaignId="test-campaign-id" />
           </CardContent>
         </Card>
 
