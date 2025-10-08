@@ -17,6 +17,8 @@ import { FilterChip } from './search/FilterChip';
 import { EventCard } from './search/EventCard';
 import { SkeletonGrid, EmptyState } from './search/SearchPageComponents';
 import { useSmartSearch } from '@/hooks/useSmartSearch';
+import { useCampaignBoosts } from '@/hooks/useCampaignBoosts';
+import { canServeCampaign, logAdClick, logAdImpression } from '@/lib/adTracking';
 
 interface SearchPageProps {
   onBack: () => void;
@@ -83,6 +85,11 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const { user } = useAuth();
   const { data: recommendations, loading: recLoading, error: recError } = useRecommendations(user?.id, 8);
   const { trackInteraction } = useInteractionTracking();
+  const { data: searchBoosts = [] } = useCampaignBoosts({
+    placement: 'search_results',
+    limit: 8,
+    userId: user?.id ?? null,
+  });
 
   // URL-synced state
   const [params, setParams] = useSearchParams();
@@ -213,7 +220,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   // Client-side filtering for price (until server-side is implemented)
   const filteredResults = useMemo(() => {
     let filtered = [...transformedResults];
-    
+
     if (min) filtered = filtered.filter(e => (e.priceFrom ?? 0) >= Number(min));
     if (max) filtered = filtered.filter(e => (e.priceFrom ?? 1e9) <= Number(max));
     
@@ -228,15 +235,91 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     return filtered;
   }, [transformedResults, min, max, sort]);
 
+  const boostedResults = useMemo(() => {
+    return (searchBoosts ?? [])
+      .filter((row) => row && row.event_id)
+      .map((row) => ({
+        id: row.event_id,
+        title: row.event_title ?? row.headline ?? 'Promoted Event',
+        description: row.event_description ?? row.body_text ?? '',
+        organizer: row.organizer_name ?? 'Organizer',
+        organizerId: row.organizer_id ?? row.event_id,
+        category: row.event_category ?? 'Other',
+        date: row.event_starts_at
+          ? new Date(row.event_starts_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          : 'TBA',
+        start_at: row.event_starts_at,
+        location: row.event_location ?? row.event_city ?? 'TBA',
+        coverImage:
+          row.event_cover_image ??
+          'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
+        attendeeCount: undefined,
+        priceFrom: undefined,
+        rating: 4.6,
+        promotion: {
+          placement: 'search_results' as const,
+          campaignId: row.campaign_id,
+          creativeId: row.creative_id,
+          objective: row.objective,
+          ctaLabel: row.cta_label,
+          ctaUrl: row.cta_url,
+          headline: row.headline,
+          priority: row.priority ?? 0,
+          frequencyCapPerUser: row.frequency_cap_per_user,
+          frequencyCapPeriod: row.frequency_cap_period,
+          targeting: row.targeting,
+          rateModel: row.default_rate_model,
+          cpmRateCredits: row.cpm_rate_credits,
+          cpcRateCredits: row.cpc_rate_credits,
+          remainingCredits: row.remaining_credits,
+          dailyRemainingCredits: row.daily_remaining,
+        },
+      }));
+  }, [searchBoosts]);
+
+  const augmentedResults = useMemo(() => {
+    const map = new Map<string, any>(filteredResults.map((event) => [event.id, { ...event }]));
+
+    for (const promo of boostedResults) {
+      if (!promo?.id) continue;
+      const matchesCategory = cat === 'All' || !promo.category || promo.category === cat;
+      if (!matchesCategory) continue;
+      if (
+        !canServeCampaign(
+          promo.promotion.campaignId,
+          promo.promotion.frequencyCapPerUser,
+          promo.promotion.frequencyCapPeriod,
+        )
+      ) {
+        continue;
+      }
+
+      if (map.has(promo.id)) {
+        const existing = map.get(promo.id)!;
+        existing.promotion = promo.promotion;
+      } else {
+        map.set(promo.id, promo);
+      }
+    }
+
+    const combined = Array.from(map.values());
+    const promoted = combined
+      .filter((event) => event.promotion)
+      .sort((a, b) => (b.promotion?.priority ?? 0) - (a.promotion?.priority ?? 0));
+    const organic = combined.filter((event) => !event.promotion);
+    return [...promoted, ...organic];
+  }, [filteredResults, boostedResults, cat]);
+
   // Pagination
   const PAGE_SIZE = 24;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const loaderRef = useRef<HTMLDivElement | null>(null);
+  const loggedPromotionsRef = useRef<Set<string>>(new Set());
 
   // Reset pagination when filters change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [filteredResults]);
+  }, [augmentedResults]);
 
   // infinite scroll sentinel
   useEffect(() => {
@@ -244,12 +327,12 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     const el = loaderRef.current;
     const io = new IntersectionObserver((entries) => {
       if (entries.some(e => e.isIntersecting)) {
-        setVisibleCount((c) => Math.min(c + PAGE_SIZE, filteredResults.length));
+        setVisibleCount((c) => Math.min(c + PAGE_SIZE, augmentedResults.length));
       }
     }, { rootMargin: '600px' }); // prefetch before hitting bottom
     io.observe(el);
     return () => io.disconnect();
-  }, [filteredResults.length]);
+  }, [augmentedResults.length]);
 
   // helpers to update url params succinctly
   const setParam = (k: string, v?: string) => {
@@ -262,7 +345,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       filter_value: v || '',
       query: q,
       category: cat,
-      results_count: filteredResults?.length || 0
+      results_count: augmentedResults?.length || 0
     });
 
     // recent searches (when editing the main query)
@@ -278,7 +361,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     trackEvent('search_filters_clear', {
       previous_query: q,
       previous_category: cat,
-      results_count: filteredResults?.length || 0
+      results_count: augmentedResults?.length || 0
     });
     setParams(new URLSearchParams(), { replace: true });
     setVisibleCount(PAGE_SIZE);
@@ -316,6 +399,45 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     onEventSelect(eventId);
   };
 
+  const handleResultClick = useCallback((event: any) => {
+    if (event?.promotion) {
+      void logAdClick(
+        {
+          campaignId: event.promotion.campaignId,
+          creativeId: event.promotion.creativeId ?? null,
+          eventId: event.id,
+          placement: 'search_results',
+        },
+        { userId: user?.id ?? null },
+      ).catch(() => undefined);
+    }
+    trackInteraction(event.id, 'event_view');
+    onEventSelect(event.id);
+  }, [onEventSelect, trackInteraction, user?.id]);
+
+  const handleResultTicketClick = useCallback((event: any, eventId?: string) => {
+    if (event?.promotion) {
+      void logAdClick(
+        {
+          campaignId: event.promotion.campaignId,
+          creativeId: event.promotion.creativeId ?? null,
+          eventId: event.id,
+          placement: 'search_results',
+        },
+        { userId: user?.id ?? null },
+      ).catch(() => undefined);
+      if (event.promotion.ctaUrl) {
+        try {
+          window.open(event.promotion.ctaUrl, '_blank', 'noopener');
+        } catch (err) {
+          console.warn('[search] failed to open CTA url', err);
+        }
+      }
+    }
+    trackInteraction(event.id, 'ticket_open');
+    onEventSelect(eventId ?? event.id);
+  }, [onEventSelect, trackInteraction, user?.id]);
+
   // keyboard shortcut: open focus on query ("/")
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -335,7 +457,33 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   // ————————————————————————————————————————
   // Render
   // ————————————————————————————————————————
-  const visible = filteredResults.slice(0, visibleCount);
+  const visible = augmentedResults.slice(0, visibleCount);
+
+  useEffect(() => {
+    visible.forEach((event) => {
+      if (!event?.promotion) return;
+      const key = `${event.promotion.campaignId}:${event.promotion.creativeId ?? event.id}`;
+      if (loggedPromotionsRef.current.has(key)) return;
+
+      void logAdImpression(
+        {
+          campaignId: event.promotion.campaignId,
+          creativeId: event.promotion.creativeId ?? null,
+          eventId: event.id,
+          placement: 'search_results',
+        },
+        {
+          userId: user?.id ?? null,
+          frequencyCap: {
+            cap: event.promotion.frequencyCapPerUser,
+            period: event.promotion.frequencyCapPeriod,
+          },
+        },
+      ).catch(() => undefined);
+
+      loggedPromotionsRef.current.add(key);
+    });
+  }, [visible, user?.id]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -555,17 +703,22 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
 
           {loading ? (
             <SkeletonGrid />
-          ) : filteredResults.length === 0 ? (
+          ) : augmentedResults.length === 0 ? (
             <EmptyState />
           ) : (
             <>
               <div className="grid md:grid-cols-2 gap-4">
                 {visible.map((e) => (
-                  <EventCard key={e.id} event={e} onClick={() => onEventSelect?.(e.id)} />
+                  <EventCard
+                    key={e.id}
+                    event={e}
+                    onClick={() => handleResultClick(e)}
+                    onTicket={(eventId) => handleResultTicketClick(e, eventId)}
+                  />
                 ))}
               </div>
               {/* sentinel for infinite scroll */}
-              {visibleCount < filteredResults.length && (
+              {visibleCount < augmentedResults.length && (
                 <div ref={loaderRef} className="h-12 flex items-center justify-center text-muted-foreground">
                   Loading more…
                 </div>

@@ -18,13 +18,13 @@ interface UserPostCardProps {
   onLike: (postId: string, event?: React.MouseEvent) => void;
   onComment: (postId: string) => void;
   onShare: (postId: string) => void;
-  onEventClick: (eventId: string) => void;
+  onEventClick: (eventId: string, item?: FeedItem) => void;
   onAuthorClick?: (authorId: string) => void;
   onCreatePost?: () => void;
   onReport?: () => void;
   onSoundToggle?: () => void;
   onVideoToggle?: () => void;
-  onOpenTickets?: (eventId: string) => void;
+  onOpenTickets?: (eventId: string, item?: FeedItem) => void;
   soundEnabled?: boolean;
   isVideoPlaying?: boolean;
 }
@@ -178,8 +178,8 @@ export const UserPostCard = memo(function UserPostCard({
 
   // Handlers
   const handleRootClick = useCallback(() => {
-    onEventClick(item.event_id);
-  }, [item.event_id, onEventClick]);
+    onEventClick(item.event_id, item);
+  }, [item.event_id, item, onEventClick]);
 
   const handleVideoClick = useCallback<React.MouseEventHandler<HTMLVideoElement>>(
     (e) => {
@@ -363,7 +363,7 @@ export const UserPostCard = memo(function UserPostCard({
 
             {onOpenTickets && (
               <Button
-                onClick={(e) => { e.stopPropagation(); onOpenTickets(item.event_id); }}
+            onClick={(e) => { e.stopPropagation(); onOpenTickets(item.event_id, item); }}
                 className="h-10 px-4 rounded-2xl font-semibold"
               >
                 🎟️ Tickets

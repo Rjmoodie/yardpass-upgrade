@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { CalendarIcon, MapPin, Star, Users, Ticket, Bookmark, Share2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
@@ -26,6 +27,18 @@ export function EventCard({ event, onClick, onTicket, onBookmark, onShare, class
 
   const priceFrom = typeof event.priceFrom === 'number' ? `$${event.priceFrom.toFixed(0)}` : null;
   const rating = (event.rating ?? 4.2).toFixed(1);
+
+  const rateSummary = useMemo(() => {
+    if (!event.promotion) return null;
+    const model = event.promotion.rateModel?.toLowerCase?.();
+    if (model === 'cpm' && typeof event.promotion.cpmRateCredits === 'number') {
+      return `${event.promotion.cpmRateCredits.toLocaleString()} credits / 1k impressions`;
+    }
+    if (model === 'cpc' && typeof event.promotion.cpcRateCredits === 'number') {
+      return `${event.promotion.cpcRateCredits.toLocaleString()} credits / click`;
+    }
+    return null;
+  }, [event.promotion]);
 
   return (
     <div 
@@ -75,6 +88,12 @@ export function EventCard({ event, onClick, onTicket, onBookmark, onShare, class
                       {event.category}
                     </Badge>
                   )}
+                  {event.promotion && (
+                    <Badge variant="outline" className="px-2 py-0.5 rounded-full bg-amber-50 border-amber-200 text-amber-800 flex items-center gap-1">
+                      <span>Promoted</span>
+                      {rateSummary && <span className="text-[10px] text-amber-700/80">{rateSummary}</span>}
+                    </Badge>
+                  )}
                   {event.sponsor && (
                     <Badge variant="outline" className="px-2 py-0.5 rounded-full bg-amber-50 border-amber-200 text-amber-800">
                       Sponsored by {event.sponsor.name}
@@ -117,7 +136,7 @@ export function EventCard({ event, onClick, onTicket, onBookmark, onShare, class
                     className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border hover:bg-muted transition"
                     aria-label={`Get tickets for ${event.title}`}
                   >
-                    <Ticket className="w-3 h-3" /> Tickets
+                    <Ticket className="w-3 h-3" /> {event.promotion?.ctaLabel ?? 'Tickets'}
                   </button>
                 )}
                 {onBookmark && (
