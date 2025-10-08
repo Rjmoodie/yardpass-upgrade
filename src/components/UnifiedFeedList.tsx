@@ -42,6 +42,37 @@ const DEFAULT_FILTERS: FeedFilters = {
 
 const PROMOTED_INTERVAL = 4;
 
+function interleaveFeedItems(items: FeedItem[]): FeedItem[] {
+  if (items.length < 2) return items;
+
+  const hasEvents = items.some((item) => item.item_type === 'event');
+  const hasPosts = items.some((item) => item.item_type === 'post');
+
+  if (!hasEvents || !hasPosts) {
+    return items;
+  }
+
+  const result = [...items];
+
+  for (let i = 1; i < result.length; i += 1) {
+    const prevType = result[i - 1].item_type;
+    const currentType = result[i].item_type;
+
+    if (prevType === currentType) {
+      const swapIndex = result.findIndex(
+        (candidate, idx) => idx > i && candidate.item_type !== prevType
+      );
+
+      if (swapIndex !== -1) {
+        const [swapItem] = result.splice(swapIndex, 1);
+        result.splice(i, 0, swapItem);
+      }
+    }
+  }
+
+  return result;
+}
+
 function normalizeBoost(row: CampaignBoostRow): FeedItem {
   const id = `boost-${row.campaign_id}-${row.creative_id ?? row.event_id}`;
   return {
@@ -147,6 +178,7 @@ export default function UnifiedFeedList() {
   });
 
   const organicItems = items ?? [];
+  const interleavedOrganicItems = useMemo(() => interleaveFeedItems(organicItems), [organicItems]);
   const normalizedBoosts = useMemo(() => {
     if (!campaignBoosts?.length) return [] as FeedItem[];
     const seen = new Set<string>();
@@ -162,18 +194,18 @@ export default function UnifiedFeedList() {
   }, [campaignBoosts]);
 
   const blendedItems = useMemo(() => {
-    if (!organicItems.length) {
-      return normalizedBoosts.length ? normalizedBoosts : organicItems;
+    if (!interleavedOrganicItems.length) {
+      return normalizedBoosts.length ? normalizedBoosts : interleavedOrganicItems;
     }
 
     if (!normalizedBoosts.length) {
-      return organicItems;
+      return interleavedOrganicItems;
     }
 
     const boostsQueue = [...normalizedBoosts];
     const output: FeedItem[] = [];
 
-    organicItems.forEach((item, idx) => {
+    interleavedOrganicItems.forEach((item, idx) => {
       if (idx > 0 && idx % PROMOTED_INTERVAL === 0 && boostsQueue.length) {
         output.push(boostsQueue.shift()!);
       }
@@ -181,7 +213,7 @@ export default function UnifiedFeedList() {
     });
 
     return boostsQueue.length ? [...output, ...boostsQueue] : output;
-  }, [normalizedBoosts, organicItems]);
+  }, [interleavedOrganicItems, normalizedBoosts]);
 
   useEffect(() => {
     itemRefs.current = new Array(blendedItems.length).fill(null);
