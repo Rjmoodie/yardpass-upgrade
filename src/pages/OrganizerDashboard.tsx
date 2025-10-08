@@ -2,11 +2,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Megaphone, Settings, Mail } from 'lucide-react';
+import {
+  CalendarDays,
+  Users,
+  DollarSign,
+  Plus,
+  BarChart3,
+  Building2,
+  CheckCircle2,
+  Megaphone,
+  Settings,
+  Mail,
+  LayoutDashboard,
+} from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -70,7 +84,7 @@ export default function OrganizerDashboard() {
     };
 
     return (
-      <div className="container mx-auto p-6">
+      <div className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-6 lg:px-8">
         <EventManagement
           event={{
             ...eventWithDetails,
@@ -98,11 +112,50 @@ export default function OrganizerDashboard() {
 
   const headerName = activeOrg?.name || 'Personal Dashboard';
   const isVerified = !!activeOrg?.is_verified;
+  const eventList = events ?? [];
+  const hasEvents = eventList.length > 0;
+
+  const { upcomingEvent, topRevenueEvent, averageConversion, averageEngagement } = useMemo(() => {
+    if (!eventList.length) {
+      return {
+        upcomingEvent: null as OrganizerEventSummary | null,
+        topRevenueEvent: null as OrganizerEventSummary | null,
+        averageConversion: 0,
+        averageEngagement: 0,
+      };
+    }
+
+    const sortedByDate = eventList
+      .filter(event => {
+        if (!event.start_at) return false;
+        const time = new Date(event.start_at).getTime();
+        return Number.isFinite(time) && time >= Date.now();
+      })
+      .sort((a, b) => {
+        const aTime = new Date(a.start_at ?? '').getTime();
+        const bTime = new Date(b.start_at ?? '').getTime();
+        return aTime - bTime;
+      });
+
+    const topRevenue = [...eventList].sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0));
+    const totalConversion = eventList.reduce((sum, event) => sum + (event.conversion_rate ?? 0), 0);
+    const totalEngagement = eventList.reduce((sum, event) => sum + (event.engagement_rate ?? 0), 0);
+
+    return {
+      upcomingEvent: sortedByDate[0] ?? null,
+      topRevenueEvent: topRevenue[0] ?? null,
+      averageConversion: totalConversion / eventList.length,
+      averageEngagement: totalEngagement / eventList.length,
+    };
+  }, [events]);
+
+  const conversionDisplay = hasEvents ? formatPercent(averageConversion) : '—';
+  const engagementDisplay = hasEvents ? formatPercent(averageEngagement) : '—';
 
   // Handle edit organization
   const handleEditOrg = async () => {
     if (!selectedOrganization) return;
-    
+
     try {
       const { error } = await supabase
         .from('organizations')
@@ -174,38 +227,167 @@ export default function OrganizerDashboard() {
                   </Button>
                 )}
               </div>
-            )}
-
-            <div className="text-sm sm:text-base text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="font-medium truncate max-w-[200px] sm:max-w-none">{headerName}</span>
-              {isVerified && (
-                <span className="inline-flex items-center gap-1 text-xs text-blue-600 flex-shrink-0">
-                  <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" /> Verified
-                </span>
-              )}
-              <span className="flex-shrink-0">• {totals.events} event{totals.events === 1 ? '' : 's'}</span>
-              <span className="flex-shrink-0">• {totals.attendees} attendees</span>
-              <span className="flex-shrink-0">• ${totals.revenue.toLocaleString()} revenue</span>
+              <CardDescription>
+                Manage events, payouts, and messaging for your {selectedOrganization ? 'organization' : 'personal profile'}.
+              </CardDescription>
             </div>
-          </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+              <Button className="w-full sm:w-auto" onClick={goCreateEvent} type="button">
+                <Plus className="h-4 w-4" />
+                <span className="ml-2">Create event</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => (window.location.href = '/create-organization')}
+                type="button"
+              >
+                <Building2 className="h-4 w-4" />
+                <span className="ml-2">New organization</span>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 flex-col gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Working as</span>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <OrgSwitcher
+                    organizations={organizations}
+                    value={selectedOrganization}
+                    onSelect={handleOrganizationSelect}
+                    onCreateOrgPath="/create-organization"
+                    className="w-full sm:w-[260px] md:w-[300px]"
+                  />
+                  {selectedOrganization && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setEditingOrg(true)}
+                      title="Edit organization"
+                      className="h-11 w-11 flex-shrink-0"
+                      type="button"
+                    >
+                      <Settings className="h-5 w-5" />
+                      <span className="sr-only">Edit organization</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <span>
+                  {formatNumber(totals.events)} event{totals.events === 1 ? '' : 's'}
+                </span>
+                <span>• {formatNumber(totals.attendees)} attendees</span>
+                <span>• {formatCurrency(totals.revenue)} gross</span>
+              </div>
+            </div>
 
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button className="flex-1 sm:flex-initial sm:w-auto" onClick={goCreateEvent}>
-              <Plus className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Create Event</span>
-              <span className="sm:hidden">Create</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 sm:flex-initial sm:w-auto"
-              onClick={() => (window.location.href = '/create-organization')}
-            >
-              <Building2 className="mr-2 h-4 w-4" />
-              New Org
-            </Button>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              <StatTile
+                icon={CalendarDays}
+                label={selectedOrganization ? 'Org events' : 'Your events'}
+                value={formatNumber(totals.events)}
+                helper={selectedOrganization ? 'Currently selected organization' : 'Personal scope'}
+              />
+              <StatTile
+                icon={Users}
+                label="Total attendees"
+                value={formatNumber(totals.attendees)}
+                helper="Confirmed check-ins"
+              />
+              <StatTile
+                icon={DollarSign}
+                label="Gross revenue"
+                value={formatCurrency(totals.revenue)}
+                helper={topRevenueEvent ? `Top: ${topRevenueEvent.title}` : 'All events combined'}
+              />
+              <StatTile
+                icon={BarChart3}
+                label="Avg conversion"
+                value={conversionDisplay}
+                helper="Tickets sold vs. capacity"
+              />
+              <StatTile
+                icon={Megaphone}
+                label="Avg engagement"
+                value={engagementDisplay}
+                helper="Likes vs. views on posts"
+              />
+            </div>
+
+            {hasEvents && (
+              <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
+                <div className="flex flex-col justify-between gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                    <CalendarDays className="h-4 w-4" />
+                    Upcoming highlight
+                  </div>
+                  {upcomingEvent ? (
+                    <>
+                      <div className="text-base font-semibold text-foreground">{upcomingEvent.title}</div>
+                      <p className="text-sm text-muted-foreground">{upcomingEvent.date}</p>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{formatNumber(upcomingEvent.attendees ?? 0)} attendees</span>
+                        <span>{formatCurrency(upcomingEvent.revenue ?? 0)}</span>
+                      </div>
+                      <Button
+                        variant="link"
+                        className="px-0 text-sm font-semibold"
+                        onClick={() => handleEventSelect(upcomingEvent)}
+                        type="button"
+                      >
+                        Open workspace
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No upcoming events yet—schedule one to see it here.
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col justify-between gap-3 rounded-xl border border-dashed border-secondary/40 bg-secondary/10 p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-secondary-foreground">
+                    <DollarSign className="h-4 w-4" />
+                    Top earner
+                  </div>
+                  <div className="text-base font-semibold text-foreground">{topRevenueEvent?.title}</div>
+                  <p className="text-sm text-muted-foreground">
+                    {formatCurrency(topRevenueEvent?.revenue ?? 0)} total revenue
+                  </p>
+                  <Button
+                    variant="link"
+                    className="px-0 text-sm font-semibold"
+                    onClick={() => topRevenueEvent && handleEventSelect(topRevenueEvent)}
+                    type="button"
+                  >
+                    View performance
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <div className="-mx-1 overflow-x-auto pb-2">
+            <TabsList className="flex w-max items-stretch gap-1 rounded-full bg-muted/60 p-1">
+              {TAB_CONFIG.map(tab => {
+                const Icon = tab.icon;
+                return (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="flex min-w-[104px] flex-col items-center gap-1 rounded-full px-3 py-2 text-xs font-semibold text-muted-foreground transition-transform sm:text-sm"
+                    title={tab.description}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{tab.label}</span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
           </div>
-        </div>
-      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
@@ -299,66 +481,97 @@ export default function OrganizerDashboard() {
                 <Mail className="h-5 w-5" />
                 <h2 className="text-xl font-semibold">Event Communications</h2>
               </div>
-              {events.map((event) => (
-                <div key={event.id} className="border rounded-lg p-4">
-                  <h3 className="font-semibold mb-2">{event.title}</h3>
-                  <OrganizerCommsPanel eventId={event.id} />
+            ) : (
+              <EventsList events={eventList} onEventSelect={handleEventSelect} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6">
+            <AnalyticsHub />
+          </TabsContent>
+
+          <TabsContent value="campaigns" className="space-y-6">
+            {selectedOrganization ? (
+              <CampaignDashboard orgId={selectedOrganization} />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-16 text-center">
+                <Megaphone className="h-10 w-10 text-muted-foreground" />
+                <h3 className="text-lg font-semibold">Campaign management</h3>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Switch to an organization to build paid campaigns and monitor acquisition funnels.
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="messaging" className="space-y-6">
+            {hasEvents ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  <h2 className="text-xl font-semibold">Event communications</h2>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16 border rounded-lg">
-              <Mail className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-              <h3 className="text-lg font-semibold mb-1">Event Messaging</h3>
-              <p className="text-muted-foreground mb-4">
-                Create an event first to send messages to attendees.
-              </p>
-              <Button onClick={goCreateEvent}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Event
-              </Button>
-            </div>
-          )}
-        </TabsContent>
+                {eventList.map(event => (
+                  <div key={event.id} className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm">
+                    <h3 className="font-semibold">{event.title}</h3>
+                    <p className="text-xs text-muted-foreground">{event.date}</p>
+                    <div className="mt-3">
+                      <OrganizerCommsPanel eventId={event.id} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-16 text-center">
+                <Mail className="h-10 w-10 text-muted-foreground" />
+                <h3 className="text-lg font-semibold">Event messaging</h3>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Create an event first to send targeted updates to attendees.
+                </p>
+                <Button onClick={goCreateEvent} type="button">
+                  <Plus className="h-4 w-4" />
+                  <span className="ml-2">Create event</span>
+                </Button>
+              </div>
+            )}
+          </TabsContent>
 
-        {/* TEAMS (org-scoped only) */}
-        <TabsContent value="teams" className="space-y-6">
-          {selectedOrganization ? (
-            <OrganizationTeamPanel organizationId={selectedOrganization} />
-          ) : (
-            <div className="text-center py-16 border rounded-lg">
-              <Users className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-              <h3 className="text-lg font-semibold mb-1">Team Management</h3>
-              <p className="text-muted-foreground mb-4">
-                Switch to an organization to manage team members and roles.
-              </p>
-            </div>
-          )}
-        </TabsContent>
+          <TabsContent value="teams" className="space-y-6">
+            {selectedOrganization ? (
+              <OrganizationTeamPanel organizationId={selectedOrganization} />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-16 text-center">
+                <Users className="h-10 w-10 text-muted-foreground" />
+                <h3 className="text-lg font-semibold">Team management</h3>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Switch to an organization to manage team members and roles.
+                </p>
+              </div>
+            )}
+          </TabsContent>
 
-        {/* PAYOUTS (scope-aware) */}
-        <TabsContent value="payouts" className="space-y-6">
-          <PayoutPanel
-            key={`${selectedOrganization || 'individual'}-payouts`}
-            contextType={selectedOrganization ? 'organization' : 'individual'}
-            contextId={selectedOrganization || user?.id}
-          />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="payouts" className="space-y-6">
+            <PayoutPanel
+              key={`${selectedOrganization || 'individual'}-payouts`}
+              contextType={selectedOrganization ? 'organization' : 'individual'}
+              contextId={selectedOrganization || user?.id}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
 
-      {/* Edit Organization Modal */}
       <Dialog open={editingOrg} onOpenChange={setEditingOrg}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Organization</DialogTitle>
+            <DialogTitle>Edit organization</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="org-name">Organization Name</Label>
+              <Label htmlFor="org-name">Organization name</Label>
               <Input
                 id="org-name"
                 value={editForm.name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter organization name"
               />
             </div>
@@ -367,7 +580,7 @@ export default function OrganizerDashboard() {
               <Textarea
                 id="org-description"
                 value={editForm.description}
-                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Describe your organization"
                 rows={3}
               />
@@ -377,7 +590,7 @@ export default function OrganizerDashboard() {
               <Input
                 id="org-website"
                 value={editForm.website_url}
-                onChange={(e) => setEditForm(prev => ({ ...prev, website_url: e.target.value }))}
+                onChange={e => setEditForm(prev => ({ ...prev, website_url: e.target.value }))}
                 placeholder="https://example.com"
                 type="url"
               />
@@ -387,17 +600,17 @@ export default function OrganizerDashboard() {
               <Input
                 id="org-location"
                 value={editForm.location}
-                onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                onChange={e => setEditForm(prev => ({ ...prev, location: e.target.value }))}
                 placeholder="City, State/Country"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingOrg(false)}>
+            <Button variant="outline" onClick={() => setEditingOrg(false)} type="button">
               Cancel
             </Button>
-            <Button onClick={handleEditOrg}>
-              Save Changes
+            <Button onClick={handleEditOrg} type="button">
+              Save changes
             </Button>
           </DialogFooter>
         </DialogContent>
