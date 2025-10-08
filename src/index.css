@@ -1063,6 +1063,11 @@ input, select, textarea {
   padding-bottom: calc(72px + env(safe-area-inset-bottom));
 }
 
+/* Z-index scale for proper layering */
+.z-modal {
+  z-index: 50;
+}
+
 /* Large, thumb-friendly icon buttons used in bottom rails */
 .rail-btn {
   min-width: 48px;

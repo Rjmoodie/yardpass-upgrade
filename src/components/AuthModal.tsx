@@ -217,15 +217,15 @@ export default function AuthModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md z-[100]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        {/* Toggle method (phone/email) shared by SignIn/SignUp; guest tab has its own toggle */}
-        <div className="flex justify-center mb-6">
-          <div className="flex rounded-lg border p-1">
+        {/* Toggle method (phone/email) shared by SignIn/SignUp; guest tab has its own toggle */}
+        <div className="flex justify-center mb-4 overflow-hidden">
+          <div className="flex rounded-lg border p-0.5 w-fit">
             <Button
               variant={authMethod === 'phone' ? 'default' : 'ghost'}
               size="sm"
@@ -233,10 +233,10 @@ export default function AuthModal({
                 setAuthMethod('phone');
                 resetOtpState();
               }}
-              className="flex items-center gap-2"
-            >
-              <Phone className="w-4 h-4" />
-              Phone
+              className="flex items-center gap-1 px-2 py-1 text-xs"
+            >
+              <Phone className="w-3 h-3" />
+              Phone
             </Button>
             <Button
               variant={authMethod === 'email' ? 'default' : 'ghost'}
@@ -245,19 +245,19 @@ export default function AuthModal({
                 setAuthMethod('email');
                 resetOtpState();
               }}
-              className="flex items-center gap-2"
-            >
-              <Mail className="w-4 h-4" />
-              Email
+              className="flex items-center gap-1 px-2 py-1 text-xs"
+            >
+              <Mail className="w-3 h-3" />
+              Email
             </Button>
           </div>
         </div>
 
-        <Tabs defaultValue={guestTab} onValueChange={(v) => setGuestTab(v as any)} className="w-full">
-          <TabsList className={`grid ${allowGuestTicketAccess ? 'grid-cols-3' : 'grid-cols-2'} w-full`}>
-            <TabsTrigger value="signin">Sign In</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            {allowGuestTicketAccess && <TabsTrigger value="guest">Access Tickets</TabsTrigger>}
+        <Tabs defaultValue={guestTab} onValueChange={(v) => setGuestTab(v as any)} className="w-full overflow-visible">
+          <TabsList className={`grid ${allowGuestTicketAccess ? 'grid-cols-3' : 'grid-cols-2'} w-full gap-0.5 overflow-hidden`}>
+            <TabsTrigger value="signin" className="min-w-0 overflow-hidden px-2">Sign In</TabsTrigger>
+            <TabsTrigger value="signup" className="min-w-0 overflow-hidden px-2">Sign Up</TabsTrigger>
+            {allowGuestTicketAccess && <TabsTrigger value="guest" className="text-xs min-w-0 overflow-hidden px-0.5 py-1">Guest</TabsTrigger>}
           </TabsList>
 
           {/* ---------- Sign In ---------- */}

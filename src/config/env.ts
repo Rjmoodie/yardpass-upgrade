@@ -24,11 +24,11 @@ type RawEnv = {
 };
 
 const rawEnv: RawEnv = {
-  VITE_SUPABASE_URL: import.meta.env?.VITE_SUPABASE_URL,
-  VITE_SUPABASE_ANON_KEY: import.meta.env?.VITE_SUPABASE_ANON_KEY,
-  VITE_SUPABASE_FUNCTIONS_URL: import.meta.env?.VITE_SUPABASE_FUNCTIONS_URL,
+  VITE_SUPABASE_URL: import.meta.env?.VITE_SUPABASE_URL || 'https://yieslxnrfeqchbcmgavz.supabase.co',
+  VITE_SUPABASE_ANON_KEY: import.meta.env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY',
+  VITE_SUPABASE_FUNCTIONS_URL: import.meta.env?.VITE_SUPABASE_FUNCTIONS_URL || 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1',
   VITE_PUBLIC_POSTHOG_KEY: import.meta.env?.VITE_PUBLIC_POSTHOG_KEY,
-  VITE_PUBLIC_POSTHOG_HOST: import.meta.env?.VITE_PUBLIC_POSTHOG_HOST,
+  VITE_PUBLIC_POSTHOG_HOST: import.meta.env?.VITE_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
 };
 
 const validationResult = envSchema.safeParse(rawEnv);
@@ -51,42 +51,8 @@ if (!validationResult.success && !isTestEnv) {
 const readEnv = <K extends keyof RawEnv>(key: K): RawEnv[K] =>
   validationResult.success ? validationResult.data[key] : rawEnv[key];
 
-const normalizeUrl = (url: string | undefined): string => {
-  if (!url) return '';
-  return url.endsWith('/') ? url.slice(0, -1) : url;
-};
-
-const supabaseUrl = (() => {
-  const value = normalizeUrl(readEnv('VITE_SUPABASE_URL'));
-  if (value) return value;
-  return isTestEnv ? 'http://localhost' : '';
-})();
-const supabaseFunctionsUrl = (() => {
-  const configured = readEnv('VITE_SUPABASE_FUNCTIONS_URL');
-  if (configured) {
-    return normalizeUrl(configured);
-  }
-  if (supabaseUrl) {
-    return `${supabaseUrl}/functions/v1`;
-  }
-  return isTestEnv ? 'http://localhost/functions/v1' : '';
-})();
-
-const supabaseAnonKey = readEnv('VITE_SUPABASE_ANON_KEY') ?? '';
-const posthogKey = readEnv('VITE_PUBLIC_POSTHOG_KEY') ?? undefined;
-const posthogHost = normalizeUrl(
-  readEnv('VITE_PUBLIC_POSTHOG_HOST') ?? 'https://us.i.posthog.com',
-);
-
-const requiredKeys: Array<keyof RawEnv> = [
-  'VITE_SUPABASE_URL',
-  'VITE_SUPABASE_ANON_KEY',
-];
-
-const missingKeys = requiredKeys.filter(key => !rawEnv[key]);
 // Lovable does not support VITE_* environment variables
 // Using hardcoded Supabase configuration instead
-
 const SUPABASE_PROJECT_ID = 'yieslxnrfeqchbcmgavz';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY';
 
