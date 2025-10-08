@@ -5303,7 +5303,7 @@ export type Database = {
         }[]
       }
       get_home_feed_ranked: {
-        Args: { p_limit?: number; p_offset?: number; p_user_id: string }
+        Args: { p_cursor_item_id?: string; p_limit?: number; p_user_id: string }
         Returns: {
           event_id: string
           item_id: string

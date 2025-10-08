@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,26 +17,44 @@ import { useCampaigns } from "@/hooks/useCampaigns";
 
 import type { CampaignObjective, PacingStrategy } from "@/types/campaigns";
 
-export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
+type CampaignCreatorProps = {
+  orgId?: string;
+  availableCredits?: number;
+  creditUsdRate?: number;
+  baselineCpm?: number;
+  walletFrozen?: boolean;
+};
+
+export const CampaignCreator = ({
+  orgId,
+  availableCredits,
+  creditUsdRate = 1,
+  baselineCpm = 65,
+  walletFrozen = false,
+}: CampaignCreatorProps) => {
   const { toast } = useToast();
   const { createCampaign, isCreating } = useCampaigns(orgId);
-  const [form, setForm] = useState<{
-    name: string;
-    description: string;
-    objective: CampaignObjective;
-    pacing: PacingStrategy;
-    totalBudget: string;
-    dailyBudget: string;
-  }>({
+  const [form, setForm] = useState({
     name: "",
     description: "",
-    objective: "ticket_sales",
-    pacing: "even",
+    objective: "ticket_sales" as CampaignObjective,
+    pacing: "even" as PacingStrategy,
     totalBudget: "",
     dailyBudget: "",
   });
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
+
+  const totalBudgetNumber = Number(form.totalBudget);
+  const hasBudget = Number.isFinite(totalBudgetNumber) && totalBudgetNumber > 0;
+  const estimatedReach = useMemo(() => {
+    if (!hasBudget) return 0;
+    return Math.max(0, Math.round((totalBudgetNumber / baselineCpm) * 1000));
+  }, [totalBudgetNumber, baselineCpm, hasBudget]);
+  const insufficientCredits =
+    availableCredits !== undefined && Number.isFinite(totalBudgetNumber) && totalBudgetNumber > (availableCredits ?? 0);
+
+  const usdFormatter = useMemo(() => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }), []);
 
   const onSubmit = async () => {
     if (!form.name.trim()) {
@@ -61,8 +80,35 @@ export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
       return;
     }
 
+    if (!orgId) {
+      toast({
+        title: "Organization required",
+        description: "Select an organization with an active wallet before creating campaigns.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (walletFrozen) {
+      toast({
+        title: "Wallet frozen",
+        description: "Resolve billing issues before scheduling new spend.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (insufficientCredits) {
+      toast({
+        title: "Not enough credits",
+        description: `You only have ${(availableCredits ?? 0).toLocaleString()} credits available. Reduce the budget or top up first.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const payload = {
-      org_id: orgId, // optional; add if you route by org
+      org_id: orgId,
       name: form.name.trim(),
       description: form.description.trim() || null,
       objective: form.objective,
@@ -93,6 +139,23 @@ export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
           <CardDescription>Set up a new advertising campaign for your event or organization</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <Alert>
+            <AlertTitle>Funding overview</AlertTitle>
+            <AlertDescription>
+              {availableCredits !== undefined
+                ? `${availableCredits.toLocaleString()} credits available (${usdFormatter.format((availableCredits ?? 0) * creditUsdRate)} equivalent).`
+                : "Credits fund delivery in this beta. Connect an organization wallet to unlock creation."}
+              {hasBudget && ` • Estimated reach ${estimatedReach.toLocaleString()} impressions at ${baselineCpm} credits per 1k.`}
+            </AlertDescription>
+          </Alert>
+
+          {walletFrozen && (
+            <Alert variant="destructive">
+              <AlertTitle>Wallet frozen</AlertTitle>
+              <AlertDescription>Campaign creation is disabled until billing issues are resolved.</AlertDescription>
+            </Alert>
+          )}
+
           {/* Basic Info */}
           <div className="space-y-4">
             <h3 className="font-semibold">Basic Information</h3>
@@ -226,8 +289,15 @@ export const CampaignCreator = ({ orgId }: { orgId?: string }) => {
 
           {/* Actions */}
           <div className="flex gap-3 justify-end">
-            <Button variant="outline" type="button">Cancel</Button>
-            <Button type="button" onClick={onSubmit} disabled={isCreating}>
+            <Button variant="outline" type="button" disabled={isCreating}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={isCreating || walletFrozen || insufficientCredits}
+              title={walletFrozen ? "Wallet frozen" : insufficientCredits ? "Not enough credits" : undefined}
+            >
               {isCreating ? "Creating…" : "Create Campaign"}
             </Button>
           </div>
