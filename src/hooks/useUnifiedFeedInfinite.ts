@@ -2,6 +2,13 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { FeedCursor, FeedItem, FeedPage } from './unifiedFeedTypes';
 
+type EngagementDelta = {
+  like_count?: number;
+  comment_count?: number;
+  viewer_has_liked?: boolean;
+  mode?: 'delta' | 'absolute';
+};
+
 async function fetchPage(cursor: FeedCursor | undefined, limit: number, accessToken: string | null): Promise<FeedPage> {
   const { data, error } = await supabase.functions.invoke('home-feed', {
     body: {
@@ -40,7 +47,7 @@ export function useUnifiedFeedInfinite(limit = 30) {
 
   const items = query.data?.pages.flatMap((p) => p.items) ?? [];
 
-  function applyEngagementDelta(postId: string, delta: Partial<Record<'like_count' | 'comment_count', number>>) {
+  function applyEngagementDelta(postId: string, delta: EngagementDelta) {
     qc.setQueryData(['unifiedFeed', { limit }], (oldData: any) => {
       if (!oldData) return oldData;
 
@@ -48,13 +55,17 @@ export function useUnifiedFeedInfinite(limit = 30) {
         const updatedItems = page.items.map((item) => {
           if (item.item_type !== 'post' || item.item_id !== postId) return item;
 
+          const mode = delta.mode ?? 'delta';
+          const currentLikes = item.metrics.likes ?? 0;
+          const currentComments = item.metrics.comments ?? 0;
+
           const likes = delta.like_count != null
-            ? Math.max(0, (item.metrics.likes ?? 0) + delta.like_count)
-            : item.metrics.likes ?? 0;
+            ? Math.max(0, mode === 'absolute' ? delta.like_count : currentLikes + delta.like_count)
+            : currentLikes;
 
           const comments = delta.comment_count != null
-            ? Math.max(0, (item.metrics.comments ?? 0) + delta.comment_count)
-            : item.metrics.comments ?? 0;
+            ? Math.max(0, mode === 'absolute' ? delta.comment_count : currentComments + delta.comment_count)
+            : currentComments;
 
           return {
             ...item,
@@ -62,6 +73,7 @@ export function useUnifiedFeedInfinite(limit = 30) {
               ...item.metrics,
               likes,
               comments,
+              viewer_has_liked: delta.viewer_has_liked ?? item.metrics.viewer_has_liked,
             },
           } as FeedItem;
         });

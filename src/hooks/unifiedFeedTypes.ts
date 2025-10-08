@@ -36,6 +36,7 @@ export type FeedItem =
         tier: string;
         amount_cents: number;
       }> | null;
+      promotion?: FeedPromotion | null;
     }
   | {
       item_type: 'post';
@@ -64,7 +65,25 @@ export type FeedItem =
       };
       sponsor?: null;
       sponsors?: null;
+      promotion?: FeedPromotion | null;
     };
+
+export type FeedPromotion = {
+  campaignId: string;
+  creativeId?: string | null;
+  objective?: string | null;
+  headline?: string | null;
+  body?: string | null;
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+  priority?: number | null;
+  rateModel?: string | null;
+  cpmRateCredits?: number | null;
+  cpcRateCredits?: number | null;
+  remainingCredits?: number | null;
+  frequencyCapPerUser?: number | null;
+  frequencyCapPeriod?: 'session' | 'day' | 'week' | null;
+};
 
 export type FeedCursor = {
   cursorTs: string;
