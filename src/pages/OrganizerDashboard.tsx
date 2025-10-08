@@ -1,6 +1,5 @@
 // src/pages/OrganizerDashboard.tsx
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,91 +35,6 @@ import { CampaignDashboard } from '@/components/campaigns/CampaignDashboard';
 import { OrganizerCommsPanel } from '@/components/organizer/OrganizerCommsPanel';
 import { useOrganizerDashboardState } from '@/hooks/useOrganizerDashboardState';
 import type { OrganizerEventSummary } from '@/types/organizer';
-import type { TabKey } from '@/utils/organizer/tabs';
-
-const formatNumber = (value: number) =>
-  new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: value >= 1000 ? 0 : 2,
-  }).format(value);
-
-const formatPercent = (value: number) => `${Math.round(value * 10) / 10}%`;
-
-type TabConfig = {
-  value: TabKey;
-  label: string;
-  icon: LucideIcon;
-  description: string;
-};
-
-const TAB_CONFIG: TabConfig[] = [
-  {
-    value: 'dashboard',
-    label: 'Overview',
-    icon: LayoutDashboard,
-    description: 'Performance snapshot',
-  },
-  {
-    value: 'events',
-    label: 'Events',
-    icon: CalendarDays,
-    description: 'Manage and review events',
-  },
-  {
-    value: 'analytics',
-    label: 'Analytics',
-    icon: BarChart3,
-    description: 'Deep-dive metrics',
-  },
-  {
-    value: 'campaigns',
-    label: 'Campaigns',
-    icon: Megaphone,
-    description: 'Promote experiences',
-  },
-  {
-    value: 'messaging',
-    label: 'Messaging',
-    icon: Mail,
-    description: 'Reach attendees',
-  },
-  {
-    value: 'teams',
-    label: 'Teams',
-    icon: Users,
-    description: 'Collaborate with staff',
-  },
-  {
-    value: 'payouts',
-    label: 'Payouts',
-    icon: DollarSign,
-    description: 'Track disbursements',
-  },
-];
-
-type StatTileProps = {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  helper?: string;
-};
-
-const StatTile = ({ icon: Icon, label, value, helper }: StatTileProps) => (
-  <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-background/70 p-4 shadow-sm">
-    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-      <Icon className="h-5 w-5" />
-    </div>
-    <div className="flex flex-col">
-      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-lg font-semibold text-foreground">{value}</span>
-      {helper ? <span className="text-xs text-muted-foreground">{helper}</span> : null}
-    </div>
-  </div>
-);
 
 export default function OrganizerDashboard() {
   const {
@@ -285,21 +199,32 @@ export default function OrganizerDashboard() {
   }, [editingOrg, activeOrg]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-6">
-        <Card className="border-none bg-card/70 shadow-lg shadow-primary/5">
-          <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                Organizer dashboard
-              </span>
-              <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-2xl sm:text-3xl md:text-4xl">{headerName}</CardTitle>
-                {isVerified && (
-                  <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1 text-xs font-semibold">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Verified
-                  </Badge>
+    <div className="container mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-w-full overflow-x-hidden">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Organizer Dashboard</h1>
+
+            {!!organizations.length && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-2">
+                <OrgSwitcher
+                  organizations={organizations}
+                  value={selectedOrganization}
+                  onSelect={handleOrganizationSelect}
+                  onCreateOrgPath="/create-organization"
+                  className="w-full sm:w-[240px] md:w-[280px]"
+                />
+                {selectedOrganization && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setEditingOrg(true)}
+                    title="Edit organization"
+                    className="flex-shrink-0"
+                  >
+                    <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </Button>
                 )}
               </div>
               <CardDescription>
@@ -464,26 +389,97 @@ export default function OrganizerDashboard() {
             </TabsList>
           </div>
 
-          <TabsContent value="dashboard" className="space-y-6">
-            <DashboardOverview events={eventList} onEventSelect={handleEventSelect} />
-          </TabsContent>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-7 h-auto p-0.5 sm:p-1 gap-0.5 overflow-x-auto">
+          <TabsTrigger value="dashboard" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Dash</span>
+          </TabsTrigger>
+          <TabsTrigger value="events" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Events</span>
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Analytics</span>
+          </TabsTrigger>
+          <TabsTrigger value="campaigns" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <Megaphone className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Camps</span>
+          </TabsTrigger>
+          <TabsTrigger value="messaging" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <Mail className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Messages</span>
+          </TabsTrigger>
+          <TabsTrigger value="teams" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <Users className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Teams</span>
+          </TabsTrigger>
+          <TabsTrigger value="payouts" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Payouts</span>
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="events" className="space-y-6">
-            {!hasEvents ? (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-16 text-center">
-                <CalendarDays className="h-10 w-10 text-muted-foreground" />
-                <h3 className="text-lg font-semibold">{selectedOrganization ? 'No events yet' : 'No personal events'}</h3>
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  {selectedOrganization
-                    ? 'Create your first event for this organization to kick things off.'
-                    : organizations.length > 0
-                      ? 'You have no personal events. Switch to an organization above or create a new event to get started.'
-                      : 'Create your first event to start selling tickets.'}
-                </p>
-                <Button onClick={goCreateEvent} type="button">
-                  <Plus className="h-4 w-4" />
-                  <span className="ml-2">Create event</span>
-                </Button>
+        {/* DASHBOARD */}
+        <TabsContent value="dashboard" className="space-y-6">
+          <DashboardOverview events={events} onEventSelect={handleEventSelect} />
+        </TabsContent>
+
+        {/* EVENTS */}
+        <TabsContent value="events" className="space-y-6">
+          {(events?.length ?? 0) === 0 ? (
+            <div className="text-center py-16 border rounded-lg">
+              <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-lg font-semibold mb-1">
+                {selectedOrganization ? 'No events yet' : 'No personal events'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {selectedOrganization 
+                  ? 'Create your first event for this organization to get started.'
+                  : organizations.length > 0
+                    ? 'You have no personal events. Switch to an organization above to view organization events, or create a personal event.'
+                    : 'Create your first event to get started.'
+                }
+              </p>
+              <Button onClick={goCreateEvent}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Event
+              </Button>
+            </div>
+          ) : (
+            <EventsList events={events} onEventSelect={handleEventSelect} />
+          )}
+        </TabsContent>
+
+        {/* ANALYTICS */}
+        <TabsContent value="analytics" className="space-y-6">
+          <AnalyticsHub />
+        </TabsContent>
+
+        {/* CAMPAIGNS (org-scoped only) */}
+        <TabsContent value="campaigns" className="space-y-6">
+          {selectedOrganization ? (
+            <CampaignDashboard orgId={selectedOrganization} />
+          ) : (
+            <div className="text-center py-16 border rounded-lg">
+              <Megaphone className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-lg font-semibold mb-1">Campaign Management</h3>
+              <p className="text-muted-foreground mb-4">
+                Switch to an organization to create and manage ad campaigns.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* MESSAGING */}
+        <TabsContent value="messaging" className="space-y-6">
+          {events && events.length > 0 ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Mail className="h-5 w-5" />
+                <h2 className="text-xl font-semibold">Event Communications</h2>
               </div>
             ) : (
               <EventsList events={eventList} onEventSelect={handleEventSelect} />
