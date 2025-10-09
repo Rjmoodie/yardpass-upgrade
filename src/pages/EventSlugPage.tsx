@@ -3,59 +3,51 @@ import React, {
   useEffect,
   useMemo,
   useState,
-  lazy,
-  Suspense,
 } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Share2, Users, Ticket, Play } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Play,
+  Share2,
+  Ticket,
+  Users,
+} from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import {
+  InfiniteData,
+  useInfiniteQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { parseEventIdentifier } from '@/lib/eventRouting';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Dialog, DialogContent, BottomSheetContent } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
-import { sharePayload } from '@/lib/share';
-import { buildShareUrl, getShareTitle, getShareText } from '@/lib/shareLinks';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { AccessGate } from '@/components/access/AccessGate';
-import { shouldIndexEvent, buildEventShareUrl } from '@/lib/visibility';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useShare } from '@/hooks/useShare';
 import { useInfiniteScroll } from '@/hooks/useIntersectionObserver';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { UserPostCard } from '@/components/UserPostCard';
-import { useShare } from '@/hooks/useShare';
-import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
+import { shouldIndexEvent, buildEventShareUrl } from '@/lib/visibility';
+import { stripHtml, sanitizeHtml } from '@/lib/security';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl } from '@/utils/mux';
 import { muxToPoster } from '@/utils/media';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
+import { UserPostCard } from '@/components/UserPostCard';
+import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 
-const MapCard = lazy(() => import('@/components/maps/MapCard'));
-
-type EventRow = {
-  id: string;
-  slug: string | null;
-  title: string;
-  description: string | null;
-  category: string | null;
-  start_at: string | null;
-  end_at: string | null;
-  venue: string | null;
-  city: string | null;
-  country: string | null;
-  cover_image_url: string | null;
-  owner_context_type: 'organization' | 'individual';
-  owner_context_id: string;
-  visibility: 'public' | 'unlisted' | 'private';
-  link_token?: string | null;
-  organizations?: { id: string; name: string; handle: string | null } | null;
-};
-
-type Attendee = { id: string; display_name: string | null; photo_url: string | null };
+const safeOrigin =
+  typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'https://yardpass.app';
 
 const PAGE_SIZE = 12;
 
@@ -88,14 +80,42 @@ type EventPostPage = {
   totalCount?: number | null;
 };
 
-// ----------------- small helpers -----------------
-const safeOrigin =
-  typeof window !== 'undefined' && window.location?.origin
-    ? window.location.origin
-    : 'https://yardpass.app'; // fallback to your prod origin if SSR or during build
+type EventRow = {
+  id: string;
+  slug: string | null;
+  title: string;
+  description: string | null;
+  category: string | null;
+  start_at: string | null;
+  end_at: string | null;
+  venue: string | null;
+  city: string | null;
+  country: string | null;
+  address?: string | null;
+  cover_image_url: string | null;
+  owner_context_type: 'organization' | 'individual';
+  owner_context_id: string;
+  created_by: string;
+  visibility: 'public' | 'unlisted' | 'private';
+  link_token?: string | null;
+  organizations?: {
+    id: string;
+    name: string;
+    handle: string | null;
+    logo_url: string | null;
+  } | null;
+  creator?: {
+    user_id: string;
+    display_name: string | null;
+    photo_url: string | null;
+  } | null;
+};
 
-// Import security utilities instead of local implementation
-import { stripHtml, sanitizeHtml } from '@/lib/security';
+type Attendee = {
+  id: string;
+  display_name: string | null;
+  photo_url: string | null;
+};
 
 function truncate(s: string, n = 160) {
   if (!s) return '';
@@ -128,7 +148,7 @@ async function fetchEventPostsPage(
   const query = supabase
     .from('event_posts_with_meta')
     .select(
-      `id, event_id, text, media_urls, like_count, comment_count, author_user_id, author_name, author_badge_label, author_is_organizer, created_at, viewer_has_liked`,
+      `id, event_id, text, media_urls, like_count, comment_count, author_user_id, author_name, author_badge_label, author_is_organizer, created_at, viewer_has_liked` as const,
       { count: 'exact' }
     )
     .eq('event_id', eventId)
@@ -159,10 +179,9 @@ async function fetchEventPostsPage(
 
   return {
     items,
-    nextCursor:
-      hasMore && tail?.created_at && tail?.id
-        ? { createdAt: tail.created_at, id: tail.id, limit }
-        : undefined,
+    nextCursor: hasMore && tail?.created_at && tail?.id
+      ? { createdAt: tail.created_at, id: tail.id, limit }
+      : undefined,
     totalCount: typeof count === 'number' ? count : undefined,
   };
 }
@@ -171,7 +190,7 @@ function mapPostToFeedItem(
   post: EventPostWithMeta,
   event: EventRow,
   locationDisplay: string
-): Extract<FeedItem, { item_type: 'post' }> {
+): FeedItem {
   return {
     item_type: 'post',
     sort_ts: post.created_at ?? new Date().toISOString(),
@@ -179,10 +198,14 @@ function mapPostToFeedItem(
     event_id: event.id,
     event_title: event.title,
     event_description: event.description ?? '',
-    event_starts_at: event.start_at ?? null,
-    event_cover_image: event.cover_image_url ?? DEFAULT_EVENT_COVER,
-    event_organizer: event.organizations?.name ?? '',
-    event_organizer_id: event.organizations?.id ?? null,
+    event_starts_at: event.start_at,
+    event_cover_image: event.cover_image_url || DEFAULT_EVENT_COVER,
+    event_organizer:
+      event.organizations?.name ?? event.creator?.display_name ?? 'Organizer',
+    event_organizer_id:
+      event.owner_context_type === 'organization'
+        ? event.organizations?.id ?? null
+        : event.creator?.user_id ?? event.owner_context_id ?? null,
     event_owner_context_type: event.owner_context_type,
     event_location: locationDisplay,
     author_id: post.author_user_id,
@@ -202,188 +225,187 @@ function mapPostToFeedItem(
   };
 }
 
-type EventPostsGridProps = {
-  event: EventRow;
-  filter: EventPostFilter;
-  locationDisplay: string;
-  onSelectPost: (post: Extract<FeedItem, { item_type: 'post' }>) => void;
-  isActive: boolean;
-};
-
-function EventPostsGrid({ event, filter, locationDisplay, onSelectPost, isActive }: EventPostsGridProps) {
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    status,
-    error,
-  } = useInfiniteQuery<EventPostPage, Error>({
-    queryKey: ['event-posts', event.id, filter],
-    queryFn: ({ pageParam }) =>
-      fetchEventPostsPage(event.id, filter, pageParam as EventPostCursor | undefined),
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    enabled: isActive && Boolean(event.id),
-    initialPageParam: undefined,
-    staleTime: 1000 * 30,
-  });
-
-  const posts = data?.pages.flatMap((page) => page.items) ?? [];
-  const totalCount = data?.pages?.[0]?.totalCount ?? null;
-  const hasMore = Boolean(hasNextPage) && isActive;
-  const loadMoreRef = useInfiniteScroll(
-    hasMore,
-    Boolean(isFetchingNextPage),
-    () => {
-      if (hasNextPage) {
-        void fetchNextPage();
-      }
-    },
-    '200px'
-  ) as React.MutableRefObject<HTMLDivElement | null>;
-
-  const isLoading = isActive && status === 'pending';
-  const isError = isActive && status === 'error';
-  const isEmpty = isActive && status === 'success' && posts.length === 0;
-
+function GridSkeleton({ count = 9 }: { count?: number }) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          {filter === 'posts' ? 'Organizer posts' : 'Tagged posts'}
-          {typeof totalCount === 'number' ? ` · ${totalCount}` : ''}
-        </span>
-      </div>
-
-      {isError ? (
-        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
-          {(error as Error)?.message || 'Unable to load posts right now.'}
-        </div>
-      ) : null}
-
-      {isLoading ? (
-        <div className="grid grid-cols-3 gap-1 sm:gap-2">
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <PostSkeleton key={idx} />
-          ))}
-        </div>
-      ) : null}
-
-      {!isLoading && !isEmpty ? (
-        <div className="grid grid-cols-3 gap-1 sm:gap-2">
-          {posts.map((post) => (
-            <EventPostTile
-              key={post.id}
-              post={post}
-              onClick={() => onSelectPost(mapPostToFeedItem(post, event, locationDisplay))}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      {isEmpty ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-sm text-muted-foreground">
-          {filter === 'posts'
-            ? 'No posts from the host yet. Check back soon!'
-            : 'No tagged posts yet. Be the first to share your experience.'}
-        </div>
-      ) : null}
-
-      <div ref={isActive ? loadMoreRef : undefined} />
-
-      {isFetchingNextPage ? (
-        <div className="grid grid-cols-3 gap-1 sm:gap-2">
-          {Array.from({ length: 3 }).map((_, idx) => (
-            <PostSkeleton key={`fetching-${idx}`} />
-          ))}
-        </div>
-      ) : null}
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4">
+      {Array.from({ length: count }).map((_, idx) => (
+        <Skeleton
+          key={idx}
+          className="aspect-square rounded-2xl border border-white/10 bg-white/5"
+        />
+      ))}
     </div>
   );
 }
 
-function EventPostTile({
-  post,
-  onClick,
-}: {
-  post: EventPostWithMeta;
-  onClick: () => void;
-}) {
-  const mediaUrl = post.media_urls?.[0] ?? null;
-  const video = Boolean(mediaUrl && isVideoUrl(mediaUrl));
-  const displayUrl = mediaUrl
-    ? video
-      ? muxToPoster(mediaUrl) ?? mediaUrl
-      : mediaUrl
-    : null;
+type GridEmptyProps = {
+  title: string;
+  description: string;
+};
 
+function GridEmptyState({ title, description }: GridEmptyProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="relative aspect-square w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/60"
-    >
-      {displayUrl ? (
-        <ImageWithFallback
-          src={displayUrl}
-          alt={post.text ?? 'Event post media'}
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-          No media
-        </div>
-      )}
-      {video && (
-        <div className="absolute bottom-2 right-2 rounded-full bg-black/70 p-1 text-white shadow-lg">
-          <Play className="h-4 w-4" />
-        </div>
-      )}
-    </button>
+    <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/5 text-center">
+      <p className="text-sm font-semibold text-white">{title}</p>
+      <p className="text-xs text-muted-foreground max-w-[220px]">{description}</p>
+    </div>
   );
 }
 
-function PostSkeleton() {
-  return <Skeleton className="aspect-square w-full rounded-xl bg-white/5" />;
+type GridProps = {
+  posts: EventPostWithMeta[];
+  isLoading: boolean;
+  loadingMore: boolean;
+  onSelect: (post: EventPostWithMeta) => void;
+  loadMoreRef?: (node: HTMLElement | null) => void;
+  fallbackImage: string;
+  emptyTitle: string;
+  emptyDescription: string;
+};
+
+function EventPostGrid({
+  posts,
+  isLoading,
+  loadingMore,
+  onSelect,
+  loadMoreRef,
+  fallbackImage,
+  emptyTitle,
+  emptyDescription,
+}: GridProps) {
+  if (isLoading) {
+    return <GridSkeleton />;
+  }
+
+  if (!posts.length) {
+    return <GridEmptyState title={emptyTitle} description={emptyDescription} />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4">
+        {posts.map((post) => {
+          const mediaUrl = post.media_urls?.[0] ?? null;
+          const isVideo = Boolean(mediaUrl && isVideoUrl(mediaUrl));
+          const posterUrl = isVideo ? muxToPoster(mediaUrl) : null;
+          const preview = posterUrl || mediaUrl || fallbackImage;
+
+          return (
+            <button
+              key={post.id}
+              type="button"
+              onClick={() => onSelect(post)}
+              className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label={post.author_name ? `View post from ${post.author_name}` : 'View post'}
+            >
+              {mediaUrl ? (
+                <ImageWithFallback
+                  src={preview}
+                  alt={post.author_name ? `Post from ${post.author_name}` : 'Event post media'}
+                  fallback={fallbackImage}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/5 to-white/10 px-4 text-center text-xs text-white/70">
+                  {post.text ? post.text.slice(0, 120) : 'Post'}
+                </div>
+              )}
+
+              {isVideo && (
+                <div className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white">
+                  <Play className="h-3.5 w-3.5" />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div ref={loadMoreRef} />
+
+      {loadingMore && <GridSkeleton count={3} />}
+    </div>
+  );
 }
 
 export default function EventSlugPage() {
   const { identifier: rawParam } = useParams() as { identifier: string };
-  const navigate = useNavigate();
   const { identifier } = parseEventIdentifier(rawParam);
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
+  const { shareEvent, sharePost, isSharing } = useShare();
+  const { toggleLike } = useOptimisticReactions();
+
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState<EventRow | null>(null);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
-  const [attendeeCount, setAttendeeCount] = useState<number>(0);
+  const [attendeeCount, setAttendeeCount] = useState(0);
   const [showTicketModal, setShowTicketModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'tagged' | 'posts' | 'details'>('tagged');
+  const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
 
-  // Fetch event by slug OR id
   useEffect(() => {
     let isMounted = true;
+
     (async () => {
       setLoading(true);
-
       try {
-        // 1) event by slug
         let { data, error } = await supabase
           .from('events')
-          .select(`
-            id, slug, title, description, category, start_at, end_at, venue, city, country, cover_image_url,
-            owner_context_type, owner_context_id, visibility, link_token,
-            organizations:organizations!events_owner_context_id_fkey(id, name, handle)
-          `)
+          .select(
+            `
+              id,
+              slug,
+              title,
+              description,
+              category,
+              start_at,
+              end_at,
+              venue,
+              city,
+              country,
+              address,
+              cover_image_url,
+              owner_context_type,
+              owner_context_id,
+              created_by,
+              visibility,
+              link_token,
+              organizations:organizations!events_owner_context_id_fkey (id, name, handle, logo_url),
+              creator:user_profiles!events_created_by_fkey (user_id, display_name, photo_url)
+            `
+          )
           .eq('slug', identifier)
           .limit(1);
 
-        // if not found and looks like UUID, try by id
         if ((!data || !data.length) && /^[0-9a-f-]{36}$/i.test(identifier)) {
           const byId = await supabase
             .from('events')
-            .select(`
-              id, slug, title, description, category, start_at, end_at, venue, city, country, cover_image_url,
-              owner_context_type, owner_context_id, visibility, link_token,
-              organizations:organizations!events_owner_context_id_fkey(id, name, handle)
-            `)
+            .select(
+              `
+                id,
+                slug,
+                title,
+                description,
+                category,
+                start_at,
+                end_at,
+                venue,
+                city,
+                country,
+                address,
+                cover_image_url,
+                owner_context_type,
+                owner_context_id,
+                created_by,
+                visibility,
+                link_token,
+                organizations:organizations!events_owner_context_id_fkey (id, name, handle, logo_url),
+                creator:user_profiles!events_created_by_fkey (user_id, display_name, photo_url)
+              `
+            )
             .eq('id', identifier)
             .limit(1);
           data = byId.data;
@@ -392,43 +414,52 @@ export default function EventSlugPage() {
 
         if (!isMounted) return;
         if (error) {
+          console.error('Event fetch error:', error);
+          setEvent(null);
           setLoading(false);
           return;
         }
 
-        const ev = data?.[0] ?? null;
-        setEvent(ev);
+        const eventRow = data?.[0] ?? null;
+        setEvent(eventRow as EventRow | null);
 
-        if (ev) {
-          // attendees preview (first 12) + total count
+        if (eventRow) {
           const [{ data: atts }, { count }] = await Promise.all([
             supabase
               .from('tickets')
-              .select('owner_user_id, user_profiles!tickets_owner_user_id_fkey(id, display_name, photo_url)')
-              .eq('event_id', ev.id)
+              .select(
+                'owner_user_id, user_profiles!tickets_owner_user_id_fkey(id, display_name, photo_url)'
+              )
+              .eq('event_id', eventRow.id)
               .in('status', ['issued', 'transferred', 'redeemed'])
               .limit(12),
             supabase
               .from('tickets')
               .select('id', { count: 'exact', head: true })
-              .eq('event_id', ev.id)
+              .eq('event_id', eventRow.id)
               .in('status', ['issued', 'transferred', 'redeemed']),
           ]);
 
-          setAttendees(
-            (atts || []).map((t: any) => ({
-              id: t.user_profiles.id,
-              display_name: t.user_profiles.display_name,
-              photo_url: t.user_profiles.photo_url,
-            }))
-          );
-          setAttendeeCount(count || 0);
+          if (isMounted) {
+            setAttendees(
+              (atts || []).map((t: any) => ({
+                id: t.user_profiles.id,
+                display_name: t.user_profiles.display_name,
+                photo_url: t.user_profiles.photo_url,
+              }))
+            );
+            setAttendeeCount(count || 0);
+          }
         }
-        setLoading(false);
       } catch (error) {
         console.error('Event fetch error:', error);
-        setEvent(null);
-        setLoading(false);
+        if (isMounted) {
+          setEvent(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     })();
 
@@ -437,26 +468,277 @@ export default function EventSlugPage() {
     };
   }, [identifier]);
 
-  const when = useMemo(() => {
-    if (!event?.start_at) return null;
+  const eventId = event?.id ?? null;
+
+  const taggedQuery = useInfiniteQuery<EventPostPage, Error>({
+    queryKey: ['eventProfilePosts', eventId, 'tagged'],
+    queryFn: ({ pageParam }) =>
+      fetchEventPostsPage(eventId!, 'tagged', pageParam as EventPostCursor | undefined),
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: Boolean(eventId),
+    staleTime: 15_000,
+  });
+
+  const postsQuery = useInfiniteQuery<EventPostPage, Error>({
+    queryKey: ['eventProfilePosts', eventId, 'posts'],
+    queryFn: ({ pageParam }) =>
+      fetchEventPostsPage(eventId!, 'posts', pageParam as EventPostCursor | undefined),
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: Boolean(eventId),
+    staleTime: 15_000,
+  });
+
+  const taggedPosts = useMemo(
+    () => taggedQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [taggedQuery.data]
+  );
+  const organizerPosts = useMemo(
+    () => postsQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [postsQuery.data]
+  );
+
+  const locationDisplay = useMemo(() => {
+    if (!event) return 'Location TBA';
+    const parts = [event.venue, event.city, event.country].filter(Boolean);
+    return parts.length ? parts.join(', ') : 'Location TBA';
+  }, [event]);
+
+  const headerWhen = useMemo(() => {
+    if (!event?.start_at) return 'Date TBA';
     try {
       const start = new Date(event.start_at);
-      return start.toLocaleString(undefined, {
+      const date = new Intl.DateTimeFormat(undefined, {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
+      }).format(start);
+      const time = new Intl.DateTimeFormat(undefined, {
         hour: 'numeric',
         minute: '2-digit',
-      });
+      }).format(start);
+      if (event.end_at) {
+        const end = new Date(event.end_at);
+        const endTime = new Intl.DateTimeFormat(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        }).format(end);
+        return `${date} • ${time} – ${endTime}`;
+      }
+      return `${date} • ${time}`;
+    } catch (err) {
+      console.warn('Unable to format event date', err);
+      return 'Date TBA';
+    }
+  }, [event?.start_at, event?.end_at]);
+
+  const detailedDate = useMemo(() => {
+    if (!event?.start_at) return 'Date TBA';
+    try {
+      const start = new Date(event.start_at);
+      return new Intl.DateTimeFormat(undefined, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(start);
     } catch {
-      return null;
+      return 'Date TBA';
     }
   }, [event?.start_at]);
+
+  const detailedTime = useMemo(() => {
+    if (!event?.start_at) return 'Time TBA';
+    try {
+      const start = new Date(event.start_at);
+      const startTime = new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(start);
+      if (event?.end_at) {
+        const end = new Date(event.end_at);
+        const endTime = new Intl.DateTimeFormat(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        }).format(end);
+        return `${startTime} – ${endTime}`;
+      }
+      return startTime;
+    } catch {
+      return 'Time TBA';
+    }
+  }, [event?.start_at, event?.end_at]);
+
+  const eventInitials = useMemo(() => {
+    if (!event?.title) return 'EV';
+    return event.title
+      .split(' ')
+      .filter(Boolean)
+      .map((word) => word[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  }, [event?.title]);
+
+  const taggedCount = useMemo(() => taggedQuery.data?.pages?.[0]?.totalCount ?? null, [taggedQuery.data]);
+  const postsCount = useMemo(() => postsQuery.data?.pages?.[0]?.totalCount ?? null, [postsQuery.data]);
+
+  const taggedHasMore = Boolean(taggedQuery.hasNextPage);
+  const postsHasMore = Boolean(postsQuery.hasNextPage);
+
+  const handleTaggedLoadMore = useCallback(() => {
+    if (taggedQuery.hasNextPage && !taggedQuery.isFetchingNextPage) {
+      taggedQuery.fetchNextPage();
+    }
+  }, [taggedQuery]);
+
+  const handlePostsLoadMore = useCallback(() => {
+    if (postsQuery.hasNextPage && !postsQuery.isFetchingNextPage) {
+      postsQuery.fetchNextPage();
+    }
+  }, [postsQuery]);
+
+  const taggedLoadMoreRef = useInfiniteScroll(
+    taggedHasMore,
+    taggedQuery.isFetchingNextPage,
+    handleTaggedLoadMore
+  );
+  const postsLoadMoreRef = useInfiniteScroll(
+    postsHasMore,
+    postsQuery.isFetchingNextPage,
+    handlePostsLoadMore
+  );
+
+  const taggedFeedMap = useMemo(() => {
+    if (!event) return new Map<string, FeedItem>();
+    return new Map(
+      taggedPosts.map((post) => [post.id, mapPostToFeedItem(post, event, locationDisplay)])
+    );
+  }, [taggedPosts, event, locationDisplay]);
+
+  const organizerFeedMap = useMemo(() => {
+    if (!event) return new Map<string, FeedItem>();
+    return new Map(
+      organizerPosts.map((post) => [post.id, mapPostToFeedItem(post, event, locationDisplay)])
+    );
+  }, [organizerPosts, event, locationDisplay]);
+
+  useEffect(() => {
+    if (!selectedPost) return;
+    const updated = taggedFeedMap.get(selectedPost.item_id) ?? organizerFeedMap.get(selectedPost.item_id);
+    if (updated) {
+      setSelectedPost((prev) => {
+        if (!prev) return updated;
+        if (prev.metrics.likes === updated.metrics.likes && prev.metrics.viewer_has_liked === updated.metrics.viewer_has_liked && prev.metrics.comments === updated.metrics.comments) {
+          return prev;
+        }
+        return { ...prev, metrics: { ...prev.metrics, ...updated.metrics } };
+      });
+    }
+  }, [selectedPost?.item_id, taggedFeedMap, organizerFeedMap]);
+
+  const handleSelectPost = useCallback(
+    (post: EventPostWithMeta) => {
+      if (!event) return;
+      const feedItem = taggedFeedMap.get(post.id) ?? organizerFeedMap.get(post.id);
+      if (feedItem) {
+        setSelectedPost(feedItem);
+      }
+    },
+    [event, taggedFeedMap, organizerFeedMap]
+  );
+
+  const updateCachedPost = useCallback(
+    (postId: string, updater: (item: EventPostWithMeta) => EventPostWithMeta) => {
+      if (!eventId) return;
+
+      const applyUpdate = (filter: EventPostFilter) => {
+        const key = ['eventProfilePosts', eventId, filter] as const;
+        queryClient.setQueryData<InfiniteData<EventPostPage>>(
+          key,
+          (data) => {
+            if (!data) return data;
+            return {
+              ...data,
+              pages: data.pages.map((page) => ({
+                ...page,
+                items: page.items.map((item) =>
+                  item.id === postId ? updater(item) : item
+                ),
+              })),
+            };
+          }
+        );
+      };
+
+      applyUpdate('tagged');
+      applyUpdate('posts');
+    },
+    [eventId, queryClient]
+  );
+
+  const handleLike = useCallback(
+    async (postId: string) => {
+      if (!selectedPost || selectedPost.item_id !== postId) return;
+      const currentLiked = Boolean(selectedPost.metrics.viewer_has_liked);
+      const currentLikes = Number(selectedPost.metrics.likes ?? 0);
+      const result = await toggleLike(postId, currentLiked, currentLikes);
+      if (!result.ok) return;
+
+      setSelectedPost((prev) =>
+        prev
+          ? {
+              ...prev,
+              metrics: {
+                ...prev.metrics,
+                likes: result.likeCount,
+                viewer_has_liked: result.isLiked,
+              },
+            }
+          : prev
+      );
+
+      updateCachedPost(postId, (item) => ({
+        ...item,
+        like_count: result.likeCount,
+        viewer_has_liked: result.isLiked,
+      }));
+    },
+    [selectedPost, toggleLike, updateCachedPost]
+  );
+
+  const handleSharePost = useCallback(
+    (postId: string) => {
+      if (!selectedPost || selectedPost.item_id !== postId) return;
+      const eventTitle = selectedPost.event_title || event?.title || 'Event';
+      const text = selectedPost.content || undefined;
+      sharePost(postId, eventTitle, text);
+    },
+    [selectedPost, sharePost, event?.title]
+  );
+
+  const handleAuthorClick = useCallback(
+    (authorId: string) => {
+      if (!authorId) return;
+      setSelectedPost(null);
+      navigate(`/u/${authorId}`);
+    },
+    [navigate]
+  );
+
+  const handleModalEventClick = useCallback(
+    (eventIdToOpen: string) => {
+      setSelectedPost(null);
+      navigate(`/e/${event?.slug ?? eventIdToOpen}`);
+    },
+    [navigate, event?.slug]
+  );
 
   if (loading) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
       </div>
     );
   }
@@ -469,90 +751,23 @@ export default function EventSlugPage() {
     );
   }
 
-  // Get access token from URL and determine SEO settings
-  const linkTokenFromUrl = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('k');
+  const linkTokenFromUrl = new URLSearchParams(
+    typeof window !== 'undefined' ? window.location.search : ''
+  ).get('k');
   const robotsNoIndex = event?.visibility && !shouldIndexEvent(event.visibility);
 
-  // Build proper share URL with access token for unlisted events
   const shareUrl = buildEventShareUrl({
     idOrSlug: event.slug ?? event.id,
     visibility: event.visibility as any,
     linkToken: event.visibility === 'unlisted' ? event.link_token ?? null : null,
   });
 
-  // Construct address with better validation
-  const fullAddress = [event.venue, event.city, event.country].filter(Boolean).join(', ') || '';
-  const hasMappable = Boolean(event.city || event.venue || event.country);
+  const meta = buildMeta(event, headerWhen, `${safeOrigin}${shareUrl}`);
 
-  const meta = buildMeta(event, when, `${safeOrigin}${shareUrl}`);
-  const locationDisplay = fullAddress || 'Location TBA';
+  const fullAddress = [event.venue, event.city, event.country]
+    .filter(Boolean)
+    .join(', ');
 
-  const [activeTab, setActiveTab] = useState<'details' | EventPostFilter>('details');
-  const [selectedPost, setSelectedPost] =
-    useState<Extract<FeedItem, { item_type: 'post' }> | null>(null);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const isMobile = useIsMobile();
-  const queryClient = useQueryClient();
-  const { sharePost } = useShare();
-  const { toggleLike } = useOptimisticReactions();
-
-  const handleSelectPost = useCallback(
-    (post: Extract<FeedItem, { item_type: 'post' }>) => {
-      setSelectedPost(post);
-      setViewerOpen(true);
-    },
-    []
-  );
-
-  const handleModalLike = useCallback(
-    async (postId: string) => {
-      if (!selectedPost || selectedPost.item_id !== postId) return;
-
-      const result = await toggleLike(
-        postId,
-        Boolean(selectedPost.metrics?.viewer_has_liked),
-        selectedPost.metrics?.likes ?? 0
-      );
-
-      if (result.ok) {
-        setSelectedPost((prev) =>
-          prev && prev.item_id === postId
-            ? {
-                ...prev,
-                metrics: {
-                  ...prev.metrics,
-                  likes: result.likeCount,
-                  viewer_has_liked: result.isLiked,
-                },
-              }
-            : prev
-        );
-
-        queryClient.invalidateQueries({
-          predicate: (query) =>
-            Array.isArray(query.queryKey) &&
-            query.queryKey[0] === 'event-posts' &&
-            query.queryKey[1] === event.id,
-        });
-      }
-    },
-    [selectedPost, toggleLike, queryClient, event.id]
-  );
-
-  const handleModalShare = useCallback(() => {
-    if (!selectedPost) return;
-    void sharePost(selectedPost.item_id, event.title, selectedPost.content ?? undefined);
-  }, [selectedPost, sharePost, event.title]);
-
-  const handleModalEventClick = useCallback(
-    (_eventId?: string) => {
-      setViewerOpen(false);
-      navigate(`/e/${event.slug ?? event.id}`);
-    },
-    [navigate, event.slug, event.id]
-  );
-
-  // Build JSON-LD
   const jsonLd: Record<string, any> = {
     '@context': 'https://schema.org',
     '@type': 'Event',
@@ -584,6 +799,16 @@ export default function EventSlugPage() {
     url: `${safeOrigin}${shareUrl}`,
   };
 
+  const coverImage = event.cover_image_url || DEFAULT_EVENT_COVER;
+  const hostName = event.organizations?.name ?? event.creator?.display_name ?? 'Host';
+  const hostAvatar =
+    event.organizations?.logo_url || event.creator?.photo_url || coverImage;
+  const hostLink = event.organizations
+    ? `/org/${event.organizations.handle ?? event.organizations.id}`
+    : event.creator
+    ? `/u/${event.creator.user_id}`
+    : undefined;
+
   return (
     <>
       <Helmet>
@@ -591,21 +816,15 @@ export default function EventSlugPage() {
         <meta name="description" content={meta.description} />
         <link rel="canonical" href={meta.canonical} />
         {robotsNoIndex && <meta name="robots" content="noindex,nofollow" />}
-        
-        {/* Open Graph */}
         <meta property="og:title" content={meta.title} />
         <meta property="og:description" content={meta.description} />
         <meta property="og:type" content={meta.ogType} />
         <meta property="og:url" content={meta.canonical} />
         {meta.image && <meta property="og:image" content={meta.image} />}
-        
-        {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={meta.title} />
         <meta name="twitter:description" content={meta.description} />
         {meta.image && <meta name="twitter:image" content={meta.image} />}
-        
-        {/* JSON-LD */}
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       </Helmet>
 
@@ -614,336 +833,296 @@ export default function EventSlugPage() {
         visibility={event.visibility as any}
         linkTokenFromUrl={linkTokenFromUrl}
         onTokenAccepted={() => {
-          // Optional: refetch if needed, but AccessGate handles the flow
+          /* no-op */
         }}
       >
         <div className="pb-20">
+          <div className="relative h-64 w-full overflow-hidden">
+            <ImageWithFallback
+              src={coverImage}
+              alt={event.title}
+              className="h-full w-full object-cover"
+              fetchPriority="high"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+          </div>
 
-      {/* COVER */}
-      {event.cover_image_url ? (
-        <div className="relative">
-          <ImageWithFallback
-            src={event.cover_image_url}
-            alt={event.title}
-            className="w-full h-64 object-cover"
-            fetchPriority="high"
-          />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
-        </div>
-      ) : null}
+          <div className="mx-auto -mt-20 max-w-5xl px-4">
+            <Card className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur">
+              <CardContent className="p-6 md:p-8">
+                <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <Avatar className="h-20 w-20 border-2 border-white/20">
+                      <AvatarImage src={hostAvatar} alt={hostName} />
+                      <AvatarFallback>{eventInitials}</AvatarFallback>
+                    </Avatar>
 
-      {/* HEADER */}
-      <div className="max-w-3xl mx-auto px-4 -mt-12 relative">
-        <Card className="shadow-lg">
-          <CardContent className="p-5">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  {event.category ? (
-                    <Badge variant="secondary" className="mb-2">
-                      {event.category}
-                    </Badge>
-                  ) : null}
-                  <h1 className="text-xl md:text-2xl font-semibold leading-tight">
-                    {event.title}
-                  </h1>
-                  <div className="mt-2 text-sm text-muted-foreground space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>{when ?? 'Date TBA'}</span>
+                    <div className="space-y-2">
+                      {event.category && (
+                        <Badge variant="secondary" className="uppercase tracking-wide">
+                          {event.category}
+                        </Badge>
+                      )}
+                      <h1 className="text-2xl font-semibold leading-tight text-white md:text-3xl">
+                        {event.title}
+                      </h1>
+                      <div className="flex flex-col gap-1 text-sm text-white/70">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>{headerWhen}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4" />
+                          <span>{locationDisplay}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      <span>{locationDisplay}</span>
-                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2"
+                      onClick={() => shareEvent(event.id, event.title)}
+                      disabled={isSharing}
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Share
+                    </Button>
+                    <Button
+                      className="flex items-center gap-2"
+                      onClick={() => setShowTicketModal(true)}
+                    >
+                      <Ticket className="h-4 w-4" />
+                      Get Tickets
+                    </Button>
                   </div>
                 </div>
 
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => {
-                    sharePayload({
-                      title: getShareTitle({
-                        type: 'event',
-                        slug: event.slug ?? event.id,
-                        title: event.title,
-                      }),
-                      text: getShareText({
-                        type: 'event',
-                        slug: event.slug ?? event.id,
-                        title: event.title,
-                        city: event.city ?? undefined,
-                        date: when ?? undefined,
-                      }),
-                      url: buildShareUrl({
-                        type: 'event',
-                        slug: event.slug ?? event.id,
-                        title: event.title || '',
-                      }),
-                    });
-                  }}
-                >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share
-                </Button>
-              </div>
-
-              {/* GET TICKETS BUTTON */}
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={() => {
-                  setShowTicketModal(true);
-                }}
-              >
-                <Ticket className="w-5 h-5 mr-2" />
-                Get Tickets
-              </Button>
-
-              {/* WHO'S GOING */}
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex -space-x-2 overflow-hidden">
-                  {attendees.map((a) => (
-                    <img
-                      key={a.id}
-                      src={a.photo_url || ''}
-                      alt={a.display_name || 'attendee'}
-                      className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover bg-muted"
-                      onError={(e) =>
-                        ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')
-                      }
-                      loading="lazy"
-                    />
-                  ))}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/e/${event.slug ?? event.id}/attendees`)}
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  See who's going {attendeeCount ? `(${attendeeCount})` : ''}
-                </Button>
-              </div>
-
-              {/* ORGANIZER LINK */}
-              {event.organizations ? (
-                <div className="text-sm">
-                  Hosted by{' '}
-                  <Link
-                    to={`/org/${event.organizations.handle ?? event.organizations.id}`}
-                    className="font-medium underline underline-offset-2"
-                  >
-                    {event.organizations.name}
-                  </Link>
-                </div>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 mt-8">
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as 'details' | EventPostFilter)}
-          className="space-y-6"
-        >
-          <div className="flex justify-center">
-            <TabsList className="grid w-full grid-cols-3 gap-2 rounded-full border border-white/10 bg-white/5 p-1 sm:w-auto">
-              <TabsTrigger
-                value="details"
-                className="rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white"
-              >
-                Details
-              </TabsTrigger>
-              <TabsTrigger
-                value="posts"
-                className="rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white"
-              >
-                Posts
-              </TabsTrigger>
-              <TabsTrigger
-                value="tagged"
-                className="rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white"
-              >
-                Tagged
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="details" className="space-y-6 focus:outline-none">
-            {hasMappable && (
-              <Suspense
-                fallback={<div className="h-64 w-full animate-pulse rounded-2xl bg-muted/40" />}
-              >
-                <MapCard
-                  address={fullAddress}
-                  title={event.title}
-                  height={280}
-                  showControls={false}
-                />
-              </Suspense>
-            )}
-
-            {event.description ? (
-              <Card>
-                <CardContent className="p-5">
-                  <h2 className="text-lg font-semibold mb-3">About this event</h2>
-                  <div
-                    className="prose prose-sm max-w-none text-muted-foreground leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(event.description) }}
-                  />
-                </CardContent>
-              </Card>
-            ) : null}
-
-            <Card>
-              <CardContent className="p-5">
-                <h2 className="text-lg font-semibold mb-4">Event Details</h2>
-                <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-                  {event.start_at && (
-                    <div className="flex items-start gap-3">
-                      <Calendar className="w-5 h-5 text-primary mt-0.5" />
-                      <div>
-                        <div className="font-medium">Date & Time</div>
-                        <div className="text-muted-foreground">
-                          {new Date(event.start_at).toLocaleDateString(undefined, {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
-                        </div>
-                        <div className="text-muted-foreground">
-                          {new Date(event.start_at).toLocaleTimeString(undefined, {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            hour12: true,
-                          })}
-                          {event.end_at &&
-                            ` - ${new Date(event.end_at).toLocaleTimeString(undefined, {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              hour12: true,
-                            })}`}
-                        </div>
-                      </div>
+                <div className="mt-8 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                  <div className="flex items-center gap-8">
+                    <div className="text-center">
+                      <p className="text-2xl font-semibold text-white">
+                        {taggedCount ?? taggedPosts.length}
+                      </p>
+                      <p className="text-xs uppercase tracking-wide text-white/60">Tagged</p>
                     </div>
-                  )}
-
-                  {fullAddress && (
-                    <div className="flex items-start gap-3">
-                      <MapPin className="w-5 h-5 text-primary mt-0.5" />
-                      <div>
-                        <div className="font-medium">Location</div>
-                        <div className="text-muted-foreground">{fullAddress}</div>
-                      </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-semibold text-white">
+                        {postsCount ?? organizerPosts.length}
+                      </p>
+                      <p className="text-xs uppercase tracking-wide text-white/60">Posts</p>
                     </div>
-                  )}
-
-                  {event.category && (
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20">
-                        <div className="h-2 w-2 rounded-full bg-primary" />
-                      </div>
-                      <div>
-                        <div className="font-medium">Category</div>
-                        <div className="text-muted-foreground">{event.category}</div>
-                      </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-semibold text-white">{attendeeCount}</p>
+                      <p className="text-xs uppercase tracking-wide text-white/60">Going</p>
                     </div>
-                  )}
+                  </div>
 
-                  <div className="flex items-start gap-3">
-                    <Users className="w-5 h-5 text-primary mt-0.5" />
-                    <div>
-                      <div className="font-medium">Attendees</div>
-                      <div className="text-muted-foreground">
-                        {attendeeCount > 0 ? `${attendeeCount} going` : 'Be the first to attend'}
-                      </div>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <div className="flex -space-x-2">
+                      {attendees.slice(0, 6).map((attendee) => (
+                        <Avatar
+                          key={attendee.id}
+                          className="h-8 w-8 border-2 border-background"
+                        >
+                          <AvatarImage src={attendee.photo_url ?? undefined} alt={attendee.display_name ?? 'Attendee'} />
+                          <AvatarFallback>
+                            {attendee.display_name?.[0]?.toUpperCase() ?? 'Y'}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                      {attendees.length === 0 && (
+                        <span className="text-xs text-white/60">Be the first to attend</span>
+                      )}
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="self-start text-white/80 hover:text-white"
+                      onClick={() => navigate(`/e/${event.slug ?? event.id}/attendees`)}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      See attendees
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="posts" className="focus:outline-none">
-            <EventPostsGrid
-              event={event}
-              filter="posts"
-              locationDisplay={locationDisplay}
-              onSelectPost={handleSelectPost}
-              isActive={activeTab === 'posts'}
-            />
-          </TabsContent>
+          <div className="mx-auto mt-10 max-w-5xl px-4">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
+              <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-white/5 p-1 text-white">
+                <TabsTrigger value="tagged" className="rounded-xl text-sm font-medium data-[state=active]:bg-white/15">
+                  Tagged{typeof taggedCount === 'number' ? ` (${taggedCount})` : ''}
+                </TabsTrigger>
+                <TabsTrigger value="posts" className="rounded-xl text-sm font-medium data-[state=active]:bg-white/15">
+                  Posts{typeof postsCount === 'number' ? ` (${postsCount})` : ''}
+                </TabsTrigger>
+                <TabsTrigger value="details" className="rounded-xl text-sm font-medium data-[state=active]:bg-white/15">
+                  Details
+                </TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="tagged" className="focus:outline-none">
-            <EventPostsGrid
-              event={event}
-              filter="tagged"
-              locationDisplay={locationDisplay}
-              onSelectPost={handleSelectPost}
-              isActive={activeTab === 'tagged'}
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
+              <TabsContent value="tagged" className="mt-6">
+                <EventPostGrid
+                  posts={taggedPosts}
+                  isLoading={taggedQuery.isLoading && !taggedPosts.length}
+                  loadingMore={taggedQuery.isFetchingNextPage}
+                  onSelect={handleSelectPost}
+                  loadMoreRef={taggedHasMore ? (taggedLoadMoreRef as any) : undefined}
+                  fallbackImage={coverImage}
+                  emptyTitle="No tagged posts yet"
+                  emptyDescription="When attendees share memories from this event, they'll appear here."
+                />
+              </TabsContent>
 
-      {/* EVENT TICKET MODAL */}
-      <EventTicketModal
-        event={event ? {
-          id: event.id,
-          title: event.title,
-          start_at: event.start_at || '',
-          venue: event.venue || undefined,
-          address: fullAddress,
-          description: stripHtml(event.description) || undefined
-        } : null}
-        isOpen={showTicketModal}
-        onClose={() => setShowTicketModal(false)}
-        onSuccess={() => {
-          setShowTicketModal(false);
-          // Optionally refresh attendee count
-        }}
-        />
+              <TabsContent value="posts" className="mt-6">
+                <EventPostGrid
+                  posts={organizerPosts}
+                  isLoading={postsQuery.isLoading && !organizerPosts.length}
+                  loadingMore={postsQuery.isFetchingNextPage}
+                  onSelect={handleSelectPost}
+                  loadMoreRef={postsHasMore ? (postsLoadMoreRef as any) : undefined}
+                  fallbackImage={coverImage}
+                  emptyTitle="Host has no posts yet"
+                  emptyDescription="Organizers can post updates, teasers, and behind-the-scenes moments."
+                />
+              </TabsContent>
 
-        <Dialog
-          open={viewerOpen}
-          onOpenChange={(open) => {
-            setViewerOpen(open);
-            if (!open) {
-              setSelectedPost(null);
-            }
-          }}
-        >
-          <DialogContent
-            className={`w-full max-w-3xl overflow-hidden bg-background p-0 ${
-              isMobile ? 'max-h-[90vh]' : ''
-            }`}
+              <TabsContent value="details" className="mt-6">
+                <div className="grid gap-6 md:grid-cols-[2fr,1.1fr]">
+                  <Card className="rounded-3xl border border-white/10 bg-white/5">
+                    <CardContent className="p-6">
+                      <h2 className="text-lg font-semibold text-white">About this event</h2>
+                      <div
+                        className="prose prose-sm mt-3 max-w-none text-white/80"
+                        dangerouslySetInnerHTML={{
+                          __html: sanitizeHtml(event.description || 'Details coming soon.'),
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <div className="space-y-6">
+                    <Card className="rounded-3xl border border-white/10 bg-white/5">
+                      <CardContent className="space-y-4 p-6 text-sm text-white/80">
+                        <div className="flex items-start gap-3">
+                          <Calendar className="mt-0.5 h-5 w-5 text-primary" />
+                          <div>
+                            <p className="text-sm font-semibold text-white">When</p>
+                            <p>{detailedDate}</p>
+                            <p className="mt-1 flex items-center gap-2 text-white/70">
+                              <Clock className="h-4 w-4" />
+                              {detailedTime}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <MapPin className="mt-0.5 h-5 w-5 text-primary" />
+                          <div>
+                            <p className="text-sm font-semibold text-white">Where</p>
+                            <p>{locationDisplay}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="rounded-3xl border border-white/10 bg-white/5">
+                      <CardContent className="flex items-center gap-4 p-6">
+                        <Avatar className="h-12 w-12 border border-white/10">
+                          <AvatarImage src={hostAvatar} alt={hostName} />
+                          <AvatarFallback>{eventInitials}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-white">Hosted by</p>
+                          {hostLink ? (
+                            <Link
+                              to={hostLink}
+                              className="text-sm text-primary hover:underline"
+                            >
+                              {hostName}
+                            </Link>
+                          ) : (
+                            <p className="text-sm text-white/80">{hostName}</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          <Dialog
+            open={Boolean(selectedPost)}
+            onOpenChange={(open) => {
+              if (!open) setSelectedPost(null);
+            }}
           >
             {selectedPost ? (
-              <div className={`${isMobile ? 'max-h-[80vh]' : 'max-h-[70vh]'} overflow-y-auto`}>
-                <UserPostCard
-                  item={selectedPost}
-                  onLike={(postId) => {
-                    void handleModalLike(postId);
-                  }}
-                  onComment={() => {}}
-                  onShare={() => handleModalShare()}
-                  onEventClick={(eventId) => handleModalEventClick(eventId)}
-                  onOpenTickets={() => {
-                    setViewerOpen(false);
-                    setShowTicketModal(true);
-                  }}
-                />
-              </div>
+              isMobile ? (
+                <BottomSheetContent className="max-h-[90vh] overflow-y-auto">
+                  <UserPostCard
+                    item={selectedPost}
+                    onLike={(postId) => handleLike(postId)}
+                    onComment={() => {}}
+                    onShare={(postId) => handleSharePost(postId)}
+                    onEventClick={handleModalEventClick}
+                    onAuthorClick={handleAuthorClick}
+                    onCreatePost={() => {}}
+                    onReport={() => {}}
+                    onSoundToggle={() => {}}
+                    onVideoToggle={() => {}}
+                    onOpenTickets={() => setShowTicketModal(true)}
+                    soundEnabled={false}
+                    isVideoPlaying={false}
+                  />
+                </BottomSheetContent>
+              ) : (
+                <DialogContent className="max-h-[90vh] w-full max-w-3xl overflow-y-auto">
+                  <UserPostCard
+                    item={selectedPost}
+                    onLike={(postId) => handleLike(postId)}
+                    onComment={() => {}}
+                    onShare={(postId) => handleSharePost(postId)}
+                    onEventClick={handleModalEventClick}
+                    onAuthorClick={handleAuthorClick}
+                    onCreatePost={() => {}}
+                    onReport={() => {}}
+                    onSoundToggle={() => {}}
+                    onVideoToggle={() => {}}
+                    onOpenTickets={() => setShowTicketModal(true)}
+                    soundEnabled={false}
+                    isVideoPlaying={false}
+                  />
+                </DialogContent>
+              )
             ) : null}
-          </DialogContent>
-        </Dialog>
-        </div>
+          </Dialog>
 
+          <EventTicketModal
+            event={
+              event
+                ? {
+                    id: event.id,
+                    title: event.title,
+                    start_at: event.start_at || '',
+                    venue: event.venue || undefined,
+                    address: fullAddress,
+                    description: stripHtml(event.description) || undefined,
+                  }
+                : null
+            }
+            isOpen={showTicketModal}
+            onClose={() => setShowTicketModal(false)}
+            onSuccess={() => {
+              setShowTicketModal(false);
+            }}
+          />
+        </div>
       </AccessGate>
     </>
   );
