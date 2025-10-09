@@ -539,12 +539,13 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                     return (
                       <div key={idx} className="relative rounded-lg overflow-hidden">
                           {isVideo ? (
-                           <VideoMedia
-                             url={url}
-                             post={post}
-                             visible={!!visibleMap[post.id]}
-                           />
-                        ) : (
+                            <VideoMedia
+                              url={url}
+                              post={post}
+                              visible={!!visibleMap[post.id]}
+                              trackVideoProgress={trackVideoProgress}
+                            />
+                          ) : (
                           <div className="relative">
                             <img
                               src={url.startsWith('mux:') ? muxToPoster(url) : url}
