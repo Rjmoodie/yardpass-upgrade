@@ -2,13 +2,36 @@ import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } fro
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Users, DollarSign, Plus, BarChart3, Building2, CheckCircle2, Wallet, Megaphone, Settings, Mail } from 'lucide-react';
+import {
+  CalendarDays,
+  Users,
+  DollarSign,
+  Plus,
+  BarChart3,
+  Building2,
+  CheckCircle2,
+  Wallet,
+  Megaphone,
+  Settings,
+  Mail,
+  Activity,
+  Ticket,
+  Search,
+  Filter,
+  TrendingUp,
+} from 'lucide-react';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Lazy load dashboard components
 const AnalyticsHub = lazy(() => import('@/components/AnalyticsHub'));
@@ -16,12 +39,13 @@ const PayoutPanel = lazy(() => import('@/components/PayoutPanel').then(m => ({ d
 const OrganizationTeamPanel = lazy(() => import('@/components/OrganizationTeamPanel').then(m => ({ default: m.OrganizationTeamPanel })));
 const EventManagement = lazy(() => import('./EventManagement'));
 const DashboardOverview = lazy(() => import('@/components/dashboard/DashboardOverview').then(m => ({ default: m.DashboardOverview })));
-const EventsList = lazy(() => import('@/components/dashboard/EventsList').then(m => ({ default: m.EventsList })));
 const OrgWalletDashboard = lazy(() => import('@/components/wallet/OrgWalletDashboard').then(m => ({ default: m.OrgWalletDashboard })));
 const CampaignDashboard = lazy(() => import('@/components/campaigns/CampaignDashboard').then(m => ({ default: m.CampaignDashboard })));
 const OrganizerCommsPanel = lazy(() => import('@/components/organizer/OrganizerCommsPanel').then(m => ({ default: m.OrganizerCommsPanel })));
 
 type OwnerContextType = 'individual' | 'organization';
+
+type DerivedEventStatus = 'upcoming' | 'live' | 'completed' | 'draft';
 
 interface Event {
   id: string;
@@ -50,6 +74,15 @@ interface Event {
   owner_context_id?: string | null;
 }
 
+interface EnhancedEvent extends Event {
+  derivedStatus: DerivedEventStatus;
+  startDate: Date | null;
+  endDate: Date | null;
+  occupancyRate: number | null;
+  daysUntilStart: number | null;
+  daysSinceEnd: number | null;
+}
+
 // ─────────────────────────────────────────
 const TAB_KEYS = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'wallet', 'payouts'] as const;
 type TabKey = typeof TAB_KEYS[number];
@@ -61,7 +94,8 @@ const LAST_ORG_KEY = 'organizer.lastOrgId';
 export default function OrganizerDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { trackEvent } = useAnalyticsIntegration();
-  const orgId = useMemo(() => searchParams.get('org') ?? null, [searchParams]);
+  const isBrowser = typeof window !== 'undefined';
+  const [now, setNow] = useState(() => new Date());
 
   // Auth (we still need user for create-event param, but dashboard is strictly org-scoped)
   const [user, setUser] = useState<any>(null);
@@ -86,12 +120,14 @@ export default function OrganizerDashboard() {
     // If URL has an org and it exists, use it
     if (urlOrg && organizations.some(o => o.id === urlOrg)) {
       setSelectedOrgId(urlOrg);
-      localStorage.setItem(LAST_ORG_KEY, urlOrg);
+      if (isBrowser) {
+        localStorage.setItem(LAST_ORG_KEY, urlOrg);
+      }
       return;
     }
 
     // Else try last visited
-    const last = localStorage.getItem(LAST_ORG_KEY);
+    const last = isBrowser ? localStorage.getItem(LAST_ORG_KEY) : null;
     if (last && organizations.some(o => o.id === last)) {
       setSelectedOrgId(last);
       const next = new URLSearchParams(searchParams);
@@ -102,17 +138,26 @@ export default function OrganizerDashboard() {
 
     // Else default to first org
     const first = organizations[0]?.id;
-    setSelectedOrgId(first);
-    const next = new URLSearchParams(searchParams);
-    next.set('org', first);
-    setSearchParams(next, { replace: true });
-  }, [orgsLoading, organizations, urlOrg, searchParams, setSearchParams]);
+    if (first) {
+      setSelectedOrgId(first);
+      const next = new URLSearchParams(searchParams);
+      next.set('org', first);
+      setSearchParams(next, { replace: true });
+      if (isBrowser) {
+        localStorage.setItem(LAST_ORG_KEY, first);
+      }
+    }
+  }, [orgsLoading, organizations, urlOrg, searchParams, setSearchParams, isBrowser]);
 
   // Tabs (per-org memory)
   const scope = selectedOrgId ?? 'none';
-  const initialTabFromStorage = (localStorage.getItem(lastTabKeyFor(scope)) as TabKey) || DEFAULT_TAB;
-  const initialTabFromUrl = (searchParams.get('tab') as TabKey) || initialTabFromStorage || DEFAULT_TAB;
-  const [activeTab, setActiveTab] = useState<TabKey>(TAB_KEYS.includes(initialTabFromUrl) ? initialTabFromUrl : DEFAULT_TAB);
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    const fromUrl = searchParams.get('tab') as TabKey | null;
+    if (fromUrl && TAB_KEYS.includes(fromUrl)) return fromUrl;
+    const stored = isBrowser ? (localStorage.getItem(lastTabKeyFor(scope)) as TabKey | null) : null;
+    if (stored && TAB_KEYS.includes(stored)) return stored;
+    return DEFAULT_TAB;
+  });
 
   useEffect(() => {
     if (!selectedOrgId) return;
@@ -122,17 +167,32 @@ export default function OrganizerDashboard() {
       next.set('tab', activeTab);
       setSearchParams(next, { replace: true });
     }
-    localStorage.setItem(lastTabKeyFor(selectedOrgId), activeTab);
-  }, [activeTab, selectedOrgId, searchParams, setSearchParams]);
+    if (isBrowser) {
+      localStorage.setItem(lastTabKeyFor(selectedOrgId), activeTab);
+    }
+  }, [activeTab, selectedOrgId, searchParams, setSearchParams, isBrowser]);
 
   useEffect(() => {
     if (selectedOrgId) {
-      const saved = (localStorage.getItem(lastTabKeyFor(selectedOrgId)) as TabKey) || DEFAULT_TAB;
-      setActiveTab(TAB_KEYS.includes(saved) ? saved : DEFAULT_TAB);
-      localStorage.setItem(LAST_ORG_KEY, selectedOrgId);
-      trackEvent('organizer_tab_view', { tab: saved, org_id: selectedOrgId });
+      const saved = isBrowser ? (localStorage.getItem(lastTabKeyFor(selectedOrgId)) as TabKey | null) : null;
+      const tabToActivate = saved && TAB_KEYS.includes(saved) ? saved : DEFAULT_TAB;
+      setActiveTab(tabToActivate);
+      if (isBrowser) {
+        localStorage.setItem(LAST_ORG_KEY, selectedOrgId);
+      }
+      trackEvent('organizer_tab_view', { tab: tabToActivate, org_id: selectedOrgId });
     }
-  }, [selectedOrgId, trackEvent]);
+  }, [selectedOrgId, trackEvent, isBrowser]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Event pipeline controls
+  const [eventSearch, setEventSearch] = useState('');
+  const [eventStatusFilter, setEventStatusFilter] = useState<DerivedEventStatus | 'all'>('all');
+  const [eventSort, setEventSort] = useState<'start_desc' | 'start_asc' | 'revenue_desc' | 'attendees_desc'>('start_desc');
 
   // Server-side scoped events (org only)
   const [events, setEvents] = useState<Event[]>([]);
@@ -164,11 +224,9 @@ export default function OrganizerDashboard() {
       if (error) throw error;
 
       const transformed: Event[] = (data || []).map(e => {
-        // Calculate revenue from paid orders
         const paidOrders = (e.orders || []).filter((o: any) => o.status === 'paid');
         const revenue = paidOrders.reduce((sum: number, o: any) => sum + (o.total_cents || 0), 0) / 100;
-        
-        // Count issued tickets (purchased tickets)
+
         const issuedTickets = (e.tickets || []).filter(
           (t: any) => t.status === 'issued' || t.status === 'transferred' || t.status === 'redeemed'
         );
@@ -203,70 +261,34 @@ export default function OrganizerDashboard() {
         };
       });
 
-      if (mountedRef.current) setEvents(transformed);
+      if (mountedRef.current) {
+        setEvents(transformed);
+        const totals = transformed.reduce(
+          (acc, event) => {
+            acc.events += 1;
+            acc.attendees += event.attendees;
+            acc.revenue += event.revenue;
+            return acc;
+          },
+          { events: 0, attendees: 0, revenue: 0 }
+        );
+        setDashboardTotals({
+          events: totals.events,
+          attendees: totals.attendees,
+          revenue: totals.revenue,
+        });
+      }
     } catch (err: any) {
       console.error('fetchScopedEvents error', err);
       toast({ title: 'Error loading events', description: err.message || 'Please try again.', variant: 'destructive' });
-      if (mountedRef.current) setEvents([]);
+      if (mountedRef.current) {
+        setEvents([]);
+        setDashboardTotals({ events: 0, attendees: 0, revenue: 0 });
+      }
     } finally {
       if (mountedRef.current) setLoadingEvents(false);
     }
   }, [selectedOrgId]);
-
-  // Fetch aggregated dashboard metrics
-  const fetchDashboardMetrics = useCallback(async () => {
-    if (!selectedOrgId) return;
-    try {
-      const { data: eventsData, error } = await supabase
-        .from('events')
-        .select(`
-          id,
-          orders:orders!orders_event_id_fkey(
-            total_cents,
-            status
-          ),
-          tickets:tickets!tickets_event_id_fkey(
-            status
-          )
-        `)
-        .eq('owner_context_type', 'organization')
-        .eq('owner_context_id', selectedOrgId);
-
-      if (error) throw error;
-
-      const totalEvents = eventsData?.length || 0;
-      let revenueCents = 0;
-      let attendeesCount = 0;
-
-      for (const event of eventsData || []) {
-        const paidOrders = (event.orders || []).filter(
-          (o: any) => o.status === 'paid'
-        );
-        revenueCents += paidOrders.reduce(
-          (sum: number, o: any) => sum + (o.total_cents || 0),
-          0
-        );
-        // Count all issued tickets (purchased tickets), not just redeemed ones
-        const issuedTickets = (event.tickets || []).filter(
-          (t: any) => t.status === 'issued' || t.status === 'transferred' || t.status === 'redeemed'
-        );
-        attendeesCount += issuedTickets.length;
-      }
-
-      setDashboardTotals({
-        events: totalEvents,
-        revenue: revenueCents / 100, // convert cents to dollars
-        attendees: attendeesCount,
-      });
-    } catch (err) {
-      console.error('Error fetching dashboard metrics:', err);
-      setDashboardTotals({ events: 0, revenue: 0, attendees: 0 });
-    }
-  }, [selectedOrgId]);
-
-  useEffect(() => {
-    fetchDashboardMetrics();
-  }, [fetchDashboardMetrics]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -279,7 +301,6 @@ export default function OrganizerDashboard() {
         { event: '*', schema: 'public', table: 'events', filter: `owner_context_type=eq.organization,owner_context_id=eq.${selectedOrgId}` },
         () => {
           fetchScopedEvents();
-          fetchDashboardMetrics();
         }
       )
       .subscribe();
@@ -288,13 +309,13 @@ export default function OrganizerDashboard() {
       mountedRef.current = false;
       try { supabase.removeChannel(ch); } catch {}
     };
-  }, [selectedOrgId, fetchScopedEvents, fetchDashboardMetrics]);
+  }, [selectedOrgId, fetchScopedEvents]);
 
   // Event select
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [eventDetails, setEventDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(true);
-  
+
   const handleEventSelect = useCallback((event: Event) => {
     if (!selectedOrgId) return;
     trackEvent('dashboard_event_selected', { event_id: event.id, org_id: selectedOrgId });
@@ -308,14 +329,12 @@ export default function OrganizerDashboard() {
     const fetchEventDetails = async () => {
       setLoadingDetails(true);
       try {
-        // Fetch ticket tiers
         const { data: tiers } = await supabase
           .from('ticket_tiers')
           .select('id, name, price_cents, total_quantity, reserved_quantity, issued_quantity')
           .eq('event_id', selectedEvent.id)
           .order('price_cents', { ascending: true });
 
-        // Fetch posts
         const { data: posts } = await supabase
           .from('event_posts')
           .select('id, text, created_at, media_urls, like_count, comment_count')
@@ -342,7 +361,7 @@ export default function OrganizerDashboard() {
         setLoadingDetails(false);
       }
     };
-    
+
     fetchEventDetails();
   }, [selectedEvent]);
 
@@ -425,6 +444,115 @@ export default function OrganizerDashboard() {
 
   const activeOrg = organizations.find(o => o.id === selectedOrgId);
 
+  const enhancedEvents = useMemo<EnhancedEvent[]>(() => {
+    const nowMs = now.getTime();
+    const dayMs = 1000 * 60 * 60 * 24;
+
+    return events.map(event => {
+      const startDate = event.start_at ? new Date(event.start_at) : null;
+      const endDate = event.end_at ? new Date(event.end_at) : startDate;
+
+      let derivedStatus: DerivedEventStatus = 'draft';
+      if (startDate) {
+        if (startDate.getTime() > nowMs) {
+          derivedStatus = 'upcoming';
+        } else if (endDate && endDate.getTime() < nowMs) {
+          derivedStatus = 'completed';
+        } else {
+          derivedStatus = 'live';
+        }
+      }
+
+      const capacity = event.capacity ?? 0;
+      const occupancyRate = capacity > 0 ? Math.min(100, (event.tickets_sold / capacity) * 100) : null;
+      const daysUntilStart = startDate ? Math.max(0, Math.ceil((startDate.getTime() - nowMs) / dayMs)) : null;
+      const daysSinceEnd = endDate ? Math.max(0, Math.ceil((nowMs - endDate.getTime()) / dayMs)) : null;
+
+      return {
+        ...event,
+        derivedStatus,
+        startDate,
+        endDate,
+        occupancyRate,
+        daysUntilStart,
+        daysSinceEnd,
+      };
+    });
+  }, [events, now]);
+
+  const statusCounts = useMemo(() => {
+    return enhancedEvents.reduce(
+      (acc, event) => {
+        acc[event.derivedStatus] += 1;
+        return acc;
+      },
+      { upcoming: 0, live: 0, completed: 0, draft: 0 }
+    );
+  }, [enhancedEvents]);
+
+  const totalTicketsIssued = useMemo(
+    () => enhancedEvents.reduce((sum, event) => sum + (event.tickets_sold || 0), 0),
+    [enhancedEvents]
+  );
+
+  const averageOccupancy = useMemo(() => {
+    const occupancies = enhancedEvents
+      .map(event => event.occupancyRate)
+      .filter((value): value is number => typeof value === 'number');
+    if (!occupancies.length) return null;
+    const total = occupancies.reduce((sum, rate) => sum + rate, 0);
+    return Math.round(total / occupancies.length);
+  }, [enhancedEvents]);
+
+  const filteredEvents = useMemo(() => {
+    const searchLower = eventSearch.trim().toLowerCase();
+    return enhancedEvents.filter(event => {
+      const matchesStatus = eventStatusFilter === 'all' || event.derivedStatus === eventStatusFilter;
+      const matchesSearch =
+        !searchLower ||
+        [event.title, event.city, event.venue, event.category]
+          .filter(Boolean)
+          .some(value => value!.toLowerCase().includes(searchLower));
+      return matchesStatus && matchesSearch;
+    });
+  }, [enhancedEvents, eventSearch, eventStatusFilter]);
+
+  const sortedEvents = useMemo(() => {
+    const next = [...filteredEvents];
+    const compareByDate = (a: Date | null, b: Date | null, direction: 'asc' | 'desc') => {
+      const aTime = a ? a.getTime() : 0;
+      const bTime = b ? b.getTime() : 0;
+      return direction === 'asc' ? aTime - bTime : bTime - aTime;
+    };
+
+    switch (eventSort) {
+      case 'start_asc':
+        next.sort((a, b) => compareByDate(a.startDate, b.startDate, 'asc'));
+        break;
+      case 'revenue_desc':
+        next.sort((a, b) => (b.revenue || 0) - (a.revenue || 0));
+        break;
+      case 'attendees_desc':
+        next.sort((a, b) => (b.attendees || 0) - (a.attendees || 0));
+        break;
+      default:
+        next.sort((a, b) => compareByDate(a.startDate, b.startDate, 'desc'));
+    }
+    return next;
+  }, [filteredEvents, eventSort]);
+
+  const topGrossingEvent = useMemo(() => {
+    return [...enhancedEvents]
+      .filter(event => event.revenue > 0)
+      .sort((a, b) => b.revenue - a.revenue)[0] || null;
+  }, [enhancedEvents]);
+
+  const needsAttentionEvent = useMemo(() => {
+    return enhancedEvents
+      .filter(event => event.derivedStatus === 'upcoming' && (event.occupancyRate ?? 100) < 50)
+      .sort((a, b) => (a.occupancyRate ?? 100) - (b.occupancyRate ?? 100))[0] || null;
+  }, [enhancedEvents]);
+
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
       {/* Header */}
@@ -442,7 +570,9 @@ export default function OrganizerDashboard() {
                 next.set('org', nextOrgId);
                 setSearchParams(next, { replace: true });
                 setSelectedOrgId(nextOrgId);
-                localStorage.setItem(LAST_ORG_KEY, nextOrgId);
+                if (isBrowser) {
+                  localStorage.setItem(LAST_ORG_KEY, nextOrgId);
+                }
                 trackEvent('dashboard_org_selected', { org_id: nextOrgId, source: 'switcher' });
               }}
               className="w-[260px]"
@@ -482,6 +612,10 @@ export default function OrganizerDashboard() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
         <div className="w-full overflow-x-auto scrollbar-hide">
           <TabsList className="inline-flex w-auto min-w-full justify-start gap-2 p-1.5">
+            <TabsTrigger value="events" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+              <CalendarDays className="h-5 w-5" />
+              <span className="text-xs whitespace-nowrap">Events</span>
+            </TabsTrigger>
             <TabsTrigger value="analytics" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
               <BarChart3 className="h-5 w-5" />
               <span className="text-xs whitespace-nowrap">Analytics</span>
@@ -518,20 +652,284 @@ export default function OrganizerDashboard() {
         </div>
 
         <TabsContent value="events" className="space-y-6">
-          <Suspense fallback={<LoadingSpinner />}>
-            {(events?.length ?? 0) === 0 ? (
-              <div className="text-center py-16 border rounded-lg">
-                <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-                <h3 className="text-lg font-semibold mb-1">No events yet</h3>
-                <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
-                <Button onClick={goCreateEvent}><Plus className="mr-2 h-4 w-4" />Create Event</Button>
+          {loadingEvents ? (
+            <div className="flex justify-center py-12">
+              <LoadingSpinner />
+            </div>
+          ) : events.length === 0 ? (
+            <div className="text-center py-16 border rounded-lg">
+              <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-lg font-semibold mb-1">No events yet</h3>
+              <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
+              <Button onClick={goCreateEvent}><Plus className="mr-2 h-4 w-4" />Create Event</Button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Upcoming events</CardTitle>
+                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{statusCounts.upcoming}</div>
+                    <p className="text-xs text-muted-foreground">Scheduled for the future</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Live right now</CardTitle>
+                    <Activity className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{statusCounts.live}</div>
+                    <p className="text-xs text-muted-foreground">Events currently in progress</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Completed</CardTitle>
+                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{statusCounts.completed}</div>
+                    <p className="text-xs text-muted-foreground">Past events with results</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Tickets issued</CardTitle>
+                    <Ticket className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{totalTicketsIssued.toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground">Across all active events</p>
+                  </CardContent>
+                </Card>
               </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>Event list temporarily unavailable</p>
+
+              <Card>
+                <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="text-xl">Event pipeline</CardTitle>
+                    <CardDescription>Search, prioritize, and drill into the events that matter most.</CardDescription>
+                  </div>
+                  <Button size="sm" onClick={goCreateEvent}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Event
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
+                      <div className="relative w-full md:max-w-xs">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={eventSearch}
+                          onChange={event => setEventSearch(event.target.value)}
+                          placeholder="Search by name, city, or venue"
+                          className="pl-9"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 overflow-x-auto">
+                        <Badge variant="outline" className="px-2 py-1 text-xs font-medium">
+                          <Filter className="mr-1 h-3 w-3" /> Filters
+                        </Badge>
+                        {(
+                          [
+                            { key: 'all', label: 'All' },
+                            { key: 'upcoming', label: 'Upcoming' },
+                            { key: 'live', label: 'Live' },
+                            { key: 'completed', label: 'Completed' },
+                            { key: 'draft', label: 'Draft' },
+                          ] as const
+                        ).map(option => (
+                          <Button
+                            key={option.key}
+                            variant={eventStatusFilter === option.key ? 'default' : 'ghost'}
+                            size="sm"
+                            className="min-w-[88px]"
+                            onClick={() => setEventStatusFilter(option.key)}
+                          >
+                            {option.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="w-full lg:w-60">
+                      <Select
+                        value={eventSort}
+                        onValueChange={value => setEventSort(value as typeof eventSort)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sort events" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="start_desc">Start date • Newest</SelectItem>
+                          <SelectItem value="start_asc">Start date • Oldest</SelectItem>
+                          <SelectItem value="revenue_desc">Revenue • Highest</SelectItem>
+                          <SelectItem value="attendees_desc">Attendance • Highest</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {sortedEvents.length === 0 ? (
+                    <div className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">
+                      <p>No events match your filters yet.</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Event</TableHead>
+                          <TableHead>Schedule</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Tickets</TableHead>
+                          <TableHead className="text-right">Revenue</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sortedEvents.map(event => {
+                          const startLabel = event.startDate
+                            ? event.startDate.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })
+                            : 'Date TBD';
+                          const statusBadgeVariant = event.derivedStatus === 'live'
+                            ? 'secondary'
+                            : event.derivedStatus === 'completed'
+                            ? 'outline'
+                            : 'default';
+                          let scheduleHint = '';
+                          if (event.derivedStatus === 'upcoming' && typeof event.daysUntilStart === 'number') {
+                            scheduleHint = event.daysUntilStart === 0
+                              ? 'Starts today'
+                              : `Starts in ${event.daysUntilStart} day${event.daysUntilStart === 1 ? '' : 's'}`;
+                          } else if (event.derivedStatus === 'live') {
+                            scheduleHint = 'In progress';
+                          } else if (event.derivedStatus === 'completed' && typeof event.daysSinceEnd === 'number') {
+                            scheduleHint = event.daysSinceEnd === 0
+                              ? 'Ended today'
+                              : `Ended ${event.daysSinceEnd} day${event.daysSinceEnd === 1 ? '' : 's'} ago`;
+                          }
+
+                          return (
+                            <TableRow
+                              key={event.id}
+                              className="cursor-pointer"
+                              onClick={() => handleEventSelect(event)}
+                            >
+                              <TableCell>
+                                <div className="font-medium text-sm sm:text-base">{event.title}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {[event.city, event.venue].filter(Boolean).join(' • ') || 'Location TBD'}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-medium text-sm">{startLabel}</div>
+                                <div className="text-xs text-muted-foreground">{scheduleHint || 'Awaiting updates'}</div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={statusBadgeVariant as any} className="capitalize">
+                                  {event.derivedStatus}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm font-medium">
+                                  {event.tickets_sold.toLocaleString()} {event.capacity > 0 ? `of ${event.capacity.toLocaleString()}` : ''}
+                                </div>
+                                {typeof event.occupancyRate === 'number' && (
+                                  <div className="mt-1 flex items-center gap-2">
+                                    <Progress value={event.occupancyRate} className="h-2 w-24" />
+                                    <span className="text-xs text-muted-foreground">{Math.round(event.occupancyRate)}%</span>
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-semibold">
+                                ${event.revenue.toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="grid gap-6 lg:grid-cols-3">
+                <Card className="lg:col-span-2">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-xl">Operational insights</CardTitle>
+                      <CardDescription>Track fulfillment and highlight where to focus next.</CardDescription>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Average capacity filled</p>
+                      <p className="text-2xl font-bold">{averageOccupancy !== null ? `${averageOccupancy}%` : '—'}</p>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {averageOccupancy !== null ? (
+                      <div className="space-y-4">
+                        <Progress value={averageOccupancy} className="h-3" />
+                        <p className="text-sm text-muted-foreground">
+                          On average, organizers are filling {averageOccupancy}% of available capacity. Monitor upcoming events to keep momentum high.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Provide capacity on your events to track utilization in real time.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-xl">Performance alerts</CardTitle>
+                      <CardDescription>Celebrate wins and spot gaps before they widen.</CardDescription>
+                    </div>
+                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent className="space-y-4 text-sm">
+                    {topGrossingEvent ? (
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Top grossing</p>
+                        <p className="font-semibold">{topGrossingEvent.title}</p>
+                        <p className="text-xs text-muted-foreground">${topGrossingEvent.revenue.toLocaleString()} collected</p>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">Ticketed events will surface here once revenue starts flowing.</p>
+                    )}
+
+                    {needsAttentionEvent ? (
+                      <div className="rounded-lg border border-dashed p-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Needs promotion</p>
+                        <p className="font-semibold">{needsAttentionEvent.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {needsAttentionEvent.occupancyRate ? `${Math.round(needsAttentionEvent.occupancyRate)}%` : 'Limited'} of tickets claimed.
+                          Launch a campaign or send a message to boost conversions.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">
+                        All upcoming events are pacing well. Keep momentum going with targeted campaigns when needed.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-            )}
-          </Suspense>
+
+              <Suspense fallback={<LoadingSpinner />}>
+                <DashboardOverview events={enhancedEvents} onEventSelect={handleEventSelect} />
+              </Suspense>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="teams" className="space-y-6">
