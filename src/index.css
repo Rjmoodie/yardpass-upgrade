@@ -199,6 +199,16 @@ body {
   /* Safe area support removed from body - apply to specific elements instead */
 }
 
+.qr-brightness-boost {
+  color-scheme: light;
+  background-color: #ffffff !important;
+}
+
+.qr-brightness-boost body {
+  background-color: #ffffff !important;
+  color: #0f172a;
+}
+
 /* iOS-style selection */
 ::selection {
   background-color: hsl(var(--primary) / 0.2);
