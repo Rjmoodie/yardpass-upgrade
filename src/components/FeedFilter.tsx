@@ -1,14 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { 
-  Search, 
-  Filter, 
-  MapPin, 
-  Calendar,
-  X,
-  Check
-} from 'lucide-react';
+import { Search, MapPin, Calendar, Check } from 'lucide-react';
 
 interface FilterOptions {
   dates: string[];
@@ -21,6 +13,7 @@ interface FeedFilterProps {
   onFilterChange: (filters: FilterOptions) => void;
   isOpen: boolean;
   onToggle: () => void;
+  value?: FilterOptions;
 }
 
 const cities = [
@@ -35,29 +28,51 @@ const cities = [
 
 const dateOptions = [
   'This Month',
-  'This Weekend', 
+  'This Weekend',
   'Tonight',
   'Halloween',
   'Next Week',
   'Next Month'
 ];
 
-export function FeedFilter({ onFilterChange, isOpen, onToggle }: FeedFilterProps) {
-  const [selectedDates, setSelectedDates] = useState<string[]>(['This Month']);
-  const [selectedLocations, setSelectedLocations] = useState<string[]>(['Near Me']);
-  const [searchRadius, setSearchRadius] = useState(25);
+export function FeedFilter({ onFilterChange, isOpen, onToggle, value }: FeedFilterProps) {
+  const [selectedDates, setSelectedDates] = useState<string[]>(value?.dates?.length ? value.dates : ['This Month']);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>(value?.locations?.length ? value.locations : ['Near Me']);
+  const [searchRadius, setSearchRadius] = useState(value?.searchRadius ?? 25);
+
+  const resetToValue = (next?: FilterOptions) => {
+    const source = next ?? value;
+    setSelectedDates(source?.dates?.length ? source.dates : ['This Month']);
+    setSelectedLocations(source?.locations?.length ? source.locations : ['Near Me']);
+    setSearchRadius(source?.searchRadius ?? 25);
+  };
+
+  const externalFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        dates: value?.dates ?? ['This Month'],
+        locations: value?.locations ?? ['Near Me'],
+        searchRadius: value?.searchRadius ?? 25,
+      }),
+    [value?.dates, value?.locations, value?.searchRadius]
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    resetToValue(value);
+  }, [isOpen, externalFilterKey]);
 
   const handleDateToggle = (date: string) => {
-    setSelectedDates(prev => 
-      prev.includes(date) 
+    setSelectedDates((prev) =>
+      prev.includes(date)
         ? prev.filter(d => d !== date)
         : [...prev, date]
     );
   };
 
   const handleLocationToggle = (location: string) => {
-    setSelectedLocations(prev => 
-      prev.includes(location) 
+    setSelectedLocations((prev) =>
+      prev.includes(location)
         ? prev.filter(l => l !== location)
         : [...prev, location]
     );
@@ -74,9 +89,7 @@ export function FeedFilter({ onFilterChange, isOpen, onToggle }: FeedFilterProps
   };
 
   const handleCancel = () => {
-    setSelectedDates(['This Month']);
-    setSelectedLocations(['Near Me']);
-    setSearchRadius(25);
+    resetToValue();
     onToggle();
   };
 

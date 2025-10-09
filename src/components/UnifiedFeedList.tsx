@@ -19,6 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
+import { EventTicketModal } from '@/components/EventTicketModal';
+import { isVideoUrl } from '@/utils/mux';
 
 type FeedFilters = {
   dates: string[];
@@ -31,6 +33,15 @@ type CommentContext = {
   postId: string;
   eventId: string;
   eventTitle: string;
+};
+
+type TicketModalEvent = {
+  id: string;
+  title: string;
+  start_at: string;
+  venue?: string;
+  address?: string;
+  description?: string;
 };
 
 const DEFAULT_FILTERS: FeedFilters = {
@@ -154,23 +165,35 @@ export default function UnifiedFeedList() {
   FeedKeymap();
 
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState<FeedFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FeedFilters>(() => ({ ...DEFAULT_FILTERS }));
   const [activeIndex, setActiveIndex] = useState(0);
   const [pausedVideos, setPausedVideos] = useState<Record<string, boolean>>({});
   const [globalSoundEnabled, setGlobalSoundEnabled] = useState(false);
-  const [userHasInteracted, setUserHasInteracted] = useState(false);
+  const [autoplayReady, setAutoplayReady] = useState(() => {
+    if (typeof navigator === 'undefined' || !('userActivation' in navigator)) {
+      return false;
+    }
+    try {
+      return (navigator as any).userActivation?.hasBeenActive ?? false;
+    } catch (error) {
+      console.debug('⚠️ Unable to determine user activation state', error);
+      return false;
+    }
+  });
 
   const registerInteraction = useCallback(() => {
-    setUserHasInteracted((prev) => {
+    setAutoplayReady((prev) => {
       if (!prev && import.meta.env?.DEV) {
         // eslint-disable-next-line no-console
-        console.debug('🎬 User scrolled feed - enabling video autoplay');
+        console.debug('🎬 Feed interaction detected - unlocking autoplay');
       }
-      return prev || true;
+      return true;
     });
   }, []);
   const [commentContext, setCommentContext] = useState<CommentContext | null>(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [ticketModalEvent, setTicketModalEvent] = useState<TicketModalEvent | null>(null);
 
   const {
     items,
@@ -226,9 +249,125 @@ export default function UnifiedFeedList() {
     return boostsQueue.length ? [...output, ...boostsQueue] : output;
   }, [interleavedOrganicItems, normalizedBoosts]);
 
+  const filteredItems = useMemo(() => {
+    if (!blendedItems.length) return blendedItems;
+
+    const normalizeDate = (item: FeedItem): Date | null => {
+      const source = item.event_starts_at ?? item.sort_ts;
+      if (!source) return null;
+      const parsed = new Date(source);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const matchesDateFilters = (item: FeedItem) => {
+      if (!filters.dates.length) return true;
+      const eventDate = normalizeDate(item);
+      if (!eventDate) return true;
+
+      const now = new Date();
+
+      return filters.dates.some((filter) => {
+        switch (filter) {
+          case 'This Month': {
+            return (
+              eventDate.getFullYear() === now.getFullYear() &&
+              eventDate.getMonth() === now.getMonth()
+            );
+          }
+          case 'This Weekend': {
+            const day = now.getDay();
+            const diffToFriday = (5 - day + 7) % 7;
+            const friday = new Date(now);
+            friday.setDate(now.getDate() + diffToFriday);
+            friday.setHours(0, 0, 0, 0);
+            const sunday = new Date(friday);
+            sunday.setDate(friday.getDate() + 2);
+            sunday.setHours(23, 59, 59, 999);
+            return eventDate >= friday && eventDate <= sunday;
+          }
+          case 'Tonight': {
+            const tonight = new Date(now);
+            tonight.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(tonight);
+            endOfDay.setHours(23, 59, 59, 999);
+            return eventDate >= tonight && eventDate <= endOfDay;
+          }
+          case 'Halloween':
+            return eventDate.getMonth() === 9 && eventDate.getDate() === 31;
+          case 'Next Week': {
+            const start = new Date(now);
+            start.setDate(now.getDate() + 7);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            end.setHours(23, 59, 59, 999);
+            return eventDate >= start && eventDate <= end;
+          }
+          case 'Next Month': {
+            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            const followingMonth = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+            return eventDate >= nextMonth && eventDate < followingMonth;
+          }
+          default:
+            return true;
+        }
+      });
+    };
+
+    const matchesLocationFilters = (item: FeedItem) => {
+      if (!filters.locations.length) return true;
+      const locationText = item.event_location?.toLowerCase?.() ?? '';
+      return filters.locations.some((location) => {
+        if (location === 'Near Me') return true;
+        return locationText.includes(location.toLowerCase());
+      });
+    };
+
+    const matchesCategoryFilters = (item: FeedItem) => {
+      if (!filters.categories.length) return true;
+      const category = item.promotion?.objective ?? item.event_description ?? '';
+      return filters.categories.some((needle) =>
+        category.toLowerCase().includes(needle.toLowerCase())
+      );
+    };
+
+    const matchesRadius = (item: FeedItem) => {
+      const radius = filters.searchRadius ?? 0;
+      if (!radius || radius >= 100) return true;
+      const distance = (item as unknown as { distance_miles?: number | null }).distance_miles;
+      if (typeof distance !== 'number') return true;
+      return distance <= radius;
+    };
+
+    return blendedItems.filter(
+      (item) =>
+        matchesDateFilters(item) &&
+        matchesLocationFilters(item) &&
+        matchesCategoryFilters(item) &&
+        matchesRadius(item)
+    );
+  }, [blendedItems, filters]);
+
   useEffect(() => {
-    itemRefs.current = new Array(blendedItems.length).fill(null);
-  }, [blendedItems.length]);
+    itemRefs.current = new Array(filteredItems.length).fill(null);
+  }, [filteredItems]);
+
+  useEffect(() => {
+    if (autoplayReady) return undefined;
+    if (typeof window === 'undefined') return undefined;
+    const timer = window.setTimeout(() => setAutoplayReady(true), 800);
+    return () => window.clearTimeout(timer);
+  }, [autoplayReady]);
+
+  useEffect(() => {
+    if (activeIndex >= filteredItems.length) {
+      setActiveIndex(filteredItems.length > 0 ? filteredItems.length - 1 : 0);
+    }
+  }, [activeIndex, filteredItems.length]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [filters]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -258,7 +397,7 @@ export default function UnifiedFeedList() {
     });
 
     return () => observer.disconnect();
-  }, [blendedItems.length]);
+  }, [filteredItems]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -347,10 +486,34 @@ export default function UnifiedFeedList() {
   );
 
   const handleOpenTickets = useCallback(
-    (eventId: string) => {
-      navigate(`/event/${eventId}?view=tickets`);
+    (eventId: string, item?: FeedItem) => {
+      const source = item ?? blendedItems.find((candidate) => candidate.event_id === eventId);
+      if (!source) {
+        setTicketModalEvent({
+          id: eventId,
+          title: 'Event tickets',
+          start_at: new Date().toISOString(),
+        });
+      } else {
+        const [venue, ...restLocation] = (source.event_location ?? '')
+          .split(',')
+          .map((part) => part.trim())
+          .filter(Boolean);
+
+        setTicketModalEvent({
+          id: source.event_id,
+          title: source.event_title ?? 'Event tickets',
+          start_at: source.event_starts_at ?? source.sort_ts,
+          venue: venue,
+          address: restLocation.length ? restLocation.join(', ') : source.event_location,
+          description: source.event_description ?? undefined,
+        });
+      }
+
+      setTicketModalOpen(true);
+      registerInteraction();
     },
-    [navigate]
+    [blendedItems, registerInteraction]
   );
 
   const handleEventClick = useCallback(
@@ -445,13 +608,11 @@ export default function UnifiedFeedList() {
         {...containerProps}
       >
         <div className="h-24" aria-hidden="true" />
-        {blendedItems.map((item, idx) => {
+        {filteredItems.map((item, idx) => {
           const isPost = item.item_type === 'post';
           const paused = pausedVideos[item.item_id];
-          const isVideoActive = isPost && idx === activeIndex && !paused && userHasInteracted;
-          
-          // TEMPORARY DEBUG: Force first video to play for testing
-          const forceFirstVideoActive = isPost && idx === 0 && item.media_urls?.length;
+          const hasVideo = isPost && Array.isArray(item.media_urls) && item.media_urls.some((url) => isVideoUrl(url));
+          const isVideoActive = isPost && idx === activeIndex && !paused && autoplayReady && hasVideo;
 
           // Debug video visibility and autoplay triggers
           if (isPost && item.media_urls?.length) {
@@ -461,7 +622,7 @@ export default function UnifiedFeedList() {
               activeIndex,
               isVideoActive,
               paused,
-              userHasInteracted,
+              autoplayReady,
               hasMedia: !!item.media_urls?.length,
               mediaUrls: item.media_urls,
               // Debug the isVideoActive calculation step by step
@@ -469,8 +630,8 @@ export default function UnifiedFeedList() {
                 isPost: isPost,
                 idx_equals_activeIndex: idx === activeIndex,
                 not_paused: !paused,
-                userHasInteracted: userHasInteracted,
-                final_result: isPost && idx === activeIndex && !paused && userHasInteracted
+                autoplayReady: autoplayReady,
+                final_result: isPost && idx === activeIndex && !paused && autoplayReady
               }
             });
           }
@@ -520,9 +681,9 @@ export default function UnifiedFeedList() {
                         [item.item_id]: !prev[item.item_id],
                       }));
                     }}
-                    onOpenTickets={(eventId) => handleOpenTickets(eventId)}
+                    onOpenTickets={(eventId) => handleOpenTickets(eventId, item)}
                     soundEnabled={globalSoundEnabled}
-                    isVideoPlaying={forceFirstVideoActive || isVideoActive}
+                    isVideoPlaying={isVideoActive}
                   />
                 )}
               </div>
@@ -535,7 +696,21 @@ export default function UnifiedFeedList() {
             <Loader2 className="h-4 w-4 animate-spin" /> Loading more
           </div>
         )}
-        {!blendedItems.length && (
+        {!filteredItems.length && blendedItems.length > 0 && (
+          <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center text-white/70">
+            <p className="text-lg font-semibold text-white">No matches for your filters yet.</p>
+            <p className="text-sm max-w-sm">
+              Try adjusting your filters or expanding your search radius to discover more experiences near {activeLocation}.
+            </p>
+            <Button
+              variant="secondary"
+              onClick={() => setFilters({ ...DEFAULT_FILTERS })}
+            >
+              Reset filters
+            </Button>
+          </div>
+        )}
+        {!filteredItems.length && !blendedItems.length && (
           <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center text-white/70">
             <p className="text-lg font-semibold text-white">We don't have anything to show yet.</p>
             <p className="text-sm max-w-sm">
@@ -558,6 +733,7 @@ export default function UnifiedFeedList() {
         onFilterChange={(next) => {
           setFilters(next);
         }}
+        value={filters}
       />
 
       {commentContext && (
@@ -572,6 +748,20 @@ export default function UnifiedFeedList() {
           }}
         />
       )}
+
+      <EventTicketModal
+        event={ticketModalEvent}
+        isOpen={ticketModalOpen && !!ticketModalEvent}
+        onClose={() => {
+          setTicketModalOpen(false);
+          setTicketModalEvent(null);
+        }}
+        onSuccess={() => {
+          setTicketModalOpen(false);
+          setTicketModalEvent(null);
+          navigate('/tickets');
+        }}
+      />
     </div>
   );
 }
