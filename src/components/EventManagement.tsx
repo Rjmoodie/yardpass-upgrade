@@ -7,6 +7,8 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Event } from '@/types/events';
+
 import {
   ArrowLeft,
   Calendar,
@@ -43,8 +45,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { EventSponsorshipManagement } from './EventSponsorshipManagement';
 import { MapboxLocationPicker } from './MapboxLocationPicker';
-
-import { Event } from '@/types/events';
 
 interface Attendee {
   id: string;
@@ -161,12 +161,33 @@ const getInitialEditForm = (event: Event | null): EditFormState => ({
 });
 
 interface EventManagementProps {
-  event: Event;
+  event: Event | null;
   onBack: () => void;
 }
 
 export default function EventManagement({ event, onBack }: EventManagementProps) {
-  const { toast } = useToast();
+  try {
+    console.log('🎯 EventManagement component loaded with event:', event);
+    
+    const { toast } = useToast();
+  
+  // Add error boundary and validation
+  if (!event) {
+    console.log('❌ EventManagement: No event provided');
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center py-16">
+          <h3 className="text-lg font-semibold mb-2">Event not found</h3>
+          <Button onClick={onBack} variant="outline">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Go Back
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('✅ EventManagement: Event provided, rendering component');
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'checked-in' | 'not-checked-in'>('all');
@@ -223,6 +244,145 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
   const eventId = eventDetails.id;
 
   const ticketTiers = useMemo(() => eventDetails?.ticketTiers ?? [], [eventDetails]);
+
+  // Fetch functions - defined before they're used in useEffect
+  const fetchRealAttendees = useCallback(async () => {
+    if (!eventId) return;
+
+    try {
+      const { data: ticketsData } = await supabase
+        .from('tickets')
+        .select(`
+          id,
+          status,
+          created_at,
+          owner_user_id,
+          tier_id
+        `)
+        .eq('event_id', eventId);
+
+      const userIds = [...new Set((ticketsData || []).map((ticket) => ticket.owner_user_id))];
+      const { data: profilesData } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name, phone')
+        .in('user_id', userIds);
+
+      const tierIds = [...new Set((ticketsData || []).map((ticket) => ticket.tier_id))];
+      const { data: tiersData } = await supabase
+        .from('ticket_tiers')
+        .select('id, name, badge_label, price_cents')
+        .in('id', tierIds);
+
+      const profilesMap = new Map(profilesData?.map((profile) => [profile.user_id, profile]) || []);
+      const tiersMap = new Map(tiersData?.map((tier) => [tier.id, tier]) || []);
+
+      const transformedAttendees: Attendee[] = (ticketsData || []).map((ticket) => {
+        const profile = profilesMap.get(ticket.owner_user_id);
+        const tier = tiersMap.get(ticket.tier_id);
+
+        return {
+          id: ticket.id,
+          name: profile?.display_name || 'Unknown attendee',
+          email: `user${ticket.id.slice(0, 8)}@example.com`,
+          phone: profile?.phone || '',
+          badge: tier?.badge_label || 'GA',
+          ticketTier: tier?.name || 'General',
+          purchaseDate: new Date(ticket.created_at).toLocaleDateString(),
+          checkedIn: false,
+          price: (tier?.price_cents || 0) / 100,
+        };
+      });
+
+      const { data: scanData } = await supabase
+        .from('scan_logs')
+        .select('ticket_id, result')
+        .eq('event_id', eventId);
+
+      const checkedInTickets = new Set(
+        scanData?.filter((scan) => scan.result === 'valid').map((scan) => scan.ticket_id) || []
+      );
+
+      const attendeesWithStatus = transformedAttendees.map((attendee) => ({
+        ...attendee,
+        checkedIn: checkedInTickets.has(attendee.id),
+      }));
+
+      setAttendees(attendeesWithStatus.length > 0 ? attendeesWithStatus : mockAttendees);
+    } catch (error) {
+      console.error('Error fetching attendees:', error);
+      setAttendees(mockAttendees);
+    }
+  }, [eventId]);
+
+  const fetchRealTimeStats = useCallback(async () => {
+    if (!eventId) return;
+
+    try {
+      const { data: scanData } = await supabase
+        .from('scan_logs')
+        .select('result, created_at')
+        .eq('event_id', eventId);
+
+      const totalScans = scanData?.length || 0;
+      const validScans = scanData?.filter((scan) => scan.result === 'valid').length || 0;
+      const duplicateScans = scanData?.filter((scan) => scan.result === 'duplicate').length || 0;
+      const lastScan = scanData?.length
+        ? new Date(Math.max(...scanData.map((scan) => new Date(scan.created_at).getTime())))
+        : null;
+
+      setRealTimeStats({
+        totalScans,
+        validScans,
+        duplicateScans,
+        lastScanTime: lastScan,
+      });
+    } catch (error) {
+      console.error('Error fetching scan stats:', error);
+    }
+  }, [eventId]);
+
+  const fetchTicketStats = useCallback(async () => {
+    if (!eventId) return;
+
+    try {
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('id, total_cents, status, created_at')
+        .eq('event_id', eventId);
+
+      const orderIds = orders?.map((order) => order.id) || [];
+      const { data: refunds } = orderIds.length > 0
+        ? await supabase
+            .from('refunds')
+            .select('amount_cents')
+            .in('order_id', orderIds)
+        : { data: [] };
+
+      const paidOrders = orders?.filter((order) => order.status === 'paid') || [];
+      const totalRevenue = paidOrders.reduce((sum, order) => sum + order.total_cents, 0) / 100;
+      const totalRefunds = (refunds || []).reduce((sum, refund) => sum + refund.amount_cents, 0) / 100;
+      const averagePrice = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
+      const refundRate = totalRevenue > 0 ? (totalRefunds / totalRevenue) * 100 : 0;
+
+      setTicketStats({
+        totalRevenue: totalRevenue - totalRefunds,
+        averagePrice,
+        refundRate,
+        conversionRate: 85,
+      });
+    } catch (error) {
+      console.error('Error fetching ticket stats:', error);
+    }
+  }, [eventId]);
+
+  // useEffect to call the fetch functions
+  useEffect(() => {
+    if (!eventId) return;
+
+    fetchRealAttendees();
+    fetchRealTimeStats();
+    fetchTicketStats();
+  }, [eventId, fetchRealAttendees, fetchRealTimeStats, fetchTicketStats]);
 
   const { totalTickets, soldTickets, revenue, totalAttendees, checkedInCount } = useMemo(() => {
     const totals = ticketTiers.reduce(
@@ -477,108 +637,6 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     loadEventDetails();
   }, [showEditDialog, eventId]);
 
-  useEffect(() => {
-    if (!eventId) return;
-
-    fetchRealAttendees();
-    fetchRealTimeStats();
-    fetchTicketStats();
-  }, [eventId, fetchRealAttendees, fetchRealTimeStats, fetchTicketStats]);
-
-  const fetchRealAttendees = useCallback(async () => {
-    if (!eventId) return;
-
-    try {
-      const { data: ticketsData } = await supabase
-        .from('tickets')
-        .select(`
-          id,
-          status,
-          created_at,
-          owner_user_id,
-          tier_id
-        `)
-        .eq('event_id', eventId);
-
-      const userIds = [...new Set((ticketsData || []).map((ticket) => ticket.owner_user_id))];
-      const { data: profilesData } = await supabase
-        .from('user_profiles')
-        .select('user_id, display_name, phone')
-        .in('user_id', userIds);
-
-      const tierIds = [...new Set((ticketsData || []).map((ticket) => ticket.tier_id))];
-      const { data: tiersData } = await supabase
-        .from('ticket_tiers')
-        .select('id, name, badge_label, price_cents')
-        .in('id', tierIds);
-
-      const profilesMap = new Map(profilesData?.map((profile) => [profile.user_id, profile]) || []);
-      const tiersMap = new Map(tiersData?.map((tier) => [tier.id, tier]) || []);
-
-      const transformedAttendees: Attendee[] = (ticketsData || []).map((ticket) => {
-        const profile = profilesMap.get(ticket.owner_user_id);
-        const tier = tiersMap.get(ticket.tier_id);
-
-        return {
-          id: ticket.id,
-          name: profile?.display_name || 'Unknown attendee',
-          email: `user${ticket.id.slice(0, 8)}@example.com`,
-          phone: profile?.phone || '',
-          badge: tier?.badge_label || 'GA',
-          ticketTier: tier?.name || 'General',
-          purchaseDate: new Date(ticket.created_at).toLocaleDateString(),
-          checkedIn: false,
-          price: (tier?.price_cents || 0) / 100,
-        };
-      });
-
-      const { data: scanData } = await supabase
-        .from('scan_logs')
-        .select('ticket_id, result')
-        .eq('event_id', eventId);
-
-      const checkedInTickets = new Set(
-        scanData?.filter((scan) => scan.result === 'valid').map((scan) => scan.ticket_id) || []
-      );
-
-      const attendeesWithStatus = transformedAttendees.map((attendee) => ({
-        ...attendee,
-        checkedIn: checkedInTickets.has(attendee.id),
-      }));
-
-      setAttendees(attendeesWithStatus.length > 0 ? attendeesWithStatus : mockAttendees);
-    } catch (error) {
-      console.error('Error fetching attendees:', error);
-      setAttendees(mockAttendees);
-    }
-  }, [eventId]);
-
-  const fetchRealTimeStats = useCallback(async () => {
-    if (!eventId) return;
-
-    try {
-      const { data: scanData } = await supabase
-        .from('scan_logs')
-        .select('result, created_at')
-        .eq('event_id', eventId);
-
-      const totalScans = scanData?.length || 0;
-      const validScans = scanData?.filter((scan) => scan.result === 'valid').length || 0;
-      const duplicateScans = scanData?.filter((scan) => scan.result === 'duplicate').length || 0;
-      const lastScan = scanData?.length
-        ? new Date(Math.max(...scanData.map((scan) => new Date(scan.created_at).getTime())))
-        : null;
-
-      setRealTimeStats({
-        totalScans,
-        validScans,
-        duplicateScans,
-        lastScanTime: lastScan,
-      });
-    } catch (error) {
-      console.error('Error fetching scan stats:', error);
-    }
-  }, [eventId]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -670,39 +728,6 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     });
   }, [attendees, eventDetails.title, toast]);
 
-  const fetchTicketStats = useCallback(async () => {
-    if (!eventId) return;
-
-    try {
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('id, total_cents, status, created_at')
-        .eq('event_id', eventId);
-
-      const orderIds = orders?.map((order) => order.id) || [];
-      const { data: refunds } = orderIds.length > 0
-        ? await supabase
-            .from('refunds')
-            .select('amount_cents')
-            .in('order_id', orderIds)
-        : { data: [] };
-
-      const paidOrders = orders?.filter((order) => order.status === 'paid') || [];
-      const totalRevenue = paidOrders.reduce((sum, order) => sum + order.total_cents, 0) / 100;
-      const totalRefunds = (refunds || []).reduce((sum, refund) => sum + refund.amount_cents, 0) / 100;
-      const averagePrice = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
-      const refundRate = totalRevenue > 0 ? (totalRefunds / totalRevenue) * 100 : 0;
-
-      setTicketStats({
-        totalRevenue: totalRevenue - totalRefunds,
-        averagePrice,
-        refundRate,
-        conversionRate: 85,
-      });
-    } catch (error) {
-      console.error('Error fetching ticket stats:', error);
-    }
-  }, [eventId]);
 
   // Bulk operations
   const handleSelectAll = useCallback(() => {
@@ -1656,4 +1681,27 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
       </Dialog>
     </div>
   );
+  } catch (error) {
+    console.error('❌ EventManagement component error:', error);
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center py-16">
+          <h3 className="text-lg font-semibold mb-2 text-red-600">Error Loading Event Management</h3>
+          <p className="text-muted-foreground mb-4">
+            There was an error loading the event management page. Please try again.
+          </p>
+          <Button onClick={onBack} variant="outline">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Go Back
+          </Button>
+          <details className="mt-4 text-left">
+            <summary className="cursor-pointer text-sm text-muted-foreground">Error Details</summary>
+            <pre className="mt-2 text-xs bg-red-50 p-2 rounded overflow-auto">
+              {error instanceof Error ? error.message : String(error)}
+            </pre>
+          </details>
+        </div>
+      </div>
+    );
+  }
 }

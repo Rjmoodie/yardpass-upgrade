@@ -343,7 +343,7 @@ export default function EventSlugPage() {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [attendeeCount, setAttendeeCount] = useState(0);
   const [showTicketModal, setShowTicketModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'tagged' | 'posts' | 'details'>('tagged');
+  const [activeTab, setActiveTab] = useState<'details' | 'posts' | 'tagged'>('details');
   const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
 
   useEffect(() => {
@@ -953,43 +953,17 @@ export default function EventSlugPage() {
 
           <div className="mx-auto mt-10 max-w-5xl px-4">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-              <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-white/5 p-1 text-white">
-                <TabsTrigger value="tagged" className="rounded-xl text-sm font-medium data-[state=active]:bg-white/15">
-                  Tagged{typeof taggedCount === 'number' ? ` (${taggedCount})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="posts" className="rounded-xl text-sm font-medium data-[state=active]:bg-white/15">
-                  Posts{typeof postsCount === 'number' ? ` (${postsCount})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="details" className="rounded-xl text-sm font-medium data-[state=active]:bg-white/15">
+              <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-black/20 backdrop-blur-sm border border-white/10 p-1 text-white">
+                <TabsTrigger value="details" className="rounded-xl text-sm font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/80 hover:text-white transition-colors">
                   Details
                 </TabsTrigger>
+                <TabsTrigger value="posts" className="rounded-xl text-sm font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/80 hover:text-white transition-colors">
+                  Posts{typeof postsCount === 'number' ? ` (${postsCount})` : ''}
+                </TabsTrigger>
+                <TabsTrigger value="tagged" className="rounded-xl text-sm font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/80 hover:text-white transition-colors">
+                  Tagged{typeof taggedCount === 'number' ? ` (${taggedCount})` : ''}
+                </TabsTrigger>
               </TabsList>
-
-              <TabsContent value="tagged" className="mt-6">
-                <EventPostGrid
-                  posts={taggedPosts}
-                  isLoading={taggedQuery.isLoading && !taggedPosts.length}
-                  loadingMore={taggedQuery.isFetchingNextPage}
-                  onSelect={handleSelectPost}
-                  loadMoreRef={taggedHasMore ? (taggedLoadMoreRef as any) : undefined}
-                  fallbackImage={coverImage}
-                  emptyTitle="No tagged posts yet"
-                  emptyDescription="When attendees share memories from this event, they'll appear here."
-                />
-              </TabsContent>
-
-              <TabsContent value="posts" className="mt-6">
-                <EventPostGrid
-                  posts={organizerPosts}
-                  isLoading={postsQuery.isLoading && !organizerPosts.length}
-                  loadingMore={postsQuery.isFetchingNextPage}
-                  onSelect={handleSelectPost}
-                  loadMoreRef={postsHasMore ? (postsLoadMoreRef as any) : undefined}
-                  fallbackImage={coverImage}
-                  emptyTitle="Host has no posts yet"
-                  emptyDescription="Organizers can post updates, teasers, and behind-the-scenes moments."
-                />
-              </TabsContent>
 
               <TabsContent value="details" className="mt-6">
                 <div className="grid gap-6 md:grid-cols-[2fr,1.1fr]">
@@ -1052,6 +1026,32 @@ export default function EventSlugPage() {
                     </Card>
                   </div>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="posts" className="mt-6">
+                <EventPostGrid
+                  posts={organizerPosts}
+                  isLoading={postsQuery.isLoading && !organizerPosts.length}
+                  loadingMore={postsQuery.isFetchingNextPage}
+                  onSelect={handleSelectPost}
+                  loadMoreRef={postsHasMore ? (postsLoadMoreRef as any) : undefined}
+                  fallbackImage={coverImage}
+                  emptyTitle="Host has no posts yet"
+                  emptyDescription="Organizers can post updates, teasers, and behind-the-scenes moments."
+                />
+              </TabsContent>
+
+              <TabsContent value="tagged" className="mt-6">
+                <EventPostGrid
+                  posts={taggedPosts}
+                  isLoading={taggedQuery.isLoading && !taggedPosts.length}
+                  loadingMore={taggedQuery.isFetchingNextPage}
+                  onSelect={handleSelectPost}
+                  loadMoreRef={taggedHasMore ? (taggedLoadMoreRef as any) : undefined}
+                  fallbackImage={coverImage}
+                  emptyTitle="No tagged posts yet"
+                  emptyDescription="When attendees share memories from this event, they'll appear here."
+                />
               </TabsContent>
             </Tabs>
           </div>

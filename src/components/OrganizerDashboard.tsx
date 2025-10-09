@@ -84,9 +84,9 @@ interface EnhancedEvent extends Event {
 }
 
 // ─────────────────────────────────────────
-const TAB_KEYS = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'wallet', 'payouts'] as const;
+const TAB_KEYS = ['dashboard', 'events', 'analytics', 'campaigns', 'messaging', 'teams', 'payouts'] as const;
 type TabKey = typeof TAB_KEYS[number];
-const DEFAULT_TAB: TabKey = 'events';
+const DEFAULT_TAB: TabKey = 'dashboard';
 const lastTabKeyFor = (orgId: string) => `organizer.lastTab.${orgId}`;
 const LAST_ORG_KEY = 'organizer.lastOrgId';
 // ─────────────────────────────────────────
@@ -374,7 +374,125 @@ export default function OrganizerDashboard() {
     window.location.href = `/create-event?${params.toString()}`;
   };
 
-  // Loading / empty states
+  // All hooks must be called before any conditional returns
+  const activeOrg = organizations.find(o => o.id === selectedOrgId);
+
+  const enhancedEvents = useMemo<EnhancedEvent[]>(() => {
+    const nowMs = now.getTime();
+    const dayMs = 1000 * 60 * 60 * 24;
+
+    return events.map(event => {
+      const startDate = event.start_at ? new Date(event.start_at) : null;
+      const endDate = event.end_at ? new Date(event.end_at) : startDate;
+
+      let derivedStatus: DerivedEventStatus = 'draft';
+      if (startDate) {
+        if (startDate.getTime() > nowMs) {
+          derivedStatus = 'upcoming';
+        } else if (endDate && endDate.getTime() < nowMs) {
+          derivedStatus = 'completed';
+        } else {
+          derivedStatus = 'live';
+        }
+      }
+
+      const capacity = event.capacity ?? 0;
+      const occupancyRate = capacity > 0 ? Math.min(100, (event.tickets_sold / capacity) * 100) : null;
+      const daysUntilStart = startDate ? Math.max(0, Math.ceil((startDate.getTime() - nowMs) / dayMs)) : null;
+      const daysSinceEnd = endDate ? Math.max(0, Math.ceil((nowMs - endDate.getTime()) / dayMs)) : null;
+
+      return {
+        ...event,
+        derivedStatus,
+        startDate,
+        endDate,
+        occupancyRate,
+        daysUntilStart,
+        daysSinceEnd,
+      };
+    });
+  }, [events, now]);
+
+  const statusCounts = useMemo(() => {
+    return enhancedEvents.reduce(
+      (acc, event) => {
+        acc[event.derivedStatus] += 1;
+        return acc;
+      },
+      { upcoming: 0, live: 0, completed: 0, draft: 0 }
+    );
+  }, [enhancedEvents]);
+
+  const totalTicketsIssued = useMemo(
+    () => enhancedEvents.reduce((sum, event) => sum + (event.tickets_sold || 0), 0),
+    [enhancedEvents]
+  );
+
+  const averageOccupancy = useMemo(() => {
+    const occupancies = enhancedEvents
+      .map(event => event.occupancyRate)
+      .filter((value): value is number => typeof value === 'number');
+    if (!occupancies.length) return null;
+    const total = occupancies.reduce((sum, rate) => sum + rate, 0);
+    return Math.round(total / occupancies.length);
+  }, [enhancedEvents]);
+
+  const filteredEvents = useMemo(() => {
+    const searchLower = eventSearch.trim().toLowerCase();
+    return enhancedEvents.filter(event => {
+      const matchesStatus = eventStatusFilter === 'all' || event.derivedStatus === eventStatusFilter;
+      const matchesSearch =
+        [event.title, event.venue, event.description]
+          .filter(Boolean)
+          .some(value => value!.toLowerCase().includes(searchLower));
+      return matchesStatus && matchesSearch;
+    });
+  }, [enhancedEvents, eventSearch, eventStatusFilter]);
+
+  const sortedEvents = useMemo(() => {
+    const next = [...filteredEvents];
+    const compareByDate = (a: Date | null, b: Date | null, direction: 'asc' | 'desc') => {
+      const aTime = a ? a.getTime() : 0;
+      const bTime = b ? b.getTime() : 0;
+      return direction === 'asc' ? aTime - bTime : bTime - aTime;
+    };
+
+    switch (eventSort) {
+      case 'title-asc':
+        next.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'title-desc':
+        next.sort((a, b) => b.title.localeCompare(a.title));
+        break;
+      case 'revenue-asc':
+        next.sort((a, b) => (a.revenue || 0) - (b.revenue || 0));
+        break;
+      case 'revenue-desc':
+        next.sort((a, b) => (b.revenue || 0) - (a.revenue || 0));
+        break;
+      case 'date-asc':
+        next.sort((a, b) => compareByDate(a.startDate, b.startDate, 'asc'));
+        break;
+      case 'date-desc':
+      default:
+        next.sort((a, b) => compareByDate(a.startDate, b.startDate, 'desc'));
+    }
+    return next;
+  }, [filteredEvents, eventSort]);
+
+  const topGrossingEvent = useMemo(() => {
+    return [...enhancedEvents]
+      .filter(event => event.revenue > 0)
+      .sort((a, b) => b.revenue - a.revenue)[0] || null;
+  }, [enhancedEvents]);
+
+  const needsAttentionEvent = useMemo(() => {
+    return enhancedEvents
+      .filter(event => event.derivedStatus === 'upcoming' && (event.occupancyRate ?? 100) < 50)
+      .sort((a, b) => (a.occupancyRate ?? 100) - (b.occupancyRate ?? 100))[0] || null;
+  }, [enhancedEvents]);
+
+  // Loading / empty states - now after all hooks
   if (orgsLoading) return <LoadingSpinner />;
 
   if (!organizations.length) {
@@ -442,8 +560,8 @@ export default function OrganizerDashboard() {
     );
   }
 
-  const activeOrg = organizations.find(o => o.id === selectedOrgId);
-
+  // TEMPORARILY COMMENTED OUT DUPLICATE HOOKS TO FIX REACT HOOKS ORDER ERROR
+  /*
   const enhancedEvents = useMemo<EnhancedEvent[]>(() => {
     const nowMs = now.getTime();
     const dayMs = 1000 * 60 * 60 * 24;
@@ -552,6 +670,7 @@ export default function OrganizerDashboard() {
       .filter(event => event.derivedStatus === 'upcoming' && (event.occupancyRate ?? 100) < 50)
       .sort((a, b) => (a.occupancyRate ?? 100) - (b.occupancyRate ?? 100))[0] || null;
   }, [enhancedEvents]);
+  */
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
@@ -661,7 +780,48 @@ export default function OrganizerDashboard() {
               <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
               <h3 className="text-lg font-semibold mb-1">No events yet</h3>
               <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
-              <Button onClick={goCreateEvent}><Plus className="mr-2 h-4 w-4" />Create Event</Button>
+              <div className="flex gap-3 justify-center">
+                <Button onClick={goCreateEvent}><Plus className="mr-2 h-4 w-4" />Create Event</Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    // Test EventManagement with mock data
+                    const mockEvent = {
+                      id: 'test-event',
+                      title: 'Test Event',
+                      status: 'upcoming',
+                      date: new Date().toISOString(),
+                      attendees: 50,
+                      revenue: 2500,
+                      views: 100,
+                      likes: 25,
+                      shares: 10,
+                      tickets_sold: 50,
+                      capacity: 100,
+                      start_at: new Date().toISOString(),
+                      end_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+                      venue: 'Test Venue',
+                      description: 'This is a test event to verify EventManagement works',
+                      cover_image_url: '',
+                      city: 'Test City',
+                      visibility: 'public',
+                      created_at: new Date().toISOString(),
+                      organizer: 'Test Organizer',
+                      organizerId: selectedOrgId || 'test-org',
+                      startAtISO: new Date().toISOString(),
+                      dateLabel: new Date().toLocaleDateString(),
+                      location: 'Test Location',
+                      coverImage: '',
+                      ticketTiers: [],
+                      attendeeCount: 50,
+                      posts: []
+                    };
+                    setSelectedEvent(mockEvent);
+                  }}
+                >
+                  Test Event Management
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-6">

@@ -70,7 +70,6 @@ export function useTicketQrToken({
       }, 25000);
       return;
     }
-    const now = Date.now();
     const expiry = expiresAt.getTime();
     const refreshAt = Math.max(expiry - refreshWindowMs, now + 2000);
     const delay = refreshAt - now;

@@ -357,6 +357,10 @@ export default function OrganizerDashboard() {
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Dash</span>
           </TabsTrigger>
+          <TabsTrigger value="events" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
+            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Events</span>
+          </TabsTrigger>
           <TabsTrigger value="analytics" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Analytics</span>
@@ -386,7 +390,11 @@ export default function OrganizerDashboard() {
 
         {/* EVENTS */}
         <TabsContent value="events" className="space-y-6">
-          {(events?.length ?? 0) === 0 ? (
+          {eventsLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : (events?.length ?? 0) === 0 ? (
             <div className="text-center py-16 border rounded-lg">
               <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
               <h3 className="text-lg font-semibold mb-1">
@@ -406,8 +414,103 @@ export default function OrganizerDashboard() {
               </Button>
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Event list temporarily unavailable</p>
+            <div className="space-y-6">
+              {/* Enhanced Events Workspace with Status-Aware Summary Cards */}
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{events.length}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedOrganization ? 'Organization events' : 'Personal events'}
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{formatCurrency(totals.revenue)}</div>
+                    <p className="text-xs text-muted-foreground">
+                      Across all events
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Attendees</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{formatNumber(totals.attendees)}</div>
+                    <p className="text-xs text-muted-foreground">
+                      Total tickets sold
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Avg. Revenue</CardTitle>
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {events.length > 0 ? formatCurrency(totals.revenue / events.length) : '$0'}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Per event
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Events List with Enhanced Features */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Events Overview</CardTitle>
+                  <CardDescription>
+                    Manage and monitor your events with real-time insights
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {events.map((event) => (
+                      <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex-1">
+                          <h3 className="font-semibold">{event.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {event.start_at ? new Date(event.start_at).toLocaleDateString() : 'Date TBD'}
+                            {event.venue && ` • ${event.venue}`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="text-muted-foreground">
+                            {event.tickets_sold || 0} attendees
+                          </span>
+                          <span className="font-medium">
+                            {formatCurrency(event.revenue || 0)}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => logEventSelect(event.id)}
+                          >
+                            View Details
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
         </TabsContent>
