@@ -157,7 +157,18 @@ export default function UnifiedFeedList() {
   const [filters, setFilters] = useState<FeedFilters>(DEFAULT_FILTERS);
   const [activeIndex, setActiveIndex] = useState(0);
   const [pausedVideos, setPausedVideos] = useState<Record<string, boolean>>({});
-  const [globalSoundEnabled, setGlobalSoundEnabled] = useState(true);
+  const [globalSoundEnabled, setGlobalSoundEnabled] = useState(false);
+  const [userHasInteracted, setUserHasInteracted] = useState(false);
+
+  const registerInteraction = useCallback(() => {
+    setUserHasInteracted((prev) => {
+      if (!prev && import.meta.env?.DEV) {
+        // eslint-disable-next-line no-console
+        console.debug('🎬 User scrolled feed - enabling video autoplay');
+      }
+      return prev || true;
+    });
+  }, []);
   const [commentContext, setCommentContext] = useState<CommentContext | null>(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
 
@@ -225,16 +236,21 @@ export default function UnifiedFeedList() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const idx = Number((entry.target as HTMLElement).dataset.index);
-            if (!Number.isNaN(idx)) {
-              setActiveIndex(idx);
-            }
-          }
+        const visible = entries
+          .filter((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+        const next = visible[0];
+        if (!next) {
+          return;
+        }
+
+        const idx = Number((next.target as HTMLElement).dataset.index);
+        if (!Number.isNaN(idx)) {
+          setActiveIndex(idx);
         }
       },
-      { root: container, threshold: 0.6 }
+      { root: null, threshold: [0.3, 0.5, 0.7], rootMargin: '0px 0px -10% 0px' }
     );
 
     itemRefs.current.forEach((el) => {
@@ -243,6 +259,25 @@ export default function UnifiedFeedList() {
 
     return () => observer.disconnect();
   }, [blendedItems.length]);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const markInteraction = () => registerInteraction();
+
+    container.addEventListener('scroll', markInteraction, { passive: true });
+    container.addEventListener('click', markInteraction);
+    container.addEventListener('touchstart', markInteraction, { passive: true });
+    window.addEventListener('keydown', markInteraction);
+
+    return () => {
+      container.removeEventListener('scroll', markInteraction);
+      container.removeEventListener('click', markInteraction);
+      container.removeEventListener('touchstart', markInteraction);
+      window.removeEventListener('keydown', markInteraction);
+    };
+  }, [registerInteraction]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -413,7 +448,7 @@ export default function UnifiedFeedList() {
         {blendedItems.map((item, idx) => {
           const isPost = item.item_type === 'post';
           const paused = pausedVideos[item.item_id];
-          const isVideoActive = isPost && idx === activeIndex && !paused;
+          const isVideoActive = isPost && idx === activeIndex && !paused && userHasInteracted;
 
           return (
             <section
@@ -432,7 +467,10 @@ export default function UnifiedFeedList() {
                     onEventClick={(eventId) => handleEventClick(eventId)}
                     onCreatePost={() => handleCreatePost(item.event_id)}
                     onReport={handleReport}
-                    onSoundToggle={() => setGlobalSoundEnabled((prev) => !prev)}
+                    onSoundToggle={() => {
+                      registerInteraction();
+                      setGlobalSoundEnabled((prev) => !prev);
+                    }}
                     soundEnabled={globalSoundEnabled}
                     isVideoPlaying={false}
                   />
@@ -446,13 +484,17 @@ export default function UnifiedFeedList() {
                     onAuthorClick={(authorId) => navigate(`/u/${authorId}`)}
                     onCreatePost={() => handleCreatePost(item.event_id)}
                     onReport={handleReport}
-                    onSoundToggle={() => setGlobalSoundEnabled((prev) => !prev)}
-                    onVideoToggle={() =>
+                    onSoundToggle={() => {
+                      registerInteraction();
+                      setGlobalSoundEnabled((prev) => !prev);
+                    }}
+                    onVideoToggle={() => {
+                      registerInteraction();
                       setPausedVideos((prev) => ({
                         ...prev,
                         [item.item_id]: !prev[item.item_id],
-                      }))
-                    }
+                      }));
+                    }}
                     onOpenTickets={(eventId) => handleOpenTickets(eventId)}
                     soundEnabled={globalSoundEnabled}
                     isVideoPlaying={isVideoActive}
