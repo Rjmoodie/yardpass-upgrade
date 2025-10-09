@@ -20,13 +20,22 @@ WITH
 candidate_events AS (
   SELECT
     e.id AS event_id,
+    COALESCE(e.start_at, e.created_at, now()) AS anchor_ts,
     GREATEST(
       0,
-      1.0 - ABS(EXTRACT(EPOCH FROM (now() - e.start_at)) / 86400.0) / 180.0
+      1.0 - ABS(EXTRACT(EPOCH FROM (now() - COALESCE(e.start_at, e.created_at, now()))) / 86400.0) / 180.0
     ) AS freshness
   FROM events e
   WHERE e.visibility = 'public'
-    AND e.start_at > now() - INTERVAL '180 days'
+    AND (
+      COALESCE(e.start_at, e.created_at, now()) > now() - INTERVAL '365 days'
+      OR EXISTS (
+        SELECT 1
+        FROM event_posts ep
+        WHERE ep.event_id = e.id
+          AND ep.deleted_at IS NULL
+      )
+    )
 ),
 engagement AS (
   SELECT
@@ -100,8 +109,9 @@ all_posts AS (
     p.created_at,
     (COALESCE(p.like_count,0) + 1.2 * COALESCE(p.comment_count,0)) AS engagement_score
   FROM event_posts p
+  JOIN candidate_events ce ON ce.event_id = p.event_id
   WHERE p.deleted_at IS NULL
-    AND p.created_at > now() - INTERVAL '180 days'
+    AND p.created_at > now() - INTERVAL '365 days'
 ),
 ranked_posts AS (
   SELECT
@@ -112,15 +122,29 @@ ranked_posts AS (
     ) AS rn
   FROM all_posts ap
 ),
+event_order AS (
+  SELECT
+    e.event_id,
+    e.base_score,
+    ce.anchor_ts,
+    ev.start_at,
+    ROW_NUMBER() OVER (
+      ORDER BY e.base_score DESC, ce.anchor_ts DESC NULLS LAST, e.event_id DESC
+    ) AS event_rank
+  FROM scored_events e
+  JOIN candidate_events ce ON ce.event_id = e.event_id
+  JOIN events ev ON ev.id = e.event_id
+),
 items AS (
   SELECT
     'event'::text AS item_type,
-    e.event_id::uuid AS item_id,
-    e.event_id,
-    e.base_score AS score,
-    ev.start_at AS sort_ts
-  FROM scored_events e
-  JOIN events ev ON ev.id = e.event_id
+    eo.event_id::uuid AS item_id,
+    eo.event_id,
+    eo.base_score AS score,
+    COALESCE(eo.anchor_ts, eo.start_at) AS sort_ts,
+    eo.event_rank,
+    0 AS within_event_rank
+  FROM event_order eo
 
   UNION ALL
 
@@ -128,16 +152,26 @@ items AS (
     'post'::text AS item_type,
     rp.post_id AS item_id,
     rp.event_id,
-    e.base_score * 0.98 AS score,
-    rp.created_at AS sort_ts
+    eo.base_score * 0.98 AS score,
+    rp.created_at AS sort_ts,
+    eo.event_rank,
+    rp.rn AS within_event_rank
   FROM ranked_posts rp
-  JOIN scored_events e ON e.event_id = rp.event_id
+  JOIN event_order eo ON eo.event_id = rp.event_id
   WHERE rp.rn <= 3
 ),
 ordered AS (
   SELECT
-    i.*, 
-    ROW_NUMBER() OVER (ORDER BY i.score DESC, i.sort_ts DESC NULLS LAST, i.item_id DESC) AS rn
+    i.item_type,
+    i.item_id,
+    i.event_id,
+    i.score,
+    COALESCE(i.sort_ts, now()) AS sort_ts,
+    i.event_rank,
+    i.within_event_rank,
+    ROW_NUMBER() OVER (
+      ORDER BY i.event_rank, i.within_event_rank, COALESCE(i.sort_ts, now()) DESC, i.item_id DESC
+    ) AS rn
   FROM items i
 ),
 cursor_position AS (
@@ -151,11 +185,11 @@ SELECT
   item_id,
   event_id,
   score,
-  COALESCE(sort_ts, now()) AS sort_ts
+  sort_ts
 FROM ordered
 WHERE (SELECT rn FROM cursor_position) IS NULL
    OR ordered.rn > (SELECT rn FROM cursor_position)
-ORDER BY score DESC, sort_ts DESC NULLS LAST, item_id DESC
+ORDER BY rn
 LIMIT p_limit;
 $$;
 
