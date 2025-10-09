@@ -1,7 +1,7 @@
 // src/components/UserPostCard.tsx
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Ticket } from 'lucide-react';
+import { Play, Pause } from 'lucide-react';
 import { useHlsVideo } from '@/hooks/useHlsVideo';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
@@ -12,6 +12,8 @@ import ActionRail from './ActionRail';
 import ClampText from '@/components/ui/ClampText';
 import PeekSheet from '@/components/overlays/PeekSheet';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
+import { logAutoplayContext } from '@/utils/chromeAutoplayDebug';
+import { describeMuxPlaybackUrl } from '@/utils/testMuxUrls';
 
 interface UserPostCardProps {
   item: Extract<FeedItem, { item_type: 'post' }>;
@@ -54,7 +56,7 @@ export const UserPostCard = memo(function UserPostCard({
   onSoundToggle,
   onVideoToggle,
   onOpenTickets,
-  soundEnabled = true,
+  soundEnabled = false,
   isVideoPlaying = false,
 }: UserPostCardProps) {
   const { trackEvent } = useAnalyticsIntegration();
@@ -62,11 +64,14 @@ export const UserPostCard = memo(function UserPostCard({
 
   const mediaUrl = useMemo(() => {
     const url = item.media_urls?.[0] || null;
-    console.log('🖼️ UserPostCard media debug:', { 
-      postId: item.item_id, 
-      media_urls: item.media_urls, 
-      selectedUrl: url 
-    });
+    if (import.meta.env?.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug('🖼️ UserPostCard media debug:', {
+        postId: item.item_id,
+        media_urls: item.media_urls,
+        selectedUrl: url,
+      });
+    }
     return url;
   }, [item.media_urls, item.item_id]);
   const isVideo = useMemo(() => Boolean(mediaUrl && isVideoUrl(mediaUrl!)), [mediaUrl]);
@@ -77,30 +82,98 @@ export const UserPostCard = memo(function UserPostCard({
 
   const { videoRef, ready, error: hlsError } = useHlsVideo(videoSrc);
 
+  useEffect(() => {
+    if (!import.meta.env?.DEV || !isVideo || !videoSrc) return;
+
+    const context = logAutoplayContext({ muted: !soundEnabled });
+    const muxDiagnostics = describeMuxPlaybackUrl(videoSrc);
+
+    // eslint-disable-next-line no-console
+    console.debug('📊 Feed video diagnostics', {
+      post: item.item_id,
+      autoplayContext: context,
+      mux: muxDiagnostics,
+    });
+  }, [isVideo, videoSrc, item.item_id, soundEnabled]);
+
   // Play/pause side effect driven by isVideoPlaying
   useEffect(() => {
     const el = videoRef.current;
     if (!el || !isVideo) return;
 
-    const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (isVideoPlaying && ready && !prefersReduced && !hlsError) {
-      if (el.readyState >= 2) {
-        // reset to start for consistent short-loop promo style
-        el.currentTime = 0;
-        el.play().catch(() => {/* noop: autoplay policy fallback */});
-      } else {
-        const onCanPlay = () => {
-          el.currentTime = 0;
-          el.play().catch(() => {/* noop */});
-          el.removeEventListener('canplay', onCanPlay);
-        };
-        el.addEventListener('canplay', onCanPlay);
-        return () => el.removeEventListener('canplay', onCanPlay);
-      }
-    } else {
+    const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (!isVideoPlaying || hlsError || prefersReduced) {
       el.pause();
+      return;
     }
-  }, [isVideoPlaying, ready, hlsError, isVideo, videoRef]);
+
+    const readyStateLabels: Record<number, string> = {
+      0: 'HAVE_NOTHING',
+      1: 'HAVE_METADATA',
+      2: 'HAVE_CURRENT_DATA',
+      3: 'HAVE_FUTURE_DATA',
+      4: 'HAVE_ENOUGH_DATA',
+    };
+
+    const attemptPlayback = () => {
+      if (!el) return;
+      el.currentTime = 0;
+      const playPromise = el.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise
+          .then(() => {
+            if (import.meta.env?.DEV) {
+              // eslint-disable-next-line no-console
+              console.debug('✅ Video play successful', {
+                postId: item.item_id,
+                readyState: el.readyState,
+                readyStateLabel: readyStateLabels[el.readyState] ?? 'UNKNOWN',
+              });
+            }
+          })
+          .catch((error) => {
+            // eslint-disable-next-line no-console
+            console.warn('⚠️ Video play prevented', {
+              postId: item.item_id,
+              error,
+              muted: el.muted,
+              readyState: el.readyState,
+              hlsReady: ready,
+            });
+          });
+      }
+    };
+
+    if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      attemptPlayback();
+      return;
+    }
+
+    const onCanPlay = () => {
+      attemptPlayback();
+      el.removeEventListener('canplay', onCanPlay);
+    };
+
+    el.addEventListener('canplay', onCanPlay);
+
+    if (!ready) {
+      const onLoadedData = () => {
+        attemptPlayback();
+        el.removeEventListener('loadeddata', onLoadedData);
+      };
+
+      el.addEventListener('loadeddata', onLoadedData);
+
+      return () => {
+        el.removeEventListener('canplay', onCanPlay);
+        el.removeEventListener('loadeddata', onLoadedData);
+      };
+    }
+
+    return () => {
+      el.removeEventListener('canplay', onCanPlay);
+    };
+  }, [isVideoPlaying, ready, hlsError, isVideo, videoRef, item.item_id]);
 
   // Track video milestones and basic interactions
   useEffect(() => {
@@ -161,7 +234,17 @@ export const UserPostCard = memo(function UserPostCard({
   // Keep mute state in sync
   useEffect(() => {
     const el = videoRef.current;
-    if (el) el.muted = !soundEnabled;
+    if (!el) return;
+
+    if (!soundEnabled) {
+      if (!el.hasAttribute('muted')) {
+        el.setAttribute('muted', '');
+      }
+      el.muted = true;
+    } else {
+      el.muted = false;
+      el.removeAttribute('muted');
+    }
   }, [soundEnabled, videoRef]);
 
   // Media error handlers
@@ -236,7 +319,8 @@ export const UserPostCard = memo(function UserPostCard({
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-cover cursor-pointer"
                 // Controlled externally; we don't use autoPlay to respect autoplay policies
-                muted={!soundEnabled}
+                muted
+                defaultMuted
                 loop
                 playsInline
                 preload="auto"
