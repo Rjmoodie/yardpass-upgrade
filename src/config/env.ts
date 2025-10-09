@@ -13,6 +13,9 @@ const envSchema = z.object({
     .optional(),
   VITE_PUBLIC_POSTHOG_KEY: z.string().optional(),
   VITE_PUBLIC_POSTHOG_HOST: z.string().url().optional(),
+  VITE_MUX_TOKEN_ID: z.string().optional(),
+  VITE_MUX_TOKEN_SECRET: z.string().optional(),
+  VITE_MUX_WEBHOOK_SECRET: z.string().optional(),
 });
 
 type RawEnv = {
@@ -21,6 +24,9 @@ type RawEnv = {
   VITE_SUPABASE_FUNCTIONS_URL?: string;
   VITE_PUBLIC_POSTHOG_KEY?: string;
   VITE_PUBLIC_POSTHOG_HOST?: string;
+  VITE_MUX_TOKEN_ID?: string;
+  VITE_MUX_TOKEN_SECRET?: string;
+  VITE_MUX_WEBHOOK_SECRET?: string;
 };
 
 const rawEnv: RawEnv = {
@@ -29,6 +35,9 @@ const rawEnv: RawEnv = {
   VITE_SUPABASE_FUNCTIONS_URL: import.meta.env?.VITE_SUPABASE_FUNCTIONS_URL || 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1',
   VITE_PUBLIC_POSTHOG_KEY: import.meta.env?.VITE_PUBLIC_POSTHOG_KEY,
   VITE_PUBLIC_POSTHOG_HOST: import.meta.env?.VITE_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
+  VITE_MUX_TOKEN_ID: import.meta.env?.VITE_MUX_TOKEN_ID || '49870126-3ebe-4038-bedc-4b6acdd34433',
+  VITE_MUX_TOKEN_SECRET: import.meta.env?.VITE_MUX_TOKEN_SECRET || 'AKbRZoq38cqT/HumkUiZAhQf87DPGE52KArHS+wcruPc9F/+/98M5L8pqyU1YAzy7a3nFvNMGr2',
+  VITE_MUX_WEBHOOK_SECRET: import.meta.env?.VITE_MUX_WEBHOOK_SECRET || 'huuhn06adv3sm1aub3r0om0emlk7vfvi',
 };
 
 const validationResult = envSchema.safeParse(rawEnv);
@@ -64,12 +73,20 @@ const supabaseAnonKey = SUPABASE_ANON_KEY;
 const posthogKey = import.meta.env?.VITE_PUBLIC_POSTHOG_KEY ?? undefined;
 const posthogHost = import.meta.env?.VITE_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
 
+// Mux configuration
+const muxTokenId = rawEnv.VITE_MUX_TOKEN_ID;
+const muxTokenSecret = rawEnv.VITE_MUX_TOKEN_SECRET;
+const muxWebhookSecret = rawEnv.VITE_MUX_WEBHOOK_SECRET;
+
 export const env = {
   supabaseUrl,
   supabaseAnonKey,
   supabaseFunctionsUrl,
   posthogKey,
   posthogHost,
+  muxTokenId,
+  muxTokenSecret,
+  muxWebhookSecret,
 };
 
 export const envDiagnostics = {

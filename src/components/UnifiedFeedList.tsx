@@ -449,6 +449,31 @@ export default function UnifiedFeedList() {
           const isPost = item.item_type === 'post';
           const paused = pausedVideos[item.item_id];
           const isVideoActive = isPost && idx === activeIndex && !paused && userHasInteracted;
+          
+          // TEMPORARY DEBUG: Force first video to play for testing
+          const forceFirstVideoActive = isPost && idx === 0 && item.media_urls?.length;
+
+          // Debug video visibility and autoplay triggers
+          if (isPost && item.media_urls?.length) {
+            console.log('📱 Feed video visibility:', {
+              postId: item.item_id,
+              idx,
+              activeIndex,
+              isVideoActive,
+              paused,
+              userHasInteracted,
+              hasMedia: !!item.media_urls?.length,
+              mediaUrls: item.media_urls,
+              // Debug the isVideoActive calculation step by step
+              debug_calculation: {
+                isPost: isPost,
+                idx_equals_activeIndex: idx === activeIndex,
+                not_paused: !paused,
+                userHasInteracted: userHasInteracted,
+                final_result: isPost && idx === activeIndex && !paused && userHasInteracted
+              }
+            });
+          }
 
           return (
             <section
@@ -497,7 +522,7 @@ export default function UnifiedFeedList() {
                     }}
                     onOpenTickets={(eventId) => handleOpenTickets(eventId)}
                     soundEnabled={globalSoundEnabled}
-                    isVideoPlaying={isVideoActive}
+                    isVideoPlaying={forceFirstVideoActive || isVideoActive}
                   />
                 )}
               </div>

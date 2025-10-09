@@ -235,31 +235,20 @@ export function OrganizationDashboard({
     if (!inviteEmail.trim()) return;
     setInviting(true);
     try {
-      // Try a real invite table if it exists; otherwise fallback to toast-only UX
-      const payload = {
-        email: inviteEmail.trim().toLowerCase(),
-        role: inviteRole,
-        org_id: organizationId,
-      };
-
-      // For now, just show a toast since org_invitations table doesn't exist
-      // This could be enhanced later with a proper invitations system
-      let inserted = false;
-
-      // Optional: native share
-      const maybeUrl = orgPublicUrl || window.location.origin;
-      const shareText = `You’re invited to join ${organization?.name} on YardPass as ${inviteRole}.`;
-      if ((navigator as any).share) {
-        try {
-          await (navigator as any).share({ title: organization?.name, text: shareText, url: maybeUrl });
-        } catch {
-          /* ignored */
+      const { data, error } = await supabase.functions.invoke('send-org-invite', {
+        body: {
+          org_id: organizationId,
+          email: inviteEmail.trim().toLowerCase(),
+          role: inviteRole,
+          expires_in_hours: 168 // 7 days
         }
-      }
+      });
+
+      if (error) throw error;
 
       toast({
-        title: inserted ? 'Invitation created' : 'Invitation sent',
-        description: `${inviteEmail} • role: ${inviteRole}`,
+        title: 'Invitation sent successfully',
+        description: `Invitation sent to ${inviteEmail} with ${inviteRole} role.`,
       });
       setInviteEmail('');
       await refresh();

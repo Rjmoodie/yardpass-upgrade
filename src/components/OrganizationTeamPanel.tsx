@@ -125,14 +125,27 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
     }
     setLoading(true);
     try {
-      // For now, simulate invite creation
-      toast({ title: 'Invite feature coming soon', description: 'Member invitation system will be available soon.' });
+      const { data, error } = await supabase.functions.invoke('send-org-invite', {
+        body: {
+          org_id: organizationId,
+          email: newMemberEmail.trim(),
+          role: newMemberRole,
+          expires_in_hours: 168 // 7 days
+        }
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: 'Invitation sent successfully', 
+        description: `Invitation sent to ${newMemberEmail} with ${newMemberRole} role.` 
+      });
       setNewMemberEmail('');
       setNewMemberRole('viewer');
     } catch (error: any) {
       console.error(error);
       toast({
-        title: 'Error creating invite',
+        title: 'Error sending invitation',
         description: error.message || 'Please try again.',
         variant: 'destructive',
       });

@@ -357,10 +357,6 @@ export default function OrganizerDashboard() {
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Dash</span>
           </TabsTrigger>
-          <TabsTrigger value="events" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
-            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
-            <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Events</span>
-          </TabsTrigger>
           <TabsTrigger value="analytics" className="flex-col h-auto py-1.5 sm:py-2 md:py-3 px-0.5 sm:px-1 md:px-2 min-w-0">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5 sm:mb-1 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs leading-tight truncate w-full">Analytics</span>

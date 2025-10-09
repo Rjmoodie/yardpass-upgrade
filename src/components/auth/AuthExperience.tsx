@@ -57,6 +57,17 @@ export function AuthExperience({
     handleSignIn,
     handleSignUp,
     resetOtpState,
+    email,
+    setEmail,
+    password,
+    setPassword,
+    displayName,
+    setDisplayName,
+    phone,
+    setPhone,
+    otp,
+    setOtp,
+    error,
   } = useAuthFlow({
     onSuccess: onAuthSuccess,
     guestScopeEventId,
@@ -329,6 +340,8 @@ export function AuthExperience({
                       name="email"
                       type="email"
                       placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
                       className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
                     />
@@ -339,10 +352,17 @@ export function AuthExperience({
                         name="password"
                         type="password"
                         placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         required
                         className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
                       />
                     </div>
+                    {error?.email && (
+                      <div role="alert" className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                        {error.email}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2 text-left">
@@ -353,6 +373,8 @@ export function AuthExperience({
                         name="phone"
                         type="tel"
                         placeholder="+1 (555) 123-4567"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
                         required
                         className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
                       />
@@ -364,10 +386,17 @@ export function AuthExperience({
                           type="text"
                           maxLength={6}
                           placeholder="Enter 6-digit code"
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value)}
                           required
                           className="h-12 rounded-xl border-2 border-border/40 bg-background/80 tracking-[0.3em] text-center"
                         />
                         <p className="text-sm text-muted-foreground">Code sent to {phoneForOtp}</p>
+                      </div>
+                    )}
+                    {error?.phone && (
+                      <div role="alert" className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                        {error.phone}
                       </div>
                     )}
                   </div>
@@ -411,6 +440,8 @@ export function AuthExperience({
                       name="displayName"
                       type="text"
                       placeholder="How should we address you?"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
                       required
                       className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
                     />
@@ -426,6 +457,8 @@ export function AuthExperience({
                         name="email"
                         type="email"
                         placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                         className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
                       />
@@ -447,10 +480,17 @@ export function AuthExperience({
                         name="password"
                         type="password"
                         placeholder="Create a secure password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         required
                         className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
                       />
                     </div>
+                    {error?.email && (
+                      <div role="alert" className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                        {error.email}
+                      </div>
+                    )}
                   </>
                 ) : !showOtpInput ? (
                   <div className="space-y-2">
@@ -460,9 +500,16 @@ export function AuthExperience({
                       name="phone"
                       type="tel"
                       placeholder="+1 (555) 123-4567"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       required
                       className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
                     />
+                    {error?.phone && (
+                      <div role="alert" className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                        {error.phone}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -473,10 +520,17 @@ export function AuthExperience({
                       type="text"
                       maxLength={6}
                       placeholder="Enter 6-digit code"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
                       required
                       className="h-12 rounded-xl border-2 border-border/40 bg-background/80 tracking-[0.3em] text-center"
                     />
                     <p className="text-sm text-muted-foreground">Code sent to {phoneForOtp}</p>
+                    {error?.phone && (
+                      <div role="alert" className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                        {error.phone}
+                      </div>
+                    )}
                   </div>
                 )}
 

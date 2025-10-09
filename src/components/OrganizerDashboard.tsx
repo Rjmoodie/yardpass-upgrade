@@ -482,10 +482,6 @@ export default function OrganizerDashboard() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
         <div className="w-full overflow-x-auto scrollbar-hide">
           <TabsList className="inline-flex w-auto min-w-full justify-start gap-2 p-1.5">
-            <TabsTrigger value="events" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <CalendarDays className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Events</span>
-            </TabsTrigger>
             <TabsTrigger value="analytics" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
               <BarChart3 className="h-5 w-5" />
               <span className="text-xs whitespace-nowrap">Analytics</span>

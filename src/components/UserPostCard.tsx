@@ -75,7 +75,21 @@ export const UserPostCard = memo(function UserPostCard({
     return url;
   }, [item.media_urls, item.item_id]);
   const isVideo = useMemo(() => Boolean(mediaUrl && isVideoUrl(mediaUrl!)), [mediaUrl]);
-  const videoSrc = useMemo(() => (isVideo && mediaUrl ? buildMuxUrl(mediaUrl) : undefined), [isVideo, mediaUrl]);
+  const videoSrc = useMemo(() => {
+    if (!isVideo || !mediaUrl) return undefined;
+    
+    const url = buildMuxUrl(mediaUrl);
+    console.log('🎬 Video source prepared:', {
+      postId: item.item_id,
+      originalUrl: mediaUrl,
+      builtUrl: url,
+      muxConfigured: {
+        tokenId: !!import.meta.env.VITE_MUX_TOKEN_ID,
+        tokenSecret: !!import.meta.env.VITE_MUX_TOKEN_SECRET,
+      }
+    });
+    return url;
+  }, [isVideo, mediaUrl, item.item_id]);
 
   const likes = item.metrics?.likes ?? 0;
   const comments = item.metrics?.comments ?? 0;
@@ -318,9 +332,8 @@ export const UserPostCard = memo(function UserPostCard({
               <video
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-cover cursor-pointer"
-                // Controlled externally; we don't use autoPlay to respect autoplay policies
+                // Always start muted for autoplay compatibility, controlled via useEffect
                 muted
-                defaultMuted
                 loop
                 playsInline
                 preload="auto"
