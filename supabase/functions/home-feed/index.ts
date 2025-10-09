@@ -152,9 +152,9 @@ async function expandRows({ supabase, rows, viewerId }) {
       .in("id", eventIds.length ? eventIds : ["00000000-0000-0000-0000-000000000000"]),
     postIds.length
       ? supabase
-          .from("event_posts")
+          .from("event_posts_with_meta")
           .select(
-            "id, event_id, text, media_urls, like_count, comment_count, author_user_id, created_at",
+            "id, event_id, text, media_urls, like_count, comment_count, author_user_id, author_name, author_badge_label, created_at",
           )
           .in("id", postIds)
       : Promise.resolve({ data: [], error: null }),
@@ -178,17 +178,8 @@ async function expandRows({ supabase, rows, viewerId }) {
 
   const likedPostIds = new Set(viewerLikes.map((l) => l.post_id));
 
-  const authorIds = dedupe(posts.map((p) => p.author_user_id).filter(Boolean));
-  const { data: profiles = [] } = authorIds.length
-    ? await supabase
-        .from("user_profiles")
-        .select("user_id, display_name")
-        .in("user_id", authorIds)
-    : { data: [] };
-
   const eMap = new Map((events ?? []).map((e) => [e.id, e]));
   const pMap = new Map(posts.map((p) => [p.id, p]));
-  const profMap = new Map(profiles.map((p) => [p.user_id, p]));
 
   return rows
     .map((row) => {
@@ -233,8 +224,6 @@ async function expandRows({ supabase, rows, viewerId }) {
       const post = pMap.get(row.item_id);
       if (!post) return null;
 
-      const author = post.author_user_id ? profMap.get(post.author_user_id) : null;
-
       return {
         item_type: "post",
         sort_ts: sortTs,
@@ -249,8 +238,8 @@ async function expandRows({ supabase, rows, viewerId }) {
         event_owner_context_type: ev?.owner_context_type ?? "individual",
         event_location: location,
         author_id: post.author_user_id ?? null,
-        author_name: author?.display_name ?? null,
-        author_badge: null,
+        author_name: post.author_name ?? null,
+        author_badge: post.author_badge_label ?? null,
         author_social_links: null,
         media_urls: Array.isArray(post.media_urls) ? post.media_urls.filter(Boolean) : [],
         content: post.text ?? "",
