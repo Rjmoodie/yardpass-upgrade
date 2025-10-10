@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Mail, MessageSquare, Users, Send, Clock, Beaker, RefreshCw, TestTube2,
   Sparkles, Wand2, Volume2, Scissors, Expand, ShieldCheck, CheckCheck, ListChecks,
-  Eye, ChevronRight, ChevronLeft
+  Eye, ChevronRight, ChevronLeft, ListPlus
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -41,6 +41,12 @@ type AiResult = {
 type Step = 1 | 2 | 3 | 4;
 
 /* --------------------------- templates catalog -------------------------- */
+
+type ContactListSummary = {
+  id: string;
+  name: string;
+  contact_count: number;
+};
 
 type TemplateKey = 'reminder' | 'change' | 'thanks' | 'volunteer' | 'weather';
 
@@ -142,8 +148,11 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const [body, setBody] = useState('');
   const [smsBody, setSmsBody] = useState('');
   const [replyTo, setReplyTo] = useState('support@yardpass.tech');
-  const [segment, setSegment] = useState<'all_attendees' | 'roles'>('all_attendees');
+  const [segment, setSegment] = useState<'all_attendees' | 'roles' | 'import_list'>('all_attendees');
   const [selectedRoles, setSelectedRoles] = useState<RoleType[]>(['scanner']);
+  const [selectedImportList, setSelectedImportList] = useState('');
+  const [contactLists, setContactLists] = useState<ContactListSummary[]>([]);
+  const [contactListsLoading, setContactListsLoading] = useState(false);
 
   // ui/derived
   const [audienceCount, setAudienceCount] = useState<number>(0);
@@ -164,12 +173,16 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'queued' | 'failed' | 'draft' | 'sending'>('all');
   const [searchSubject, setSearchSubject] = useState('');
 
-  const [eventDetails, setEventDetails] = useState<{ title?: string; date?: string }>({});
+  const [eventDetails, setEventDetails] = useState<{ title?: string; date?: string; orgId?: string | null }>({});
   const currentText = useMemo(() => (channel === 'email' ? body : smsBody), [channel, body, smsBody]);
   const { len, segments } = smsLength(smsBody);
 
   const canProceedFromStep1 = true; // channel always chosen
-  const canProceedFromStep2 = audienceCount > 0 || segment === 'roles'; // allow picking roles before count resolves
+  const canProceedFromStep2 = segment === 'roles'
+    ? selectedRoles.length > 0
+    : segment === 'import_list'
+      ? !!selectedImportList && audienceCount > 0
+      : audienceCount > 0;
   const canSend =
     (channel === 'email' ? !!subject.trim() && !!body.trim() : !!smsBody.trim()) &&
     audienceCount > 0 &&
@@ -182,28 +195,71 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   useEffect(() => {
     let ignore = false;
     const run = async () => {
-      const count = await getRecipientCount(
-        eventId,
-        segment === 'all_attendees' ? { type: 'all_attendees' } : { type: 'roles', roles: selectedRoles }
-      );
+      if (segment === 'import_list') {
+        if (!selectedImportList) {
+          if (!ignore) setAudienceCount(0);
+          return;
+        }
+        const count = await getRecipientCount(eventId, { type: 'import_list', listId: selectedImportList });
+        if (!ignore) setAudienceCount(count);
+        return;
+      }
+      const payload = segment === 'all_attendees'
+        ? { type: 'all_attendees' as const }
+        : { type: 'roles' as const, roles: selectedRoles };
+      const count = await getRecipientCount(eventId, payload);
       if (!ignore) setAudienceCount(count);
     };
     const id = setTimeout(run, 250); // gentle debounce for UX
     return () => { ignore = true; clearTimeout(id); };
-  }, [eventId, segment, selectedRoles, getRecipientCount]);
+  }, [eventId, segment, selectedRoles, selectedImportList, getRecipientCount]);
 
   // Event details
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('events').select('title,start_at').eq('id', eventId).single();
+      const { data } = await supabase
+        .from('events')
+        .select('title,start_at,owner_context_type,owner_context_id')
+        .eq('id', eventId)
+        .single();
       if (data) {
         setEventDetails({
           title: data.title,
-          date: data.start_at ? new Date(data.start_at).toLocaleDateString() : undefined
+          date: data.start_at ? new Date(data.start_at).toLocaleDateString() : undefined,
+          orgId: data.owner_context_type === 'organization' ? data.owner_context_id : null
         });
       }
     })();
   }, [eventId]);
+
+  useEffect(() => {
+    const loadLists = async () => {
+      if (!eventDetails.orgId) {
+        setContactLists([]);
+        setSelectedImportList('');
+        return;
+      }
+      setContactListsLoading(true);
+      const { data, error } = await supabase
+        .from('org_contact_imports')
+        .select('id,name,org_contact_import_entries(count)')
+        .eq('org_id', eventDetails.orgId)
+        .order('imported_at', { ascending: false });
+      if (!error) {
+        const mapped = (data ?? []).map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          contact_count: row.org_contact_import_entries?.[0]?.count ?? 0,
+        }));
+        setContactLists(mapped);
+        if (mapped.length && !selectedImportList) {
+          setSelectedImportList(mapped[0].id);
+        }
+      }
+      setContactListsLoading(false);
+    };
+    loadLists();
+  }, [eventDetails.orgId, selectedImportList]);
 
   // Recent jobs
   const refreshRecent = useCallback(async () => {
@@ -236,6 +292,10 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     setSmsBody('');
     setReplyTo('support@yardpass.tech');
     setAiOutput(null);
+    setSegment('all_attendees');
+    setSelectedRoles(['scanner']);
+    setSelectedImportList(contactLists[0]?.id ?? '');
+    setAudienceCount(0);
     setStep(1);
   };
 
@@ -256,8 +316,22 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       return;
     }
 
+    if (segment === 'import_list' && !selectedImportList) {
+      toast({ title: 'Choose a list', description: 'Select an imported contact list to continue.', variant: 'destructive' });
+      setStep(2);
+      return;
+    }
+
+    const segmentPayload =
+      segment === 'all_attendees'
+        ? { type: 'all_attendees' as const }
+        : segment === 'roles'
+          ? { type: 'roles' as const, roles: selectedRoles }
+          : { type: 'import_list' as const, listId: selectedImportList };
+
     const jobRes = await createJob({
       eventId,
+      orgId: eventDetails.orgId ?? undefined,
       channel,
       subject,
       body: preheader ? `<!-- preheader: ${preheader} -->\n${body}` : body,
@@ -265,7 +339,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       fromName: 'YardPass',
       fromEmail: 'onboarding@resend.dev',
       replyTo,
-      segment: segment === 'all_attendees' ? { type: 'all_attendees' } : { type: 'roles', roles: selectedRoles },
+      segment: segmentPayload,
       dryRun,
     });
 
@@ -309,6 +383,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       // Save a draft-only job for parity
       await createJob({
         eventId,
+        orgId: eventDetails.orgId ?? undefined,
         channel,
         subject: channel === 'email' ? (subject || 'Test Message') : undefined,
         body: preheader ? `<!-- preheader: ${preheader} -->\n${body}` : body,
@@ -460,18 +535,31 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="audience-select">Audience</Label>
-          <Select value={segment} onValueChange={(v: 'all_attendees' | 'roles') => setSegment(v)}>
+          <Select
+            value={segment}
+            onValueChange={(v: 'all_attendees' | 'roles' | 'import_list') => {
+              setSegment(v);
+              if (v !== 'import_list') {
+                setSelectedImportList('');
+              }
+            }}
+          >
             <SelectTrigger id="audience-select"><SelectValue placeholder="Select audience" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all_attendees"><div className="flex items-center gap-2"><Users className="h-4 w-4" /> All Attendees</div></SelectItem>
               <SelectItem value="roles"><div className="flex items-center gap-2"><Users className="h-4 w-4" /> Specific Roles</div></SelectItem>
+              <SelectItem value="import_list"><div className="flex items-center gap-2"><ListPlus className="h-4 w-4" /> Imported List</div></SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="p-3 bg-muted/50 rounded-lg text-sm">
-          {segment === 'all_attendees'
-            ? <div>Includes all ticket holders for this event.</div>
-            : <div>Choose one or more roles below.</div>}
+          {segment === 'all_attendees' && <div>Includes all ticket holders for this event.</div>}
+          {segment === 'roles' && <div>Choose one or more roles below.</div>}
+          {segment === 'import_list' && (
+            <div>
+              Use CSV lists imported from your organization settings. Perfect for VIPs, sponsors, or past attendees.
+            </div>
+          )}
         </div>
       </div>
 
@@ -494,6 +582,33 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
               </Badge>
             ))}
           </div>
+        </div>
+      )}
+
+      {segment === 'import_list' && (
+        <div className="grid gap-2">
+          <Label htmlFor="import-list-select">Imported list</Label>
+          <Select
+            value={selectedImportList || undefined}
+            onValueChange={(value) => setSelectedImportList(value)}
+            disabled={contactListsLoading || !contactLists.length}
+          >
+            <SelectTrigger id="import-list-select">
+              <SelectValue placeholder={contactListsLoading ? 'Loading lists…' : 'Select imported list'} />
+            </SelectTrigger>
+            <SelectContent>
+              {contactLists.map((list) => (
+                <SelectItem key={list.id} value={list.id}>
+                  {list.name} ({list.contact_count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {!contactListsLoading && !contactLists.length && (
+            <p className="text-xs text-muted-foreground">
+              No imported lists yet. Add CSVs from your organization settings to target them here.
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -736,7 +851,13 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
               <div>Recipients: {audienceCount}</div>
             </div>
             <div className="text-xs text-muted-foreground">
-              Audience: {segment === 'all_attendees' ? 'All attendees' : selectedRoles.map(r => ROLE_MATRIX[r].label).join(', ') || '—'}
+              Audience: {
+                segment === 'all_attendees'
+                  ? 'All attendees'
+                  : segment === 'roles'
+                    ? selectedRoles.map(r => ROLE_MATRIX[r].label).join(', ') || '—'
+                    : contactLists.find(list => list.id === selectedImportList)?.name || 'Imported list'
+              }
             </div>
           </div>
         </div>

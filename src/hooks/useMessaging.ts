@@ -3,7 +3,10 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MessageChannel, RoleType } from '@/types/roles';
 
-type Segment = { type: 'all_attendees' | 'roles'; roles?: RoleType[] };
+type Segment =
+  | { type: 'all_attendees' }
+  | { type: 'roles'; roles?: RoleType[] }
+  | { type: 'import_list'; listId: string };
 
 export function useMessaging() {
   const [loading, setLoading] = useState(false);
@@ -23,6 +26,7 @@ export function useMessaging() {
 
   async function createJob(input: {
     eventId: string;
+    orgId?: string;
     channel: MessageChannel;
     templateId?: string;
     subject?: string;
@@ -124,7 +128,7 @@ export function useMessaging() {
               return true;
             });
         }
-      } else {
+      } else if (input.segment.type === 'roles') {
         // Roles segment: fetch role user IDs first
         const { data: roleUsers, error: rolesError } = await supabase
           .from('event_roles')
@@ -152,10 +156,42 @@ export function useMessaging() {
           }
           recipients = (profiles || []).map((p: any) => ({ user_id: p.user_id, email: null, phone: p.phone }));
         }
+      } else if (input.segment.type === 'import_list') {
+        console.log('[useMessaging] Using imported contact list:', input.segment.listId);
+        const { data: contacts, error: contactsError } = await supabase
+          .from('org_contact_import_entries')
+          .select('email, phone')
+          .eq('import_id', input.segment.listId);
+
+        if (contactsError) {
+          console.error('[useMessaging] Error fetching import list contacts:', contactsError);
+          throw contactsError;
+        }
+
+        const emailSeen = new Set<string>();
+        const phoneSeen = new Set<string>();
+
+        recipients = (contacts || []).map((contact: any) => ({
+          user_id: null,
+          email: contact.email,
+          phone: contact.phone,
+        })).filter((recipient) => {
+          if (input.channel === 'email') {
+            if (!recipient.email) return false;
+            const key = recipient.email.toLowerCase();
+            if (emailSeen.has(key)) return false;
+            emailSeen.add(key);
+            return true;
+          }
+          if (!recipient.phone) return false;
+          if (phoneSeen.has(recipient.phone)) return false;
+          phoneSeen.add(recipient.phone);
+          return true;
+        });
       }
 
-      // Filter: email needs user_id (email resolved in edge); sms needs phone
-      const filtered = recipients.filter(r => input.channel === 'email' ? !!r.user_id : !!r.phone);
+      // Filter: email needs either user binding or explicit email; sms needs phone
+      const filtered = recipients.filter(r => (input.channel === 'email' ? !!(r.user_id || r.email) : !!r.phone));
 
       console.log('[useMessaging] Recipients before filtering:', recipients.length);
       console.log('[useMessaging] Recipients after filtering:', filtered.length);
@@ -216,12 +252,18 @@ export function useMessaging() {
           .eq('event_id', eventId)
           .eq('status', 'issued');
         return count || 0;
-      } else {
+      } else if (segment.type === 'roles') {
         const { count } = await supabase
           .from('event_roles')
           .select('*', { count: 'exact', head: true })
           .eq('event_id', eventId)
           .in('role', segment.roles ?? []);
+        return count || 0;
+      } else {
+        const { count } = await supabase
+          .from('org_contact_import_entries')
+          .select('*', { count: 'exact', head: true })
+          .eq('import_id', segment.listId);
         return count || 0;
       }
     } catch (e) {
