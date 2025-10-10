@@ -1078,6 +1078,16 @@ input, select, textarea {
   z-index: 50;
 }
 
+/* Event slug styling variables */
+:root {
+  --slug-gradient-from: rgba(255, 255, 255, 0.1);
+  --slug-gradient-to: rgba(255, 255, 255, 0.05);
+  --slug-border: rgba(255, 255, 255, 0.2);
+  --slug-text: rgba(255, 255, 255, 0.9);
+  --slug-indicator-from: #fb923c;
+  --slug-indicator-to: #ec4899;
+}
+
 /* Large, thumb-friendly icon buttons used in bottom rails */
 .rail-btn {
   min-width: 48px;
