@@ -276,8 +276,9 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       city: city || null,
       near,
       onlyEvents: true, // Filter to events only at the source
-    }));
-  }, [cat, from, to, city, near, setFilters]);
+      location: city || null, // Add location filter
+    });
+  }, [cat, from, to, city, setFilters]);
 
   // Keep only true events (ignore event_posts, orgs, etc.)
   const eventHits = useMemo(() => {
@@ -391,20 +392,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     if (min) filtered = filtered.filter(e => (e.priceFrom ?? 0) >= Number(min));
     if (max) filtered = filtered.filter(e => (e.priceFrom ?? 1e9) <= Number(max));
 
-    if (city.trim()) {
-      const cityNorm = city.trim().toLowerCase();
-      filtered = filtered.filter((e) => {
-        const keywords = e.locationDetails?.keywords ?? [];
-        if (keywords.some((keyword) => keyword.includes(cityNorm))) return true;
-        return (e.location || '').toLowerCase().includes(cityNorm);
-      });
-    }
-
-    if (nearFilter?.radiusKm) {
-      filtered = filtered.filter((e) =>
-        typeof e.distance_km === 'number' ? e.distance_km <= nearFilter.radiusKm + 1e-3 : true
-      );
-    }
+    // Location filtering is now handled at the database level
 
     filtered.sort((a, b) => {
       if (sort === 'price_asc') {
@@ -427,7 +415,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     });
 
     return filtered;
-  }, [transformedResults, min, max, sort, city, near]);
+  }, [transformedResults, min, max, sort]);
 
   const boostedResults = useMemo(() => {
     return (searchBoosts ?? [])
@@ -932,90 +920,12 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
 
               <div className="md:col-span-3">
                 <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Location</label>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={city}
-                      onChange={(e) => {
-                        if (near) setNearLocation(null);
-                        setParam('city', e.target.value);
-                      }}
-                      placeholder="Search by city, venue, or go virtual"
-                      className="h-12 w-full rounded-xl border-border/60 bg-background/70 pl-9 text-base focus-visible:ring-2 focus-visible:ring-primary/40"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={requestCurrentLocation}
-                    disabled={isLocating}
-                    className="h-12 w-12 rounded-xl border-border/60 bg-background/70 text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <LocateFixed className={cn('h-5 w-5', isLocating && 'animate-spin text-primary')} />
-                    <span className="sr-only">Use current location</span>
-                  </Button>
-                </div>
-                {locationSuggestions.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    {locationSuggestions.map((option) => (
-                      <button
-                        key={option.label}
-                        type="button"
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-full border px-3 py-1 transition-colors',
-                          (option.isVirtual ? city === 'online' : city.toLowerCase() === option.label.toLowerCase())
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-border/60 hover:border-primary/40 hover:text-foreground'
-                        )}
-                        onClick={() => {
-                          setNearLocation(null);
-                          setParam('city', option.isVirtual ? 'online' : option.label);
-                        }}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {near && (
-                  <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-primary">
-                        <LocateFixed className="h-3 w-3" />
-                        {userLocationLabel || 'Near you'} · within {Math.round(near.radiusKm)} km
-                      </span>
-                      <button
-                        type="button"
-                        className="text-xs underline-offset-2 hover:underline"
-                        onClick={() => setNearLocation(null)}
-                      >
-                        Clear location
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {[10, 25, 50, 100].map((radiusOption) => (
-                        <button
-                          key={radiusOption}
-                          type="button"
-                          className={cn(
-                            'rounded-full border px-3 py-1',
-                            Math.round(near.radiusKm) === radiusOption
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border/60 hover:border-primary/40 hover:text-foreground'
-                          )}
-                          onClick={() => handleRadiusChange(radiusOption)}
-                        >
-                          {radiusOption} km
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {locationError && (
-                  <p className="mt-2 text-xs text-destructive">{locationError}</p>
-                )}
+                <Input
+                  value={city}
+                  onChange={(e) => setParam('city', e.target.value)}
+                  placeholder="City or virtual"
+                  className="mt-2 h-12 rounded-xl border-border/60 bg-background/70 text-base focus-visible:ring-2 focus-visible:ring-primary/40"
+                />
               </div>
 
               <div className="md:col-span-2">
@@ -1143,17 +1053,11 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               </div>
             </div>
 
-            {(q || city || min || max || from || to || (cat !== 'All') || near) && (
+            {(q || city || min || max || from || to || (cat !== 'All')) && (
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 {cat !== 'All' && <FilterChip label={`Category: ${cat}`} onClear={()=>setParam('cat','All')} />}
                 {q && <FilterChip label={`"${q}"`} onClear={()=>setParam('q')} />}
-                {city && <FilterChip label={`City: ${city === 'online' ? 'Online / Virtual' : city}`} onClear={()=>setParam('city')} />}
-                {near && (
-                  <FilterChip
-                    label={`Within ${Math.round(near.radiusKm)} km${userLocationLabel ? ` · ${userLocationLabel}` : ''}`}
-                    onClear={() => setNearLocation(null)}
-                  />
-                )}
+                {city && <FilterChip label={`City: ${city}`} onClear={()=>setParam('city')} />}
                 {min && <FilterChip label={`Min $${min}`} onClear={()=>setParam('min')} />}
                 {max && <FilterChip label={`Max $${max}`} onClear={()=>setParam('max')} />}
                 {from && <FilterChip label={`From ${format(new Date(from),'MMM dd')}`} onClear={()=>setParam('from')} />}
@@ -1255,7 +1159,9 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               </div>
               <div className="border-t mt-6 pt-6 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
-                <h2 className="text-xl font-semibold">All Events</h2>
+                <h2 className="text-xl font-semibold">
+                  {city.trim() ? `Events in ${city}` : 'All Events'}
+                </h2>
               </div>
             </div>
           )}
@@ -1277,7 +1183,11 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4 text-sm text-muted-foreground">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-foreground">
-                {visible.length > 0 ? `Showing ${visible.length} of ${augmentedResults.length} curated ${augmentedResults.length === 1 ? 'event' : 'events'}` : 'No events found yet'}
+                {visible.length > 0 
+                  ? `Showing ${visible.length} of ${augmentedResults.length} curated ${augmentedResults.length === 1 ? 'event' : 'events'}` 
+                  : city.trim() 
+                    ? `No events found in ${city}` 
+                    : 'No events found yet'}
               </span>
               {totalFetched > augmentedResults.length && (
                 <span className="rounded-full bg-muted px-2 py-0.5">{totalFetched} results fetched</span>

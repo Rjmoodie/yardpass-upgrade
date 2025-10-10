@@ -13,6 +13,7 @@ export type SearchFilters = {
     radiusKm?: number | null;
   } | null;
   onlyEvents?: boolean;
+  location?: string | null; // Location/city filter
 };
 
 export type SearchRow = {
@@ -95,36 +96,13 @@ export function useSmartSearch(options: string | UseSmartSearchOptions = '') {
   const lastQueryKeyRef = useRef<string>('');
 
   const debouncedQ = useMemo(() => qState.trim(), [qState]);
-  const normalizedFilters = useMemo(() => {
-    const nearRaw = filtersState.near;
-    let nearNormalized: SearchFilters['near'] = null;
-
-    if (nearRaw) {
-      const lat = Number(nearRaw.lat);
-      const lng = Number(nearRaw.lng);
-      const radiusValue =
-        nearRaw.radiusKm === undefined || nearRaw.radiusKm === null
-          ? null
-          : Number(nearRaw.radiusKm);
-
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        nearNormalized = {
-          lat,
-          lng,
-          radiusKm: radiusValue !== null && Number.isFinite(radiusValue) ? radiusValue : null,
-        };
-      }
-    }
-
-    return {
-      category: filtersState.category ?? null,
-      dateFrom: filtersState.dateFrom ?? null,
-      dateTo: filtersState.dateTo ?? null,
-      city: filtersState.city ?? null,
-      near: nearNormalized,
-      onlyEvents: filtersState.onlyEvents ?? false,
-    };
-  }, [filtersState]);
+  const normalizedFilters = useMemo(() => ({
+    category: filtersState.category ?? null,
+    dateFrom: filtersState.dateFrom ?? null,
+    dateTo: filtersState.dateTo ?? null,
+    onlyEvents: filtersState.onlyEvents ?? false,
+    location: filtersState.location ?? null,
+  }), [filtersState]);
 
   const filtersKey = useMemo(() => JSON.stringify(normalizedFilters), [normalizedFilters]);
   const queryKey = useMemo(
@@ -203,10 +181,11 @@ export function useSmartSearch(options: string | UseSmartSearchOptions = '') {
         }
       }
 
-      if (tooShort && !normalizedFilters.category && !normalizedFilters.dateFrom && !normalizedFilters.dateTo) {
+      if (tooShort && !normalizedFilters.category && !normalizedFilters.dateFrom && !normalizedFilters.dateTo && !normalizedFilters.location) {
         setLoading(false);
         setError(null);
         setHasMore(false);
+        setIsStale(false);
         if (reset) {
           cacheRef.current.delete(queryKey);
           setResults([]);
@@ -235,6 +214,7 @@ export function useSmartSearch(options: string | UseSmartSearchOptions = '') {
           p_only_events: !!normalizedFilters.onlyEvents,
           p_limit: pageSize,
           p_offset: targetPage * pageSize,
+          p_location: normalizedFilters.location,
         });
 
         if (error) throw error;
@@ -260,6 +240,7 @@ export function useSmartSearch(options: string | UseSmartSearchOptions = '') {
         if (myVersion !== reqVersion.current) return;
         console.error('Search failed:', e);
         setError(e);
+        setIsStale(false);
       } finally {
         if (myVersion === reqVersion.current) {
           setLoading(false);

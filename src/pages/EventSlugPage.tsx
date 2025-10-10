@@ -25,9 +25,12 @@ import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { UserPostCard } from '@/components/UserPostCard';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isVideoUrl, muxToPoster } from '@/utils/mux';
 import MapboxEventMap from '@/components/MapboxEventMap';
+import CommentModal from '@/components/CommentModal';
 
 /**
  * Enhanced design version: consistent dark theme, higher contrast, glass surfaces,
@@ -226,6 +229,8 @@ export default function EventSlugPage() {
   const queryClient = useQueryClient();
   const { shareEvent, sharePost, copyLink, isSharing } = useShare();
   const { toggleLike } = useOptimisticReactions();
+  const { requireAuth } = useAuthGuard();
+  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState<EventRow | null>(null);
@@ -235,6 +240,8 @@ export default function EventSlugPage() {
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'posts' | 'tagged'>('details');
   const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
+  const [commentContext, setCommentContext] = useState<{ postId: string; eventId: string; eventTitle: string } | null>(null);
+  const [showCommentModal, setShowCommentModal] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -450,6 +457,25 @@ export default function EventSlugPage() {
     sharePostAction(postId, eventTitle, text);
   }, [selectedPost, sharePostAction, event?.title]);
 
+  const handleComment = useCallback((postId: string) => {
+    if (!selectedPost || selectedPost.item_id !== postId) return;
+    requireAuth(() => {
+      setCommentContext({
+        postId: selectedPost.item_id,
+        eventId: selectedPost.event_id,
+        eventTitle: selectedPost.event_title,
+      });
+      setShowCommentModal(true);
+    }, 'Please sign in to comment');
+  }, [selectedPost, requireAuth]);
+
+  const handleReport = useCallback(() => {
+    toast({
+      title: 'Report received',
+      description: 'Thanks for flagging this. Our safety team will take a look.',
+    });
+  }, [toast]);
+
   const handleAuthorClick = useCallback((authorId: string) => { if (!authorId) return; setSelectedPost(null); navigate(`/u/${authorId}`); }, [navigate]);
   const handleModalEventClick = useCallback((eventIdToOpen: string) => { setSelectedPost(null); navigate(`/e/${event?.slug ?? eventIdToOpen}`); }, [navigate, event?.slug]);
 
@@ -600,15 +626,15 @@ export default function EventSlugPage() {
                         <div dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
                       </div>
                       <div className="grid gap-4 md:grid-cols-2">
-                        <InfoCard color="blue" icon={<Calendar className="h-5 w-5" />} title="Schedule" subtitle={detailedDate} detail={<>{detailedTime}{timeZoneName ? <span className="ml-1 text-muted-foreground"> • {timeZoneName}</span> : null}</>} />
-                        <InfoCard color="green" icon={<MapPin className="h-5 w-5" />} title="Location" subtitle={hasLocationDetails ? undefined : 'Location details coming soon.'} detail={hasLocationDetails ? (
+                        <InfoCard color="orange" icon={<Calendar className="h-5 w-5" />} title="Schedule" subtitle={detailedDate} detail={<>{detailedTime}{timeZoneName ? <span className="ml-1 text-muted-foreground"> • {timeZoneName}</span> : null}</>} />
+                        <InfoCard color="amber" icon={<MapPin className="h-5 w-5" />} title="Location" subtitle={hasLocationDetails ? undefined : 'Location details coming soon.'} detail={hasLocationDetails ? (
                           <div className="space-y-1">{locationLines.map((line) => (<p key={line} className="text-sm font-medium text-foreground">{line}</p>))}</div>
                         ) : undefined} action={(hasCoordinates || hasLocationDetails) ? (
                            <Button variant="ghost" size="sm" className="mt-2 h-9 w-full justify-start gap-2 rounded-xl border border-border/50 bg-card/50 text-muted-foreground hover:text-foreground" onClick={handleOpenDirections}>
                              <Navigation className="h-4 w-4" /> Open in Maps
                            </Button>
                         ) : null} />
-                        <InfoCard color="purple" className="md:col-span-2" icon={<Users className="h-5 w-5" />} title="Community" subtitle={attendeeCount > 0 ? `${attendeeCount} going` : 'Be the first to RSVP'} detail="See who's attending and start making connections early." action={<Button variant="outline" size="sm" className="mt-2 border-border/50 text-muted-foreground hover:text-foreground" onClick={() => navigate(`/e/${event.slug ?? event.id}/attendees`)}>Meet the guest list</Button>} />
+                        <InfoCard color="yellow" className="md:col-span-2" icon={<Users className="h-5 w-5" />} title="Community" subtitle={attendeeCount > 0 ? `${attendeeCount} going` : 'Be the first to RSVP'} detail="See who's attending and start making connections early." action={<Button variant="outline" size="sm" className="mt-2 border-border/50 text-muted-foreground hover:text-foreground" onClick={() => navigate(`/e/${event.slug ?? event.id}/attendees`)}>Meet the guest list</Button>} />
                       </div>
                       <div className="flex flex-wrap gap-2 pt-2">
                         {event.category && <Pill>{event.category}</Pill>}
@@ -680,20 +706,42 @@ export default function EventSlugPage() {
 
           {/* POST MODAL */}
            <Dialog open={Boolean(selectedPost)} onOpenChange={(open) => { if (!open) setSelectedPost(null); }}>
-             {selectedPost && selectedPost.item_type === 'post' ? (
-               isMobile ? (
-                 <BottomSheetContent className="max-h-[90vh] overflow-y-auto">
-                   <UserPostCard item={selectedPost} onLike={(postId) => handleLike(postId)} onComment={() => {}} onShare={(postId) => handleSharePost(postId)} onEventClick={(id) => { setSelectedPost(null); navigate(`/e/${event.slug ?? id}`); }} onAuthorClick={(authorId) => { setSelectedPost(null); navigate(`/u/${authorId}`); }} onCreatePost={() => {}} onReport={() => {}} onSoundToggle={() => {}} onVideoToggle={() => {}} onOpenTickets={() => setShowTicketModal(true)} soundEnabled={false} isVideoPlaying={false} />
-                 </BottomSheetContent>
-               ) : (
-                 <DialogContent className="max-h-[90vh] w-full max-w-3xl overflow-y-auto">
-                   <UserPostCard item={selectedPost} onLike={(postId) => handleLike(postId)} onComment={() => {}} onShare={(postId) => handleSharePost(postId)} onEventClick={(id) => { setSelectedPost(null); navigate(`/e/${event.slug ?? id}`); }} onAuthorClick={(authorId) => { setSelectedPost(null); navigate(`/u/${authorId}`); }} onCreatePost={() => {}} onReport={() => {}} onSoundToggle={() => {}} onVideoToggle={() => {}} onOpenTickets={() => setShowTicketModal(true)} soundEnabled={false} isVideoPlaying={false} />
-                 </DialogContent>
-               )
-             ) : null}
+            {selectedPost && selectedPost.item_type === 'post' ? (
+              isMobile ? (
+                <BottomSheetContent className="max-h-[90vh] overflow-y-auto">
+                  <UserPostCard item={selectedPost} onLike={(postId) => handleLike(postId)} onComment={(postId) => handleComment(postId)} onShare={(postId) => handleSharePost(postId)} onEventClick={(id) => { setSelectedPost(null); navigate(`/e/${event.slug ?? id}`); }} onAuthorClick={(authorId) => { setSelectedPost(null); navigate(`/u/${authorId}`); }} onCreatePost={() => {}} onReport={handleReport} onSoundToggle={() => {}} onVideoToggle={() => {}} onOpenTickets={() => setShowTicketModal(true)} soundEnabled={false} isVideoPlaying={false} />
+                </BottomSheetContent>
+              ) : (
+                <DialogContent className="max-h-[90vh] w-full max-w-3xl overflow-y-auto">
+                  <UserPostCard item={selectedPost} onLike={(postId) => handleLike(postId)} onComment={(postId) => handleComment(postId)} onShare={(postId) => handleSharePost(postId)} onEventClick={(id) => { setSelectedPost(null); navigate(`/e/${event.slug ?? id}`); }} onAuthorClick={(authorId) => { setSelectedPost(null); navigate(`/u/${authorId}`); }} onCreatePost={() => {}} onReport={handleReport} onSoundToggle={() => {}} onVideoToggle={() => {}} onOpenTickets={() => setShowTicketModal(true)} soundEnabled={false} isVideoPlaying={false} />
+                </DialogContent>
+              )
+            ) : null}
           </Dialog>
 
           <EventTicketModal event={event ? { id: event.id, title: event.title, start_at: event.start_at || '', venue: event.venue || undefined, address: fullAddress, description: stripHtml(event.description) || undefined } : null} isOpen={showTicketModal} onClose={() => setShowTicketModal(false)} onSuccess={() => setShowTicketModal(false)} />
+
+          {/* Comment Modal */}
+          {commentContext && (
+            <CommentModal
+              isOpen={showCommentModal}
+              onClose={() => {
+                setShowCommentModal(false);
+                setCommentContext(null);
+              }}
+              postId={commentContext.postId}
+              eventId={commentContext.eventId}
+              eventTitle={commentContext.eventTitle}
+              onCommentCountChange={(count) => {
+                // Update the selected post's comment count
+                if (selectedPost && selectedPost.item_id === commentContext.postId) {
+                  setSelectedPost((prev) => prev ? { ...prev, metrics: { ...prev.metrics, comments: Number(count) } } : prev);
+                }
+                // Update the cached posts
+                updateCachedPost(commentContext.postId, (item) => ({ ...item, comment_count: Number(count) }));
+              }}
+            />
+          )}
         </div>
       </AccessGate>
     </>
@@ -730,9 +778,9 @@ function SectionHeading({ eyebrow, title }: { eyebrow: string; title: string }) 
   );
 }
 
-function InfoCard({ color, icon, title, subtitle, detail, action, className }: { color: 'blue' | 'green' | 'purple'; icon: React.ReactNode; title: string; subtitle?: string; detail?: React.ReactNode; action?: React.ReactNode; className?: string }) {
-  const bg = color === 'blue' ? 'from-blue-500/20 to-blue-600/20' : color === 'green' ? 'from-green-500/20 to-green-600/20' : 'from-purple-500/20 to-purple-600/20';
-  const pill = color === 'blue' ? 'bg-blue-500/30 text-blue-200' : color === 'green' ? 'bg-green-500/30 text-green-200' : 'bg-purple-500/30 text-purple-200';
+function InfoCard({ color, icon, title, subtitle, detail, action, className }: { color: 'orange' | 'amber' | 'yellow'; icon: React.ReactNode; title: string; subtitle?: string; detail?: React.ReactNode; action?: React.ReactNode; className?: string }) {
+  const bg = color === 'orange' ? 'from-orange-500/20 to-orange-600/20' : color === 'amber' ? 'from-amber-500/20 to-amber-600/20' : 'from-yellow-500/20 to-yellow-600/20';
+  const pill = color === 'orange' ? 'bg-orange-500/30 text-orange-200' : color === 'amber' ? 'bg-amber-500/30 text-amber-200' : 'bg-yellow-500/30 text-yellow-200';
   return (
     <div className={`rounded-2xl border border-white/15 bg-gradient-to-br ${bg} p-4 backdrop-blur-sm shadow-inner ${className ?? ''}`}>
       <div className="flex items-start gap-3">
@@ -750,7 +798,7 @@ function InfoCard({ color, icon, title, subtitle, detail, action, className }: {
 
 function Pill({ children }: { children: React.ReactNode }) {
   return (
-    <Badge className="rounded-full border border-border/50 bg-card/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur-sm">
+    <Badge className="rounded-full border border-border/50 bg-card/80 text-xs font-semibold uppercase tracking-wide text-foreground backdrop-blur-sm shadow-sm">
       {children}
     </Badge>
   );

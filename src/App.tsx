@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ProfileViewProvider, useProfileView } from '@/contexts/ProfileViewContext';
 import { ThemeProvider } from "next-themes";
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
@@ -151,6 +152,7 @@ function UserDependentRoute({
 
 function AppContent() {
   const { user, profile, loading, updateRole } = useAuth();
+  const { activeView } = useProfileView();
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -190,6 +192,9 @@ function AppContent() {
   }, []);
 
   const userRole: UserRole = (profile?.role as UserRole) || 'attendee';
+  
+  // Use the profile view context for navigation across all pages to maintain consistency
+  const navigationRole = activeView;
 
   const handleEventSelect = (eventId: string) => {
     navigate(`/e/${eventId}`);
@@ -509,7 +514,7 @@ function AppContent() {
           location.pathname !== '/ticket-success' &&
           location.pathname !== '/auth' && (
             <div className="fixed inset-x-0 bottom-0 z-30">
-              <Navigation currentScreen={location.pathname} userRole={userRole} onNavigate={() => {}} />
+              <Navigation currentScreen={location.pathname} userRole={navigationRole} onNavigate={() => {}} />
             </div>
           )}
 
@@ -528,7 +533,9 @@ export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <AuthProvider>
-        <AppContent />
+        <ProfileViewProvider>
+          <AppContent />
+        </ProfileViewProvider>
       </AuthProvider>
     </ThemeProvider>
   );

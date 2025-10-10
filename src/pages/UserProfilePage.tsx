@@ -15,10 +15,16 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { UserPostCard } from '@/components/UserPostCard';
+import CommentModal from '@/components/CommentModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfileView } from '@/contexts/ProfileViewContext';
 import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { routes } from '@/lib/routes';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
+import { useShare } from '@/hooks/useShare';
+import { useToast } from '@/hooks/use-toast';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 
 interface SocialLink {
@@ -163,18 +169,43 @@ export default function UserProfilePage() {
   const navigate = useNavigate();
   const { username } = useParams<{ username: string }>();
   const { user: currentUser, profile: currentProfile } = useAuth();
+  const { activeView, setActiveView } = useProfileView();
+  const { requireAuth } = useAuthGuard();
+  const { toggleLike, getOptimisticData } = useOptimisticReactions();
+  const { sharePost } = useShare();
+  const { toast } = useToast();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [tickets, setTickets] = useState<UserTicket[]>([]);
   const [events, setEvents] = useState<UserEvent[]>([]);
   const [posts, setPosts] = useState<ProfilePostWithEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeRoleView, setActiveRoleView] = useState<'attendee' | 'organizer'>('attendee');
+  const [initialViewSet, setInitialViewSet] = useState(false);
+  const [commentContext, setCommentContext] = useState<{ postId: string; eventId: string; eventTitle: string } | null>(null);
+  const [showCommentModal, setShowCommentModal] = useState(false);
 
   const isViewingOwnProfile = useMemo(() => {
     if (!profile || !currentUser) return false;
     return profile.user_id === currentUser.id;
   }, [profile, currentUser]);
+
+  // Set initial view only once when profile loads, respecting user's localStorage choice
+  useEffect(() => {
+    if (profile && !initialViewSet && isViewingOwnProfile) {
+      // Check if user has a stored preference
+      const storedView = localStorage.getItem('yardpass-profile-view-mode');
+      
+      // If no stored preference exists, set a sensible default based on user role
+      if (!storedView) {
+        if (profile.role === 'organizer') {
+          setActiveView('organizer');
+        }
+      }
+      // If stored preference exists, it will be used by the context automatically
+      
+      setInitialViewSet(true);
+    }
+  }, [profile, initialViewSet, isViewingOwnProfile, setActiveView]);
 
   useEffect(() => {
     const loadUserData = async (userId: string) => {
@@ -199,7 +230,7 @@ export default function UserProfilePage() {
         supabase
           .from('events')
           .select('*')
-          .eq('organizer_id', userId)
+          .eq('created_by', userId)
           .order('start_at', { ascending: false })
 ,
         supabase
@@ -275,7 +306,6 @@ export default function UserProfilePage() {
           };
 
           setProfile(userProfile);
-          setActiveRoleView(userProfile.role === 'organizer' ? 'organizer' : 'attendee');
           await loadUserData(userProfile.user_id);
           return;
         }
@@ -293,7 +323,6 @@ export default function UserProfilePage() {
           };
 
           setProfile(userProfile);
-          setActiveRoleView(userProfile.role === 'organizer' ? 'organizer' : 'attendee');
           await loadUserData(userProfile.user_id);
           return;
         }
@@ -341,11 +370,11 @@ export default function UserProfilePage() {
     [posts.length, tickets.length, events.length]
   );
 
-  const displayedStats = statsByRole[activeRoleView];
+  const displayedStats = statsByRole[activeView];
 
   const primaryRoleAction = useMemo(
     () =>
-      activeRoleView === 'organizer'
+      activeView === 'organizer'
         ? {
             label: 'Go to dashboard',
             icon: LayoutDashboard,
@@ -356,14 +385,77 @@ export default function UserProfilePage() {
             icon: Ticket,
             onClick: () => navigate('/tickets'),
           },
-    [activeRoleView, navigate]
+    [activeView, navigate]
   );
 
   const PrimaryRoleIcon = primaryRoleAction.icon;
 
+  // Engagement handlers
+  const handleLike = (postId: string) => {
+    const item = feedItems.find((item) => item.item_id === postId);
+    if (!item || item.item_type !== 'post') return;
+
+    const snapshot = getOptimisticData(item.item_id, {
+      isLiked: item.metrics.viewer_has_liked ?? false,
+      likeCount: item.metrics.likes ?? 0,
+    });
+
+    requireAuth(() => {
+      void (async () => {
+        const result = await toggleLike(
+          item.item_id,
+          snapshot.isLiked,
+          snapshot.likeCount
+        );
+        if (result.ok) {
+          // Update local state to reflect change
+          setPosts((prevPosts) =>
+            prevPosts.map((post) =>
+              post.id === postId
+                ? {
+                    ...post,
+                    like_count: result.likeCount,
+                    viewer_has_liked: result.isLiked,
+                  }
+                : post
+            )
+          );
+        }
+      })();
+    }, 'Please sign in to like posts');
+  };
+
+  const handleComment = (postId: string) => {
+    const item = feedItems.find((item) => item.item_id === postId);
+    if (!item || item.item_type !== 'post') return;
+
+    requireAuth(() => {
+      setCommentContext({
+        postId: item.item_id,
+        eventId: item.event_id,
+        eventTitle: item.event_title,
+      });
+      setShowCommentModal(true);
+    }, 'Please sign in to comment');
+  };
+
+  const handleSharePost = (postId: string) => {
+    const item = feedItems.find((item) => item.item_id === postId);
+    if (!item || item.item_type !== 'post') return;
+
+    sharePost(item.item_id, item.event_title, item.content ?? undefined);
+  };
+
+  const handleReport = () => {
+    toast({
+      title: 'Report received',
+      description: 'Thanks for flagging this. Our safety team will take a look.',
+    });
+  };
+
   // Debug logging
   console.log('Current state:', {
-    activeRoleView,
+    activeView,
     eventsCount: events.length,
     ticketsCount: tickets.length,
     postsCount: posts.length,
@@ -456,17 +548,17 @@ export default function UserProfilePage() {
           <div className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-semibold text-foreground">
-                Activity overview {activeRoleView === 'organizer' ? '(Organizer View)' : '(Attendee View)'}
+                Activity overview {activeView === 'organizer' ? '(Organizer View)' : '(Attendee View)'}
               </h2>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                 <ToggleGroup
                   type="single"
-                  value={activeRoleView}
+                  value={activeView}
                   onValueChange={(value) => {
                     console.log('Toggle changed to:', value);
                     if (value === 'attendee' || value === 'organizer') {
-                      setActiveRoleView(value);
-                      console.log('Active role view set to:', value);
+                      setActiveView(value);
+                      console.log('Active view set to:', value);
                     }
                   }}
                   variant="outline"
@@ -507,7 +599,7 @@ export default function UserProfilePage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {displayedStats.map((stat) => (
                 <Card
-                  key={`${activeRoleView}-${stat.label}`}
+                  key={`${activeView}-${stat.label}`}
                   className="border-border/50 bg-background/70 transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-1"
                 >
                   <CardContent className="p-4">
@@ -536,16 +628,19 @@ export default function UserProfilePage() {
                   <UserPostCard
                     key={item.item_id}
                     item={item}
-                    onLike={() => {}}
-                    onComment={() => {}}
-                    onShare={() => {}}
+                    onLike={(postId) => handleLike(postId)}
+                    onComment={(postId) => handleComment(postId)}
+                    onShare={(postId) => handleSharePost(postId)}
                     onEventClick={(eventId) => {
                       if (!eventId) return;
                       navigate(routes.event(eventId));
                     }}
-                    onAuthorClick={() => {}}
+                    onAuthorClick={(authorId) => {
+                      if (!authorId) return;
+                      navigate(`/u/${authorId}`);
+                    }}
                     onCreatePost={() => {}}
-                    onReport={() => {}}
+                    onReport={handleReport}
                     onSoundToggle={() => {}}
                     onVideoToggle={() => {}}
                     onOpenTickets={(eventId) => {
@@ -563,7 +658,7 @@ export default function UserProfilePage() {
           </Card>
 
           <div className="relative">
-            {activeRoleView === 'attendee' ? (
+            {activeView === 'attendee' ? (
               <Card
                 key="attendee-role-card"
                 className="border-border/50 bg-background/80 transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-2"
@@ -708,7 +803,7 @@ export default function UserProfilePage() {
             </CardContent>
           </Card>
 
-          {activeRoleView === 'organizer' && (
+          {activeView === 'organizer' && (
             <Card className="border-border/50 bg-background/80">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -739,6 +834,30 @@ export default function UserProfilePage() {
           )}
         </aside>
       </main>
+
+      {/* Comment Modal */}
+      {commentContext && (
+        <CommentModal
+          isOpen={showCommentModal}
+          onClose={() => {
+            setShowCommentModal(false);
+            setCommentContext(null);
+          }}
+          postId={commentContext.postId}
+          eventId={commentContext.eventId}
+          eventTitle={commentContext.eventTitle}
+          onCommentCountChange={(count) => {
+            // Update local state to reflect new comment count
+            setPosts((prevPosts) =>
+              prevPosts.map((post) =>
+                post.id === commentContext.postId
+                  ? { ...post, comment_count: Number(count) }
+                  : post
+              )
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

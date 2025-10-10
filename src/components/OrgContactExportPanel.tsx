@@ -434,16 +434,6 @@ export function OrgContactExportPanel({ organizationId }: OrgContactExportPanelP
           ))}
         </div>
 
-        <div className="rounded-lg border p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <LinkIcon className="h-4 w-4" />
-            <p className="text-sm font-medium">Need live syncing?</p>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Hook your Eventbrite account into Zapier, HubSpot, CallAction, or Google Sheets to push new attendees into your CRM
-            automatically. This keeps your YardPass contact exports clean — you only pull data when you need a fresh backup.
-          </p>
-        </div>
       </CardContent>
     </Card>
   );
