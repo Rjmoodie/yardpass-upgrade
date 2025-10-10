@@ -5,7 +5,6 @@ import { Crown, ArrowLeft, Settings, Users, Ticket, Calendar, MapPin } from 'luc
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { UserPostCard } from '@/components/UserPostCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -189,7 +188,7 @@ export default function UserProfilePage() {
               )
             `
           )
-          .eq('owner_user_id', userId)
+          .eq('user_id', userId)
           .order('created_at', { ascending: false }),
         supabase
           .from('events')
@@ -269,7 +268,6 @@ export default function UserProfilePage() {
           };
 
           setProfile(userProfile);
-          setActiveRoleView(userProfile.role === 'organizer' ? 'organizer' : 'attendee');
           await loadUserData(userProfile.user_id);
           return;
         }
@@ -287,7 +285,6 @@ export default function UserProfilePage() {
           };
 
           setProfile(userProfile);
-          setActiveRoleView(userProfile.role === 'organizer' ? 'organizer' : 'attendee');
           await loadUserData(userProfile.user_id);
           return;
         }
@@ -313,49 +310,15 @@ export default function UserProfilePage() {
 
   const feedItems = useMemo(() => posts.map((post) => toFeedItem(post, profile)), [posts, profile]);
 
-  const totalReactions = useMemo(
-    () => posts.reduce((sum, post) => sum + (post.like_count ?? 0) + (post.comment_count ?? 0), 0),
-    [posts]
-  );
-
-  const redeemedTicketsCount = useMemo(
-    () => tickets.filter((ticket) => ticket.status === 'redeemed').length,
-    [tickets]
-  );
-
-  const upcomingHostedEventsCount = useMemo(
-    () =>
-      events.filter((event) => {
-        if (!event.start_at) return false;
-        try {
-          return new Date(event.start_at).getTime() >= Date.now();
-        } catch (error) {
-          console.error('Error parsing event date:', error);
-          return false;
-        }
-      }).length,
-    [events]
-  );
-
-  const statsByRole = useMemo(
+  const stats = useMemo(
     () => ({
-      attendee: [
-        { label: 'Posts', value: posts.length },
-        { label: 'Events attended', value: tickets.length },
-        { label: 'Tickets redeemed', value: redeemedTicketsCount },
-        { label: 'Total reactions', value: totalReactions },
-      ],
-      organizer: [
-        { label: 'Posts', value: posts.length },
-        { label: 'Events hosted', value: events.length },
-        { label: 'Upcoming events', value: upcomingHostedEventsCount },
-        { label: 'Total reactions', value: totalReactions },
-      ],
+      posts: posts.length,
+      eventsAttended: tickets.length,
+      eventsHosted: events.length,
+      totalReactions: posts.reduce((sum, post) => sum + (post.like_count ?? 0) + (post.comment_count ?? 0), 0),
     }),
-    [events.length, posts.length, redeemedTicketsCount, tickets.length, totalReactions, upcomingHostedEventsCount]
+    [posts, tickets.length, events.length]
   );
-
-  const displayedStats = statsByRole[activeRoleView];
 
   if (loading) {
     return <LoadingState />;
@@ -440,40 +403,31 @@ export default function UserProfilePage() {
             )}
           </div>
 
-          <div className="space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Activity overview</h2>
-              <ToggleGroup
-                type="single"
-                value={activeRoleView}
-                onValueChange={(value) => {
-                  if (value === 'attendee' || value === 'organizer') {
-                    setActiveRoleView(value);
-                  }
-                }}
-                variant="outline"
-                className="w-fit rounded-full bg-background/80 p-1"
-                aria-label="Toggle between attendee and organizer stats"
-              >
-                <ToggleGroupItem value="attendee" className="rounded-full px-4 py-2 text-sm">
-                  Attendee view
-                </ToggleGroupItem>
-                <ToggleGroupItem value="organizer" className="rounded-full px-4 py-2 text-sm">
-                  Organizer view
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {displayedStats.map((stat) => (
-                <Card key={stat.label} className="border-border/50 bg-background/70">
-                  <CardContent className="p-4">
-                    <p className="text-sm text-muted-foreground">{stat.label}</p>
-                    <p className="text-2xl font-semibold">{stat.value}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Card className="border-border/50 bg-background/70">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Posts</p>
+                <p className="text-2xl font-semibold">{stats.posts}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/50 bg-background/70">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Events attended</p>
+                <p className="text-2xl font-semibold">{stats.eventsAttended}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/50 bg-background/70">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Events hosted</p>
+                <p className="text-2xl font-semibold">{stats.eventsHosted}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/50 bg-background/70">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Total reactions</p>
+                <p className="text-2xl font-semibold">{stats.totalReactions}</p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
@@ -519,102 +473,61 @@ export default function UserProfilePage() {
             </CardContent>
           </Card>
 
-          {activeRoleView === 'attendee' ? (
-            <Card className="border-border/50 bg-background/80">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Ticket className="h-5 w-5" /> Recent tickets
-                </CardTitle>
-                <CardDescription>Events this user has attended most recently.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {tickets.length > 0 ? (
-                  tickets.slice(0, 5).map((ticket) => {
-                    const event = ticket.events;
-                    if (!event) return null;
+          <Card className="border-border/50 bg-background/80">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Ticket className="h-5 w-5" /> Recent tickets
+              </CardTitle>
+              <CardDescription>Events this user has attended most recently.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {tickets.length > 0 ? (
+                tickets.slice(0, 3).map((ticket) => {
+                  const event = ticket.events;
+                  if (!event) return null;
 
-                    return (
-                      <button
-                        type="button"
-                        key={ticket.id}
-                        onClick={() => navigate(routes.event(event.id))}
-                        className="w-full rounded-2xl border border-border/40 bg-background/60 p-4 text-left transition hover:border-primary/50 hover:shadow-sm"
-                      >
-                        <div className="flex gap-4">
-                          <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl">
-                            <img
-                              src={event.cover_image_url ?? DEFAULT_EVENT_COVER}
-                              alt={event.title}
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <p className="font-semibold">{event.title}</p>
-                            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                {formatDate(event.start_at)}
-                              </span>
-                              {event.location && (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="h-4 w-4" />
-                                  {event.location}
-                                </span>
-                              )}
-                            </div>
-                            <Badge variant={ticket.status === 'redeemed' ? 'default' : 'secondary'} className="capitalize">
-                              {ticket.status ?? 'pending'}
-                            </Badge>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <p className="text-sm text-muted-foreground">No ticket history yet.</p>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-border/50 bg-background/80">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" /> Hosted events
-                </CardTitle>
-                <CardDescription>Review the events this user has organized.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {events.length > 0 ? (
-                  events.slice(0, 5).map((event) => (
+                  return (
                     <button
                       type="button"
-                      key={event.id}
+                      key={ticket.id}
                       onClick={() => navigate(routes.event(event.id))}
                       className="w-full rounded-2xl border border-border/40 bg-background/60 p-4 text-left transition hover:border-primary/50 hover:shadow-sm"
                     >
-                      <div className="flex flex-col gap-2">
-                        <p className="truncate font-semibold">{event.title}</p>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {formatDate(event.start_at)}
-                          </span>
-                          {event.location && (
+                      <div className="flex gap-4">
+                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl">
+                          <img
+                            src={event.cover_image_url ?? DEFAULT_EVENT_COVER}
+                            alt={event.title}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="font-semibold">{event.title}</p>
+                          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
-                              <MapPin className="h-4 w-4" />
-                              {event.location}
+                              <Calendar className="h-4 w-4" />
+                              {formatDate(event.start_at)}
                             </span>
-                          )}
+                            {event.location && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-4 w-4" />
+                                {event.location}
+                              </span>
+                            )}
+                          </div>
+                          <Badge variant={ticket.status === 'redeemed' ? 'default' : 'secondary'} className="capitalize">
+                            {ticket.status ?? 'pending'}
+                          </Badge>
                         </div>
                       </div>
                     </button>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">No hosted events yet.</p>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  );
+                })
+              ) : (
+                <p className="text-sm text-muted-foreground">No ticket history yet.</p>
+              )}
+            </CardContent>
+          </Card>
         </section>
 
         <aside className="w-full space-y-6 lg:w-1/3">
@@ -666,40 +579,38 @@ export default function UserProfilePage() {
             </CardContent>
           </Card>
 
-          {activeRoleView === 'organizer' && (
-            <Card className="border-border/50 bg-background/80">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" /> Upcoming hosted events
-                </CardTitle>
-                <CardDescription>Events organized by {profile.display_name}.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                {events.length > 0 ? (
-                  events.slice(0, 3).map((event) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={() => navigate(routes.event(event.id))}
-                      className="w-full rounded-2xl border border-border/40 bg-background/60 p-4 text-left transition hover:border-primary/50 hover:shadow-sm"
-                    >
-                      <p className="font-semibold">{event.title}</p>
+          <Card className="border-border/50 bg-background/80">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" /> Upcoming hosted events
+              </CardTitle>
+              <CardDescription>Events organized by {profile.display_name}.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              {events.length > 0 ? (
+                events.slice(0, 3).map((event) => (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => navigate(routes.event(event.id))}
+                    className="w-full rounded-2xl border border-border/40 bg-background/60 p-4 text-left transition hover:border-primary/50 hover:shadow-sm"
+                  >
+                    <p className="font-semibold">{event.title}</p>
+                    <p className="mt-1 flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="h-4 w-4" /> {formatDate(event.start_at)}
+                    </p>
+                    {event.location && (
                       <p className="mt-1 flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="h-4 w-4" /> {formatDate(event.start_at)}
+                        <MapPin className="h-4 w-4" /> {event.location}
                       </p>
-                      {event.location && (
-                        <p className="mt-1 flex items-center gap-2 text-muted-foreground">
-                          <MapPin className="h-4 w-4" /> {event.location}
-                        </p>
-                      )}
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground">No hosted events to display.</p>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                    )}
+                  </button>
+                ))
+              ) : (
+                <p className="text-muted-foreground">No hosted events to display.</p>
+              )}
+            </CardContent>
+          </Card>
         </aside>
       </main>
     </div>
