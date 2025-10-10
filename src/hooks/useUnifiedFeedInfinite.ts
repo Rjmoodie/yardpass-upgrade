@@ -9,8 +9,15 @@ type EngagementDelta = {
   mode?: 'delta' | 'absolute';
 };
 
-async function fetchPage(cursor: FeedCursor | undefined, limit: number, accessToken: string | null): Promise<FeedPage> {
-  const { data, error } = await supabase.functions.invoke('home-feed', {
+async function fetchPage(
+  cursor: FeedCursor | undefined,
+  limit: number,
+  accessToken: string | null
+): Promise<FeedPage> {
+  const invokeOptions: {
+    body: Record<string, unknown>;
+    headers?: Record<string, string>;
+  } = {
     body: {
       limit,
       cursor: cursor
@@ -21,13 +28,23 @@ async function fetchPage(cursor: FeedCursor | undefined, limit: number, accessTo
           }
         : null,
     },
-  });
+  };
+
+  if (accessToken) {
+    invokeOptions.headers = { Authorization: `Bearer ${accessToken}` };
+  }
+
+  const { data, error } = await supabase.functions.invoke('home-feed', invokeOptions);
 
   if (error) {
     throw new Error(`home-feed failed: ${error.message}`);
   }
 
-  return data;
+  if (!data || typeof data !== 'object' || !Array.isArray((data as any).items)) {
+    throw new Error('home-feed returned an unexpected payload');
+  }
+
+  return data as FeedPage;
 }
 
 export function useUnifiedFeedInfinite(limit = 30) {
