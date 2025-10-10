@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { ArrowLeft, Search, X, SlidersHorizontal, Calendar as CalendarIcon, Star, Sparkles } from 'lucide-react';
+import { ArrowLeft, Search, X, SlidersHorizontal, Calendar as CalendarIcon, Star, Sparkles, MapPin, LocateFixed } from 'lucide-react';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useRecommendations } from '@/hooks/useRecommendations';
 import { useInteractionTracking } from '@/hooks/useInteractionTracking';
@@ -78,6 +78,102 @@ const mockSearchResults = [
   }
 ];
 
+const LOCATION_UNKNOWN = 'Location TBD';
+const EARTH_RADIUS_KM = 6371;
+
+type LocationDetails = {
+  full: string;
+  short: string;
+  display: string;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  isVirtual: boolean;
+  keywords: string[];
+};
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function calculateDistanceKm(
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number,
+) {
+  const lat1 = toRadians(fromLat);
+  const lat2 = toRadians(toLat);
+  const deltaLat = toRadians(toLat - fromLat);
+  const deltaLng = toRadians(toLng - fromLng);
+
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_KM * c;
+}
+
+function parseLocationLabel(raw: string | null | undefined): LocationDetails {
+  if (!raw || !raw.trim()) {
+    return {
+      full: LOCATION_UNKNOWN,
+      short: LOCATION_UNKNOWN,
+      display: LOCATION_UNKNOWN,
+      city: null,
+      state: null,
+      country: null,
+      isVirtual: false,
+      keywords: [],
+    };
+  }
+
+  const trimmed = raw.trim();
+  const isVirtual = /(online|virtual|remote|livestream|webinar)/i.test(trimmed);
+  const cleaned = trimmed
+    .replace(/\s*\(.*?\)\s*/g, ' ')
+    .replace(/\s*\|.*$/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  const segments = cleaned
+    .split(/[•\-]/)
+    .map((segment) => segment.split(',').map((part) => part.trim()))
+    .flat()
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const city = segments[0] ?? null;
+  const state = segments.length > 1 ? segments[1] ?? null : null;
+  const country = segments.length > 2 ? segments[segments.length - 1] ?? null : null;
+  const short = isVirtual
+    ? 'Online event'
+    : segments.slice(0, Math.min(2, segments.length)).join(', ') || cleaned;
+  const display = isVirtual
+    ? 'Online / Virtual'
+    : [city, state].filter(Boolean).join(', ') || short || LOCATION_UNKNOWN;
+
+  const keywordSet = new Set<string>();
+  segments.forEach((segment) => {
+    if (segment) keywordSet.add(segment.toLowerCase());
+  });
+  if (isVirtual) {
+    keywordSet.add('online');
+    keywordSet.add('virtual');
+  }
+
+  return {
+    full: trimmed,
+    short,
+    display,
+    city,
+    state,
+    country,
+    isVirtual,
+    keywords: Array.from(keywordSet),
+  };
+}
+
 const LOCAL_RECENT_KEY = 'yp_recent_searches';
 
 export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
@@ -101,6 +197,10 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const max = params.get('max') || '';
   const from = params.get('from') || '';
   const to = params.get('to') || '';
+  const latParam = params.get('lat');
+  const lngParam = params.get('lng');
+  const radiusParam = params.get('radius');
+  const locationLabelParam = params.get('locLabel') || '';
 
   // recent searches
   const [recent, setRecent] = useState<string[]>(() => {
@@ -144,19 +244,40 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
 
   const [showFilters, setShowFilters] = useState(false);
 
+  const near = useMemo(() => {
+    if (!latParam || !lngParam) return null;
+    const lat = Number(latParam);
+    const lng = Number(lngParam);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const radius = radiusParam ? Number(radiusParam) : 50;
+    const radiusKm = Number.isFinite(radius) && radius > 0 ? radius : 50;
+    return { lat, lng, radiusKm };
+  }, [latParam, lngParam, radiusParam]);
+
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [userLocationLabel, setUserLocationLabel] = useState(locationLabelParam);
+
+  useEffect(() => {
+    setUserLocationLabel(locationLabelParam);
+  }, [locationLabelParam]);
+
   // Sync URL params with search hook
   useEffect(() => {
     setSearchQuery(q);
   }, [q, setSearchQuery]);
 
   useEffect(() => {
-    setFilters({
+    setFilters((prev) => ({
+      ...prev,
       category: cat !== 'All' ? cat : null,
       dateFrom: from || null,
       dateTo: to || null,
+      city: city || null,
+      near,
       onlyEvents: true, // Filter to events only at the source
-    });
-  }, [cat, from, to, setFilters]);
+    }));
+  }, [cat, from, to, city, near, setFilters]);
 
   // Keep only true events (ignore event_posts, orgs, etc.)
   const eventHits = useMemo(() => {
@@ -207,75 +328,138 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   // Transform verified events only
   const transformedResults = useMemo(() => {
     const rows = eventHits.filter(h => validEventIds.has(h.item_id));
-    return rows.map(result => ({
-      id: result.item_id,
-      title: result.title,
-      description: result.description || result.content || '',
-      organizer: result.organizer_name || 'Organizer',
-      organizerId: result.item_id,
-      category: result.category || 'Other',
-      date: result.start_at
-        ? new Date(result.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-        : 'TBA',
-      start_at: result.start_at,
-      location: result.location || 'TBA',
-      coverImage:
-        result.cover_image_url ||
-        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
-      attendeeCount: undefined, // TODO: get real metrics
-      priceFrom: undefined,     // TODO: get real pricing
-      rating: 4.2,
-      type: 'event',
-      parentEventId: null,
-    }));
+    return rows.map(result => {
+      const locationDetails = parseLocationLabel(result.location);
+      const rawLat = (result as any).latitude ?? (result as any).lat ?? (result as any).geo_lat ?? (result as any).geoLatitude ?? null;
+      const rawLng = (result as any).longitude ?? (result as any).lng ?? (result as any).geo_lng ?? (result as any).geoLongitude ?? null;
+      const baseDistance =
+        (result as any).distance_km ??
+        (result as any).distanceKm ??
+        ((result as any).distance_meters ? (result as any).distance_meters / 1000 : null);
+
+      return {
+        id: result.item_id,
+        title: result.title,
+        description: result.description || result.content || '',
+        organizer: result.organizer_name || 'Organizer',
+        organizerId: result.item_id,
+        category: result.category || 'Other',
+        date: result.start_at
+          ? new Date(result.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          : 'TBA',
+        start_at: result.start_at,
+        location: locationDetails.display,
+        locationDetails,
+        latitude: typeof rawLat === 'number' ? rawLat : null,
+        longitude: typeof rawLng === 'number' ? rawLng : null,
+        distance_km: typeof baseDistance === 'number' ? baseDistance : null,
+        coverImage:
+          result.cover_image_url ||
+          'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
+        attendeeCount: undefined, // TODO: get real metrics
+        priceFrom: undefined,     // TODO: get real pricing
+        rating: 4.2,
+        type: 'event',
+        parentEventId: null,
+        isVirtual: locationDetails.isVirtual,
+      };
+    });
   }, [eventHits, validEventIds]);
 
   // Client-side filtering for price (until server-side is implemented)
   const filteredResults = useMemo(() => {
-    let filtered = [...transformedResults];
+    const nearFilter = near;
+    const withDistance = transformedResults.map((event) => {
+      let computedDistance = typeof event.distance_km === 'number' ? event.distance_km : null;
+      if (
+        nearFilter &&
+        typeof event.latitude === 'number' &&
+        typeof event.longitude === 'number'
+      ) {
+        computedDistance = calculateDistanceKm(
+          nearFilter.lat,
+          nearFilter.lng,
+          event.latitude,
+          event.longitude,
+        );
+      }
+      return { ...event, distance_km: computedDistance };
+    });
+
+    let filtered = [...withDistance];
 
     if (min) filtered = filtered.filter(e => (e.priceFrom ?? 0) >= Number(min));
     if (max) filtered = filtered.filter(e => (e.priceFrom ?? 1e9) <= Number(max));
 
     if (city.trim()) {
       const cityNorm = city.trim().toLowerCase();
-      filtered = filtered.filter(e => (e.location || '').toLowerCase().includes(cityNorm));
+      filtered = filtered.filter((e) => {
+        const keywords = e.locationDetails?.keywords ?? [];
+        if (keywords.some((keyword) => keyword.includes(cityNorm))) return true;
+        return (e.location || '').toLowerCase().includes(cityNorm);
+      });
+    }
+
+    if (nearFilter?.radiusKm) {
+      filtered = filtered.filter((e) =>
+        typeof e.distance_km === 'number' ? e.distance_km <= nearFilter.radiusKm + 1e-3 : true
+      );
     }
 
     filtered.sort((a, b) => {
-      if (sort === 'price_asc') return (a.priceFrom ?? Number.POSITIVE_INFINITY) - (b.priceFrom ?? Number.POSITIVE_INFINITY);
-      if (sort === 'price_desc') return (b.priceFrom ?? Number.NEGATIVE_INFINITY) - (a.priceFrom ?? Number.NEGATIVE_INFINITY);
-      if (sort === 'attendees_desc') return (b.attendeeCount ?? 0) - (a.attendeeCount ?? 0);
+      if (sort === 'price_asc') {
+        return (a.priceFrom ?? Number.POSITIVE_INFINITY) - (b.priceFrom ?? Number.POSITIVE_INFINITY);
+      }
+      if (sort === 'price_desc') {
+        return (b.priceFrom ?? Number.NEGATIVE_INFINITY) - (a.priceFrom ?? Number.NEGATIVE_INFINITY);
+      }
+      if (sort === 'attendees_desc') {
+        return (b.attendeeCount ?? 0) - (a.attendeeCount ?? 0);
+      }
+      if (nearFilter) {
+        const distA = typeof a.distance_km === 'number' ? a.distance_km : Number.POSITIVE_INFINITY;
+        const distB = typeof b.distance_km === 'number' ? b.distance_km : Number.POSITIVE_INFINITY;
+        if (distA !== distB) return distA - distB;
+      }
       const dateA = a.start_at ? new Date(a.start_at).getTime() : Number.POSITIVE_INFINITY;
       const dateB = b.start_at ? new Date(b.start_at).getTime() : Number.POSITIVE_INFINITY;
       return dateA - dateB;
     });
 
     return filtered;
-  }, [transformedResults, min, max, sort, city]);
+  }, [transformedResults, min, max, sort, city, near]);
 
   const boostedResults = useMemo(() => {
     return (searchBoosts ?? [])
       .filter((row) => row && row.event_id)
-      .map((row) => ({
-        id: row.event_id,
-        title: row.event_title ?? row.headline ?? 'Promoted Event',
-        description: row.event_description ?? row.body_text ?? '',
-        organizer: row.organizer_name ?? 'Organizer',
-        organizerId: row.organizer_id ?? row.event_id,
-        category: row.event_category ?? 'Other',
-        date: row.event_starts_at
-          ? new Date(row.event_starts_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-          : 'TBA',
-        start_at: row.event_starts_at,
-        location: row.event_location ?? row.event_city ?? 'TBA',
-        coverImage:
-          row.event_cover_image ??
-          'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
-        attendeeCount: undefined,
-        priceFrom: undefined,
-        rating: 4.6,
-        promotion: {
+      .map((row) => {
+        const locationDetails = parseLocationLabel(row.event_location ?? row.event_city ?? row.event_region ?? null);
+        const rawLat = (row as any).event_latitude ?? (row as any).latitude ?? null;
+        const rawLng = (row as any).event_longitude ?? (row as any).longitude ?? null;
+        return {
+          id: row.event_id,
+          title: row.event_title ?? row.headline ?? 'Promoted Event',
+          description: row.event_description ?? row.body_text ?? '',
+          organizer: row.organizer_name ?? 'Organizer',
+          organizerId: row.organizer_id ?? row.event_id,
+          category: row.event_category ?? 'Other',
+          date: row.event_starts_at
+            ? new Date(row.event_starts_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+            : 'TBA',
+          start_at: row.event_starts_at,
+          location: locationDetails.display,
+          locationDetails,
+          latitude: typeof rawLat === 'number' ? rawLat : null,
+          longitude: typeof rawLng === 'number' ? rawLng : null,
+          distance_km: null,
+          coverImage:
+            row.event_cover_image ??
+            'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
+          attendeeCount: undefined,
+          priceFrom: undefined,
+          rating: 4.6,
+          isVirtual: locationDetails.isVirtual,
+          promotion: {
           placement: 'search_results' as const,
           campaignId: row.campaign_id,
           creativeId: row.creative_id,
@@ -293,7 +477,8 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
           remainingCredits: row.remaining_credits,
           dailyRemainingCredits: row.daily_remaining,
         },
-      }));
+        };
+      });
   }, [searchBoosts]);
 
   const augmentedResults = useMemo(() => {
@@ -322,12 +507,66 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     }
 
     const combined = Array.from(map.values());
-    const promoted = combined
+    const enriched = combined.map((event) => {
+      if (!near) return event;
+      if (typeof event.latitude === 'number' && typeof event.longitude === 'number') {
+        const computed = calculateDistanceKm(near.lat, near.lng, event.latitude, event.longitude);
+        if (Number.isFinite(computed)) {
+          return { ...event, distance_km: computed };
+        }
+      }
+      return event;
+    });
+    const promoted = enriched
       .filter((event) => event.promotion)
       .sort((a, b) => (b.promotion?.priority ?? 0) - (a.promotion?.priority ?? 0));
-    const organic = combined.filter((event) => !event.promotion);
+    const organic = enriched.filter((event) => !event.promotion);
     return [...promoted, ...organic];
-  }, [filteredResults, boostedResults, cat]);
+  }, [filteredResults, boostedResults, cat, near]);
+
+  const locationSuggestions = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number; isVirtual: boolean }>();
+    for (const event of augmentedResults) {
+      const details: LocationDetails | undefined = event.locationDetails;
+      if (!details) continue;
+      if (!details.display || details.display === LOCATION_UNKNOWN) continue;
+      const key = details.display.toLowerCase();
+      const entry = counts.get(key);
+      if (entry) {
+        entry.count += 1;
+        entry.isVirtual = entry.isVirtual || details.isVirtual;
+      } else {
+        counts.set(key, { label: details.display, count: 1, isVirtual: details.isVirtual });
+      }
+    }
+
+    const curated = [
+      { label: 'Online / Virtual', isVirtual: true },
+      { label: 'New York, NY', isVirtual: false },
+      { label: 'Los Angeles, CA', isVirtual: false },
+      { label: 'Austin, TX', isVirtual: false },
+      { label: 'Chicago, IL', isVirtual: false },
+      { label: 'Atlanta, GA', isVirtual: false },
+    ];
+
+    const trending = Array.from(counts.values())
+      .sort((a, b) => b.count - a.count)
+      .map(({ label, isVirtual }) => ({ label, isVirtual }));
+
+    const combined = [...trending, ...curated];
+    const result: { label: string; isVirtual: boolean }[] = [];
+    const seen = new Set<string>();
+
+    for (const item of combined) {
+      const key = item.label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(item);
+      if (result.length >= 6) break;
+    }
+
+    return result;
+  }, [augmentedResults]);
 
   // Pagination
   const PAGE_SIZE = 24;
@@ -364,6 +603,59 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   }, [augmentedResults.length, hasMore, loading, loadMore]);
 
   // helpers to update url params succinctly
+  const setNearLocation = useCallback((next: { lat: number; lng: number; radiusKm?: number; label?: string } | null) => {
+    const nextParams = new URLSearchParams(params);
+    const hadNear = Boolean(near);
+    setLocationError(null);
+
+    if (!next) {
+      nextParams.delete('lat');
+      nextParams.delete('lng');
+      nextParams.delete('radius');
+      nextParams.delete('locLabel');
+      setUserLocationLabel('');
+      setFilters((prev) => ({ ...prev, near: null }));
+      if (hadNear) {
+        trackEvent('search_filter_change', {
+          filter_type: 'near',
+          filter_value: '',
+          query: q,
+          category: cat,
+          results_count: augmentedResults?.length || 0,
+        });
+      }
+    } else {
+      const radiusValue = next.radiusKm && Number.isFinite(next.radiusKm)
+        ? Math.max(1, Math.round(next.radiusKm))
+        : 50;
+      nextParams.set('lat', next.lat.toFixed(4));
+      nextParams.set('lng', next.lng.toFixed(4));
+      nextParams.set('radius', String(radiusValue));
+      if (next.label) {
+        nextParams.set('locLabel', next.label);
+        setUserLocationLabel(next.label);
+      } else {
+        nextParams.delete('locLabel');
+        setUserLocationLabel('');
+      }
+      nextParams.delete('city');
+      setFilters((prev) => ({
+        ...prev,
+        city: null,
+        near: { lat: next.lat, lng: next.lng, radiusKm: radiusValue },
+      }));
+      trackEvent('search_filter_change', {
+        filter_type: 'near',
+        filter_value: `${next.lat.toFixed(4)},${next.lng.toFixed(4)}@${radiusValue}`,
+        query: q,
+        category: cat,
+        results_count: augmentedResults?.length || 0,
+      });
+    }
+
+    setParams(nextParams, { replace: true });
+  }, [params, near, setParams, setFilters, trackEvent, q, cat, augmentedResults]);
+
   const setParam = (k: string, v?: string) => {
     const next = new URLSearchParams(params);
     if (v && v.length) next.set(k, v); else next.delete(k);
@@ -386,6 +678,71 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     setParams(next, { replace: true });
   };
 
+  const requestCurrentLocation = useCallback(() => {
+    if (!navigator?.geolocation) {
+      setLocationError('Location detection is not supported in this browser.');
+      trackEvent('search_location_error', {
+        reason: 'unsupported',
+        query: q,
+        category: cat,
+      });
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsLocating(false);
+        const { latitude, longitude } = position.coords;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          setLocationError('We could not determine your position. Try again in a moment.');
+          return;
+        }
+
+        setNearLocation({
+          lat: latitude,
+          lng: longitude,
+          radiusKm: near?.radiusKm ?? 50,
+          label: 'Near you',
+        });
+
+        trackEvent('search_location_detected', {
+          query: q,
+          category: cat,
+        });
+      },
+      (err) => {
+        setIsLocating(false);
+        const reason = err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable';
+        setLocationError(
+          reason === 'denied'
+            ? 'We need permission to find events near you.'
+            : 'Unable to detect location right now. Try again soon.'
+        );
+        trackEvent('search_location_error', {
+          reason,
+          code: err.code,
+          message: err.message,
+          query: q,
+          category: cat,
+        });
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, [trackEvent, q, cat, near?.radiusKm, setNearLocation]);
+
+  const handleRadiusChange = useCallback((radiusKm: number) => {
+    if (!near) return;
+    setNearLocation({
+      lat: near.lat,
+      lng: near.lng,
+      radiusKm,
+      label: userLocationLabel || 'Near you',
+    });
+  }, [near, setNearLocation, userLocationLabel]);
+
   const clearAll = () => {
     trackEvent('search_filters_clear', {
       previous_query: q,
@@ -395,6 +752,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     setParams(new URLSearchParams(), { replace: true });
     setVisibleCount(PAGE_SIZE);
     clearFilters();
+    setUserLocationLabel('');
   };
 
   // quick chips
@@ -516,122 +874,327 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   }, [visible, user?.id]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 flex flex-col">
       {/* Header */}
-      <div className="border-b bg-card/80 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="w-5 h-5" /></Button>
-            <div className="flex-1 min-w-0 flex items-center gap-3">
-              <Search className="w-6 h-6 text-muted-foreground" />
-              <div>
-                <h1 className="text-xl font-semibold truncate">Search Events</h1>
-                <p className="text-sm text-muted-foreground">Discover amazing events near you</p>
+      <div className="border-b border-border/80 bg-card/70 backdrop-blur">
+        <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+          <div className="flex items-center gap-3 text-muted-foreground/80">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onBack}
+              className="rounded-full border border-transparent hover:border-border/60"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="sr-only">Back</span>
+            </Button>
+            <span className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground/70">Discover</span>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-3 max-w-2xl">
+              <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground">Find your next unforgettable event</h1>
+              <p className="text-base text-muted-foreground">
+                Explore curated experiences from organizers you love. Filter by location, timing, or vibe to surface the perfect match.
+              </p>
+              <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/70 px-3 py-1">
+                  <Sparkles className="w-4 h-4 text-primary" /> Curated daily drops
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1">
+                  <Star className="w-4 h-4 text-primary/80" /> Trusted organizers worldwide
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <div className="rounded-full border border-border/60 bg-background/70 px-4 py-2">
+                {augmentedResults.length > 0 ? `${augmentedResults.length} events available` : 'Fresh events added hourly'}
               </div>
             </div>
           </div>
 
           {/* Search / controls */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <div className="relative flex-1 min-w-[240px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="search-query-input"
-                value={q}
-                onChange={(e) => setParam('q', e.target.value)}
-                placeholder="Search events, organizers, locations… (press / to focus)"
-                className="pl-10"
-              />
+          <div className="mt-8 rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm ring-1 ring-border/50 backdrop-blur-sm md:p-6">
+            <div className="grid gap-4 md:grid-cols-12">
+              <div className="md:col-span-5">
+                <label htmlFor="search-query-input" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Search</label>
+                <div className="relative mt-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="search-query-input"
+                    value={q}
+                    onChange={(e) => setParam('q', e.target.value)}
+                    placeholder="Search events, organizers, or locations (press / to focus)"
+                    className="h-12 rounded-xl border-border/60 bg-background/70 pl-10 text-base transition-all focus-visible:ring-2 focus-visible:ring-primary/40"
+                  />
+                </div>
+              </div>
+
+              <div className="md:col-span-3">
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Location</label>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={city}
+                      onChange={(e) => {
+                        if (near) setNearLocation(null);
+                        setParam('city', e.target.value);
+                      }}
+                      placeholder="Search by city, venue, or go virtual"
+                      className="h-12 w-full rounded-xl border-border/60 bg-background/70 pl-9 text-base focus-visible:ring-2 focus-visible:ring-primary/40"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={requestCurrentLocation}
+                    disabled={isLocating}
+                    className="h-12 w-12 rounded-xl border-border/60 bg-background/70 text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <LocateFixed className={cn('h-5 w-5', isLocating && 'animate-spin text-primary')} />
+                    <span className="sr-only">Use current location</span>
+                  </Button>
+                </div>
+                {locationSuggestions.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {locationSuggestions.map((option) => (
+                      <button
+                        key={option.label}
+                        type="button"
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full border px-3 py-1 transition-colors',
+                          (option.isVirtual ? city === 'online' : city.toLowerCase() === option.label.toLowerCase())
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border/60 hover:border-primary/40 hover:text-foreground'
+                        )}
+                        onClick={() => {
+                          setNearLocation(null);
+                          setParam('city', option.isVirtual ? 'online' : option.label);
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {near && (
+                  <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-primary">
+                        <LocateFixed className="h-3 w-3" />
+                        {userLocationLabel || 'Near you'} · within {Math.round(near.radiusKm)} km
+                      </span>
+                      <button
+                        type="button"
+                        className="text-xs underline-offset-2 hover:underline"
+                        onClick={() => setNearLocation(null)}
+                      >
+                        Clear location
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[10, 25, 50, 100].map((radiusOption) => (
+                        <button
+                          key={radiusOption}
+                          type="button"
+                          className={cn(
+                            'rounded-full border px-3 py-1',
+                            Math.round(near.radiusKm) === radiusOption
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border/60 hover:border-primary/40 hover:text-foreground'
+                          )}
+                          onClick={() => handleRadiusChange(radiusOption)}
+                        >
+                          {radiusOption} km
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {locationError && (
+                  <p className="mt-2 text-xs text-destructive">{locationError}</p>
+                )}
+              </div>
+
+              <div className="md:col-span-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">From</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'mt-2 h-12 w-full justify-start rounded-xl border-border/60 bg-background/70 text-base font-normal hover:bg-background',
+                        !from && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="w-4 h-4 mr-2"/> {from ? format(new Date(from), 'MMM dd, yyyy') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={from ? new Date(from) : undefined} onSelect={(d)=> setParam('from', d ? d.toISOString() : undefined)} className="p-2" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="md:col-span-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">To</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'mt-2 h-12 w-full justify-start rounded-xl border-border/60 bg-background/70 text-base font-normal hover:bg-background',
+                        !to && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="w-4 h-4 mr-2"/> {to ? format(new Date(to), 'MMM dd, yyyy') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={to ? new Date(to) : undefined} onSelect={(d)=> setParam('to', d ? d.toISOString() : undefined)} className="p-2" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="md:col-span-12 flex flex-wrap items-center gap-3 pt-2">
+                <Select value={sort} onValueChange={(v) => setParam('sort', v)}>
+                  <SelectTrigger className="h-12 min-w-[200px] rounded-xl border-border/60 bg-background/70 text-base focus:ring-2 focus:ring-primary/40">
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent className="min-w-[200px]">
+                    <SelectItem value="date_asc">Soonest first</SelectItem>
+                    <SelectItem value="price_asc">Price · Low to High</SelectItem>
+                    <SelectItem value="price_desc">Price · High to Low</SelectItem>
+                    <SelectItem value="attendees_desc">Most popular</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="hidden md:inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1">Quick picks:</span>
+                  <Button variant="secondary" size="sm" onClick={setTonight} className="rounded-full border border-transparent bg-secondary/60 text-secondary-foreground hover:bg-secondary/70">
+                    Tonight
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={setWeekend} className="rounded-full border border-transparent bg-secondary/60 text-secondary-foreground hover:bg-secondary/70">
+                    This weekend
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={set30d} className="rounded-full border border-transparent bg-secondary/60 text-secondary-foreground hover:bg-secondary/70">
+                    Next 30 days
+                  </Button>
+                </div>
+
+                <div className="flex-1" />
+
+                <Popover open={showFilters} onOpenChange={setShowFilters}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="h-12 rounded-xl border-border/60 bg-background/70 px-5 text-base">
+                      <SlidersHorizontal className="w-4 h-4 mr-2" />
+                      More filters
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[360px] p-0" align="end">
+                    <div className="p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium">Refine results</h3>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={clearAll} className="h-8 px-2 text-muted-foreground">Clear all</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setShowFilters(false)} className="h-8 w-8 p-0"><X className="w-4 h-4"/></Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-muted-foreground">Min price ($)</label>
+                          <Input inputMode="numeric" value={min} onChange={(e)=>setParam('min', e.target.value)} placeholder="0" className="mt-1" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Max price ($)</label>
+                          <Input inputMode="numeric" value={max} onChange={(e)=>setParam('max', e.target.value)} placeholder="Any" className="mt-1" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn('justify-start', !from && 'text-muted-foreground')}>
+                              <CalendarIcon className="w-4 h-4 mr-2"/> {from ? format(new Date(from), 'MMM dd, yyyy') : 'From'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={from ? new Date(from) : undefined} onSelect={(d)=> setParam('from', d ? d.toISOString() : undefined)} className="p-2" />
+                          </PopoverContent>
+                        </Popover>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn('justify-start', !to && 'text-muted-foreground')}>
+                              <CalendarIcon className="w-4 h-4 mr-2"/> {to ? format(new Date(to), 'MMM dd, yyyy') : 'To'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={to ? new Date(to) : undefined} onSelect={(d)=> setParam('to', d ? d.toISOString() : undefined)} className="p-2" />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
-            <Input
-              value={city}
-              onChange={(e) => setParam('city', e.target.value)}
-              placeholder="City"
-              className="w-[180px]"
-            />
+            {(q || city || min || max || from || to || (cat !== 'All') || near) && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {cat !== 'All' && <FilterChip label={`Category: ${cat}`} onClear={()=>setParam('cat','All')} />}
+                {q && <FilterChip label={`"${q}"`} onClear={()=>setParam('q')} />}
+                {city && <FilterChip label={`City: ${city === 'online' ? 'Online / Virtual' : city}`} onClear={()=>setParam('city')} />}
+                {near && (
+                  <FilterChip
+                    label={`Within ${Math.round(near.radiusKm)} km${userLocationLabel ? ` · ${userLocationLabel}` : ''}`}
+                    onClear={() => setNearLocation(null)}
+                  />
+                )}
+                {min && <FilterChip label={`Min $${min}`} onClear={()=>setParam('min')} />}
+                {max && <FilterChip label={`Max $${max}`} onClear={()=>setParam('max')} />}
+                {from && <FilterChip label={`From ${format(new Date(from),'MMM dd')}`} onClear={()=>setParam('from')} />}
+                {to && <FilterChip label={`To ${format(new Date(to),'MMM dd')}`} onClear={()=>setParam('to')} />}
+                <Button variant="ghost" size="sm" onClick={clearAll} className="h-8">Reset</Button>
+              </div>
+            )}
 
-            <Select value={sort} onValueChange={(v) => setParam('sort', v)}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Sort" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date_asc">Sort by date</SelectItem>
-                <SelectItem value="price_asc">Price: Low → High</SelectItem>
-                <SelectItem value="price_desc">Price: High → Low</SelectItem>
-                <SelectItem value="attendees_desc">Most popular</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Popover open={showFilters} onOpenChange={setShowFilters}>
-              <PopoverTrigger asChild>
-                <Button variant="outline"><SlidersHorizontal className="w-4 h-4 mr-2" />Filters</Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[360px] p-0" align="end">
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium">Filters</h3>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={clearAll} className="h-8 px-2 text-muted-foreground">Clear all</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setShowFilters(false)} className="h-8 w-8 p-0"><X className="w-4 h-4"/></Button>
-                    </div>
-                  </div>
-
-                  {/* Quick date chips */}
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" size="sm" onClick={setTonight}>Tonight</Button>
-                    <Button variant="secondary" size="sm" onClick={setWeekend}>This weekend</Button>
-                    <Button variant="secondary" size="sm" onClick={set30d}>Next 30 days</Button>
-                  </div>
-
-                  {/* Price */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-muted-foreground">Min price ($)</label>
-                      <Input inputMode="numeric" value={min} onChange={(e)=>setParam('min', e.target.value)} placeholder="0" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Max price ($)</label>
-                      <Input inputMode="numeric" value={max} onChange={(e)=>setParam('max', e.target.value)} placeholder="Any" />
-                    </div>
-                  </div>
-
-                  {/* Date range */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn('justify-start', !from && 'text-muted-foreground')}>
-                          <CalendarIcon className="w-4 h-4 mr-2"/> {from ? format(new Date(from), 'MMM dd, yyyy') : 'From'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={from ? new Date(from) : undefined} onSelect={(d)=> setParam('from', d ? d.toISOString() : undefined)} className="p-2" />
-                      </PopoverContent>
-                    </Popover>
-
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn('justify-start', !to && 'text-muted-foreground')}>
-                          <CalendarIcon className="w-4 h-4 mr-2"/> {to ? format(new Date(to), 'MMM dd, yyyy') : 'To'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={to ? new Date(to) : undefined} onSelect={(d)=> setParam('to', d ? d.toISOString() : undefined)} className="p-2" />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+            {!q && recent.length > 0 && (
+              <div className="mt-4 border-t border-dashed border-border/60 pt-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recent searches</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {recent.map((r) => (
+                    <button
+                      key={r}
+                      className="group inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                      onClick={() => setParam('q', r)}
+                      aria-label={`Use recent search ${r}`}
+                    >
+                      {r}
+                      <span
+                        className="ml-1 rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                        onClick={(e) => { e.stopPropagation(); removeRecent(r); }}
+                      >
+                        ×
+                      </span>
+                    </button>
+                  ))}
                 </div>
-              </PopoverContent>
-            </Popover>
+              </div>
+            )}
           </div>
 
-          {/* Categories */}
-          <div className="mt-3 overflow-x-auto">
-            <div className="flex gap-2 min-w-max pb-2">
+          <div className="mt-6 overflow-x-auto">
+            <div className="flex min-w-max items-center gap-2 pb-2">
               {categories.map((c) => (
                 <Button
                   key={c}
-                  variant={cat === c ? 'default' : 'outline'}
+                  variant={cat === c ? 'default' : 'ghost'}
                   size="sm"
-                  className="rounded-full"
+                  className={cn('rounded-full border border-transparent px-4 py-1.5 text-sm transition-colors', cat === c ? 'shadow-sm' : 'border-border/60 hover:border-primary/40 hover:bg-primary/5')}
                   onClick={()=> setParam('cat', cat === c ? 'All' : c)}
                 >
                   {c}
@@ -639,45 +1202,6 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               ))}
             </div>
           </div>
-
-          {/* Active chips */}
-          {(q || city || min || max || from || to || (cat !== 'All')) && (
-            <div className="flex flex-wrap gap-2 pt-2">
-              {cat !== 'All' && <FilterChip label={`Category: ${cat}`} onClear={()=>setParam('cat','All')} />}
-              {q && <FilterChip label={`"${q}"`} onClear={()=>setParam('q')} />}
-              {city && <FilterChip label={`City: ${city}`} onClear={()=>setParam('city')} />}
-              {min && <FilterChip label={`Min $${min}`} onClear={()=>setParam('min')} />}
-              {max && <FilterChip label={`Max $${max}`} onClear={()=>setParam('max')} />}
-              {from && <FilterChip label={`From ${format(new Date(from),'MMM dd')}`} onClear={()=>setParam('from')} />}
-              {to && <FilterChip label={`To ${format(new Date(to),'MMM dd')}`} onClear={()=>setParam('to')} />}
-              <Button variant="ghost" size="sm" onClick={clearAll} className="h-8">Reset</Button>
-            </div>
-          )}
-
-          {/* Recent searches */}
-          {!q && recent.length > 0 && (
-            <div className="mt-2">
-              <div className="text-xs text-muted-foreground mb-1">Recent searches</div>
-              <div className="flex flex-wrap gap-2">
-                {recent.map((r) => (
-                  <button
-                    key={r}
-                    className="px-2 py-1 rounded bg-muted text-foreground/90 hover:bg-muted/80 text-xs"
-                    onClick={() => setParam('q', r)}
-                    aria-label={`Use recent search ${r}`}
-                  >
-                    {r}
-                    <span
-                      className="ml-2 text-foreground/60 hover:text-foreground"
-                      onClick={(e) => { e.stopPropagation(); removeRecent(r); }}
-                    >
-                      ×
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -694,6 +1218,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
                 {recommendations.slice(0, 6).map(rec => {
+                  const locationDetails = parseLocationLabel(rec.venue || rec.city || rec.region || null);
                   const eventForCard = {
                     id: rec.event_id,
                     title: rec.title,
@@ -701,12 +1226,16 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                     category: rec.category,
                     start_at: rec.starts_at,
                     date: rec.starts_at,
-                    location: rec.venue || (rec.distance_km ? `${rec.distance_km.toFixed(1)} km away` : 'Location TBD'),
-                    distance_km: rec.distance_km,
+                    location: locationDetails.display,
+                    locationDetails,
+                    latitude: typeof rec.latitude === 'number' ? rec.latitude : undefined,
+                    longitude: typeof rec.longitude === 'number' ? rec.longitude : undefined,
+                    distance_km: rec.distance_km ?? null,
                     coverImage: rec.cover_image_url || `/images/placeholders/event-cover-fallback.jpg`,
                     priceFrom: rec.min_price || undefined, // Use actual pricing data
                     rating: 4.2,
-                    attendeeCount: undefined // Don't show attending count as requested
+                    attendeeCount: undefined, // Don't show attending count as requested
+                    isVirtual: locationDetails.isVirtual,
                   };
 
                   return (

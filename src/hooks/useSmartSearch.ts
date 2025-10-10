@@ -6,6 +6,12 @@ export type SearchFilters = {
   category?: string | null;
   dateFrom?: string | null; // ISO string
   dateTo?: string | null;   // ISO string
+  city?: string | null;
+  near?: {
+    lat: number;
+    lng: number;
+    radiusKm?: number | null;
+  } | null;
   onlyEvents?: boolean;
 };
 
@@ -89,12 +95,36 @@ export function useSmartSearch(options: string | UseSmartSearchOptions = '') {
   const lastQueryKeyRef = useRef<string>('');
 
   const debouncedQ = useMemo(() => qState.trim(), [qState]);
-  const normalizedFilters = useMemo(() => ({
-    category: filtersState.category ?? null,
-    dateFrom: filtersState.dateFrom ?? null,
-    dateTo: filtersState.dateTo ?? null,
-    onlyEvents: filtersState.onlyEvents ?? false,
-  }), [filtersState]);
+  const normalizedFilters = useMemo(() => {
+    const nearRaw = filtersState.near;
+    let nearNormalized: SearchFilters['near'] = null;
+
+    if (nearRaw) {
+      const lat = Number(nearRaw.lat);
+      const lng = Number(nearRaw.lng);
+      const radiusValue =
+        nearRaw.radiusKm === undefined || nearRaw.radiusKm === null
+          ? null
+          : Number(nearRaw.radiusKm);
+
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        nearNormalized = {
+          lat,
+          lng,
+          radiusKm: radiusValue !== null && Number.isFinite(radiusValue) ? radiusValue : null,
+        };
+      }
+    }
+
+    return {
+      category: filtersState.category ?? null,
+      dateFrom: filtersState.dateFrom ?? null,
+      dateTo: filtersState.dateTo ?? null,
+      city: filtersState.city ?? null,
+      near: nearNormalized,
+      onlyEvents: filtersState.onlyEvents ?? false,
+    };
+  }, [filtersState]);
 
   const filtersKey = useMemo(() => JSON.stringify(normalizedFilters), [normalizedFilters]);
   const queryKey = useMemo(
