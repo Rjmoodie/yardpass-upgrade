@@ -19,7 +19,6 @@ import {
   Activity,
   Clock,
 } from 'lucide-react';
-import { Dialog, DialogContent, BottomSheetContent } from '@/components/ui/dialog';
 import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
@@ -205,6 +204,26 @@ export default function UserProfilePage() {
   const { sharePost } = useShare();
   const { toggleLike } = useOptimisticReactions();
   const profileUserId = profile?.user_id;
+
+  const attendedCount = tickets.length;
+  const redeemedCount = useMemo(
+    () => tickets.filter((ticket) => ticket.status === 'redeemed').length,
+    [tickets]
+  );
+
+  const upcomingEvent = useMemo(() => {
+    const now = Date.now();
+    return [...events]
+      .filter((event) => new Date(event.start_at).getTime() >= now)
+      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0];
+  }, [events]);
+
+  const mostRecentEvent = useMemo(() => {
+    return [...events]
+      .sort((a, b) => new Date(b.start_at).getTime() - new Date(a.start_at).getTime())[0];
+  }, [events]);
+
+  const mostRecentTicket = useMemo(() => tickets[0], [tickets]);
 
   // derived
   const initials = useMemo(
@@ -755,15 +774,9 @@ export default function UserProfilePage() {
               </TabsList>
 
               <TabsContent value="posts" className="mt-6 rounded-2xl border border-border/40 bg-background/70 p-1 sm:p-3">
-                <MediaPostGrid
-                  posts={profilePosts}
-                  isLoading={postsLoading}
-                  loadingMore={postsLoadingMore}
-                  onSelect={handleSelectPost}
-                  loadMoreRef={postsHasMore ? postsLoadMoreRef : undefined}
-                  fallbackImage={profile.photo_url || DEFAULT_EVENT_COVER}
-                  emptyTitle="No posts yet"
-                  emptyDescription="When this user shares highlights, they'll appear here."
+                <EventFeed
+                  userId={profile.user_id}
+                  onEventClick={(eventId) => navigate(routes.event(eventId))}
                 />
               </TabsContent>
 
@@ -882,6 +895,13 @@ export default function UserProfilePage() {
                                   </span>
                                 )}
                               </div>
+
+                              <Badge
+                                variant={ticket.status === 'redeemed' ? 'default' : 'secondary'}
+                                className="self-start rounded-full capitalize"
+                              >
+                                {ticket.status}
+                              </Badge>
                             </div>
                           </div>
                         </CardContent>
@@ -897,53 +917,6 @@ export default function UserProfilePage() {
                 )}
               </TabsContent>
             </Tabs>
-
-            <Dialog
-              open={Boolean(selectedPost)}
-              onOpenChange={(open) => {
-                if (!open) setSelectedPost(null);
-              }}
-            >
-              {selectedPost ? (
-                isMobile ? (
-                  <BottomSheetContent className="max-h-[90vh] overflow-y-auto">
-                    <UserPostCard
-                      item={selectedPost}
-                      onLike={(postId) => handleLike(postId)}
-                      onComment={() => {}}
-                      onShare={(postId) => handleSharePost(postId)}
-                      onEventClick={(eventId) => handleModalEventClick(eventId)}
-                      onAuthorClick={handleAuthorClick}
-                      onCreatePost={() => {}}
-                      onReport={() => {}}
-                      onSoundToggle={() => {}}
-                      onVideoToggle={() => {}}
-                      onOpenTickets={(eventId) => handleModalEventClick(eventId)}
-                      soundEnabled={false}
-                      isVideoPlaying={false}
-                    />
-                  </BottomSheetContent>
-                ) : (
-                  <DialogContent className="max-h-[90vh] w-full max-w-3xl overflow-y-auto">
-                    <UserPostCard
-                      item={selectedPost}
-                      onLike={(postId) => handleLike(postId)}
-                      onComment={() => {}}
-                      onShare={(postId) => handleSharePost(postId)}
-                      onEventClick={(eventId) => handleModalEventClick(eventId)}
-                      onAuthorClick={handleAuthorClick}
-                      onCreatePost={() => {}}
-                      onReport={() => {}}
-                      onSoundToggle={() => {}}
-                      onVideoToggle={() => {}}
-                      onOpenTickets={(eventId) => handleModalEventClick(eventId)}
-                      soundEnabled={false}
-                      isVideoPlaying={false}
-                    />
-                  </DialogContent>
-                )
-              ) : null}
-            </Dialog>
           </section>
 
           <aside className="space-y-4 lg:space-y-6">
