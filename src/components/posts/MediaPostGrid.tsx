@@ -2,7 +2,7 @@ import { Play } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isVideoUrl } from '@/utils/mux';
-import { muxToPoster } from '@/utils/media';
+import { muxToPoster } from '@/lib/video/muxClient';
 
 export type MediaPost = {
   id: string;

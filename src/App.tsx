@@ -339,22 +339,7 @@ function AppContent() {
                 path="/profile"
                 element={
                   <AuthGuard>
-                    <UserDependentRoute>
-                      {(user, profile) => (
-                        <UserProfile
-                          user={{
-                            id: user.id,
-                            name: profile?.display_name || 'User',
-                            phone: profile?.phone || '',
-                            role: (profile?.role as UserRole) || 'attendee',
-                            isVerified:
-                              profile?.verification_status === 'verified' || profile?.verification_status === 'pro',
-                          }}
-                          onRoleToggle={handleRoleToggle}
-                          onBack={() => navigate('/')}
-                        />
-                      )}
-                    </UserDependentRoute>
+                    <UserProfilePage />
                   </AuthGuard>
                 }
               />

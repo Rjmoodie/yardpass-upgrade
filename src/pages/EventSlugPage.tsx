@@ -25,6 +25,8 @@ import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { UserPostCard } from '@/components/UserPostCard';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
+import { Skeleton } from '@/components/ui/skeleton';
+import { isVideoUrl, muxToPoster } from '@/utils/mux';
 import MapboxEventMap from '@/components/MapboxEventMap';
 
 /**
@@ -150,7 +152,7 @@ function GridSkeleton({ count = 9 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4">
       {Array.from({ length: count }).map((_, idx) => (
-        <Skeleton key={idx} className="aspect-square rounded-2xl border border-white/10 bg-white/5" />
+        <Skeleton key={idx} className="aspect-square rounded-2xl border border-border/50 bg-card/50" />
       ))}
     </div>
   );
@@ -158,9 +160,9 @@ function GridSkeleton({ count = 9 }: { count?: number }) {
 
 function GridEmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/5 text-center">
-      <p className="text-sm font-semibold text-white">{title}</p>
-      <p className="max-w-[260px] text-xs text-white/60">{description}</p>
+    <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/50 bg-card/50 text-center">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="max-w-[260px] text-xs text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -191,13 +193,13 @@ function EventPostGrid({ posts, isLoading, loadingMore, onSelect, loadMoreRef, f
               key={post.id}
               type="button"
               onClick={() => onSelect(post)}
-              className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/10 to-white/[0.06] shadow-sm ring-1 ring-black/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              className="relative aspect-square overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-b from-card/50 to-card/30 shadow-sm ring-1 ring-black/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
               aria-label={post.author_name ? `View post from ${post.author_name}` : 'View post'}
             >
               {mediaUrl ? (
                 <ImageWithFallback src={preview} alt={post.author_name ? `Post from ${post.author_name}` : 'Event post media'} fallback={fallbackImage} className="h-full w-full object-cover" loading="lazy" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/10 to-white/5 px-4 text-center text-xs text-white/70">
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/40 to-muted/20 px-4 text-center text-xs text-muted-foreground">
                   {post.text ? post.text.slice(0, 120) : 'Post'}
                 </div>
               )}
