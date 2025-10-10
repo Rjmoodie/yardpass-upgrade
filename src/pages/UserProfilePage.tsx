@@ -5,6 +5,7 @@ import { Crown, ArrowLeft, Settings, Users, Ticket, Calendar, MapPin } from 'luc
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { UserPostCard } from '@/components/UserPostCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,7 +38,6 @@ interface UserTicket {
     title: string;
     cover_image_url: string | null;
     start_at: string | null;
-    location: string | null;
   } | null;
 }
 
@@ -47,8 +47,8 @@ interface UserEvent {
   cover_image_url: string | null;
   start_at: string | null;
   end_at: string | null;
-  location: string | null;
 }
+
 
 interface ProfilePostWithEvent {
   id: string;
@@ -62,7 +62,6 @@ interface ProfilePostWithEvent {
     title: string;
     cover_image_url: string | null;
     start_at: string | null;
-    location: string | null;
   } | null;
 }
 
@@ -88,7 +87,7 @@ const normalizeSocialLinks = (value: unknown): SocialLink[] => {
   return [];
 };
 
-const toFeedItem = (post: ProfilePostWithEvent, profile: UserProfile | null): FeedItem => {
+const toFeedItem = (post: ProfilePostWithEvent, profile: UserProfile | null): FeedItem & { item_type: 'post' } => {
   const event = post.events;
 
   return {
@@ -103,7 +102,7 @@ const toFeedItem = (post: ProfilePostWithEvent, profile: UserProfile | null): Fe
     event_organizer: '',
     event_organizer_id: null,
     event_owner_context_type: 'event',
-    event_location: event?.location ?? '',
+    event_location: '',
     author_id: profile?.user_id ?? null,
     author_name: profile?.display_name ?? null,
     author_badge: profile?.role === 'organizer' ? 'ORGANIZER' : null,
@@ -171,7 +170,7 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     const loadUserData = async (userId: string) => {
-      const [ticketsResult, eventsResult, postsResult] = await Promise.all([
+      const [ticketsResult, eventsResult, postsResult]: [any, any, any] = await Promise.all([
         supabase
           .from('tickets')
           .select(
@@ -179,22 +178,22 @@ export default function UserProfilePage() {
               id,
               status,
               created_at,
-              events (
+              events!tickets_event_id_fkey (
                 id,
                 title,
                 cover_image_url,
-                start_at,
-                location
+                start_at
               )
             `
           )
-          .eq('user_id', userId)
+          .eq('owner_user_id', userId)
           .order('created_at', { ascending: false }),
         supabase
           .from('events')
-          .select('id, title, cover_image_url, start_at, end_at, location')
+          .select('*')
           .eq('organizer_id', userId)
-          .order('start_at', { ascending: false }),
+          .order('start_at', { ascending: false })
+,
         supabase
           .from('event_posts')
           .select(
@@ -209,8 +208,7 @@ export default function UserProfilePage() {
                 id,
                 title,
                 cover_image_url,
-                start_at,
-                location
+                start_at
               )
             `
           )
@@ -223,13 +221,15 @@ export default function UserProfilePage() {
       }
       if (eventsResult.error) {
         console.error('Error loading events:', eventsResult.error);
+      } else {
+        console.log('Events loaded successfully:', eventsResult.data);
       }
       if (postsResult.error) {
         console.error('Error loading posts:', postsResult.error);
       }
 
       setTickets((ticketsResult.data as UserTicket[] | null) ?? []);
-      setEvents((eventsResult.data as UserEvent[] | null) ?? []);
+      setEvents((eventsResult.data as any) ?? []);
       setPosts((postsResult.data as ProfilePostWithEvent[] | null) ?? []);
     };
 
@@ -251,7 +251,6 @@ export default function UserProfilePage() {
           if (!result.data) {
             setProfile(null);
             setTickets([]);
-            setEvents([]);
             setPosts([]);
             return;
           }
@@ -268,6 +267,7 @@ export default function UserProfilePage() {
           };
 
           setProfile(userProfile);
+          setActiveRoleView(userProfile.role === 'organizer' ? 'organizer' : 'attendee');
           await loadUserData(userProfile.user_id);
           return;
         }
@@ -285,6 +285,7 @@ export default function UserProfilePage() {
           };
 
           setProfile(userProfile);
+          setActiveRoleView(userProfile.role === 'organizer' ? 'organizer' : 'attendee');
           await loadUserData(userProfile.user_id);
           return;
         }
@@ -310,15 +311,32 @@ export default function UserProfilePage() {
 
   const feedItems = useMemo(() => posts.map((post) => toFeedItem(post, profile)), [posts, profile]);
 
-  const stats = useMemo(
+  const statsByRole = useMemo(
     () => ({
-      posts: posts.length,
-      eventsAttended: tickets.length,
-      eventsHosted: events.length,
-      totalReactions: posts.reduce((sum, post) => sum + (post.like_count ?? 0) + (post.comment_count ?? 0), 0),
+      attendee: [
+        { label: 'Posts', value: posts.length },
+        { label: 'Events attended', value: tickets.length },
+        { label: 'Total reactions', value: posts.reduce((sum, post) => sum + (post.like_count ?? 0) + (post.comment_count ?? 0), 0) },
+      ],
+      organizer: [
+        { label: 'Posts', value: posts.length },
+        { label: 'Events hosted', value: events.length },
+        { label: 'Total reactions', value: posts.reduce((sum, post) => sum + (post.like_count ?? 0) + (post.comment_count ?? 0), 0) },
+      ],
     }),
-    [posts, tickets.length, events.length]
+    [posts.length, tickets.length, events.length]
   );
+
+  const displayedStats = statsByRole[activeRoleView];
+  
+  // Debug logging
+  console.log('Current state:', {
+    activeRoleView,
+    eventsCount: events.length,
+    ticketsCount: tickets.length,
+    postsCount: posts.length,
+    displayedStats
+  });
 
   if (loading) {
     return <LoadingState />;
@@ -403,31 +421,50 @@ export default function UserProfilePage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Card className="border-border/50 bg-background/70">
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Posts</p>
-                <p className="text-2xl font-semibold">{stats.posts}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 bg-background/70">
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Events attended</p>
-                <p className="text-2xl font-semibold">{stats.eventsAttended}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 bg-background/70">
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Events hosted</p>
-                <p className="text-2xl font-semibold">{stats.eventsHosted}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 bg-background/70">
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Total reactions</p>
-                <p className="text-2xl font-semibold">{stats.totalReactions}</p>
-              </CardContent>
-            </Card>
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                Activity overview {activeRoleView === 'organizer' ? '(Organizer View)' : '(Attendee View)'}
+              </h2>
+              <ToggleGroup
+                type="single"
+                value={activeRoleView}
+                onValueChange={(value) => {
+                  console.log('Toggle changed to:', value);
+                  if (value === 'attendee' || value === 'organizer') {
+                    setActiveRoleView(value);
+                    console.log('Active role view set to:', value);
+                  }
+                }}
+                variant="outline"
+                className="w-fit rounded-full bg-background/80 p-1"
+                aria-label="Toggle between attendee and organizer stats"
+              >
+                <ToggleGroupItem 
+                  value="attendee" 
+                  className="rounded-full px-4 py-2 text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  Attendee view
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="organizer" 
+                  className="rounded-full px-4 py-2 text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  Organizer view
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {displayedStats.map((stat) => (
+                <Card key={stat.label} className="border-border/50 bg-background/70">
+                  <CardContent className="p-4">
+                    <p className="text-sm text-muted-foreground">{stat.label}</p>
+                    <p className="text-2xl font-semibold">{stat.value}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -473,7 +510,8 @@ export default function UserProfilePage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 bg-background/80">
+          {activeRoleView === 'attendee' ? (
+            <Card className="border-border/50 bg-background/80">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Ticket className="h-5 w-5" /> Recent tickets
@@ -508,12 +546,6 @@ export default function UserProfilePage() {
                               <Calendar className="h-4 w-4" />
                               {formatDate(event.start_at)}
                             </span>
-                            {event.location && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="h-4 w-4" />
-                                {event.location}
-                              </span>
-                            )}
                           </div>
                           <Badge variant={ticket.status === 'redeemed' ? 'default' : 'secondary'} className="capitalize">
                             {ticket.status ?? 'pending'}
@@ -528,6 +560,40 @@ export default function UserProfilePage() {
               )}
             </CardContent>
           </Card>
+          ) : (
+            <Card className="border-border/50 bg-background/80">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" /> Dashboard
+                </CardTitle>
+                <CardDescription>Overview of your organized events and activity.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {events.length > 0 ? (
+                  events.slice(0, 5).map((event) => (
+                    <button
+                      type="button"
+                      key={event.id}
+                      onClick={() => navigate(routes.event(event.id))}
+                      className="w-full rounded-2xl border border-border/40 bg-background/60 p-4 text-left transition hover:border-primary/50 hover:shadow-sm"
+                    >
+                      <div className="flex flex-col gap-2">
+                        <p className="truncate font-semibold">{event.title}</p>
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            {formatDate(event.start_at)}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No events to manage yet.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </section>
 
         <aside className="w-full space-y-6 lg:w-1/3">
@@ -579,41 +645,37 @@ export default function UserProfilePage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 bg-background/80">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" /> Upcoming hosted events
-              </CardTitle>
-              <CardDescription>Events organized by {profile.display_name}.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              {events.length > 0 ? (
-                events.slice(0, 3).map((event) => (
-                  <button
-                    key={event.id}
-                    type="button"
-                    onClick={() => navigate(routes.event(event.id))}
-                    className="w-full rounded-2xl border border-border/40 bg-background/60 p-4 text-left transition hover:border-primary/50 hover:shadow-sm"
-                  >
-                    <p className="font-semibold">{event.title}</p>
-                    <p className="mt-1 flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="h-4 w-4" /> {formatDate(event.start_at)}
-                    </p>
-                    {event.location && (
+          {activeRoleView === 'organizer' && (
+            <Card className="border-border/50 bg-background/80">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" /> Event Management
+                </CardTitle>
+                <CardDescription>Quick access to your organized events.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                {events.length > 0 ? (
+                  events.slice(0, 3).map((event) => (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => navigate(routes.event(event.id))}
+                      className="w-full rounded-2xl border border-border/40 bg-background/60 p-4 text-left transition hover:border-primary/50 hover:shadow-sm"
+                    >
+                      <p className="font-semibold">{event.title}</p>
                       <p className="mt-1 flex items-center gap-2 text-muted-foreground">
-                        <MapPin className="h-4 w-4" /> {event.location}
+                        <Calendar className="h-4 w-4" /> {formatDate(event.start_at)}
                       </p>
-                    )}
-                  </button>
-                ))
-              ) : (
-                <p className="text-muted-foreground">No hosted events to display.</p>
-              )}
-            </CardContent>
-          </Card>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground">No events to manage yet.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </aside>
       </main>
     </div>
   );
 }
-
