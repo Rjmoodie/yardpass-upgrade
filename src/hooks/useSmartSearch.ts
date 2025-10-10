@@ -6,6 +6,12 @@ export type SearchFilters = {
   category?: string | null;
   dateFrom?: string | null; // ISO string
   dateTo?: string | null;   // ISO string
+  city?: string | null;
+  near?: {
+    lat: number;
+    lng: number;
+    radiusKm?: number | null;
+  } | null;
   onlyEvents?: boolean;
   location?: string | null; // Location/city filter
 };

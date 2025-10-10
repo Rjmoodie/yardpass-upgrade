@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { ArrowLeft, Search, X, SlidersHorizontal, Calendar as CalendarIcon, Star, Sparkles } from 'lucide-react';
+import { ArrowLeft, Search, X, SlidersHorizontal, Calendar as CalendarIcon, Star, Sparkles, MapPin, LocateFixed } from 'lucide-react';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useRecommendations } from '@/hooks/useRecommendations';
 import { useInteractionTracking } from '@/hooks/useInteractionTracking';
@@ -78,6 +78,102 @@ const mockSearchResults = [
   }
 ];
 
+const LOCATION_UNKNOWN = 'Location TBD';
+const EARTH_RADIUS_KM = 6371;
+
+type LocationDetails = {
+  full: string;
+  short: string;
+  display: string;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  isVirtual: boolean;
+  keywords: string[];
+};
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function calculateDistanceKm(
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number,
+) {
+  const lat1 = toRadians(fromLat);
+  const lat2 = toRadians(toLat);
+  const deltaLat = toRadians(toLat - fromLat);
+  const deltaLng = toRadians(toLng - fromLng);
+
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_KM * c;
+}
+
+function parseLocationLabel(raw: string | null | undefined): LocationDetails {
+  if (!raw || !raw.trim()) {
+    return {
+      full: LOCATION_UNKNOWN,
+      short: LOCATION_UNKNOWN,
+      display: LOCATION_UNKNOWN,
+      city: null,
+      state: null,
+      country: null,
+      isVirtual: false,
+      keywords: [],
+    };
+  }
+
+  const trimmed = raw.trim();
+  const isVirtual = /(online|virtual|remote|livestream|webinar)/i.test(trimmed);
+  const cleaned = trimmed
+    .replace(/\s*\(.*?\)\s*/g, ' ')
+    .replace(/\s*\|.*$/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  const segments = cleaned
+    .split(/[•\-]/)
+    .map((segment) => segment.split(',').map((part) => part.trim()))
+    .flat()
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const city = segments[0] ?? null;
+  const state = segments.length > 1 ? segments[1] ?? null : null;
+  const country = segments.length > 2 ? segments[segments.length - 1] ?? null : null;
+  const short = isVirtual
+    ? 'Online event'
+    : segments.slice(0, Math.min(2, segments.length)).join(', ') || cleaned;
+  const display = isVirtual
+    ? 'Online / Virtual'
+    : [city, state].filter(Boolean).join(', ') || short || LOCATION_UNKNOWN;
+
+  const keywordSet = new Set<string>();
+  segments.forEach((segment) => {
+    if (segment) keywordSet.add(segment.toLowerCase());
+  });
+  if (isVirtual) {
+    keywordSet.add('online');
+    keywordSet.add('virtual');
+  }
+
+  return {
+    full: trimmed,
+    short,
+    display,
+    city,
+    state,
+    country,
+    isVirtual,
+    keywords: Array.from(keywordSet),
+  };
+}
+
 const LOCAL_RECENT_KEY = 'yp_recent_searches';
 
 export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
@@ -101,6 +197,10 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const max = params.get('max') || '';
   const from = params.get('from') || '';
   const to = params.get('to') || '';
+  const latParam = params.get('lat');
+  const lngParam = params.get('lng');
+  const radiusParam = params.get('radius');
+  const locationLabelParam = params.get('locLabel') || '';
 
   // recent searches
   const [recent, setRecent] = useState<string[]>(() => {
@@ -144,16 +244,37 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
 
   const [showFilters, setShowFilters] = useState(false);
 
+  const near = useMemo(() => {
+    if (!latParam || !lngParam) return null;
+    const lat = Number(latParam);
+    const lng = Number(lngParam);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const radius = radiusParam ? Number(radiusParam) : 50;
+    const radiusKm = Number.isFinite(radius) && radius > 0 ? radius : 50;
+    return { lat, lng, radiusKm };
+  }, [latParam, lngParam, radiusParam]);
+
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [userLocationLabel, setUserLocationLabel] = useState(locationLabelParam);
+
+  useEffect(() => {
+    setUserLocationLabel(locationLabelParam);
+  }, [locationLabelParam]);
+
   // Sync URL params with search hook
   useEffect(() => {
     setSearchQuery(q);
   }, [q, setSearchQuery]);
 
   useEffect(() => {
-    setFilters({
+    setFilters((prev) => ({
+      ...prev,
       category: cat !== 'All' ? cat : null,
       dateFrom: from || null,
       dateTo: to || null,
+      city: city || null,
+      near,
       onlyEvents: true, // Filter to events only at the source
       location: city || null, // Add location filter
     });
@@ -208,32 +329,65 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   // Transform verified events only
   const transformedResults = useMemo(() => {
     const rows = eventHits.filter(h => validEventIds.has(h.item_id));
-    return rows.map(result => ({
-      id: result.item_id,
-      title: result.title,
-      description: result.description || result.content || '',
-      organizer: result.organizer_name || 'Organizer',
-      organizerId: result.item_id,
-      category: result.category || 'Other',
-      date: result.start_at
-        ? new Date(result.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-        : 'TBA',
-      start_at: result.start_at,
-      location: result.location || 'TBA',
-      coverImage:
-        result.cover_image_url ||
-        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
-      attendeeCount: undefined, // TODO: get real metrics
-      priceFrom: undefined,     // TODO: get real pricing
-      rating: 4.2,
-      type: 'event',
-      parentEventId: null,
-    }));
+    return rows.map(result => {
+      const locationDetails = parseLocationLabel(result.location);
+      const rawLat = (result as any).latitude ?? (result as any).lat ?? (result as any).geo_lat ?? (result as any).geoLatitude ?? null;
+      const rawLng = (result as any).longitude ?? (result as any).lng ?? (result as any).geo_lng ?? (result as any).geoLongitude ?? null;
+      const baseDistance =
+        (result as any).distance_km ??
+        (result as any).distanceKm ??
+        ((result as any).distance_meters ? (result as any).distance_meters / 1000 : null);
+
+      return {
+        id: result.item_id,
+        title: result.title,
+        description: result.description || result.content || '',
+        organizer: result.organizer_name || 'Organizer',
+        organizerId: result.item_id,
+        category: result.category || 'Other',
+        date: result.start_at
+          ? new Date(result.start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          : 'TBA',
+        start_at: result.start_at,
+        location: locationDetails.display,
+        locationDetails,
+        latitude: typeof rawLat === 'number' ? rawLat : null,
+        longitude: typeof rawLng === 'number' ? rawLng : null,
+        distance_km: typeof baseDistance === 'number' ? baseDistance : null,
+        coverImage:
+          result.cover_image_url ||
+          'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
+        attendeeCount: undefined, // TODO: get real metrics
+        priceFrom: undefined,     // TODO: get real pricing
+        rating: 4.2,
+        type: 'event',
+        parentEventId: null,
+        isVirtual: locationDetails.isVirtual,
+      };
+    });
   }, [eventHits, validEventIds]);
 
   // Client-side filtering for price (until server-side is implemented)
   const filteredResults = useMemo(() => {
-    let filtered = [...transformedResults];
+    const nearFilter = near;
+    const withDistance = transformedResults.map((event) => {
+      let computedDistance = typeof event.distance_km === 'number' ? event.distance_km : null;
+      if (
+        nearFilter &&
+        typeof event.latitude === 'number' &&
+        typeof event.longitude === 'number'
+      ) {
+        computedDistance = calculateDistanceKm(
+          nearFilter.lat,
+          nearFilter.lng,
+          event.latitude,
+          event.longitude,
+        );
+      }
+      return { ...event, distance_km: computedDistance };
+    });
+
+    let filtered = [...withDistance];
 
     if (min) filtered = filtered.filter(e => (e.priceFrom ?? 0) >= Number(min));
     if (max) filtered = filtered.filter(e => (e.priceFrom ?? 1e9) <= Number(max));
@@ -241,9 +395,20 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     // Location filtering is now handled at the database level
 
     filtered.sort((a, b) => {
-      if (sort === 'price_asc') return (a.priceFrom ?? Number.POSITIVE_INFINITY) - (b.priceFrom ?? Number.POSITIVE_INFINITY);
-      if (sort === 'price_desc') return (b.priceFrom ?? Number.NEGATIVE_INFINITY) - (a.priceFrom ?? Number.NEGATIVE_INFINITY);
-      if (sort === 'attendees_desc') return (b.attendeeCount ?? 0) - (a.attendeeCount ?? 0);
+      if (sort === 'price_asc') {
+        return (a.priceFrom ?? Number.POSITIVE_INFINITY) - (b.priceFrom ?? Number.POSITIVE_INFINITY);
+      }
+      if (sort === 'price_desc') {
+        return (b.priceFrom ?? Number.NEGATIVE_INFINITY) - (a.priceFrom ?? Number.NEGATIVE_INFINITY);
+      }
+      if (sort === 'attendees_desc') {
+        return (b.attendeeCount ?? 0) - (a.attendeeCount ?? 0);
+      }
+      if (nearFilter) {
+        const distA = typeof a.distance_km === 'number' ? a.distance_km : Number.POSITIVE_INFINITY;
+        const distB = typeof b.distance_km === 'number' ? b.distance_km : Number.POSITIVE_INFINITY;
+        if (distA !== distB) return distA - distB;
+      }
       const dateA = a.start_at ? new Date(a.start_at).getTime() : Number.POSITIVE_INFINITY;
       const dateB = b.start_at ? new Date(b.start_at).getTime() : Number.POSITIVE_INFINITY;
       return dateA - dateB;
@@ -255,25 +420,34 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const boostedResults = useMemo(() => {
     return (searchBoosts ?? [])
       .filter((row) => row && row.event_id)
-      .map((row) => ({
-        id: row.event_id,
-        title: row.event_title ?? row.headline ?? 'Promoted Event',
-        description: row.event_description ?? row.body_text ?? '',
-        organizer: row.organizer_name ?? 'Organizer',
-        organizerId: row.organizer_id ?? row.event_id,
-        category: row.event_category ?? 'Other',
-        date: row.event_starts_at
-          ? new Date(row.event_starts_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-          : 'TBA',
-        start_at: row.event_starts_at,
-        location: row.event_location ?? row.event_city ?? 'TBA',
-        coverImage:
-          row.event_cover_image ??
-          'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
-        attendeeCount: undefined,
-        priceFrom: undefined,
-        rating: 4.6,
-        promotion: {
+      .map((row) => {
+        const locationDetails = parseLocationLabel(row.event_location ?? row.event_city ?? row.event_region ?? null);
+        const rawLat = (row as any).event_latitude ?? (row as any).latitude ?? null;
+        const rawLng = (row as any).event_longitude ?? (row as any).longitude ?? null;
+        return {
+          id: row.event_id,
+          title: row.event_title ?? row.headline ?? 'Promoted Event',
+          description: row.event_description ?? row.body_text ?? '',
+          organizer: row.organizer_name ?? 'Organizer',
+          organizerId: row.organizer_id ?? row.event_id,
+          category: row.event_category ?? 'Other',
+          date: row.event_starts_at
+            ? new Date(row.event_starts_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+            : 'TBA',
+          start_at: row.event_starts_at,
+          location: locationDetails.display,
+          locationDetails,
+          latitude: typeof rawLat === 'number' ? rawLat : null,
+          longitude: typeof rawLng === 'number' ? rawLng : null,
+          distance_km: null,
+          coverImage:
+            row.event_cover_image ??
+            'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=60',
+          attendeeCount: undefined,
+          priceFrom: undefined,
+          rating: 4.6,
+          isVirtual: locationDetails.isVirtual,
+          promotion: {
           placement: 'search_results' as const,
           campaignId: row.campaign_id,
           creativeId: row.creative_id,
@@ -291,7 +465,8 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
           remainingCredits: row.remaining_credits,
           dailyRemainingCredits: row.daily_remaining,
         },
-      }));
+        };
+      });
   }, [searchBoosts]);
 
   const augmentedResults = useMemo(() => {
@@ -320,12 +495,66 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     }
 
     const combined = Array.from(map.values());
-    const promoted = combined
+    const enriched = combined.map((event) => {
+      if (!near) return event;
+      if (typeof event.latitude === 'number' && typeof event.longitude === 'number') {
+        const computed = calculateDistanceKm(near.lat, near.lng, event.latitude, event.longitude);
+        if (Number.isFinite(computed)) {
+          return { ...event, distance_km: computed };
+        }
+      }
+      return event;
+    });
+    const promoted = enriched
       .filter((event) => event.promotion)
       .sort((a, b) => (b.promotion?.priority ?? 0) - (a.promotion?.priority ?? 0));
-    const organic = combined.filter((event) => !event.promotion);
+    const organic = enriched.filter((event) => !event.promotion);
     return [...promoted, ...organic];
-  }, [filteredResults, boostedResults, cat]);
+  }, [filteredResults, boostedResults, cat, near]);
+
+  const locationSuggestions = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number; isVirtual: boolean }>();
+    for (const event of augmentedResults) {
+      const details: LocationDetails | undefined = event.locationDetails;
+      if (!details) continue;
+      if (!details.display || details.display === LOCATION_UNKNOWN) continue;
+      const key = details.display.toLowerCase();
+      const entry = counts.get(key);
+      if (entry) {
+        entry.count += 1;
+        entry.isVirtual = entry.isVirtual || details.isVirtual;
+      } else {
+        counts.set(key, { label: details.display, count: 1, isVirtual: details.isVirtual });
+      }
+    }
+
+    const curated = [
+      { label: 'Online / Virtual', isVirtual: true },
+      { label: 'New York, NY', isVirtual: false },
+      { label: 'Los Angeles, CA', isVirtual: false },
+      { label: 'Austin, TX', isVirtual: false },
+      { label: 'Chicago, IL', isVirtual: false },
+      { label: 'Atlanta, GA', isVirtual: false },
+    ];
+
+    const trending = Array.from(counts.values())
+      .sort((a, b) => b.count - a.count)
+      .map(({ label, isVirtual }) => ({ label, isVirtual }));
+
+    const combined = [...trending, ...curated];
+    const result: { label: string; isVirtual: boolean }[] = [];
+    const seen = new Set<string>();
+
+    for (const item of combined) {
+      const key = item.label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(item);
+      if (result.length >= 6) break;
+    }
+
+    return result;
+  }, [augmentedResults]);
 
   // Pagination
   const PAGE_SIZE = 24;
@@ -362,6 +591,59 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   }, [augmentedResults.length, hasMore, loading, loadMore]);
 
   // helpers to update url params succinctly
+  const setNearLocation = useCallback((next: { lat: number; lng: number; radiusKm?: number; label?: string } | null) => {
+    const nextParams = new URLSearchParams(params);
+    const hadNear = Boolean(near);
+    setLocationError(null);
+
+    if (!next) {
+      nextParams.delete('lat');
+      nextParams.delete('lng');
+      nextParams.delete('radius');
+      nextParams.delete('locLabel');
+      setUserLocationLabel('');
+      setFilters((prev) => ({ ...prev, near: null }));
+      if (hadNear) {
+        trackEvent('search_filter_change', {
+          filter_type: 'near',
+          filter_value: '',
+          query: q,
+          category: cat,
+          results_count: augmentedResults?.length || 0,
+        });
+      }
+    } else {
+      const radiusValue = next.radiusKm && Number.isFinite(next.radiusKm)
+        ? Math.max(1, Math.round(next.radiusKm))
+        : 50;
+      nextParams.set('lat', next.lat.toFixed(4));
+      nextParams.set('lng', next.lng.toFixed(4));
+      nextParams.set('radius', String(radiusValue));
+      if (next.label) {
+        nextParams.set('locLabel', next.label);
+        setUserLocationLabel(next.label);
+      } else {
+        nextParams.delete('locLabel');
+        setUserLocationLabel('');
+      }
+      nextParams.delete('city');
+      setFilters((prev) => ({
+        ...prev,
+        city: null,
+        near: { lat: next.lat, lng: next.lng, radiusKm: radiusValue },
+      }));
+      trackEvent('search_filter_change', {
+        filter_type: 'near',
+        filter_value: `${next.lat.toFixed(4)},${next.lng.toFixed(4)}@${radiusValue}`,
+        query: q,
+        category: cat,
+        results_count: augmentedResults?.length || 0,
+      });
+    }
+
+    setParams(nextParams, { replace: true });
+  }, [params, near, setParams, setFilters, trackEvent, q, cat, augmentedResults]);
+
   const setParam = (k: string, v?: string) => {
     const next = new URLSearchParams(params);
     if (v && v.length) next.set(k, v); else next.delete(k);
@@ -384,6 +666,71 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     setParams(next, { replace: true });
   };
 
+  const requestCurrentLocation = useCallback(() => {
+    if (!navigator?.geolocation) {
+      setLocationError('Location detection is not supported in this browser.');
+      trackEvent('search_location_error', {
+        reason: 'unsupported',
+        query: q,
+        category: cat,
+      });
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsLocating(false);
+        const { latitude, longitude } = position.coords;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          setLocationError('We could not determine your position. Try again in a moment.');
+          return;
+        }
+
+        setNearLocation({
+          lat: latitude,
+          lng: longitude,
+          radiusKm: near?.radiusKm ?? 50,
+          label: 'Near you',
+        });
+
+        trackEvent('search_location_detected', {
+          query: q,
+          category: cat,
+        });
+      },
+      (err) => {
+        setIsLocating(false);
+        const reason = err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable';
+        setLocationError(
+          reason === 'denied'
+            ? 'We need permission to find events near you.'
+            : 'Unable to detect location right now. Try again soon.'
+        );
+        trackEvent('search_location_error', {
+          reason,
+          code: err.code,
+          message: err.message,
+          query: q,
+          category: cat,
+        });
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, [trackEvent, q, cat, near?.radiusKm, setNearLocation]);
+
+  const handleRadiusChange = useCallback((radiusKm: number) => {
+    if (!near) return;
+    setNearLocation({
+      lat: near.lat,
+      lng: near.lng,
+      radiusKm,
+      label: userLocationLabel || 'Near you',
+    });
+  }, [near, setNearLocation, userLocationLabel]);
+
   const clearAll = () => {
     trackEvent('search_filters_clear', {
       previous_query: q,
@@ -393,6 +740,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     setParams(new URLSearchParams(), { replace: true });
     setVisibleCount(PAGE_SIZE);
     clearFilters();
+    setUserLocationLabel('');
   };
 
   // quick chips
@@ -774,6 +1122,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
                 {recommendations.slice(0, 6).map(rec => {
+                  const locationDetails = parseLocationLabel(rec.venue || rec.city || rec.region || null);
                   const eventForCard = {
                     id: rec.event_id,
                     title: rec.title,
@@ -781,12 +1130,16 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                     category: rec.category,
                     start_at: rec.starts_at,
                     date: rec.starts_at,
-                    location: rec.venue || (rec.distance_km ? `${rec.distance_km.toFixed(1)} km away` : 'Location TBD'),
-                    distance_km: rec.distance_km,
+                    location: locationDetails.display,
+                    locationDetails,
+                    latitude: typeof rec.latitude === 'number' ? rec.latitude : undefined,
+                    longitude: typeof rec.longitude === 'number' ? rec.longitude : undefined,
+                    distance_km: rec.distance_km ?? null,
                     coverImage: rec.cover_image_url || `/images/placeholders/event-cover-fallback.jpg`,
                     priceFrom: rec.min_price || undefined, // Use actual pricing data
                     rating: 4.2,
-                    attendeeCount: undefined // Don't show attending count as requested
+                    attendeeCount: undefined, // Don't show attending count as requested
+                    isVirtual: locationDetails.isVirtual,
                   };
 
                   return (

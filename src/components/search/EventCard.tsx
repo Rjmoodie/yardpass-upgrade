@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { CalendarIcon, MapPin, Star, Users, Ticket, Bookmark, Share2 } from 'lucide-react';
+import { CalendarIcon, MapPin, Star, Ticket, Bookmark, Share2, Wifi } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { format, formatDistanceToNowStrict, isBefore } from 'date-fns';
@@ -21,9 +21,20 @@ export function EventCard({ event, onClick, onTicket, onBookmark, onShare, class
     ? (isPast ? format(startAt, 'PPP • p') : formatDistanceToNowStrict(startAt, { addSuffix: true }))
     : event.date;
 
-  const distanceLabel = typeof event.distance_km === 'number'
-    ? `${event.distance_km.toFixed(1)} km`
-    : event.location;
+  const locationDetails = event.locationDetails ?? null;
+  const isVirtual = locationDetails?.isVirtual ?? event.isVirtual;
+  const baseLocation = locationDetails?.short ?? event.location ?? 'Location TBD';
+  const rawDistance = typeof event.distance_km === 'number' && Number.isFinite(event.distance_km)
+    ? event.distance_km
+    : null;
+  const distanceText = rawDistance !== null
+    ? (rawDistance >= 100 ? Math.round(rawDistance).toString() : rawDistance.toFixed(1))
+    : null;
+  const locationLine = isVirtual
+    ? locationDetails?.display ?? baseLocation
+    : distanceText
+      ? `${distanceText} km • ${baseLocation}`
+      : baseLocation;
 
   const priceFrom = typeof event.priceFrom === 'number' ? `$${event.priceFrom.toFixed(0)}` : null;
   const rating = (event.rating ?? 4.2).toFixed(1);
@@ -94,6 +105,11 @@ export function EventCard({ event, onClick, onTicket, onBookmark, onShare, class
                       {rateSummary && <span className="text-[10px] text-amber-700/80">{rateSummary}</span>}
                     </Badge>
                   )}
+                  {isVirtual && (
+                    <Badge variant="outline" className="inline-flex items-center gap-1 rounded-full bg-sky-50 border-sky-200 text-sky-700 px-2 py-0.5">
+                      <Wifi className="h-3 w-3" /> Online
+                    </Badge>
+                  )}
                   {event.sponsor && (
                     <Badge variant="outline" className="px-2 py-0.5 rounded-full bg-amber-50 border-amber-200 text-amber-800">
                       Sponsored by {event.sponsor.name}
@@ -104,9 +120,9 @@ export function EventCard({ event, onClick, onTicket, onBookmark, onShare, class
                       <CalendarIcon className="w-3 h-3" /> {whenLabel}
                     </span>
                   )}
-                  {distanceLabel && (
+                  {locationLine && (
                     <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3 h-3" /> {distanceLabel}
+                      <MapPin className="w-3 h-3" /> {locationLine}
                     </span>
                   )}
                 </div>
