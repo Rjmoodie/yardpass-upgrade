@@ -63,7 +63,23 @@ export function SearchPalette({
 
   // Debounced query to avoid hammering the backend
   const [rawQ, setRawQ] = useState('');
-  const { q, setQ, filters, setFilters, clearFilters, results, loading, error, loadMore, pageSize } = useSmartSearch('');
+  const {
+    q,
+    setQ,
+    filters,
+    setFilters,
+    clearFilters,
+    results,
+    loading,
+    isInitialLoading,
+    error,
+    loadMore,
+    pageSize,
+    hasMore,
+    retry,
+    minimumQueryLength,
+    isStale,
+  } = useSmartSearch({ initialQuery: '', pageSize: 12, minimumQueryLength: 2 });
   useEffect(() => {
     const t = setTimeout(() => setQ(rawQ), 180);
     return () => clearTimeout(t);
@@ -131,14 +147,14 @@ export function SearchPalette({
     if (!isOpen || !sentinelRef.current) return;
     const obs = new IntersectionObserver((entries) => {
       for (const e of entries) {
-        if (e.isIntersecting && results.length && results.length % pageSize === 0 && !loading) {
+        if (e.isIntersecting && results.length && results.length % pageSize === 0 && !loading && hasMore) {
           loadMore();
         }
       }
     }, { root: listRef.current, threshold: 0.1 });
     obs.observe(sentinelRef.current);
     return () => obs.disconnect();
-  }, [isOpen, results.length, pageSize, loading, loadMore]);
+  }, [isOpen, results.length, pageSize, loading, hasMore, loadMore]);
 
   const handleNavigate = useCallback((row: SearchRow) => {
     if (rawQ.trim()) pushRecent(rawQ);
@@ -168,6 +184,13 @@ export function SearchPalette({
   if (!isOpen) return null;
 
   const activeOptionId = results.length ? `${listboxId}-opt-${hover}` : undefined;
+  const trimmedQ = rawQ.trim();
+  const queryTooShort =
+    trimmedQ.length > 0 &&
+    trimmedQ.length < minimumQueryLength &&
+    !filters.category &&
+    !filters.dateFrom &&
+    !filters.dateTo;
 
   return (
     <div
@@ -299,17 +322,32 @@ export function SearchPalette({
 
         {/* ARIA live region for status */}
         <div id={statusId} className="sr-only" aria-live="polite" aria-atomic="true">
-          {loading ? 'Searching' : results.length ? `${results.length} results` : 'No results'}
+          {error
+            ? 'Search failed. Try again.'
+            : queryTooShort
+              ? `Type at least ${minimumQueryLength} characters to search.`
+              : isInitialLoading
+                ? 'Searching'
+                : isStale
+                  ? 'Refreshing results'
+                  : results.length
+                    ? `${results.length} results`
+                    : rawQ
+                      ? 'No results found'
+                      : 'Start typing to search'}
         </div>
 
         {/* Results */}
         <div ref={listRef} className="max-h-[60vh] overflow-y-auto" role="region" aria-label="Search results">
           {error && (
-            <div className="px-4 py-6 text-red-300 text-sm">Search failed. Please try again.</div>
+            <div className="px-4 py-6 text-red-300 text-sm">
+              Search failed.{' '}
+              <button className="underline hover:text-red-100" onClick={retry}>Try again</button>
+            </div>
           )}
 
           {/* Loading skeleton for first paint */}
-          {loading && results.length === 0 && (
+          {isInitialLoading && (
             <ul className="px-4 py-4 space-y-2">
               {Array.from({ length: 6 }).map((_, i) => (
                 <li key={i} className="h-10 rounded bg-white/5 animate-pulse" />
@@ -317,9 +355,13 @@ export function SearchPalette({
             </ul>
           )}
 
-          {!loading && results.length === 0 && (
+          {!isInitialLoading && !error && results.length === 0 && (
             <div className="px-4 py-8 text-center text-white/60">
-              {rawQ ? 'No matches. Try a different phrase or widen filters.' : 'Type to search events and posts.'}
+              {queryTooShort
+                ? `Keep typing — enter at least ${minimumQueryLength} characters to search.`
+                : rawQ
+                  ? 'No matches. Try a different phrase or widen filters.'
+                  : 'Type to search events and posts.'}
             </div>
           )}
 
@@ -398,9 +440,16 @@ export function SearchPalette({
 
           {/* Infinite scroll sentinel + fallback button */}
           <div ref={sentinelRef} className="h-6" />
-          {results.length > 0 && results.length % pageSize === 0 && (
+          {results.length > 0 && hasMore && (
             <div className="px-4 py-3">
-              <Button onClick={loadMore} variant="secondary" className="w-full">Load more</Button>
+              <Button
+                onClick={loadMore}
+                variant="secondary"
+                className="w-full"
+                disabled={loading}
+              >
+                {loading ? 'Loading…' : 'Load more results'}
+              </Button>
             </div>
           )}
         </div>
