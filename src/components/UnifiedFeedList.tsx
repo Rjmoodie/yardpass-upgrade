@@ -56,28 +56,38 @@ const PROMOTED_INTERVAL = 4;
 function interleaveFeedItems(items: FeedItem[]): FeedItem[] {
   if (items.length < 2) return items;
 
-  const hasEvents = items.some((item) => item.item_type === 'event');
-  const hasPosts = items.some((item) => item.item_type === 'post');
+  const events: FeedItem[] = [];
+  const posts: FeedItem[] = [];
 
-  if (!hasEvents || !hasPosts) {
+  items.forEach((item) => {
+    if (item.item_type === 'event') {
+      events.push(item);
+    } else if (item.item_type === 'post') {
+      posts.push(item);
+    }
+  });
+
+  if (!events.length || !posts.length) {
     return items;
   }
 
-  const result = [...items];
+  const firstType = items[0].item_type;
+  const primary = firstType === 'event' ? events : posts;
+  const secondary = firstType === 'event' ? posts : events;
 
-  for (let i = 1; i < result.length; i += 1) {
-    const prevType = result[i - 1].item_type;
-    const currentType = result[i].item_type;
+  const result: FeedItem[] = [];
+  let primaryIndex = 0;
+  let secondaryIndex = 0;
 
-    if (prevType === currentType) {
-      const swapIndex = result.findIndex(
-        (candidate, idx) => idx > i && candidate.item_type !== prevType
-      );
+  while (primaryIndex < primary.length || secondaryIndex < secondary.length) {
+    if (primaryIndex < primary.length) {
+      result.push(primary[primaryIndex]);
+      primaryIndex += 1;
+    }
 
-      if (swapIndex !== -1) {
-        const [swapItem] = result.splice(swapIndex, 1);
-        result.splice(i, 0, swapItem);
-      }
+    if (secondaryIndex < secondary.length) {
+      result.push(secondary[secondaryIndex]);
+      secondaryIndex += 1;
     }
   }
 
@@ -615,7 +625,7 @@ export default function UnifiedFeedList() {
           const isVideoActive = isPost && idx === activeIndex && !paused && autoplayReady && hasVideo;
 
           // Debug video visibility and autoplay triggers
-          if (isPost && item.media_urls?.length) {
+          if (import.meta.env?.DEV && isPost && item.media_urls?.length) {
             console.log('📱 Feed video visibility:', {
               postId: item.item_id,
               idx,
@@ -625,14 +635,13 @@ export default function UnifiedFeedList() {
               autoplayReady,
               hasMedia: !!item.media_urls?.length,
               mediaUrls: item.media_urls,
-              // Debug the isVideoActive calculation step by step
               debug_calculation: {
-                isPost: isPost,
+                isPost,
                 idx_equals_activeIndex: idx === activeIndex,
                 not_paused: !paused,
-                autoplayReady: autoplayReady,
-                final_result: isPost && idx === activeIndex && !paused && autoplayReady
-              }
+                autoplayReady,
+                final_result: isVideoActive,
+              },
             });
           }
 
