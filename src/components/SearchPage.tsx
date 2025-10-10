@@ -514,122 +514,243 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   }, [visible, user?.id]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 flex flex-col">
       {/* Header */}
-      <div className="border-b bg-card/80 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="w-5 h-5" /></Button>
-            <div className="flex-1 min-w-0 flex items-center gap-3">
-              <Search className="w-6 h-6 text-muted-foreground" />
-              <div>
-                <h1 className="text-xl font-semibold truncate">Search Events</h1>
-                <p className="text-sm text-muted-foreground">Discover amazing events near you</p>
+      <div className="border-b border-border/80 bg-card/70 backdrop-blur">
+        <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+          <div className="flex items-center gap-3 text-muted-foreground/80">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onBack}
+              className="rounded-full border border-transparent hover:border-border/60"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="sr-only">Back</span>
+            </Button>
+            <span className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground/70">Discover</span>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-3 max-w-2xl">
+              <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground">Find your next unforgettable event</h1>
+              <p className="text-base text-muted-foreground">
+                Explore curated experiences from organizers you love. Filter by location, timing, or vibe to surface the perfect match.
+              </p>
+              <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/70 px-3 py-1">
+                  <Sparkles className="w-4 h-4 text-primary" /> Curated daily drops
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1">
+                  <Star className="w-4 h-4 text-primary/80" /> Trusted organizers worldwide
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <div className="rounded-full border border-border/60 bg-background/70 px-4 py-2">
+                {augmentedResults.length > 0 ? `${augmentedResults.length} events available` : 'Fresh events added hourly'}
               </div>
             </div>
           </div>
 
           {/* Search / controls */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <div className="relative flex-1 min-w-[240px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="search-query-input"
-                value={q}
-                onChange={(e) => setParam('q', e.target.value)}
-                placeholder="Search events, organizers, locations… (press / to focus)"
-                className="pl-10"
-              />
+          <div className="mt-8 rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm ring-1 ring-border/50 backdrop-blur-sm md:p-6">
+            <div className="grid gap-4 md:grid-cols-12">
+              <div className="md:col-span-5">
+                <label htmlFor="search-query-input" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Search</label>
+                <div className="relative mt-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="search-query-input"
+                    value={q}
+                    onChange={(e) => setParam('q', e.target.value)}
+                    placeholder="Search events, organizers, or locations (press / to focus)"
+                    className="h-12 rounded-xl border-border/60 bg-background/70 pl-10 text-base transition-all focus-visible:ring-2 focus-visible:ring-primary/40"
+                  />
+                </div>
+              </div>
+
+              <div className="md:col-span-3">
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Location</label>
+                <Input
+                  value={city}
+                  onChange={(e) => setParam('city', e.target.value)}
+                  placeholder="City or virtual"
+                  className="mt-2 h-12 rounded-xl border-border/60 bg-background/70 text-base focus-visible:ring-2 focus-visible:ring-primary/40"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">From</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'mt-2 h-12 w-full justify-start rounded-xl border-border/60 bg-background/70 text-base font-normal hover:bg-background',
+                        !from && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="w-4 h-4 mr-2"/> {from ? format(new Date(from), 'MMM dd, yyyy') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={from ? new Date(from) : undefined} onSelect={(d)=> setParam('from', d ? d.toISOString() : undefined)} className="p-2" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="md:col-span-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">To</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'mt-2 h-12 w-full justify-start rounded-xl border-border/60 bg-background/70 text-base font-normal hover:bg-background',
+                        !to && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="w-4 h-4 mr-2"/> {to ? format(new Date(to), 'MMM dd, yyyy') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={to ? new Date(to) : undefined} onSelect={(d)=> setParam('to', d ? d.toISOString() : undefined)} className="p-2" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="md:col-span-12 flex flex-wrap items-center gap-3 pt-2">
+                <Select value={sort} onValueChange={(v) => setParam('sort', v)}>
+                  <SelectTrigger className="h-12 min-w-[200px] rounded-xl border-border/60 bg-background/70 text-base focus:ring-2 focus:ring-primary/40">
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent className="min-w-[200px]">
+                    <SelectItem value="date_asc">Soonest first</SelectItem>
+                    <SelectItem value="price_asc">Price · Low to High</SelectItem>
+                    <SelectItem value="price_desc">Price · High to Low</SelectItem>
+                    <SelectItem value="attendees_desc">Most popular</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="hidden md:inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1">Quick picks:</span>
+                  <Button variant="secondary" size="sm" onClick={setTonight} className="rounded-full border border-transparent bg-secondary/60 text-secondary-foreground hover:bg-secondary/70">
+                    Tonight
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={setWeekend} className="rounded-full border border-transparent bg-secondary/60 text-secondary-foreground hover:bg-secondary/70">
+                    This weekend
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={set30d} className="rounded-full border border-transparent bg-secondary/60 text-secondary-foreground hover:bg-secondary/70">
+                    Next 30 days
+                  </Button>
+                </div>
+
+                <div className="flex-1" />
+
+                <Popover open={showFilters} onOpenChange={setShowFilters}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="h-12 rounded-xl border-border/60 bg-background/70 px-5 text-base">
+                      <SlidersHorizontal className="w-4 h-4 mr-2" />
+                      More filters
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[360px] p-0" align="end">
+                    <div className="p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium">Refine results</h3>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={clearAll} className="h-8 px-2 text-muted-foreground">Clear all</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setShowFilters(false)} className="h-8 w-8 p-0"><X className="w-4 h-4"/></Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-muted-foreground">Min price ($)</label>
+                          <Input inputMode="numeric" value={min} onChange={(e)=>setParam('min', e.target.value)} placeholder="0" className="mt-1" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Max price ($)</label>
+                          <Input inputMode="numeric" value={max} onChange={(e)=>setParam('max', e.target.value)} placeholder="Any" className="mt-1" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn('justify-start', !from && 'text-muted-foreground')}>
+                              <CalendarIcon className="w-4 h-4 mr-2"/> {from ? format(new Date(from), 'MMM dd, yyyy') : 'From'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={from ? new Date(from) : undefined} onSelect={(d)=> setParam('from', d ? d.toISOString() : undefined)} className="p-2" />
+                          </PopoverContent>
+                        </Popover>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn('justify-start', !to && 'text-muted-foreground')}>
+                              <CalendarIcon className="w-4 h-4 mr-2"/> {to ? format(new Date(to), 'MMM dd, yyyy') : 'To'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={to ? new Date(to) : undefined} onSelect={(d)=> setParam('to', d ? d.toISOString() : undefined)} className="p-2" />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
-            <Input
-              value={city}
-              onChange={(e) => setParam('city', e.target.value)}
-              placeholder="City"
-              className="w-[180px]"
-            />
+            {(q || city || min || max || from || to || (cat !== 'All')) && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {cat !== 'All' && <FilterChip label={`Category: ${cat}`} onClear={()=>setParam('cat','All')} />}
+                {q && <FilterChip label={`"${q}"`} onClear={()=>setParam('q')} />}
+                {city && <FilterChip label={`City: ${city}`} onClear={()=>setParam('city')} />}
+                {min && <FilterChip label={`Min $${min}`} onClear={()=>setParam('min')} />}
+                {max && <FilterChip label={`Max $${max}`} onClear={()=>setParam('max')} />}
+                {from && <FilterChip label={`From ${format(new Date(from),'MMM dd')}`} onClear={()=>setParam('from')} />}
+                {to && <FilterChip label={`To ${format(new Date(to),'MMM dd')}`} onClear={()=>setParam('to')} />}
+                <Button variant="ghost" size="sm" onClick={clearAll} className="h-8">Reset</Button>
+              </div>
+            )}
 
-            <Select value={sort} onValueChange={(v) => setParam('sort', v)}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Sort" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date_asc">Sort by date</SelectItem>
-                <SelectItem value="price_asc">Price: Low → High</SelectItem>
-                <SelectItem value="price_desc">Price: High → Low</SelectItem>
-                <SelectItem value="attendees_desc">Most popular</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Popover open={showFilters} onOpenChange={setShowFilters}>
-              <PopoverTrigger asChild>
-                <Button variant="outline"><SlidersHorizontal className="w-4 h-4 mr-2" />Filters</Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[360px] p-0" align="end">
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium">Filters</h3>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={clearAll} className="h-8 px-2 text-muted-foreground">Clear all</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setShowFilters(false)} className="h-8 w-8 p-0"><X className="w-4 h-4"/></Button>
-                    </div>
-                  </div>
-
-                  {/* Quick date chips */}
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" size="sm" onClick={setTonight}>Tonight</Button>
-                    <Button variant="secondary" size="sm" onClick={setWeekend}>This weekend</Button>
-                    <Button variant="secondary" size="sm" onClick={set30d}>Next 30 days</Button>
-                  </div>
-
-                  {/* Price */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-muted-foreground">Min price ($)</label>
-                      <Input inputMode="numeric" value={min} onChange={(e)=>setParam('min', e.target.value)} placeholder="0" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Max price ($)</label>
-                      <Input inputMode="numeric" value={max} onChange={(e)=>setParam('max', e.target.value)} placeholder="Any" />
-                    </div>
-                  </div>
-
-                  {/* Date range */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn('justify-start', !from && 'text-muted-foreground')}>
-                          <CalendarIcon className="w-4 h-4 mr-2"/> {from ? format(new Date(from), 'MMM dd, yyyy') : 'From'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={from ? new Date(from) : undefined} onSelect={(d)=> setParam('from', d ? d.toISOString() : undefined)} className="p-2" />
-                      </PopoverContent>
-                    </Popover>
-
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn('justify-start', !to && 'text-muted-foreground')}>
-                          <CalendarIcon className="w-4 h-4 mr-2"/> {to ? format(new Date(to), 'MMM dd, yyyy') : 'To'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={to ? new Date(to) : undefined} onSelect={(d)=> setParam('to', d ? d.toISOString() : undefined)} className="p-2" />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+            {!q && recent.length > 0 && (
+              <div className="mt-4 border-t border-dashed border-border/60 pt-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recent searches</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {recent.map((r) => (
+                    <button
+                      key={r}
+                      className="group inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                      onClick={() => setParam('q', r)}
+                      aria-label={`Use recent search ${r}`}
+                    >
+                      {r}
+                      <span
+                        className="ml-1 rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                        onClick={(e) => { e.stopPropagation(); removeRecent(r); }}
+                      >
+                        ×
+                      </span>
+                    </button>
+                  ))}
                 </div>
-              </PopoverContent>
-            </Popover>
+              </div>
+            )}
           </div>
 
-          {/* Categories */}
-          <div className="mt-3 overflow-x-auto">
-            <div className="flex gap-2 min-w-max pb-2">
+          <div className="mt-6 overflow-x-auto">
+            <div className="flex min-w-max items-center gap-2 pb-2">
               {categories.map((c) => (
                 <Button
                   key={c}
-                  variant={cat === c ? 'default' : 'outline'}
+                  variant={cat === c ? 'default' : 'ghost'}
                   size="sm"
-                  className="rounded-full"
+                  className={cn('rounded-full border border-transparent px-4 py-1.5 text-sm transition-colors', cat === c ? 'shadow-sm' : 'border-border/60 hover:border-primary/40 hover:bg-primary/5')}
                   onClick={()=> setParam('cat', cat === c ? 'All' : c)}
                 >
                   {c}
@@ -637,45 +758,6 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               ))}
             </div>
           </div>
-
-          {/* Active chips */}
-          {(q || city || min || max || from || to || (cat !== 'All')) && (
-            <div className="flex flex-wrap gap-2 pt-2">
-              {cat !== 'All' && <FilterChip label={`Category: ${cat}`} onClear={()=>setParam('cat','All')} />}
-              {q && <FilterChip label={`"${q}"`} onClear={()=>setParam('q')} />}
-              {city && <FilterChip label={`City: ${city}`} onClear={()=>setParam('city')} />}
-              {min && <FilterChip label={`Min $${min}`} onClear={()=>setParam('min')} />}
-              {max && <FilterChip label={`Max $${max}`} onClear={()=>setParam('max')} />}
-              {from && <FilterChip label={`From ${format(new Date(from),'MMM dd')}`} onClear={()=>setParam('from')} />}
-              {to && <FilterChip label={`To ${format(new Date(to),'MMM dd')}`} onClear={()=>setParam('to')} />}
-              <Button variant="ghost" size="sm" onClick={clearAll} className="h-8">Reset</Button>
-            </div>
-          )}
-
-          {/* Recent searches */}
-          {!q && recent.length > 0 && (
-            <div className="mt-2">
-              <div className="text-xs text-muted-foreground mb-1">Recent searches</div>
-              <div className="flex flex-wrap gap-2">
-                {recent.map((r) => (
-                  <button
-                    key={r}
-                    className="px-2 py-1 rounded bg-muted text-foreground/90 hover:bg-muted/80 text-xs"
-                    onClick={() => setParam('q', r)}
-                    aria-label={`Use recent search ${r}`}
-                  >
-                    {r}
-                    <span
-                      className="ml-2 text-foreground/60 hover:text-foreground"
-                      onClick={(e) => { e.stopPropagation(); removeRecent(r); }}
-                    >
-                      ×
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
