@@ -8,7 +8,17 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, MapPin, Calendar, Users, Crown, Ticket, Share } from 'lucide-react';
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Users,
+  Crown,
+  Ticket,
+  Share,
+  Activity,
+  Clock,
+} from 'lucide-react';
 import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
 import { EventFeed } from '@/components/EventFeed';
 import { routes } from '@/lib/routes';
@@ -60,6 +70,26 @@ export default function UserProfilePage() {
   const [events, setEvents] = useState<UserEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('posts');
+
+  const attendedCount = tickets.length;
+  const redeemedCount = useMemo(
+    () => tickets.filter((ticket) => ticket.status === 'redeemed').length,
+    [tickets]
+  );
+
+  const upcomingEvent = useMemo(() => {
+    const now = Date.now();
+    return [...events]
+      .filter((event) => new Date(event.start_at).getTime() >= now)
+      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0];
+  }, [events]);
+
+  const mostRecentEvent = useMemo(() => {
+    return [...events]
+      .sort((a, b) => new Date(b.start_at).getTime() - new Date(a.start_at).getTime())[0];
+  }, [events]);
+
+  const mostRecentTicket = useMemo(() => tickets[0], [tickets]);
 
   // derived
   const initials = useMemo(
@@ -224,262 +254,400 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b">
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={handleBack}
-            variant="ghost"
-            size="icon"
-            className="min-h-[40px] min-w-[40px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+      <div className="relative border-b border-border/40 bg-gradient-to-r from-primary/5 via-background to-background">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_60%)]" />
+        <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-4 md:items-center">
+              <Button
+                onClick={handleBack}
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 rounded-full border-border/70 bg-background/70 backdrop-blur transition hover:border-primary/60 hover:bg-primary/10"
+                aria-label="Go back"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
 
-          <div className="flex items-center gap-4 flex-1">
-            <Avatar className="w-16 h-16">
-              <AvatarImage src={profile.photo_url} alt={profile.display_name} />
-              <AvatarFallback className="text-lg bg-gradient-to-br from-primary/20 to-accent/20">
-                {initials || profile.display_name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+              <div className="flex items-center gap-4">
+                <Avatar className="h-20 w-20 border-2 border-white/40 shadow-lg">
+                  <AvatarImage src={profile.photo_url} alt={profile.display_name} />
+                  <AvatarFallback className="text-lg font-semibold uppercase">
+                    {initials || profile.display_name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center">
-                <h1 className="text-xl font-bold truncate">{profile.display_name}</h1>
-                {getVerificationBadge()}
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                {getRoleBadge()}
-                <span className="text-sm text-muted-foreground">
-                  Member since{' '}
-                  {new Date(profile.created_at).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                  })}
-                </span>
-              </div>
-              
-              {/* Social Links */}
-              {profile.social_links && Array.isArray(profile.social_links) && profile.social_links.length > 0 && (
-                <div className="mt-2">
-                  <SocialLinkDisplay 
-                    socialLinks={profile.social_links} 
-                    showPrimaryOnly={true}
-                    className="text-muted-foreground hover:text-foreground"
-                  />
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl font-semibold leading-tight md:text-3xl">
+                      {profile.display_name}
+                    </h1>
+                    {getVerificationBadge()}
+                    {getRoleBadge()}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Joined{' '}
+                      {new Date(profile.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                      })}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Activity className="h-3.5 w-3.5" />
+                      {attendedCount} {attendedCount === 1 ? 'event' : 'events'} attended
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />
+                      {events.length} organized
+                    </span>
+                  </div>
+
+                  {profile.social_links && Array.isArray(profile.social_links) && profile.social_links.length > 0 && (
+                    <SocialLinkDisplay
+                      socialLinks={profile.social_links}
+                      showPrimaryOnly={true}
+                      className="text-muted-foreground transition hover:text-foreground"
+                    />
+                  )}
                 </div>
-              )}
+              </div>
             </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const [{ sharePayload }, { buildShareUrl, getShareTitle, getShareText }] =
+                    await Promise.all([import('@/lib/share'), import('@/lib/shareLinks')]);
+
+                  await sharePayload({
+                    title: getShareTitle({
+                      type: 'user',
+                      handle: username || profile.user_id,
+                      name: profile.display_name,
+                    }),
+                    text: getShareText({
+                      type: 'user',
+                      handle: username || profile.user_id,
+                      name: profile.display_name,
+                    }),
+                    url: buildShareUrl({
+                      type: 'user',
+                      handle: username || profile.user_id,
+                      name: profile.display_name,
+                    }),
+                  });
+
+                  toast({ title: 'Profile Shared', description: 'Profile shared successfully!' });
+                } catch (error) {
+                  console.error('Error sharing profile:', error);
+                  toast({
+                    title: 'Share Failed',
+                    description: 'Could not share profile. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20"
+              aria-label="Share this profile"
+            >
+              <Share className="h-4 w-4" />
+              Share profile
+            </Button>
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={async () => {
-              try {
-                const [{ sharePayload }, { buildShareUrl, getShareTitle, getShareText }] =
-                  await Promise.all([import('@/lib/share'), import('@/lib/shareLinks')]);
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-0 bg-white/70 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/40 dark:bg-slate-900/60">
+              <CardContent className="flex flex-col gap-1 p-4">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">Events attended</span>
+                <span className="text-2xl font-semibold">{attendedCount}</span>
+                <span className="text-xs text-muted-foreground">{redeemedCount} redeemed</span>
+              </CardContent>
+            </Card>
 
-                await sharePayload({
-                  title: getShareTitle({
-                    type: 'user',
-                    handle: username || profile.user_id,
-                    name: profile.display_name,
-                  }),
-                  text: getShareText({
-                    type: 'user',
-                    handle: username || profile.user_id,
-                    name: profile.display_name,
-                  }),
-                  url: buildShareUrl({
-                    type: 'user',
-                    handle: username || profile.user_id,
-                    name: profile.display_name,
-                  }),
-                });
+            <Card className="border-0 bg-white/70 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/40 dark:bg-slate-900/60">
+              <CardContent className="flex flex-col gap-1 p-4">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">Events organized</span>
+                <span className="text-2xl font-semibold">{events.length}</span>
+                <span className="text-xs text-muted-foreground">{mostRecentEvent ? 'Latest ' + new Date(mostRecentEvent.start_at).toLocaleDateString() : 'No events yet'}</span>
+              </CardContent>
+            </Card>
 
-                toast({ title: 'Profile Shared', description: 'Profile shared successfully!' });
-              } catch (error) {
-                console.error('Error sharing profile:', error);
-                toast({
-                  title: 'Share Failed',
-                  description: 'Could not share profile. Please try again.',
-                  variant: 'destructive',
-                });
-              }
-            }}
-            className="min-h-[36px] min-w-[36px] transition-all duration-200 hover:bg-primary/10 active:scale-95"
-            aria-label="Share this profile"
-          >
-            <Share className="w-4 h-4" />
-          </Button>
-        </div>
+            <Card className="border-0 bg-white/70 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/40 dark:bg-slate-900/60">
+              <CardContent className="flex flex-col gap-1 p-4">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">Recent ticket</span>
+                <span className="text-2xl font-semibold">
+                  {mostRecentTicket?.ticket_tiers?.badge_label || '—'}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {mostRecentTicket?.events?.title || 'No ticket activity'}
+                </span>
+              </CardContent>
+            </Card>
 
-        {/* Stats */}
-        <div className="flex gap-6 mt-4">
-          <div className="text-center">
-            <div className="text-lg font-bold">{tickets.length}</div>
-            <div className="text-xs text-muted-foreground">Events Attended</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold">{events.length}</div>
-            <div className="text-xs text-muted-foreground">Events Organized</div>
+            <Card className="border-0 bg-white/70 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/40 dark:bg-slate-900/60">
+              <CardContent className="flex flex-col gap-1 p-4">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">Next appearance</span>
+                {upcomingEvent ? (
+                  <>
+                    <span className="text-base font-semibold leading-tight">{upcomingEvent.title}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(upcomingEvent.start_at).toLocaleDateString()} · {upcomingEvent.venue || 'Venue TBA'}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-sm text-muted-foreground">No upcoming events</span>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10 bg-background border-b">
-            <TabsTrigger value="posts" className="min-h-[44px]">Posts</TabsTrigger>
-            <TabsTrigger value="tickets" className="min-h-[44px]">Tickets</TabsTrigger>
-            <TabsTrigger value="events" className="min-h-[44px]">Events</TabsTrigger>
-          </TabsList>
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr),minmax(280px,1fr)]">
+          <section className="space-y-6">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="rounded-3xl border border-border/60 bg-card/60 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/40"
+            >
+              <TabsList className="grid w-full grid-cols-3 rounded-full bg-muted/60 p-1 text-sm">
+                <TabsTrigger value="posts" className="rounded-full px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow">
+                  Posts
+                </TabsTrigger>
+                <TabsTrigger value="tickets" className="rounded-full px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow">
+                  Tickets
+                </TabsTrigger>
+                <TabsTrigger value="events" className="rounded-full px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow">
+                  Events
+                </TabsTrigger>
+              </TabsList>
 
-          <div className="flex-1 overflow-y-auto">
-            {/* POSTS */}
-            <TabsContent value="posts" className="m-0">
-              <EventFeed
-                userId={profile.user_id}
-                onEventClick={(eventId) => navigate(routes.event(eventId))}
-              />
-            </TabsContent>
+              <TabsContent value="posts" className="mt-6 rounded-2xl border border-border/40 bg-background/70 p-1 sm:p-3">
+                <EventFeed
+                  userId={profile.user_id}
+                  onEventClick={(eventId) => navigate(routes.event(eventId))}
+                />
+              </TabsContent>
 
-            {/* TICKETS */}
-            <TabsContent value="tickets" className="p-4 space-y-4 m-0">
-              {tickets.length > 0 ? (
-                <div className="space-y-3">
-                  {tickets.map((ticket) => {
-                    const evt = ticket.events;
-                    const cover = evt?.cover_image_url || DEFAULT_EVENT_COVER;
-                    return (
-                      <Card
-                        key={ticket.id}
-                        className="cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => navigate(routes.event(evt.id))}
-                        aria-label={`Open ${evt.title}`}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted">
-                              <img src={cover} alt={evt.title} className="w-full h-full object-cover" />
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-medium truncate">{evt.title}</h3>
-
-                                {/* badge click -> go to event (hint tier in query) */}
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`${routes.event(evt.id)}?tier=${encodeURIComponent(ticket.ticket_tiers.badge_label)}`);
-                                  }}
-                                  title="View event for this tier"
-                                >
-                                  {ticket.ticket_tiers.badge_label}
-                                </Badge>
+              <TabsContent value="tickets" className="mt-6">
+                {tickets.length > 0 ? (
+                  <div className="space-y-4">
+                    {tickets.map((ticket) => {
+                      const evt = ticket.events;
+                      const cover = evt?.cover_image_url || DEFAULT_EVENT_COVER;
+                      return (
+                        <Card
+                          key={ticket.id}
+                          className="group cursor-pointer overflow-hidden rounded-2xl border border-border/50 bg-background/70 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                          onClick={() => navigate(routes.event(evt.id))}
+                          aria-label={`Open ${evt.title}`}
+                        >
+                          <CardContent className="p-4 sm:p-5">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                              <div className="h-20 w-full overflow-hidden rounded-xl bg-muted sm:h-20 sm:w-20">
+                                <img src={cover} alt={evt.title} className="h-full w-full object-cover" />
                               </div>
 
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  {new Date(evt.start_at).toLocaleDateString()}
+                              <div className="flex-1 min-w-0 space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="font-semibold leading-tight sm:text-lg">
+                                    {evt.title}
+                                  </h3>
+
+                                  <Badge
+                                    variant="outline"
+                                    className="rounded-full text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(
+                                        `${routes.event(evt.id)}?tier=${encodeURIComponent(ticket.ticket_tiers.badge_label)}`
+                                      );
+                                    }}
+                                    title="View event for this tier"
+                                  >
+                                    {ticket.ticket_tiers.badge_label}
+                                  </Badge>
                                 </div>
-                                {evt.venue && (
-                                  <div className="flex items-center gap-1 truncate">
-                                    <MapPin className="w-3 h-3" />
-                                    <span className="truncate">{evt.venue}</span>
-                                  </div>
+
+                                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                                  <span className="inline-flex items-center gap-1">
+                                    <Calendar className="h-3.5 w-3.5" />
+                                    {new Date(evt.start_at).toLocaleDateString()}
+                                  </span>
+                                  {evt.venue && (
+                                    <span className="inline-flex items-center gap-1 truncate">
+                                      <MapPin className="h-3.5 w-3.5" />
+                                      <span className="truncate">{evt.venue}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <Badge
+                                variant={ticket.status === 'redeemed' ? 'default' : 'secondary'}
+                                className="self-start rounded-full capitalize"
+                              >
+                                {ticket.status}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-muted/40 py-12 text-center text-muted-foreground">
+                    <Ticket className="mb-3 h-10 w-10 opacity-60" />
+                    <p className="font-medium">No tickets yet</p>
+                    <p className="text-sm">This user hasn't attended any events.</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="events" className="mt-6">
+                {events.length > 0 ? (
+                  <div className="space-y-4">
+                    {events.map((event) => (
+                      <Card
+                        key={event.id}
+                        className="group cursor-pointer overflow-hidden rounded-2xl border border-border/50 bg-background/70 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                        onClick={() => navigate(routes.event(event.id))}
+                        aria-label={`Open ${event.title}`}
+                      >
+                        <CardContent className="p-4 sm:p-5">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                            <div className="h-20 w-full overflow-hidden rounded-xl bg-muted sm:h-20 sm:w-20">
+                              <img
+                                src={event.cover_image_url || DEFAULT_EVENT_COVER}
+                                alt={event.title}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold leading-tight sm:text-lg">{event.title}</h3>
+                                {event.category && (
+                                  <Badge variant="outline" className="rounded-full text-xs">
+                                    {event.category}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                                <span className="inline-flex items-center gap-1">
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  {new Date(event.start_at).toLocaleDateString()}
+                                </span>
+                                {event.venue && (
+                                  <span className="inline-flex items-center gap-1 truncate">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    <span className="truncate">{event.venue}</span>
+                                  </span>
                                 )}
                               </div>
                             </div>
-
-                            <Badge
-                              variant={ticket.status === 'redeemed' ? 'default' : 'secondary'}
-                              className="capitalize"
-                            >
-                              {ticket.status}
-                            </Badge>
                           </div>
                         </CardContent>
                       </Card>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Ticket className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No tickets yet</p>
-                  <p className="text-sm">This user hasn't attended any events.</p>
-                </div>
-              )}
-            </TabsContent>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-muted/40 py-12 text-center text-muted-foreground">
+                    <Users className="mb-3 h-10 w-10 opacity-60" />
+                    <p className="font-medium">No events organized</p>
+                    <p className="text-sm">This user hasn't organized any events yet.</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </section>
 
-            {/* EVENTS */}
-            <TabsContent value="events" className="p-4 space-y-4 m-0">
-              {events.length > 0 ? (
-                <div className="space-y-3">
-                  {events.map((event) => (
-                    <Card
-                      key={event.id}
-                      className="cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => navigate(routes.event(event.id))}
-                      aria-label={`Open ${event.title}`}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 bg-muted rounded-lg overflow-hidden">
-                            <img
-                              src={event.cover_image_url || DEFAULT_EVENT_COVER}
-                              alt={event.title}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-medium truncate">{event.title}</h3>
-                              {event.category && (
-                                <Badge variant="outline" className="text-xs">
-                                  {event.category}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {new Date(event.start_at).toLocaleDateString()}
-                              </div>
-                              {event.venue && (
-                                <div className="flex items-center gap-1 truncate">
-                                  <MapPin className="w-3 h-3" />
-                                  <span className="truncate">{event.venue}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+          <aside className="space-y-4 lg:space-y-6">
+            <Card className="overflow-hidden rounded-3xl border border-border/60 bg-background/60 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/40">
+              <CardContent className="space-y-4 p-6">
+                <div>
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    About {profile.display_name.split(' ')[0] || 'this user'}
+                  </h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {profile.role === 'organizer'
+                      ? 'Sharing the moments, milestones, and highlights from events they host.'
+                      : 'Capturing experiences from events across YardPass.'}
+                  </p>
                 </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No events organized</p>
-                  <p className="text-sm">This user hasn't organized any events yet.</p>
+
+                <div className="grid grid-cols-1 gap-3 text-sm">
+                  <div className="flex items-center justify-between rounded-2xl bg-muted/40 px-4 py-3">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Crown className="h-4 w-4" />
+                      Role
+                    </span>
+                    <span className="font-medium capitalize">{profile.role}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-muted/40 px-4 py-3">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Ticket className="h-4 w-4" />
+                      Tickets claimed
+                    </span>
+                    <span className="font-medium">{tickets.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-muted/40 px-4 py-3">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      Last activity
+                    </span>
+                    <span className="font-medium">
+                      {mostRecentTicket?.created_at
+                        ? new Date(mostRecentTicket.created_at).toLocaleDateString()
+                        : mostRecentEvent?.start_at
+                        ? new Date(mostRecentEvent.start_at).toLocaleDateString()
+                        : '—'}
+                    </span>
+                  </div>
                 </div>
-              )}
-            </TabsContent>
-          </div>
-        </Tabs>
-      </div>
+              </CardContent>
+            </Card>
+
+            {upcomingEvent && (
+              <Card className="overflow-hidden rounded-3xl border border-primary/30 bg-primary/10 shadow-sm">
+                <CardContent className="space-y-4 p-6">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+                      Upcoming spotlight
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold leading-tight">{upcomingEvent.title}</h3>
+                  </div>
+                  <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      {new Date(upcomingEvent.start_at).toLocaleString()}
+                    </span>
+                    {upcomingEvent.address && (
+                      <span className="inline-flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        <span className="truncate">{upcomingEvent.address}</span>
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="w-full rounded-full"
+                    onClick={() => navigate(routes.event(upcomingEvent.id))}
+                  >
+                    View event
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </aside>
+        </div>
+      </main>
     </div>
   );
 }
