@@ -536,11 +536,12 @@ export function OrganizationDashboard({
       <div className="flex-1 overflow-auto p-4">
         <Tabs defaultValue="overview">
           <div className="sticky top-0 bg-background z-20 pb-2">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="team">Team ({teamMembers.length})</TabsTrigger>
               <TabsTrigger value="wallet">Wallet</TabsTrigger>
               <TabsTrigger value="verification">Verification</TabsTrigger>
+              <TabsTrigger value="contacts">Contact Lists</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
           </div>
@@ -808,6 +809,12 @@ export function OrganizationDashboard({
             </Card>
           </TabsContent>
 
+          {/* CONTACT LISTS */}
+          <TabsContent value="contacts" className="space-y-6">
+            <OrgContactImportPanel organizationId={organizationId} />
+            <OrgContactExportPanel organizationId={organizationId} />
+          </TabsContent>
+
           {/* SETTINGS */}
           <TabsContent value="settings" className="space-y-6">
             <Card>
@@ -859,9 +866,6 @@ export function OrganizationDashboard({
                 </div>
               </CardContent>
             </Card>
-
-            <OrgContactImportPanel organizationId={organizationId} />
-            <OrgContactExportPanel organizationId={organizationId} />
 
             {/* Social Media Links Management */}
             <Card>

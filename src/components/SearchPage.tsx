@@ -155,8 +155,9 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       dateFrom: from || null,
       dateTo: to || null,
       onlyEvents: true, // Filter to events only at the source
+      location: city || null, // Add location filter
     });
-  }, [cat, from, to, setFilters]);
+  }, [cat, from, to, city, setFilters]);
 
   // Keep only true events (ignore event_posts, orgs, etc.)
   const eventHits = useMemo(() => {
@@ -237,10 +238,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     if (min) filtered = filtered.filter(e => (e.priceFrom ?? 0) >= Number(min));
     if (max) filtered = filtered.filter(e => (e.priceFrom ?? 1e9) <= Number(max));
 
-    if (city.trim()) {
-      const cityNorm = city.trim().toLowerCase();
-      filtered = filtered.filter(e => (e.location || '').toLowerCase().includes(cityNorm));
-    }
+    // Location filtering is now handled at the database level
 
     filtered.sort((a, b) => {
       if (sort === 'price_asc') return (a.priceFrom ?? Number.POSITIVE_INFINITY) - (b.priceFrom ?? Number.POSITIVE_INFINITY);
@@ -252,7 +250,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     });
 
     return filtered;
-  }, [transformedResults, min, max, sort, city]);
+  }, [transformedResults, min, max, sort]);
 
   const boostedResults = useMemo(() => {
     return (searchBoosts ?? [])
@@ -726,7 +724,9 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               </div>
               <div className="border-t mt-6 pt-6 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
-                <h2 className="text-xl font-semibold">All Events</h2>
+                <h2 className="text-xl font-semibold">
+                  {city.trim() ? `Events in ${city}` : 'All Events'}
+                </h2>
               </div>
             </div>
           )}
@@ -748,7 +748,11 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4 text-sm text-muted-foreground">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-foreground">
-                {visible.length > 0 ? `Showing ${visible.length} of ${augmentedResults.length} curated ${augmentedResults.length === 1 ? 'event' : 'events'}` : 'No events found yet'}
+                {visible.length > 0 
+                  ? `Showing ${visible.length} of ${augmentedResults.length} curated ${augmentedResults.length === 1 ? 'event' : 'events'}` 
+                  : city.trim() 
+                    ? `No events found in ${city}` 
+                    : 'No events found yet'}
               </span>
               {totalFetched > augmentedResults.length && (
                 <span className="rounded-full bg-muted px-2 py-0.5">{totalFetched} results fetched</span>

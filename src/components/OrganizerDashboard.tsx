@@ -121,7 +121,7 @@ export default function OrganizerDashboard() {
     if (urlOrg && organizations.some(o => o.id === urlOrg)) {
       setSelectedOrgId(urlOrg);
       if (isBrowser) {
-        localStorage.setItem(LAST_ORG_KEY, urlOrg);
+      localStorage.setItem(LAST_ORG_KEY, urlOrg);
       }
       return;
     }
@@ -139,10 +139,10 @@ export default function OrganizerDashboard() {
     // Else default to first org
     const first = organizations[0]?.id;
     if (first) {
-      setSelectedOrgId(first);
-      const next = new URLSearchParams(searchParams);
-      next.set('org', first);
-      setSearchParams(next, { replace: true });
+    setSelectedOrgId(first);
+    const next = new URLSearchParams(searchParams);
+    next.set('org', first);
+    setSearchParams(next, { replace: true });
       if (isBrowser) {
         localStorage.setItem(LAST_ORG_KEY, first);
       }
@@ -168,7 +168,7 @@ export default function OrganizerDashboard() {
       setSearchParams(next, { replace: true });
     }
     if (isBrowser) {
-      localStorage.setItem(lastTabKeyFor(selectedOrgId), activeTab);
+    localStorage.setItem(lastTabKeyFor(selectedOrgId), activeTab);
     }
   }, [activeTab, selectedOrgId, searchParams, setSearchParams, isBrowser]);
 
@@ -178,7 +178,7 @@ export default function OrganizerDashboard() {
       const tabToActivate = saved && TAB_KEYS.includes(saved) ? saved : DEFAULT_TAB;
       setActiveTab(tabToActivate);
       if (isBrowser) {
-        localStorage.setItem(LAST_ORG_KEY, selectedOrgId);
+      localStorage.setItem(LAST_ORG_KEY, selectedOrgId);
       }
       trackEvent('organizer_tab_view', { tab: tabToActivate, org_id: selectedOrgId });
     }
@@ -226,7 +226,7 @@ export default function OrganizerDashboard() {
       const transformed: Event[] = (data || []).map(e => {
         const paidOrders = (e.orders || []).filter((o: any) => o.status === 'paid');
         const revenue = paidOrders.reduce((sum: number, o: any) => sum + (o.total_cents || 0), 0) / 100;
-
+        
         const issuedTickets = (e.tickets || []).filter(
           (t: any) => t.status === 'issued' || t.status === 'transferred' || t.status === 'redeemed'
         );
@@ -315,7 +315,7 @@ export default function OrganizerDashboard() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [eventDetails, setEventDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(true);
-
+  
   const handleEventSelect = useCallback((event: Event) => {
     if (!selectedOrgId) return;
     trackEvent('dashboard_event_selected', { event_id: event.id, org_id: selectedOrgId });
@@ -361,7 +361,7 @@ export default function OrganizerDashboard() {
         setLoadingDetails(false);
       }
     };
-
+    
     fetchEventDetails();
   }, [selectedEvent]);
 
@@ -690,7 +690,7 @@ export default function OrganizerDashboard() {
                 setSearchParams(next, { replace: true });
                 setSelectedOrgId(nextOrgId);
                 if (isBrowser) {
-                  localStorage.setItem(LAST_ORG_KEY, nextOrgId);
+                localStorage.setItem(LAST_ORG_KEY, nextOrgId);
                 }
                 trackEvent('dashboard_org_selected', { org_id: nextOrgId, source: 'switcher' });
               }}
@@ -776,10 +776,10 @@ export default function OrganizerDashboard() {
               <LoadingSpinner />
             </div>
           ) : events.length === 0 ? (
-            <div className="text-center py-16 border rounded-lg">
-              <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-              <h3 className="text-lg font-semibold mb-1">No events yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
+              <div className="text-center py-16 border rounded-lg">
+                <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                <h3 className="text-lg font-semibold mb-1">No events yet</h3>
+                <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
               <div className="flex gap-3 justify-center">
                 <Button onClick={goCreateEvent}><Plus className="mr-2 h-4 w-4" />Create Event</Button>
                 <Button 
@@ -822,8 +822,8 @@ export default function OrganizerDashboard() {
                   Test Event Management
                 </Button>
               </div>
-            </div>
-          ) : (
+              </div>
+            ) : (
             <div className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <Card>
@@ -1005,8 +1005,8 @@ export default function OrganizerDashboard() {
                                   <div className="mt-1 flex items-center gap-2">
                                     <Progress value={event.occupancyRate} className="h-2 w-24" />
                                     <span className="text-xs text-muted-foreground">{Math.round(event.occupancyRate)}%</span>
-                                  </div>
-                                )}
+              </div>
+            )}
                               </TableCell>
                               <TableCell className="text-right text-sm font-semibold">
                                 ${event.revenue.toLocaleString()}
@@ -1087,7 +1087,7 @@ export default function OrganizerDashboard() {
 
               <Suspense fallback={<LoadingSpinner />}>
                 <DashboardOverview events={enhancedEvents} onEventSelect={handleEventSelect} />
-              </Suspense>
+          </Suspense>
             </div>
           )}
         </TabsContent>

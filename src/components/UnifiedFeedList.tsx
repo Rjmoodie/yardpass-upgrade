@@ -14,6 +14,7 @@ import { FeedKeymap } from '@/components/FeedKeymap';
 import { EventCard } from '@/components/EventCard';
 import { UserPostCard } from '@/components/UserPostCard';
 import CommentModal from '@/components/CommentModal';
+import { PostCreatorModal } from '@/components/PostCreatorModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -204,6 +205,7 @@ export default function UnifiedFeedList() {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [ticketModalEvent, setTicketModalEvent] = useState<TicketModalEvent | null>(null);
+  const [postCreatorOpen, setPostCreatorOpen] = useState(false);
 
   const {
     items,
@@ -536,10 +538,10 @@ export default function UnifiedFeedList() {
   const handleCreatePost = useCallback(
     (eventId: string) => {
       requireAuth(() => {
-        navigate(`/event/${eventId}?compose=post`);
+        setPostCreatorOpen(true);
       }, 'Sign in to share an update');
     },
-    [navigate, requireAuth]
+    [requireAuth]
   );
 
   const handleReport = useCallback(() => {
@@ -769,6 +771,20 @@ export default function UnifiedFeedList() {
           setTicketModalOpen(false);
           setTicketModalEvent(null);
           navigate('/tickets');
+        }}
+      />
+
+      <PostCreatorModal
+        isOpen={postCreatorOpen}
+        onClose={() => setPostCreatorOpen(false)}
+        onSuccess={() => {
+          setPostCreatorOpen(false);
+          toast({
+            title: 'Success',
+            description: 'Your post has been created!',
+          });
+          // Optionally refresh the feed
+          refetch();
         }}
       />
     </div>

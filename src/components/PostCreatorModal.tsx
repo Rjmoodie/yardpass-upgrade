@@ -17,6 +17,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfileView } from '@/contexts/ProfileViewContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -185,6 +186,7 @@ export function PostCreatorModal({
   preselectedEventId,
 }: PostCreatorModalProps) {
   const { user, profile } = useAuth();
+  const { activeView } = useProfileView();
   // const { track } = useAnalytics?.() ?? { track: () => {} };
 
   const [content, setContent] = useState('');
@@ -231,14 +233,15 @@ export function PostCreatorModal({
     return () => clearTimeout(id);
   }, [content, selectedEventId, isOpen, user?.id]);
 
-  // Fetch user's tickets
+  // Fetch user's events - both as attendee (tickets) and organizer (created events)
   useEffect(() => {
     if (!isOpen || !user) return;
     let mounted = true;
 
     (async () => {
       try {
-        const { data, error } = await supabase
+        // Fetch events where user has tickets (attendee role)
+        const { data: ticketData, error: ticketError } = await supabase
           .from('tickets')
           .select(`
             id,
@@ -257,19 +260,103 @@ export function PostCreatorModal({
           .eq('owner_user_id', user.id)
           .in('status', ['issued', 'transferred', 'redeemed']);
 
-        if (error) throw error;
+        if (ticketError) throw ticketError;
         if (!mounted) return;
 
-        const dedupByEvent = Array.from(new Map((data || []).map((t: UserTicket) => [t.event_id, t])).values());
-        setUserTickets(dedupByEvent);
+        // Fetch organizations the user manages
+        const { data: userOrganizations, error: orgError } = await supabase
+          .from('org_memberships')
+          .select(`
+            org_id,
+            role,
+            organizations!org_memberships_org_id_fkey (
+              id,
+              name
+            )
+          `)
+          .eq('user_id', user.id)
+          .in('role', ['owner', 'admin', 'editor']);
+
+        if (orgError) throw orgError;
+        if (!mounted) return;
+
+        const orgIds = userOrganizations?.map(org => org.org_id) || [];
+
+        // Fetch events created by user OR owned by their organizations
+        let eventsQuery = supabase
+          .from('events')
+          .select(`
+            id,
+            title,
+            cover_image_url,
+            created_by,
+            owner_context_type,
+            owner_context_id
+          `)
+          .eq('created_by', user.id);
+
+        // Include events from managed organizations
+        if (orgIds.length > 0) {
+          eventsQuery = eventsQuery.or(`created_by.eq.${user.id},owner_context_id.in.(${orgIds.join(',')})`);
+        }
+
+        const { data: organizedEvents, error: organizedError } = await eventsQuery
+          .order('start_at', { ascending: false });
+
+        if (organizedError) throw organizedError;
+        if (!mounted) return;
+
+        // Convert tickets to unified format
+        const ticketEvents = (ticketData || []).map((ticket: UserTicket) => ({
+          id: ticket.id,
+          event_id: ticket.event_id,
+          tier_id: ticket.tier_id,
+          events: ticket.events,
+          ticket_tiers: ticket.ticket_tiers,
+          source: 'ticket' as const,
+        }));
+
+        // Convert organized events to unified format
+        const organizerEvents = (organizedEvents || []).map(event => ({
+          id: `org-${event.id}`,
+          event_id: event.id,
+          tier_id: 'organizer',
+          events: {
+            id: event.id,
+            title: event.title,
+            cover_image_url: event.cover_image_url
+          },
+          ticket_tiers: {
+            badge_label: 'ORGANIZER',
+            name: 'Organizer'
+          },
+          source: 'organizer' as const,
+        }));
+
+        // Combine and deduplicate by event_id, prioritizing organizer role
+        const eventMap = new Map<string, UserTicket>();
+        
+        // Add ticket events first
+        ticketEvents.forEach(event => {
+          eventMap.set(event.event_id, event);
+        });
+
+        // Add/override with organizer events (organizer role takes priority)
+        organizerEvents.forEach(event => {
+          eventMap.set(event.event_id, event);
+        });
+
+        const allEvents = Array.from(eventMap.values());
+
+        setUserTickets(allEvents);
 
         if (preselectedEventId) {
           setSelectedEventId(preselectedEventId);
-        } else if (!selectedEventId && dedupByEvent.length === 1) {
-          setSelectedEventId(dedupByEvent[0].event_id);
+        } else if (!selectedEventId && allEvents.length === 1) {
+          setSelectedEventId(allEvents[0].event_id);
         }
       } catch (err) {
-        console.error('Error fetching user tickets:', err);
+        console.error('Error fetching user events:', err);
         toast({
           title: 'Error',
           description: 'Failed to load your events',
