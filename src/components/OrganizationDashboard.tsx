@@ -34,6 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SocialLinkManager } from './SocialLinkManager';
 import { SocialLinkDisplay } from './SocialLinkDisplay';
 import { LocationAutocomplete } from './LocationAutocomplete';
+import { OrgContactExportPanel } from './OrgContactExportPanel';
 
 interface User {
   id: string;
@@ -857,6 +858,8 @@ export function OrganizationDashboard({
                 </div>
               </CardContent>
             </Card>
+
+            <OrgContactExportPanel organizationId={organizationId} />
 
             {/* Social Media Links Management */}
             <Card>
