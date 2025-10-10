@@ -119,15 +119,28 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   }, [recent]);
 
   // Use the smart search hook instead of custom logic
-  const { 
-    q: searchQuery, 
+  const {
+    q: searchQuery,
     setQ: setSearchQuery,
     filters,
     setFilters,
+    clearFilters,
     results: searchResults,
     loading,
-    error
-  } = useSmartSearch('');
+    isInitialLoading,
+    error,
+    hasMore,
+    loadMore,
+    totalFetched,
+    lastUpdatedAt,
+    retry,
+    isStale,
+  } = useSmartSearch({
+    initialQuery: '',
+    initialFilters: { onlyEvents: true },
+    minimumQueryLength: 2,
+    pageSize: 24,
+  });
 
   const [showFilters, setShowFilters] = useState(false);
 
@@ -223,17 +236,23 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
 
     if (min) filtered = filtered.filter(e => (e.priceFrom ?? 0) >= Number(min));
     if (max) filtered = filtered.filter(e => (e.priceFrom ?? 1e9) <= Number(max));
-    
-    // Sort
+
+    if (city.trim()) {
+      const cityNorm = city.trim().toLowerCase();
+      filtered = filtered.filter(e => (e.location || '').toLowerCase().includes(cityNorm));
+    }
+
     filtered.sort((a, b) => {
-      if (sort === 'price_asc') return (a.priceFrom ?? 1e9) - (b.priceFrom ?? 1e9);
-      if (sort === 'price_desc') return (b.priceFrom ?? -1) - (a.priceFrom ?? -1);
+      if (sort === 'price_asc') return (a.priceFrom ?? Number.POSITIVE_INFINITY) - (b.priceFrom ?? Number.POSITIVE_INFINITY);
+      if (sort === 'price_desc') return (b.priceFrom ?? Number.NEGATIVE_INFINITY) - (a.priceFrom ?? Number.NEGATIVE_INFINITY);
       if (sort === 'attendees_desc') return (b.attendeeCount ?? 0) - (a.attendeeCount ?? 0);
-      return 0; // date_asc default
+      const dateA = a.start_at ? new Date(a.start_at).getTime() : Number.POSITIVE_INFINITY;
+      const dateB = b.start_at ? new Date(b.start_at).getTime() : Number.POSITIVE_INFINITY;
+      return dateA - dateB;
     });
-    
+
     return filtered;
-  }, [transformedResults, min, max, sort]);
+  }, [transformedResults, min, max, sort, city]);
 
   const boostedResults = useMemo(() => {
     return (searchBoosts ?? [])
@@ -327,12 +346,22 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     const el = loaderRef.current;
     const io = new IntersectionObserver((entries) => {
       if (entries.some(e => e.isIntersecting)) {
-        setVisibleCount((c) => Math.min(c + PAGE_SIZE, augmentedResults.length));
+        setVisibleCount((c) => {
+          const next = Math.min(c + PAGE_SIZE, augmentedResults.length);
+          if (next >= augmentedResults.length && hasMore && !loading) {
+            // Request the next page from Supabase when we've exhausted the local slice
+            setTimeout(() => {
+              // Allow layout to expand before fetching to avoid thrash
+              loadMore();
+            }, 0);
+          }
+          return next;
+        });
       }
-    }, { rootMargin: '600px' }); // prefetch before hitting bottom
+    }, { rootMargin: '600px' });
     io.observe(el);
     return () => io.disconnect();
-  }, [augmentedResults.length]);
+  }, [augmentedResults.length, hasMore, loading, loadMore]);
 
   // helpers to update url params succinctly
   const setParam = (k: string, v?: string) => {
@@ -365,6 +394,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     });
     setParams(new URLSearchParams(), { replace: true });
     setVisibleCount(PAGE_SIZE);
+    clearFilters();
   };
 
   // quick chips
@@ -701,7 +731,46 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
             </div>
           )}
 
-          {loading ? (
+          {error && (
+            <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-destructive">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">We hit a snag while searching</p>
+                  <p className="text-sm opacity-80">{error instanceof Error ? error.message : 'Please try again in a moment.'}</p>
+                </div>
+                <Button variant="outline" onClick={retry} className="border-destructive/40 text-destructive hover:bg-destructive/20">
+                  Retry search
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-foreground">
+                {visible.length > 0 ? `Showing ${visible.length} of ${augmentedResults.length} curated ${augmentedResults.length === 1 ? 'event' : 'events'}` : 'No events found yet'}
+              </span>
+              {totalFetched > augmentedResults.length && (
+                <span className="rounded-full bg-muted px-2 py-0.5">{totalFetched} results fetched</span>
+              )}
+              {isStale && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-500">
+                  Updating…
+                </span>
+              )}
+              {lastUpdatedAt && !isStale && (
+                <span>Updated {formatDistanceToNow(lastUpdatedAt, { addSuffix: true })}</span>
+              )}
+            </div>
+            {loading && !isInitialLoading && (
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-primary" aria-hidden />
+                Refreshing results…
+              </div>
+            )}
+          </div>
+
+          {isInitialLoading ? (
             <SkeletonGrid />
           ) : augmentedResults.length === 0 ? (
             <EmptyState />
@@ -718,9 +787,16 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 ))}
               </div>
               {/* sentinel for infinite scroll */}
-              {visibleCount < augmentedResults.length && (
+              {(visibleCount < augmentedResults.length || hasMore) && (
                 <div ref={loaderRef} className="h-12 flex items-center justify-center text-muted-foreground">
-                  Loading more…
+                  {loading ? 'Loading more…' : hasMore ? 'Scroll to load more results' : 'You have reached the end'}
+                </div>
+              )}
+              {hasMore && !loading && (
+                <div className="mt-4 flex justify-center">
+                  <Button variant="outline" onClick={loadMore} className="min-w-[200px]">
+                    Load more results
+                  </Button>
                 </div>
               )}
             </>
