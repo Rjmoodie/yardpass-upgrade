@@ -162,6 +162,7 @@ export default function UserProfilePage() {
   const [events, setEvents] = useState<UserEvent[]>([]);
   const [posts, setPosts] = useState<ProfilePostWithEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeRoleView, setActiveRoleView] = useState<'attendee' | 'organizer'>('attendee');
 
   const isViewingOwnProfile = useMemo(() => {
     if (!profile || !currentUser) return false;
