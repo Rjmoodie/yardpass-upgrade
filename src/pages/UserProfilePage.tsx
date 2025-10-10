@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { updateMetaTags } from '@/utils/meta';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,10 +20,15 @@ import {
   Clock,
 } from 'lucide-react';
 import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
-import { EventFeed } from '@/components/EventFeed';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useShare } from '@/hooks/useShare';
+import { UserPostCard } from '@/components/UserPostCard';
+import type { FeedItem } from '@/hooks/unifiedFeedTypes';
+import { MediaPostGrid } from '@/components/posts/MediaPostGrid';
+import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 
 interface UserProfile {
   user_id: string;
@@ -61,6 +66,104 @@ interface UserTicket {
   };
 }
 
+const POSTS_PAGE_SIZE = 12;
+
+type ProfilePostWithEvent = {
+  id: string;
+  event_id: string | null;
+  text: string | null;
+  media_urls: string[] | null;
+  like_count: number | null;
+  comment_count: number | null;
+  author_user_id: string | null;
+  author_name: string | null;
+  author_badge_label: string | null;
+  author_is_organizer: boolean | null;
+  created_at: string | null;
+  viewer_has_liked?: boolean | null;
+  events: {
+    id: string;
+    title: string;
+    description: string | null;
+    start_at: string | null;
+    venue: string | null;
+    city: string | null;
+    country: string | null;
+    address: string | null;
+    cover_image_url: string | null;
+    owner_context_type: string | null;
+    owner_context_id: string | null;
+    created_by: string | null;
+    organizations?: {
+      id: string;
+      name: string;
+      handle: string | null;
+      logo_url: string | null;
+    } | null;
+    creator?: {
+      user_id: string;
+      display_name: string | null;
+      photo_url: string | null;
+    } | null;
+  } | null;
+};
+
+type PostCursor = {
+  createdAt: string;
+  id: string;
+};
+
+function mapProfilePostToFeedItem(
+  post: ProfilePostWithEvent
+): Extract<FeedItem, { item_type: 'post' }> {
+  const event = post.events;
+  const locationParts = event
+    ? [event.venue, event.city, event.country].filter(Boolean)
+    : [];
+  const location = locationParts.join(', ') || event?.address || 'Location TBA';
+
+  const organizerName = event
+    ? event.owner_context_type === 'organization'
+      ? event.organizations?.name || 'Organizer'
+      : event.creator?.display_name || 'Organizer'
+    : 'Organizer';
+
+  const organizerId = event
+    ? event.owner_context_type === 'organization'
+      ? event.organizations?.id ?? null
+      : event.creator?.user_id ?? event.created_by ?? null
+    : null;
+
+  return {
+    item_type: 'post',
+    sort_ts: post.created_at ?? new Date().toISOString(),
+    item_id: post.id,
+    event_id: post.event_id ?? event?.id ?? '',
+    event_title: event?.title ?? 'Event',
+    event_description: event?.description ?? '',
+    event_starts_at: event?.start_at ?? null,
+    event_cover_image: event?.cover_image_url || DEFAULT_EVENT_COVER,
+    event_organizer: organizerName,
+    event_organizer_id: organizerId,
+    event_owner_context_type: event?.owner_context_type ?? 'individual',
+    event_location: location,
+    author_id: post.author_user_id ?? null,
+    author_name: post.author_name ?? null,
+    author_badge: post.author_badge_label ?? null,
+    author_social_links: null,
+    media_urls: post.media_urls ?? [],
+    content: post.text,
+    metrics: {
+      likes: post.like_count ?? 0,
+      comments: post.comment_count ?? 0,
+      viewer_has_liked: Boolean(post.viewer_has_liked),
+    },
+    sponsor: null,
+    sponsors: null,
+    promotion: null,
+  };
+}
+
 export default function UserProfilePage() {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
@@ -70,6 +173,37 @@ export default function UserProfilePage() {
   const [events, setEvents] = useState<UserEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('posts');
+  const [profilePosts, setProfilePosts] = useState<ProfilePostWithEvent[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [postsLoadingMore, setPostsLoadingMore] = useState(false);
+  const [postsHasMore, setPostsHasMore] = useState(true);
+  const [postCursor, setPostCursor] = useState<PostCursor | null>(null);
+  const [selectedPost, setSelectedPost] = useState<Extract<FeedItem, { item_type: 'post' }> | null>(null);
+  const postsObserverRef = useRef<IntersectionObserver | null>(null);
+
+  const attendedCount = tickets.length;
+  const redeemedCount = useMemo(
+    () => tickets.filter((ticket) => ticket.status === 'redeemed').length,
+    [tickets]
+  );
+
+  const upcomingEvent = useMemo(() => {
+    const now = Date.now();
+    return [...events]
+      .filter((event) => new Date(event.start_at).getTime() >= now)
+      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0];
+  }, [events]);
+
+  const mostRecentEvent = useMemo(() => {
+    return [...events]
+      .sort((a, b) => new Date(b.start_at).getTime() - new Date(a.start_at).getTime())[0];
+  }, [events]);
+
+  const mostRecentTicket = useMemo(() => tickets[0], [tickets]);
+  const isMobile = useIsMobile();
+  const { sharePost } = useShare();
+  const { toggleLike } = useOptimisticReactions();
+  const profileUserId = profile?.user_id;
 
   const attendedCount = tickets.length;
   const redeemedCount = useMemo(
@@ -119,6 +253,153 @@ export default function UserProfilePage() {
   useEffect(() => {
     if (username) fetchUserProfile(username);
   }, [username]);
+
+  useEffect(() => {
+    if (!profileUserId) {
+      setProfilePosts([]);
+      setPostsLoading(false);
+      setPostsHasMore(false);
+      return;
+    }
+
+    setProfilePosts([]);
+    setPostCursor(null);
+    setPostsHasMore(true);
+    setPostsLoading(true);
+
+    loadProfilePosts()
+      .catch((error) => {
+        console.error('Error loading profile posts:', error);
+        toast({
+          title: 'Unable to load posts',
+          description: 'Please try again later.',
+          variant: 'destructive',
+        });
+        setPostsHasMore(false);
+      })
+      .finally(() => {
+        setPostsLoading(false);
+      });
+  }, [profileUserId, loadProfilePosts]);
+
+  const handleLoadMore = useCallback(async () => {
+    if (!postsHasMore || postsLoadingMore || postsLoading || !postCursor) {
+      return;
+    }
+
+    setPostsLoadingMore(true);
+    try {
+      await loadProfilePosts(postCursor, true);
+    } catch (error) {
+      console.error('Error loading more profile posts:', error);
+      toast({
+        title: 'Unable to load more posts',
+        description: 'Please try again shortly.',
+        variant: 'destructive',
+      });
+    } finally {
+      setPostsLoadingMore(false);
+    }
+  }, [postsHasMore, postsLoadingMore, postsLoading, postCursor, loadProfilePosts]);
+
+  const postsLoadMoreRef = useCallback(
+    (node: HTMLElement | null) => {
+      if (postsObserverRef.current) {
+        postsObserverRef.current.disconnect();
+        postsObserverRef.current = null;
+      }
+
+      if (!node || !postsHasMore) return;
+
+      postsObserverRef.current = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[0];
+          if (entry?.isIntersecting) {
+            handleLoadMore();
+          }
+        },
+        { rootMargin: '200px 0px 200px 0px' }
+      );
+
+      postsObserverRef.current.observe(node);
+    },
+    [handleLoadMore, postsHasMore]
+  );
+
+  useEffect(() => {
+    return () => {
+      postsObserverRef.current?.disconnect();
+    };
+  }, []);
+
+  const handleSelectPost = useCallback((post: ProfilePostWithEvent) => {
+    setSelectedPost(mapProfilePostToFeedItem(post));
+  }, []);
+
+  const handleLike = useCallback(
+    async (postId: string) => {
+      if (!selectedPost || selectedPost.item_id !== postId) return;
+
+      const currentLiked = Boolean(selectedPost.metrics.viewer_has_liked);
+      const currentLikes = Number(selectedPost.metrics.likes ?? 0);
+      const result = await toggleLike(postId, currentLiked, currentLikes);
+      if (!result.ok) return;
+
+      setSelectedPost((prev) =>
+        prev
+          ? {
+              ...prev,
+              metrics: {
+                ...prev.metrics,
+                likes: result.likeCount,
+                viewer_has_liked: result.isLiked,
+              },
+            }
+          : prev
+      );
+
+      setProfilePosts((prev) =>
+        prev.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                like_count: result.likeCount,
+                viewer_has_liked: result.isLiked,
+              }
+            : post
+        )
+      );
+    },
+    [selectedPost, toggleLike]
+  );
+
+  const handleSharePost = useCallback(
+    (postId: string) => {
+      if (!selectedPost || selectedPost.item_id !== postId) return;
+      const eventTitle = selectedPost.event_title || 'Event';
+      const text = selectedPost.content || undefined;
+      sharePost(postId, eventTitle, text);
+    },
+    [selectedPost, sharePost]
+  );
+
+  const handleAuthorClick = useCallback(
+    (authorId: string) => {
+      if (!authorId) return;
+      setSelectedPost(null);
+      navigate(`/u/${authorId}`);
+    },
+    [navigate]
+  );
+
+  const handleModalEventClick = useCallback(
+    (eventIdToOpen: string) => {
+      if (!eventIdToOpen) return;
+      setSelectedPost(null);
+      navigate(routes.event(eventIdToOpen));
+    },
+    [navigate]
+  );
 
   async function fetchUserProfile(identifier: string) {
     try {
@@ -210,6 +491,69 @@ export default function UserProfilePage() {
       setLoading(false);
     }
   }
+
+  const loadProfilePosts = useCallback(
+    async (cursor?: PostCursor, append = false) => {
+      if (!profileUserId) return;
+
+      const limit = POSTS_PAGE_SIZE;
+      let query = supabase
+        .from('event_posts_with_meta')
+        .select(
+          `
+            id,
+            event_id,
+            text,
+            media_urls,
+            like_count,
+            comment_count,
+            author_user_id,
+            author_name,
+            author_badge_label,
+            author_is_organizer,
+            created_at,
+            viewer_has_liked,
+            events:events!event_posts_event_id_fkey (
+              id,
+              title,
+              description,
+              start_at,
+              venue,
+              city,
+              country,
+              address,
+              cover_image_url,
+              owner_context_type,
+              owner_context_id,
+              created_by,
+              organizations:organizations!events_owner_context_id_fkey (id, name, handle, logo_url),
+              creator:user_profiles!events_created_by_fkey (user_id, display_name, photo_url)
+            )
+          `
+        )
+        .eq('author_user_id', profileUserId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(limit + 1);
+
+      if (cursor?.createdAt) {
+        query = query.lt('created_at', cursor.createdAt);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const rows = (data || []) as ProfilePostWithEvent[];
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, limit) : rows;
+      setProfilePosts((prev) => (append ? [...prev, ...items] : items));
+
+      const tail = items[items.length - 1];
+      setPostCursor(hasMore && tail?.created_at ? { createdAt: tail.created_at, id: tail.id } : null);
+      setPostsHasMore(hasMore);
+    },
+    [profileUserId]
+  );
 
   const handleBack = () => navigate('/');
 
@@ -551,6 +895,13 @@ export default function UserProfilePage() {
                                   </span>
                                 )}
                               </div>
+
+                              <Badge
+                                variant={ticket.status === 'redeemed' ? 'default' : 'secondary'}
+                                className="self-start rounded-full capitalize"
+                              >
+                                {ticket.status}
+                              </Badge>
                             </div>
                           </div>
                         </CardContent>
