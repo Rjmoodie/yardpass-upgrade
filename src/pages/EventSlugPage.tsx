@@ -7,8 +7,9 @@ import React, {
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   Calendar,
-  Clock,
+  Copy,
   MapPin,
+  Navigation,
   Play,
   Share2,
   Ticket,
@@ -43,6 +44,7 @@ import { muxToPoster } from '@/utils/media';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { UserPostCard } from '@/components/UserPostCard';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
+import MapboxEventMap from '@/components/MapboxEventMap';
 
 const safeOrigin =
   typeof window !== 'undefined' && window.location?.origin
@@ -92,6 +94,8 @@ type EventRow = {
   city: string | null;
   country: string | null;
   address?: string | null;
+  lat: number | null;
+  lng: number | null;
   cover_image_url: string | null;
   owner_context_type: 'organization' | 'individual';
   owner_context_id: string;
@@ -335,7 +339,7 @@ export default function EventSlugPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
-  const { shareEvent, sharePost, isSharing } = useShare();
+  const { shareEvent, sharePost, copyLink, isSharing } = useShare();
   const { toggleLike } = useOptimisticReactions();
 
   const [loading, setLoading] = useState(true);
@@ -367,6 +371,8 @@ export default function EventSlugPage() {
               city,
               country,
               address,
+              lat,
+              lng,
               cover_image_url,
               owner_context_type,
               owner_context_id,
@@ -396,6 +402,8 @@ export default function EventSlugPage() {
                 city,
                 country,
                 address,
+                lat,
+                lng,
                 cover_image_url,
                 owner_context_type,
                 owner_context_id,
@@ -505,6 +513,18 @@ export default function EventSlugPage() {
     return parts.length ? parts.join(', ') : 'Location TBA';
   }, [event]);
 
+  const locationLines = useMemo(() => {
+    const lines = [
+      event?.venue,
+      event?.address,
+      [event?.city, event?.country].filter(Boolean).join(', '),
+    ]
+      .map((line) => (line ? line.trim() : ''))
+      .filter(Boolean);
+
+    return Array.from(new Set(lines));
+  }, [event?.venue, event?.address, event?.city, event?.country]);
+
   const headerWhen = useMemo(() => {
     if (!event?.start_at) return 'Date TBA';
     try {
@@ -570,6 +590,20 @@ export default function EventSlugPage() {
     }
   }, [event?.start_at, event?.end_at]);
 
+  const timeZoneName = useMemo(() => {
+    if (!event?.start_at) return null;
+    try {
+      const start = new Date(event.start_at);
+      const parts = new Intl.DateTimeFormat(undefined, {
+        timeZoneName: 'short',
+      }).formatToParts(start);
+      const tzPart = parts.find((part) => part.type === 'timeZoneName');
+      return tzPart?.value ?? null;
+    } catch {
+      return null;
+    }
+  }, [event?.start_at]);
+
   const eventInitials = useMemo(() => {
     if (!event?.title) return 'EV';
     return event.title
@@ -580,6 +614,11 @@ export default function EventSlugPage() {
       .slice(0, 2)
       .toUpperCase();
   }, [event?.title]);
+
+  const descriptionHtml = useMemo(
+    () => sanitizeHtml(event?.description || 'Details coming soon.'),
+    [event?.description]
+  );
 
   const taggedCount = useMemo(() => taggedQuery.data?.pages?.[0]?.totalCount ?? null, [taggedQuery.data]);
   const postsCount = useMemo(() => postsQuery.data?.pages?.[0]?.totalCount ?? null, [postsQuery.data]);
@@ -764,6 +803,20 @@ export default function EventSlugPage() {
 
   const meta = buildMeta(event, headerWhen, `${safeOrigin}${shareUrl}`);
 
+  const shareLink = `${safeOrigin}${shareUrl}`;
+
+  const numericLat =
+    event.lat !== null && event.lat !== undefined ? Number(event.lat) : null;
+  const numericLng =
+    event.lng !== null && event.lng !== undefined ? Number(event.lng) : null;
+  const hasCoordinates =
+    numericLat !== null &&
+    !Number.isNaN(numericLat) &&
+    numericLng !== null &&
+    !Number.isNaN(numericLng);
+
+  const hasLocationDetails = locationLines.length > 0;
+
   const fullAddress = [event.venue, event.city, event.country]
     .filter(Boolean)
     .join(', ');
@@ -808,6 +861,32 @@ export default function EventSlugPage() {
     : event.creator
     ? `/u/${event.creator.user_id}`
     : undefined;
+
+  const handleCopyLink = () => {
+    void copyLink(shareLink, 'Event link copied!');
+  };
+
+  const handleOpenDirections = () => {
+    if (typeof window === 'undefined') return;
+    const fallbackLocation = fullAddress || event.venue || event.title;
+
+    if (hasCoordinates && numericLat !== null && numericLng !== null) {
+      window.open(
+        `https://www.google.com/maps/search/?api=1&query=${numericLat},${numericLng}`,
+        '_blank',
+        'noopener'
+      );
+      return;
+    }
+
+    if (fallbackLocation) {
+      window.open(
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackLocation)}`,
+        '_blank',
+        'noopener'
+      );
+    }
+  };
 
   return (
     <>
@@ -966,41 +1045,163 @@ export default function EventSlugPage() {
               </TabsList>
 
               <TabsContent value="details" className="mt-6">
-                <div className="grid gap-6 md:grid-cols-[2fr,1.1fr]">
-                  <Card className="rounded-3xl border border-white/10 bg-white/5">
-                    <CardContent className="p-6">
-                      <h2 className="text-lg font-semibold text-white">About this event</h2>
-                      <div
-                        className="prose prose-sm mt-3 max-w-none text-white/80"
-                        dangerouslySetInnerHTML={{
-                          __html: sanitizeHtml(event.description || 'Details coming soon.'),
-                        }}
-                      />
+                <div className="grid gap-6 xl:grid-cols-[1.75fr,1fr]">
+                  <Card className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur">
+                    <CardContent className="space-y-8 p-6 md:p-8">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 text-xs uppercase tracking-[0.3em] text-white/50">
+                          <span className="h-px w-8 rounded-full bg-white/40" />
+                          Overview
+                        </div>
+                        <h2 className="text-2xl font-semibold text-white md:text-3xl">
+                          About this experience
+                        </h2>
+                        <div
+                          className="prose prose-sm mt-3 max-w-none text-white/80 prose-headings:text-white prose-strong:text-white md:prose-base"
+                          dangerouslySetInnerHTML={{
+                            __html: descriptionHtml,
+                          }}
+                        />
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-2xl border border-white/10 bg-black/30 p-4 backdrop-blur-sm">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                              <Calendar className="h-5 w-5" />
+                            </div>
+                            <div className="space-y-1 text-white/80">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                                Schedule
+                              </p>
+                              <p className="text-sm font-semibold text-white">{detailedDate}</p>
+                              <p className="text-sm">{detailedTime}</p>
+                              {timeZoneName && (
+                                <p className="text-xs text-white/50">Local time • {timeZoneName}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/10 bg-black/30 p-4 backdrop-blur-sm">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white">
+                              <MapPin className="h-5 w-5" />
+                            </div>
+                            <div className="space-y-2 text-white/80">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                                Location
+                              </p>
+                              {hasLocationDetails ? (
+                                <div className="space-y-1">
+                                  {locationLines.map((line) => (
+                                    <p key={line} className="text-sm">
+                                      {line}
+                                    </p>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm">Location details coming soon.</p>
+                              )}
+                              {(hasCoordinates || hasLocationDetails) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="mt-1 h-9 w-full justify-start gap-2 rounded-xl border border-white/10 bg-white/10 text-white/80 transition hover:text-white"
+                                  onClick={handleOpenDirections}
+                                >
+                                  <Navigation className="h-4 w-4" />
+                                  Open in Maps
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/10 bg-black/30 p-4 backdrop-blur-sm md:col-span-2">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white">
+                              <Users className="h-5 w-5" />
+                            </div>
+                            <div className="space-y-2 text-white/80">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                                Community
+                              </p>
+                              <p className="text-sm font-semibold text-white">
+                                {attendeeCount > 0 ? `${attendeeCount} going` : 'Be the first to RSVP'}
+                              </p>
+                              <p className="text-sm">
+                                See who’s attending and start making connections early.
+                              </p>
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="h-auto px-0 text-primary"
+                                onClick={() => navigate(`/e/${event.slug ?? event.id}/attendees`)}
+                              >
+                                Meet the guest list
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {event.category && (
+                          <Badge className="rounded-full border border-white/10 bg-white/10 text-xs font-medium uppercase tracking-wide text-white/80">
+                            {event.category}
+                          </Badge>
+                        )}
+                        <Badge className="rounded-full border border-white/10 bg-white/10 text-xs font-medium uppercase tracking-wide text-white/80">
+                          {event.owner_context_type === 'organization' ? 'Presented by a team' : 'Hosted by a creator'}
+                        </Badge>
+                      </div>
                     </CardContent>
                   </Card>
 
                   <div className="space-y-6">
-                    <Card className="rounded-3xl border border-white/10 bg-white/5">
-                      <CardContent className="space-y-4 p-6 text-sm text-white/80">
-                        <div className="flex items-start gap-3">
-                          <Calendar className="mt-0.5 h-5 w-5 text-primary" />
-                          <div>
-                            <p className="text-sm font-semibold text-white">When</p>
-                            <p>{detailedDate}</p>
-                            <p className="mt-1 flex items-center gap-2 text-white/70">
-                              <Clock className="h-4 w-4" />
-                              {detailedTime}
+                    <Card className="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+                      {hasCoordinates ? (
+                        <>
+                          <CardContent className="p-0">
+                            <MapboxEventMap
+                              lat={numericLat ?? 0}
+                              lng={numericLng ?? 0}
+                              venue={event.venue ?? undefined}
+                              address={event.address ?? undefined}
+                              city={event.city ?? undefined}
+                              country={event.country ?? undefined}
+                              className="h-64 w-full"
+                            />
+                          </CardContent>
+                          <div className="border-t border-white/10 px-6 py-4 text-sm text-white/70">
+                            <p className="text-sm font-semibold text-white">Getting there</p>
+                            <p className="mt-1">
+                              {hasLocationDetails ? locationLines.join(' • ') : 'Exact address provided upon RSVP.'}
                             </p>
                           </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <MapPin className="mt-0.5 h-5 w-5 text-primary" />
-                          <div>
-                            <p className="text-sm font-semibold text-white">Where</p>
-                            <p>{locationDisplay}</p>
-                          </div>
-                        </div>
-                      </CardContent>
+                        </>
+                      ) : (
+                        <CardContent className="space-y-3 p-6 text-sm text-white/70">
+                          <p className="text-sm font-semibold text-white">Getting there</p>
+                          <p>
+                            {hasLocationDetails
+                              ? locationLines.join(' • ')
+                              : 'Exact map pin coming soon. We’ll update this section once the host finalizes the venue.'}
+                          </p>
+                          {hasLocationDetails && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full justify-center gap-2 rounded-xl border-white/20 text-white/80 hover:text-white"
+                              onClick={handleOpenDirections}
+                            >
+                              <Navigation className="h-4 w-4" />
+                              Open in Maps
+                            </Button>
+                          )}
+                        </CardContent>
+                      )}
                     </Card>
 
                     <Card className="rounded-3xl border border-white/10 bg-white/5">
@@ -1009,18 +1210,57 @@ export default function EventSlugPage() {
                           <AvatarImage src={hostAvatar} alt={hostName} />
                           <AvatarFallback>{eventInitials}</AvatarFallback>
                         </Avatar>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-white">Hosted by</p>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                            Hosted by
+                          </p>
                           {hostLink ? (
                             <Link
                               to={hostLink}
-                              className="text-sm text-primary hover:underline"
+                              className="text-sm font-semibold text-white hover:underline"
                             >
                               {hostName}
                             </Link>
                           ) : (
-                            <p className="text-sm text-white/80">{hostName}</p>
+                            <p className="text-sm font-semibold text-white">{hostName}</p>
                           )}
+                          <p className="text-xs text-white/60">
+                            {event.owner_context_type === 'organization'
+                              ? 'Official YardPass organizer'
+                              : 'Independent host on YardPass'}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="rounded-3xl border border-white/10 bg-white/5">
+                      <CardContent className="space-y-4 p-6">
+                        <h3 className="text-sm font-semibold text-white">Quick actions</h3>
+                        <div className="space-y-3">
+                          <Button
+                            className="w-full justify-center gap-2"
+                            onClick={() => setShowTicketModal(true)}
+                          >
+                            <Ticket className="h-4 w-4" />
+                            Get tickets
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-center gap-2 border-white/20 text-white/80 hover:text-white"
+                            onClick={() => shareEvent(event.id, event.title)}
+                            disabled={isSharing}
+                          >
+                            <Share2 className="h-4 w-4" />
+                            Share with friends
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-center gap-2 text-white/70 hover:text-white"
+                            onClick={handleCopyLink}
+                          >
+                            <Copy className="h-4 w-4" />
+                            Copy link
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
