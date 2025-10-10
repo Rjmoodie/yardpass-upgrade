@@ -5,15 +5,7 @@ import React, {
   useState,
 } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  Play,
-  Share2,
-  Ticket,
-  Users,
-} from 'lucide-react';
+import { Calendar, Clock, MapPin, Share2, Ticket, Users } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import {
   InfiniteData,
@@ -28,7 +20,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, BottomSheetContent } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { AccessGate } from '@/components/access/AccessGate';
@@ -38,11 +29,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { shouldIndexEvent, buildEventShareUrl } from '@/lib/visibility';
 import { stripHtml, sanitizeHtml } from '@/lib/security';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
-import { isVideoUrl } from '@/utils/mux';
-import { muxToPoster } from '@/utils/media';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { UserPostCard } from '@/components/UserPostCard';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
+import { MediaPostGrid } from '@/components/posts/MediaPostGrid';
 
 const safeOrigin =
   typeof window !== 'undefined' && window.location?.origin
@@ -223,110 +213,6 @@ function mapPostToFeedItem(
     sponsors: null,
     promotion: null,
   };
-}
-
-function GridSkeleton({ count = 9 }: { count?: number }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4">
-      {Array.from({ length: count }).map((_, idx) => (
-        <Skeleton
-          key={idx}
-          className="aspect-square rounded-2xl border border-white/10 bg-white/5"
-        />
-      ))}
-    </div>
-  );
-}
-
-type GridEmptyProps = {
-  title: string;
-  description: string;
-};
-
-function GridEmptyState({ title, description }: GridEmptyProps) {
-  return (
-    <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/5 text-center">
-      <p className="text-sm font-semibold text-white">{title}</p>
-      <p className="text-xs text-muted-foreground max-w-[220px]">{description}</p>
-    </div>
-  );
-}
-
-type GridProps = {
-  posts: EventPostWithMeta[];
-  isLoading: boolean;
-  loadingMore: boolean;
-  onSelect: (post: EventPostWithMeta) => void;
-  loadMoreRef?: (node: HTMLElement | null) => void;
-  fallbackImage: string;
-  emptyTitle: string;
-  emptyDescription: string;
-};
-
-function EventPostGrid({
-  posts,
-  isLoading,
-  loadingMore,
-  onSelect,
-  loadMoreRef,
-  fallbackImage,
-  emptyTitle,
-  emptyDescription,
-}: GridProps) {
-  if (isLoading) {
-    return <GridSkeleton />;
-  }
-
-  if (!posts.length) {
-    return <GridEmptyState title={emptyTitle} description={emptyDescription} />;
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4">
-        {posts.map((post) => {
-          const mediaUrl = post.media_urls?.[0] ?? null;
-          const isVideo = Boolean(mediaUrl && isVideoUrl(mediaUrl));
-          const posterUrl = isVideo ? muxToPoster(mediaUrl) : null;
-          const preview = posterUrl || mediaUrl || fallbackImage;
-
-          return (
-            <button
-              key={post.id}
-              type="button"
-              onClick={() => onSelect(post)}
-              className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label={post.author_name ? `View post from ${post.author_name}` : 'View post'}
-            >
-              {mediaUrl ? (
-                <ImageWithFallback
-                  src={preview}
-                  alt={post.author_name ? `Post from ${post.author_name}` : 'Event post media'}
-                  fallback={fallbackImage}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/5 to-white/10 px-4 text-center text-xs text-white/70">
-                  {post.text ? post.text.slice(0, 120) : 'Post'}
-                </div>
-              )}
-
-              {isVideo && (
-                <div className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white">
-                  <Play className="h-3.5 w-3.5" />
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      <div ref={loadMoreRef} />
-
-      {loadingMore && <GridSkeleton count={3} />}
-    </div>
-  );
 }
 
 export default function EventSlugPage() {
@@ -1029,7 +915,8 @@ export default function EventSlugPage() {
               </TabsContent>
 
               <TabsContent value="posts" className="mt-6">
-                <EventPostGrid
+                <MediaPostGrid
+                  tone="dark"
                   posts={organizerPosts}
                   isLoading={postsQuery.isLoading && !organizerPosts.length}
                   loadingMore={postsQuery.isFetchingNextPage}
@@ -1042,7 +929,8 @@ export default function EventSlugPage() {
               </TabsContent>
 
               <TabsContent value="tagged" className="mt-6">
-                <EventPostGrid
+                <MediaPostGrid
+                  tone="dark"
                   posts={taggedPosts}
                   isLoading={taggedQuery.isLoading && !taggedPosts.length}
                   loadingMore={taggedQuery.isFetchingNextPage}
