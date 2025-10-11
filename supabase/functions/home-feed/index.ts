@@ -146,7 +146,7 @@ async function expandRows({ supabase, rows, viewerId }) {
       .select(`
         id, title, description, cover_image_url, start_at, end_at, venue, city, created_at,
         created_by, owner_context_type, owner_context_id,
-        user_profiles!events_created_by_fkey(display_name),
+        user_profiles!events_created_by_fkey(display_name, social_links),
         organizations!events_owner_context_id_fkey(name)
       `)
       .in("id", eventIds.length ? eventIds : ["00000000-0000-0000-0000-000000000000"]),
@@ -154,7 +154,7 @@ async function expandRows({ supabase, rows, viewerId }) {
       ? supabase
           .from("event_posts_with_meta")
           .select(
-            "id, event_id, text, media_urls, like_count, comment_count, author_user_id, author_name, author_badge_label, created_at",
+            "id, event_id, text, media_urls, like_count, comment_count, author_user_id, author_name, author_badge_label, created_at"
           )
           .in("id", postIds)
       : Promise.resolve({ data: [], error: null }),
@@ -163,6 +163,31 @@ async function expandRows({ supabase, rows, viewerId }) {
   if (eventsError) throw eventsError;
 
   const posts = postsRes?.data ?? [];
+
+  let sponsorMap = new Map();
+  if (eventIds.length) {
+    try {
+      const { data: sponsorRows, error: sponsorError } = await supabase.rpc(
+        "get_active_event_sponsors",
+        { p_event_ids: eventIds },
+      );
+      if (sponsorError) {
+        console.warn("get_active_event_sponsors error", sponsorError.message);
+      } else if (Array.isArray(sponsorRows)) {
+        sponsorMap = new Map(
+          sponsorRows.map((row) => [
+            row.event_id,
+            {
+              primary: normalizeSponsor(row.primary_sponsor),
+              sponsors: normalizeSponsorList(row.sponsors),
+            },
+          ]),
+        );
+      }
+    } catch (err) {
+      console.warn("get_active_event_sponsors threw", err instanceof Error ? err.message : err);
+    }
+  }
 
   let viewerLikes = [];
   if (viewerId && postIds.length) {
@@ -178,6 +203,25 @@ async function expandRows({ supabase, rows, viewerId }) {
 
   const likedPostIds = new Set(viewerLikes.map((l) => l.post_id));
 
+  let authorLinksMap = new Map();
+  const authorIds = dedupe(posts.map((p) => p.author_user_id).filter(Boolean));
+  if (authorIds.length) {
+    const { data: authorProfiles, error: authorError } = await supabase
+      .from("user_profiles")
+      .select("user_id, social_links")
+      .in("user_id", authorIds);
+    if (authorError) {
+      console.warn("user_profiles social_links error", authorError.message);
+    } else if (Array.isArray(authorProfiles)) {
+      authorLinksMap = new Map(
+        authorProfiles.map((profile) => [
+          profile.user_id,
+          normalizeSocialLinks(profile.social_links),
+        ]),
+      );
+    }
+  }
+
   const eMap = new Map((events ?? []).map((e) => [e.id, e]));
   const pMap = new Map(posts.map((p) => [p.id, p]));
 
@@ -185,6 +229,10 @@ async function expandRows({ supabase, rows, viewerId }) {
     .map((row) => {
       const ev = eMap.get(row.event_id);
       if (!ev) return null;
+
+      const sponsorEntry = sponsorMap.get(row.event_id);
+      const primarySponsor = sponsorEntry?.primary ?? null;
+      const sponsorList = sponsorEntry?.sponsors ?? null;
 
       const organizerName = ev?.owner_context_type === "organization"
         ? ev?.organizations?.name ?? "Organizer"
@@ -215,14 +263,21 @@ async function expandRows({ supabase, rows, viewerId }) {
           author_social_links: null,
           media_urls: null,
           content: null,
-          metrics: { likes: 0, comments: 0, viewer_has_liked: false },
-          sponsor: null,
-          sponsors: null,
+          metrics: {
+            likes: 0,
+            comments: 0,
+            viewer_has_liked: false,
+            score: row.score ?? null,
+          },
+          sponsor: primarySponsor,
+          sponsors: sponsorList,
         };
       }
 
       const post = pMap.get(row.item_id);
       if (!post) return null;
+
+      const socialLinks = authorLinksMap.get(post.author_user_id) ?? null;
 
       return {
         item_type: "post",
@@ -240,13 +295,14 @@ async function expandRows({ supabase, rows, viewerId }) {
         author_id: post.author_user_id ?? null,
         author_name: post.author_name ?? null,
         author_badge: post.author_badge_label ?? null,
-        author_social_links: null,
+        author_social_links: socialLinks,
         media_urls: Array.isArray(post.media_urls) ? post.media_urls.filter(Boolean) : [],
         content: post.text ?? "",
         metrics: {
           likes: post.like_count ?? 0,
           comments: post.comment_count ?? 0,
           viewer_has_liked: likedPostIds.has(row.item_id),
+          score: row.score ?? null,
         },
         sponsor: null,
         sponsors: null,
@@ -311,6 +367,58 @@ function clampNumber(x, fallback, min, max) {
 
 function dedupe(arr) {
   return Array.from(new Set(arr));
+}
+
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function tryJsonParse(value) {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeSponsor(value) {
+  const input = tryJsonParse(value);
+  if (!isRecord(input)) return null;
+
+  const name = str(input.name);
+  if (!name) return null;
+
+  const normalized = {
+    name,
+    amount_cents: Number.isFinite(Number(input.amount_cents))
+      ? Math.max(0, Math.round(Number(input.amount_cents)))
+      : 0,
+  };
+
+  const logo = str(input.logo_url);
+  if (logo) normalized.logo_url = logo;
+
+  const tier = str(input.tier);
+  if (tier) normalized.tier = tier;
+
+  return normalized;
+}
+
+function normalizeSponsorList(value) {
+  const input = tryJsonParse(value);
+  if (!Array.isArray(input)) return null;
+  const sponsors = input
+    .map((entry) => normalizeSponsor(entry))
+    .filter(Boolean);
+  return sponsors.length ? sponsors : null;
+}
+
+function normalizeSocialLinks(value) {
+  const input = tryJsonParse(value);
+  if (!Array.isArray(input)) return null;
+  const links = input.filter((entry) => isRecord(entry) && Object.keys(entry).length > 0);
+  return links.length ? links : null;
 }
 
 function normalizeCursor(cursor) {
