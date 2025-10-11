@@ -400,16 +400,6 @@ export default function UnifiedFeedList() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        // Debug: Log all intersection entries
-        if (import.meta.env?.DEV) {
-          console.log('📱 Intersection observer entries:', entries.map(entry => ({
-            index: (entry.target as HTMLElement).dataset.index,
-            isIntersecting: entry.isIntersecting,
-            ratio: entry.intersectionRatio.toFixed(2),
-            itemType: filteredItems[Number((entry.target as HTMLElement).dataset.index)]?.item_type
-          })));
-        }
-
         // Find all currently visible items with their intersection ratios
         const visibleItems = entries
           .filter((entry) => entry.isIntersecting)
@@ -428,9 +418,6 @@ export default function UnifiedFeedList() {
           .filter((item) => !Number.isNaN(item.index));
 
         if (visibleItems.length === 0) {
-          if (import.meta.env?.DEV) {
-            console.log('📱 No visible items detected');
-          }
           return;
         }
 
@@ -452,17 +439,6 @@ export default function UnifiedFeedList() {
           if (bestVideo.ratio >= minThreshold) {
             setActiveIndex(prev => {
               if (prev !== bestVideo.index) {
-                console.log('📱 Smart scroll detection (video):', { 
-                  from: prev, 
-                  to: bestVideo.index,
-                  scrollVelocity: scrollVelocity.toFixed(2),
-                  isScrollingFast,
-                  visibleVideos: videoItems.map(v => ({ idx: v.index, ratio: v.ratio.toFixed(2) })),
-                  selectedItem: {
-                    type: filteredItems[bestVideo.index]?.item_type,
-                    hasVideo: true
-                  }
-                });
                 return bestVideo.index;
               }
               return prev;
@@ -480,16 +456,6 @@ export default function UnifiedFeedList() {
           if (bestNonVideo.ratio >= minThreshold) {
             setActiveIndex(prev => {
               if (prev !== bestNonVideo.index) {
-                console.log('📱 Smart scroll detection (non-video):', { 
-                  from: prev, 
-                  to: bestNonVideo.index,
-                  scrollVelocity: scrollVelocity.toFixed(2),
-                  isScrollingFast,
-                  selectedItem: {
-                    type: filteredItems[bestNonVideo.index]?.item_type,
-                    hasVideo: false
-                  }
-                });
                 return bestNonVideo.index;
               }
               return prev;
@@ -555,11 +521,6 @@ export default function UnifiedFeedList() {
       if (closestItem) {
         setActiveIndex(prev => {
           if (prev !== closestItem!.index) {
-            console.log('📱 Fallback scroll detection:', { 
-              from: prev, 
-              to: closestItem!.index,
-              distance: closestItem!.distance.toFixed(0)
-            });
             return closestItem!.index;
           }
           return prev;
@@ -841,50 +802,22 @@ export default function UnifiedFeedList() {
           const hasVideo = isPost && Array.isArray(item.media_urls) && item.media_urls.some((url) => isVideoUrl(url));
           const isVideoActive = isPost && idx === activeIndex && !paused && autoplayReady && hasVideo;
 
-          // Debug video visibility and autoplay triggers
-          if (import.meta.env?.DEV && isPost && item.media_urls?.length) {
-            const debugInfo = {
-              postId: item.item_id,
-              idx,
-              activeIndex,
-              isVideoActive,
-              paused,
-              autoplayReady,
-              hasMedia: !!item.media_urls?.length,
-              hasVideo,
-              mediaUrls: item.media_urls,
-              debug_calculation: {
-                isPost,
-                idx_equals_activeIndex: idx === activeIndex,
-                not_paused: !paused,
-                autoplayReady,
-                hasVideo,
-                final_result: isVideoActive,
-              },
-            };
-            
-            // Only log when activeIndex changes or when this is the active video
-            if (idx === activeIndex || isVideoActive) {
-              console.log('📱 Feed video visibility (ACTIVE/CHANGED):', debugInfo);
-            }
-          }
 
           return (
             <section
               key={`${item.item_type}-${item.item_id}-${idx}`}
               ref={(el) => {
                 const prev = itemRefs.current[idx];
+                
+                // Only update if the element actually changed
+                if (prev === el) return;
+                
                 itemRefs.current[idx] = el;
 
                 const observer = visibilityObserverRef.current;
                 if (observer) {
-                  if (prev && prev !== el) observer.unobserve(prev);
+                  if (prev) observer.unobserve(prev);
                   if (el) observer.observe(el);
-                }
-
-                // Debug: Log when refs are set
-                if (import.meta.env?.DEV && isPost && hasVideo) {
-                  console.log('📱 Video ref set:', { idx, postId: item.item_id, element: !!el });
                 }
               }}
               data-index={idx}
