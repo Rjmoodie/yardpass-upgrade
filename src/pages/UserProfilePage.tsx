@@ -8,6 +8,8 @@ import {
   Ticket,
   Calendar,
   LayoutDashboard,
+  Sparkles,
+  Image,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -145,13 +147,19 @@ const EmptyState = ({
 }: {
   isSelf: boolean;
 }) => (
-  <div className="text-center py-12">
-    <p className="text-lg font-semibold mb-2">No posts to show yet</p>
-    <p className="text-muted-foreground">
-      {isSelf
-        ? 'Share updates from the events you attend to start building your story.'
-        : 'This user has not shared any posts yet.'}
-    </p>
+  <div className="relative overflow-hidden rounded-3xl border border-dashed border-primary/30 bg-gradient-to-br from-background/70 via-background/40 to-background/60 px-6 py-12 text-center shadow-inner">
+    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_60%)]" />
+    <div className="relative mx-auto flex max-w-md flex-col items-center gap-4">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+        <Sparkles className="h-7 w-7" aria-hidden />
+      </div>
+      <p className="text-xl font-semibold">No moments to show yet</p>
+      <p className="text-sm text-muted-foreground sm:text-base">
+        {isSelf
+          ? 'Capture and share a moment from your latest event to start building your story.'
+          : 'This member has not shared any highlights yet. Check back soon for new moments!'}
+      </p>
+    </div>
   </div>
 );
 
@@ -615,42 +623,74 @@ export default function UserProfilePage() {
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 lg:flex-row lg:px-8">
         <section className="w-full space-y-6 lg:w-2/3">
-          <Card className="border-border/50 bg-background/80">
-            <CardHeader className="flex items-center justify-between gap-2 sm:flex-row">
-              <div>
-                <CardTitle>Posts</CardTitle>
-                <CardDescription>Moments shared by {profile.display_name}</CardDescription>
+          <Card className="overflow-hidden border-border/50 bg-background/80 backdrop-blur">
+            <CardHeader className="relative overflow-hidden rounded-[28px] border border-border/40 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 sm:p-8 shadow-sm">
+              <div className="pointer-events-none absolute -right-24 -top-24 h-48 w-48 rounded-full bg-primary/20 blur-3xl" aria-hidden />
+              <div className="pointer-events-none absolute -bottom-28 -left-16 h-48 w-48 rounded-full bg-accent/20 blur-3xl" aria-hidden />
+              <div className="relative z-10 flex flex-col gap-4">
+                <div className="inline-flex items-center gap-2 self-start rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                  <Sparkles className="h-4 w-4" aria-hidden />
+                  Moments shared
+                </div>
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="space-y-2">
+                    <CardTitle className="text-2xl sm:text-3xl">Moments shared</CardTitle>
+                    <CardDescription className="max-w-2xl text-base leading-relaxed text-muted-foreground">
+                      {feedItems.length > 0
+                        ? `Experience ${profile.display_name}'s favorite highlights from events and gatherings.`
+                        : isViewingOwnProfile
+                          ? 'Capture and share a moment to start building your story with the Yardpass community.'
+                          : `${profile.display_name} hasn't shared any highlights yet, but check back soon!`}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
+                    <Image className="h-4 w-4" aria-hidden />
+                    <span>
+                      {feedItems.length} {feedItems.length === 1 ? 'moment' : 'moments'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6 p-4 sm:p-6">
               {feedItems.length > 0 ? (
-                feedItems.map((item) => (
-                  <UserPostCard
-                    key={item.item_id}
-                    item={item}
-                    onLike={(postId) => handleLike(postId)}
-                    onComment={(postId) => handleComment(postId)}
-                    onShare={(postId) => handleSharePost(postId)}
-                    onEventClick={(eventId) => {
-                      if (!eventId) return;
-                      navigate(routes.event(eventId));
-                    }}
-                    onAuthorClick={(authorId) => {
-                      if (!authorId) return;
-                      navigate(`/u/${authorId}`);
-                    }}
-                    onCreatePost={() => {}}
-                    onReport={handleReport}
-                    onSoundToggle={() => {}}
-                    onVideoToggle={() => {}}
-                    onOpenTickets={(eventId) => {
-                      if (!eventId) return;
-                      navigate(routes.event(eventId));
-                    }}
-                    soundEnabled={false}
-                    isVideoPlaying={false}
-                  />
-                ))
+                <div className="relative overflow-hidden rounded-3xl border border-border/40 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-4 shadow-inner sm:p-6">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_55%)]" aria-hidden />
+                  <div className="relative flex flex-col gap-6">
+                    {feedItems.map((item) => (
+                      <div
+                        key={item.item_id}
+                        className="group relative overflow-hidden rounded-3xl border border-border/60 bg-black shadow-lg shadow-primary/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                      >
+                        <UserPostCard
+                          item={item}
+                          onLike={(postId) => handleLike(postId)}
+                          onComment={(postId) => handleComment(postId)}
+                          onShare={(postId) => handleSharePost(postId)}
+                          onEventClick={(eventId) => {
+                            if (!eventId) return;
+                            navigate(routes.event(eventId));
+                          }}
+                          onAuthorClick={(authorId) => {
+                            if (!authorId) return;
+                            navigate(`/u/${authorId}`);
+                          }}
+                          onCreatePost={() => {}}
+                          onReport={handleReport}
+                          onSoundToggle={() => {}}
+                          onVideoToggle={() => {}}
+                          onOpenTickets={(eventId) => {
+                            if (!eventId) return;
+                            navigate(routes.event(eventId));
+                          }}
+                          soundEnabled={false}
+                          isVideoPlaying={false}
+                        />
+                        <div className="pointer-events-none absolute inset-0 border border-white/5 transition-colors duration-300 group-hover:border-primary/40" aria-hidden />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : (
                 <EmptyState isSelf={isViewingOwnProfile} />
               )}
