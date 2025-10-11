@@ -179,6 +179,10 @@ export default function UnifiedFeedList() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [pausedVideos, setPausedVideos] = useState<Record<string, boolean>>({});
   const [globalSoundEnabled, setGlobalSoundEnabled] = useState(false);
+  const [lastActiveVideoId, setLastActiveVideoId] = useState<string | null>(null);
+  const [scrollVelocity, setScrollVelocity] = useState(0);
+  const lastScrollTime = useRef<number>(Date.now());
+  const lastScrollPosition = useRef<number>(0);
   const [autoplayReady, setAutoplayReady] = useState(() => {
     if (typeof navigator === 'undefined' || !('userActivation' in navigator)) {
       return false;
@@ -377,8 +381,16 @@ export default function UnifiedFeedList() {
   }, [activeIndex, filteredItems.length]);
 
   useEffect(() => {
-    setActiveIndex(0);
-  }, [filters]);
+    // Find the first video post in the filtered items
+    const firstVideoIndex = filteredItems.findIndex((item) => {
+      const isPost = item.item_type === 'post';
+      const hasVideo = isPost && Array.isArray(item.media_urls) && item.media_urls.some((url) => isVideoUrl(url));
+      return isPost && hasVideo;
+    });
+    
+    // Set activeIndex to the first video post, or 0 if no video posts found
+    setActiveIndex(firstVideoIndex >= 0 ? firstVideoIndex : 0);
+  }, [filters, filteredItems]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -386,21 +398,108 @@ export default function UnifiedFeedList() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        // Debug: Log all intersection entries
+        if (import.meta.env?.DEV) {
+          console.log('📱 Intersection observer entries:', entries.map(entry => ({
+            index: (entry.target as HTMLElement).dataset.index,
+            isIntersecting: entry.isIntersecting,
+            ratio: entry.intersectionRatio.toFixed(2),
+            itemType: filteredItems[Number((entry.target as HTMLElement).dataset.index)]?.item_type
+          })));
+        }
 
-        const next = visible[0];
-        if (!next) {
+        // Find all currently visible items with their intersection ratios
+        const visibleItems = entries
+          .filter((entry) => entry.isIntersecting)
+          .map((entry) => ({
+            index: Number((entry.target as HTMLElement).dataset.index),
+            ratio: entry.intersectionRatio,
+            isVideo: (() => {
+              const idx = Number((entry.target as HTMLElement).dataset.index);
+              const item = filteredItems[idx];
+              return item?.item_type === 'post' && 
+                     Array.isArray(item?.media_urls) && 
+                     item.media_urls.some((url) => isVideoUrl(url));
+            })(),
+            target: entry.target as HTMLElement
+          }))
+          .filter((item) => !Number.isNaN(item.index));
+
+        if (visibleItems.length === 0) {
+          if (import.meta.env?.DEV) {
+            console.log('📱 No visible items detected');
+          }
           return;
         }
 
-        const idx = Number((next.target as HTMLElement).dataset.index);
-        if (!Number.isNaN(idx)) {
-          setActiveIndex(idx);
+        // Prioritize video posts over events
+        const videoItems = visibleItems.filter(item => item.isVideo);
+        const nonVideoItems = visibleItems.filter(item => !item.isVideo);
+
+        if (videoItems.length > 0) {
+          // Among video posts, select the one with highest intersection ratio
+          const bestVideo = videoItems.reduce((best, current) => 
+            current.ratio > best.ratio ? current : best
+          );
+          
+          // Adjust threshold based on scroll velocity - more responsive when scrolling fast
+          const isScrollingFast = scrollVelocity > 0.5;
+          const minThreshold = isScrollingFast ? 0.3 : 0.4;
+          
+          // Only change if the new video has significant visibility
+          if (bestVideo.ratio >= minThreshold) {
+            setActiveIndex(prev => {
+              if (prev !== bestVideo.index) {
+                console.log('📱 Smart scroll detection (video):', { 
+                  from: prev, 
+                  to: bestVideo.index,
+                  scrollVelocity: scrollVelocity.toFixed(2),
+                  isScrollingFast,
+                  visibleVideos: videoItems.map(v => ({ idx: v.index, ratio: v.ratio.toFixed(2) })),
+                  selectedItem: {
+                    type: filteredItems[bestVideo.index]?.item_type,
+                    hasVideo: true
+                  }
+                });
+                return bestVideo.index;
+              }
+              return prev;
+            });
+          }
+        } else if (nonVideoItems.length > 0) {
+          // If no videos visible, select the most visible non-video item
+          const bestNonVideo = nonVideoItems.reduce((best, current) => 
+            current.ratio > best.ratio ? current : best
+          );
+          
+          const isScrollingFast = scrollVelocity > 0.5;
+          const minThreshold = isScrollingFast ? 0.4 : 0.5;
+          
+          if (bestNonVideo.ratio >= minThreshold) {
+            setActiveIndex(prev => {
+              if (prev !== bestNonVideo.index) {
+                console.log('📱 Smart scroll detection (non-video):', { 
+                  from: prev, 
+                  to: bestNonVideo.index,
+                  scrollVelocity: scrollVelocity.toFixed(2),
+                  isScrollingFast,
+                  selectedItem: {
+                    type: filteredItems[bestNonVideo.index]?.item_type,
+                    hasVideo: false
+                  }
+                });
+                return bestNonVideo.index;
+              }
+              return prev;
+            });
+          }
         }
       },
-      { root: null, threshold: [0.3, 0.5, 0.7], rootMargin: '0px 0px -10% 0px' }
+      { 
+        root: null, 
+        threshold: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], 
+        rootMargin: '0px 0px -5% 0px' 
+      }
     );
 
     itemRefs.current.forEach((el) => {
@@ -408,20 +507,127 @@ export default function UnifiedFeedList() {
     });
 
     return () => observer.disconnect();
+  }, [filteredItems, scrollVelocity]);
+
+  // Fallback: Manual scroll detection as backup to intersection observer
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const handleScrollFallback = () => {
+      const containerRect = container.getBoundingClientRect();
+      const containerCenter = containerRect.top + containerRect.height / 2;
+      
+      // Find the item closest to the center of the viewport
+      let closestItem: { index: number; distance: number } | null = null;
+      
+      itemRefs.current.forEach((el, idx) => {
+        if (!el) return;
+        
+        const itemRect = el.getBoundingClientRect();
+        const itemCenter = itemRect.top + itemRect.height / 2;
+        const distance = Math.abs(itemCenter - containerCenter);
+        
+        if (!closestItem || distance < closestItem.distance) {
+          const item = filteredItems[idx];
+          const isVideo = item?.item_type === 'post' && 
+                         Array.isArray(item?.media_urls) && 
+                         item.media_urls.some((url) => isVideoUrl(url));
+          
+          closestItem = { index: idx, distance };
+          
+          // If this is a video and it's close enough, prioritize it
+          if (isVideo && distance < containerRect.height * 0.3) {
+            closestItem = { index: idx, distance: 0 };
+          }
+        }
+      });
+      
+      if (closestItem) {
+        setActiveIndex(prev => {
+          if (prev !== closestItem!.index) {
+            console.log('📱 Fallback scroll detection:', { 
+              from: prev, 
+              to: closestItem!.index,
+              distance: closestItem!.distance.toFixed(0)
+            });
+            return closestItem!.index;
+          }
+          return prev;
+        });
+      }
+    };
+
+    // Throttle the fallback check
+    let timeoutId: number;
+    const throttledFallback = () => {
+      clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(handleScrollFallback, 100);
+    };
+
+    container.addEventListener('scroll', throttledFallback, { passive: true });
+    
+    return () => {
+      container.removeEventListener('scroll', throttledFallback);
+      clearTimeout(timeoutId);
+    };
   }, [filteredItems]);
+
+  // Intelligent video state management - pause previous video when switching to new one
+  useEffect(() => {
+    const currentItem = filteredItems[activeIndex];
+    if (!currentItem || currentItem.item_type !== 'post') return;
+
+    const currentVideoId = currentItem.item_id;
+    const isVideo = Array.isArray(currentItem.media_urls) && currentItem.media_urls.some((url) => isVideoUrl(url));
+    
+    if (isVideo && lastActiveVideoId && lastActiveVideoId !== currentVideoId) {
+      // Pause the previous video when switching to a new one
+      setPausedVideos(prev => ({
+        ...prev,
+        [lastActiveVideoId]: true
+      }));
+      console.log('📱 Video transition: paused previous video', { 
+        previousVideo: lastActiveVideoId, 
+        newVideo: currentVideoId 
+      });
+    }
+    
+    if (isVideo) {
+      setLastActiveVideoId(currentVideoId);
+    }
+  }, [activeIndex, filteredItems, lastActiveVideoId]);
 
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
 
     const markInteraction = () => registerInteraction();
+    
+    // Track scroll velocity for more responsive video switching
+    const handleScroll = () => {
+      const now = Date.now();
+      const currentPosition = container.scrollTop;
+      const timeDelta = now - lastScrollTime.current;
+      const positionDelta = Math.abs(currentPosition - lastScrollPosition.current);
+      
+      if (timeDelta > 0) {
+        const velocity = positionDelta / timeDelta;
+        setScrollVelocity(velocity);
+      }
+      
+      lastScrollTime.current = now;
+      lastScrollPosition.current = currentPosition;
+    };
 
+    container.addEventListener('scroll', handleScroll, { passive: true });
     container.addEventListener('scroll', markInteraction, { passive: true });
     container.addEventListener('click', markInteraction);
     container.addEventListener('touchstart', markInteraction, { passive: true });
     window.addEventListener('keydown', markInteraction);
 
     return () => {
+      container.removeEventListener('scroll', handleScroll);
       container.removeEventListener('scroll', markInteraction);
       container.removeEventListener('click', markInteraction);
       container.removeEventListener('touchstart', markInteraction);
@@ -628,7 +834,7 @@ export default function UnifiedFeedList() {
 
           // Debug video visibility and autoplay triggers
           if (import.meta.env?.DEV && isPost && item.media_urls?.length) {
-            console.log('📱 Feed video visibility:', {
+            const debugInfo = {
               postId: item.item_id,
               idx,
               activeIndex,
@@ -636,15 +842,22 @@ export default function UnifiedFeedList() {
               paused,
               autoplayReady,
               hasMedia: !!item.media_urls?.length,
+              hasVideo,
               mediaUrls: item.media_urls,
               debug_calculation: {
                 isPost,
                 idx_equals_activeIndex: idx === activeIndex,
                 not_paused: !paused,
                 autoplayReady,
+                hasVideo,
                 final_result: isVideoActive,
               },
-            });
+            };
+            
+            // Only log when activeIndex changes or when this is the active video
+            if (idx === activeIndex || isVideoActive) {
+              console.log('📱 Feed video visibility (ACTIVE/CHANGED):', debugInfo);
+            }
           }
 
           return (
@@ -652,6 +865,10 @@ export default function UnifiedFeedList() {
               key={`${item.item_type}-${item.item_id}-${idx}`}
               ref={(el) => {
                 itemRefs.current[idx] = el;
+                // Debug: Log when refs are set
+                if (import.meta.env?.DEV && isPost && hasVideo) {
+                  console.log('📱 Video ref set:', { idx, postId: item.item_id, element: !!el });
+                }
               }}
               data-index={idx}
               className="snap-start px-3 sm:px-6"
@@ -692,10 +909,37 @@ export default function UnifiedFeedList() {
                       }}
                       onVideoToggle={() => {
                         registerInteraction();
+                        const isCurrentlyPaused = pausedVideos[item.item_id];
+                        
                         setPausedVideos((prev) => ({
                           ...prev,
-                          [item.item_id]: !prev[item.item_id],
+                          [item.item_id]: !isCurrentlyPaused,
                         }));
+                        
+                        // If we're unpausing this video, pause all other videos
+                        if (isCurrentlyPaused) {
+                          const otherVideos = filteredItems
+                            .filter(otherItem => 
+                              otherItem.item_type === 'post' && 
+                              otherItem.item_id !== item.item_id &&
+                              Array.isArray(otherItem.media_urls) && 
+                              otherItem.media_urls.some((url) => isVideoUrl(url))
+                            )
+                            .map(otherItem => otherItem.item_id);
+                          
+                          setPausedVideos(prev => {
+                            const newState = { ...prev };
+                            otherVideos.forEach(videoId => {
+                              newState[videoId] = true;
+                            });
+                            return newState;
+                          });
+                          
+                          console.log('📱 Video manual play: paused other videos', { 
+                            playingVideo: item.item_id,
+                            pausedVideos: otherVideos 
+                          });
+                        }
                       }}
                       onOpenTickets={(eventId) => handleOpenTickets(eventId, item)}
                       soundEnabled={globalSoundEnabled}

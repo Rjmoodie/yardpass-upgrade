@@ -191,6 +191,7 @@ export default function UserProfilePage() {
   const [initialViewSet, setInitialViewSet] = useState(false);
   const [commentContext, setCommentContext] = useState<{ postId: string; eventId: string; eventTitle: string } | null>(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
+  const [activeVideoIndex, setActiveVideoIndex] = useState<number | null>(null);
 
   const isViewingOwnProfile = useMemo(() => {
     if (!profile || !currentUser) return false;
@@ -454,6 +455,19 @@ export default function UserProfilePage() {
     sharePost(item.item_id, item.event_title, item.content ?? undefined);
   };
 
+  const handleVideoToggle = (postId: string) => {
+    const itemIndex = feedItems.findIndex((item) => item.item_id === postId);
+    if (itemIndex === -1) return;
+    
+    // If this video is already active, pause it
+    if (activeVideoIndex === itemIndex) {
+      setActiveVideoIndex(null);
+    } else {
+      // Pause any other video and play this one
+      setActiveVideoIndex(itemIndex);
+    }
+  };
+
   const handleReport = () => {
     toast({
       title: 'Report received',
@@ -652,48 +666,54 @@ export default function UserProfilePage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-6 p-4 sm:p-6">
-              {feedItems.length > 0 ? (
-                <div className="relative overflow-hidden rounded-3xl border border-border/40 bg-gradient-to-br from-background/70 via-background/50 to-background/70 p-4 shadow-inner sm:p-6">
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_55%)]" aria-hidden />
-                  <div className="relative flex flex-col gap-6">
-                    {feedItems.map((item) => (
-                      <div
-                        key={item.item_id}
-                        className="group relative overflow-hidden rounded-3xl border border-border/60 bg-black shadow-lg shadow-primary/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
-                      >
-                        <UserPostCard
-                          item={item}
-                          onLike={(postId) => handleLike(postId)}
-                          onComment={(postId) => handleComment(postId)}
-                          onShare={(postId) => handleSharePost(postId)}
-                          onEventClick={(eventId) => {
-                            if (!eventId) return;
-                            navigate(routes.event(eventId));
-                          }}
-                          onAuthorClick={(authorId) => {
-                            if (!authorId) return;
-                            navigate(`/u/${authorId}`);
-                          }}
-                          onCreatePost={() => {}}
-                          onReport={handleReport}
-                          onSoundToggle={() => {}}
-                          onVideoToggle={() => {}}
-                          onOpenTickets={(eventId) => {
-                            if (!eventId) return;
-                            navigate(routes.event(eventId));
-                          }}
-                          soundEnabled={false}
-                          isVideoPlaying={false}
-                        />
-                        <div className="pointer-events-none absolute inset-0 border border-white/5 transition-colors duration-300 group-hover:border-primary/40" aria-hidden />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <EmptyState isSelf={isViewingOwnProfile} />
-              )}
+             <CardContent className="p-0">
+               {feedItems.length > 0 ? (
+                 <div className="flex flex-col gap-4">
+                   {feedItems.map((item, index) => (
+                     <section
+                       key={`${item.item_type}-${item.item_id}-${index}`}
+                       className="px-3 sm:px-6"
+                     >
+                       <div className="mx-auto flex h-[calc(100dvh-8rem)] w-full max-w-5xl items-stretch">
+                         <div className="relative isolate flex h-full w-full overflow-hidden rounded-[32px] border border-white/12 bg-white/5 shadow-[0_40px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                           <div
+                             className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.16)_0%,_transparent_55%)] opacity-70"
+                             aria-hidden
+                           />
+                           <UserPostCard
+                             item={item}
+                             onLike={(postId) => handleLike(postId)}
+                             onComment={(postId) => handleComment(postId)}
+                             onShare={(postId) => handleSharePost(postId)}
+                             onEventClick={(eventId) => {
+                               if (!eventId) return;
+                               navigate(routes.event(eventId));
+                             }}
+                             onAuthorClick={(authorId) => {
+                               if (!authorId) return;
+                               navigate(`/u/${authorId}`);
+                             }}
+                             onCreatePost={() => {}}
+                             onReport={handleReport}
+                             onSoundToggle={() => {}}
+                             onVideoToggle={() => handleVideoToggle(item.item_id)}
+                             onOpenTickets={(eventId) => {
+                               if (!eventId) return;
+                               navigate(routes.event(eventId));
+                             }}
+                             soundEnabled={false}
+                             isVideoPlaying={activeVideoIndex === index}
+                           />
+                         </div>
+                       </div>
+                     </section>
+                   ))}
+                 </div>
+               ) : (
+                 <div className="p-8">
+                   <EmptyState isSelf={isViewingOwnProfile} />
+                 </div>
+               )}
             </CardContent>
           </Card>
 

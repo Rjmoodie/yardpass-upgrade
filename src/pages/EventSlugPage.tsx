@@ -242,6 +242,7 @@ export default function EventSlugPage() {
   const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
   const [commentContext, setCommentContext] = useState<{ postId: string; eventId: string; eventTitle: string } | null>(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -422,7 +423,12 @@ export default function EventSlugPage() {
   }, [selectedPost?.item_id, taggedFeedMap, organizerFeedMap]);
 
   const handleSelectPost = useCallback((post: EventPostWithMeta) => {
-    if (!event) return; const feedItem = taggedFeedMap.get(post.id) ?? organizerFeedMap.get(post.id); if (feedItem) setSelectedPost(feedItem);
+    if (!event) return; 
+    const feedItem = taggedFeedMap.get(post.id) ?? organizerFeedMap.get(post.id); 
+    if (feedItem) {
+      setSelectedPost(feedItem);
+      setIsVideoPlaying(false); // Reset video state when selecting a new post
+    }
   }, [event, taggedFeedMap, organizerFeedMap]);
 
   const updateCachedPost = useCallback((postId: string, updater: (item: EventPostWithMeta) => EventPostWithMeta) => {
@@ -478,6 +484,10 @@ export default function EventSlugPage() {
 
   const handleAuthorClick = useCallback((authorId: string) => { if (!authorId) return; setSelectedPost(null); navigate(`/u/${authorId}`); }, [navigate]);
   const handleModalEventClick = useCallback((eventIdToOpen: string) => { setSelectedPost(null); navigate(`/e/${event?.slug ?? eventIdToOpen}`); }, [navigate, event?.slug]);
+  
+  const handleVideoToggle = useCallback(() => {
+    setIsVideoPlaying(prev => !prev);
+  }, []);
 
   if (loading) {
     return (
@@ -705,15 +715,64 @@ export default function EventSlugPage() {
           </div>
 
           {/* POST MODAL */}
-           <Dialog open={Boolean(selectedPost)} onOpenChange={(open) => { if (!open) setSelectedPost(null); }}>
+           <Dialog open={Boolean(selectedPost)} onOpenChange={(open) => { 
+             if (!open) {
+               setSelectedPost(null);
+               setIsVideoPlaying(false); // Reset video state when modal closes
+             }
+           }}>
             {selectedPost && selectedPost.item_type === 'post' ? (
               isMobile ? (
-                <BottomSheetContent className="max-h-[90vh] overflow-y-auto">
-                  <UserPostCard item={selectedPost} onLike={(postId) => handleLike(postId)} onComment={(postId) => handleComment(postId)} onShare={(postId) => handleSharePost(postId)} onEventClick={(id) => { setSelectedPost(null); navigate(`/e/${event.slug ?? id}`); }} onAuthorClick={(authorId) => { setSelectedPost(null); navigate(`/u/${authorId}`); }} onCreatePost={() => {}} onReport={handleReport} onSoundToggle={() => {}} onVideoToggle={() => {}} onOpenTickets={() => setShowTicketModal(true)} soundEnabled={false} isVideoPlaying={false} />
+                <BottomSheetContent className="h-[90vh] overflow-hidden bg-black">
+                  <UserPostCard 
+                    item={selectedPost} 
+                    onLike={(postId) => handleLike(postId)} 
+                    onComment={(postId) => handleComment(postId)} 
+                    onShare={(postId) => handleSharePost(postId)} 
+                    onEventClick={(id) => { 
+                      setSelectedPost(null); 
+                      setIsVideoPlaying(false);
+                      navigate(`/e/${event.slug ?? id}`); 
+                    }} 
+                    onAuthorClick={(authorId) => { 
+                      setSelectedPost(null); 
+                      setIsVideoPlaying(false);
+                      navigate(`/u/${authorId}`); 
+                    }} 
+                    onCreatePost={() => {}} 
+                    onReport={handleReport} 
+                    onSoundToggle={() => {}} 
+                    onVideoToggle={handleVideoToggle} 
+                    onOpenTickets={() => setShowTicketModal(true)} 
+                    soundEnabled={false} 
+                    isVideoPlaying={isVideoPlaying} 
+                  />
                 </BottomSheetContent>
               ) : (
-                <DialogContent className="max-h-[90vh] w-full max-w-3xl overflow-y-auto">
-                  <UserPostCard item={selectedPost} onLike={(postId) => handleLike(postId)} onComment={(postId) => handleComment(postId)} onShare={(postId) => handleSharePost(postId)} onEventClick={(id) => { setSelectedPost(null); navigate(`/e/${event.slug ?? id}`); }} onAuthorClick={(authorId) => { setSelectedPost(null); navigate(`/u/${authorId}`); }} onCreatePost={() => {}} onReport={handleReport} onSoundToggle={() => {}} onVideoToggle={() => {}} onOpenTickets={() => setShowTicketModal(true)} soundEnabled={false} isVideoPlaying={false} />
+                <DialogContent className="h-[90vh] w-full max-w-4xl overflow-hidden bg-black border-border/50 p-0">
+                  <UserPostCard 
+                    item={selectedPost} 
+                    onLike={(postId) => handleLike(postId)} 
+                    onComment={(postId) => handleComment(postId)} 
+                    onShare={(postId) => handleSharePost(postId)} 
+                    onEventClick={(id) => { 
+                      setSelectedPost(null); 
+                      setIsVideoPlaying(false);
+                      navigate(`/e/${event.slug ?? id}`); 
+                    }} 
+                    onAuthorClick={(authorId) => { 
+                      setSelectedPost(null); 
+                      setIsVideoPlaying(false);
+                      navigate(`/u/${authorId}`); 
+                    }} 
+                    onCreatePost={() => {}} 
+                    onReport={handleReport} 
+                    onSoundToggle={() => {}} 
+                    onVideoToggle={handleVideoToggle} 
+                    onOpenTickets={() => setShowTicketModal(true)} 
+                    soundEnabled={false} 
+                    isVideoPlaying={isVideoPlaying} 
+                  />
                 </DialogContent>
               )
             ) : null}

@@ -14,6 +14,7 @@ import PeekSheet from '@/components/overlays/PeekSheet';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { logAutoplayContext } from '@/utils/chromeAutoplayDebug';
 import { describeMuxPlaybackUrl } from '@/utils/testMuxUrls';
+import { env } from '@/config/env';
 
 interface UserPostCardProps {
   item: Extract<FeedItem, { item_type: 'post' }>;
@@ -84,8 +85,12 @@ export const UserPostCard = memo(function UserPostCard({
       originalUrl: mediaUrl,
       builtUrl: url,
       muxConfigured: {
-        tokenId: !!import.meta.env.VITE_MUX_TOKEN_ID,
-        tokenSecret: !!import.meta.env.VITE_MUX_TOKEN_SECRET,
+        tokenId: !!env.muxTokenId,
+        tokenSecret: !!env.muxTokenSecret,
+        actualValues: {
+          tokenId: env.muxTokenId,
+          tokenSecret: env.muxTokenSecret,
+        }
       }
     });
     return url;

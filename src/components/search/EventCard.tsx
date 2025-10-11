@@ -169,7 +169,8 @@ export function EventCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onBookmark(event.id);
+                const eventId = event.item_id || event.id;
+                if (eventId) onBookmark(eventId);
               }}
               className="rounded-full bg-white/90 p-2 text-slate-900 shadow hover:bg-white"
               aria-label={`Save ${event.title}`}
@@ -182,7 +183,8 @@ export function EventCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onShare(event.id);
+                const eventId = event.item_id || event.id;
+                if (eventId) onShare(eventId);
               }}
               className="rounded-full bg-white/90 p-2 text-slate-900 shadow hover:bg-white"
               aria-label={`Share ${event.title}`}
@@ -276,7 +278,11 @@ export function EventCard({
                   className="rounded-full bg-amber-500 text-black shadow hover:bg-amber-600 font-bold"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onTicket(event.id);
+                    // Use item_id for search results, fallback to id for other event objects
+                    const eventId = event.item_id || event.id;
+                    if (eventId) {
+                      onTicket(eventId);
+                    }
                   }}
                 >
                   <Ticket className="mr-2 h-4 w-4" /> Tickets

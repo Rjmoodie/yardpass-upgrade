@@ -394,7 +394,8 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   
   // Event handlers
   const handleResultClick = useCallback((event: any) => {
-    onEventSelect(event.id);
+    const eventId = event.item_id || event.id;
+    if (eventId) onEventSelect(eventId);
   }, [onEventSelect]);
   
   const handleResultTicketClick = useCallback((event: any, eventId: string) => {
@@ -894,7 +895,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               <div className="grid gap-4 sm:grid-cols-2">
                 {visible.map((event, index) => (
                   <EventCard
-                    key={event.id || `event-${index}`}
+                    key={event.item_id || event.id || `event-${index}`}
                     event={event}
                     onClick={() => handleResultClick(event)}
                     onTicket={(eventId) => handleResultTicketClick(event, eventId)}
