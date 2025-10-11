@@ -553,17 +553,26 @@ export default function UnifiedFeedList() {
     
     if (isVideo && lastActiveVideoId && lastActiveVideoId !== currentVideoId) {
       // Pause the previous video when switching to a new one
-      setPausedVideos(prev => ({
+      setPausedVideos((prev) => ({
         ...prev,
-        [lastActiveVideoId]: true
+        [lastActiveVideoId]: true,
       }));
-      console.log('📱 Video transition: paused previous video', { 
-        previousVideo: lastActiveVideoId, 
-        newVideo: currentVideoId 
+      console.log('📱 Video transition: paused previous video', {
+        previousVideo: lastActiveVideoId,
+        newVideo: currentVideoId,
       });
     }
-    
+
     if (isVideo) {
+      // Ensure the active video is not marked as paused so autoplay can resume
+      setPausedVideos((prev) => {
+        if (!prev[currentVideoId]) return prev;
+
+        const next = { ...prev };
+        delete next[currentVideoId];
+        return next;
+      });
+
       setLastActiveVideoId(currentVideoId);
     }
   }, [activeIndex, filteredItems, lastActiveVideoId]);
