@@ -53,6 +53,25 @@ const DEFAULT_FILTERS: FeedFilters = {
 
 const PROMOTED_INTERVAL = 4;
 
+const isVideoPost = (item: FeedItem) =>
+  item.item_type === 'post' &&
+  Array.isArray(item.media_urls) &&
+  item.media_urls.some((url) => isVideoUrl(url));
+
+function postEngagementScore(item: FeedItem) {
+  if (item.item_type !== 'post') return 0;
+
+  const hasVideo = isVideoPost(item);
+  const likes = item.metrics?.likes ?? 0;
+  const comments = item.metrics?.comments ?? 0;
+
+  const cappedLikes = Math.min(likes, 200);
+  const cappedComments = Math.min(comments, 100);
+
+  const engagementWeight = (cappedLikes * 0.4 + cappedComments * 0.6) / 200;
+  return (hasVideo ? 2 : 0) + engagementWeight;
+}
+
 function interleaveFeedItems(items: FeedItem[]): FeedItem[] {
   if (items.length < 2) return items;
 
@@ -67,13 +86,17 @@ function interleaveFeedItems(items: FeedItem[]): FeedItem[] {
     }
   });
 
+  const sortedPosts = posts
+    .slice()
+    .sort((a, b) => postEngagementScore(b) - postEngagementScore(a));
+
   if (!events.length || !posts.length) {
-    return items;
+    return events.length ? [...events] : sortedPosts;
   }
 
   const firstType = items[0].item_type;
-  const primary = firstType === 'event' ? events : posts;
-  const secondary = firstType === 'event' ? posts : events;
+  const primary = firstType === 'event' ? events : sortedPosts;
+  const secondary = firstType === 'event' ? sortedPosts : events;
 
   const result: FeedItem[] = [];
   let primaryIndex = 0;
@@ -164,7 +187,7 @@ export default function UnifiedFeedList() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
-  const visibilityObserverRef = useRef<IntersectionObserver | null>(null);
+  const scrollUpdateRafRef = useRef<number | null>(null);
 
   const { user } = useAuth();
   const { requireAuth } = useAuthGuard();
@@ -191,7 +214,10 @@ export default function UnifiedFeedList() {
     try {
       return (navigator as any).userActivation?.hasBeenActive ?? false;
     } catch (error) {
-      console.debug('⚠️ Unable to determine user activation state', error);
+      if (import.meta.env?.DEV) {
+        // eslint-disable-next-line no-console
+        console.debug('⚠️ Unable to determine user activation state', error);
+      }
       return false;
     }
   });
@@ -383,165 +409,77 @@ export default function UnifiedFeedList() {
   }, [activeIndex, filteredItems.length]);
 
   useEffect(() => {
-    // Find the first video post in the filtered items
-    const firstVideoIndex = filteredItems.findIndex((item) => {
-      const isPost = item.item_type === 'post';
-      const hasVideo = isPost && Array.isArray(item.media_urls) && item.media_urls.some((url) => isVideoUrl(url));
-      return isPost && hasVideo;
-    });
-    
-    // Set activeIndex to the first video post, or 0 if no video posts found
-    setActiveIndex(firstVideoIndex >= 0 ? firstVideoIndex : 0);
-  }, [filters, filteredItems]);
+    setActiveIndex((prev) => {
+      if (!filteredItems.length) return 0;
+      if (prev < filteredItems.length) return prev;
 
-  useEffect(() => {
+      const firstVideoIndex = filteredItems.findIndex(isVideoPost);
+      return firstVideoIndex >= 0 ? firstVideoIndex : 0;
+    });
+  }, [filteredItems]);
+
+  const updateActiveIndexFromScroll = useCallback(() => {
     const container = scrollRef.current;
-    if (!container) return;
+    if (!container || !filteredItems.length) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // Find all currently visible items with their intersection ratios
-        const visibleItems = entries
-          .filter((entry) => entry.isIntersecting)
-          .map((entry) => ({
-            index: Number((entry.target as HTMLElement).dataset.index),
-            ratio: entry.intersectionRatio,
-            isVideo: (() => {
-              const idx = Number((entry.target as HTMLElement).dataset.index);
-              const item = filteredItems[idx];
-              return item?.item_type === 'post' && 
-                     Array.isArray(item?.media_urls) && 
-                     item.media_urls.some((url) => isVideoUrl(url));
-            })(),
-            target: entry.target as HTMLElement
-          }))
-          .filter((item) => !Number.isNaN(item.index));
+    const containerRect = container.getBoundingClientRect();
+    const viewportTop = containerRect.top;
+    const viewportBottom = containerRect.bottom;
+    const viewportHeight = Math.max(1, viewportBottom - viewportTop);
+    const viewportCenter = viewportTop + viewportHeight / 2;
 
-        if (visibleItems.length === 0) {
-          return;
+    let bestVideo: { index: number; score: number } | null = null;
+    let bestFallback: { index: number; score: number } | null = null;
+
+    itemRefs.current.forEach((el, index) => {
+      if (!el) return;
+
+      const rect = el.getBoundingClientRect();
+      const height = Math.max(rect.height, 1);
+      const intersectionTop = Math.max(rect.top, viewportTop);
+      const intersectionBottom = Math.min(rect.bottom, viewportBottom);
+      const intersectionHeight = Math.max(0, intersectionBottom - intersectionTop);
+
+      if (intersectionHeight <= 0) return;
+
+      const visibilityRatio = intersectionHeight / height;
+      const distanceToCenter = Math.abs(rect.top + height / 2 - viewportCenter);
+      const normalizedDistance = 1 - Math.min(distanceToCenter / (viewportHeight / 2), 1);
+      const velocityBoost = scrollVelocity > 0.75 ? 0.08 : 0;
+
+      const score = visibilityRatio * 0.7 + normalizedDistance * 0.3 + velocityBoost;
+
+      const item = filteredItems[index];
+      const video = item ? isVideoPost(item) : false;
+
+      if (video) {
+        if (!bestVideo || score > bestVideo.score) {
+          bestVideo = { index, score };
         }
-
-        // Prioritize video posts over events
-        const videoItems = visibleItems.filter(item => item.isVideo);
-        const nonVideoItems = visibleItems.filter(item => !item.isVideo);
-
-        if (videoItems.length > 0) {
-          // Among video posts, select the one with highest intersection ratio
-          const bestVideo = videoItems.reduce((best, current) => 
-            current.ratio > best.ratio ? current : best
-          );
-          
-          // Adjust threshold based on scroll velocity - more responsive when scrolling fast
-          const isScrollingFast = scrollVelocity > 0.5;
-          const minThreshold = isScrollingFast ? 0.3 : 0.4;
-          
-          // Only change if the new video has significant visibility
-          if (bestVideo.ratio >= minThreshold) {
-            setActiveIndex(prev => {
-              if (prev !== bestVideo.index) {
-                return bestVideo.index;
-              }
-              return prev;
-            });
-          }
-        } else if (nonVideoItems.length > 0) {
-          // If no videos visible, select the most visible non-video item
-          const bestNonVideo = nonVideoItems.reduce((best, current) => 
-            current.ratio > best.ratio ? current : best
-          );
-          
-          const isScrollingFast = scrollVelocity > 0.5;
-          const minThreshold = isScrollingFast ? 0.4 : 0.5;
-          
-          if (bestNonVideo.ratio >= minThreshold) {
-            setActiveIndex(prev => {
-              if (prev !== bestNonVideo.index) {
-                return bestNonVideo.index;
-              }
-              return prev;
-            });
-          }
-        }
-      },
-      { 
-        root: null, 
-        threshold: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], 
-        rootMargin: '0px 0px -5% 0px' 
       }
-    );
 
-    visibilityObserverRef.current = observer;
-
-    itemRefs.current.forEach((el) => {
-      if (el) observer.observe(el);
+      if (!bestFallback || score > bestFallback.score) {
+        bestFallback = { index, score };
+      }
     });
 
-    return () => {
-      observer.disconnect();
-      if (visibilityObserverRef.current === observer) {
-        visibilityObserverRef.current = null;
-      }
-    };
+    const minVideoScore = scrollVelocity > 0.6 ? 0.25 : 0.35;
+    const candidate = bestVideo && bestVideo.score >= minVideoScore ? bestVideo : bestFallback;
+
+    if (candidate) {
+      setActiveIndex((prev) => (prev === candidate.index ? prev : candidate.index));
+    }
   }, [filteredItems, scrollVelocity]);
 
-  // Fallback: Manual scroll detection as backup to intersection observer
   useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
+    updateActiveIndexFromScroll();
+  }, [updateActiveIndexFromScroll, filteredItems.length]);
 
-    const handleScrollFallback = () => {
-      const containerRect = container.getBoundingClientRect();
-      const containerCenter = containerRect.top + containerRect.height / 2;
-      
-      // Find the item closest to the center of the viewport
-      let closestItem: { index: number; distance: number } | null = null;
-      
-      itemRefs.current.forEach((el, idx) => {
-        if (!el) return;
-        
-        const itemRect = el.getBoundingClientRect();
-        const itemCenter = itemRect.top + itemRect.height / 2;
-        const distance = Math.abs(itemCenter - containerCenter);
-        
-        if (!closestItem || distance < closestItem.distance) {
-          const item = filteredItems[idx];
-          const isVideo = item?.item_type === 'post' && 
-                         Array.isArray(item?.media_urls) && 
-                         item.media_urls.some((url) => isVideoUrl(url));
-          
-          closestItem = { index: idx, distance };
-          
-          // If this is a video and it's close enough, prioritize it
-          if (isVideo && distance < containerRect.height * 0.3) {
-            closestItem = { index: idx, distance: 0 };
-          }
-        }
-      });
-      
-      if (closestItem) {
-        setActiveIndex(prev => {
-          if (prev !== closestItem!.index) {
-            return closestItem!.index;
-          }
-          return prev;
-        });
-      }
-    };
-
-    // Throttle the fallback check
-    let timeoutId: number;
-    const throttledFallback = () => {
-      clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(handleScrollFallback, 100);
-    };
-
-    container.addEventListener('scroll', throttledFallback, { passive: true });
-    
-    return () => {
-      container.removeEventListener('scroll', throttledFallback);
-      clearTimeout(timeoutId);
-    };
-  }, [filteredItems]);
+  useEffect(() => {
+    const handleResize = () => updateActiveIndexFromScroll();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [updateActiveIndexFromScroll]);
 
   // Intelligent video state management - pause previous video when switching to new one
   useEffect(() => {
@@ -549,7 +487,7 @@ export default function UnifiedFeedList() {
     if (!currentItem || currentItem.item_type !== 'post') return;
 
     const currentVideoId = currentItem.item_id;
-    const isVideo = Array.isArray(currentItem.media_urls) && currentItem.media_urls.some((url) => isVideoUrl(url));
+    const isVideo = isVideoPost(currentItem);
     
     if (isVideo && lastActiveVideoId && lastActiveVideoId !== currentVideoId) {
       // Pause the previous video when switching to a new one
@@ -557,10 +495,6 @@ export default function UnifiedFeedList() {
         ...prev,
         [lastActiveVideoId]: true,
       }));
-      console.log('📱 Video transition: paused previous video', {
-        previousVideo: lastActiveVideoId,
-        newVideo: currentVideoId,
-      });
     }
 
     if (isVideo) {
@@ -582,7 +516,18 @@ export default function UnifiedFeedList() {
     if (!container) return;
 
     const markInteraction = () => registerInteraction();
-    
+
+    const queueActiveUpdate = () => {
+      if (scrollUpdateRafRef.current != null) {
+        cancelAnimationFrame(scrollUpdateRafRef.current);
+      }
+
+      scrollUpdateRafRef.current = window.requestAnimationFrame(() => {
+        scrollUpdateRafRef.current = null;
+        updateActiveIndexFromScroll();
+      });
+    };
+
     // Track scroll velocity for more responsive video switching
     const handleScroll = () => {
       const now = Date.now();
@@ -594,9 +539,11 @@ export default function UnifiedFeedList() {
         const velocity = positionDelta / timeDelta;
         setScrollVelocity(velocity);
       }
-      
+
       lastScrollTime.current = now;
       lastScrollPosition.current = currentPosition;
+
+      queueActiveUpdate();
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
@@ -606,13 +553,17 @@ export default function UnifiedFeedList() {
     window.addEventListener('keydown', markInteraction);
 
     return () => {
+      if (scrollUpdateRafRef.current != null) {
+        cancelAnimationFrame(scrollUpdateRafRef.current);
+        scrollUpdateRafRef.current = null;
+      }
       container.removeEventListener('scroll', handleScroll);
       container.removeEventListener('scroll', markInteraction);
       container.removeEventListener('click', markInteraction);
       container.removeEventListener('touchstart', markInteraction);
       window.removeEventListener('keydown', markInteraction);
     };
-  }, [registerInteraction]);
+  }, [registerInteraction, updateActiveIndexFromScroll]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -808,7 +759,7 @@ export default function UnifiedFeedList() {
         {filteredItems.map((item, idx) => {
           const isPost = item.item_type === 'post';
           const paused = pausedVideos[item.item_id];
-          const hasVideo = isPost && Array.isArray(item.media_urls) && item.media_urls.some((url) => isVideoUrl(url));
+          const hasVideo = isPost && isVideoPost(item);
           const isVideoActive = isPost && idx === activeIndex && !paused && autoplayReady && hasVideo;
 
 
@@ -816,18 +767,7 @@ export default function UnifiedFeedList() {
             <section
               key={`${item.item_type}-${item.item_id}-${idx}`}
               ref={(el) => {
-                const prev = itemRefs.current[idx];
-                
-                // Only update if the element actually changed
-                if (prev === el) return;
-                
                 itemRefs.current[idx] = el;
-
-                const observer = visibilityObserverRef.current;
-                if (observer) {
-                  if (prev) observer.unobserve(prev);
-                  if (el) observer.observe(el);
-                }
               }}
               data-index={idx}
               className="snap-start px-3 sm:px-6"
@@ -878,11 +818,10 @@ export default function UnifiedFeedList() {
                         // If we're unpausing this video, pause all other videos
                         if (isCurrentlyPaused) {
                           const otherVideos = filteredItems
-                            .filter(otherItem => 
-                              otherItem.item_type === 'post' && 
+                            .filter(otherItem =>
+                              otherItem.item_type === 'post' &&
                               otherItem.item_id !== item.item_id &&
-                              Array.isArray(otherItem.media_urls) && 
-                              otherItem.media_urls.some((url) => isVideoUrl(url))
+                              isVideoPost(otherItem)
                             )
                             .map(otherItem => otherItem.item_id);
                           
@@ -892,11 +831,6 @@ export default function UnifiedFeedList() {
                               newState[videoId] = true;
                             });
                             return newState;
-                          });
-                          
-                          console.log('📱 Video manual play: paused other videos', { 
-                            playingVideo: item.item_id,
-                            pausedVideos: otherVideos 
                           });
                         }
                       }}

@@ -12,9 +12,6 @@ import ActionRail from './ActionRail';
 import ClampText from '@/components/ui/ClampText';
 import PeekSheet from '@/components/overlays/PeekSheet';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
-import { logAutoplayContext } from '@/utils/chromeAutoplayDebug';
-import { describeMuxPlaybackUrl } from '@/utils/testMuxUrls';
-import { env } from '@/config/env';
 
 interface UserPostCardProps {
   item: Extract<FeedItem, { item_type: 'post' }>;
@@ -63,57 +60,17 @@ export const UserPostCard = memo(function UserPostCard({
   const { trackEvent } = useAnalyticsIntegration();
   const [mediaError, setMediaError] = useState(false);
 
-  const mediaUrl = useMemo(() => {
-    const url = item.media_urls?.[0] || null;
-    if (import.meta.env?.DEV) {
-      // eslint-disable-next-line no-console
-      console.debug('🖼️ UserPostCard media debug:', {
-        postId: item.item_id,
-        media_urls: item.media_urls,
-        selectedUrl: url,
-      });
-    }
-    return url;
-  }, [item.media_urls, item.item_id]);
+  const mediaUrl = useMemo(() => item.media_urls?.[0] || null, [item.media_urls]);
   const isVideo = useMemo(() => Boolean(mediaUrl && isVideoUrl(mediaUrl!)), [mediaUrl]);
   const videoSrc = useMemo(() => {
     if (!isVideo || !mediaUrl) return undefined;
-    
-    const url = buildMuxUrl(mediaUrl);
-    console.log('🎬 Video source prepared:', {
-      postId: item.item_id,
-      originalUrl: mediaUrl,
-      builtUrl: url,
-      muxConfigured: {
-        tokenId: !!env.muxTokenId,
-        tokenSecret: !!env.muxTokenSecret,
-        actualValues: {
-          tokenId: env.muxTokenId,
-          tokenSecret: env.muxTokenSecret,
-        }
-      }
-    });
-    return url;
+    return buildMuxUrl(mediaUrl);
   }, [isVideo, mediaUrl, item.item_id]);
 
   const likes = item.metrics?.likes ?? 0;
   const comments = item.metrics?.comments ?? 0;
 
   const { videoRef, ready, error: hlsError } = useHlsVideo(videoSrc);
-
-  useEffect(() => {
-    if (!import.meta.env?.DEV || !isVideo || !videoSrc) return;
-
-    const context = logAutoplayContext({ muted: !soundEnabled });
-    const muxDiagnostics = describeMuxPlaybackUrl(videoSrc);
-
-    // eslint-disable-next-line no-console
-    console.debug('📊 Feed video diagnostics', {
-      post: item.item_id,
-      autoplayContext: context,
-      mux: muxDiagnostics,
-    });
-  }, [isVideo, videoSrc, item.item_id, soundEnabled]);
 
   // Play/pause side effect driven by isVideoPlaying
   useEffect(() => {
@@ -151,14 +108,16 @@ export const UserPostCard = memo(function UserPostCard({
             }
           })
           .catch((error) => {
-            // eslint-disable-next-line no-console
-            console.warn('⚠️ Video play prevented', {
-              postId: item.item_id,
-              error,
-              muted: el.muted,
-              readyState: el.readyState,
-              hlsReady: ready,
-            });
+            if (import.meta.env?.DEV) {
+              // eslint-disable-next-line no-console
+              console.warn('⚠️ Video play prevented', {
+                postId: item.item_id,
+                error,
+                muted: el.muted,
+                readyState: el.readyState,
+                hlsReady: ready,
+              });
+            }
           });
       }
     };
