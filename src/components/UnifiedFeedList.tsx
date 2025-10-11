@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, SlidersHorizontal, MapPin, Compass, Loader2 } from 'lucide-react';
+import { SlidersHorizontal, MapPin, Compass, Loader2 } from 'lucide-react';
 import { useUnifiedFeedInfinite } from '@/hooks/useUnifiedFeedInfinite';
 import { useCampaignBoosts, type CampaignBoostRow } from '@/hooks/useCampaignBoosts';
 import { useAuth } from '@/contexts/AuthContext';
@@ -582,57 +582,44 @@ export default function UnifiedFeedList() {
         aria-hidden
       />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 px-4 pt-6 sm:px-6">
-        <div className="pointer-events-auto mx-auto flex w-full max-w-5xl flex-col gap-4 rounded-3xl border border-white/15 bg-white/5 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-3">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">
-                <Sparkles className="h-3 w-3" /> Curated feed
-              </span>
-              <div className="space-y-2">
-                <h1 className="text-2xl font-semibold leading-snug text-white sm:text-3xl">
-                  Discover experiences near {activeLocation}
-                </h1>
-                <p className="max-w-2xl text-sm text-white/70 sm:text-base">
-                  A strategic blend of events, creator updates, and boosted spotlights to help you plan what&apos;s next. Refine the mix or jump straight into the moment.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="secondary"
-              className="flex h-11 items-center gap-2 self-start rounded-full border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white shadow-none transition hover:bg-white/20 sm:self-center"
-              onClick={() => setFiltersOpen(true)}
-            >
-              <SlidersHorizontal className="h-4 w-4" /> Tune feed
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs text-white/75">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1">
-              <MapPin className="h-3 w-3" /> {activeLocation}
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1">
-              <Compass className="h-3 w-3" /> {activeDate}
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 uppercase tracking-[0.18em] text-[10px] text-white/60">
-              Organic &amp; boosted mix
-            </span>
-            {boostsLoading && (
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                <Loader2 className="h-3 w-3 animate-spin" /> Calibrating boosts
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
       <div
         ref={scrollRef}
         className="relative h-full snap-y snap-mandatory overflow-y-auto scroll-smooth"
         style={{ WebkitOverflowScrolling: 'touch' }}
         {...containerProps}
       >
-        <div className="h-24" aria-hidden="true" />
+        <header className="sticky top-0 z-30 bg-gradient-to-b from-black via-black/80 to-transparent px-3 pt-4 pb-3 backdrop-blur-sm sm:px-6">
+          <div className="mx-auto w-full max-w-5xl">
+            <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_22px_70px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-white">
+                <h1 className="text-lg font-semibold leading-tight sm:text-xl">Experiences near {activeLocation}</h1>
+              </div>
+              <Button
+                variant="secondary"
+                className="mt-2 flex h-10 items-center gap-2 self-start rounded-full border border-white/20 bg-white/10 px-4 text-xs font-semibold text-white shadow-none transition hover:bg-white/20 sm:mt-0"
+                onClick={() => setFiltersOpen(true)}
+              >
+                <SlidersHorizontal className="h-4 w-4" /> Tune feed
+              </Button>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-white/75">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1">
+                <MapPin className="h-3 w-3" /> {activeLocation}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1">
+                <Compass className="h-3 w-3" /> {activeDate}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 uppercase tracking-[0.18em] text-[9px] text-white/60">
+                Organic &amp; boosted mix
+              </span>
+              {boostsLoading && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Calibrating boosts
+                </span>
+              )}
+            </div>
+          </div>
+        </header>
         {filteredItems.map((item, idx) => {
           const isPost = item.item_type === 'post';
           const paused = pausedVideos[item.item_id];
