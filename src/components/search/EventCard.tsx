@@ -273,7 +273,7 @@ export function EventCard({
               {onTicket && (
                 <Button
                   size="sm"
-                  className="rounded-full bg-slate-900 text-white shadow hover:bg-slate-800"
+                  className="rounded-full bg-amber-500 text-black shadow hover:bg-amber-600 font-bold"
                   onClick={(e) => {
                     e.stopPropagation();
                     onTicket(event.id);

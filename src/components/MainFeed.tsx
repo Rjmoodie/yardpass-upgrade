@@ -399,7 +399,7 @@ function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShow
                     setShowTicketModal(true);
                   }, 'Sign in to buy tickets')
                 }
-                className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-4 sm:px-6 text-sm sm:text-base font-bold shadow-lg touch-manipulation"
+                className="bg-amber-500 text-black hover:bg-amber-600 min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-4 sm:px-6 text-sm sm:text-base font-bold shadow-lg touch-manipulation rounded-full"
               >
                 Get Tickets
               </Button>

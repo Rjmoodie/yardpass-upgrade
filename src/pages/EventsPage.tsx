@@ -416,7 +416,7 @@ export default function EventsPage() {
                         />
                       </div>
                       <Button 
-                        className="w-full"
+                        className={`w-full rounded-full shadow font-bold ${tier.status !== 'active' || tier.quantity === 0 ? 'bg-gray-400 text-gray-600' : 'bg-amber-500 text-black hover:bg-amber-600'}`}
                         disabled={tier.status !== 'active' || tier.quantity === 0}
                       >
                         {tier.quantity === 0 ? 'Sold Out' : 'Select Tickets'}

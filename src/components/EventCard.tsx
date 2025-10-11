@@ -175,7 +175,7 @@ export const EventCard = memo(function EventCard({
             </h2>
 
             <Button
-              className="shrink-0 min-w-[8rem] sm:min-w-[9.5rem] h-10 sm:h-11 px-3 sm:px-5 text-xs sm:text-sm bg-amber-500 hover:bg-amber-600 text-black font-bold"
+              className="shrink-0 min-w-[8rem] sm:min-w-[9.5rem] h-10 sm:h-11 px-3 sm:px-5 text-xs sm:text-sm bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full shadow"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenTickets(item.event_id, item);

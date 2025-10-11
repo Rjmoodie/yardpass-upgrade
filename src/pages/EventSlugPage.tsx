@@ -579,7 +579,7 @@ export default function EventSlugPage() {
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <Button variant="outline" className="gap-2 border-border/50 text-muted-foreground hover:text-foreground" onClick={() => shareEvent(event.id, event.title)} disabled={isSharing}><Share2 className="h-4 w-4" />Share</Button>
-                    <Button className="gap-2" onClick={() => setShowTicketModal(true)}><Ticket className="h-4 w-4" />Get Tickets</Button>
+                    <Button className="gap-2 rounded-full bg-amber-500 text-black shadow hover:bg-amber-600 font-bold" onClick={() => setShowTicketModal(true)}><Ticket className="h-4 w-4" />Get Tickets</Button>
                   </div>
                 </div>
 

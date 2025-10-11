@@ -265,7 +265,7 @@ const [displayAddress, setDisplayAddress] = useState<string | null>(null);
           <div className="flex flex-col sm:flex-row gap-4 pt-2">
             <Button
               size="lg"
-              className="flex-1 h-12"
+              className="flex-1 h-12 bg-amber-500 text-black hover:bg-amber-600 font-bold rounded-full shadow"
               onClick={() => {
                 console.log('🎫 Get Tickets clicked');
                 // TODO: Open ticket modal

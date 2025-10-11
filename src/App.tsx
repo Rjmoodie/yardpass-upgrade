@@ -14,6 +14,7 @@ import { SharePayload } from '@/lib/share';
 import { getEventRoute } from '@/lib/eventRouting';
 import { Scan } from 'lucide-react';
 import { PageLoadingSpinner } from '@/components/LoadingSpinner';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { Event } from '@/types/events';
 import { PerfPreconnect } from '@/components/Perf/PerfPreconnect';
 import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
@@ -274,7 +275,11 @@ function AppContent() {
               <Route path="/" element={<Index />} />
               <Route
                 path="/search"
-                element={<SearchPage onBack={() => navigate('/')} onEventSelect={handleEventSelect} />}
+                element={
+                  <ErrorBoundary>
+                    <SearchPage onBack={() => navigate('/')} onEventSelect={handleEventSelect} />
+                  </ErrorBoundary>
+                }
               />
               {/* Redirect legacy event routes to primary /e/:identifier format */}
               <Route path="/events/:id" element={<RedirectToEventSlug />} />

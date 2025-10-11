@@ -70,8 +70,7 @@ export function EventCTA({
           size="sm" 
           onClick={onGetTickets} 
           disabled={isPastEvent}
-          className="h-7 px-2 text-xs" 
-          variant={isPastEvent ? "secondary" : "default"}
+          className={`h-7 px-2 text-xs rounded-full shadow ${isPastEvent ? "bg-gray-400 text-gray-600" : "bg-amber-500 text-black hover:bg-amber-600 font-bold"}`}
         >
           <Ticket className="w-3 h-3 mr-1" /> 
           {isPastEvent ? "Sales Ended" : "Get Tickets"}
