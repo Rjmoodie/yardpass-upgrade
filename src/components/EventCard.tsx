@@ -103,9 +103,7 @@ export const EventCard = memo(function EventCard({
   );
 
   return (
-    <div
-      className="w-full h-screen relative overflow-hidden bg-black"
-    >
+    <div className="relative h-full w-full flex-1 overflow-hidden bg-black">
       {/* Background Image */}
       <img
         src={imageUrl}

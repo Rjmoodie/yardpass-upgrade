@@ -16,7 +16,6 @@ import { UserPostCard } from '@/components/UserPostCard';
 import CommentModal from '@/components/CommentModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
@@ -577,39 +576,53 @@ export default function UnifiedFeedList() {
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-black text-white">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black via-black/40 to-black" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-950 via-black to-black" aria-hidden />
+      <div
+        className="pointer-events-none absolute left-1/2 top-[-30%] h-[520px] w-[125%] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(circle_at_center,_rgba(120,119,198,0.35)_0%,_rgba(32,31,60,0.05)_55%,_transparent_75%)] blur-3xl"
+        aria-hidden
+      />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col gap-3 px-6 pt-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/80">
-              <Sparkles className="h-3 w-3" /> For you
-            </span>
-            <Badge variant="outline" className="border-white/30 text-white/80">
-              <MapPin className="mr-1 h-3 w-3" /> {activeLocation}
-            </Badge>
-            <Badge variant="outline" className="border-white/30 text-white/80">
-              <Compass className="mr-1 h-3 w-3" /> {activeDate}
-            </Badge>
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 px-4 pt-6 sm:px-6">
+        <div className="pointer-events-auto mx-auto flex w-full max-w-5xl flex-col gap-4 rounded-3xl border border-white/15 bg-white/5 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-3">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">
+                <Sparkles className="h-3 w-3" /> Curated feed
+              </span>
+              <div className="space-y-2">
+                <h1 className="text-2xl font-semibold leading-snug text-white sm:text-3xl">
+                  Discover experiences near {activeLocation}
+                </h1>
+                <p className="max-w-2xl text-sm text-white/70 sm:text-base">
+                  A strategic blend of events, creator updates, and boosted spotlights to help you plan what&apos;s next. Refine the mix or jump straight into the moment.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              className="flex h-11 items-center gap-2 self-start rounded-full border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white shadow-none transition hover:bg-white/20 sm:self-center"
+              onClick={() => setFiltersOpen(true)}
+            >
+              <SlidersHorizontal className="h-4 w-4" /> Tune feed
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="pointer-events-auto h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/20"
-            onClick={() => setFiltersOpen(true)}
-            aria-label="Filter feed"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </Button>
-        </div>
 
-        <div className="pointer-events-auto flex flex-wrap gap-2 text-xs text-white/70">
-          <span>Discover live experiences, creator moments, and boosted spotlights tailored to you.</span>
-          {boostsLoading && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1">
-              <Loader2 className="h-3 w-3 animate-spin" /> calibrating boosts
+          <div className="flex flex-wrap items-center gap-2 text-xs text-white/75">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1">
+              <MapPin className="h-3 w-3" /> {activeLocation}
             </span>
-          )}
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1">
+              <Compass className="h-3 w-3" /> {activeDate}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 uppercase tracking-[0.18em] text-[10px] text-white/60">
+              Organic &amp; boosted mix
+            </span>
+            {boostsLoading && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> Calibrating boosts
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -654,67 +667,74 @@ export default function UnifiedFeedList() {
                 itemRefs.current[idx] = el;
               }}
               data-index={idx}
-              className="snap-start"
+              className="snap-start px-3 sm:px-6"
             >
-              <div className="flex h-[calc(100dvh-6rem)] w-full items-stretch">
-                {item.item_type === 'event' ? (
-                  <EventCard
-                    item={item}
-                    onOpenTickets={(eventId) => handleOpenTickets(eventId)}
-                    onEventClick={(eventId) => handleEventClick(eventId)}
-                    onCreatePost={() => handleCreatePost(item.event_id)}
-                    onReport={handleReport}
-                    onSoundToggle={() => {
-                      registerInteraction();
-                      setGlobalSoundEnabled((prev) => !prev);
-                    }}
-                    soundEnabled={globalSoundEnabled}
-                    isVideoPlaying={false}
+              <div className="mx-auto flex h-[calc(100dvh-6.5rem)] w-full max-w-5xl items-stretch">
+                <div className="relative isolate flex h-full w-full overflow-hidden rounded-[32px] border border-white/12 bg-white/5 shadow-[0_40px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                  <div
+                    className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.16)_0%,_transparent_55%)] opacity-70"
+                    aria-hidden
                   />
-                ) : (
-                  <UserPostCard
-                    item={item}
-                    onLike={() => handleLike(item)}
-                    onComment={() => handleComment(item)}
-                    onShare={() => handleSharePost(item)}
-                    onEventClick={(eventId) => handleEventClick(eventId)}
-                    onAuthorClick={(authorId) => navigate(`/u/${authorId}`)}
-                    onCreatePost={() => handleCreatePost(item.event_id)}
-                    onReport={handleReport}
-                    onSoundToggle={() => {
-                      registerInteraction();
-                      setGlobalSoundEnabled((prev) => !prev);
-                    }}
-                    onVideoToggle={() => {
-                      registerInteraction();
-                      setPausedVideos((prev) => ({
-                        ...prev,
-                        [item.item_id]: !prev[item.item_id],
-                      }));
-                    }}
-                    onOpenTickets={(eventId) => handleOpenTickets(eventId, item)}
-                    soundEnabled={globalSoundEnabled}
-                    isVideoPlaying={isVideoActive}
-                  />
-                )}
+                  {item.item_type === 'event' ? (
+                    <EventCard
+                      item={item}
+                      onOpenTickets={(eventId) => handleOpenTickets(eventId)}
+                      onEventClick={(eventId) => handleEventClick(eventId)}
+                      onCreatePost={() => handleCreatePost(item.event_id)}
+                      onReport={handleReport}
+                      onSoundToggle={() => {
+                        registerInteraction();
+                        setGlobalSoundEnabled((prev) => !prev);
+                      }}
+                      soundEnabled={globalSoundEnabled}
+                      isVideoPlaying={false}
+                    />
+                  ) : (
+                    <UserPostCard
+                      item={item}
+                      onLike={() => handleLike(item)}
+                      onComment={() => handleComment(item)}
+                      onShare={() => handleSharePost(item)}
+                      onEventClick={(eventId) => handleEventClick(eventId)}
+                      onAuthorClick={(authorId) => navigate(`/u/${authorId}`)}
+                      onCreatePost={() => handleCreatePost(item.event_id)}
+                      onReport={handleReport}
+                      onSoundToggle={() => {
+                        registerInteraction();
+                        setGlobalSoundEnabled((prev) => !prev);
+                      }}
+                      onVideoToggle={() => {
+                        registerInteraction();
+                        setPausedVideos((prev) => ({
+                          ...prev,
+                          [item.item_id]: !prev[item.item_id],
+                        }));
+                      }}
+                      onOpenTickets={(eventId) => handleOpenTickets(eventId, item)}
+                      soundEnabled={globalSoundEnabled}
+                      isVideoPlaying={isVideoActive}
+                    />
+                  )}
+                </div>
               </div>
             </section>
           );
         })}
         <div ref={sentinelRef} className="h-32" />
         {isFetchingNextPage && (
-          <div className="flex items-center justify-center gap-2 py-6 text-sm text-white/70">
+          <div className="mx-auto flex max-w-5xl items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm text-white/70 backdrop-blur-xl">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading more
           </div>
         )}
         {!filteredItems.length && blendedItems.length > 0 && (
-          <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center text-white/70">
-            <p className="text-lg font-semibold text-white">No matches for your filters yet.</p>
-            <p className="text-sm max-w-sm">
-              Try adjusting your filters or expanding your search radius to discover more experiences near {activeLocation}.
+          <div className="mx-auto flex h-[60vh] w-full max-w-4xl flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-white/5 p-10 text-center text-white/75 backdrop-blur-xl">
+            <p className="text-lg font-semibold text-white sm:text-2xl">No matches for your filters yet.</p>
+            <p className="max-w-md text-sm sm:text-base">
+              Soften your filters or widen the search radius to reveal more curated events near {activeLocation}. We&apos;ll keep refining the recommendations.
             </p>
             <Button
               variant="secondary"
+              className="rounded-full border border-white/20 bg-white/10 px-6 text-sm text-white hover:bg-white/20"
               onClick={() => setFilters({ ...DEFAULT_FILTERS })}
             >
               Reset filters
@@ -722,14 +742,20 @@ export default function UnifiedFeedList() {
           </div>
         )}
         {!filteredItems.length && !blendedItems.length && (
-          <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center text-white/70">
-            <p className="text-lg font-semibold text-white">We don't have anything to show yet.</p>
-            <p className="text-sm max-w-sm">
-              Follow organizers you love, explore events near {activeLocation}, or create your first post to personalize this feed.
+          <div className="mx-auto flex h-[60vh] w-full max-w-4xl flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-white/5 p-10 text-center text-white/75 backdrop-blur-xl">
+            <p className="text-lg font-semibold text-white sm:text-2xl">Your feed is warming up.</p>
+            <p className="max-w-md text-sm sm:text-base">
+              Follow organizers you love, explore events near {activeLocation}, or share your first update to unlock a richer feed experience tailored to you.
             </p>
-            <div className="flex items-center gap-3">
-              <Button onClick={() => navigate('/events')}>Explore events</Button>
-              <Button variant="secondary" onClick={() => requireAuth(() => navigate('/create-event'), 'Sign in to create events')}>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button className="rounded-full bg-white text-black hover:bg-white/90" onClick={() => navigate('/events')}>
+                Explore events
+              </Button>
+              <Button
+                variant="secondary"
+                className="rounded-full border border-white/20 bg-white/10 px-5 text-sm text-white hover:bg-white/20"
+                onClick={() => requireAuth(() => navigate('/create-event'), 'Sign in to create events')}
+              >
                 Host an experience
               </Button>
             </div>
