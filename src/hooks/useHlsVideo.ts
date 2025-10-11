@@ -13,7 +13,10 @@ export function useHlsVideo(src?: string) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       } catch (e) {
-        console.warn('useHlsVideo: Error destroying HLS instance:', e);
+        if (import.meta.env?.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn('useHlsVideo: Error destroying HLS instance:', e);
+        }
       }
     }
     
@@ -24,7 +27,10 @@ export function useHlsVideo(src?: string) {
         v.removeAttribute('src');
         v.load();
       } catch (e) {
-        console.warn('useHlsVideo: Error cleaning up video element:', e);
+        if (import.meta.env?.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn('useHlsVideo: Error cleaning up video element:', e);
+        }
       }
     }
   }, []);
@@ -48,14 +54,23 @@ export function useHlsVideo(src?: string) {
 
     (async () => {
       try {
-        console.log('useHlsVideo: Starting video setup for:', src);
+        if (import.meta.env?.DEV) {
+          // eslint-disable-next-line no-console
+          console.debug('useHlsVideo: Starting video setup for:', src);
+        }
         
         if (isHls && !canPlayNative) {
           const Hls = (await import('hls.js')).default;
-          console.log('useHlsVideo: HLS.js loaded, isSupported:', Hls.isSupported());
+          if (import.meta.env?.DEV) {
+            // eslint-disable-next-line no-console
+            console.debug('useHlsVideo: HLS.js loaded, isSupported:', Hls.isSupported());
+          }
           
           if (Hls.isSupported()) {
-            console.log('useHlsVideo: Using HLS.js for:', src);
+            if (import.meta.env?.DEV) {
+              // eslint-disable-next-line no-console
+              console.debug('useHlsVideo: Using HLS.js for:', src);
+            }
             const hls = new Hls({ 
               enableWorker: false, // Disable worker for better compatibility
               lowLatencyMode: false,
@@ -78,7 +93,10 @@ export function useHlsVideo(src?: string) {
             hlsRef.current = hls;
             
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
-              console.log('useHlsVideo: Manifest parsed for:', src);
+              if (import.meta.env?.DEV) {
+                // eslint-disable-next-line no-console
+                console.debug('useHlsVideo: Manifest parsed for:', src);
+              }
               if (!disposed) setReady(true);
             });
             
@@ -91,15 +109,24 @@ export function useHlsVideo(src?: string) {
                 }
                 switch (data.type) {
                   case Hls.ErrorTypes.NETWORK_ERROR:
-                    console.log('useHlsVideo: Fatal network error, trying to recover');
+                    if (import.meta.env?.DEV) {
+                      // eslint-disable-next-line no-console
+                      console.debug('useHlsVideo: Fatal network error, trying to recover');
+                    }
                     hls.startLoad();
                     break;
                   case Hls.ErrorTypes.MEDIA_ERROR:
-                    console.log('useHlsVideo: Fatal media error, trying to recover');
+                    if (import.meta.env?.DEV) {
+                      // eslint-disable-next-line no-console
+                      console.debug('useHlsVideo: Fatal media error, trying to recover');
+                    }
                     hls.recoverMediaError();
                     break;
                   default:
-                    console.log('useHlsVideo: Fatal error, cannot recover');
+                    if (import.meta.env?.DEV) {
+                      // eslint-disable-next-line no-console
+                      console.debug('useHlsVideo: Fatal error, cannot recover');
+                    }
                     hls.destroy();
                     break;
                 }
@@ -110,10 +137,16 @@ export function useHlsVideo(src?: string) {
             hls.attachMedia(v);
           } else {
             // Fallback to native
-            console.log('useHlsVideo: HLS.js not supported, using native for:', src);
+            if (import.meta.env?.DEV) {
+              // eslint-disable-next-line no-console
+              console.debug('useHlsVideo: HLS.js not supported, using native for:', src);
+            }
             v.src = src;
             v.onloadedmetadata = () => {
-              console.log('useHlsVideo: Native video metadata loaded for:', src);
+              if (import.meta.env?.DEV) {
+                // eslint-disable-next-line no-console
+                console.debug('useHlsVideo: Native video metadata loaded for:', src);
+              }
               if (!disposed) setReady(true);
             };
             v.onerror = (e) => {
@@ -122,10 +155,16 @@ export function useHlsVideo(src?: string) {
             };
           }
         } else {
-          console.log('useHlsVideo: Using native video for:', src, 'canPlayNative:', canPlayNative);
+          if (import.meta.env?.DEV) {
+            // eslint-disable-next-line no-console
+            console.debug('useHlsVideo: Using native video for:', src, 'canPlayNative:', canPlayNative);
+          }
           v.src = src;
           v.onloadedmetadata = () => {
-            console.log('useHlsVideo: Native video metadata loaded for:', src);
+            if (import.meta.env?.DEV) {
+              // eslint-disable-next-line no-console
+              console.debug('useHlsVideo: Native video metadata loaded for:', src);
+            }
             if (!disposed) setReady(true);
           };
           v.onerror = (e) => {
