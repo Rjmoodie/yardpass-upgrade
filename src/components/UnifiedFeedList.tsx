@@ -164,6 +164,7 @@ export default function UnifiedFeedList() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
+  const visibilityObserverRef = useRef<IntersectionObserver | null>(null);
 
   const { user } = useAuth();
   const { requireAuth } = useAuthGuard();
@@ -364,8 +365,9 @@ export default function UnifiedFeedList() {
   }, [blendedItems, filters]);
 
   useEffect(() => {
-    itemRefs.current = new Array(filteredItems.length).fill(null);
-  }, [filteredItems]);
+    // Preserve existing element refs while trimming any that are no longer rendered.
+    itemRefs.current = itemRefs.current.slice(0, filteredItems.length);
+  }, [filteredItems.length]);
 
   useEffect(() => {
     if (autoplayReady) return undefined;
@@ -502,11 +504,18 @@ export default function UnifiedFeedList() {
       }
     );
 
+    visibilityObserverRef.current = observer;
+
     itemRefs.current.forEach((el) => {
       if (el) observer.observe(el);
     });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (visibilityObserverRef.current === observer) {
+        visibilityObserverRef.current = null;
+      }
+    };
   }, [filteredItems, scrollVelocity]);
 
   // Fallback: Manual scroll detection as backup to intersection observer
@@ -864,7 +873,15 @@ export default function UnifiedFeedList() {
             <section
               key={`${item.item_type}-${item.item_id}-${idx}`}
               ref={(el) => {
+                const prev = itemRefs.current[idx];
                 itemRefs.current[idx] = el;
+
+                const observer = visibilityObserverRef.current;
+                if (observer) {
+                  if (prev && prev !== el) observer.unobserve(prev);
+                  if (el) observer.observe(el);
+                }
+
                 // Debug: Log when refs are set
                 if (import.meta.env?.DEV && isPost && hasVideo) {
                   console.log('📱 Video ref set:', { idx, postId: item.item_id, element: !!el });
