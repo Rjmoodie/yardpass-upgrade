@@ -321,9 +321,7 @@ export const UserPostCard = memo(function UserPostCard({
   }
 
   return (
-    <div
-      className="w-full h-screen relative overflow-hidden bg-black"
-    >
+    <div className="relative h-full w-full flex-1 overflow-hidden bg-black">
       {/* Background Media */}
       {!showFallback ? (
         <div className="absolute inset-0">
