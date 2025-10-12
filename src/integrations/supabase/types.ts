@@ -2493,6 +2493,53 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string
+          data: Json | null
+          event_type: string | null
+          id: string
+          message: string
+          read_at: string | null
+          title: string
+          type: 'success' | 'error' | 'warning' | 'info'
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string
+          data?: Json | null
+          event_type?: string | null
+          id?: string
+          message: string
+          read_at?: string | null
+          title: string
+          type: 'success' | 'error' | 'warning' | 'info'
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string
+          data?: Json | null
+          event_type?: string | null
+          id?: string
+          message?: string
+          read_at?: string | null
+          title?: string
+          type?: 'success' | 'error' | 'warning' | 'info'
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           checkout_session_id: string | null

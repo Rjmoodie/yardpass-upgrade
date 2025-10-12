@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, X, Check, AlertCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useRealtime, RealtimeEvent } from '@/hooks/useRealtime';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
 interface Notification {
   id: string;
@@ -17,7 +19,10 @@ interface Notification {
   read: boolean;
   actionUrl?: string;
   data?: any;
+  eventType?: RealtimeEvent['type'];
 }
+
+type NotificationRow = Database['public']['Tables']['notifications']['Row'];
 
 export function NotificationSystem() {
   const { user } = useAuth();
@@ -25,6 +30,7 @@ export function NotificationSystem() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Use realtime to listen for events that should create notifications
   useRealtime({
@@ -33,11 +39,13 @@ export function NotificationSystem() {
     enableNotifications: false // We'll handle notifications manually
   });
 
-  function handleRealtimeEvent(event: RealtimeEvent) {
+  async function handleRealtimeEvent(event: RealtimeEvent) {
+    if (!user) return;
+
     const notification = createNotificationFromEvent(event);
     if (notification) {
       addNotification(notification);
-      
+
       // Show browser notification if permission granted
       if (permission.granted) {
         showNotification(notification.title, {
@@ -46,12 +54,21 @@ export function NotificationSystem() {
           tag: notification.id
         });
       }
+
+      await persistNotification(notification, event);
     }
   }
 
   function createNotificationFromEvent(event: RealtimeEvent): Notification | null {
-    const id = `${event.type}-${Date.now()}`;
+    const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${event.type}-${Date.now()}`;
     const timestamp = new Date();
+    const actorId = event.data?.user_id || event.data?.author_user_id;
+
+    if (actorId && actorId === user?.id) {
+      return null;
+    }
 
     switch (event.type) {
       case 'payment_completed':
@@ -62,7 +79,8 @@ export function NotificationSystem() {
           type: 'success',
           timestamp,
           read: false,
-          actionUrl: '/tickets'
+          actionUrl: '/tickets',
+          eventType: event.type
         };
 
       case 'payment_failed':
@@ -73,7 +91,9 @@ export function NotificationSystem() {
           type: 'error',
           timestamp,
           read: false,
-          data: event.data
+          data: event.data,
+          eventType: event.type,
+          actionUrl: '/tickets'
         };
 
       case 'ticket_issued':
@@ -84,7 +104,8 @@ export function NotificationSystem() {
           type: 'success',
           timestamp,
           read: false,
-          actionUrl: '/tickets'
+          actionUrl: '/tickets',
+          eventType: event.type
         };
 
       case 'refund_processed':
@@ -94,7 +115,9 @@ export function NotificationSystem() {
           message: 'Your refund has been processed',
           type: 'info',
           timestamp,
-          read: false
+          read: false,
+          eventType: event.type,
+          actionUrl: '/wallet'
         };
 
       case 'post_created':
@@ -106,7 +129,9 @@ export function NotificationSystem() {
             type: 'info',
             timestamp,
             read: false,
-            actionUrl: `/events/${event.eventId}`
+            actionUrl: event.eventId ? `/events/${event.eventId}` : undefined,
+            eventType: event.type,
+            data: event.data
           };
         }
         break;
@@ -119,10 +144,101 @@ export function NotificationSystem() {
             message: 'Someone reacted to a post',
             type: 'info',
             timestamp,
-            read: false
+            read: false,
+            eventType: event.type,
+            data: event.data
           };
         }
         break;
+
+      case 'reaction_removed':
+        return {
+          id,
+          title: 'Reaction Removed',
+          message: 'A reaction was removed from a post you follow',
+          type: 'info',
+          timestamp,
+          read: false,
+          eventType: event.type,
+          data: event.data
+        };
+
+      case 'post_updated':
+        return {
+          id,
+          title: 'Post Updated',
+          message: 'A post you follow has new updates',
+          type: 'info',
+          timestamp,
+          read: false,
+          eventType: event.type,
+          actionUrl: event.eventId ? `/events/${event.eventId}` : undefined,
+          data: event.data
+        };
+
+      case 'comment_added':
+        return {
+          id,
+          title: 'New Comment',
+          message: 'Someone commented on a post you follow',
+          type: 'info',
+          timestamp,
+          read: false,
+          eventType: event.type,
+          actionUrl: event.eventId ? `/events/${event.eventId}` : undefined,
+          data: event.data
+        };
+
+      case 'comment_removed':
+        return {
+          id,
+          title: 'Comment Removed',
+          message: 'A comment was removed from your feed',
+          type: 'warning',
+          timestamp,
+          read: false,
+          eventType: event.type,
+          data: event.data
+        };
+
+      case 'event_updated':
+        return {
+          id,
+          title: 'Event Updated',
+          message: 'Details for an event you follow were updated',
+          type: 'info',
+          timestamp,
+          read: false,
+          eventType: event.type,
+          actionUrl: event.eventId ? `/events/${event.eventId}` : undefined,
+          data: event.data
+        };
+
+      case 'follow_updated':
+        return {
+          id,
+          title: 'Follower Activity',
+          message: 'Your followed profiles list has changed',
+          type: 'info',
+          timestamp,
+          read: false,
+          eventType: event.type,
+          actionUrl: '/profile',
+          data: event.data
+        };
+
+      case 'order_status_changed':
+        return {
+          id,
+          title: 'Order Updated',
+          message: `An order status changed to ${event.data?.status || 'updated'}`,
+          type: event.data?.status === 'failed' ? 'error' : 'info',
+          timestamp,
+          read: false,
+          eventType: event.type,
+          actionUrl: '/tickets',
+          data: event.data
+        };
 
       default:
         return null;
@@ -132,8 +248,10 @@ export function NotificationSystem() {
   }
 
   function addNotification(notification: Notification) {
-    setNotifications(prev => [notification, ...prev.slice(0, 49)]); // Keep last 50
-    setUnreadCount(prev => prev + 1);
+    setNotifications(prev => {
+      const withoutDuplicate = prev.filter(notif => notif.id !== notification.id);
+      return [notification, ...withoutDuplicate].slice(0, 50); // Keep last 50
+    });
   }
 
   function markAsRead(id: string) {
@@ -142,22 +260,40 @@ export function NotificationSystem() {
         notif.id === id ? { ...notif, read: true } : notif
       )
     );
-    setUnreadCount(prev => Math.max(0, prev - 1));
+
+    if (user) {
+      void supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('user_id', user.id);
+    }
   }
 
   function markAllAsRead() {
     setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
-    setUnreadCount(0);
+
+    if (user) {
+      void supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .is('read_at', null);
+    }
   }
 
   function removeNotification(id: string) {
     setNotifications(prev => {
-      const notification = prev.find(n => n.id === id);
-      if (notification && !notification.read) {
-        setUnreadCount(count => Math.max(0, count - 1));
-      }
       return prev.filter(n => n.id !== id);
     });
+
+    if (user) {
+      void supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+    }
   }
 
   function getNotificationIcon(type: Notification['type']) {
@@ -186,12 +322,93 @@ export function NotificationSystem() {
     return `${days}d ago`;
   }
 
+  async function persistNotification(notification: Notification, event: RealtimeEvent) {
+    if (!user) return;
+
+    try {
+      await supabase.from('notifications').upsert({
+        id: notification.id,
+        user_id: user.id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        created_at: notification.timestamp.toISOString(),
+        read_at: notification.read ? notification.timestamp.toISOString() : null,
+        action_url: notification.actionUrl ?? null,
+        event_type: notification.eventType ?? event.type,
+        data: notification.data ?? event.data ?? null
+      }, { onConflict: 'id' });
+    } catch (error) {
+      console.error('Failed to persist notification', error);
+    }
+  }
+
+  function mapRowToNotification(row: NotificationRow): Notification {
+    return {
+      id: row.id,
+      title: row.title,
+      message: row.message,
+      type: row.type,
+      timestamp: row.created_at ? new Date(row.created_at) : new Date(),
+      read: !!row.read_at,
+      actionUrl: row.action_url ?? undefined,
+      data: row.data ?? undefined,
+      eventType: (row.event_type as RealtimeEvent['type'] | undefined) ?? undefined
+    };
+  }
+
+  useEffect(() => {
+    setUnreadCount(notifications.filter(notification => !notification.read).length);
+  }, [notifications]);
+
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      setIsLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoading(true);
+
+    supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        if (error) {
+          console.error('Failed to load notifications', error);
+          return;
+        }
+
+        if (data) {
+          setNotifications(data.map(mapRowToNotification));
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
   // Request permission on first load if not already decided
   useEffect(() => {
     if (permission.default && user) {
       requestPermission();
     }
   }, [permission.default, user, requestPermission]);
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <>
@@ -242,7 +459,11 @@ export function NotificationSystem() {
             </div>
 
             <div className="max-h-80 overflow-y-auto">
-              {notifications.length === 0 ? (
+              {isLoading ? (
+                <div className="p-4 text-center text-muted-foreground text-sm">
+                  Loading notifications...
+                </div>
+              ) : notifications.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
                   No notifications yet
                 </div>
