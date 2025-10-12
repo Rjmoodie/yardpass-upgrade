@@ -100,7 +100,21 @@ Deno.serve(async (req) => {
       throw new Error("Insufficient funds");
     }
 
-    // Create wallet transaction (deduction)
+    // Deduct credits using FIFO from credit lots
+    const { data: deductions, error: fifoError } = await supabase.rpc("deduct_credits_fifo", {
+      p_amount: creditsCharged,
+      p_wallet_id: isOrgWallet ? null : activeWalletId,
+      p_org_wallet_id: isOrgWallet ? activeWalletId : null
+    });
+
+    if (fifoError) {
+      console.error(`[internal-spend] FIFO deduction failed:`, fifoError);
+      throw new Error(`Credit deduction failed: ${fifoError.message}`);
+    }
+
+    console.log(`[internal-spend] FIFO deducted from ${deductions?.length || 0} lot(s)`);
+
+    // Create wallet transaction (deduction) with lot metadata
     let transaction: any;
     if (isOrgWallet) {
       const { data: tx, error: txError } = await supabase
@@ -112,7 +126,10 @@ Deno.serve(async (req) => {
           description: `${metric_type} spend (${rate_model.toUpperCase()})`,
           reference_type: "campaign",
           reference_id: campaign_id,
-          metadata: { idempotency_key: idempotencyKey }
+          metadata: { 
+            idempotency_key: idempotencyKey,
+            lots_used: deductions // Track which lots were consumed
+          }
         })
         .select()
         .single();
@@ -129,6 +146,7 @@ Deno.serve(async (req) => {
           reference_id: campaign_id,
           memo: `${metric_type} spend (${rate_model.toUpperCase()})`,
           idempotency_key,
+          metadata: { lots_used: deductions } // Track which lots were consumed
         })
         .select()
         .single();
@@ -145,8 +163,7 @@ Deno.serve(async (req) => {
       .eq("id", activeWalletId);
 
     if (balError) {
-      // Rollback transaction if balance update fails
-      await supabase.from(txTable).delete().eq("id", transaction.id);
+      console.error(`[internal-spend] Balance update failed - system may be out of sync`);
       throw balError;
     }
 

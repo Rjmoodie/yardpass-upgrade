@@ -107,6 +107,7 @@ Deno.serve(async (req) => {
         credits_purchased: credits,
         status: "pending",
         promo_code: promo,
+        purchased_by_user_id: user.id, // Track which team member purchased
       })
       .select("id")
       .single();
@@ -127,6 +128,9 @@ Deno.serve(async (req) => {
       {
         mode: "payment",
         payment_method_types: ["card"],
+        customer_email: user.email,
+        billing_address_collection: 'required',
+        
         line_items: [
           {
             quantity: 1,
@@ -140,15 +144,36 @@ Deno.serve(async (req) => {
             }
           }
         ],
+        
+        // Fraud prevention: Enable 3D Secure
+        payment_method_options: {
+          card: {
+            request_three_d_secure: 'automatic',
+          },
+        },
+        
         success_url: `https://lovable.app/orgs/${org_id}/wallet?success=1`,
         cancel_url: `https://lovable.app/orgs/${org_id}/wallet?canceled=1`,
+        
         metadata: {
           org_wallet_id: orgWalletId,
           invoice_id: invoice.id,
           credits: String(credits),
           org_id,
-          request_id: requestKey
-        }
+          request_id: requestKey,
+          risk_context: 'org_wallet_topup',
+        },
+        
+        // Fraud prevention: Add payment intent metadata
+        payment_intent_data: {
+          description: `${credits.toLocaleString()} YardPass org credits`,
+          metadata: {
+            user_id: user.id,
+            org_id: org_id,
+            org_wallet_id: orgWalletId,
+            credits_purchased: credits,
+          },
+        },
       },
       {
         // Stripe idempotency ensures retries don't create multiple sessions

@@ -103,6 +103,21 @@ Deno.serve(async (req) => {
             p_description: "Credit purchase"
           });
           if (applyErr) throw applyErr;
+          
+          // Create credit lot for org wallet (NO expiration for org credits)
+          const unitPrice = amountCents ? Math.floor(amountCents / credits) : 1;
+          const { error: lotErr } = await sb.from("credit_lots").insert({
+            org_wallet_id: orgWalletId,
+            quantity_purchased: credits,
+            quantity_remaining: credits,
+            unit_price_cents: unitPrice,
+            source: "purchase",
+            stripe_checkout_session_id: session.id,
+            invoice_id: invoiceId,
+            expires_at: null // Org credits never expire
+          });
+          if (lotErr) console.error(`[wallet-webhook:${requestId}] Failed to create lot:`, lotErr);
+          
           console.log(`[wallet-webhook:${requestId}] Purchase applied: +${credits} credits to org wallet ${orgWalletId}`);
         } else {
           const { error: applyErr } = await sb.rpc("wallet_apply_purchase", {
@@ -114,6 +129,21 @@ Deno.serve(async (req) => {
             p_idempotency_key: event.id
           });
           if (applyErr) throw applyErr;
+          
+          // Create credit lot for user wallet (also no expiration for now)
+          const unitPrice = amountCents ? Math.floor(amountCents / credits) : 1;
+          const { error: lotErr } = await sb.from("credit_lots").insert({
+            wallet_id: walletId,
+            quantity_purchased: credits,
+            quantity_remaining: credits,
+            unit_price_cents: unitPrice,
+            source: "purchase",
+            stripe_checkout_session_id: session.id,
+            invoice_id: invoiceId,
+            expires_at: null // No expiration
+          });
+          if (lotErr) console.error(`[wallet-webhook:${requestId}] Failed to create lot:`, lotErr);
+          
           console.log(`[wallet-webhook:${requestId}] Purchase applied: +${credits} credits to wallet ${walletId}`);
         }
         break;
@@ -145,6 +175,20 @@ Deno.serve(async (req) => {
             p_description: "Credit purchase"
           });
           if (applyErr) throw applyErr;
+          
+          // Create credit lot for org wallet
+          const unitPrice = Math.floor(amountCents / credits);
+          const { error: lotErr } = await sb.from("credit_lots").insert({
+            org_wallet_id: inv.org_wallet_id,
+            quantity_purchased: credits,
+            quantity_remaining: credits,
+            unit_price_cents: unitPrice,
+            source: "purchase",
+            invoice_id: inv.id,
+            expires_at: null // Org credits never expire
+          });
+          if (lotErr) console.error(`[wallet-webhook:${requestId}] Failed to create lot:`, lotErr);
+          
           console.log(`[wallet-webhook:${requestId}] Purchase applied via PI: +${credits} credits to org wallet`);
         } else {
           const { error: applyErr } = await sb.rpc("wallet_apply_purchase", {
@@ -156,6 +200,20 @@ Deno.serve(async (req) => {
             p_idempotency_key: event.id
           });
           if (applyErr) throw applyErr;
+          
+          // Create credit lot for user wallet
+          const unitPrice = Math.floor(amountCents / credits);
+          const { error: lotErr } = await sb.from("credit_lots").insert({
+            wallet_id: inv.wallet_id,
+            quantity_purchased: credits,
+            quantity_remaining: credits,
+            unit_price_cents: unitPrice,
+            source: "purchase",
+            invoice_id: inv.id,
+            expires_at: null // No expiration
+          });
+          if (lotErr) console.error(`[wallet-webhook:${requestId}] Failed to create lot:`, lotErr);
+          
           console.log(`[wallet-webhook:${requestId}] Purchase applied via PI: +${credits} credits`);
         }
         break;

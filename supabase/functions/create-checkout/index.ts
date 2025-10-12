@@ -204,7 +204,7 @@ serve(async (req) => {
 
     const siteUrl = getSiteUrl(req);
 
-    // Create checkout session
+    // Create checkout session with fraud prevention
     const session = await stripe.checkout.sessions.create(
       {
         customer: customerId,
@@ -215,11 +215,31 @@ serve(async (req) => {
         cancel_url: `${siteUrl}/?cancelled=true`,
         allow_promotion_codes: true,
         billing_address_collection: 'required',
+        
+        // Fraud prevention: Enable 3D Secure for high-risk transactions
+        payment_method_options: {
+          card: {
+            request_three_d_secure: 'automatic', // Stripe decides based on risk
+          },
+        },
+        
         metadata: {
           event_id: eventId,
           user_id: user.id,
           ticket_selections: JSON.stringify(ticketSelections),
           hold_ids: JSON.stringify(reservationResult.hold_ids || []),
+          risk_context: 'ticket_purchase',
+        },
+        
+        // Fraud prevention: Add detailed payment intent data
+        payment_intent_data: {
+          description: `Tickets for ${event.title}`,
+          metadata: {
+            event_id: eventId,
+            user_id: user.id,
+            user_email: user.email,
+            total_tickets: ticketSelections.reduce((sum, s) => sum + s.quantity, 0),
+          },
         },
       },
       { idempotencyKey }

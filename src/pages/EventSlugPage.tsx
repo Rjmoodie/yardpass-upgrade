@@ -242,7 +242,8 @@ export default function EventSlugPage() {
   const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
   const [commentContext, setCommentContext] = useState<{ postId: string; eventId: string; eventTitle: string } | null>(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [pausedVideos, setPausedVideos] = useState<Record<string, boolean>>({});
+  const [soundEnabled, setSoundEnabled] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -427,7 +428,11 @@ export default function EventSlugPage() {
     const feedItem = taggedFeedMap.get(post.id) ?? organizerFeedMap.get(post.id); 
     if (feedItem) {
       setSelectedPost(feedItem);
-      setIsVideoPlaying(false); // Reset video state when selecting a new post
+      // Auto-play video when modal opens - mark it as NOT paused (playing)
+      setPausedVideos(prev => ({
+        ...prev,
+        [feedItem.item_id]: false, // false = video will play
+      }));
     }
   }, [event, taggedFeedMap, organizerFeedMap]);
 
@@ -485,9 +490,34 @@ export default function EventSlugPage() {
   const handleAuthorClick = useCallback((authorId: string) => { if (!authorId) return; setSelectedPost(null); navigate(`/u/${authorId}`); }, [navigate]);
   const handleModalEventClick = useCallback((eventIdToOpen: string) => { setSelectedPost(null); navigate(`/e/${event?.slug ?? eventIdToOpen}`); }, [navigate, event?.slug]);
   
-  const handleVideoToggle = useCallback(() => {
-    setIsVideoPlaying(prev => !prev);
-  }, []);
+  const handleVideoToggle = useCallback((postId?: string) => {
+    if (!postId && selectedPost) {
+      postId = selectedPost.item_id;
+    }
+    if (!postId) return;
+
+    // Toggle pause state for the clicked video
+    const isCurrentlyPaused = pausedVideos[postId] ?? true; // Videos start paused by default
+    
+    setPausedVideos((prev) => ({
+      ...prev,
+      [postId]: !isCurrentlyPaused,
+    }));
+    
+    // If we're unpausing this video, pause all other videos
+    if (isCurrentlyPaused) {
+      setPausedVideos(prev => {
+        const newState = { ...prev, [postId]: false };
+        // Pause all other videos
+        Object.keys(prev).forEach(videoId => {
+          if (videoId !== postId) {
+            newState[videoId] = true;
+          }
+        });
+        return newState;
+      });
+    }
+  }, [selectedPost, pausedVideos]);
 
   if (loading) {
     return (
@@ -718,7 +748,13 @@ export default function EventSlugPage() {
            <Dialog open={Boolean(selectedPost)} onOpenChange={(open) => { 
              if (!open) {
                setSelectedPost(null);
-               setIsVideoPlaying(false); // Reset video state when modal closes
+               // Reset all videos to paused when modal closes
+               if (selectedPost) {
+                 setPausedVideos(prev => ({
+                   ...prev,
+                   [selectedPost.item_id]: true,
+                 }));
+               }
              }
            }}>
             {selectedPost && selectedPost.item_type === 'post' ? (
@@ -731,21 +767,21 @@ export default function EventSlugPage() {
                     onShare={(postId) => handleSharePost(postId)} 
                     onEventClick={(id) => { 
                       setSelectedPost(null); 
-                      setIsVideoPlaying(false);
+                      setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
                       navigate(`/e/${event.slug ?? id}`); 
                     }} 
                     onAuthorClick={(authorId) => { 
                       setSelectedPost(null); 
-                      setIsVideoPlaying(false);
+                      setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
                       navigate(`/u/${authorId}`); 
                     }} 
                     onCreatePost={() => {}} 
                     onReport={handleReport} 
-                    onSoundToggle={() => {}} 
+                    onSoundToggle={() => setSoundEnabled(prev => !prev)} 
                     onVideoToggle={handleVideoToggle} 
                     onOpenTickets={() => setShowTicketModal(true)} 
-                    soundEnabled={false} 
-                    isVideoPlaying={isVideoPlaying} 
+                    soundEnabled={soundEnabled} 
+                    isVideoPlaying={!pausedVideos[selectedPost.item_id]} 
                   />
                 </BottomSheetContent>
               ) : (
@@ -757,21 +793,21 @@ export default function EventSlugPage() {
                     onShare={(postId) => handleSharePost(postId)} 
                     onEventClick={(id) => { 
                       setSelectedPost(null); 
-                      setIsVideoPlaying(false);
+                      setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
                       navigate(`/e/${event.slug ?? id}`); 
                     }} 
                     onAuthorClick={(authorId) => { 
                       setSelectedPost(null); 
-                      setIsVideoPlaying(false);
+                      setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
                       navigate(`/u/${authorId}`); 
                     }} 
                     onCreatePost={() => {}} 
                     onReport={handleReport} 
-                    onSoundToggle={() => {}} 
+                    onSoundToggle={() => setSoundEnabled(prev => !prev)} 
                     onVideoToggle={handleVideoToggle} 
                     onOpenTickets={() => setShowTicketModal(true)} 
-                    soundEnabled={false} 
-                    isVideoPlaying={isVideoPlaying} 
+                    soundEnabled={soundEnabled} 
+                    isVideoPlaying={!pausedVideos[selectedPost.item_id]} 
                   />
                 </DialogContent>
               )

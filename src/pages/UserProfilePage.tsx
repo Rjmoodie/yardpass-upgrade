@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Sparkles,
   Image,
+  Play,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -17,8 +18,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { UserPostCard } from '@/components/UserPostCard';
+import { Dialog, DialogContent, BottomSheetContent } from '@/components/ui/dialog';
+import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+import { useIsMobile } from '@/hooks/use-mobile';
 import CommentModal from '@/components/CommentModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVideoUrl, muxToPoster } from '@/utils/mux';
 import { useProfileView } from '@/contexts/ProfileViewContext';
 import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
@@ -182,6 +187,7 @@ export default function UserProfilePage() {
   const { toggleLike, getOptimisticData } = useOptimisticReactions();
   const { sharePost } = useShare();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [tickets, setTickets] = useState<UserTicket[]>([]);
@@ -191,7 +197,9 @@ export default function UserProfilePage() {
   const [initialViewSet, setInitialViewSet] = useState(false);
   const [commentContext, setCommentContext] = useState<{ postId: string; eventId: string; eventTitle: string } | null>(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
-  const [activeVideoIndex, setActiveVideoIndex] = useState<number | null>(null);
+  const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
+  const [pausedVideos, setPausedVideos] = useState<Record<string, boolean>>({});
+  const [soundEnabled, setSoundEnabled] = useState(false);
 
   const isViewingOwnProfile = useMemo(() => {
     if (!profile || !currentUser) return false;
@@ -455,16 +463,41 @@ export default function UserProfilePage() {
     sharePost(item.item_id, item.event_title, item.content ?? undefined);
   };
 
-  const handleVideoToggle = (postId: string) => {
-    const itemIndex = feedItems.findIndex((item) => item.item_id === postId);
-    if (itemIndex === -1) return;
+  const handleSelectPost = (post: FeedItem) => {
+    setSelectedPost(post);
+    // Auto-play video when modal opens - mark it as NOT paused (playing)
+    setPausedVideos(prev => ({
+      ...prev,
+      [post.item_id]: false, // false = video will play
+    }));
+  };
+
+  const handleVideoToggle = (postId?: string) => {
+    if (!postId && selectedPost) {
+      postId = selectedPost.item_id;
+    }
+    if (!postId) return;
+
+    // Toggle pause state for the clicked video
+    const isCurrentlyPaused = pausedVideos[postId] ?? true;
     
-    // If this video is already active, pause it
-    if (activeVideoIndex === itemIndex) {
-      setActiveVideoIndex(null);
-    } else {
-      // Pause any other video and play this one
-      setActiveVideoIndex(itemIndex);
+    setPausedVideos((prev) => ({
+      ...prev,
+      [postId]: !isCurrentlyPaused,
+    }));
+    
+    // If we're unpausing this video, pause all other videos
+    if (isCurrentlyPaused) {
+      setPausedVideos(prev => {
+        const newState = { ...prev, [postId]: false };
+        // Pause all other videos
+        Object.keys(prev).forEach(videoId => {
+          if (videoId !== postId) {
+            newState[videoId] = true;
+          }
+        });
+        return newState;
+      });
     }
   };
 
@@ -666,48 +699,44 @@ export default function UserProfilePage() {
                 </div>
               </div>
             </CardHeader>
-             <CardContent className="p-0">
+             <CardContent className="p-6">
                {feedItems.length > 0 ? (
-                 <div className="flex flex-col gap-4">
-                   {feedItems.map((item, index) => (
-                     <section
-                       key={`${item.item_type}-${item.item_id}-${index}`}
-                       className="px-3 sm:px-6"
-                     >
-                       <div className="mx-auto flex h-[calc(100dvh-8rem)] w-full max-w-5xl items-stretch">
-                         <div className="relative isolate flex h-full w-full overflow-hidden rounded-[32px] border border-white/12 bg-white/5 shadow-[0_40px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-                           <div
-                             className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.16)_0%,_transparent_55%)] opacity-70"
-                             aria-hidden
+                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:gap-4">
+                   {feedItems.map((item) => {
+                     const mediaUrl = item.media_urls?.[0] ?? null;
+                     const isVideo = Boolean(mediaUrl && isVideoUrl(mediaUrl));
+                     const posterUrl = isVideo ? muxToPoster(mediaUrl) : null;
+                     const preview = posterUrl || mediaUrl || item.event_cover_image || DEFAULT_EVENT_COVER;
+                     
+                     return (
+                       <button
+                         key={item.item_id}
+                         type="button"
+                         onClick={() => handleSelectPost(item)}
+                         className="relative aspect-square overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-b from-card/50 to-card/30 shadow-sm ring-1 ring-black/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                         aria-label={item.author_name ? `View post from ${item.author_name}` : 'View post'}
+                       >
+                         {mediaUrl ? (
+                           <ImageWithFallback 
+                             src={preview} 
+                             alt={item.author_name ? `Post from ${item.author_name}` : 'Post media'} 
+                             fallback={item.event_cover_image || DEFAULT_EVENT_COVER} 
+                             className="h-full w-full object-cover" 
+                             loading="lazy" 
                            />
-                           <UserPostCard
-                             item={item}
-                             onLike={(postId) => handleLike(postId)}
-                             onComment={(postId) => handleComment(postId)}
-                             onShare={(postId) => handleSharePost(postId)}
-                             onEventClick={(eventId) => {
-                               if (!eventId) return;
-                               navigate(routes.event(eventId));
-                             }}
-                             onAuthorClick={(authorId) => {
-                               if (!authorId) return;
-                               navigate(`/u/${authorId}`);
-                             }}
-                             onCreatePost={() => {}}
-                             onReport={handleReport}
-                             onSoundToggle={() => {}}
-                             onVideoToggle={() => handleVideoToggle(item.item_id)}
-                             onOpenTickets={(eventId) => {
-                               if (!eventId) return;
-                               navigate(routes.event(eventId));
-                             }}
-                             soundEnabled={false}
-                             isVideoPlaying={activeVideoIndex === index}
-                           />
-                         </div>
-                       </div>
-                     </section>
-                   ))}
+                         ) : (
+                           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/40 to-muted/20 px-4 text-center text-xs text-muted-foreground">
+                             {item.content ? item.content.slice(0, 120) : 'Post'}
+                           </div>
+                         )}
+                         {isVideo && (
+                           <div className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white">
+                             <Play className="h-3.5 w-3.5" />
+                           </div>
+                         )}
+                       </button>
+                     );
+                   })}
                  </div>
                ) : (
                  <div className="p-8">
@@ -894,6 +923,79 @@ export default function UserProfilePage() {
           )}
         </aside>
       </main>
+
+      {/* Post Modal */}
+      <Dialog 
+        open={Boolean(selectedPost)} 
+        onOpenChange={(open) => { 
+          if (!open) {
+            setSelectedPost(null);
+            // Reset video to paused when modal closes
+            if (selectedPost) {
+              setPausedVideos(prev => ({
+                ...prev,
+                [selectedPost.item_id]: true,
+              }));
+            }
+          }
+        }}
+      >
+        {selectedPost && selectedPost.item_type === 'post' ? (
+          isMobile ? (
+            <BottomSheetContent className="h-[90vh] overflow-hidden bg-black">
+              <UserPostCard 
+                item={selectedPost} 
+                onLike={(postId) => handleLike(postId)} 
+                onComment={(postId) => handleComment(postId)} 
+                onShare={(postId) => handleSharePost(postId)} 
+                onEventClick={(eventId) => { 
+                  setSelectedPost(null); 
+                  setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
+                  navigate(routes.event(eventId)); 
+                }} 
+                onAuthorClick={(authorId) => { 
+                  setSelectedPost(null); 
+                  setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
+                  navigate(`/u/${authorId}`); 
+                }} 
+                onCreatePost={() => {}} 
+                onReport={handleReport} 
+                onSoundToggle={() => setSoundEnabled(prev => !prev)} 
+                onVideoToggle={handleVideoToggle} 
+                onOpenTickets={(eventId) => navigate(routes.event(eventId))} 
+                soundEnabled={soundEnabled} 
+                isVideoPlaying={!pausedVideos[selectedPost.item_id]} 
+              />
+            </BottomSheetContent>
+          ) : (
+            <DialogContent className="h-[90vh] w-full max-w-4xl overflow-hidden bg-black border-border/50 p-0">
+              <UserPostCard 
+                item={selectedPost} 
+                onLike={(postId) => handleLike(postId)} 
+                onComment={(postId) => handleComment(postId)} 
+                onShare={(postId) => handleSharePost(postId)} 
+                onEventClick={(eventId) => { 
+                  setSelectedPost(null); 
+                  setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
+                  navigate(routes.event(eventId)); 
+                }} 
+                onAuthorClick={(authorId) => { 
+                  setSelectedPost(null); 
+                  setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
+                  navigate(`/u/${authorId}`); 
+                }} 
+                onCreatePost={() => {}} 
+                onReport={handleReport} 
+                onSoundToggle={() => setSoundEnabled(prev => !prev)} 
+                onVideoToggle={handleVideoToggle} 
+                onOpenTickets={(eventId) => navigate(routes.event(eventId))} 
+                soundEnabled={soundEnabled} 
+                isVideoPlaying={!pausedVideos[selectedPost.item_id]} 
+              />
+            </DialogContent>
+          )
+        ) : null}
+      </Dialog>
 
       {/* Comment Modal */}
       {commentContext && (

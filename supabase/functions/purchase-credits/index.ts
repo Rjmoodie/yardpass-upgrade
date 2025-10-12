@@ -131,6 +131,7 @@ Deno.serve(async (req) => {
         promo_code,
         tax_usd_cents: 0,
         status: "pending",
+        purchased_by_user_id: user.id, // Track who purchased
       })
       .select()
       .single();
@@ -160,11 +161,31 @@ Deno.serve(async (req) => {
       mode: "payment",
       success_url: `${Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || "http://localhost:3000"}/wallet/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || "http://localhost:3000"}/wallet`,
+      billing_address_collection: 'required',
+      
+      // Fraud prevention: Enable 3D Secure
+      payment_method_options: {
+        card: {
+          request_three_d_secure: 'automatic',
+        },
+      },
+      
       metadata: {
         invoice_id: invoice.id,
         wallet_id: wallet.id,
         credits,
         idempotency_key: idempotencyKey,
+        risk_context: 'wallet_topup',
+      },
+      
+      // Fraud prevention: Add payment intent metadata
+      payment_intent_data: {
+        description: `${credits.toLocaleString()} YardPass ad credits`,
+        metadata: {
+          user_id: user.id,
+          wallet_id: wallet.id,
+          credits_purchased: credits,
+        },
       },
     });
 

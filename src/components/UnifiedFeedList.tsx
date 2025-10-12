@@ -45,7 +45,7 @@ type TicketModalEvent = {
 };
 
 const DEFAULT_FILTERS: FeedFilters = {
-  dates: ['This Month'],
+  dates: [], // Show all dates by default to display all available videos
   locations: ['Near Me'],
   categories: [],
   searchRadius: 25,
