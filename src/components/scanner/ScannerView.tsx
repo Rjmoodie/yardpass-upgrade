@@ -195,14 +195,15 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
 
     try {
       const result = await validateTicket({ qr: payload, event_id: eventId });
-      const status = result.status as ScanResultType;
+      const status = result.result as ScanResultType;
       const copy = RESULT_COPY[status] ?? RESULT_COPY.invalid;
+      const message = result.message || copy.label;
       const entry: ScanHistoryItem = {
         id: crypto.randomUUID(),
         code: payload,
         status,
-        message: copy.label,
-        timestamp: new Date().toISOString(),
+        message,
+        timestamp: result.timestamp || new Date().toISOString(),
       };
       appendHistory(entry);
       duplicateCache.current.set(payload, Date.now());

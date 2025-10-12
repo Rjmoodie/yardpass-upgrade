@@ -42,7 +42,6 @@ export function useCreativeRollup(opts: {
       offset,
     ],
     queryFn: async (): Promise<CreativeRollup[]> => {
-      console.log("[useCreativeRollup] Fetching creatives for org:", orgId);
       const { data, error } = await supabase.rpc("rpc_creative_analytics_rollup", {
         p_org_id: orgId,
         p_from: from,
@@ -55,7 +54,6 @@ export function useCreativeRollup(opts: {
         p_limit: limit,
         p_offset: offset,
       });
-      console.log("[useCreativeRollup] RPC result:", { data, error });
       if (error) {
         console.error("[useCreativeRollup] Error fetching creatives:", error);
         throw error;

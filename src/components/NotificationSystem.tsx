@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Bell, X, Check, AlertCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -33,13 +33,7 @@ export function NotificationSystem() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Use realtime to listen for events that should create notifications
-  useRealtime({
-    userId: user?.id,
-    onEvent: handleRealtimeEvent,
-    enableNotifications: false // We'll handle notifications manually
-  });
-
-  async function handleRealtimeEvent(event: RealtimeEvent) {
+  const handleRealtimeEvent = useCallback(async (event: RealtimeEvent) => {
     if (!user) return;
 
     const notification = createNotificationFromEvent(event);
@@ -57,7 +51,13 @@ export function NotificationSystem() {
 
       await persistNotification(notification, event);
     }
-  }
+  }, [user, permission.granted, showNotification]);
+
+  useRealtime({
+    userId: user?.id,
+    onEvent: handleRealtimeEvent,
+    enableNotifications: false // We'll handle notifications manually
+  });
 
   function createNotificationFromEvent(event: RealtimeEvent): Notification | null {
     const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -418,7 +418,7 @@ export function NotificationSystem() {
           variant="ghost"
           size="icon"
           onClick={() => setIsOpen(!isOpen)}
-          className="relative"
+          className="relative hover:bg-transparent focus-visible:ring-0 shadow-none"
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (

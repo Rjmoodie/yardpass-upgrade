@@ -35,11 +35,17 @@ export async function fetchOrderStatus(orderId: string) {
 }
 
 export async function validateTicket(payload: { qr: string; event_id: string }, opts?: { signal?: AbortSignal }) {
-  const { data, error } = await supabase.functions.invoke('validate-ticket', { body: payload });
+  const { data, error } = await supabase.functions.invoke('scanner-validate', { body: { qr_token: payload.qr, event_id: payload.event_id } });
   if (error) {
     if ((opts?.signal as any)?.aborted) throw new DOMException('Aborted', 'AbortError');
     throw new Error(error.message ?? 'Validation failed');
   }
-  return data as { status: 'valid'|'duplicate'|'invalid'; first_scanned_at?: string; attendee?: { name?: string; tier?: string } };
+  return data as { 
+    success: boolean; 
+    result: 'valid'|'duplicate'|'invalid'|'expired'|'wrong_event'|'refunded'|'void'; 
+    message?: string;
+    ticket?: { id: string; tier_name: string; attendee_name: string; badge_label?: string };
+    timestamp?: string;
+  };
 }
 

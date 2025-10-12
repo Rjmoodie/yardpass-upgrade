@@ -48,12 +48,16 @@ jobs:
           npx cap init YardPass com.yardpass.app --web-dir=dist
         fi
         
-    - name: Add iOS platform
+    - name: Add iOS platform (if needed)
       run: |
-        # Add iOS platform (will skip if already exists)
-        echo "Adding iOS platform..."
-        npx cap add ios
-        echo "iOS platform added successfully"
+        # Only add iOS platform if it doesn't exist
+        if [ ! -d "ios" ]; then
+          echo "Adding iOS platform..."
+          npx cap add ios
+          echo "iOS platform added successfully"
+        else
+          echo "iOS platform already exists, skipping add step"
+        fi
         
     - name: Sync Capacitor
       run: |

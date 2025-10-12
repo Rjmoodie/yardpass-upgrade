@@ -32,6 +32,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useShare } from '@/hooks/useShare';
 import { useToast } from '@/hooks/use-toast';
+import { NotificationSystem } from '@/components/NotificationSystem';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 
 interface SocialLink {
@@ -533,6 +534,11 @@ export default function UserProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/40">
+      {/* Notification Bell - Only on Profile Page */}
+      <div className="absolute right-3 top-3 sm:right-4 sm:top-4 z-40">
+        <NotificationSystem />
+      </div>
+      
       <div className="border-b border-border/40 bg-gradient-to-r from-primary/5 via-background to-background">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">

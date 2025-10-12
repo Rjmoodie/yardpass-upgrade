@@ -159,6 +159,7 @@ export default function OrganizerDashboard() {
     return DEFAULT_TAB;
   });
 
+  // Sync activeTab to URL and localStorage
   useEffect(() => {
     if (!selectedOrgId) return;
     const current = searchParams.get('tab');
@@ -168,21 +169,26 @@ export default function OrganizerDashboard() {
       setSearchParams(next, { replace: true });
     }
     if (isBrowser) {
-    localStorage.setItem(lastTabKeyFor(selectedOrgId), activeTab);
+      localStorage.setItem(lastTabKeyFor(selectedOrgId), activeTab);
     }
   }, [activeTab, selectedOrgId, searchParams, setSearchParams, isBrowser]);
 
+  // Initialize activeTab when selectedOrgId changes (run once per org)
   useEffect(() => {
-    if (selectedOrgId) {
-      const saved = isBrowser ? (localStorage.getItem(lastTabKeyFor(selectedOrgId)) as TabKey | null) : null;
-      const tabToActivate = saved && TAB_KEYS.includes(saved) ? saved : DEFAULT_TAB;
-      setActiveTab(tabToActivate);
-      if (isBrowser) {
+    if (!selectedOrgId) return;
+    
+    const saved = isBrowser ? (localStorage.getItem(lastTabKeyFor(selectedOrgId)) as TabKey | null) : null;
+    const tabToActivate = saved && TAB_KEYS.includes(saved) ? saved : DEFAULT_TAB;
+    
+    // Only update if different to prevent loop
+    setActiveTab(prev => prev === tabToActivate ? prev : tabToActivate);
+    
+    if (isBrowser) {
       localStorage.setItem(LAST_ORG_KEY, selectedOrgId);
-      }
-      trackEvent('organizer_tab_view', { tab: tabToActivate, org_id: selectedOrgId });
     }
-  }, [selectedOrgId, trackEvent, isBrowser]);
+    trackEvent('organizer_tab_view', { tab: tabToActivate, org_id: selectedOrgId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrgId]); // Only run when selectedOrgId changes
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000);

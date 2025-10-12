@@ -60,7 +60,7 @@ export default function Navigation({ userRole }: NavigationProps) {
   const location = useLocation();
   const { sponsorModeEnabled } = useSponsorMode();
 
-  console.log('Navigation render - user:', user?.id, 'userRole:', userRole);
+  // Navigation render
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<Screen | null>(null);
@@ -84,7 +84,6 @@ export default function Navigation({ userRole }: NavigationProps) {
         ] as const
       ).filter((i) => i.show);
     
-    console.log('Navigation items:', items.map(i => ({ id: i.id, label: i.label, show: i.show })));
     return items;
   }, [userRole, sponsorModeEnabled]);
 
@@ -92,8 +91,6 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   // Open post creation for any authenticated user
   const handleCreatePost = useCallback(async () => {
-    console.log('handleCreatePost called, user:', user?.id);
-    
     // Track create post intent
     trackEvent('engagement_create_post_intent', {
       user_role: userRole,
@@ -101,7 +98,6 @@ export default function Navigation({ userRole }: NavigationProps) {
     });
     
     if (!user) {
-      console.log('No user, opening auth modal');
       setAuthModalOpen(true);
       return;
     }
@@ -112,7 +108,6 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   const handleNavigation = useCallback(
     async (path: string, screen: Screen) => {
-      console.log('handleNavigation called with:', { path, screen, user: user?.id, userRole });
       
       // Haptic feedback for navigation
       await selectionChanged();
@@ -130,7 +125,6 @@ export default function Navigation({ userRole }: NavigationProps) {
         return;
       }
       if (screen === 'posts-test') {
-        console.log('Posts button clicked, user:', user?.id, 'userRole:', userRole);
         void handleCreatePost();
         return;
       }

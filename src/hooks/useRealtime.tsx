@@ -122,7 +122,6 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           }
         )
         .subscribe((status) => {
-          console.log('Realtime connection status:', status);
           setIsConnected(status === 'SUBSCRIBED');
         });
 
@@ -255,7 +254,8 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
       });
       setIsConnected(false);
     };
-  }, [user, userId, eventIds, handleRealtimeEvent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, userId, JSON.stringify(eventIds || [])]);
 
   const clearEvents = useCallback(() => {
     setEvents([]);

@@ -19,7 +19,6 @@ import { Event } from '@/types/events';
 import { PerfPreconnect } from '@/components/Perf/PerfPreconnect';
 import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
 import { DeferredImports } from '@/components/Perf/DeferredImports';
-import { NotificationSystem } from '@/components/NotificationSystem';
 
 // Lazy load heavy components
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
@@ -261,9 +260,6 @@ function AppContent() {
       <DeferredImports />
       <AnalyticsWrapper>
         <div className="flex min-h-dvh flex-col bg-background relative no-page-bounce page-with-bottom-bar">
-          <div className="absolute right-3 top-3 sm:right-4 sm:top-4 z-40">
-            <NotificationSystem />
-          </div>
           {/* Subtle Background Pattern */}
           <div className="absolute inset-0 opacity-5 pointer-events-none">
             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/20 via-transparent to-accent/20" />

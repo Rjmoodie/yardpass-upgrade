@@ -25,10 +25,7 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
   const { toast } = useToast();
 
   // Require org context for campaigns
-  console.log("[CampaignDashboard] orgId:", orgId);
-
   if (!orgId) {
-    console.warn("[CampaignDashboard] No orgId provided");
     return (
       <Card className="p-12 text-center">
         <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
@@ -134,13 +131,21 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
   };
 
   useEffect(() => {
-    const onHash = () => setSelectedTab(window.location.hash.replace("#", "") || "campaigns");
+    const onHash = () => {
+      const hash = window.location.hash.replace("#", "") || "campaigns";
+      // Only update if different to prevent loop
+      setSelectedTab(prev => prev === hash ? prev : hash);
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
   useEffect(() => {
-    if (selectedTab) window.location.hash = selectedTab;
+    // Only update hash if it's different from current to prevent loop
+    const currentHash = window.location.hash.replace("#", "");
+    if (selectedTab && selectedTab !== currentHash) {
+      window.location.hash = selectedTab;
+    }
   }, [selectedTab]);
 
   return (
