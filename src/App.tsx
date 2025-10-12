@@ -19,6 +19,7 @@ import { Event } from '@/types/events';
 import { PerfPreconnect } from '@/components/Perf/PerfPreconnect';
 import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
 import { DeferredImports } from '@/components/Perf/DeferredImports';
+import { NotificationSystem } from '@/components/NotificationSystem';
 
 // Lazy load heavy components
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
@@ -260,15 +261,18 @@ function AppContent() {
       <DeferredImports />
       <AnalyticsWrapper>
         <div className="flex min-h-dvh flex-col bg-background relative no-page-bounce page-with-bottom-bar">
-        {/* Subtle Background Pattern */}
-        <div className="absolute inset-0 opacity-5 pointer-events-none">
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/20 via-transparent to-accent/20" />
-          <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
-        </div>
+          <div className="absolute right-3 top-3 sm:right-4 sm:top-4 z-40">
+            <NotificationSystem />
+          </div>
+          {/* Subtle Background Pattern */}
+          <div className="absolute inset-0 opacity-5 pointer-events-none">
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/20 via-transparent to-accent/20" />
+            <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
+          </div>
 
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto w-full scroll-area">
+          {/* Main Content Area */}
+          <main className="flex-1 overflow-y-auto w-full scroll-area">
           <Suspense fallback={<PageLoadingSpinner />}>
             <Routes>
               {/* Public Routes */}
