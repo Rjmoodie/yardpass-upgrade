@@ -8,6 +8,7 @@ export interface RecorderState {
   duration: number; // ms (excludes paused time)
   error: string | null;
   stream: MediaStream | null;
+  audioLevel: number; // 0-1 normalized peak level
 }
 
 type StartOpts = {
@@ -38,6 +39,7 @@ export function useMediaRecorder() {
     duration: 0,
     error: null,
     stream: null,
+    audioLevel: 0,
   });
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -46,6 +48,25 @@ export function useMediaRecorder() {
   const accumulatedMsRef = useRef<number>(0);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const levelIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const unmountedRef = useRef(false);
+
+  const cleanupAudioMonitoring = () => {
+    if (levelIntervalRef.current) {
+      clearInterval(levelIntervalRef.current);
+      levelIntervalRef.current = null;
+    }
+    try {
+      audioContextRef.current?.close();
+    } catch {}
+    audioContextRef.current = null;
+    analyserRef.current = null;
+    if (!unmountedRef.current) {
+      setState(s => ({ ...s, audioLevel: 0 }));
+    }
+  };
 
   const clearTimers = () => {
     if (durationIntervalRef.current) {
@@ -62,10 +83,12 @@ export function useMediaRecorder() {
     return () => {
       // cleanup on unmount
       try {
+        unmountedRef.current = true;
         clearTimers();
         mediaRecorderRef.current?.stop();
       } catch {}
       state.stream?.getTracks().forEach(t => t.stop());
+      cleanupAudioMonitoring();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -149,6 +172,46 @@ export function useMediaRecorder() {
       const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = mr;
 
+      // setup audio level monitoring if we have audio
+      if (constraints.audio) {
+        cleanupAudioMonitoring();
+        const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext) as
+          | typeof AudioContext
+          | undefined;
+        if (AudioCtx) {
+          try {
+            const ctx = new AudioCtx();
+            const source = ctx.createMediaStreamSource(stream);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 512;
+            analyser.smoothingTimeConstant = 0.7;
+            source.connect(analyser);
+
+            audioContextRef.current = ctx;
+            analyserRef.current = analyser;
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            levelIntervalRef.current = setInterval(() => {
+              try {
+                analyser.getByteTimeDomainData(dataArray);
+                let sumSquares = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                  const value = dataArray[i] / 128 - 1;
+                  sumSquares += value * value;
+                }
+                const rms = Math.sqrt(sumSquares / dataArray.length);
+                const level = Math.min(1, Math.sqrt(rms));
+                setState(s => ({ ...s, audioLevel: level }));
+              } catch {
+                setState(s => ({ ...s, audioLevel: 0 }));
+              }
+            }, 100);
+          } catch (err) {
+            console.warn('Failed to initialize audio meter', err);
+          }
+        }
+      }
+
       mr.ondataavailable = (ev) => {
         if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
       };
@@ -176,7 +239,7 @@ export function useMediaRecorder() {
       mr.onpause = () => {
         // freeze duration and accumulate
         accumulatedMsRef.current += Date.now() - startAtRef.current;
-        setState(s => ({ ...s, isPaused: true }));
+        setState(s => ({ ...s, isPaused: true, audioLevel: 0 }));
         clearTimers();
       };
 
@@ -196,6 +259,7 @@ export function useMediaRecorder() {
       setState(s => ({ ...s, stream, error: null }));
     } catch (error: any) {
       console.error('Failed to start recording:', error);
+      cleanupAudioMonitoring();
       setState(s => ({
         ...s,
         error: error instanceof Error ? error.message : 'Failed to start recording',
@@ -220,13 +284,14 @@ export function useMediaRecorder() {
           ? accumulatedMsRef.current
           : accumulatedMsRef.current + (Date.now() - startAtRef.current);
 
-        const stream = state.stream;
-        stream?.getTracks().forEach(t => t.stop());
+      const stream = state.stream;
+      stream?.getTracks().forEach(t => t.stop());
+      cleanupAudioMonitoring();
 
-        const usedMime =
-          mr.mimeType ||
-          (chunksRef.current[0]?.type ??
-            (MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : 'video/mp4'));
+      const usedMime =
+        mr.mimeType ||
+        (chunksRef.current[0]?.type ??
+          (MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : 'video/mp4'));
 
         const blob = new Blob(chunksRef.current, { type: usedMime || 'application/octet-stream' });
 
@@ -296,6 +361,8 @@ export function useMediaRecorder() {
       state.stream?.getTracks().forEach(t => t.stop());
     } catch {}
 
+    cleanupAudioMonitoring();
+
     mediaRecorderRef.current = null;
     chunksRef.current = [];
     accumulatedMsRef.current = 0;
@@ -308,6 +375,7 @@ export function useMediaRecorder() {
       duration: 0,
       stream: null,
       error: null,
+      audioLevel: 0,
     }));
   }, [state.stream]);
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,7 +15,10 @@ import {
   Ban,
   ChevronUp,
   ChevronDown,
+  Sparkles,
+  Mic,
 } from 'lucide-react';
+import { RecordingModal } from './RecordingModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileView } from '@/contexts/ProfileViewContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,7 +56,6 @@ const IMAGE_BUCKET = 'event-media';
 const MAX_FILES = 6;
 const MAX_IMAGE_MB = 8; // hard cap for images
 const MAX_VIDEO_MB = 512; // hard cap for videos (Mux accepts large uploads; tune to your plan)
-const ACCEPT = 'video/*,image/*';
 const DRAFT_KEY = (uid?: string) => `yardpass-post-draft:${uid || 'anon'}`;
 const LAST_EVENT_KEY = (uid?: string) => `yardpass-last-event:${uid || 'anon'}`;
 
@@ -195,10 +197,13 @@ export function PostCreatorModal({
   const [loading, setLoading] = useState(false);
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [showRecorder, setShowRecorder] = useState(false);
 
   const dropRef = useRef<HTMLDivElement | null>(null);
   const unmountedRef = useRef(false);
   const submittingRef = useRef(false);
+  const imageInputId = useId();
+  const videoInputId = useId();
 
   // Load draft + last-event (if no preselect)
   useEffect(() => {
@@ -405,7 +410,13 @@ export function PostCreatorModal({
 
       for (let i = 0; i < slice.length; i++) {
         let f = slice[i];
-        const kind: FileKind = isVideoFile(f) ? 'video' : isImageFile(f) ? 'image' : 'image';
+        const kind: FileKind = isVideoFile(f)
+          ? 'video'
+          : isImageFile(f)
+          ? 'image'
+          : f.type.startsWith('audio')
+          ? 'video'
+          : 'image';
         const sizeMB = bytesToMB(f.size);
 
         if (kind === 'image' && sizeMB > MAX_IMAGE_MB) {
@@ -745,229 +756,320 @@ export function PostCreatorModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[var(--modal-bg)] border-[var(--modal-border)] shadow-[var(--shadow-modal)]">
-        <DialogHeader>
-          <DialogTitle>Create Post</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4" onPaste={onPaste}>
-          {/* User Profile */}
-          <div className="flex items-center gap-3">
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={profile?.photo_url || ''} />
-              <AvatarFallback>{profile?.display_name?.charAt(0) || 'U'}</AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="font-medium">{profile?.display_name || 'You'}</div>
-              {selectedTicket && (
-                <Badge variant="secondary" className="text-xs" title={selectedTicket.ticket_tiers.name}>
-                  {selectedTicket.ticket_tiers.badge_label}
-                </Badge>
-              )}
-            </div>
-          </div>
-
-          {/* Event Selection */}
-          {!preselectedEventId && (
-            <div>
-              <label className="text-sm font-medium mb-2 block">Select Event</label>
-              <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose an event to post to" />
-                </SelectTrigger>
-                <SelectContent>
-                  {userTickets.map((ticket) => (
-                    <SelectItem key={ticket.event_id} value={ticket.event_id}>
-                      <div className="flex items-center gap-2">
-                        <span className="truncate max-w-[240px]">{ticket.events.title}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {ticket.ticket_tiers.badge_label}
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Content */}
-          <div>
-            <Textarea
-              placeholder="Share your thoughts about this event…"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="min-h-[110px] resize-none"
-              maxLength={2000}
-              onKeyDown={onKeyDownComposer}
-              aria-label="Post content"
-            />
-            <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
-              <span>Press ⌘/Ctrl + Enter to post</span>
-              <span>{content.length}/2000</span>
-            </div>
-          </div>
-
-          {/* Media Upload (drag & drop + click + paste) */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium">Add Media</label>
-              {queue.length > 0 && (
-                <Button size="sm" variant="ghost" onClick={clearAll} aria-label="Clear all media">
-                  <X className="w-4 h-4 mr-1" />
-                  Clear all
-                </Button>
-              )}
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none">
+          <div className="flex max-h-[90vh] flex-col rounded-3xl border border-border/60 bg-background/95 shadow-2xl">
+            <div className="relative overflow-hidden">
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/20 via-background/60 to-background" />
+              <DialogHeader className="relative px-6 pt-6 pb-5">
+                <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  Share a moment
+                </DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  Capture what's happening and bring your community along.
+                </p>
+              </DialogHeader>
             </div>
 
-            <div
-              ref={dropRef}
-              onDrop={onDrop}
-              onDragOver={onDragOver}
-              onDragLeave={onDragLeave}
-              className={[
-                'border-2 border-dashed rounded-lg p-4 transition-colors',
-                isDragging ? 'border-primary bg-primary/5' : 'border-border',
-              ].join(' ')}
-              aria-label="Drop media here"
-            >
-              <input
-                type="file"
-                accept={ACCEPT}
-                multiple
-                onChange={handleFilePick}
-                className="hidden"
-                id="media-upload"
-              />
-              <label
-                htmlFor="media-upload"
-                className="flex flex-col items-center gap-2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Upload className="w-6 h-6" />
-                <span className="text-sm">
-                  Drag & drop, paste, or <span className="underline">browse</span> (images • videos)
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  Up to {MAX_FILES} files · Images ≤ {MAX_IMAGE_MB}MB · Videos ≤ {MAX_VIDEO_MB}MB
-                </span>
-              </label>
-            </div>
-
-            {/* Queue preview */}
-            {queue.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {queue.map((q, idx) => (
-                  <div
-                    key={q.name + q.size}
-                    className="flex items-center justify-between gap-3 bg-muted rounded-lg p-2"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded overflow-hidden flex items-center justify-center bg-background border">
-                        {q.kind === 'image' ? (
-                          q.previewUrl ? (
-                            <img src={q.previewUrl} className="w-full h-full object-cover" alt="" />
-                          ) : (
-                            <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                          )
-                        ) : (
-                          <VideoIcon className="w-5 h-5 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-medium truncate" title={q.name}>
-                          {q.name}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {q.kind.toUpperCase()} • {bytesToMB(q.size)} MB • {q.status}
-                          {typeof q.progress === 'number' && (q.status === 'uploading' || q.status === 'processing') ? (
-                            <> • {q.progress}%</>
-                          ) : null}
-                          {q.errorMsg ? ` — ${q.errorMsg}` : ''}
-                        </div>
-                        {q.status === 'uploading' || q.status === 'processing' ? (
-                          <div className="h-1 w-full bg-background/60 rounded mt-1 overflow-hidden">
-                            <div
-                              className="h-full bg-primary transition-[width]"
-                              style={{ width: `${Math.max(5, Math.min(100, q.progress || 5))}%` }}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <div className="flex flex-col">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => moveQueued(q.name, -1)}
-                          title="Move up"
-                          disabled={idx === 0}
-                        >
-                          <ChevronUp className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => moveQueued(q.name, +1)}
-                          title="Move down"
-                          disabled={idx === queue.length - 1}
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </Button>
-                      </div>
-
-                      {q.status === 'error' && (
-                        <Button size="icon" variant="ghost" onClick={() => retryUpload(q.name)} title="Retry">
-                          <RefreshCw className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {(q.status === 'uploading' || q.status === 'processing') && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => cancelUpload(q.name)}
-                          title="Cancel"
-                        >
-                          <Ban className="w-4 h-4" />
-                        </Button>
-                      )}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => removeQueued(q.name)}
-                        title="Remove"
-                        disabled={q.status === 'uploading' || q.status === 'processing'}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+            <div className="flex-1 overflow-y-auto px-6 pb-6" onPaste={onPaste}>
+              <div className="space-y-6">
+                {/* User Profile */}
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-11 w-11 ring-2 ring-primary/30">
+                      <AvatarImage src={profile?.photo_url || ''} />
+                      <AvatarFallback>{profile?.display_name?.charAt(0) || 'U'}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="text-sm font-semibold">{profile?.display_name || 'You'}</div>
+                      <div className="text-xs text-muted-foreground">{activeView === 'public' ? 'Posting publicly' : 'Community update'}</div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-2 pt-4">
-            <Button variant="outline" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={!canPost} className="flex-1">
-              {loading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Posting…
+                  {selectedTicket && (
+                    <Badge variant="outline" className="rounded-full text-xs" title={selectedTicket.ticket_tiers.name}>
+                      {selectedTicket.ticket_tiers.badge_label}
+                    </Badge>
+                  )}
                 </div>
-              ) : (
-                'Post'
-              )}
-            </Button>
+
+                {/* Event Selection */}
+                {!preselectedEventId && (
+                  <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Posting to
+                    </label>
+                    <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+                      <SelectTrigger className="mt-2 rounded-xl border-border/70 bg-background/80">
+                        <SelectValue placeholder="Choose an event to post to" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        {userTickets.map((ticket) => (
+                          <SelectItem key={ticket.event_id} value={ticket.event_id}>
+                            <div className="flex items-center gap-2">
+                              <span className="truncate max-w-[240px]">{ticket.events.title}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {ticket.ticket_tiers.badge_label}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Composer */}
+                <div className="rounded-3xl border border-border/60 bg-background/80 p-5 shadow-inner">
+                  <Textarea
+                    placeholder="What's the vibe? Share the story, shout out a set, or drop some highlights…"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    className="min-h-[150px] resize-none border-none bg-transparent p-0 text-base leading-relaxed focus-visible:ring-0"
+                    maxLength={2000}
+                    onKeyDown={onKeyDownComposer}
+                    aria-label="Post content"
+                  />
+
+                  <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      <span className="text-foreground">Add to your post</span>
+                      <label htmlFor={imageInputId} className="inline-flex">
+                        <input
+                          id={imageInputId}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleFilePick}
+                          className="hidden"
+                        />
+                        <Button variant="ghost" size="sm" className="rounded-full">
+                          <ImageIcon className="mr-1 h-4 w-4" /> Photos
+                        </Button>
+                      </label>
+                      <label htmlFor={videoInputId} className="inline-flex">
+                        <input
+                          id={videoInputId}
+                          type="file"
+                          accept="video/*"
+                          multiple
+                          onChange={handleFilePick}
+                          className="hidden"
+                        />
+                        <Button variant="ghost" size="sm" className="rounded-full">
+                          <VideoIcon className="mr-1 h-4 w-4" /> Video
+                        </Button>
+                      </label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => setShowRecorder(true)}
+                      >
+                        <Mic className="mr-1 h-4 w-4" /> Record
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{content.length}/2000 characters</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span>{queue.length}/{MAX_FILES} media attached</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span>⌘/Ctrl + Enter to post</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Media Upload */}
+                <div className="space-y-4">
+                  <div
+                    ref={dropRef}
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onDragLeave={onDragLeave}
+                    onClick={() => document.getElementById(imageInputId)?.click()}
+                    className={`group relative flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed p-8 text-center transition-all ${
+                      isDragging
+                        ? 'border-primary bg-primary/10 shadow-[0_0_30px_rgba(var(--primary-rgb),0.15)]'
+                        : 'border-border/70 bg-muted/10 hover:border-primary/60'
+                    }`}
+                    aria-label="Drop media here"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Upload className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold">Drop photos or videos to upload</p>
+                      <p className="text-xs text-muted-foreground">
+                        You can also paste from your clipboard. Images ≤ {MAX_IMAGE_MB}MB · Videos ≤ {MAX_VIDEO_MB}MB · Up to {MAX_FILES} files
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+                      <span>Need inspiration? Share behind-the-scenes moments, teasers, or quick recaps.</span>
+                    </div>
+                  </div>
+
+                  {queue.length > 0 && (
+                    <div className="space-y-3 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-semibold">Attached media</div>
+                        <Button size="sm" variant="ghost" onClick={clearAll} className="rounded-full">
+                          <X className="mr-1 h-4 w-4" /> Clear all
+                        </Button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {queue.map((q, idx) => (
+                          <div
+                            key={q.name + q.size}
+                            className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-background/90 p-3 shadow-sm sm:flex-row sm:items-stretch"
+                          >
+                            <div className="flex items-center justify-center sm:w-32">
+                              <div className="relative h-24 w-full overflow-hidden rounded-2xl border border-border/70 bg-muted">
+                                {q.kind === 'image' && q.previewUrl ? (
+                                  <img src={q.previewUrl} className="h-full w-full object-cover" alt="" />
+                                ) : q.kind === 'image' ? (
+                                  <ImageIcon className="absolute inset-0 m-auto h-6 w-6 text-muted-foreground" />
+                                ) : (
+                                  <VideoIcon className="absolute inset-0 m-auto h-6 w-6 text-muted-foreground" />
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-1 flex-col gap-2">
+                              <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <div className="truncate text-sm font-semibold" title={q.name}>
+                                    {q.name}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                    <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-wide">
+                                      {q.kind === 'image'
+                                        ? 'Image'
+                                        : q.file.type.startsWith('audio')
+                                        ? 'Audio'
+                                        : 'Video'}
+                                    </Badge>
+                                    <span>{bytesToMB(q.size)} MB</span>
+                                    <span>• {q.status}</span>
+                                    {typeof q.progress === 'number' && (q.status === 'uploading' || q.status === 'processing') && (
+                                      <span>• {q.progress}%</span>
+                                    )}
+                                    {q.errorMsg && <span className="text-destructive">• {q.errorMsg}</span>}
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => moveQueued(q.name, -1)}
+                                    title="Move up"
+                                    disabled={idx === 0}
+                                    className="rounded-full"
+                                  >
+                                    <ChevronUp className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => moveQueued(q.name, +1)}
+                                    title="Move down"
+                                    disabled={idx === queue.length - 1}
+                                    className="rounded-full"
+                                  >
+                                    <ChevronDown className="h-4 w-4" />
+                                  </Button>
+                                  {q.status === 'error' && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => retryUpload(q.name)}
+                                      title="Retry"
+                                      className="rounded-full"
+                                    >
+                                      <RefreshCw className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {(q.status === 'uploading' || q.status === 'processing') && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => cancelUpload(q.name)}
+                                      title="Cancel"
+                                      className="rounded-full"
+                                    >
+                                      <Ban className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => removeQueued(q.name)}
+                                    title="Remove"
+                                    disabled={q.status === 'uploading' || q.status === 'processing'}
+                                    className="rounded-full"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {(q.status === 'uploading' || q.status === 'processing') && (
+                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                  <div
+                                    className="h-full rounded-full bg-primary transition-[width]"
+                                    style={{ width: `${Math.max(5, Math.min(100, q.progress || 5))}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner">
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>{content.trim().length > 0 ? `${content.trim().length} characters` : 'No text yet'}</span>
+                    <span>•</span>
+                    <span>{queue.length ? `${queue.length} media attached` : 'No media yet'}</span>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button variant="ghost" onClick={onClose} className="rounded-full sm:flex-1">
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSubmit} disabled={!canPost} className="rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl sm:flex-1">
+                      {loading ? (
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                          Posting…
+                        </div>
+                      ) : (
+                        'Post update'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <RecordingModal
+        isOpen={showRecorder}
+        onClose={() => setShowRecorder(false)}
+        onRecordingComplete={async (file) => {
+          await addFiles([file]);
+          setShowRecorder(false);
+        }}
+      />
+    </>
   );
 }
 
