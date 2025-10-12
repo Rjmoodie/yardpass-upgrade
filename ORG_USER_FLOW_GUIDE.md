@@ -2,7 +2,25 @@
 
 ## 🎯 **Overview**
 
-This document outlines the complete user journey for creating an organization, verifying it for payouts (optional), and buying credits for campaigns.
+This document outlines the complete user journey for creating an organization, verifying it for payouts (optional), and buying credits for campaigns. It now also calls out permission requirements, validation rules, and failure states so product, engineering, and support teams can align on the expected behavior.
+
+---
+
+## 🧭 **Prerequisites & Role Matrix**
+
+| Capability | Required Auth State | Minimum Role | Notes |
+| --- | --- | --- | --- |
+| Create organization | Signed-in user | _n/a_ | User automatically becomes the owner of the new organization. |
+| Access org dashboard | Signed-in user | Member | Redirect to `/orgs/{orgId}/dashboard` after creation. |
+| Initiate Stripe Connect | Signed-in user | Owner or Admin | Editors may view status but cannot initiate onboarding. |
+| Purchase credits | Signed-in user | Owner, Admin, or Editor | Members see the wallet but CTA is disabled with tooltip. |
+
+**Environment assumptions**
+- Supabase auth session is present in the browser.
+- Realtime handle availability uses the `check_org_handle_availability` RPC (debounced to ~350 ms between checks).
+- File uploads leverage the `org-logos` public bucket with a signed URL for previewing.
+- Stripe secret keys and signing secrets are configured in Edge Function environment variables.
+- All Stripe webhook handlers run idempotently via a compound key of `event.id` + `event.created`.
 
 ---
 
@@ -299,6 +317,11 @@ Opens: OrgBuyCreditsModal
 Loads credit packages from database
 ```
 
+**Permission edge cases**
+- Owners/Admins/Editors: CTA enabled.
+- Members: CTA disabled with tooltip “Only owners, admins, or editors can purchase credits.”
+- Signed-out users: immediately redirected to `/login` with `redirectTo` param.
+
 ### **Step 3: Select Package or Custom Amount**
 
 **Modal Shows:**
@@ -321,6 +344,12 @@ Loads credit packages from database
 └─────────────────────────────────────┘
 ```
 
+**Validation rules**
+- Minimum purchase: 1,000 credits (=$10.00).
+- Custom input increments: steps of 100 credits to align with backend validation.
+- Promo codes are uppercased on blur and validated server-side; invalid codes return `422` with a descriptive error banner.
+- The total displayed reflects promo adjustments before redirecting to Stripe.
+
 ### **Step 4: Submit Purchase**
 
 ```typescript
@@ -340,23 +369,24 @@ const { data } = await supabase.functions.invoke('purchase-org-credits', {
 });
 
 // Edge function flow:
-// 1. Verify user is authenticated ✅
-// 2. Check user has owner/admin/editor role ✅
+// 1. Verify user is authenticated ✅ (401 if not)
+// 2. Check user has owner/admin/editor role ✅ (403 if insufficient)
 // 3. Ensure org_wallet exists (creates if needed)
-// 4. Validate package/custom amount
-// 5. Apply promo code (if valid)
+// 4. Validate package/custom amount (422 if outside bounds)
+// 5. Apply promo code (if valid) and compute discount
 // 6. Create invoice:
 //    {
 //      org_wallet_id: orgWalletId,
-//      purchased_by_user_id: user.id, ← NEW! Tracks who paid
-//      amount_usd_cents: 10000,
+//      purchased_by_user_id: user.id, ← Tracks who paid
+//      amount_usd_cents: 10000,       ← Post-discount total
 //      credits_purchased: 10000,
 //      status: 'pending'
 //    }
 // 7. Create Stripe Checkout Session with:
-//    - 3D Secure enabled (fraud prevention)
-//    - Enhanced metadata (user_id, org_id, credits)
-//    - Billing address required
+//    - 3D Secure (request_three_d_secure: 'automatic')
+//    - Metadata: { org_id, org_wallet_id, user_id, invoice_id, credits }
+//    - Billing address collection: 'required'
+//    - customer_email sourced from auth profile
 // 8. Return: { session_url: 'https://checkout.stripe.com/...' }
 
 // Frontend redirects:
@@ -402,6 +432,7 @@ Extracts metadata:
   - invoice_id
   - credits
   - org_id
+  - purchased_by_user_id (used for attribution analytics in downstream dashboards)
   ↓
 Calls SQL function: org_wallet_apply_purchase()
   - Locks org_wallet row
@@ -429,6 +460,11 @@ Updates invoice:
   ↓
 Returns success
 ```
+
+**Failure handling**
+- Duplicate webhook: short-circuits with HTTP 200 after idempotency check (no double crediting).
+- Payment failures: Stripe emits `checkout.session.expired`; invoice stays `pending` and is auto-closed by a nightly job.
+- Manual refunds: `charge.refunded` webhook inserts a negative `org_wallet_transaction` and decrements the relevant `credit_lot.quantity_remaining`.
 
 ### **Step 7: User Redirected Back**
 
