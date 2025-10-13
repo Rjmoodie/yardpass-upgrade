@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { YardpassSpinner } from "@/components/LoadingSpinner";
 
 interface SponsorCreateDialogProps {
   open: boolean;
@@ -125,7 +125,14 @@ export function SponsorCreateDialog({ open, onOpenChange, userId, onCreated }: S
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !formData.name.trim()}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && (
+                <YardpassSpinner
+                  size="xs"
+                  showGlow={false}
+                  showLogo={false}
+                  className="mr-2"
+                />
+              )}
               Create Account
             </Button>
           </DialogFooter>

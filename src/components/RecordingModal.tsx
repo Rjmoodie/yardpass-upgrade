@@ -11,8 +11,8 @@ import {
   RotateCcw,
   Sparkles,
   Volume2,
-  Loader2,
 } from 'lucide-react';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder';
 
 interface RecordingModalProps {
@@ -399,7 +399,7 @@ export function RecordingModal({ isOpen, onClose, onRecordingComplete }: Recordi
 
             {isRecording && permission !== 'granted' && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Waiting for permission…
+                <YardpassSpinner size="xs" showGlow={false} showLogo={false} /> Waiting for permission…
               </div>
             )}
           </div>
