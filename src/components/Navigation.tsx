@@ -2,7 +2,7 @@ import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSi
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AuthModal from './AuthModal';
 import { PostCreatorModal } from './PostCreatorModal';
@@ -11,6 +11,7 @@ import { OrganizerMenu } from './OrganizerMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useSponsorMode } from '@/hooks/useSponsorMode';
+import { cn } from '@/lib/utils';
 
 
 export type Screen =
@@ -72,21 +73,23 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   // Build nav items from role
   const navItems = useMemo(() => {
-      const items = (
-        [
-          { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
-          { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
-          { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: userRole === 'attendee' },
-          // Attendees see Tickets
-          { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: userRole === 'attendee' },
-          { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
-          { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
-          { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
-        ] as const
-      ).filter((i) => i.show);
-    
+    const items = (
+      [
+        { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
+        { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
+        { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: userRole === 'attendee' },
+        // Attendees see Tickets
+        { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: userRole === 'attendee' },
+        { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
+        { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
+        { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
+      ] as const
+    ).filter((i) => i.show);
+
     return items;
   }, [userRole, sponsorModeEnabled]);
+
+  const isDenseLayout = navItems.length >= 6;
 
   const requiresAuth = useCallback((path: string) => path in AUTH_REQUIRED, []);
 
@@ -232,7 +235,19 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 }
 
-function NavButton({ children, label, active, onClick }: { children: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+function NavButton({
+  children,
+  label,
+  active,
+  dense,
+  onClick,
+}: {
+  children: ReactNode;
+  label: string;
+  active: boolean;
+  dense: boolean;
+  onClick: () => void;
+}) {
   const { impactLight } = useHaptics();
 
   const handleClick = async () => {
