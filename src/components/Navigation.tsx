@@ -162,11 +162,11 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-rail">
-      <div className="w-full border-t border-white/10 bg-black/95 backdrop-blur-xl pb-safe">
+      <div className="w-full border-t border-white/10 bg-black/95 backdrop-blur-xl">
         <div
           role="tablist"
           aria-label="Primary navigation"
-          className="relative flex items-center justify-evenly px-0 py-2.5 sm:py-3"
+          className="relative flex items-center justify-evenly px-0 py-2.5 pb-safe sm:py-3"
         >
           {navItems.map((item) => {
             const Icon = item.icon;
