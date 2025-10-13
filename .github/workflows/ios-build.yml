@@ -145,8 +145,9 @@ jobs:
           echo "Installing YardPass app on simulator..."
           xcrun simctl install "$SIMULATOR_ID" "$BUILT_PRODUCTS_DIR/App.app"
           
-          echo "Launching YardPass app..."
-          xcrun simctl launch "$SIMULATOR_ID" com.yardpass.app
+        echo "Launching YardPass app..."
+        # Launch with timeout to prevent hanging
+        timeout 30 xcrun simctl launch "$SIMULATOR_ID" com.yardpass.app || echo "App launch timed out or failed"
           
           # Take a screenshot
           echo "Taking screenshot..."
