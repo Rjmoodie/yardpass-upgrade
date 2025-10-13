@@ -161,12 +161,12 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-rail flex justify-center px-4 pb-safe-or-2 sm:px-6 sm:pb-6">
-      <div className="w-full max-w-2xl">
+    <div className="fixed inset-x-0 bottom-0 z-rail flex justify-center">
+      <div className="w-full">
         <div
           role="tablist"
           aria-label="Primary navigation"
-          className="relative flex items-center justify-evenly gap-1 overflow-hidden rounded-3xl border border-border/40 bg-background/80 px-3 py-2.5 shadow-[0_18px_36px_-18px_rgba(15,23,42,0.65)] backdrop-blur-xl sm:gap-1.5"
+          className="relative flex items-center justify-evenly gap-1 overflow-hidden bg-background/95 px-3 py-2.5 shadow-[0_-2px_20px_rgba(0,0,0,0.15)] backdrop-blur-xl sm:gap-1.5"
         >
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -239,13 +239,11 @@ function NavButton({
   children,
   label,
   active,
-  dense,
   onClick,
 }: {
   children: ReactNode;
   label: string;
   active: boolean;
-  dense: boolean;
   onClick: () => void;
 }) {
   const { impactLight } = useHaptics();

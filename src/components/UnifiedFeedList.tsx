@@ -720,8 +720,8 @@ export default function UnifiedFeedList() {
 
       <div
         ref={scrollRef}
-        className="relative h-full snap-y snap-mandatory overflow-y-auto scroll-smooth"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        className="relative h-full snap-y snap-mandatory overflow-y-auto overscroll-none"
+        style={{ WebkitOverflowScrolling: 'touch', scrollSnapStop: 'always' }}
         {...containerProps}
       >
         <header className="sticky top-0 z-30 bg-gradient-to-b from-black via-black/80 to-transparent px-3 pt-4 pb-3 backdrop-blur-sm sm:px-6">
@@ -770,7 +770,7 @@ export default function UnifiedFeedList() {
                 itemRefs.current[idx] = el;
               }}
               data-index={idx}
-              className="snap-start px-3 sm:px-6"
+              className="snap-start snap-always h-dvh flex items-center px-3 sm:px-6"
             >
               <div className="mx-auto flex h-[calc(100dvh-6.5rem)] w-full max-w-5xl items-stretch">
                 <div className="relative isolate flex h-full w-full overflow-hidden rounded-[32px] border border-white/12 bg-white/5 shadow-[0_40px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
