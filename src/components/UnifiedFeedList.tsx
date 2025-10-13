@@ -724,33 +724,32 @@ export default function UnifiedFeedList() {
         style={{ WebkitOverflowScrolling: 'touch', scrollSnapStop: 'always' }}
         {...containerProps}
       >
-        <header className="sticky top-0 z-30 bg-gradient-to-b from-black via-black/80 to-transparent px-3 pt-4 pb-3 backdrop-blur-sm sm:px-6">
+        <header className="sticky top-0 z-30 bg-gradient-to-b from-black/95 via-black/70 to-transparent px-3 pt-2 pb-2 backdrop-blur-md sm:px-4">
           <div className="mx-auto w-full max-w-5xl">
-            <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_22px_70px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-white">
-                <h1 className="text-lg font-semibold leading-tight sm:text-xl">Experiences near {activeLocation}</h1>
-              </div>
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 shadow-lg backdrop-blur-xl">
+              <h1 className="text-sm font-semibold leading-tight text-white sm:text-base">Near {activeLocation}</h1>
               <Button
                 variant="secondary"
-                className="mt-2 flex h-10 items-center gap-2 self-start rounded-full border border-white/20 bg-white/10 px-4 text-xs font-semibold text-white shadow-none transition hover:bg-white/20 sm:mt-0"
+                size="sm"
+                className="flex h-7 items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-[11px] font-medium text-white shadow-none transition hover:bg-white/20"
                 onClick={() => setFiltersOpen(true)}
               >
-                <SlidersHorizontal className="h-4 w-4" /> Tune feed
+                <SlidersHorizontal className="h-3 w-3" /> Tune
               </Button>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-white/75">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1">
-                <MapPin className="h-3 w-3" /> {activeLocation}
+            <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] text-white/70">
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-0.5">
+                <MapPin className="h-2.5 w-2.5" /> {activeLocation}
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1">
-                <Compass className="h-3 w-3" /> {activeDate}
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-0.5">
+                <Compass className="h-2.5 w-2.5" /> {activeDate}
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 uppercase tracking-[0.18em] text-[9px] text-white/60">
-                Organic &amp; boosted mix
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 uppercase tracking-wider text-[8px] text-white/50">
+                Organic &amp; boosted
               </span>
               {boostsLoading && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Calibrating boosts
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> Calibrating
                 </span>
               )}
             </div>
@@ -772,7 +771,7 @@ export default function UnifiedFeedList() {
               data-index={idx}
               className="snap-start snap-always h-dvh flex items-center px-3 sm:px-6"
             >
-              <div className="mx-auto flex h-[calc(100dvh-6.5rem)] w-full max-w-5xl items-stretch">
+              <div className="mx-auto flex h-[calc(100dvh-5rem)] w-full max-w-5xl items-stretch">
                 <div className="relative isolate flex h-full w-full overflow-hidden rounded-[32px] border border-white/12 bg-white/5 shadow-[0_40px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
                   <div
                     className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.16)_0%,_transparent_55%)] opacity-70"

@@ -161,12 +161,12 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-rail flex justify-center">
-      <div className="w-full">
+    <div className="fixed inset-x-0 bottom-0 z-rail">
+      <div className="w-full border-t border-white/10 bg-black/95 backdrop-blur-xl">
         <div
           role="tablist"
           aria-label="Primary navigation"
-          className="relative flex items-center justify-evenly gap-1 overflow-hidden bg-background/95 px-3 py-2.5 shadow-[0_-2px_20px_rgba(0,0,0,0.15)] backdrop-blur-xl sm:gap-1.5"
+          className="relative flex items-center justify-evenly gap-1 px-2 py-2 sm:gap-1.5"
         >
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -260,30 +260,30 @@ function NavButton({
       aria-current={active ? 'page' : undefined}
       role="tab"
       tabIndex={0}
-      className={`group relative flex flex-1 max-w-[80px] flex-col items-center gap-1 rounded-3xl px-2.5 py-2 transition-all duration-300 ease-out touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:px-3 sm:py-2.5 min-h-[68px] sm:min-h-[72px] ${
+      className={`group relative flex flex-1 max-w-[80px] flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 transition-all duration-300 ease-out touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:px-2.5 sm:py-2 min-h-[56px] sm:min-h-[60px] ${
         active ? 'text-primary' : 'text-muted-foreground hover:text-primary/90'
       }`}
     >
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-0 rounded-3xl border transition-all duration-300 ${
+        className={`pointer-events-none absolute inset-0 rounded-2xl border transition-all duration-300 ${
           active
-            ? 'border-primary/40 bg-gradient-to-br from-primary/25 via-primary/10 to-primary/5 opacity-100 shadow-[0_12px_28px_-14px_rgba(59,130,246,0.55)]'
-            : 'border-transparent bg-transparent opacity-0 group-hover:opacity-100 group-hover:border-border/60 group-hover:bg-muted/40'
+            ? 'border-primary/30 bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5 opacity-100'
+            : 'border-transparent bg-transparent opacity-0 group-hover:opacity-100 group-hover:border-border/40 group-hover:bg-muted/30'
         }`}
       />
       <span
-        className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-2xl transition-all duration-300 sm:h-11 sm:w-11 ${
+        className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-300 sm:h-9 sm:w-9 ${
           active
-            ? 'bg-primary/15 shadow-[0_10px_24px_-12px_rgba(59,130,246,0.65)]'
-            : 'bg-muted/30 group-hover:bg-muted/60'
+            ? 'bg-primary/15'
+            : 'bg-muted/20 group-hover:bg-muted/40'
         }`}
       >
         <span className={`transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-105'}`}>{children}</span>
       </span>
 
       <span
-        className={`relative z-10 text-[10px] font-medium leading-none transition-all duration-300 sm:text-xs ${
+        className={`relative z-10 text-[9px] font-medium leading-none transition-all duration-300 sm:text-[10px] ${
           active
             ? 'font-semibold text-primary'
             : 'text-muted-foreground group-hover:text-primary'
@@ -291,15 +291,6 @@ function NavButton({
       >
         {label}
       </span>
-
-      <span
-        aria-hidden="true"
-        className={`pointer-events-none absolute bottom-2 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full transition-all duration-300 ${
-          active
-            ? 'scale-100 bg-gradient-to-r from-primary/60 via-primary to-primary/60 opacity-100'
-            : 'scale-50 bg-muted/60 opacity-0 group-hover:scale-100 group-hover:opacity-60'
-        }`}
-      />
     </button>
   );
 }
