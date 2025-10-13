@@ -423,11 +423,11 @@ export function MessagingCenter() {
   const renderConversationList = () => {
     if (loading) {
       return (
-        <div className="space-y-3 p-4">
+        <div className="space-y-3 px-4 py-6">
           {[0, 1, 2].map((idx) => (
-            <div key={idx} className="flex items-center gap-3 p-3 rounded-lg">
+            <div key={idx} className="flex items-center gap-3 rounded-2xl border border-border/40 bg-background/80 p-3">
               <Skeleton className="h-12 w-12 rounded-full" />
-              <div className="space-y-2 flex-1">
+              <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-32" />
                 <Skeleton className="h-3 w-20" />
               </div>
@@ -439,36 +439,41 @@ export function MessagingCenter() {
 
     if (!conversations.length) {
       return (
-        <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-full flex items-center justify-center mb-4">
+        <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-secondary/10 shadow-sm">
             <MessageSquare className="h-8 w-8 text-primary" />
           </div>
-          <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
-          <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-            Start messaging from a profile to begin connecting with others.
-          </p>
-          <Button variant="outline" size="sm" className="gap-2">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold">No conversations yet</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Start a chat from a profile or connection to open your first conversation.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" className="gap-2 rounded-full px-4">
             <UserPlus className="h-4 w-4" />
-            Find People
+            Find people to chat
           </Button>
         </div>
       );
     }
 
     return (
-      <div className="p-2">
-        <div className="mb-4 px-2">
+      <div className="flex h-full flex-col">
+        <div className="space-y-3 border-b border-border/40 bg-gradient-to-br from-background via-muted/30 to-background px-4 py-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search conversations..." 
-              className="pl-10 h-9 bg-muted/50 border-0 focus:bg-background transition-colors"
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search conversations"
+              className="h-10 rounded-full border-0 bg-background/90 pl-10 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-primary/30"
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Stay connected with your network and keep every conversation in one place.
+          </p>
         </div>
-        
-        <ScrollArea className="h-[calc(100vh-200px)]">
-          <div className="space-y-1">
+
+        <ScrollArea className="flex-1">
+          <div className="space-y-2 px-3 py-4">
             {conversations.map((conversation) => {
               const otherParticipants = conversation.participants.filter((participant) => {
                 if (participant.participant_type === 'user') {
@@ -488,14 +493,14 @@ export function MessagingCenter() {
                 <div
                   key={conversation.id}
                   onClick={() => setSelectedId(conversation.id)}
-                  className={`group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${
-                    isActive 
-                      ? 'bg-primary/10 border border-primary/20 shadow-sm' 
-                      : 'hover:bg-muted/50 hover:shadow-sm'
-                  }`}
+                  className={`group relative flex cursor-pointer items-center gap-3 rounded-2xl border transition-all duration-200 ${
+                    isActive
+                      ? 'border-primary/30 bg-primary/10 shadow-sm shadow-primary/10'
+                      : 'border-transparent bg-background/80 hover:-translate-y-0.5 hover:border-border/60 hover:shadow-sm'
+                  } p-3`}
                 >
                   <div className="relative">
-                    <Avatar className="h-12 w-12">
+                    <Avatar className="h-11 w-11">
                       <AvatarImage src={primaryParticipant?.avatarUrl || ''} />
                       <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary/20">
                         {primaryParticipant?.displayName?.charAt(0) || 'U'}
@@ -509,35 +514,35 @@ export function MessagingCenter() {
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-semibold text-sm truncate">{title}</h4>
+                    <div className="mb-1 flex items-center justify-between">
+                      <h4 className="truncate text-sm font-semibold">{title}</h4>
                       {conversation.last_message_at && (
                         <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
                           {formatDistanceToNow(new Date(conversation.last_message_at), { addSuffix: true })}
                         </span>
                       )}
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground truncate flex-1">
+                      <p className="flex-1 truncate text-xs text-muted-foreground">
                         {conversation.request_status === 'pending' ? 'Follow request pending...' : 'Tap to open conversation'}
                       </p>
-                      
+
                       {conversation.request_status !== 'accepted' && (
                         <Badge
                           variant={conversation.request_status === 'pending' ? 'default' : 'secondary'}
-                          className="text-xs ml-2"
+                          className="ml-2 rounded-full px-2 text-[10px] uppercase tracking-wide"
                         >
                           {conversation.request_status}
                         </Badge>
                       )}
                     </div>
                   </div>
-                  
+
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                    className="h-8 w-8 p-0 opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
@@ -553,14 +558,14 @@ export function MessagingCenter() {
   const renderMessages = () => {
     if (!selectedConversation) {
       return (
-        <div className="flex h-full flex-1 items-center justify-center">
+        <div className="flex h-full flex-1 items-center justify-center bg-gradient-to-br from-background via-muted/20 to-background">
           <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-muted/20 to-muted/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30">
               <MessageSquare className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
+            <h3 className="mb-2 text-lg font-semibold">Select a conversation</h3>
             <p className="text-sm text-muted-foreground">
-              Choose a conversation from the sidebar to start messaging.
+              Choose a conversation from the sidebar to begin messaging.
             </p>
           </div>
         </div>
@@ -576,9 +581,9 @@ export function MessagingCenter() {
     const primaryParticipant = otherParticipants[0];
 
     return (
-      <div className="flex h-full flex-1 flex-col bg-gradient-to-b from-background to-muted/20">
+      <div className="flex h-full flex-1 flex-col bg-gradient-to-b from-background via-muted/10 to-background">
         {/* Header */}
-        <div className="flex items-center justify-between border-b bg-background/80 backdrop-blur-sm px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border/40 bg-background/80 px-6 py-4 backdrop-blur">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
               <AvatarImage src={primaryParticipant?.avatarUrl || ''} />
@@ -587,14 +592,14 @@ export function MessagingCenter() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <h2 className="text-lg font-semibold">{conversationTitle}</h2>
+              <h2 className="text-lg font-semibold leading-tight">{conversationTitle}</h2>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-xs text-muted-foreground">Online</span>
+                  <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                  <span className="text-xs text-muted-foreground">Usually responds within a day</span>
                 </div>
                 {selectedConversation.request_status === 'pending' && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-[10px] uppercase">
                     Pending approval
                   </Badge>
                 )}
@@ -635,15 +640,15 @@ export function MessagingCenter() {
           </div>
         )}
 
-        <ScrollArea className="flex-1 px-6 py-4">
+        <ScrollArea className="flex-1 px-4 py-6 sm:px-6">
           <div className="space-y-6">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-full flex items-center justify-center mb-4">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-secondary/10">
                   <MessageSquare className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Start the conversation</h3>
-                <p className="text-sm text-muted-foreground text-center max-w-sm">
+                <h3 className="mb-2 text-lg font-semibold">Start the conversation</h3>
+                <p className="max-w-sm text-center text-sm text-muted-foreground">
                   Send your first message to begin this conversation.
                 </p>
               </div>
@@ -690,24 +695,24 @@ export function MessagingCenter() {
                       </div>
                     )}
                     
-                    <div className={`flex flex-col max-w-[75%] ${isSelf ? 'items-end' : 'items-start'}`}>
+                    <div className={`flex max-w-[80%] flex-col ${isSelf ? 'items-end' : 'items-start'}`}>
                       {!isSelf && showAvatar && (
                         <span className="text-xs font-medium text-muted-foreground mb-1">{label}</span>
                       )}
-                      
+
                       <div
-                        className={`group relative rounded-2xl px-4 py-2 text-sm shadow-sm transition-all duration-200 hover:shadow-md ${
-                          isSelf 
-                            ? 'bg-primary text-primary-foreground rounded-br-md' 
-                            : 'bg-muted rounded-bl-md'
+                        className={`group relative rounded-3xl border px-4 py-2 text-sm shadow-sm transition-all duration-200 ${
+                          isSelf
+                            ? 'border-primary/50 bg-primary text-primary-foreground shadow-primary/20'
+                            : 'border-border/60 bg-background'
                         }`}
                       >
                         <div className="whitespace-pre-line break-words">{message.body}</div>
-                        
-                        <div className={`flex items-center gap-1 mt-1 ${
-                          isSelf ? 'justify-end' : 'justify-start'
+
+                        <div className={`mt-2 flex items-center gap-1 text-[11px] ${
+                          isSelf ? 'justify-end text-primary-foreground/80' : 'justify-start text-muted-foreground'
                         }`}>
-                          <span className="text-xs opacity-70">
+                          <span>
                             {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
                           </span>
                           {isSelf && (
@@ -720,7 +725,7 @@ export function MessagingCenter() {
                       </div>
                       
                       {showTimestamp && (
-                        <div className={`text-xs text-muted-foreground mt-2 ${isSelf ? 'text-right' : 'text-left'}`}>
+                        <div className={`mt-2 text-[10px] uppercase tracking-wide text-muted-foreground ${isSelf ? 'text-right' : 'text-left'}`}>
                           {new Date(message.created_at).toLocaleDateString()}
                         </div>
                       )}
@@ -733,7 +738,7 @@ export function MessagingCenter() {
         </ScrollArea>
 
         {/* Message Input Area */}
-        <div className="border-t bg-background/95 backdrop-blur-sm px-6 py-4">
+        <div className="border-t border-border/40 bg-background/95 px-4 py-4 backdrop-blur-sm sm:px-6">
           {identityOptions.length > 1 && activeIdentity && (
             <div className="mb-3">
               <div className="flex items-center gap-2 mb-2">
@@ -766,7 +771,7 @@ export function MessagingCenter() {
           )}
 
           <div className="relative">
-            <div className="flex items-end gap-2 p-3 bg-muted/50 rounded-2xl border border-muted-foreground/20 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-200">
+            <div className="flex items-end gap-2 rounded-3xl border border-border/50 bg-muted/40 p-3 transition-all duration-200 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20">
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
                   <Paperclip className="h-4 w-4" />
@@ -797,11 +802,11 @@ export function MessagingCenter() {
                 />
               </div>
               
-              <Button 
-                onClick={sendMessage} 
+              <Button
+                onClick={sendMessage}
                 disabled={sending || !draft.trim() || selectedConversation.request_status === 'pending'}
                 size="sm"
-                className="h-8 px-3 rounded-xl"
+                className="h-9 rounded-full px-4"
               >
                 {sending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -810,14 +815,14 @@ export function MessagingCenter() {
                 )}
               </Button>
             </div>
-            
-            <div className="flex items-center justify-between mt-2 px-1">
-              <span className="text-xs text-muted-foreground">
+
+            <div className="mt-3 flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+              <span>
                 {selectedConversation.request_status === 'pending'
                   ? 'Messages will send once this request is accepted.'
                   : 'Press Enter to send, Shift + Enter for new line'}
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span>
                 {draft.length}/1000
               </span>
             </div>
@@ -828,13 +833,16 @@ export function MessagingCenter() {
   };
 
   return (
-    <div className="h-[80vh] w-full overflow-hidden rounded-xl border bg-card shadow-sm">
-      <div className="flex h-full messaging-layout">
+    <div className="h-[80vh] w-full overflow-hidden rounded-3xl border border-border/40 bg-gradient-to-br from-background via-muted/10 to-background shadow-xl">
+      <div className="flex h-full flex-col lg:flex-row">
         {/* Conversation Sidebar */}
-        <div className="w-full border-r bg-muted/20 lg:w-80">
-          <div className="border-b bg-background/80 backdrop-blur-sm px-4 py-3">
+        <div className="w-full border-b border-border/40 bg-gradient-to-b from-background via-muted/20 to-background lg:w-[22rem] lg:border-b-0 lg:border-r">
+          <div className="border-b border-border/40 px-4 py-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Messages</h2>
+              <div>
+                <h2 className="text-base font-semibold">Inbox</h2>
+                <p className="text-xs text-muted-foreground">Catch up with your latest conversations</p>
+              </div>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                   <Search className="h-4 w-4" />
@@ -847,10 +855,9 @@ export function MessagingCenter() {
           </div>
           {renderConversationList()}
         </div>
-        
+
         {/* Messages Area */}
-        <div className="hidden flex-1 lg:flex">{renderMessages()}</div>
-        <div className="flex w-full flex-1 lg:hidden">{renderMessages()}</div>
+        <div className="flex flex-1">{renderMessages()}</div>
       </div>
     </div>
   );

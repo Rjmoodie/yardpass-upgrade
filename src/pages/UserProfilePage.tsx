@@ -697,79 +697,75 @@ export default function UserProfilePage() {
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 lg:flex-row lg:px-8">
         <section className="w-full space-y-6 lg:w-2/3">
-          <Card className="overflow-hidden border-border/50 bg-background/80 backdrop-blur">
-            <CardHeader className="relative overflow-hidden rounded-[28px] border border-border/40 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 sm:p-8 shadow-sm">
-              <div className="pointer-events-none absolute -right-24 -top-24 h-48 w-48 rounded-full bg-primary/20 blur-3xl" aria-hidden />
-              <div className="pointer-events-none absolute -bottom-28 -left-16 h-48 w-48 rounded-full bg-accent/20 blur-3xl" aria-hidden />
-              <div className="relative z-10 flex flex-col gap-4">
-                <div className="inline-flex items-center gap-2 self-start rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+          <Card className="overflow-hidden border-border/50 bg-background/80 shadow-sm">
+            <CardHeader className="flex flex-col gap-4 border-b border-border/40 bg-gradient-to-r from-primary/10 via-primary/5 to-background px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-1 flex-col gap-2">
+                <div className="inline-flex items-center gap-2 self-start rounded-full bg-primary/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
                   <Sparkles className="h-4 w-4" aria-hidden />
-                  Moments shared
+                  Moments
                 </div>
-                <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-                  <div className="space-y-2">
-                    <CardTitle className="text-2xl sm:text-3xl">Moments shared</CardTitle>
-                    <CardDescription className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-                      {feedItems.length > 0
-                        ? `Experience ${profile.display_name}'s favorite highlights from events and gatherings.`
-                        : isViewingOwnProfile
-                          ? 'Capture and share a moment to start building your story with the Yardpass community.'
-                          : `${profile.display_name} hasn't shared any highlights yet, but check back soon!`}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
-                    <Image className="h-4 w-4" aria-hidden />
-                    <span>
-                      {feedItems.length} {feedItems.length === 1 ? 'moment' : 'moments'}
-                    </span>
-                  </div>
+                <div className="space-y-1">
+                  <CardTitle className="text-xl sm:text-2xl">Moments shared</CardTitle>
+                  <CardDescription className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                    {feedItems.length > 0
+                      ? `Experience ${profile.display_name}'s favorite highlights from events and gatherings.`
+                      : isViewingOwnProfile
+                        ? 'Capture and share a moment to start building your story with the Yardpass community.'
+                        : `${profile.display_name} hasn't shared any highlights yet, but check back soon!`}
+                  </CardDescription>
                 </div>
               </div>
+              <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
+                <Image className="h-4 w-4" aria-hidden />
+                <span>
+                  {feedItems.length} {feedItems.length === 1 ? 'moment' : 'moments'}
+                </span>
+              </div>
             </CardHeader>
-             <CardContent className="p-6">
-               {feedItems.length > 0 ? (
-                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:gap-4">
-                   {feedItems.map((item) => {
-                     const mediaUrl = item.media_urls?.[0] ?? null;
-                     const isVideo = Boolean(mediaUrl && isVideoUrl(mediaUrl));
-                     const posterUrl = isVideo ? muxToPoster(mediaUrl) : null;
-                     const preview = posterUrl || mediaUrl || item.event_cover_image || DEFAULT_EVENT_COVER;
-                     
-                     return (
-                       <button
-                         key={item.item_id}
-                         type="button"
-                         onClick={() => handleSelectPost(item)}
-                         className="relative aspect-square overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-b from-card/50 to-card/30 shadow-sm ring-1 ring-black/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-                         aria-label={item.author_name ? `View post from ${item.author_name}` : 'View post'}
-                       >
-                         {mediaUrl ? (
-                           <ImageWithFallback 
-                             src={preview} 
-                             alt={item.author_name ? `Post from ${item.author_name}` : 'Post media'} 
-                             fallback={item.event_cover_image || DEFAULT_EVENT_COVER} 
-                             className="h-full w-full object-cover" 
-                             loading="lazy" 
-                           />
-                         ) : (
-                           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/40 to-muted/20 px-4 text-center text-xs text-muted-foreground">
-                             {item.content ? item.content.slice(0, 120) : 'Post'}
-                           </div>
-                         )}
-                         {isVideo && (
-                           <div className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white">
-                             <Play className="h-3.5 w-3.5" />
-                           </div>
-                         )}
-                       </button>
-                     );
-                   })}
-                 </div>
-               ) : (
-                 <div className="p-8">
-                   <EmptyState isSelf={isViewingOwnProfile} />
-                 </div>
-               )}
+            <CardContent className="px-6 py-5">
+              {feedItems.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:gap-4">
+                  {feedItems.map((item) => {
+                    const mediaUrl = item.media_urls?.[0] ?? null;
+                    const isVideo = Boolean(mediaUrl && isVideoUrl(mediaUrl));
+                    const posterUrl = isVideo ? muxToPoster(mediaUrl) : null;
+                    const preview = posterUrl || mediaUrl || item.event_cover_image || DEFAULT_EVENT_COVER;
+
+                    return (
+                      <button
+                        key={item.item_id}
+                        type="button"
+                        onClick={() => handleSelectPost(item)}
+                        className="relative aspect-square overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-b from-card/50 to-card/30 shadow-sm ring-1 ring-black/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                        aria-label={item.author_name ? `View post from ${item.author_name}` : 'View post'}
+                      >
+                        {mediaUrl ? (
+                          <ImageWithFallback
+                            src={preview}
+                            alt={item.author_name ? `Post from ${item.author_name}` : 'Post media'}
+                            fallback={item.event_cover_image || DEFAULT_EVENT_COVER}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/40 to-muted/20 px-4 text-center text-xs text-muted-foreground">
+                            {item.content ? item.content.slice(0, 120) : 'Post'}
+                          </div>
+                        )}
+                        {isVideo && (
+                          <div className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white">
+                            <Play className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-8">
+                  <EmptyState isSelf={isViewingOwnProfile} />
+                </div>
+              )}
             </CardContent>
           </Card>
 
