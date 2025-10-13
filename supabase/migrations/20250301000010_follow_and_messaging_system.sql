@@ -56,7 +56,7 @@ ALTER TABLE public.follows ADD CONSTRAINT follows_actor_unique UNIQUE (follower_
 UPDATE public.follows SET status = 'accepted' WHERE status IS NULL;
 
 -- Policies: allow actors to manage their requests
-CREATE POLICY IF NOT EXISTS "follows_update_actor" ON public.follows
+CREATE POLICY "follows_update_actor" ON public.follows
 FOR UPDATE USING (
   CASE
     WHEN follower_type = 'user' THEN auth.uid() = follower_user_id
@@ -72,7 +72,7 @@ WITH CHECK (
   status IN ('pending','accepted','declined')
 );
 
-CREATE POLICY IF NOT EXISTS "follows_update_target_user" ON public.follows
+CREATE POLICY "follows_update_target_user" ON public.follows
 FOR UPDATE USING (
   target_type = 'user' AND target_id = auth.uid()
 )
@@ -150,7 +150,7 @@ ALTER TABLE public.direct_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.direct_conversations ENABLE ROW LEVEL SECURITY;
 
 -- Participant can view their conversations
-CREATE POLICY IF NOT EXISTS "conversation_view" ON public.direct_conversations
+CREATE POLICY "conversation_view" ON public.direct_conversations
 FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM public.conversation_participants cp
@@ -167,7 +167,7 @@ FOR SELECT USING (
   )
 );
 
-CREATE POLICY IF NOT EXISTS "conversation_update" ON public.direct_conversations
+CREATE POLICY "conversation_update" ON public.direct_conversations
 FOR UPDATE USING (
   EXISTS (
     SELECT 1 FROM public.conversation_participants cp
@@ -185,10 +185,10 @@ FOR UPDATE USING (
 )
 WITH CHECK (true);
 
-CREATE POLICY IF NOT EXISTS "conversation_insert" ON public.direct_conversations
+CREATE POLICY "conversation_insert" ON public.direct_conversations
 FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
-CREATE POLICY IF NOT EXISTS "conversation_participant_view" ON public.conversation_participants
+CREATE POLICY "conversation_participant_view" ON public.conversation_participants
 FOR SELECT USING (
   (participant_type = 'user' AND participant_user_id = auth.uid()) OR
   (participant_type = 'organization' AND EXISTS (
@@ -199,10 +199,10 @@ FOR SELECT USING (
   ))
 );
 
-CREATE POLICY IF NOT EXISTS "conversation_participant_insert" ON public.conversation_participants
+CREATE POLICY "conversation_participant_insert" ON public.conversation_participants
 FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
-CREATE POLICY IF NOT EXISTS "direct_messages_view" ON public.direct_messages
+CREATE POLICY "direct_messages_view" ON public.direct_messages
 FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM public.conversation_participants cp
@@ -219,7 +219,7 @@ FOR SELECT USING (
   )
 );
 
-CREATE POLICY IF NOT EXISTS "direct_messages_insert" ON public.direct_messages
+CREATE POLICY "direct_messages_insert" ON public.direct_messages
 FOR INSERT WITH CHECK (
   auth.uid() IS NOT NULL AND EXISTS (
     SELECT 1 FROM public.conversation_participants cp
