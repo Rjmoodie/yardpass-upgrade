@@ -2,7 +2,7 @@ import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSi
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AuthModal from './AuthModal';
 import { PostCreatorModal } from './PostCreatorModal';
@@ -11,6 +11,7 @@ import { OrganizerMenu } from './OrganizerMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useSponsorMode } from '@/hooks/useSponsorMode';
+import { cn } from '@/lib/utils';
 
 
 export type Screen =
@@ -40,6 +41,7 @@ interface NavigationProps {
   userRole: UserRole;
   onNavigate?: (screen: Screen) => void; // optional callback for host screens
 }
+
 
 // Small helper — paths that require auth
 const AUTH_REQUIRED: Record<string, Screen> = {
@@ -71,21 +73,23 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   // Build nav items from role
   const navItems = useMemo(() => {
-      const items = (
-        [
-          { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
-          { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
-          { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: userRole === 'attendee' },
-          // Attendees see Tickets
-          { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: userRole === 'attendee' },
-          { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
-          { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
-          { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
-        ] as const
-      ).filter((i) => i.show);
-    
+    const items = (
+      [
+        { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
+        { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
+        { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: userRole === 'attendee' },
+        // Attendees see Tickets
+        { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: userRole === 'attendee' },
+        { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
+        { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
+        { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
+      ] as const
+    ).filter((i) => i.show);
+
     return items;
   }, [userRole, sponsorModeEnabled]);
+
+  const isDenseLayout = navItems.length >= 6;
 
   const requiresAuth = useCallback((path: string) => path in AUTH_REQUIRED, []);
 
@@ -157,22 +161,47 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-rail flex items-center justify-around px-4 py-2 border-t border-border/50 bg-background/90 backdrop-blur-md pb-safe-or-2">
-      <div role="tablist" aria-label="Primary navigation" className="flex items-center gap-0.5 sm:gap-1 w-full max-w-md mx-auto justify-evenly">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.path);
-          return (
-            <NavButton
-              key={item.id}
-              active={active}
-              label={item.label}
-              onClick={() => handleNavigation(item.path, item.id)}
-            >
-              <Icon className={`transition-all duration-200 ${active ? 'w-6 h-6' : 'w-5 h-5'}`} strokeWidth={active ? 2.5 : 2} />
-            </NavButton>
-          );
-        })}
+    <div className="fixed inset-x-0 bottom-0 z-rail flex justify-center px-4 pb-safe-or-2 sm:px-6 sm:pb-6">
+      <div className="w-full max-w-2xl">
+        <div
+          role="tablist"
+          aria-label="Primary navigation"
+          className={cn(
+            'relative flex items-center justify-evenly overflow-hidden rounded-3xl border border-border/40 bg-background/80 shadow-[0_18px_36px_-18px_rgba(15,23,42,0.65)] backdrop-blur-xl',
+            'transition-all duration-300',
+            isDenseLayout
+              ? 'gap-0.5 px-2.5 py-2 sm:gap-1 sm:px-3 sm:py-2.5'
+              : 'gap-1 px-3 py-2.5 sm:gap-1.5 sm:px-4 sm:py-3'
+          )}
+        >
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            return (
+              <NavButton
+                key={item.id}
+                active={active}
+                dense={isDenseLayout}
+                label={item.label}
+                onClick={() => handleNavigation(item.path, item.id)}
+              >
+                <Icon
+                  className={cn(
+                    'transition-all duration-300',
+                    isDenseLayout
+                      ? active
+                        ? 'h-[22px] w-[22px]'
+                        : 'h-5 w-5'
+                      : active
+                        ? 'h-6 w-6'
+                        : 'h-5 w-5'
+                  )}
+                  strokeWidth={active ? 2.5 : 2}
+                />
+              </NavButton>
+            );
+          })}
+        </div>
       </div>
 
       {/* Modals */}
@@ -225,7 +254,19 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 }
 
-function NavButton({ children, label, active, onClick }: { children: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+function NavButton({
+  children,
+  label,
+  active,
+  dense,
+  onClick,
+}: {
+  children: ReactNode;
+  label: string;
+  active: boolean;
+  dense: boolean;
+  onClick: () => void;
+}) {
   const { impactLight } = useHaptics();
 
   const handleClick = async () => {
@@ -240,25 +281,55 @@ function NavButton({ children, label, active, onClick }: { children: React.React
       aria-current={active ? 'page' : undefined}
       role="tab"
       tabIndex={0}
-      className={`group flex flex-col items-center gap-0.5 sm:gap-1 flex-1 max-w-[72px] p-1.5 sm:p-2 rounded-2xl transition-all duration-200 active:scale-90 min-h-[52px] sm:min-h-[56px] min-w-[48px] sm:min-w-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 relative touch-manipulation ${
-        active
-          ? 'text-primary bg-primary/10 border border-primary/20 shadow-sm'
-          : 'text-muted-foreground hover:text-primary hover:bg-muted/50'
-      }`}
+      className={cn(
+        'group relative flex flex-1 flex-col items-center rounded-3xl transition-all duration-300 ease-out touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+        dense
+          ? 'max-w-[70px] gap-0.5 px-2 py-1.5 sm:max-w-[76px] sm:px-2.5 sm:py-2 min-h-[60px] sm:min-h-[66px]'
+          : 'max-w-[88px] gap-1 px-2.5 py-2 sm:max-w-[92px] sm:px-3 sm:py-2.5 min-h-[68px] sm:min-h-[72px]',
+        active ? 'text-primary' : 'text-muted-foreground hover:text-primary/90'
+      )}
     >
-      {/* Icon with enhanced styling */}
-      <div className={`relative z-10 transition-all duration-200 ${active ? 'scale-110' : 'group-hover:scale-105'}`}>
-        {children}
-      </div>
-      
-      {/* Label with better typography */}
-      <span className={`relative z-10 text-[10px] sm:text-xs font-medium leading-none transition-all duration-200 truncate max-w-full ${
-        active 
-          ? 'font-bold text-primary' 
-          : 'group-hover:font-semibold group-hover:text-primary'
-      }`}>
+      <span
+        aria-hidden="true"
+        className={cn(
+          'pointer-events-none absolute inset-0 rounded-3xl border transition-all duration-300',
+          active
+            ? 'border-primary/40 bg-gradient-to-br from-primary/25 via-primary/10 to-primary/5 opacity-100 shadow-[0_12px_28px_-14px_rgba(59,130,246,0.55)]'
+            : 'border-transparent bg-transparent opacity-0 group-hover:opacity-100 group-hover:border-border/60 group-hover:bg-muted/40'
+        )}
+      />
+      <span
+        className={cn(
+          'relative z-10 flex items-center justify-center rounded-2xl transition-all duration-300',
+          dense ? 'h-9 w-9 sm:h-10 sm:w-10' : 'h-10 w-10 sm:h-11 sm:w-11',
+          active
+            ? 'bg-primary/15 shadow-[0_10px_24px_-12px_rgba(59,130,246,0.65)]'
+            : 'bg-muted/30 group-hover:bg-muted/60'
+        )}
+      >
+        <span className={`transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-105'}`}>{children}</span>
+      </span>
+
+      <span
+        className={cn(
+          'relative z-10 font-medium transition-all duration-300',
+          dense ? 'text-[10px] leading-tight sm:text-[11px]' : 'text-[10px] leading-none sm:text-xs',
+          active ? 'font-semibold text-primary' : 'text-muted-foreground group-hover:text-primary'
+        )}
+      >
         {label}
       </span>
+
+      <span
+        aria-hidden="true"
+        className={cn(
+          'pointer-events-none absolute left-1/2 h-1 -translate-x-1/2 rounded-full transition-all duration-300',
+          dense ? 'bottom-1.5 w-7' : 'bottom-2 w-8',
+          active
+            ? 'scale-100 bg-gradient-to-r from-primary/60 via-primary to-primary/60 opacity-100'
+            : 'scale-50 bg-muted/60 opacity-0 group-hover:scale-100 group-hover:opacity-60'
+        )}
+      />
     </button>
   );
 }
