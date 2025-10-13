@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { EventPost } from '@/types/events';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { Play, Heart, MessageCircle, Image as ImageIcon } from 'lucide-react';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 export function RecentPostsRail({
   posts,
@@ -43,7 +44,7 @@ export function RecentPostsRail({
     return (
       <div ref={railRef} className="mt-3 p-3 bg-white/5 rounded-lg border border-white/10">
         <div className="flex items-center justify-center">
-          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          <YardpassSpinner size="xs" appearance="inverted" showGlow={false} />
           <span className="ml-2 text-sm text-gray-300">Loading posts...</span>
         </div>
       </div>
@@ -78,7 +79,7 @@ export function RecentPostsRail({
                 />
                 {imageLoading[post.id] !== false && (
                   <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/5">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <YardpassSpinner size="xs" appearance="inverted" showGlow={false} />
                   </div>
                 )}
               </div>

@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 interface ProfilePictureUploadProps {
   currentPhotoUrl?: string;
@@ -161,7 +162,7 @@ export function ProfilePictureUpload({
               className="h-8 w-8 p-0 rounded-full"
             >
               {uploading ? (
-                <div className="w-4 h-4 animate-spin border-2 border-primary border-t-transparent rounded-full" />
+                <YardpassSpinner size="xs" showGlow={false} />
               ) : (
                 <Camera className="w-4 h-4" />
               )}

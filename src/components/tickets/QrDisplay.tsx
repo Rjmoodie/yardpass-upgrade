@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { AlertCircle, Loader2, RefreshCcw } from 'lucide-react';
+import { AlertCircle, RefreshCcw } from 'lucide-react';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 interface QrDisplayProps {
   ticketId: string;
@@ -94,7 +95,9 @@ export function QrDisplay({
       </div>
       <div className="relative flex aspect-square w-full max-w-xs items-center justify-center rounded-3xl bg-white p-6 shadow-inner">
         {rendering && (
-          <Loader2 className="absolute h-10 w-10 animate-spin text-primary" aria-hidden />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <YardpassSpinner appearance="primary" />
+          </div>
         )}
         {errored && !rendering && (
           <div className="flex flex-col items-center gap-2 text-center text-sm text-destructive">

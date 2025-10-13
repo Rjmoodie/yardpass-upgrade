@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FollowStats } from '@/components/follow/FollowStats';
 import { FollowButton } from '@/components/follow/FollowButton';
 import { MessageButton } from '@/components/messaging/MessageButton';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface Organization {
   id: string;
@@ -324,11 +325,11 @@ export default function OrganizationProfilePage() {
   if (loading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-14 h-14 rounded-xl bg-muted animate-pulse" />
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          <div className="h-3 w-40 bg-muted rounded animate-pulse" />
-        </div>
+        <LoadingSpinner
+          size="lg"
+          label="Loading organization profile…"
+          helperText="Curating posts, teams, and highlights"
+        />
       </div>
     );
   }

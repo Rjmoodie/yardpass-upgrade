@@ -5,6 +5,7 @@ import { MapPin, Search, ExternalLink } from 'lucide-react';
 import { openMap } from '@/utils/platform';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeMapboxFeature } from '@/utils/mapbox/normalize';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 interface Location {
   address: string;
@@ -198,7 +199,7 @@ export function MapboxLocationPicker({ value, onChange, className }: MapboxLocat
           />
           {loading && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+              <YardpassSpinner size="xs" />
             </div>
           )}
         </div>

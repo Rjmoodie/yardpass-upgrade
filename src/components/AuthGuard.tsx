@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthPage from '@/pages/AuthPage';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 /**
  * Lightweight reader for a "guest ticket" session saved by your OTP/magic-link flow.
@@ -120,12 +121,11 @@ export function AuthGuard({
     return (
       loadingFallback ?? (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20 p-4">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-xl">🎪</span>
-            </div>
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          </div>
+          <LoadingSpinner
+            size="lg"
+            label="Loading your Yardpass access…"
+            helperText="Confirming authentication and permissions"
+          />
         </div>
       )
     );
@@ -154,7 +154,7 @@ export function AuthGuard({
       // Render a minimal placeholder to avoid flashing content
       return (
         <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <LoadingSpinner label="Redirecting…" helperText="Sending you to the right spot" />
         </div>
       );
     }

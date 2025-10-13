@@ -37,6 +37,7 @@ import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { FollowStats } from '@/components/follow/FollowStats';
 import { FollowButton } from '@/components/follow/FollowButton';
 import { MessageButton } from '@/components/messaging/MessageButton';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface SocialLink {
   platform: string;
@@ -147,7 +148,11 @@ const toFeedItem = (post: ProfilePostWithEvent, profile: UserProfile | null): Fe
 
 const LoadingState = () => (
   <div className="h-screen bg-background flex items-center justify-center">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    <LoadingSpinner
+      size="lg"
+      label="Loading profile…"
+      helperText="Preparing posts, badges, and stats"
+    />
   </div>
 );
 

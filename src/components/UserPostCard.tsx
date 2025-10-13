@@ -6,6 +6,7 @@ import { useHlsVideo } from '@/hooks/useHlsVideo';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl, buildMuxUrl } from '@/utils/mux';
 import { muxToPoster } from '@/utils/media';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { SocialLinkDisplay } from '@/components/SocialLinkDisplay';
 import ActionRail from './ActionRail';
@@ -309,8 +310,10 @@ export const UserPostCard = memo(function UserPostCard({
                   {hlsError ? (
                     <div className="text-white text-sm">Failed to load video</div>
                   ) : (
-                    <div
-                      className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"
+                    <YardpassSpinner
+                      size="sm"
+                      appearance="inverted"
+                      showGlow={false}
                       aria-label="Loading video"
                     />
                   )}

@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfileView } from '@/contexts/ProfileViewContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 // Optional: if you have analytics
 // import { useAnalytics } from '@/hooks/useAnalytics';
@@ -1046,7 +1047,7 @@ export function PostCreatorModal({
                     <Button onClick={handleSubmit} disabled={!canPost} className="rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl sm:flex-1">
                       {loading ? (
                         <div className="flex items-center gap-2">
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                          <YardpassSpinner size="xs" appearance="inverted" showGlow={false} />
                           Posting…
                         </div>
                       ) : (

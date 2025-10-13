@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useEventAccess } from '@/hooks/useEventAccess';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 type Props = {
   eventId: string;
@@ -30,7 +31,10 @@ export function AccessGate({ eventId, visibility, linkTokenFromUrl, onTokenAccep
   if (access.status === 'loading') {
     return (
       <div className="min-h-[40vh] grid place-items-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+        <LoadingSpinner
+          label="Checking access…"
+          helperText="Confirming your event permissions"
+        />
       </div>
     );
   }

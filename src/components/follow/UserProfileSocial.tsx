@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { FollowButton } from './FollowButton';
 import { UserSearchModal } from './UserSearchModal';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface UserProfile {
   user_id: string;
@@ -102,10 +103,7 @@ export function UserProfileSocial({
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="text-center py-8 text-muted-foreground">
-            <Users className="h-8 w-8 mx-auto mb-2 animate-spin" />
-            <p>Loading profile...</p>
-          </div>
+          <LoadingSpinner label="Loading profile…" helperText="Gathering follower stats" className="py-8" />
         </CardContent>
       </Card>
     );

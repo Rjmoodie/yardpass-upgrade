@@ -30,6 +30,7 @@ import {
 import { routes } from '@/lib/routes';
 import { StripeConnectButton } from './StripeConnectButton';
 import { ThemeToggle } from './ThemeToggle';
+import { LoadingSpinner } from './LoadingSpinner';
 
 type UserPost = {
   id: string;
@@ -377,10 +378,12 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
 
             <div className="space-y-3">
               {ticketsLoading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-                  <p className="text-sm text-muted-foreground mt-2">Loading tickets...</p>
-                </div>
+                <LoadingSpinner
+                  size="md"
+                  label="Loading tickets…"
+                  helperText="Collecting your recent admissions"
+                  className="py-8"
+                />
               ) : tickets.length > 0 ? (
                 tickets.slice(0, 8).map((ticket: any) => (
                   <Card
@@ -512,10 +515,12 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
 
             <div className="space-y-3">
               {loadingPosts ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-                  <p className="text-sm text-muted-foreground mt-2">Loading posts...</p>
-                </div>
+                <LoadingSpinner
+                  size="md"
+                  label="Loading posts…"
+                  helperText="Bringing your latest updates into view"
+                  className="py-8"
+                />
               ) : userPosts.length > 0 ? (
                 userPosts.map((post) => (
                   <Card

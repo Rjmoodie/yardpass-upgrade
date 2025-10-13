@@ -6,6 +6,7 @@ import { useRoleInvites } from '@/hooks/useRoleInvites';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Clock, UserPlus } from 'lucide-react';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ROLE_MATRIX } from '@/types/roles';
 
 export default function RoleAcceptPage() {
@@ -150,8 +151,11 @@ export default function RoleAcceptPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-muted-foreground">Loading invite...</p>
+            <LoadingSpinner
+              size="md"
+              label="Loading invite…"
+              helperText="Confirming your role details"
+            />
           </CardContent>
         </Card>
       </div>

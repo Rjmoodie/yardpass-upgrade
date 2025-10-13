@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSponsorDeals } from "@/hooks/useSponsorDeals";
 import { Calendar, DollarSign, ExternalLink, Upload } from "lucide-react";
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface SponsorDealsProps {
   sponsorId: string | null;
@@ -36,8 +37,7 @@ export function SponsorDeals({ sponsorId }: SponsorDealsProps) {
     return (
       <Card>
         <CardContent className="text-center py-12">
-          <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading deals...</p>
+          <LoadingSpinner label="Loading deals…" helperText="Reviewing sponsor activity" />
         </CardContent>
       </Card>
     );

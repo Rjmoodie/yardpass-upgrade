@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useToast } from '@/hooks/use-toast';
+import { YardpassSpinner } from './LoadingSpinner';
 
 // AI modules
 import { AIWritingAssistant } from '@/components/ai/AIWritingAssistant';
@@ -1056,10 +1057,10 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         ) : (
           <Button onClick={handleSubmit} disabled={!canProceed() || loading} className="min-w-32">
             {loading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                Creating...
-              </>
+              <span className="flex items-center gap-2">
+                <YardpassSpinner size="xs" appearance="inverted" showGlow={false} />
+                Creating…
+              </span>
             ) : (
               'Create Event'
             )}

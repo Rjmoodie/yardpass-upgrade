@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { Event } from '@/types/events';
 import { format } from 'date-fns';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface IndexProps {
   onEventSelect: (event: Event) => void;
@@ -516,10 +517,13 @@ function SwipeArea({ handleScroll }: { handleScroll: (dir: 'up' | 'down') => voi
 function LoadingState() {
   return (
     <div className="h-screen bg-black flex items-center justify-center">
-      <div className="text-white text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-        <p>Loading events...</p>
-      </div>
+      <LoadingSpinner
+        size="lg"
+        appearance="inverted"
+        showGlow={false}
+        label="Loading events…"
+        helperText="Gathering live happenings around you"
+      />
     </div>
   );
 }

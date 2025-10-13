@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useStripeConnect } from '@/hooks/useStripeConnect';
 import { useToast } from '@/hooks/use-toast';
+import { YardpassSpinner } from './LoadingSpinner';
 
 interface PayoutManagerProps {
   contextType: 'individual' | 'organization';
@@ -198,10 +199,10 @@ export function PayoutManager({ contextType, contextId, className = "" }: Payout
               className="w-full"
             >
               {requesting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  Requesting...
-                </>
+                <span className="flex items-center justify-center gap-2">
+                  <YardpassSpinner size="xs" appearance="inverted" showGlow={false} />
+                  Requesting…
+                </span>
               ) : (
                 <>
                   <TrendingUp className="w-4 h-4 mr-2" />

@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, XCircle, Building2 } from 'lucide-react';
+import { CheckCircle, XCircle, Building2 } from 'lucide-react';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 export default function OrgInvitePage() {
   const [searchParams] = useSearchParams();
@@ -114,7 +115,7 @@ export default function OrgInvitePage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-transparent to-accent/10">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <YardpassSpinner className="mb-4" />
             <p className="text-muted-foreground">Loading invitation...</p>
           </CardContent>
         </Card>
@@ -170,7 +171,12 @@ export default function OrgInvitePage() {
               >
                 {processing ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <YardpassSpinner
+                      size="xs"
+                      showGlow={false}
+                      showLogo={false}
+                      className="mr-2"
+                    />
                     Accepting...
                   </>
                 ) : (

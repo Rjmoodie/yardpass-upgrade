@@ -28,6 +28,7 @@ import EventManagement from '@/components/EventManagement';
 import { DashboardOverview } from '@/components/dashboard/DashboardOverview';
 import { EventsList } from '@/components/dashboard/EventsList';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import { LoadingSpinner as BrandedLoadingSpinner } from '@/components/LoadingSpinner';
 import { CampaignDashboard } from '@/components/campaigns/CampaignDashboard';
 import { OrganizerCommsPanel } from '@/components/organizer/OrganizerCommsPanel';
 import { useOrganizerDashboardState } from '@/hooks/useOrganizerDashboardState';
@@ -391,9 +392,11 @@ export default function OrganizerDashboard() {
         {/* EVENTS */}
         <TabsContent value="events" className="space-y-6">
           {eventsLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <BrandedLoadingSpinner
+              label="Loading events…"
+              helperText="Fetching your latest schedules and sales"
+              className="py-12"
+            />
           ) : (events?.length ?? 0) === 0 ? (
             <div className="text-center py-16 border rounded-lg">
               <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />

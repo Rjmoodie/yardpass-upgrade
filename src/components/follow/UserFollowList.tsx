@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { FollowButton } from './FollowButton';
 import { UserSearchModal } from './UserSearchModal';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface UserConnection {
   user_id: string;
@@ -291,10 +292,11 @@ export function UserFollowList({
             style={{ maxHeight }}
           >
             {loading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-8 w-8 mx-auto mb-2 animate-spin" />
-                <p>Loading connections...</p>
-              </div>
+              <LoadingSpinner
+                label="Loading connections…"
+                helperText="Syncing your followers and following"
+                className="py-8"
+              />
             ) : getCurrentData().length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />

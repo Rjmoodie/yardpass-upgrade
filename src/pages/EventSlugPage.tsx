@@ -31,6 +31,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { isVideoUrl, muxToPoster } from '@/utils/mux';
 import MapboxEventMap from '@/components/MapboxEventMap';
 import CommentModal from '@/components/CommentModal';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 /**
  * Enhanced design version: consistent dark theme, higher contrast, glass surfaces,
@@ -522,7 +523,13 @@ export default function EventSlugPage() {
   if (loading) {
     return (
       <div className="min-h-[70vh] bg-gradient-to-b from-black via-[#0B0B10] to-[#0B0B10] flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-white/60" />
+        <LoadingSpinner
+          size="lg"
+          appearance="inverted"
+          showGlow={false}
+          label="Loading event experience…"
+          helperText="Synchronizing clips, schedule, and venue details"
+        />
       </div>
     );
   }

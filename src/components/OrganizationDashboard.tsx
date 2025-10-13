@@ -36,6 +36,7 @@ import { SocialLinkDisplay } from './SocialLinkDisplay';
 import { LocationAutocomplete } from './LocationAutocomplete';
 import { OrgContactExportPanel } from './OrgContactExportPanel';
 import { OrgContactImportPanel } from './OrgContactImportPanel';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface User {
   id: string;
@@ -457,12 +458,12 @@ export function OrganizationDashboard({
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="space-y-3 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-muted mx-auto animate-pulse" />
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="text-sm text-muted-foreground">Loading organization…</p>
-        </div>
+      <div className="h-full flex items-center justify-center bg-muted/10 rounded-xl">
+        <LoadingSpinner
+          size="lg"
+          label="Loading organization…"
+          helperText="Assembling your Yardpass controls and insights"
+        />
       </div>
     );
   }

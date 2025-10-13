@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { useAuth } from '@/contexts/AuthContext';
 import MapboxEventMap from '@/components/MapboxEventMap';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface Event {
   id: string;
@@ -206,7 +207,11 @@ export default function EventsPage() {
   if (loading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <LoadingSpinner
+          size="lg"
+          label="Loading event…"
+          helperText="Polishing up schedules, maps, and highlights"
+        />
       </div>
     );
   }

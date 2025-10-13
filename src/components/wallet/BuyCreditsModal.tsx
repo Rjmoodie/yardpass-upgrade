@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2 } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { YardpassSpinner } from "@/components/LoadingSpinner";
 
 interface BuyCreditsModalProps {
   open: boolean;
@@ -161,7 +161,12 @@ export const BuyCreditsModal = ({ open, onOpenChange }: BuyCreditsModalProps) =>
             >
               {isPurchasing ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <YardpassSpinner
+                    size="xs"
+                    showGlow={false}
+                    showLogo={false}
+                    className="mr-2"
+                  />
                   Processing…
                 </>
               ) : (

@@ -11,6 +11,7 @@ import { SponsorModeSettings } from '@/components/sponsor/SponsorModeSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
@@ -82,7 +83,11 @@ export default function EditProfilePage() {
   if (!user || !profile) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <LoadingSpinner
+          size="lg"
+          label="Loading profile settings…"
+          helperText="Fetching your Yardpass details"
+        />
       </div>
     );
   }

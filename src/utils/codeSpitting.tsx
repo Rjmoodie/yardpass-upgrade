@@ -1,5 +1,6 @@
 // Bundle optimization and code splitting utilities
 import { lazy, Suspense, Component, ReactNode } from 'react';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 /**
  * Enhanced lazy loading with retry mechanism
@@ -65,7 +66,7 @@ export class OptimizedSuspense extends Component<OptimizedSuspenseProps, { hasEr
         fallback={
           this.props.fallback || (
             <div className="flex items-center justify-center p-4">
-              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <YardpassSpinner size="sm" />
             </div>
           )
         }

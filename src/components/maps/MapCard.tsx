@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink, MapPin, Navigation } from 'lucide-react';
 import { openMaps } from '@/lib/maps';
 import { supabase } from '@/integrations/supabase/client';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 interface MapCardProps {
   address: string;
@@ -220,13 +221,13 @@ const MapCard = ({
 
   if (!mapboxToken) {
     return (
-      <div 
+      <div
         className="bg-gradient-to-br from-card to-muted/30 rounded-xl border border-border/50 flex items-center justify-center backdrop-blur-sm"
         style={{ height }}
       >
         <div className="flex items-center gap-3 text-muted-foreground">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-medium">Loading interactive map...</span>
+          <YardpassSpinner size="sm" />
+          <span className="text-sm font-medium">Loading interactive map…</span>
         </div>
       </div>
     );
