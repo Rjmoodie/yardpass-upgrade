@@ -1931,29 +1931,198 @@ export type Database = {
           },
         ]
       }
+      conversation_participants: {
+        Row: {
+          conversation_id: string
+          joined_at: string
+          last_read_at: string | null
+          participant_org_id: string | null
+          participant_type: Database["public"]["Enums"]["conversation_participant_type"]
+          participant_user_id: string | null
+        }
+        Insert: {
+          conversation_id: string
+          joined_at?: string
+          last_read_at?: string | null
+          participant_org_id?: string | null
+          participant_type: Database["public"]["Enums"]["conversation_participant_type"]
+          participant_user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          joined_at?: string
+          last_read_at?: string | null
+          participant_org_id?: string | null
+          participant_type?: Database["public"]["Enums"]["conversation_participant_type"]
+          participant_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "direct_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_participant_org_id_fkey"
+            columns: ["participant_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_participant_user_id_fkey"
+            columns: ["participant_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          }
+        ]
+      }
+      direct_conversations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          last_message_at: string | null
+          metadata: Json | null
+          request_status: Database["public"]["Enums"]["conversation_request_status"]
+          subject: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_message_at?: string | null
+          metadata?: Json | null
+          request_status?: Database["public"]["Enums"]["conversation_request_status"]
+          subject?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_message_at?: string | null
+          metadata?: Json | null
+          request_status?: Database["public"]["Enums"]["conversation_request_status"]
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_conversations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          }
+        ]
+      }
+      direct_messages: {
+        Row: {
+          attachments: Json | null
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          sender_org_id: string | null
+          sender_type: Database["public"]["Enums"]["conversation_participant_type"]
+          sender_user_id: string | null
+          status: string
+        }
+        Insert: {
+          attachments?: Json | null
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          sender_org_id?: string | null
+          sender_type: Database["public"]["Enums"]["conversation_participant_type"]
+          sender_user_id?: string | null
+          status?: string
+        }
+        Update: {
+          attachments?: Json | null
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          sender_org_id?: string | null
+          sender_type?: Database["public"]["Enums"]["conversation_participant_type"]
+          sender_user_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "direct_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_messages_sender_org_id_fkey"
+            columns: ["sender_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_messages_sender_user_id_fkey"
+            columns: ["sender_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          }
+        ]
+      }
       follows: {
         Row: {
           created_at: string
+          follower_org_id: string | null
+          follower_type: Database["public"]["Enums"]["follow_actor"]
           follower_user_id: string
           id: string
+          status: Database["public"]["Enums"]["follow_status"]
           target_id: string
           target_type: Database["public"]["Enums"]["follow_target"]
         }
         Insert: {
           created_at?: string
+          follower_org_id?: string | null
+          follower_type?: Database["public"]["Enums"]["follow_actor"]
           follower_user_id: string
           id?: string
+          status?: Database["public"]["Enums"]["follow_status"]
           target_id: string
           target_type: Database["public"]["Enums"]["follow_target"]
         }
         Update: {
           created_at?: string
+          follower_org_id?: string | null
+          follower_type?: Database["public"]["Enums"]["follow_actor"]
           follower_user_id?: string
           id?: string
+          status?: Database["public"]["Enums"]["follow_status"]
           target_id?: string
           target_type?: Database["public"]["Enums"]["follow_target"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "follows_follower_org_id_fkey"
+            columns: ["follower_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follows_follower_user_id_fkey"
+            columns: ["follower_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          }
+        ]
       }
       guest_codes: {
         Row: {
@@ -4396,6 +4565,35 @@ export type Database = {
           },
         ]
       }
+      follow_stats: {
+        Row: {
+          follower_count: number | null
+          pending_count: number | null
+          target_id: string | null
+          target_type: Database["public"]["Enums"]["follow_target"] | null
+        }
+        Relationships: []
+      }
+      following_stats: {
+        Row: {
+          actor_id: string | null
+          follower_type: Database["public"]["Enums"]["follow_actor"] | null
+          following_count: number | null
+        }
+        Relationships: []
+      }
+      messaging_inbox: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          last_message_at: string | null
+          metadata: Json | null
+          participants: Json | null
+          request_status: Database["public"]["Enums"]["conversation_request_status"] | null
+          subject: string | null
+        }
+        Relationships: []
+      }
       creative_analytics_daily_secured: {
         Row: {
           campaign_id: string | null
@@ -5947,7 +6145,11 @@ export type Database = {
         | "archived"
       creative_media_type: "image" | "video" | "existing_post"
       event_visibility: "public" | "unlisted" | "private"
-      follow_target: "organizer" | "event"
+      conversation_participant_type: "user" | "organization"
+      conversation_request_status: "open" | "pending" | "accepted" | "declined"
+      follow_actor: "user" | "organization"
+      follow_status: "pending" | "accepted" | "declined"
+      follow_target: "organizer" | "event" | "user"
       frequency_period: "session" | "day" | "week"
       invite_status: "pending" | "accepted" | "expired" | "revoked"
       job_status: "draft" | "queued" | "sending" | "sent" | "failed"
@@ -6134,7 +6336,11 @@ export const Constants = {
       ],
       creative_media_type: ["image", "video", "existing_post"],
       event_visibility: ["public", "unlisted", "private"],
-      follow_target: ["organizer", "event"],
+      conversation_participant_type: ["user", "organization"],
+      conversation_request_status: ["open", "pending", "accepted", "declined"],
+      follow_actor: ["user", "organization"],
+      follow_status: ["pending", "accepted", "declined"],
+      follow_target: ["organizer", "event", "user"],
       frequency_period: ["session", "day", "week"],
       invite_status: ["pending", "accepted", "expired", "revoked"],
       job_status: ["draft", "queued", "sending", "sent", "failed"],

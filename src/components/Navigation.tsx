@@ -1,4 +1,4 @@
-import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign } from 'lucide-react';
+import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -29,6 +29,7 @@ export type Screen =
   | 'terms-of-service'
   | 'refund-policy'
   | 'tickets'
+  | 'messages'
   | 'scanner'
   | 'ticket-success'
   | 'posts-test'
@@ -50,6 +51,7 @@ const AUTH_REQUIRED: Record<string, Screen> = {
   '/dashboard': 'dashboard',
   '/profile': 'profile',
   '/tickets': 'tickets',
+  '/messages': 'messages',
   '/scanner': 'scanner',
   '/sponsor': 'sponsor',
 };
@@ -82,6 +84,7 @@ export default function Navigation({ userRole }: NavigationProps) {
         { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: userRole === 'attendee' },
         { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
         { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
+        { id: 'messages' as Screen, path: '/messages', icon: MessageCircle, label: 'Messages', show: true },
         { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
       ] as const
     ).filter((i) => i.show);

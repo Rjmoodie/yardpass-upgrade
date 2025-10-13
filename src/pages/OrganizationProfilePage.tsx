@@ -17,6 +17,9 @@ import { routes } from '@/lib/routes';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { updateMetaTags } from '@/utils/meta';
 import { useAuth } from '@/contexts/AuthContext';
+import { FollowStats } from '@/components/follow/FollowStats';
+import { FollowButton } from '@/components/follow/FollowButton';
+import { MessageButton } from '@/components/messaging/MessageButton';
 
 interface Organization {
   id: string;
@@ -438,6 +441,22 @@ export default function OrganizationProfilePage() {
                       {organization.location}
                     </span>
                   )}
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-4">
+                  <FollowStats
+                    targetType="organizer"
+                    targetId={organization.id}
+                    enablePendingReview={isAdmin}
+                  />
+                  <div className="flex items-center gap-2">
+                    <FollowButton targetType="organizer" targetId={organization.id} size="default" />
+                    <MessageButton
+                      targetType="organization"
+                      targetId={organization.id}
+                      targetName={organization.name}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -7,6 +7,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   ArrowLeft,
   Search,
@@ -31,6 +34,10 @@ import { SkeletonGrid, EmptyState } from './search/SearchPageComponents';
 import { useSmartSearch } from '@/hooks/useSmartSearch';
 import { useCampaignBoosts } from '@/hooks/useCampaignBoosts';
 import { canServeCampaign, logAdClick, logAdImpression } from '@/lib/adTracking';
+import { FollowButton } from '@/components/follow/FollowButton';
+import { MessageButton } from '@/components/messaging/MessageButton';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 interface SearchPageProps {
   onBack: () => void;
@@ -104,6 +111,14 @@ type LocationDetails = {
   keywords: string[];
 };
 
+type UserSearchResult = {
+  user_id: string;
+  display_name: string;
+  photo_url: string | null;
+  role: string | null;
+  verification_status: string | null;
+};
+
 function toRadians(value: number) {
   return (value * Math.PI) / 180;
 }
@@ -151,6 +166,10 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   });
   
   // Search results state
+  const includeUsersParam = searchParams.get('includeUsers') === '1';
+  const [includeUsers, setIncludeUsers] = useState(includeUsersParam);
+  const [userResults, setUserResults] = useState<UserSearchResult[]>([]);
+  const [userLoading, setUserLoading] = useState(false);
   const [displayedResults, setDisplayedResults] = useState<any[]>([]);
   const [totalFetched, setTotalFetched] = useState(0);
   const [visibleCount, setVisibleCount] = useState(12);
@@ -174,6 +193,59 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     }
     setSearchParams(newParams);
   }, [searchParams, setSearchParams]);
+
+  const toggleIncludeUsers = useCallback((checked: boolean) => {
+    setIncludeUsers(checked);
+    setParam('includeUsers', checked ? '1' : '');
+  }, [setParam]);
+
+  useEffect(() => {
+    setIncludeUsers(includeUsersParam);
+  }, [includeUsersParam]);
+
+  useEffect(() => {
+    if (!includeUsers) {
+      setUserResults([]);
+      setUserLoading(false);
+      return;
+    }
+    if (!q.trim()) {
+      setUserResults([]);
+      setUserLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setUserLoading(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('user_id,display_name,photo_url,role,verification_status')
+          .ilike('display_name', `%${q}%`)
+          .order('display_name', { ascending: true })
+          .limit(12);
+
+        if (error) throw error;
+        if (!cancelled) {
+          setUserResults((data ?? []) as UserSearchResult[]);
+        }
+      } catch (err) {
+        console.error('User search failed', err);
+        if (!cancelled) {
+          setUserResults([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setUserLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [includeUsers, q]);
   
   // Clear all filters
   const clearAll = useCallback(() => {
@@ -512,6 +584,12 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 <p className="text-xs text-slate-500">
                   Try “live music”, “comedy night”, or “startup meetup”. We’ll keep your recent searches handy.
                 </p>
+                <div className="flex items-center gap-3 rounded-2xl bg-white/70 px-3 py-2 shadow-sm">
+                  <Switch id="include-users-toggle" checked={includeUsers} onCheckedChange={toggleIncludeUsers} />
+                  <Label htmlFor="include-users-toggle" className="text-xs font-medium text-slate-600">
+                    Include people in results
+                  </Label>
+                </div>
               </div>
 
               <div className="flex items-center gap-3">
@@ -861,6 +939,78 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               </Button>
             </div>
           </div>
+        )}
+
+        {includeUsers && (
+          <section className="mt-10 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Matching people</p>
+                <h2 className="mt-1 text-2xl font-semibold text-slate-900">People on YardPass</h2>
+              </div>
+              {userLoading && <span className="text-sm text-slate-500">Searching…</span>}
+            </div>
+
+            {userLoading ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[0, 1, 2, 3, 4, 5].map((idx) => (
+                  <div key={idx} className="rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-12 w-12 rounded-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                    <Skeleton className="mt-4 h-9 w-full rounded-full" />
+                  </div>
+                ))}
+              </div>
+            ) : userResults.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {userResults.map((person) => (
+                  <div
+                    key={person.user_id}
+                    className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-12 w-12">
+                        {person.photo_url ? <AvatarImage src={person.photo_url} alt={person.display_name} /> : null}
+                        <AvatarFallback>{person.display_name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-900">{person.display_name}</p>
+                          {person.verification_status === 'verified' && (
+                            <Badge variant="secondary" className="text-[10px] uppercase">Verified</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 capitalize">{person.role || 'attendee'}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2">
+                      {user?.id === person.user_id ? (
+                        <span className="text-xs text-slate-400">This is you</span>
+                      ) : (
+                        <>
+                          <FollowButton targetType="user" targetId={person.user_id} />
+                          <MessageButton
+                            targetType="user"
+                            targetId={person.user_id}
+                            targetName={person.display_name}
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-white/70 p-6 text-center text-sm text-slate-500">
+                No people matched your search yet.
+              </div>
+            )}
+          </section>
         )}
 
         <section className="mt-10 space-y-6">
