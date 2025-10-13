@@ -184,7 +184,7 @@ const formatDate = (value: string | null | undefined) => {
 
 export default function UserProfilePage() {
   const navigate = useNavigate();
-  const { username } = useParams<{ username: string }>();
+  const { username, userId } = useParams<{ username?: string; userId?: string }>();
   const { user: currentUser, profile: currentProfile } = useAuth();
   const { activeView, setActiveView } = useProfileView();
   const { requireAuth } = useAuthGuard();
@@ -297,11 +297,14 @@ export default function UserProfilePage() {
       setLoading(true);
 
       try {
-        if (username) {
+        // Check for userId first (from /user/:userId route), then username (from legacy route)
+        const profileIdToLoad = userId || username;
+        
+        if (profileIdToLoad) {
           const result = await supabase
             .from('user_profiles')
             .select('user_id, display_name, phone, role, verification_status, photo_url, created_at, social_links')
-            .eq('user_id', username)
+            .eq('user_id', profileIdToLoad)
             .maybeSingle();
 
           if (result.error) {
@@ -365,7 +368,7 @@ export default function UserProfilePage() {
 
     void loadProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [username, currentUser, currentProfile]);
+  }, [userId, username, currentUser, currentProfile]);
 
   const feedItems = useMemo(() => posts.map((post) => toFeedItem(post, profile)), [posts, profile]);
 

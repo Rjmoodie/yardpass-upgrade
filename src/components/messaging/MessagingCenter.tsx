@@ -1,16 +1,36 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, MessageSquare } from 'lucide-react';
+import { 
+  Loader2, 
+  MessageSquare, 
+  Send, 
+  MoreVertical, 
+  Check, 
+  CheckCheck, 
+  Clock, 
+  UserPlus, 
+  Users,
+  Search,
+  Phone,
+  Video,
+  Paperclip,
+  Smile,
+  ArrowLeft,
+  ArrowRight
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
 interface RawParticipant {
@@ -76,18 +96,50 @@ export function MessagingCenter() {
     if (!user) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('messaging_inbox')
-        .select('*')
+      // Check if messaging tables exist first
+      const { data: tableCheck, error: tableError } = await supabase
+        .from('information_schema.tables')
+        .select('table_name')
+        .eq('table_schema', 'public')
+        .eq('table_name', 'direct_conversations')
+        .single();
+
+      if (tableError || !tableCheck) {
+        // Messaging system not set up yet - show empty state
+        console.log('Messaging system not available yet');
+        setConversations([]);
+        return;
+      }
+
+      // Query conversations directly from the tables
+      const { data: conversations, error: conversationsError } = await supabase
+        .from('direct_conversations')
+        .select(`
+          id,
+          subject,
+          request_status,
+          last_message_at,
+          created_at,
+          metadata,
+          conversation_participants (
+            participant_type,
+            participant_user_id,
+            participant_org_id,
+            joined_at,
+            last_read_at
+          )
+        `)
         .order('last_message_at', { ascending: false, nullsLast: true })
         .order('created_at', { ascending: false });
-      if (error) throw error;
+      
+      if (conversationsError) throw conversationsError;
 
-      const rows = (data ?? []) as InboxRow[];
+      const rows = (conversations ?? []) as any[];
       const orgIds = new Set((organizations ?? []).map((o) => o.id));
 
+      // Filter conversations where the user is a participant
       const filtered = rows.filter((row) =>
-        row.participants.some((participant) => {
+        row.conversation_participants?.some((participant: any) => {
           if (participant.participant_type === 'user') {
             return participant.participant_user_id === user.id;
           }
@@ -98,7 +150,7 @@ export function MessagingCenter() {
       const userIds = new Set<string>();
       const organizationIds = new Set<string>();
       filtered.forEach((row) => {
-        row.participants.forEach((participant) => {
+        row.conversation_participants?.forEach((participant: any) => {
           if (participant.participant_type === 'user' && participant.participant_user_id) {
             userIds.add(participant.participant_user_id);
           }
@@ -148,7 +200,7 @@ export function MessagingCenter() {
         request_status: row.request_status,
         last_message_at: row.last_message_at,
         created_at: row.created_at,
-        participants: row.participants.map((participant) => {
+        participants: (row.conversation_participants || []).map((participant: any) => {
           if (participant.participant_type === 'organization' && participant.participant_org_id) {
             const details = orgMap.get(participant.participant_org_id) ?? { display_name: 'Organization', photo_url: null };
             return {
@@ -174,20 +226,51 @@ export function MessagingCenter() {
       }
     } catch (err: any) {
       console.error('Failed to load conversations', err);
-      toast({ title: 'Unable to load messages', description: err?.message ?? 'Please try again later.', variant: 'destructive' });
+      console.error('Error details:', {
+        message: err?.message,
+        code: err?.code,
+        details: err?.details,
+        hint: err?.hint
+      });
+      
+      // Show a more user-friendly message for missing tables
+      if (err?.message?.includes('does not exist')) {
+        console.log('Messaging system not available - showing empty state');
+        setConversations([]);
+      } else {
+        toast({ 
+          title: 'Unable to load messages', 
+          description: err?.message ?? 'Please try again later.', 
+          variant: 'destructive' 
+        });
+      }
     } finally {
       setLoading(false);
     }
   }, [organizations, selectedId, toast, user]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
-    const { data, error } = await supabase
-      .from('direct_messages')
-      .select('id,body,created_at,sender_type,sender_user_id,sender_org_id,status')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
-    if (error) throw error;
-    setMessages((data ?? []) as DirectMessageRow[]);
+    try {
+      const { data, error } = await supabase
+        .from('direct_messages')
+        .select('id,body,created_at,sender_type,sender_user_id,sender_org_id,status')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+      
+      if (error) {
+        if (error.message?.includes('does not exist')) {
+          console.log('Messaging system not available');
+          setMessages([]);
+          return;
+        }
+        throw error;
+      }
+      
+      setMessages((data ?? []) as DirectMessageRow[]);
+    } catch (err: any) {
+      console.error('Failed to load messages', err);
+      setMessages([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -287,7 +370,18 @@ export function MessagingCenter() {
       };
 
       const { error } = await supabase.from('direct_messages').insert(payload);
-      if (error) throw error;
+      if (error) {
+        if (error.message?.includes('does not exist')) {
+          console.log('Messaging system not available');
+          toast({ 
+            title: 'Messaging not available', 
+            description: 'The messaging system is not set up yet.', 
+            variant: 'destructive' 
+          });
+          return;
+        }
+        throw error;
+      }
       setDraft('');
       await loadMessages(selectedId);
     } catch (err: any) {
@@ -329,10 +423,10 @@ export function MessagingCenter() {
   const renderConversationList = () => {
     if (loading) {
       return (
-        <div className="space-y-4 p-4">
+        <div className="space-y-3 p-4">
           {[0, 1, 2].map((idx) => (
-            <div key={idx} className="flex items-center gap-3">
-              <Skeleton className="h-10 w-10 rounded-full" />
+            <div key={idx} className="flex items-center gap-3 p-3 rounded-lg">
+              <Skeleton className="h-12 w-12 rounded-full" />
               <div className="space-y-2 flex-1">
                 <Skeleton className="h-4 w-32" />
                 <Skeleton className="h-3 w-20" />
@@ -345,183 +439,387 @@ export function MessagingCenter() {
 
     if (!conversations.length) {
       return (
-        <div className="p-6 text-center text-sm text-muted-foreground">
-          <MessageSquare className="mx-auto mb-3 h-6 w-6" />
-          <p>No conversations yet. Start messaging from a profile to begin.</p>
+        <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-full flex items-center justify-center mb-4">
+            <MessageSquare className="h-8 w-8 text-primary" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+            Start messaging from a profile to begin connecting with others.
+          </p>
+          <Button variant="outline" size="sm" className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Find People
+          </Button>
         </div>
       );
     }
 
     return (
-      <ul className="space-y-1 p-2">
-        {conversations.map((conversation) => {
-          const otherParticipants = conversation.participants.filter((participant) => {
-            if (participant.participant_type === 'user') {
-              return participant.participant_user_id !== user?.id;
-            }
-            return true;
-          });
-          const title = otherParticipants.length
-            ? otherParticipants.map((p) => p.displayName).join(', ')
-            : conversation.subject || 'Conversation';
+      <div className="p-2">
+        <div className="mb-4 px-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search conversations..." 
+              className="pl-10 h-9 bg-muted/50 border-0 focus:bg-background transition-colors"
+            />
+          </div>
+        </div>
+        
+        <ScrollArea className="h-[calc(100vh-200px)]">
+          <div className="space-y-1">
+            {conversations.map((conversation) => {
+              const otherParticipants = conversation.participants.filter((participant) => {
+                if (participant.participant_type === 'user') {
+                  return participant.participant_user_id !== user?.id;
+                }
+                return true;
+              });
+              const title = otherParticipants.length
+                ? otherParticipants.map((p) => p.displayName).join(', ')
+                : conversation.subject || 'Conversation';
+              
+              const primaryParticipant = otherParticipants[0];
+              const isActive = selectedId === conversation.id;
+              const hasUnread = false; // TODO: Implement unread logic
 
-          return (
-            <li key={conversation.id}>
-              <button
-                type="button"
-                onClick={() => setSelectedId(conversation.id)}
-                className={`w-full rounded-lg px-3 py-2 text-left transition ${
-                  selectedId === conversation.id ? 'bg-muted text-foreground' : 'hover:bg-muted/60'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold">{title}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {conversation.last_message_at
-                      ? formatDistanceToNow(new Date(conversation.last_message_at), { addSuffix: true })
-                      : formatDistanceToNow(new Date(conversation.created_at), { addSuffix: true })}
-                  </span>
+              return (
+                <div
+                  key={conversation.id}
+                  onClick={() => setSelectedId(conversation.id)}
+                  className={`group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                    isActive 
+                      ? 'bg-primary/10 border border-primary/20 shadow-sm' 
+                      : 'hover:bg-muted/50 hover:shadow-sm'
+                  }`}
+                >
+                  <div className="relative">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={primaryParticipant?.avatarUrl || ''} />
+                      <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary/20">
+                        {primaryParticipant?.displayName?.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    {hasUnread && (
+                      <div className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full flex items-center justify-center">
+                        <span className="text-xs text-primary-foreground font-medium">1</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="font-semibold text-sm truncate">{title}</h4>
+                      {conversation.last_message_at && (
+                        <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                          {formatDistanceToNow(new Date(conversation.last_message_at), { addSuffix: true })}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground truncate flex-1">
+                        {conversation.request_status === 'pending' ? 'Follow request pending...' : 'Tap to open conversation'}
+                      </p>
+                      
+                      {conversation.request_status !== 'accepted' && (
+                        <Badge
+                          variant={conversation.request_status === 'pending' ? 'default' : 'secondary'}
+                          className="text-xs ml-2"
+                        >
+                          {conversation.request_status}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
                 </div>
-                {conversation.request_status === 'pending' && (
-                  <Badge variant="outline" className="mt-1 text-[10px] uppercase">
-                    Pending approval
-                  </Badge>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      </div>
     );
   };
 
   const renderMessages = () => {
     if (!selectedConversation) {
       return (
-        <div className="flex h-full flex-1 items-center justify-center text-sm text-muted-foreground">
-          Select a conversation to view messages.
+        <div className="flex h-full flex-1 items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-muted/20 to-muted/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MessageSquare className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
+            <p className="text-sm text-muted-foreground">
+              Choose a conversation from the sidebar to start messaging.
+            </p>
+          </div>
         </div>
       );
     }
 
+    const otherParticipants = selectedConversation.participants.filter((participant) =>
+      participant.participant_type === 'user'
+        ? participant.participant_user_id !== user?.id
+        : true,
+    );
+    const conversationTitle = otherParticipants.map((p) => p.displayName).join(', ') || 'Conversation';
+    const primaryParticipant = otherParticipants[0];
+
     return (
-      <div className="flex h-full flex-1 flex-col">
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <div>
-            <h2 className="text-lg font-semibold">
-              {selectedConversation.participants
-                .filter((participant) =>
-                  participant.participant_type === 'user'
-                    ? participant.participant_user_id !== user?.id
-                    : true,
-                )
-                .map((participant) => participant.displayName)
-                .join(', ') || 'Conversation'}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {selectedConversation.request_status === 'pending'
-                ? 'Message request pending approval'
-                : 'Direct conversation'}
-            </p>
-          </div>
-          {selectedConversation.request_status === 'pending' && (
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => declineRequest(selectedConversation.id)}>
-                Decline
-              </Button>
-              <Button size="sm" onClick={() => acceptRequest(selectedConversation.id)}>
-                Accept
-              </Button>
+      <div className="flex h-full flex-1 flex-col bg-gradient-to-b from-background to-muted/20">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b bg-background/80 backdrop-blur-sm px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={primaryParticipant?.avatarUrl || ''} />
+              <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary/20">
+                {primaryParticipant?.displayName?.charAt(0) || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h2 className="text-lg font-semibold">{conversationTitle}</h2>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-xs text-muted-foreground">Online</span>
+                </div>
+                {selectedConversation.request_status === 'pending' && (
+                  <Badge variant="outline" className="text-xs">
+                    Pending approval
+                  </Badge>
+                )}
+              </div>
             </div>
-          )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+              <Phone className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+              <Video className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
+        {/* Action buttons for pending requests */}
+        {selectedConversation.request_status === 'pending' && (
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-600" />
+                <span className="text-sm text-amber-800">This conversation is pending approval</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => declineRequest(selectedConversation.id)}>
+                  Decline
+                </Button>
+                <Button size="sm" onClick={() => acceptRequest(selectedConversation.id)}>
+                  Accept
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <ScrollArea className="flex-1 px-6 py-4">
-          <div className="space-y-4">
-            {messages.map((message) => {
-              const isSelf =
-                (message.sender_type === 'user' && message.sender_user_id === user?.id) ||
-                (message.sender_type === 'organization' && organizations?.some((org) => org.id === message.sender_org_id));
+          <div className="space-y-6">
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-full flex items-center justify-center mb-4">
+                  <MessageSquare className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Start the conversation</h3>
+                <p className="text-sm text-muted-foreground text-center max-w-sm">
+                  Send your first message to begin this conversation.
+                </p>
+              </div>
+            ) : (
+              messages.map((message, index) => {
+                const isSelf =
+                  (message.sender_type === 'user' && message.sender_user_id === user?.id) ||
+                  (message.sender_type === 'organization' && organizations?.some((org) => org.id === message.sender_org_id));
 
-              const label = (() => {
-                if (message.sender_type === 'organization') {
-                  const org = organizations?.find((org) => org.id === message.sender_org_id);
-                  return org?.name ?? 'Organization';
-                }
-                if (message.sender_user_id === user?.id) {
-                  return profile?.display_name || 'You';
-                }
-                const participant = selectedConversation.participants.find(
-                  (p) => p.participant_type === 'user' && p.participant_user_id === message.sender_user_id,
-                );
-                return participant?.displayName ?? 'Member';
-              })();
+                const label = (() => {
+                  if (message.sender_type === 'organization') {
+                    const org = organizations?.find((org) => org.id === message.sender_org_id);
+                    return org?.name ?? 'Organization';
+                  }
+                  if (message.sender_user_id === user?.id) {
+                    return profile?.display_name || 'You';
+                  }
+                  const participant = selectedConversation.participants.find(
+                    (p) => p.participant_type === 'user' && p.participant_user_id === message.sender_user_id,
+                  );
+                  return participant?.displayName ?? 'Member';
+                })();
 
-              return (
-                <div key={message.id} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
-                  <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                      isSelf ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                    }`}
-                  >
-                    <div className="mb-1 text-xs font-semibold opacity-80">{label}</div>
-                    <div className="whitespace-pre-line">{message.body}</div>
-                    <div className="mt-2 text-[10px] uppercase tracking-wide opacity-70">
-                      {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                const prevMessage = index > 0 ? messages[index - 1] : null;
+                const showAvatar = !prevMessage || prevMessage.sender_user_id !== message.sender_user_id;
+                const showTimestamp = index === messages.length - 1 || 
+                  (index < messages.length - 1 && 
+                   new Date(messages[index + 1].created_at).getTime() - new Date(message.created_at).getTime() > 5 * 60 * 1000);
+
+                return (
+                  <div key={message.id} className={`flex gap-3 ${isSelf ? 'flex-row-reverse' : 'flex-row'}`}>
+                    {!isSelf && (
+                      <div className="flex-shrink-0">
+                        {showAvatar ? (
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={selectedConversation.participants.find(p => p.participant_user_id === message.sender_user_id)?.avatarUrl || ''} />
+                            <AvatarFallback className="text-xs">
+                              {label.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : (
+                          <div className="h-8 w-8" />
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className={`flex flex-col max-w-[75%] ${isSelf ? 'items-end' : 'items-start'}`}>
+                      {!isSelf && showAvatar && (
+                        <span className="text-xs font-medium text-muted-foreground mb-1">{label}</span>
+                      )}
+                      
+                      <div
+                        className={`group relative rounded-2xl px-4 py-2 text-sm shadow-sm transition-all duration-200 hover:shadow-md ${
+                          isSelf 
+                            ? 'bg-primary text-primary-foreground rounded-br-md' 
+                            : 'bg-muted rounded-bl-md'
+                        }`}
+                      >
+                        <div className="whitespace-pre-line break-words">{message.body}</div>
+                        
+                        <div className={`flex items-center gap-1 mt-1 ${
+                          isSelf ? 'justify-end' : 'justify-start'
+                        }`}>
+                          <span className="text-xs opacity-70">
+                            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                          </span>
+                          {isSelf && (
+                            <div className="flex items-center gap-1">
+                              <Check className="h-3 w-3" />
+                              <CheckCheck className="h-3 w-3" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {showTimestamp && (
+                        <div className={`text-xs text-muted-foreground mt-2 ${isSelf ? 'text-right' : 'text-left'}`}>
+                          {new Date(message.created_at).toLocaleDateString()}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </ScrollArea>
 
-        <div className="border-t bg-background/70 px-6 py-4">
+        {/* Message Input Area */}
+        <div className="border-t bg-background/95 backdrop-blur-sm px-6 py-4">
           {identityOptions.length > 1 && activeIdentity && (
-            <div className="mb-2 w-48">
-              <Select
-                value={`${activeIdentity.type}:${activeIdentity.id}`}
-                onValueChange={(value) => {
-                  const [type, id] = value.split(':');
-                  if (type === 'organization') {
-                    const org = organizations?.find((o) => o.id === id);
-                    setActiveIdentity({ type: 'organization', id, label: org?.name ?? 'Organization' });
-                  } else {
-                    setActiveIdentity({ type: 'user', id, label: profile?.display_name || 'You' });
-                  }
-                }}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Message as" />
-                </SelectTrigger>
-                <SelectContent>
-                  {identityOptions.map((option) => (
-                    <SelectItem key={`${option.type}:${option.id}`} value={`${option.type}:${option.id}`}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-medium text-muted-foreground">Message as:</span>
+                <Select
+                  value={`${activeIdentity.type}:${activeIdentity.id}`}
+                  onValueChange={(value) => {
+                    const [type, id] = value.split(':');
+                    if (type === 'organization') {
+                      const org = organizations?.find((o) => o.id === id);
+                      setActiveIdentity({ type: 'organization', id, label: org?.name ?? 'Organization' });
+                    } else {
+                      setActiveIdentity({ type: 'user', id, label: profile?.display_name || 'You' });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs w-48">
+                    <SelectValue placeholder="Message as" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {identityOptions.map((option) => (
+                      <SelectItem key={`${option.type}:${option.id}`} value={`${option.type}:${option.id}`}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <Textarea
-              placeholder="Write a message..."
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              rows={3}
-            />
-            <div className="flex items-center justify-between">
+          <div className="relative">
+            <div className="flex items-end gap-2 p-3 bg-muted/50 rounded-2xl border border-muted-foreground/20 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-200">
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                  <Smile className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="flex-1">
+                <Textarea
+                  placeholder={selectedConversation.request_status === 'pending' 
+                    ? "Messages will send once this request is accepted..." 
+                    : "Write a message..."
+                  }
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  className="min-h-[40px] max-h-32 resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (draft.trim() && !sending) {
+                        sendMessage();
+                      }
+                    }
+                  }}
+                />
+              </div>
+              
+              <Button 
+                onClick={sendMessage} 
+                disabled={sending || !draft.trim() || selectedConversation.request_status === 'pending'}
+                size="sm"
+                className="h-8 px-3 rounded-xl"
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between mt-2 px-1">
               <span className="text-xs text-muted-foreground">
                 {selectedConversation.request_status === 'pending'
                   ? 'Messages will send once this request is accepted.'
-                  : 'Press enter to send, shift + enter for newline.'}
+                  : 'Press Enter to send, Shift + Enter for new line'}
               </span>
-              <Button onClick={sendMessage} disabled={sending || !draft.trim()}>
-                {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Send
-              </Button>
+              <span className="text-xs text-muted-foreground">
+                {draft.length}/1000
+              </span>
             </div>
           </div>
         </div>
@@ -530,12 +828,30 @@ export function MessagingCenter() {
   };
 
   return (
-    <Card className="h-[80vh] w-full overflow-hidden">
-      <CardContent className="flex h-full gap-0 p-0">
-        <div className="w-full border-r lg:w-72">{renderConversationList()}</div>
+    <div className="h-[80vh] w-full overflow-hidden rounded-xl border bg-card shadow-sm">
+      <div className="flex h-full messaging-layout">
+        {/* Conversation Sidebar */}
+        <div className="w-full border-r bg-muted/20 lg:w-80">
+          <div className="border-b bg-background/80 backdrop-blur-sm px-4 py-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Messages</h2>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <Search className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          {renderConversationList()}
+        </div>
+        
+        {/* Messages Area */}
         <div className="hidden flex-1 lg:flex">{renderMessages()}</div>
         <div className="flex w-full flex-1 lg:hidden">{renderMessages()}</div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

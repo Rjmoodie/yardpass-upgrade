@@ -19,40 +19,48 @@ export function useFollowCounts(targetType: 'user' | 'organizer', targetId: stri
     setLoading(true);
     setError(null);
     try {
-      const { data: followData, error: followError } = await supabase
-        .from('follow_stats')
-        .select('follower_count,pending_count')
+      // Count followers (people following this target)
+      const { count: followerCount, error: followerError } = await supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
         .eq('target_type', targetType)
         .eq('target_id', targetId)
-        .maybeSingle();
+        .eq('status', 'accepted');
 
-      if (followError) throw followError;
+      if (followerError) throw followerError;
 
-      const followerCount = Number(followData?.follower_count ?? 0);
-      const pendingCount = Number(followData?.pending_count ?? 0);
-
-      let followingCount = 0;
+      // Count pending follow requests (only for user targets)
+      let pendingCount = 0;
       if (targetType === 'user') {
-        const { data: followingData, error: followingError } = await supabase
-          .from('following_stats')
-          .select('following_count')
-          .eq('actor_id', targetId)
-          .eq('follower_type', 'user')
-          .maybeSingle();
-        if (followingError) throw followingError;
-        followingCount = Number(followingData?.following_count ?? 0);
-      } else {
-        const { data: orgFollowing, error: orgFollowingError } = await supabase
-          .from('following_stats')
-          .select('following_count')
-          .eq('actor_id', targetId)
-          .eq('follower_type', 'organization')
-          .maybeSingle();
-        if (orgFollowingError && orgFollowingError.code !== 'PGRST116') throw orgFollowingError;
-        followingCount = Number(orgFollowing?.following_count ?? 0);
+        const { count, error: pendingError } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('target_type', 'user')
+          .eq('target_id', targetId)
+          .eq('status', 'pending');
+        
+        if (pendingError) throw pendingError;
+        pendingCount = count ?? 0;
       }
 
-      setCounts({ followerCount, followingCount, pendingCount });
+      // Count following (people this target is following - only for user targets)
+      let followingCount = 0;
+      if (targetType === 'user') {
+        const { count, error: followingError } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_user_id', targetId)
+          .eq('status', 'accepted');
+        
+        if (followingError) throw followingError;
+        followingCount = count ?? 0;
+      }
+
+      setCounts({ 
+        followerCount: followerCount ?? 0, 
+        followingCount, 
+        pendingCount 
+      });
     } catch (err: any) {
       console.error('Failed to load follow counts', err);
       setError(err?.message ?? 'Unable to load follow counts');
@@ -99,73 +107,44 @@ export function useFollowList({ targetType, targetId, direction, includePending 
 
     try {
       if (direction === 'followers') {
+        // Get followers (people following this target)
         const { data, error: followsError } = await supabase
           .from('follows')
-          .select('id,status,created_at,follower_type,follower_user_id,follower_org_id')
+          .select('id,status,created_at,follower_user_id')
           .eq('target_type', targetType)
           .eq('target_id', targetId)
           .in('status', includePending ? ['accepted', 'pending'] : ['accepted'])
           .order('created_at', { ascending: false });
 
         if (followsError) throw followsError;
+        
+        // All followers are users in current schema
         const userIds = (data ?? [])
           .map(row => row.follower_user_id)
           .filter((id): id is string => Boolean(id));
-        const orgIds = (data ?? [])
-          .map(row => row.follower_org_id)
-          .filter((id): id is string => Boolean(id));
 
-        const [userProfiles, orgRows] = await Promise.all([
-          userIds.length
-            ? supabase
-                .from('user_profiles')
-                .select('user_id,display_name,photo_url')
-                .in('user_id', Array.from(new Set(userIds)))
-            : Promise.resolve({ data: [] as any[], error: null }),
-          orgIds.length
-            ? supabase
-                .from('organizations')
-                .select('id,name,logo_url')
-                .in('id', Array.from(new Set(orgIds)))
-            : Promise.resolve({ data: [] as any[], error: null }),
-        ]);
+        const { data: userProfiles, error: profilesError } = userIds.length
+          ? await supabase
+              .from('user_profiles')
+              .select('user_id,display_name,photo_url')
+              .in('user_id', Array.from(new Set(userIds)))
+          : { data: [] as any[], error: null };
 
-        if (userProfiles.error) throw userProfiles.error;
-        if (orgRows.error) throw orgRows.error;
+        if (profilesError) throw profilesError;
 
         const userMap = new Map<string, { display_name: string; photo_url: string | null }>();
-        (userProfiles.data ?? []).forEach(profile => {
+        (userProfiles ?? []).forEach(profile => {
           userMap.set(profile.user_id, {
             display_name: profile.display_name ?? 'Member',
             photo_url: profile.photo_url ?? null,
           });
         });
 
-        const orgMap = new Map<string, { display_name: string; photo_url: string | null }>();
-        (orgRows.data ?? []).forEach(org => {
-          orgMap.set(org.id, {
-            display_name: org.name ?? 'Organization',
-            photo_url: org.logo_url ?? null,
-          });
-        });
-
         const mapped = (data ?? []).map(row => {
-          if (row.follower_type === 'organization' && row.follower_org_id) {
-            const org = orgMap.get(row.follower_org_id) ?? { display_name: 'Organization', photo_url: null };
-            return {
-              id: row.id,
-              status: row.status as FollowProfileRow['status'],
-              created_at: row.created_at,
-              display_name: org.display_name,
-              avatar_url: org.photo_url,
-              actor_type: 'organization' as const,
-              actor_id: row.follower_org_id,
-            } satisfies FollowProfileRow;
-          }
           const profile = row.follower_user_id ? userMap.get(row.follower_user_id) : undefined;
           return {
             id: row.id,
-            status: row.status as FollowProfileRow['status'],
+            status: (row.status ?? 'accepted') as FollowProfileRow['status'],
             created_at: row.created_at,
             display_name: profile?.display_name ?? 'Member',
             avatar_url: profile?.photo_url ?? null,
@@ -232,7 +211,7 @@ export function useFollowList({ targetType, targetId, direction, includePending 
             const org = orgMap.get(row.target_id) ?? { display_name: 'Organization', photo_url: null };
             return {
               id: row.id,
-              status: row.status as FollowProfileRow['status'],
+              status: (row.status ?? 'accepted') as FollowProfileRow['status'],
               created_at: row.created_at,
               display_name: org.display_name,
               avatar_url: org.photo_url,
@@ -243,7 +222,7 @@ export function useFollowList({ targetType, targetId, direction, includePending 
           const userProfile = userMap.get(row.target_id) ?? { display_name: 'Member', photo_url: null };
           return {
             id: row.id,
-            status: row.status as FollowProfileRow['status'],
+            status: (row.status ?? 'accepted') as FollowProfileRow['status'],
             created_at: row.created_at,
             display_name: userProfile.display_name,
             avatar_url: userProfile.photo_url,

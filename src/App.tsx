@@ -63,6 +63,7 @@ const WalletPage = lazy(() => import('@/pages/WalletPage'));
 const OrgWalletPage = lazy(() => import('@/pages/OrgWalletPage'));
 const CampaignDashboardPage = lazy(() => import('@/pages/CampaignDashboardPage'));
 const MessagesPage = lazy(() => import('@/pages/MessagesPage'));
+const UserSocialPage = lazy(() => import('@/pages/UserSocialPage').then((m) => ({ default: m.UserSocialPage })));
 
 // Auth guard
 import { AuthGuard } from '@/components/AuthGuard';
@@ -355,6 +356,14 @@ function AppContent() {
                 }
               />
               <Route
+                path="/user/:userId"
+                element={
+                  <AuthGuard>
+                    <UserProfilePage />
+                  </AuthGuard>
+                }
+              />
+              <Route
                 path="/edit-profile"
                 element={
                   <AuthGuard>
@@ -365,6 +374,14 @@ function AppContent() {
               <Route
                 path="/messages"
                 element={<UserDependentRoute>{() => <MessagesPage />}</UserDependentRoute>}
+              />
+              <Route
+                path="/social"
+                element={
+                  <AuthGuard>
+                    <UserDependentRoute>{() => <UserSocialPage />}</UserDependentRoute>
+                  </AuthGuard>
+                }
               />
               <Route path="/tickets" element={<TicketsRoute />} />
               <Route
@@ -523,9 +540,7 @@ function AppContent() {
           !location.pathname.startsWith('/event-management/') &&
           location.pathname !== '/ticket-success' &&
           location.pathname !== '/auth' && (
-            <div className="fixed inset-x-0 bottom-0 z-30">
-              <Navigation currentScreen={location.pathname} userRole={navigationRole} onNavigate={() => {}} />
-            </div>
+            <Navigation currentScreen={location.pathname} userRole={navigationRole} onNavigate={() => {}} />
           )}
 
         {/* Toast notifications */}

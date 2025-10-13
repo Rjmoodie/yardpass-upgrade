@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Bell, X, Check, AlertCircle, Info } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Bell, X, Check, AlertCircle, Info, BellDot, BellOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,8 @@ export function NotificationSystem() {
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Use realtime to listen for events that should create notifications
   const handleRealtimeEvent = useCallback(async (event: RealtimeEvent) => {
@@ -254,33 +256,59 @@ export function NotificationSystem() {
     });
   }
 
-  function markAsRead(id: string) {
+  const markAsRead = useCallback(async (id: string) => {
+    // Immediately update UI state
     setNotifications(prev =>
       prev.map(notif =>
         notif.id === id ? { ...notif, read: true } : notif
       )
     );
 
-    if (user) {
-      void supabase
-        .from('notifications')
-        .update({ read_at: new Date().toISOString() })
-        .eq('id', id)
-        .eq('user_id', user.id);
-    }
-  }
+    // Update unread count immediately
+    setUnreadCount(prev => Math.max(0, prev - 1));
 
-  function markAllAsRead() {
+    // Persist to database
+    if (user) {
+      try {
+        const { error } = await supabase
+          .from('notifications')
+          .update({ read_at: new Date().toISOString() })
+          .eq('id', id)
+          .eq('user_id', user.id);
+        
+        if (error) {
+          console.error('Failed to mark notification as read:', error);
+        }
+      } catch (err) {
+        console.error('Error marking notification as read:', err);
+      }
+    }
+  }, [user]);
+
+  const markAllAsRead = useCallback(async () => {
+    // Immediately update UI state
     setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+    
+    // Update unread count immediately
+    setUnreadCount(0);
 
+    // Persist to database
     if (user) {
-      void supabase
-        .from('notifications')
-        .update({ read_at: new Date().toISOString() })
-        .eq('user_id', user.id)
-        .is('read_at', null);
+      try {
+        const { error } = await supabase
+          .from('notifications')
+          .update({ read_at: new Date().toISOString() })
+          .eq('user_id', user.id)
+          .is('read_at', null);
+        
+        if (error) {
+          console.error('Failed to mark all notifications as read:', error);
+        }
+      } catch (err) {
+        console.error('Error marking all notifications as read:', err);
+      }
     }
-  }
+  }, [user]);
 
   function removeNotification(id: string) {
     setNotifications(prev => {
@@ -357,8 +385,10 @@ export function NotificationSystem() {
     };
   }
 
+  // Update unread count based on notifications array (fallback)
   useEffect(() => {
-    setUnreadCount(notifications.filter(notification => !notification.read).length);
+    const actualUnreadCount = notifications.filter(notification => !notification.read).length;
+    setUnreadCount(actualUnreadCount);
   }, [notifications]);
 
   useEffect(() => {
@@ -406,6 +436,26 @@ export function NotificationSystem() {
     }
   }, [permission.default, user, requestPermission]);
 
+  // Close notification panel when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        isOpen &&
+        panelRef.current &&
+        buttonRef.current &&
+        !panelRef.current.contains(event.target as Node) &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
   if (!user) {
     return null;
   }
@@ -415,16 +465,24 @@ export function NotificationSystem() {
       {/* Notification Bell Button */}
       <div className="relative">
         <Button
+          ref={buttonRef}
           variant="ghost"
           size="icon"
           onClick={() => setIsOpen(!isOpen)}
-          className="relative hover:bg-transparent focus-visible:ring-0 shadow-none"
+          className={cn(
+            "relative hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary transition-all",
+            isOpen && "bg-accent"
+          )}
         >
-          <Bell className="h-5 w-5" />
+          {unreadCount > 0 ? (
+            <BellDot className="h-5 w-5 text-primary" />
+          ) : (
+            <Bell className="h-5 w-5" />
+          )}
           {unreadCount > 0 && (
             <Badge 
               variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-semibold animate-pulse"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
@@ -433,7 +491,10 @@ export function NotificationSystem() {
 
         {/* Notification Panel */}
         {isOpen && (
-          <Card className="absolute right-0 top-full mt-2 w-96 max-h-96 overflow-hidden z-50 shadow-lg">
+          <Card 
+            ref={panelRef}
+            className="absolute right-0 top-full mt-2 w-96 max-h-96 overflow-hidden z-50 shadow-lg border-2"
+          >
             <div className="flex items-center justify-between p-3 border-b">
               <h3 className="font-semibold">Notifications</h3>
               <div className="flex items-center gap-2">
@@ -472,43 +533,78 @@ export function NotificationSystem() {
                   <div
                     key={notification.id}
                     className={cn(
-                      "p-3 border-b hover:bg-muted/50 cursor-pointer transition-colors",
-                      !notification.read && "bg-muted/30"
+                      "p-3 border-b hover:bg-muted/50 cursor-pointer transition-colors group",
+                      !notification.read && "bg-primary/5 border-l-2 border-l-primary"
                     )}
-                    onClick={() => {
-                      markAsRead(notification.id);
+                    onClick={async () => {
+                      // Mark as read first
+                      if (!notification.read) {
+                        await markAsRead(notification.id);
+                      }
+                      
+                      // Close the notification panel
+                      setIsOpen(false);
+                      
+                      // Navigate if there's an action URL
                       if (notification.actionUrl) {
                         window.location.href = notification.actionUrl;
                       }
                     }}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="mt-0.5">
+                      <div className="mt-0.5 flex-shrink-0">
                         {getNotificationIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="font-medium text-sm truncate">
+                          <p className={cn(
+                            "font-medium text-sm truncate",
+                            !notification.read && "font-semibold"
+                          )}>
                             {notification.title}
                           </p>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeNotification(notification.id);
-                            }}
-                            className="h-4 w-4 opacity-60 hover:opacity-100"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {!notification.read && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  await markAsRead(notification.id);
+                                }}
+                                className="h-5 w-5"
+                                title="Mark as read"
+                              >
+                                <Check className="h-3 w-3" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeNotification(notification.id);
+                              }}
+                              className="h-5 w-5"
+                              title="Remove notification"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                           {notification.message}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatTimestamp(notification.timestamp)}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-muted-foreground">
+                            {formatTimestamp(notification.timestamp)}
+                          </p>
+                          {!notification.read && (
+                            <Badge variant="secondary" className="text-xs px-1 py-0">
+                              New
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

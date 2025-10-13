@@ -1,4 +1,4 @@
-import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign, MessageCircle } from 'lucide-react';
+import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign, MessageCircle, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -30,6 +30,7 @@ export type Screen =
   | 'refund-policy'
   | 'tickets'
   | 'messages'
+  | 'social'
   | 'scanner'
   | 'ticket-success'
   | 'posts-test'
@@ -52,6 +53,7 @@ const AUTH_REQUIRED: Record<string, Screen> = {
   '/profile': 'profile',
   '/tickets': 'tickets',
   '/messages': 'messages',
+  '/social': 'social',
   '/scanner': 'scanner',
   '/sponsor': 'sponsor',
 };
@@ -84,6 +86,7 @@ export default function Navigation({ userRole }: NavigationProps) {
         { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: userRole === 'attendee' },
         { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
         { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
+        { id: 'social' as Screen, path: '/social', icon: Users, label: 'Network', show: true },
         { id: 'messages' as Screen, path: '/messages', icon: MessageCircle, label: 'Messages', show: true },
         { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
       ] as const
@@ -164,12 +167,41 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-rail">
-      <div className="w-full border-t border-white/10 bg-black/95 backdrop-blur-xl">
+    <div 
+      className="fixed inset-x-0 z-50 nav-flush-bottom" 
+      style={{ 
+        bottom: 0,
+        left: 0,
+        right: 0,
+        position: 'fixed',
+        margin: 0,
+        padding: 0,
+        zIndex: 50
+      }}
+    >
+      <div 
+        className="w-full bg-black/95 backdrop-blur-xl"
+        style={{
+          margin: 0,
+          padding: 0,
+          bottom: 0,
+          position: 'relative',
+          width: '100%',
+          border: 'none',
+          outline: 'none',
+          boxShadow: 'none'
+        }}
+      >
         <div
           role="tablist"
           aria-label="Primary navigation"
-          className="relative flex items-center justify-evenly px-0 py-2.5 pb-safe sm:py-3"
+          className="relative flex items-center justify-evenly px-0 py-2.5 sm:py-3"
+          style={{ 
+            paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))',
+            margin: 0,
+            position: 'relative',
+            bottom: 0
+          }}
         >
           {navItems.map((item) => {
             const Icon = item.icon;

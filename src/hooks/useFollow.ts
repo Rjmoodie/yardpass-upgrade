@@ -60,12 +60,20 @@ export function useFollow(target: Target) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // Determine if this follow type requires approval
+    const requiresApproval = target.type === 'user';
+    const initialStatus = requiresApproval ? 'pending' : 'accepted';
+
     const payload: Record<string, unknown> = {
       follower_user_id: user.id,
       target_type: target.type,
       target_id: target.id,
-      status: target.type === 'user' ? 'pending' : 'accepted',
     };
+
+    // Only add status if the column exists (for user follows)
+    if (requiresApproval) {
+      payload.status = initialStatus;
+    }
 
     const { data, error } = await supabase
       .from('follows')
@@ -75,10 +83,10 @@ export function useFollow(target: Target) {
 
     if (error) throw error;
     if (data) {
-      setState((data.status as FollowState) ?? (target.type === 'user' ? 'pending' : 'accepted'));
+      setState((data.status as FollowState) ?? initialStatus);
       setRowId(data.id);
     } else {
-      setState(target.type === 'user' ? 'pending' : 'accepted');
+      setState(initialStatus);
     }
   }, [target.id, target.type]);
 
