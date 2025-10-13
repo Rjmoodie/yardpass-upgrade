@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SlidersHorizontal, MapPin, Compass, Loader2 } from 'lucide-react';
+import { SlidersHorizontal, MapPin, Compass } from 'lucide-react';
 import { useUnifiedFeedInfinite } from '@/hooks/useUnifiedFeedInfinite';
 import { useCampaignBoosts, type CampaignBoostRow } from '@/hooks/useCampaignBoosts';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +21,7 @@ import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { isVideoUrl } from '@/utils/mux';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 type FeedFilters = {
   dates: string[];
@@ -749,7 +750,14 @@ export default function UnifiedFeedList() {
               </span>
               {boostsLoading && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> Calibrating
+                  <YardpassSpinner
+                    size="xs"
+                    appearance="inverted"
+                    showGlow={false}
+                    showLogo={false}
+                    className="h-2.5 w-2.5"
+                  />
+                  Calibrating
                 </span>
               )}
             </div>
@@ -846,7 +854,13 @@ export default function UnifiedFeedList() {
         <div ref={sentinelRef} className="h-32" />
         {isFetchingNextPage && (
           <div className="mx-auto flex max-w-5xl items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm text-white/70 backdrop-blur-xl">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading more
+            <YardpassSpinner
+              size="sm"
+              appearance="inverted"
+              showGlow={false}
+              showLogo={false}
+            />
+            Loading more
           </div>
         )}
         {!filteredItems.length && blendedItems.length > 0 && (

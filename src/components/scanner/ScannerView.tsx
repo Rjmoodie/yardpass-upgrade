@@ -9,7 +9,6 @@ import {
   Camera,
   CheckCircle,
   Flashlight,
-  Loader2,
   QrCode,
   RefreshCw,
   ShieldAlert,
@@ -19,6 +18,7 @@ import { validateTicket } from '@/lib/ticketApi';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 interface ScannerViewProps {
   eventId: string;
@@ -280,7 +280,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
             <CardContent className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-black">
               {initializing && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
-                  <Loader2 className="h-10 w-10 animate-spin text-white" aria-hidden />
+                  <YardpassSpinner appearance="inverted" />
                 </div>
               )}
               {cameraError && (

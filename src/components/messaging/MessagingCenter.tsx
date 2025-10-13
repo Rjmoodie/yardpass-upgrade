@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { 
-  Loader2, 
-  MessageSquare, 
-  Send, 
-  MoreVertical, 
-  Check, 
+import {
+  MessageSquare,
+  Send,
+  MoreVertical,
+  Check,
   CheckCheck, 
   Clock, 
   UserPlus, 
@@ -18,6 +17,7 @@ import {
   ArrowLeft,
   ArrowRight
 } from 'lucide-react';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizations } from '@/hooks/useOrganizations';
@@ -809,7 +809,11 @@ export function MessagingCenter() {
                 className="h-9 rounded-full px-4"
               >
                 {sending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <YardpassSpinner
+                    size="xs"
+                    showGlow={false}
+                    showLogo={false}
+                  />
                 ) : (
                   <Send className="h-4 w-4" />
                 )}

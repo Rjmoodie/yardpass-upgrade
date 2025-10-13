@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Users, Loader2 } from 'lucide-react';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
+import { ArrowLeft, Users } from 'lucide-react';
 
 type Attendee = { 
   user_id: string; 
@@ -176,7 +177,7 @@ export default function EventAttendeesPageEnhanced() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+            <YardpassSpinner className="mx-auto mb-4" />
             <p className="text-muted-foreground">Loading attendees...</p>
           </div>
         </div>
@@ -269,7 +270,9 @@ export default function EventAttendeesPageEnhanced() {
           {hasMore && (
             <div className="mt-6">
               <Button onClick={loadMore} disabled={loadingMore} className="w-full">
-                {loadingMore && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {loadingMore && (
+                  <YardpassSpinner size="xs" showGlow={false} showLogo={false} className="mr-2" />
+                )}
                 Load more ({totalCount > 0 ? `${totalCount - attendees.length} remaining` : 'more'})
               </Button>
             </div>
