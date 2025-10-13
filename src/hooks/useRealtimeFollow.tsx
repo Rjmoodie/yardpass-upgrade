@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface FollowUpdate {
-  targetType: 'event' | 'organizer';
+  targetType: 'event' | 'organizer' | 'user';
   targetId: string;
   isFollowing: boolean;
   followerCount?: number;

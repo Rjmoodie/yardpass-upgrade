@@ -34,6 +34,9 @@ import { useShare } from '@/hooks/useShare';
 import { useToast } from '@/hooks/use-toast';
 import { NotificationSystem } from '@/components/NotificationSystem';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
+import { FollowStats } from '@/components/follow/FollowStats';
+import { FollowButton } from '@/components/follow/FollowButton';
+import { MessageButton } from '@/components/messaging/MessageButton';
 
 interface SocialLink {
   platform: string;
@@ -594,15 +597,30 @@ export default function UserProfilePage() {
                       </Badge>
                     )}
                   </div>
+
+                  <FollowStats
+                    targetType="user"
+                    targetId={profile.user_id}
+                    enablePendingReview={isViewingOwnProfile}
+                  />
                 </div>
               </div>
             </div>
 
-            {isViewingOwnProfile && (
+            {isViewingOwnProfile ? (
               <Button onClick={() => navigate('/edit-profile')} variant="outline" size="sm" className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
                 Edit profile
               </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <FollowButton targetType="user" targetId={profile.user_id} size="default" />
+                <MessageButton
+                  targetType="user"
+                  targetId={profile.user_id}
+                  targetName={profile.display_name}
+                />
+              </div>
             )}
           </div>
 
