@@ -162,11 +162,11 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-rail">
-      <div className="w-full border-t border-white/10 bg-black/95 backdrop-blur-xl">
+      <div className="w-full border-t border-white/10 bg-black/95 backdrop-blur-xl pb-safe">
         <div
           role="tablist"
           aria-label="Primary navigation"
-          className="relative flex items-center justify-evenly gap-1 px-2 py-2 sm:gap-1.5"
+          className="relative flex items-center justify-evenly px-0 py-2.5 sm:py-3"
         >
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -260,7 +260,7 @@ function NavButton({
       aria-current={active ? 'page' : undefined}
       role="tab"
       tabIndex={0}
-      className={`group relative flex flex-1 max-w-[80px] flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 transition-all duration-300 ease-out touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:px-2.5 sm:py-2 min-h-[56px] sm:min-h-[60px] ${
+      className={`group relative flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 transition-all duration-300 ease-out touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 min-h-[60px] sm:min-h-[64px] ${
         active ? 'text-primary' : 'text-muted-foreground hover:text-primary/90'
       }`}
     >
@@ -273,7 +273,7 @@ function NavButton({
         }`}
       />
       <span
-        className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-300 sm:h-9 sm:w-9 ${
+        className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-300 ${
           active
             ? 'bg-primary/15'
             : 'bg-muted/20 group-hover:bg-muted/40'
@@ -283,7 +283,7 @@ function NavButton({
       </span>
 
       <span
-        className={`relative z-10 text-[9px] font-medium leading-none transition-all duration-300 sm:text-[10px] ${
+        className={`relative z-10 text-[10px] font-medium leading-none transition-all duration-300 ${
           active
             ? 'font-semibold text-primary'
             : 'text-muted-foreground group-hover:text-primary'
