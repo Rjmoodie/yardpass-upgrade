@@ -313,7 +313,8 @@ p {
 /* iOS safe area handling */
 @supports (padding: max(0px)) {
   .nav-flush-bottom {
-    padding-bottom: max(0px, env(safe-area-inset-bottom)) !important;
+    /* Do not add padding here; inner nav provides safe-area padding */
+    padding-bottom: 0 !important;
   }
 }
 
@@ -352,7 +353,8 @@ html {
   .nav-flush-bottom {
     bottom: 0 !important;
     margin-bottom: 0 !important;
-    padding-bottom: max(0px, env(safe-area-inset-bottom)) !important;
+    /* Do not add padding here; inner nav provides safe-area padding */
+    padding-bottom: 0 !important;
   }
 }
 
