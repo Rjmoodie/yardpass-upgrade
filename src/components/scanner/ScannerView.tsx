@@ -19,6 +19,7 @@ import { validateTicket } from '@/lib/ticketApi';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 interface ScannerViewProps {
   eventId: string;

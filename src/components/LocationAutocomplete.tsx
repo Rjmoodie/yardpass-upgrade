@@ -3,6 +3,7 @@ import { Input } from './ui/input';
 import { MapPin } from 'lucide-react';
 import { BrandedSpinner } from './BrandedSpinner';
 import { supabase } from '@/integrations/supabase/client';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 interface LocationAutocompleteProps {
   value: string;

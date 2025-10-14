@@ -8,6 +8,7 @@ import { BrandedSpinner } from '../BrandedSpinner';
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { CreditPackage } from "@/hooks/useOrgWallet";
+import { YardpassSpinner } from "@/components/LoadingSpinner";
 
 interface OrgBuyCreditsModalProps {
   open: boolean;

@@ -10,6 +10,7 @@ import { generateStyledQRDataURL } from '@/lib/styledQr';
 import { getQrTheme, getAllThemes, type QrThemeName } from '@/lib/qrTheme';
 import { UserTicket } from '@/hooks/useTickets';
 import { toast } from '@/hooks/use-toast';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 interface User {
   id: string;

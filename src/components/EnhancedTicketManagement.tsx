@@ -133,7 +133,7 @@ export function EnhancedTicketManagement({ eventId }: TicketManagementProps) {
           status: ticket.status,
           created_at: ticket.created_at,
           owner_name: profile?.display_name || 'Unknown',
-          owner_email: `user${ticket.id.slice(0,8)}@example.com`, // Mock email since not in user_profiles
+          owner_email: ticket.owner_email || 'unknown@example.com',
           qr_code: ticket.qr_code || '',
           is_transferred: ticket.status === 'transferred',
           is_refunded: false, // Would need to check refunds table

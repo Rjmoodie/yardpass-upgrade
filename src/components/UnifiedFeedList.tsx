@@ -22,6 +22,7 @@ import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { EventTicketModal } from '@/components/EventTicketModal';
 import { isVideoUrl } from '@/utils/mux';
+import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 type FeedFilters = {
   dates: string[];

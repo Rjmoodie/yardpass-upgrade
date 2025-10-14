@@ -8,6 +8,7 @@ import { BrandedSpinner } from '../BrandedSpinner';
 import { useWallet } from "@/hooks/useWallet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { YardpassSpinner } from "@/components/LoadingSpinner";
 
 interface BuyCreditsModalProps {
   open: boolean;

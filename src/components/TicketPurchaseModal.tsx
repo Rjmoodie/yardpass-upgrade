@@ -4,11 +4,11 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { Plus, Minus, CreditCard, Key, Check, AlertCircle } from 'lucide-react';
+import { Plus, Minus, CreditCard, Key, Check, AlertCircle, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { toast } from '@/hooks/use-toast';
-import { createHold, createCheckoutSession } from '@/lib/ticketApi';
+import { createHold, createCheckoutSession, createGuestCheckoutSession } from '@/lib/ticketApi';
 const SkeletonList = lazy(() => import('@/components/common/SkeletonList'));
 
 interface TicketTier {
@@ -65,6 +65,9 @@ export function TicketPurchaseModal({
     tier_name?: string;
   } | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestName, setGuestName] = useState('');
+  const [guestEmailError, setGuestEmailError] = useState<string | null>(null);
   
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -218,13 +221,13 @@ export function TicketPurchaseModal({
 
   const handlePurchase = useCallback(async () => {
     console.log('🎫 Purchase button clicked!');
-    
+
     // Double-submit guard
     if (busyRef.current || submitting) {
       console.log('⚠️ Already processing, ignoring duplicate click');
       return;
     }
-    
+
     // Track checkout initiation
     trackEvent('checkout_started', {
       event_id: event.id,
@@ -232,26 +235,14 @@ export function TicketPurchaseModal({
       total_cents: totalAmount,
       total_quantity: totalTickets
     });
-    
+
     console.log('User:', user);
     console.log('Total tickets:', totalTickets);
     console.log('Selections:', selections);
-    
-    if (!user) {
-      console.log('❌ User not authenticated');
-      trackEvent('checkout_auth_required', {
-        event_id: event.id,
-        total_cents: totalAmount
-      });
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to purchase tickets.",
-        variant: "destructive"
-      });
-      return;
-    }
 
-    if (totalTickets === 0) {
+    const selectedEntries = Object.entries(selections).filter(([_, qty]) => (qty ?? 0) > 0);
+
+    if (selectedEntries.length === 0) {
       console.log('❌ No tickets selected');
       trackEvent('checkout_no_tickets_selected', {
         event_id: event.id
@@ -264,14 +255,60 @@ export function TicketPurchaseModal({
       return;
     }
 
+    const items = Object.fromEntries(selectedEntries);
+    const isGuestCheckout = !user;
+
+    if (isGuestCheckout) {
+      const trimmedEmail = guestEmail.trim().toLowerCase();
+      const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+      if (!emailValid) {
+        setGuestEmailError('Enter a valid email to continue.');
+        trackEvent('checkout_guest_email_invalid', {
+          event_id: event.id,
+          total_cents: totalAmount,
+        });
+        toast({
+          title: "Email required",
+          description: "Enter a valid email so we can send your tickets.",
+          variant: "destructive"
+        });
+        return;
+      }
+      setGuestEmailError(null);
+    } else {
+      setGuestEmailError(null);
+    }
+
     busyRef.current = true;
     setSubmitting(true);
     setLoading(true);
-    
+
     try {
-      const items = Object.fromEntries(
-        Object.entries(selections).filter(([_, qty]) => (qty ?? 0) > 0)
-      );
+      if (isGuestCheckout) {
+        trackEvent('checkout_guest_started', {
+          event_id: event.id,
+          total_cents: totalAmount,
+          total_quantity: totalTickets
+        });
+
+        const guestItems = selectedEntries.map(([tierId, quantity]) => ({
+          tier_id: tierId,
+          quantity,
+          unit_price_cents: ticketTiers.find(t => t.id === tierId)?.price_cents || 0
+        }));
+
+        const { url } = await createGuestCheckoutSession({
+          event_id: event.id,
+          items: guestItems,
+          contact_email: guestEmail.trim(),
+          contact_name: guestName.trim() || undefined,
+          guest_code: guestCode || null
+        });
+
+        notifyInfo('Redirecting to secure payment...');
+        window.location.href = url;
+        return;
+      }
 
       console.log('🚀 Creating hold for checkout with:', {
         event_id: event.id,
@@ -279,74 +316,65 @@ export function TicketPurchaseModal({
         guest_code: guestCode || null
       });
 
-      // Use hold-based checkout to prevent overselling
       try {
-        const hold = await createHold({ 
-          event_id: event.id, 
-          items, 
-          guest_code: guestCode || null 
+        const hold = await createHold({
+          event_id: event.id,
+          items,
+          guest_code: guestCode || null
         });
         const { url } = await createCheckoutSession({ hold_id: hold.id });
         window.location.href = url;
       } catch (holdError: any) {
-        // Fallback to legacy checkout if holds not implemented yet
         console.log('⚠️ Hold API not available, using legacy checkout');
-        const ticketSelections = Object.entries(selections)
-          .filter(([_, qty]) => qty > 0)
-          .map(([tierId, quantity]) => ({ 
-            tierId, 
-            quantity,
-            faceValue: ticketTiers.find(t => t.id === tierId)?.price_cents || 0
-          }));
+        const ticketSelections = selectedEntries.map(([tierId, quantity]) => ({
+          tierId,
+          quantity,
+          faceValue: ticketTiers.find(t => t.id === tierId)?.price_cents || 0
+        }));
 
         const { data, error } = await supabase.functions.invoke('create-checkout', {
           body: {
             eventId: event.id,
             ticketSelections
-        }
-      });
-
-      console.log('📡 Edge function response:', { data, error });
-
-      if (error) {
-        console.error('❌ Edge function error:', error);
-        throw error;
-      }
-
-      console.log('✅ Checkout session created, opening in new tab:', data.url);
-      
-      // Show redirect notification
-      notifyInfo("Opening secure payment in new tab...");
-      
-      // Open Stripe checkout in a new tab (recommended approach)
-      const checkoutWindow = window.open(data.url, '_blank');
-      
-      if (!checkoutWindow) {
-        // Fallback for popup blockers
-        console.log('🚨 Popup blocked, showing manual redirect');
-        toast({
-          title: "Popup Blocked",
-          description: "Please allow popups or click here to continue to checkout.",
-          action: (
-            <Button 
-              size="sm" 
-              onClick={() => window.open(data.url, '_blank')}
-            >
-              Go to Checkout
-            </Button>
-          )
-        });
-      } else {
-        // Track when user returns to the original tab
-        const checkInterval = setInterval(() => {
-          if (checkoutWindow.closed) {
-            clearInterval(checkInterval);
-            console.log('🔄 User returned from checkout, calling success callback');
-            onSuccess();
           }
-        }, 1000);
-      }
+        });
 
+        console.log('📡 Edge function response:', { data, error });
+
+        if (error) {
+          console.error('❌ Edge function error:', error);
+          throw error;
+        }
+
+        console.log('✅ Checkout session created, opening in new tab:', data.url);
+
+        notifyInfo("Opening secure payment in new tab...");
+
+        const checkoutWindow = window.open(data.url, '_blank');
+
+        if (!checkoutWindow) {
+          console.log('🚨 Popup blocked, showing manual redirect');
+          toast({
+            title: "Popup Blocked",
+            description: "Please allow popups or click here to continue to checkout.",
+            action: (
+              <Button
+                size="sm"
+                onClick={() => window.open(data.url, '_blank')}
+              >
+                Go to Checkout
+              </Button>
+            )
+          });
+        } else {
+          const checkInterval = setInterval(() => {
+            if (checkoutWindow.closed) {
+              clearInterval(checkInterval);
+              console.log('🔄 User returned from checkout, calling success callback');
+              onSuccess();
+            }
+          }, 1000);
+        }
       }
     } catch (error: any) {
       console.error('❌ Purchase error:', error);
@@ -360,7 +388,7 @@ export function TicketPurchaseModal({
       setSubmitting(false);
       setLoading(false);
     }
-  }, [event.id, selections, submitting, user, totalTickets, totalAmount, trackEvent, guestCode, ticketTiers, onSuccess]);
+  }, [event.id, selections, submitting, user, totalTickets, totalAmount, trackEvent, guestCode, ticketTiers, onSuccess, guestEmail, guestName]);
 
   if (!isOpen) return null;
 
@@ -386,6 +414,41 @@ export function TicketPurchaseModal({
               </div>
             </CardContent>
           </Card>
+
+          {/* Guest contact details for guest checkout */}
+          {!user && (
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  <h3 className="font-semibold">Email for ticket delivery</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  We'll send your receipt and ticket access link to this email. You can verify it later with a one-time code to view your tickets.
+                </p>
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    required
+                    aria-invalid={guestEmailError ? true : false}
+                  />
+                  {guestEmailError && (
+                    <p className="text-sm text-destructive">{guestEmailError}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Name for the order (optional)"
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Guest Code Section */}
           <Card>

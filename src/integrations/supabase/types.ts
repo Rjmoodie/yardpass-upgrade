@@ -2711,6 +2711,9 @@ export type Database = {
       }
       orders: {
         Row: {
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
           checkout_session_id: string | null
           created_at: string | null
           currency: string
@@ -2732,6 +2735,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           checkout_session_id?: string | null
           created_at?: string | null
           currency?: string
@@ -2753,6 +2759,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           checkout_session_id?: string | null
           created_at?: string | null
           currency?: string
@@ -5049,6 +5058,9 @@ export type Database = {
           order_date: string | null
           order_id: string | null
           organizer_name: string | null
+          owner_email: string | null
+          owner_name: string | null
+          owner_phone: string | null
           owner_user_id: string | null
           price: number | null
           qr_code: string | null

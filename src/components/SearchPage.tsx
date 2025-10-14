@@ -520,8 +520,8 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f6f0e8] text-slate-900 pb-safe">
-      <div className="mx-auto flex w-full max-w-5xl flex-col px-4 pb-32">
+    <div className="min-h-dvh bg-[#f6f0e8] text-slate-900" style={{ paddingBottom: 'calc(76px + env(safe-area-inset-bottom, 0px))' }}>
+      <div className="mx-auto flex w-full max-w-5xl flex-col px-4">
         <header className="flex flex-col gap-6 py-8 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
             <Button
