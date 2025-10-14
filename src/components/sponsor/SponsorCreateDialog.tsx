@@ -129,7 +129,6 @@ export function SponsorCreateDialog({ open, onOpenChange, userId, onCreated }: S
                 <YardpassSpinner
                   size="xs"
                   showGlow={false}
-                  showLogo={false}
                   className="mr-2"
                 />
               )}

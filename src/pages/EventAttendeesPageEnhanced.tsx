@@ -271,7 +271,7 @@ export default function EventAttendeesPageEnhanced() {
             <div className="mt-6">
               <Button onClick={loadMore} disabled={loadingMore} className="w-full">
                 {loadingMore && (
-                  <YardpassSpinner size="xs" showGlow={false} showLogo={false} className="mr-2" />
+                <YardpassSpinner size="xs" showGlow={false} className="mr-2" />
                 )}
                 Load more ({totalCount > 0 ? `${totalCount - attendees.length} remaining` : 'more'})
               </Button>

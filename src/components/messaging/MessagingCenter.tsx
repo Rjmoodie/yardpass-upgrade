@@ -812,7 +812,6 @@ export function MessagingCenter() {
                   <YardpassSpinner
                     size="xs"
                     showGlow={false}
-                    showLogo={false}
                   />
                 ) : (
                   <Send className="h-4 w-4" />

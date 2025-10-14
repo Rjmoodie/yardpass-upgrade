@@ -754,7 +754,6 @@ export default function UnifiedFeedList() {
                     size="xs"
                     appearance="inverted"
                     showGlow={false}
-                    showLogo={false}
                     className="h-2.5 w-2.5"
                   />
                   Calibrating
@@ -858,7 +857,6 @@ export default function UnifiedFeedList() {
               size="sm"
               appearance="inverted"
               showGlow={false}
-              showLogo={false}
             />
             Loading more
           </div>

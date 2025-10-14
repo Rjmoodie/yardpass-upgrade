@@ -174,7 +174,6 @@ export default function OrgInvitePage() {
                     <YardpassSpinner
                       size="xs"
                       showGlow={false}
-                      showLogo={false}
                       className="mr-2"
                     />
                     Accepting...

@@ -260,7 +260,7 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
                   />
                   <div className="w-6 h-6 flex items-center justify-center">
                     {checkingHandle ? (
-                      <YardpassSpinner size="sm" showGlow={false} showLogo={false} />
+                      <YardpassSpinner size="sm" showGlow={false} />
                     ) : handleAvailable === true ? (
                       <Check className="w-4 h-4 text-emerald-600" />
                     ) : handleAvailable === false ? (
@@ -446,7 +446,6 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
               <YardpassSpinner
                 size="xs"
                 showGlow={false}
-                showLogo={false}
                 className="mr-2"
               />
               Creating...

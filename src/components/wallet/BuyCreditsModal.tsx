@@ -164,7 +164,6 @@ export const BuyCreditsModal = ({ open, onOpenChange }: BuyCreditsModalProps) =>
                   <YardpassSpinner
                     size="xs"
                     showGlow={false}
-                    showLogo={false}
                     className="mr-2"
                   />
                   Processing…

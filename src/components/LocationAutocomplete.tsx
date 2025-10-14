@@ -119,7 +119,6 @@ export function LocationAutocomplete({ value, onChange, className }: LocationAut
           <YardpassSpinner
             size="xs"
             showGlow={false}
-            showLogo={false}
             className="absolute right-3 top-1/2 -translate-y-1/2"
           />
         )}

@@ -5,15 +5,15 @@ type SpinnerSize = 'xs' | 'sm' | 'md' | 'lg';
 type SpinnerAppearance = 'primary' | 'inverted';
 
 const SIZE_CLASSES: Record<SpinnerSize, string> = {
-  xs: 'h-3 w-3',
-  sm: 'h-[18px] w-[18px]',
+  xs: 'h-6 w-6',
+  sm: 'h-9 w-9',
   md: 'h-12 w-12',
   lg: 'h-16 w-16'
 };
 
 const INNER_SIZE_CLASSES: Record<SpinnerSize, string> = {
-  xs: 'h-1.5 w-1.5',
-  sm: 'h-[12px] w-[12px]',
+  xs: 'h-4 w-4',
+  sm: 'h-6 w-6',
   md: 'h-9 w-9',
   lg: 'h-12 w-12'
 };
@@ -29,7 +29,6 @@ interface YardpassSpinnerProps extends Omit<HTMLAttributes<HTMLSpanElement>, 'cl
   size?: SpinnerSize;
   appearance?: SpinnerAppearance;
   showGlow?: boolean;
-  showLogo?: boolean;
   className?: string;
 }
 
@@ -37,7 +36,6 @@ export function YardpassSpinner({
   size = 'md',
   appearance = 'primary',
   showGlow = true,
-  showLogo = true,
   className,
   ...spanProps
 }: YardpassSpinnerProps) {
@@ -80,15 +78,11 @@ export function YardpassSpinner({
           innerBackground
         )}
       >
-        {showLogo && size !== 'xs' ? (
-          <img
-            src="/yardpass-logo.png"
-            alt="YardPass"
-            className={cn('h-full w-full object-contain', imageFilter)}
-          />
-        ) : (
-          <span className="h-2 w-2 rounded-full bg-gradient-to-br from-primary via-primary/80 to-secondary" />
-        )}
+        <img
+          src="/yardpass-logo.png"
+          alt="YardPass"
+          className={cn('h-full w-full object-contain drop-shadow-sm', imageFilter)}
+        />
       </span>
     </span>
   );
@@ -105,8 +99,8 @@ export function LoadingSpinner({
   helperText,
   appearance,
   showGlow,
-  showLogo,
-  className
+  className,
+  ...rest
 }: LoadingSpinnerProps) {
   return (
     <div className={cn('flex flex-col items-center justify-center gap-3 text-center', className)}>
@@ -114,7 +108,7 @@ export function LoadingSpinner({
         size={size}
         appearance={appearance}
         showGlow={showGlow}
-        showLogo={showLogo}
+        {...rest}
       />
       {label && <p className="text-sm font-medium text-muted-foreground">{label}</p>}
       {helperText && (

@@ -186,7 +186,6 @@ export const OrgBuyCreditsModal = ({
                   <YardpassSpinner
                     size="xs"
                     showGlow={false}
-                    showLogo={false}
                     className="mr-2"
                   />
                   Processing…

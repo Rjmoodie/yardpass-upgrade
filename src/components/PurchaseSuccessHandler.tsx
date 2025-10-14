@@ -202,7 +202,6 @@ export function PurchaseSuccessHandler() {
                   <YardpassSpinner
                     size="xs"
                     showGlow={false}
-                    showLogo={false}
                   />
                   <span className="font-medium">Redirecting...</span>
                   <div className="flex space-x-1">

@@ -399,7 +399,7 @@ export function RecordingModal({ isOpen, onClose, onRecordingComplete }: Recordi
 
             {isRecording && permission !== 'granted' && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <YardpassSpinner size="xs" showGlow={false} showLogo={false} /> Waiting for permission…
+                <YardpassSpinner size="xs" showGlow={false} /> Waiting for permission…
               </div>
             )}
           </div>
