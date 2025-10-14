@@ -3,6 +3,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Critical: Full height and no margins for flush navigation */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-x: hidden !important;
+}
+
+
 /* iOS-Native Design System Tokens */
 :root {
   /* Core Colors - Vibrant Orange/Amber palette */
@@ -273,114 +287,36 @@ p {
   }
 }
 
-/* Navigation flush to bottom - iOS safe area handling */
-.nav-flush-bottom {
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-  position: fixed !important;
-  z-index: 50 !important;
-  transform: translateY(0) !important;
-  border: none !important;
-  outline: none !important;
+/* Navigation flush to bottom - Battle-tested fix */
+/* The navigation now uses proper fixed positioning with safe area handling */
+/* No additional CSS needed - the component handles positioning correctly */
+
+/* Utility class for main content to prevent overlap with navigation */
+.main-content-with-nav {
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
 }
 
-.nav-flush-bottom > div {
-  margin: 0 !important;
-  padding: 0 !important;
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-  width: 100% !important;
-  position: relative !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* Target the specific navigation container */
-.nav-flush-bottom .w-full {
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* iOS safe area handling */
-@supports (padding: max(0px)) {
-  .nav-flush-bottom {
-    padding-bottom: max(0px, env(safe-area-inset-bottom)) !important;
+@media (max-width: 640px) {
+  .main-content-with-nav {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
 }
 
-/* Ensure no gaps at bottom */
-body {
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow-x: hidden !important;
+/* Utility class for content positioned directly on navigation bar */
+.content-on-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-html {
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow-x: hidden !important;
-}
-
-/* Remove any potential gaps at bottom of screen */
-#root {
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow-x: hidden !important;
-}
-
-/* Ensure navigation is truly flush */
-.fixed.inset-x-0.bottom-0 {
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  position: fixed !important;
-}
-
-/* iOS specific fixes */
-@supports (-webkit-touch-callout: none) {
-  .nav-flush-bottom {
-    bottom: 0 !important;
-    margin-bottom: 0 !important;
-    padding-bottom: max(0px, env(safe-area-inset-bottom)) !important;
+@media (max-width: 640px) {
+  .content-on-nav {
+    bottom: calc(76px + env(safe-area-inset-bottom));
   }
-}
-
-/* Ultra-aggressive flush positioning */
-.nav-flush-bottom,
-.nav-flush-bottom *,
-.nav-flush-bottom > div,
-.nav-flush-bottom .w-full {
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-  border-bottom: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-}
-
-/* Ensure no gap at viewport bottom */
-html, body, #root {
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow-x: hidden !important;
-}
-
-/* Force navigation to absolute bottom */
-.nav-flush-bottom {
-  bottom: 0 !important;
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-  transform: translateY(0) !important;
 }
 
 /* Mobile-first responsive design for Network and Messaging */

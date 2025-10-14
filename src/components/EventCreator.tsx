@@ -49,7 +49,7 @@ interface TicketTier {
 
 const categories = [
   'Music', 'Food & Drink', 'Art & Culture', 'Sports & Fitness',
-  'Business & Professional', 'Community', 'Technology', 'Other'
+  'Business & Professional', 'Network', 'Technology', 'Other'
 ];
 
 // === Small utils ===
@@ -142,7 +142,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     culturalGuide: {
       history: '',
       themes: [] as string[],
-      community: [] as string[],
+      network: [] as string[],
     },
   });
 
@@ -481,13 +481,13 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       if (
         formData.culturalGuide.history ||
         formData.culturalGuide.themes.length ||
-        formData.culturalGuide.community.length
+        formData.culturalGuide.network.length
       ) {
         const { error: cgErr } = await supabase.from('cultural_guides').insert({
           event_id: event.id,
           history_long: formData.culturalGuide.history,
           themes: formData.culturalGuide.themes,
-          community: formData.culturalGuide.community,
+          community: formData.culturalGuide.network,
         });
         if (cgErr) throw cgErr;
       }

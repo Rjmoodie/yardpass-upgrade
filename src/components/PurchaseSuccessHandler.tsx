@@ -5,7 +5,8 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import { CheckCircle, Ticket, Loader2 } from 'lucide-react';
+import { CheckCircle, Ticket } from 'lucide-react';
+import { BrandedSpinner } from './BrandedSpinner';
 
 export function PurchaseSuccessHandler() {
   const navigate = useNavigate();
@@ -198,7 +199,7 @@ export function PurchaseSuccessHandler() {
                 
                 {/* Animated redirect indicator */}
                 <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <BrandedSpinner size="sm" />
                   <span className="font-medium">Redirecting...</span>
                   <div className="flex space-x-1">
                     <div className="w-1 h-1 bg-primary rounded-full animate-bounce"></div>
@@ -220,7 +221,7 @@ export function PurchaseSuccessHandler() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardContent className="p-8 text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+          <BrandedSpinner size="xl" className="mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">Processing Payment</h2>
           <p className="text-muted-foreground mb-4">
             Please wait while we confirm your payment...

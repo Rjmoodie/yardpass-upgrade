@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2 } from "lucide-react";
+import { BrandedSpinner } from '../BrandedSpinner';
 import { useWallet } from "@/hooks/useWallet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -161,7 +161,7 @@ export const BuyCreditsModal = ({ open, onOpenChange }: BuyCreditsModalProps) =>
             >
               {isPurchasing ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <BrandedSpinner size="sm" />
                   Processing…
                 </>
               ) : (

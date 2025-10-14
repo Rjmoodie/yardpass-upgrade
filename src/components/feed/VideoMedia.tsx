@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MuxPlayer from "@mux/mux-player-react";
 import { Button } from "@/components/ui/button";
-import { Bookmark, Loader2, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { Bookmark, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { BrandedSpinner } from '../BrandedSpinner';
 import { extractMuxPlaybackId, posterUrl } from "@/lib/video/muxClient";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -251,7 +252,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress }: VideoMedi
 
       {isBuffering && (
         <div className="absolute inset-0 z-30 flex items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin text-white" />
+          <BrandedSpinner size="lg" className="text-white" />
         </div>
       )}
 

@@ -7,7 +7,8 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { ArrowLeft, Upload, Users, Building2, Shield, Check, X, Loader2, CreditCard } from 'lucide-react';
+import { ArrowLeft, Upload, Users, Building2, Shield, Check, X, CreditCard } from 'lucide-react';
+import { BrandedSpinner } from './BrandedSpinner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -259,7 +260,7 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
                   />
                   <div className="w-6 h-6 flex items-center justify-center">
                     {checkingHandle ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      <BrandedSpinner size="sm" />
                     ) : handleAvailable === true ? (
                       <Check className="w-4 h-4 text-emerald-600" />
                     ) : handleAvailable === false ? (
@@ -442,7 +443,7 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
         <Button onClick={handleSubmit} disabled={!canSubmit} className="px-8">
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...
+              <BrandedSpinner size="sm" text="Creating..." />
             </>
           ) : (
             'Create Organization'

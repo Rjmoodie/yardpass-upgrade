@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, Copy, Share, Loader2, Download, Palette, Check } from 'lucide-react';
+import { X, Copy, Share, Download, Palette, Check } from 'lucide-react';
+import { BrandedSpinner } from './BrandedSpinner';
 import { generateQRData } from '@/lib/qrCode';
 import { generateStyledQRDataURL } from '@/lib/styledQr';
 import { getQrTheme, getAllThemes, type QrThemeName } from '@/lib/qrTheme';
@@ -305,7 +306,7 @@ export function QRCodeModal({
             <div className="qr-grid">
               {loading && (
                 <div className="qr-box">
-                  <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
+                  <BrandedSpinner size="lg" className="text-primary mx-auto" />
                   <p className="text-sm text-accent-muted mt-3">
                     Generating premium QR code…
                   </p>

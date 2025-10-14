@@ -9,12 +9,12 @@ import {
   Camera,
   CheckCircle,
   Flashlight,
-  Loader2,
   QrCode,
   RefreshCw,
   ShieldAlert,
   X,
 } from 'lucide-react';
+import { BrandedSpinner } from '../BrandedSpinner';
 import { validateTicket } from '@/lib/ticketApi';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
@@ -280,7 +280,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
             <CardContent className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-black">
               {initializing && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
-                  <Loader2 className="h-10 w-10 animate-spin text-white" aria-hidden />
+                  <BrandedSpinner size="lg" className="text-white" />
                 </div>
               )}
               {cameraError && (

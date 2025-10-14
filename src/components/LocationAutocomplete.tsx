@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Input } from './ui/input';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin } from 'lucide-react';
+import { BrandedSpinner } from './BrandedSpinner';
 import { supabase } from '@/integrations/supabase/client';
 
 interface LocationAutocompleteProps {
@@ -115,7 +116,7 @@ export function LocationAutocomplete({ value, onChange, className }: LocationAut
           className="pl-9 pr-9"
         />
         {loading && (
-          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+          <BrandedSpinner size="sm" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         )}
       </div>
 

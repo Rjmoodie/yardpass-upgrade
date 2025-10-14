@@ -1546,7 +1546,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                     <SelectItem value="Art & Culture">Art & Culture</SelectItem>
                     <SelectItem value="Sports & Fitness">Sports & Fitness</SelectItem>
                     <SelectItem value="Business & Professional">Business & Professional</SelectItem>
-                    <SelectItem value="Community">Community</SelectItem>
+                    <SelectItem value="Network">Network</SelectItem>
                     <SelectItem value="Technology">Technology</SelectItem>
                     <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>

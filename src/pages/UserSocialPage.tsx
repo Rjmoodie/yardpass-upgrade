@@ -65,7 +65,7 @@ export function UserSocialPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Connections you follow</p>
-                <p className="text-lg font-semibold text-foreground">Stay updated with your community</p>
+                <p className="text-lg font-semibold text-foreground">Stay updated with your network</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">

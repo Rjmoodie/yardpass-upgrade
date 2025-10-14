@@ -167,40 +167,24 @@ export default function Navigation({ userRole }: NavigationProps) {
   );
 
   return (
-    <div 
-      className="fixed inset-x-0 z-50 nav-flush-bottom" 
+    <div
+      className="fixed inset-x-0 bottom-0 z-50"
       style={{ 
-        bottom: 0,
-        left: 0,
-        right: 0,
-        position: 'fixed',
-        margin: 0,
+        margin: 0, 
         padding: 0,
-        zIndex: 50
+        WebkitTransform: 'translateZ(0)',
+        transform: 'translateZ(0)'
       }}
     >
-      <div 
+      <div
         className="w-full bg-black/95 backdrop-blur-xl"
-        style={{
-          margin: 0,
-          padding: 0,
-          bottom: 0,
-          position: 'relative',
-          width: '100%',
-          border: 'none',
-          outline: 'none',
-          boxShadow: 'none'
-        }}
       >
         <div
           role="tablist"
           aria-label="Primary navigation"
           className="relative flex items-center justify-evenly px-0 py-2.5 sm:py-3"
           style={{ 
-            paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))',
-            margin: 0,
-            position: 'relative',
-            bottom: 0
+            paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))'
           }}
         >
           {navItems.map((item) => {
