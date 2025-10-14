@@ -59,6 +59,14 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    const normalizedEmail = user.email?.trim().toLowerCase() ?? null;
+
+    const { data: profile } = await supabaseService
+      .from("user_profiles")
+      .select("display_name, phone")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
     // Service-role client for DB reads/writes (bypass RLS for edge function operations)
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!serviceRoleKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
@@ -255,6 +263,9 @@ serve(async (req) => {
     logStep("Tickets already reserved via atomic system");
 
     // Create pending order
+    const contactName = profile?.display_name ?? (normalizedEmail ? normalizedEmail.split('@')[0] : null);
+    const contactPhone = profile?.phone ?? null;
+
     const { data: order, error: orderError } = await supabaseService
       .from("orders")
       .insert({
@@ -266,6 +277,9 @@ serve(async (req) => {
         total_cents: totalAmount,
         currency: "USD",
         hold_ids: reservationResult.hold_ids || [],
+        contact_email: normalizedEmail,
+        contact_name: contactName,
+        contact_phone: contactPhone,
       })
       .select()
       .single();

@@ -19,6 +19,8 @@ serve(async (req) => {
     // Handle both old format (from TicketPurchaseModal) and new format
     let order_data: any, payout_destination: any;
     let supabaseService: any;
+    let profileRecord: any = null;
+    let normalizedEmailFromAuth: string | null = null;
     
     console.log('🔍 Checking request format...');
     if (requestBody.eventId && requestBody.ticketSelections) {
@@ -38,7 +40,11 @@ serve(async (req) => {
       const token = authHeader.replace("Bearer ", "").trim();
       const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
       if (userError || !userData.user) throw new Error("User not authenticated");
-      
+
+      const normalizedEmail = userData.user.email?.trim().toLowerCase() ?? null;
+      normalizedEmailFromAuth = normalizedEmail;
+      const fallbackName = normalizedEmail ? normalizedEmail.split('@')[0] : null;
+
       // Convert to enhanced-checkout format
       order_data = {
         event_id: eventId,
@@ -49,9 +55,11 @@ serve(async (req) => {
           unit_price_cents: sel.faceValue,
           name: `Ticket - ${sel.tierId.substring(0, 8)}`,
           description: `Event ticket`
-        }))
+        })),
+        contact_email: normalizedEmail,
+        contact_name: fallbackName,
       };
-      
+
       // Get payout destination for the event
       supabaseService = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
@@ -64,7 +72,7 @@ serve(async (req) => {
         .select("owner_context_type, owner_context_id")
         .eq("id", eventId)
         .single();
-        
+
       if (event) {
         const { data: payoutAccount } = await supabaseService
           .from("payout_accounts")
@@ -72,8 +80,26 @@ serve(async (req) => {
           .eq("context_type", event.owner_context_type)
           .eq("context_id", event.owner_context_id)
           .single();
-        
+
         payout_destination = payoutAccount;
+      }
+
+      const { data: profile } = await supabaseService
+        .from('user_profiles')
+        .select('display_name, phone')
+        .eq('user_id', userData.user.id)
+        .maybeSingle();
+
+      profileRecord = profile;
+
+      if (profile?.display_name) {
+        order_data.contact_name = profile.display_name;
+      }
+      if (profile?.phone) {
+        order_data.contact_phone = profile.phone;
+      }
+      if (!order_data.contact_email && normalizedEmail) {
+        order_data.contact_email = normalizedEmail;
       }
     } else {
       console.log('🔄 New format detected');
@@ -99,6 +125,41 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
+
+    if (
+      order_data?.user_id &&
+      (!order_data.contact_email || !order_data.contact_name || !order_data.contact_phone)
+    ) {
+      if (!profileRecord) {
+        const { data: fallbackProfile } = await supabaseService
+          .from('user_profiles')
+          .select('display_name, phone')
+          .eq('user_id', order_data.user_id)
+          .maybeSingle();
+        profileRecord = fallbackProfile;
+      }
+
+      if (!order_data.contact_email) {
+        const { data: userLookup } = await supabaseService.auth.admin.getUserById(order_data.user_id);
+        const email = userLookup?.user?.email?.trim().toLowerCase();
+        if (email) {
+          normalizedEmailFromAuth = email;
+          order_data.contact_email = email;
+        }
+      }
+
+      if (!order_data.contact_name) {
+        if (profileRecord?.display_name) {
+          order_data.contact_name = profileRecord.display_name;
+        } else if (order_data.contact_email) {
+          order_data.contact_name = order_data.contact_email.split('@')[0];
+        }
+      }
+
+      if (!order_data.contact_phone && profileRecord?.phone) {
+        order_data.contact_phone = profileRecord.phone;
+      }
+    }
 
     // Reserve tickets atomically using the new system
     console.log('🔒 Attempting atomic ticket reservation...');
@@ -175,6 +236,10 @@ serve(async (req) => {
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
 
+    const contactEmail = order_data.contact_email?.trim?.().toLowerCase?.() ?? normalizedEmailFromAuth;
+    const contactName = order_data.contact_name ?? (contactEmail ? contactEmail.split('@')[0] : null);
+    const contactPhone = order_data.contact_phone ?? null;
+
     // Store order in database
     const { data: order, error: orderError } = await supabaseService
       .from('orders')
@@ -190,6 +255,9 @@ serve(async (req) => {
         payout_destination_owner: payout_destination?.context_type,
         payout_destination_id: payout_destination?.context_id,
         hold_ids: reservationResult.hold_ids || [],
+        contact_email: contactEmail,
+        contact_name: contactName,
+        contact_phone: contactPhone,
       })
       .select()
       .single();

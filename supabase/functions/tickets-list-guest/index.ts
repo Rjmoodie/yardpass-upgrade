@@ -70,6 +70,9 @@ serve(async (req) => {
       wallet_pass_url: ticket.wallet_pass_url,
       created_at: ticket.created_at,
       redeemed_at: ticket.redeemed_at,
+      owner_email: ticket.owner_email,
+      owner_name: ticket.owner_name,
+      owner_phone: ticket.owner_phone,
       event: {
         id: ticket.event_id,
         title: ticket.event_title,

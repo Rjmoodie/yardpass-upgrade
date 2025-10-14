@@ -13,6 +13,19 @@ export async function createCheckoutSession(params: { hold_id: string }) {
   return data as { url: string };
 }
 
+export async function createGuestCheckoutSession(params: {
+  event_id: string;
+  items: { tier_id: string; quantity: number; unit_price_cents?: number }[];
+  contact_email: string;
+  contact_name?: string;
+  contact_phone?: string;
+  guest_code?: string | null;
+}) {
+  const { data, error } = await supabase.functions.invoke('guest-checkout', { body: params });
+  if (error) throw new Error(error.message ?? 'Failed to create guest checkout session');
+  return data as { url: string };
+}
+
 export async function fetchTicketTiers(eventId: string) {
   const { data, error } = await supabase
     .from('ticket_tiers')
