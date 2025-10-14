@@ -11,6 +11,7 @@ import { ROLES, ROLE_MATRIX, RoleType, RoleInvite, EventRole } from '@/types/rol
 import { Badge } from '@/components/ui/badge';
 import { Copy, Trash2, Users, UserPlus, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface OrganizerRolesPanelProps {
   eventId: string;
@@ -227,7 +228,12 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
         </CardHeader>
         <CardContent>
           {refreshing ? (
-            <div className="text-center py-4 text-muted-foreground">Loading...</div>
+            <LoadingSpinner
+              size="sm"
+              label="Refreshing team roster…"
+              helperText="Pulling the latest invites and active members"
+              className="py-8"
+            />
           ) : members.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />

@@ -7,6 +7,7 @@ import { Ticket, X, CreditCard, AlertCircle } from 'lucide-react';
 import { TicketPurchaseModal } from './TicketPurchaseModal';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface Event {
   id: string;
@@ -134,8 +135,12 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
             <div className="space-y-4">
               <h3 className="font-semibold">Available Tickets</h3>
               {loading ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Loading tickets...</p>
+                <div className="py-8">
+                  <LoadingSpinner
+                    size="sm"
+                    label="Loading tickets…"
+                    helperText="Checking live availability"
+                  />
                 </div>
               ) : ticketTiers.length === 0 ? (
                 <div className="text-center py-8">

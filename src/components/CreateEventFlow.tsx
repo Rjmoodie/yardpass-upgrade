@@ -10,6 +10,7 @@ import { Input } from './ui/input';
 import { Building2, Plus, Users, RefreshCw, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface Organization {
   id: string;
@@ -180,6 +181,12 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
         </header>
 
         <div className="max-w-md mx-auto space-y-4">
+          <LoadingSpinner
+            size="md"
+            label="Loading your organizations…"
+            helperText="Syncing hosts so you can schedule your event"
+            className="py-6"
+          />
           <Card className="enhanced-card">
             <CardHeader>
               <div className="h-5 w-40 rounded-md bg-muted animate-pulse" />

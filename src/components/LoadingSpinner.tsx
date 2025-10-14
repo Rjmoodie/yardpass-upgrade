@@ -102,6 +102,16 @@ export function LoadingSpinner({
   className,
   ...rest
 }: LoadingSpinnerProps) {
+  const tone = appearance === 'inverted' ? 'inverted' : 'primary';
+  const labelClasses =
+    tone === 'inverted'
+      ? 'text-sm font-medium text-white/90'
+      : 'text-sm font-medium text-muted-foreground';
+  const helperClasses =
+    tone === 'inverted'
+      ? 'text-xs text-white/70 max-w-[16rem]'
+      : 'text-xs text-muted-foreground/80 max-w-[16rem]';
+
   return (
     <div className={cn('flex flex-col items-center justify-center gap-3 text-center', className)}>
       <YardpassSpinner
@@ -110,10 +120,8 @@ export function LoadingSpinner({
         showGlow={showGlow}
         {...rest}
       />
-      {label && <p className="text-sm font-medium text-muted-foreground">{label}</p>}
-      {helperText && (
-        <p className="text-xs text-muted-foreground/80 max-w-[16rem]">{helperText}</p>
-      )}
+      {label && <p className={labelClasses}>{label}</p>}
+      {helperText && <p className={helperClasses}>{helperText}</p>}
     </div>
   );
 }

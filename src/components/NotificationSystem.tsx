@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface Notification {
   id: string;
@@ -521,8 +522,13 @@ export function NotificationSystem() {
 
             <div className="max-h-80 overflow-y-auto">
               {isLoading ? (
-                <div className="p-4 text-center text-muted-foreground text-sm">
-                  Loading notifications...
+                <div className="p-4">
+                  <LoadingSpinner
+                    size="xs"
+                    label="Loading notifications…"
+                    helperText="Fetching your latest alerts"
+                    className="py-2"
+                  />
                 </div>
               ) : notifications.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">

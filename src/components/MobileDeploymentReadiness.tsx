@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, AlertCircle, XCircle, Smartphone, Globe, Settings } from 'lucide-react';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { getDeviceInfo, type DeviceInfo } from '@/utils/deviceInfo';
 import { checkAppCapabilities, deploymentChecklist, type AppCapabilities } from '@/utils/appPermissions';
 
@@ -40,7 +41,12 @@ export function MobileDeploymentReadiness() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8">Loading deployment status...</div>
+          <LoadingSpinner
+            size="sm"
+            label="Checking mobile readiness…"
+            helperText="Gathering device info and required permissions"
+            className="py-8"
+          />
         </CardContent>
       </Card>
     );

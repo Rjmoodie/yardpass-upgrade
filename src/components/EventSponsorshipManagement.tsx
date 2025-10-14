@@ -12,6 +12,7 @@ import { Plus, DollarSign, Package, Handshake, TrendingUp, Eye, CheckCircle, X, 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useEventSponsorships } from '@/hooks/useEventSponsorships';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface EventSponsorshipManagementProps {
   eventId: string;
@@ -367,7 +368,12 @@ export function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme
             </CardHeader>
             <CardContent>
               {packageLoading ? (
-                <div className="text-center py-8">Loading packages...</div>
+                <LoadingSpinner
+                  size="sm"
+                  label="Loading sponsorship packages…"
+                  helperText="Gathering your tiers and pricing"
+                  className="py-8"
+                />
               ) : packages.length === 0 ? (
                 <div className="text-center py-8">
                   <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -430,7 +436,12 @@ export function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme
             </CardHeader>
             <CardContent>
               {ordersLoading ? (
-                <div className="text-center py-8">Loading requests...</div>
+                <LoadingSpinner
+                  size="sm"
+                  label="Loading sponsor requests…"
+                  helperText="Reviewing pending partnerships"
+                  className="py-8"
+                />
               ) : orders.length === 0 ? (
                 <div className="text-center py-8">
                   <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -506,7 +517,12 @@ export function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme
             </CardHeader>
             <CardContent>
               {sponsorshipsLoading ? (
-                <div className="text-center py-8">Loading sponsors...</div>
+                <LoadingSpinner
+                  size="sm"
+                  label="Loading sponsors…"
+                  helperText="Syncing your active brand partners"
+                  className="py-8"
+                />
               ) : sponsorships.length === 0 ? (
                 <div className="text-center py-8">
                   <Handshake className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

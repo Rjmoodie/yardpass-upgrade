@@ -3,6 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Navigation } from 'lucide-react';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface MapboxEventMapProps {
   lat: number;
@@ -194,8 +195,16 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
 
   if (!mapboxToken) {
     return (
-      <div className={`${className} bg-gradient-to-br from-muted via-muted to-muted/50 animate-pulse flex items-center justify-center`}>
-        <div className="text-sm text-muted-foreground">Loading map...</div>
+      <div
+        className={`${className} relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-muted via-muted to-muted/60`}
+      >
+        <LoadingSpinner
+          size="sm"
+          appearance="inverted"
+          label="Loading map…"
+          helperText="Connecting to Mapbox"
+          className="py-6"
+        />
       </div>
     );
   }
@@ -207,8 +216,14 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
         className={`${className} ${mapLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
       />
       {!mapLoaded && (
-        <div className={`absolute inset-0 ${className} bg-gradient-to-br from-muted via-muted to-muted/50 animate-pulse flex items-center justify-center`}>
-          <div className="text-sm text-muted-foreground">Loading map...</div>
+        <div className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-gradient-to-br from-muted via-muted to-muted/60 backdrop-blur-sm">
+          <LoadingSpinner
+            size="sm"
+            appearance="inverted"
+            label="Rendering map…"
+            helperText="Plotting your event location"
+            className="py-4"
+          />
         </div>
       )}
       

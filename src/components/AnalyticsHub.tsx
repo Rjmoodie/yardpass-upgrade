@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 // Icons
 import {
@@ -323,7 +324,16 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
     downloadFile(`videos_${new Date().toISOString()}.csv`, toCSV(rows), 'text/csv');
   };
 
-  if (loading) return <div className="text-center py-8">Loading video analytics...</div>;
+  if (loading) {
+    return (
+      <LoadingSpinner
+        size="sm"
+        label="Loading video analytics…"
+        helperText="Syncing viewer engagement from Mux"
+        className="py-10"
+      />
+    );
+  }
 
   return (
     <>
@@ -509,7 +519,16 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
     downloadFile(`audience_${new Date().toISOString()}.csv`, toCSV(rows as any), 'text/csv');
   };
 
-  if (loading) return <div className="text-center py-8">Loading audience analytics...</div>;
+  if (loading) {
+    return (
+      <LoadingSpinner
+        size="sm"
+        label="Loading audience analytics…"
+        helperText="Aggregating attendee engagement signals"
+        className="py-10"
+      />
+    );
+  }
 
   return (
     <>
@@ -774,7 +793,16 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
       'text/csv'
     );
 
-  if (loading) return <div className="text-center py-8">Loading event analytics...</div>;
+  if (loading) {
+    return (
+      <LoadingSpinner
+        size="sm"
+        label="Loading event analytics…"
+        helperText="Charting revenue and attendance trends"
+        className="py-10"
+      />
+    );
+  }
 
   if (!eventData || eventData.length === 0) {
     return (
