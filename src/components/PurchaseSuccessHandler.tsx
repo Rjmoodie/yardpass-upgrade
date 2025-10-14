@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { CheckCircle, Ticket } from 'lucide-react';
-import { YardpassSpinner } from '@/components/LoadingSpinner';
+import { BrandedSpinner } from './BrandedSpinner';
 
 export function PurchaseSuccessHandler() {
   const navigate = useNavigate();
@@ -199,11 +199,7 @@ export function PurchaseSuccessHandler() {
                 
                 {/* Animated redirect indicator */}
                 <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
-                  <YardpassSpinner
-                    size="xs"
-                    showGlow={false}
-                    showLogo={false}
-                  />
+                  <BrandedSpinner size="sm" />
                   <span className="font-medium">Redirecting...</span>
                   <div className="flex space-x-1">
                     <div className="w-1 h-1 bg-primary rounded-full animate-bounce"></div>
@@ -225,7 +221,7 @@ export function PurchaseSuccessHandler() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardContent className="p-8 text-center">
-          <YardpassSpinner size="lg" className="mx-auto mb-4" />
+          <BrandedSpinner size="xl" className="mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">Processing Payment</h2>
           <p className="text-muted-foreground mb-4">
             Please wait while we confirm your payment...

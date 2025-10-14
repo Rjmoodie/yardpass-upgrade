@@ -46,7 +46,7 @@ interface SearchPageProps {
 
 const categories = [
   'All', 'Music', 'Food & Drink', 'Art & Culture', 'Sports & Fitness', 
-  'Business & Professional', 'Community', 'Technology', 'Other'
+  'Business & Professional', 'Network', 'Technology', 'Other'
 ];
 
 // ————————————————————————————————————————

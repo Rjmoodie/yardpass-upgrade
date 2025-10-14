@@ -9,6 +9,7 @@ import { toast } from '@/hooks/use-toast';
 import { initIOSCapacitor, setupKeyboardListeners } from '@/lib/ios-capacitor';
 import Index from '@/pages/Index';
 import Navigation from '@/components/Navigation';
+import { GlobalErrorHandler } from '@/components/GlobalErrorHandler';
 import { ShareModal } from '@/components/ShareModal';
 import { SharePayload } from '@/lib/share';
 import { getEventRoute } from '@/lib/eventRouting';
@@ -257,6 +258,7 @@ function AppContent() {
 
   return (
     <>
+      <GlobalErrorHandler />
       <PerfPreconnect />
       <WarmHlsOnIdle />
       <DeferredImports />
@@ -270,7 +272,7 @@ function AppContent() {
           </div>
 
           {/* Main Content Area */}
-          <main className="flex-1 overflow-y-auto w-full scroll-area">
+          <main className="content-on-nav">
           <Suspense fallback={<PageLoadingSpinner />}>
             <Routes>
               {/* Public Routes */}

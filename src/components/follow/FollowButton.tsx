@@ -2,6 +2,8 @@ import { Button } from '@/components/ui/button';
 import { useFollow, type FollowTargetType } from '@/hooks/useFollow';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useRealtimeFollow } from '@/hooks/useRealtimeFollow';
+import { handleUserFriendlyError } from '@/utils/errorMessages';
+import { useToast } from '@/hooks/use-toast';
 
 export function FollowButton({
   targetType,
@@ -16,6 +18,7 @@ export function FollowButton({
 }) {
   const { state, toggle, loading } = useFollow({ type: targetType, id: targetId });
   const { requireAuth } = useAuthGuard();
+  const { toast } = useToast();
 
   // Real-time follow updates
   const { getFollowState } = useRealtimeFollow();
@@ -34,6 +37,17 @@ export function FollowButton({
       }
     } catch (error) {
       console.error('Follow toggle error:', error);
+      
+      const { message } = handleUserFriendlyError(error, { 
+        feature: 'follow', 
+        action: 'follow' 
+      });
+      
+      toast({ 
+        title: 'Unable to follow', 
+        description: message, 
+        variant: 'destructive' 
+      });
     }
   };
 

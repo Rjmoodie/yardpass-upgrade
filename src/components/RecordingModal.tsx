@@ -167,7 +167,7 @@ export function RecordingModal({ isOpen, onClose, onRecordingComplete }: Recordi
                 {isSupported ? `Create a ${recordingType === 'video' ? 'Video' : 'Audio'} Moment` : 'Recording not supported'}
               </DialogTitle>
               <p className="text-sm text-muted-foreground">
-                Capture a quick update to share with your community.
+                Capture a quick update to share with your network.
               </p>
             </DialogHeader>
           </div>

@@ -11,6 +11,7 @@ import {
   Sparkles,
   Image,
   Play,
+  LogOut,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -611,10 +612,32 @@ export default function UserProfilePage() {
             </div>
 
             {isViewingOwnProfile ? (
-              <Button onClick={() => navigate('/edit-profile')} variant="outline" size="sm" className="flex items-center gap-2">
-                <Settings className="h-4 w-4" />
-                Edit profile
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => navigate('/edit-profile')} variant="outline" size="sm" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Edit profile
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    try {
+                      await supabase.auth.signOut();
+                      toast({ title: 'Signed out', description: 'You have been signed out.' });
+                    } catch {
+                      toast({
+                        title: 'Error',
+                        description: 'Failed to sign out. Please try again.',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-2 hover:bg-red-50 hover:border-red-200 hover:text-red-700"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </Button>
+              </div>
             ) : (
               <div className="flex items-center gap-2">
                 <FollowButton targetType="user" targetId={profile.user_id} size="default" />
@@ -710,7 +733,7 @@ export default function UserProfilePage() {
                     {feedItems.length > 0
                       ? `Experience ${profile.display_name}'s favorite highlights from events and gatherings.`
                       : isViewingOwnProfile
-                        ? 'Capture and share a moment to start building your story with the Yardpass community.'
+                        ? 'Capture and share a moment to start building your story with the Yardpass network.'
                         : `${profile.display_name} hasn't shared any highlights yet, but check back soon!`}
                   </CardDescription>
                 </div>
@@ -885,16 +908,6 @@ export default function UserProfilePage() {
                 <p className="font-medium capitalize">{profile.role ?? 'attendee'}</p>
               </div>
 
-              <div>
-                <p className="text-muted-foreground">Phone</p>
-                {profile.phone ? (
-                  <a className="font-medium text-primary hover:underline" href={`tel:${profile.phone}`}>
-                    {profile.phone}
-                  </a>
-                ) : (
-                  <p className="font-medium">Not provided</p>
-                )}
-              </div>
 
               <div>
                 <p className="text-muted-foreground">Social links</p>

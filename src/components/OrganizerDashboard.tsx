@@ -84,9 +84,9 @@ interface EnhancedEvent extends Event {
 }
 
 // ─────────────────────────────────────────
-const TAB_KEYS = ['dashboard', 'events', 'analytics', 'campaigns', 'messaging', 'teams', 'payouts'] as const;
+const TAB_KEYS = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'payouts'] as const;
 type TabKey = typeof TAB_KEYS[number];
-const DEFAULT_TAB: TabKey = 'dashboard';
+const DEFAULT_TAB: TabKey = 'events';
 const lastTabKeyFor = (orgId: string) => `organizer.lastTab.${orgId}`;
 const LAST_ORG_KEY = 'organizer.lastOrgId';
 // ─────────────────────────────────────────

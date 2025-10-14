@@ -1,9 +1,5 @@
-import { YardpassSpinner } from '@/components/LoadingSpinner';
+import { BrandedSpinner } from '../BrandedSpinner';
 
 export default function LoadingSpinner() {
-  return (
-    <div className="flex items-center justify-center p-8">
-      <YardpassSpinner size="md" />
-    </div>
-  );
+  return <BrandedSpinner size="lg" showLogo className="p-8" />;
 }

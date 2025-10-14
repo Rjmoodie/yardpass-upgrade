@@ -3,6 +3,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Critical: Full height and no margins for flush navigation */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-x: hidden !important;
+}
+
+
 /* iOS-Native Design System Tokens */
 :root {
   /* Core Colors - Vibrant Orange/Amber palette */
@@ -273,11 +287,36 @@ p {
   }
 }
 
-/* Ensure absolutely flush navigation at bottom */
-body, html, #root {
-  margin: 0 !important;
-  padding: 0 !important;
-  padding-bottom: 0 !important;
+/* Navigation flush to bottom - Battle-tested fix */
+/* The navigation now uses proper fixed positioning with safe area handling */
+/* No additional CSS needed - the component handles positioning correctly */
+
+/* Utility class for main content to prevent overlap with navigation */
+.main-content-with-nav {
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 640px) {
+  .main-content-with-nav {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Utility class for content positioned directly on navigation bar */
+.content-on-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .content-on-nav {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+  }
 }
 
 /* Mobile-first responsive design for Network and Messaging */

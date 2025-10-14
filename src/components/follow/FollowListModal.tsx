@@ -75,7 +75,7 @@ export function FollowListModal({ open, onOpenChange, targetType, targetId, dire
             {!loading && rows.length === 0 && (
               <div className="p-8 text-center text-sm text-muted-foreground">
                 {direction === 'followers'
-                  ? 'No followers yet. Share your profile to grow your community.'
+                  ? 'No followers yet. Share your profile to grow your network.'
                   : 'Not following anyone yet.'}
               </div>
             )}

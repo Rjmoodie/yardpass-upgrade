@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import {
-  MessageSquare,
-  Send,
-  MoreVertical,
-  Check,
+import { 
+  MessageSquare, 
+  Send, 
+  MoreVertical, 
+  Check, 
   CheckCheck, 
   Clock, 
   UserPlus, 
@@ -17,7 +17,7 @@ import {
   ArrowLeft,
   ArrowRight
 } from 'lucide-react';
-import { YardpassSpinner } from '@/components/LoadingSpinner';
+import { BrandedSpinner } from '../BrandedSpinner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizations } from '@/hooks/useOrganizations';
@@ -28,10 +28,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { handleUserFriendlyError } from '@/utils/errorMessages';
+import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/hooks/use-toast';
 
 interface RawParticipant {
   participant_type: 'user' | 'organization';
@@ -226,11 +227,10 @@ export function MessagingCenter() {
       }
     } catch (err: any) {
       console.error('Failed to load conversations', err);
-      console.error('Error details:', {
-        message: err?.message,
-        code: err?.code,
-        details: err?.details,
-        hint: err?.hint
+      
+      const { message, shouldRetry } = handleUserFriendlyError(err, { 
+        feature: 'messaging', 
+        action: 'load conversations' 
       });
       
       // Show a more user-friendly message for missing tables
@@ -240,7 +240,7 @@ export function MessagingCenter() {
       } else {
         toast({ 
           title: 'Unable to load messages', 
-          description: err?.message ?? 'Please try again later.', 
+          description: message, 
           variant: 'destructive' 
         });
       }
@@ -269,6 +269,17 @@ export function MessagingCenter() {
       setMessages((data ?? []) as DirectMessageRow[]);
     } catch (err: any) {
       console.error('Failed to load messages', err);
+      
+      const { message } = handleUserFriendlyError(err, { 
+        feature: 'messaging', 
+        action: 'load messages' 
+      });
+      
+      toast({ 
+        title: 'Unable to load messages', 
+        description: message, 
+        variant: 'destructive' 
+      });
       setMessages([]);
     }
   }, []);
@@ -284,7 +295,13 @@ export function MessagingCenter() {
         await loadMessages(selectedId);
       } catch (err: any) {
         console.error('Failed to load messages', err);
-        toast({ title: 'Unable to load conversation', description: err?.message ?? 'Please try again later.', variant: 'destructive' });
+        
+        const { message } = handleUserFriendlyError(err, { 
+          feature: 'messaging', 
+          action: 'load conversation' 
+        });
+        
+        toast({ title: 'Unable to load conversation', description: message, variant: 'destructive' });
       }
     })();
   }, [selectedId, loadMessages, toast]);
@@ -386,7 +403,13 @@ export function MessagingCenter() {
       await loadMessages(selectedId);
     } catch (err: any) {
       console.error('Failed to send message', err);
-      toast({ title: 'Unable to send message', description: err?.message ?? 'Please try again later.', variant: 'destructive' });
+      
+      const { message } = handleUserFriendlyError(err, { 
+        feature: 'messaging', 
+        action: 'send message' 
+      });
+      
+      toast({ title: 'Unable to send message', description: message, variant: 'destructive' });
     } finally {
       setSending(false);
     }
@@ -809,11 +832,7 @@ export function MessagingCenter() {
                 className="h-9 rounded-full px-4"
               >
                 {sending ? (
-                  <YardpassSpinner
-                    size="xs"
-                    showGlow={false}
-                    showLogo={false}
-                  />
+                  <BrandedSpinner size="sm" />
                 ) : (
                   <Send className="h-4 w-4" />
                 )}

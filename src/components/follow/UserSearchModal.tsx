@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { FollowButton } from './FollowButton';
+import { handleUserFriendlyError } from '@/utils/errorMessages';
 
 interface UserSearchResult {
   user_id: string;
@@ -61,9 +62,15 @@ export function UserSearchModal({ open, onOpenChange, eventId }: UserSearchModal
       setSearchResults(data || []);
     } catch (err: any) {
       console.error('User search error:', err);
+      
+      const { message } = handleUserFriendlyError(err, { 
+        feature: 'search', 
+        action: 'search users' 
+      });
+      
       toast({
         title: 'Search failed',
-        description: 'Unable to search users. Please try again.',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -138,9 +145,15 @@ export function UserSearchModal({ open, onOpenChange, eventId }: UserSearchModal
       });
     } catch (error: any) {
       console.error('Failed to start conversation:', error);
+      
+      const { message } = handleUserFriendlyError(error, { 
+        feature: 'messaging', 
+        action: 'start conversation' 
+      });
+      
       toast({
         title: 'Failed to start conversation',
-        description: error.message || 'Please try again later.',
+        description: message,
         variant: 'destructive'
       });
     }

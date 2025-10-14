@@ -768,7 +768,7 @@ export function PostCreatorModal({
                   Share a moment
                 </DialogTitle>
                 <p className="text-sm text-muted-foreground">
-                  Capture what's happening and bring your community along.
+                  Capture what's happening and bring your network along.
                 </p>
               </DialogHeader>
             </div>
@@ -784,7 +784,7 @@ export function PostCreatorModal({
                     </Avatar>
                     <div>
                       <div className="text-sm font-semibold">{profile?.display_name || 'You'}</div>
-                      <div className="text-xs text-muted-foreground">{activeView === 'public' ? 'Posting publicly' : 'Community update'}</div>
+                      <div className="text-xs text-muted-foreground">{activeView === 'public' ? 'Posting publicly' : 'Network update'}</div>
                     </div>
                   </div>
                   {selectedTicket && (

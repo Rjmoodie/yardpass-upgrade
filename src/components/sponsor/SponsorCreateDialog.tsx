@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { YardpassSpinner } from "@/components/LoadingSpinner";
+import { BrandedSpinner } from '../BrandedSpinner';
 
 interface SponsorCreateDialogProps {
   open: boolean;
@@ -125,14 +125,7 @@ export function SponsorCreateDialog({ open, onOpenChange, userId, onCreated }: S
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !formData.name.trim()}>
-              {loading && (
-                <YardpassSpinner
-                  size="xs"
-                  showGlow={false}
-                  showLogo={false}
-                  className="mr-2"
-                />
-              )}
+              {loading && <BrandedSpinner size="sm" />}
               Create Account
             </Button>
           </DialogFooter>
