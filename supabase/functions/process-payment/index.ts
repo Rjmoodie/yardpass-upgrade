@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
+import { updateCheckoutSession } from "../_shared/checkout-session.ts";
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -69,6 +70,30 @@ serve(async (req) => {
     }
 
     logStep("Order marked as paid");
+
+    if (order.checkout_session_id) {
+      try {
+        const { data: checkoutSession } = await supabaseService
+          .from("checkout_sessions")
+          .select("verification_state")
+          .eq("id", order.checkout_session_id)
+          .maybeSingle();
+
+        const nextVerification = {
+          ...(checkoutSession?.verification_state ?? {}),
+          email_verified: true,
+          risk_score: checkoutSession?.verification_state?.risk_score ?? 0,
+        };
+
+        await updateCheckoutSession(supabaseService, order.checkout_session_id, {
+          status: "converted",
+          verificationState: nextVerification,
+          stripeSessionId: sessionId,
+        });
+      } catch (sessionUpdateError) {
+        console.warn("[PROCESS-PAYMENT] checkout session update failed", sessionUpdateError);
+      }
+    }
 
     // Use ensure-tickets function for idempotent ticket creation
     const ensureTicketsResponse = await supabaseService.functions.invoke('ensure-tickets', {
