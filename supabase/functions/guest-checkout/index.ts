@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  buildContactSnapshot,
+  buildPricingBreakdown,
+  buildPricingSnapshot,
+  defaultExpressMethods,
+  normalizeEmail,
+  upsertCheckoutSession,
+} from "../_shared/checkout-session.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,8 +31,6 @@ interface GuestCheckoutRequest {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
-
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 const response = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -85,31 +91,26 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeSecret, { apiVersion: "2023-10-16" });
 
-    const normalizedEmail = normalizeEmail(contactEmailRaw);
+    const normalizedEmail = normalizeEmail(contactEmailRaw) ?? "";
     const requestedName = payload.contact_name?.trim() || "";
     const requestedPhone = payload.contact_phone?.trim() || "";
 
-    // Try to find existing user via auth.users email lookup
     let userId: string | null = null;
     let isNewUser = false;
 
-    // If no profile found, try auth admin API as fallback
-    if (!userId) {
-      try {
-        // Try the newer API first
-        const { data: existingUserRes, error: existingUserErr } = await supabaseService.auth.admin.listUsers();
-        if (!existingUserErr && existingUserRes?.users) {
-          const existingUser = existingUserRes.users.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
-          userId = existingUser?.id ?? null;
-        }
-      } catch (adminErr) {
-        console.warn("[guest-checkout] auth.admin not available, will create new user", adminErr);
+    try {
+      const { data: existingUserRes, error: existingUserErr } = await supabaseService.auth.admin.listUsers();
+      if (!existingUserErr && existingUserRes?.users) {
+        const existingUser = existingUserRes.users.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
+        userId = existingUser?.id ?? null;
       }
+    } catch (adminErr) {
+      console.warn("[guest-checkout] auth.admin listUsers failed", adminErr);
     }
 
     if (!userId) {
-      const displayName = requestedName || normalizedEmail.split("@")[0];
-      
+      const displayName = requestedName || (normalizedEmail ? normalizedEmail.split("@")[0] : "Guest");
+
       try {
         const { data: created, error: createErr } = await supabaseService.auth.admin.createUser({
           email: normalizedEmail,
@@ -189,7 +190,7 @@ serve(async (req) => {
 
     const tierMap = new Map(tiers.map((tier) => [tier.id, tier]));
 
-    const sessionId = crypto.randomUUID();
+    const checkoutSessionId = crypto.randomUUID();
     const reservationItems = items.map((item) => ({
       tier_id: item.tier_id,
       quantity: item.quantity,
@@ -198,7 +199,8 @@ serve(async (req) => {
     const { data: reservationResult, error: reservationError } = await supabaseService
       .rpc("reserve_tickets_batch", {
         p_reservations: reservationItems,
-        p_session_id: sessionId,
+        p_items: reservationItems,
+        p_session_id: checkoutSessionId,
         p_user_id: userId,
         p_expires_minutes: 15,
       });
@@ -208,40 +210,35 @@ serve(async (req) => {
       return response({ error: reservationResult?.error || "Unable to reserve tickets" }, 409);
     }
 
-    const calculateTotalCents = (faceValueCents: number) => {
-      const faceValue = faceValueCents / 100;
-      const processingFee = faceValue * 0.066 + 2.19;
-      return Math.round((faceValue + processingFee) * 100);
-    };
+    const expiresAtIso = reservationResult?.expires_at
+      ? new Date(reservationResult.expires_at).toISOString()
+      : new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-    // Calculate total with fees for the entire order
     const totalFaceValueCents = items.reduce((sum, item) => {
       const tier = tierMap.get(item.tier_id)!;
-      return sum + (tier.price_cents * item.quantity);
+      const unitPrice = typeof item.unit_price_cents === "number" ? item.unit_price_cents : tier.price_cents;
+      return sum + unitPrice * item.quantity;
     }, 0);
-    
-    const totalWithFees = calculateTotalCents(totalFaceValueCents);
-    const totalFees = totalWithFees - totalFaceValueCents;
 
-    const lineItems = items.map((item) => {
-      const tier = tierMap.get(item.tier_id)!;
-      const totalWithFees = calculateTotalCents(tier.price_cents);
-      return {
+    const pricing = buildPricingBreakdown(totalFaceValueCents, tiers[0]?.currency ?? "USD");
+
+    const lineItems = [
+      {
         price_data: {
-          currency: (tier.currency || "USD").toLowerCase(),
+          currency: (tiers[0]?.currency || "USD").toLowerCase(),
           product_data: {
-            name: `${event.title} - ${tier.name}`,
-            description: "Event ticket (includes processing fees)",
+            name: `${event.title} Tickets`,
+            description: "Event tickets (includes processing fees)",
             metadata: {
               event_id: eventId,
-              tier_id: tier.id,
+              tiers: JSON.stringify(items.map((item) => ({ tier_id: item.tier_id, quantity: item.quantity }))),
             },
           },
-          unit_amount: totalWithFees,
+          unit_amount: pricing.totalCents,
         },
-        quantity: item.quantity,
-      };
-    });
+        quantity: 1,
+      },
+    ];
 
     let customerId: string | undefined;
     const { data: profile } = await supabaseService
@@ -280,6 +277,8 @@ serve(async (req) => {
           user_id: userId,
           guest_checkout: isNewUser ? "true" : "false",
           hold_ids: JSON.stringify(reservationResult.hold_ids || []),
+          checkout_session_id: checkoutSessionId,
+          tiers: JSON.stringify(items.map((item) => ({ tier_id: item.tier_id, quantity: item.quantity }))),
           contact_email: normalizedEmail,
         },
         payment_intent_data: {
@@ -287,37 +286,41 @@ serve(async (req) => {
           metadata: {
             event_id: eventId,
             user_id: userId,
+            checkout_session_id: checkoutSessionId,
             contact_email: normalizedEmail,
             total_tickets: items.reduce((sum, item) => sum + item.quantity, 0),
           },
+          application_fee_amount: pricing.feesCents,
         },
       },
       { idempotencyKey }
     );
 
-    const totalAmount = lineItems.reduce(
-      (sum, item) => sum + item.price_data.unit_amount * (item.quantity || 0),
-      0
-    );
-
-    const contactName = requestedName || profile?.display_name || normalizedEmail.split("@")[0];
+    const contactName = requestedName || profile?.display_name || (normalizedEmail ? normalizedEmail.split("@")[0] : "Guest");
     const contactPhone = requestedPhone || profile?.phone || null;
+
+    const contactSnapshot = await buildContactSnapshot({
+      email: normalizedEmail,
+      name: contactName,
+      phone: contactPhone ?? undefined,
+    });
 
     const { data: order, error: orderErr } = await supabaseService
       .from("orders")
       .insert({
         user_id: userId,
         event_id: eventId,
-        checkout_session_id: session.id,
+        checkout_session_id: checkoutSessionId,
+        stripe_session_id: session.id,
         status: "pending",
-        subtotal_cents: totalFaceValueCents,
-        fees_cents: totalFees,
-        total_cents: totalWithFees,
-        currency: "USD",
+        subtotal_cents: pricing.subtotalCents,
+        fees_cents: pricing.feesCents,
+        total_cents: pricing.totalCents,
+        currency: (tiers[0]?.currency || "USD").toUpperCase(),
         hold_ids: reservationResult.hold_ids || [],
-        contact_email: normalizedEmail,
-        contact_name: contactName,
-        contact_phone: contactPhone,
+        contact_email: contactSnapshot.email ?? normalizedEmail,
+        contact_name: contactSnapshot.name ?? contactName,
+        contact_phone: contactSnapshot.phone ?? contactPhone,
       })
       .select()
       .single();
@@ -343,7 +346,38 @@ serve(async (req) => {
       return response({ error: "Failed to create order items" }, 500);
     }
 
-    return response({ url: session.url });
+    const cartSnapshot = {
+      items: orderItems.map((item) => ({
+        tier_id: item.tier_id,
+        quantity: item.quantity,
+        unit_price_cents: item.unit_price_cents,
+        tier_name: tierMap.get(item.tier_id)?.name ?? null,
+      })),
+    };
+
+    await upsertCheckoutSession(supabaseService, {
+      id: checkoutSessionId,
+      orderId: order.id,
+      eventId,
+      userId,
+      holdIds: reservationResult.hold_ids ?? [],
+      pricingSnapshot: buildPricingSnapshot(pricing),
+      contactSnapshot,
+      verificationState: { email_verified: !isNewUser, risk_score: 0 },
+      expressMethods: defaultExpressMethods,
+      cartSnapshot,
+      stripeSessionId: session.id,
+      expiresAt: expiresAtIso,
+      status: "pending",
+    });
+
+    return response({
+      url: session.url,
+      checkout_session_id: checkoutSessionId,
+      order_id: order.id,
+      expires_at: expiresAtIso,
+      pricing: buildPricingSnapshot(pricing),
+    });
   } catch (error) {
     console.error("[guest-checkout] unexpected error", error);
     return response({ error: (error as Error)?.message ?? "Unexpected error" }, 500);

@@ -1,10 +1,42 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  buildContactSnapshot,
+  buildPricingBreakdown,
+  buildPricingSnapshot,
+  defaultExpressMethods,
+  normalizeEmail,
+  upsertCheckoutSession,
+} from "../_shared/checkout-session.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+
+const normalizeItem = (item: any) => ({
+  tier_id: item?.tier_id ?? item?.tierId ?? null,
+  quantity: Number(item?.quantity ?? 0),
+  unit_price_cents: typeof item?.unit_price_cents === "number"
+    ? item.unit_price_cents
+    : typeof item?.unitPriceCents === "number"
+      ? item.unitPriceCents
+      : typeof item?.faceValueCents === "number"
+        ? item.faceValueCents
+        : typeof item?.faceValue === "number"
+          ? Math.round(item.faceValue * 100)
+          : undefined,
+});
+
+const resolveUnitPriceCents = (item: any, tier: any | undefined) => {
+  if (typeof item.unit_price_cents === "number") return item.unit_price_cents;
+  if (typeof item.unitPriceCents === "number") return item.unitPriceCents;
+  if (typeof item.faceValueCents === "number") return item.faceValueCents;
+  if (typeof item.faceValue === "number") return Math.round(item.faceValue * 100);
+  if (typeof tier?.price_cents === "number") return tier.price_cents;
+  return 0;
 };
 
 serve(async (req) => {
@@ -13,307 +45,305 @@ serve(async (req) => {
   }
 
   try {
-    const requestBody = await req.json();
-    console.log('📥 Request body received:', JSON.stringify(requestBody, null, 2));
-    
-    // Handle both old format (from TicketPurchaseModal) and new format
-    let order_data: any, payout_destination: any;
-    let supabaseService: any;
-    let profileRecord: any = null;
-    let normalizedEmailFromAuth: string | null = null;
-    
-    console.log('🔍 Checking request format...');
-    if (requestBody.eventId && requestBody.ticketSelections) {
-      console.log('✅ Old format detected, converting...');
-      // Old format from TicketPurchaseModal - convert to new format
-      const { eventId, ticketSelections } = requestBody;
-      
-      // Get user from auth
-      const authHeader = req.headers.get("Authorization");
-      if (!authHeader) throw new Error("No authorization header provided");
-      
-      const supabaseClient = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-      );
-      
-      const token = authHeader.replace("Bearer ", "").trim();
-      const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-      if (userError || !userData.user) throw new Error("User not authenticated");
-
-      const normalizedEmail = userData.user.email?.trim().toLowerCase() ?? null;
-      normalizedEmailFromAuth = normalizedEmail;
-      const fallbackName = normalizedEmail ? normalizedEmail.split('@')[0] : null;
-
-      // Convert to enhanced-checkout format
-      order_data = {
-        event_id: eventId,
-        user_id: userData.user.id,
-        items: ticketSelections.map((sel: any) => ({
-          tier_id: sel.tierId,
-          quantity: sel.quantity,
-          unit_price_cents: sel.faceValue,
-          name: `Ticket - ${sel.tierId.substring(0, 8)}`,
-          description: `Event ticket`
-        })),
-        contact_email: normalizedEmail,
-        contact_name: fallbackName,
-      };
-
-      // Get payout destination for the event
-      supabaseService = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-        { auth: { persistSession: false } }
-      );
-      
-      const { data: event } = await supabaseService
-        .from("events")
-        .select("owner_context_type, owner_context_id")
-        .eq("id", eventId)
-        .single();
-
-      if (event) {
-        const { data: payoutAccount } = await supabaseService
-          .from("payout_accounts")
-          .select("*")
-          .eq("context_type", event.owner_context_type)
-          .eq("context_id", event.owner_context_id)
-          .single();
-
-        payout_destination = payoutAccount;
-      }
-
-      const { data: profile } = await supabaseService
-        .from('user_profiles')
-        .select('display_name, phone')
-        .eq('user_id', userData.user.id)
-        .maybeSingle();
-
-      profileRecord = profile;
-
-      if (profile?.display_name) {
-        order_data.contact_name = profile.display_name;
-      }
-      if (profile?.phone) {
-        order_data.contact_phone = profile.phone;
-      }
-      if (!order_data.contact_email && normalizedEmail) {
-        order_data.contact_email = normalizedEmail;
-      }
-    } else {
-      console.log('🔄 New format detected');
-      // New format
-      ({ order_data, payout_destination } = requestBody);
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY) {
+      throw new Error("Missing required environment configuration");
     }
 
-    console.log('📊 Final order_data:', JSON.stringify(order_data, null, 2));
-    console.log('💳 Final payout_destination:', JSON.stringify(payout_destination, null, 2));
+    const payload = await req.json();
+    const supabaseService = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+    const supabaseAnon = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } });
 
-    if (!order_data) {
+    const authHeader = req.headers.get("Authorization");
+    let authenticatedUser: any = null;
+    if (authHeader) {
+      const token = authHeader.replace("Bearer", "").trim();
+      if (token) {
+        const { data: userData, error: userError } = await supabaseAnon.auth.getUser(token);
+        if (userError) {
+          throw new Error("User not authenticated");
+        }
+        authenticatedUser = userData.user;
+      }
+    }
+
+    let orderData = payload?.order_data ?? payload?.orderData ?? null;
+    if (!orderData && payload?.eventId && payload?.ticketSelections) {
+      if (!authenticatedUser?.id) {
+        throw new Error("Authentication required for member checkout");
+      }
+      orderData = {
+        event_id: payload.eventId,
+        user_id: authenticatedUser.id,
+        items: payload.ticketSelections.map((sel: any) => ({
+          tier_id: sel.tierId,
+          quantity: sel.quantity,
+          unit_price_cents: typeof sel.faceValue === "number" ? Math.round(sel.faceValue * 100) : sel.unit_price_cents,
+        })),
+      };
+    }
+
+    if (!orderData) {
       throw new Error("Order data is required");
     }
 
-    // Initialize Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-      apiVersion: "2023-10-16",
-    });
-
-    // Initialize Supabase service client
-    supabaseService = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
-    );
-
-    if (
-      order_data?.user_id &&
-      (!order_data.contact_email || !order_data.contact_name || !order_data.contact_phone)
-    ) {
-      if (!profileRecord) {
-        const { data: fallbackProfile } = await supabaseService
-          .from('user_profiles')
-          .select('display_name, phone')
-          .eq('user_id', order_data.user_id)
-          .maybeSingle();
-        profileRecord = fallbackProfile;
-      }
-
-      if (!order_data.contact_email) {
-        const { data: userLookup } = await supabaseService.auth.admin.getUserById(order_data.user_id);
-        const email = userLookup?.user?.email?.trim().toLowerCase();
-        if (email) {
-          normalizedEmailFromAuth = email;
-          order_data.contact_email = email;
-        }
-      }
-
-      if (!order_data.contact_name) {
-        if (profileRecord?.display_name) {
-          order_data.contact_name = profileRecord.display_name;
-        } else if (order_data.contact_email) {
-          order_data.contact_name = order_data.contact_email.split('@')[0];
-        }
-      }
-
-      if (!order_data.contact_phone && profileRecord?.phone) {
-        order_data.contact_phone = profileRecord.phone;
-      }
+    orderData.event_id = orderData.event_id ?? orderData.eventId;
+    orderData.user_id = orderData.user_id ?? orderData.userId ?? authenticatedUser?.id ?? null;
+    if (!orderData.user_id) {
+      throw new Error("Authenticated user required for enhanced checkout");
     }
 
-    // Reserve tickets atomically using the new system
-    console.log('🔒 Attempting atomic ticket reservation...');
-    const reservationItems = order_data.items.map((item: any) => ({
+    const normalizedItems = Array.isArray(orderData.items)
+      ? orderData.items.map(normalizeItem).filter((item) => item.tier_id && item.quantity > 0)
+      : [];
+
+    if (!orderData.event_id) {
+      throw new Error("event_id is required");
+    }
+
+    if (!normalizedItems.length) {
+      throw new Error("At least one ticket selection is required");
+    }
+
+    const { data: event, error: eventError } = await supabaseService
+      .from("events")
+      .select("id, title, owner_context_type, owner_context_id")
+      .eq("id", orderData.event_id)
+      .single();
+
+    if (eventError || !event) {
+      throw new Error("Event not found");
+    }
+
+    const { data: payoutDestination } = await supabaseService
+      .from("payout_accounts")
+      .select("*")
+      .eq("context_type", event.owner_context_type)
+      .eq("context_id", event.owner_context_id)
+      .maybeSingle();
+
+    const { data: profileRecord } = await supabaseService
+      .from("user_profiles")
+      .select("display_name, phone, stripe_customer_id")
+      .eq("user_id", orderData.user_id)
+      .maybeSingle();
+
+    const checkoutSessionId = crypto.randomUUID();
+
+    const reservationItems = normalizedItems.map((item) => ({
       tier_id: item.tier_id,
-      quantity: item.quantity
+      quantity: item.quantity,
     }));
 
     const { data: reservationResult, error: reservationError } = await supabaseService
-      .rpc('reserve_tickets_batch', {
-        p_user_id: order_data.user_id,
+      .rpc("reserve_tickets_batch", {
+        p_reservations: reservationItems,
         p_items: reservationItems,
-        p_expires_minutes: 15
+        p_session_id: checkoutSessionId,
+        p_user_id: orderData.user_id,
+        p_expires_minutes: 15,
       });
 
     if (reservationError || !reservationResult?.success) {
-      console.error('❌ Ticket reservation failed:', reservationError || reservationResult?.error);
-      throw new Error(reservationResult?.error || 'Failed to reserve tickets');
+      throw new Error(reservationResult?.error || "Failed to reserve tickets");
     }
 
-    console.log('✅ Tickets reserved successfully:', reservationResult);
+    const expiresAtIso = reservationResult?.expires_at
+      ? new Date(reservationResult.expires_at).toISOString()
+      : new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-    // Calculate amounts using the specified fee structure
-    const faceValueCents = order_data.items.reduce((total: number, item: any) => {
-      return total + (item.unit_price_cents * item.quantity);
+    const tierIds = reservationItems.map((item) => item.tier_id);
+    const { data: tiers, error: tiersError } = await supabaseService
+      .from("ticket_tiers")
+      .select("id, name, price_cents, currency")
+      .in("id", tierIds)
+      .eq("event_id", orderData.event_id);
+
+    if (tiersError) {
+      throw new Error("Unable to load ticket tiers");
+    }
+
+    if (!tiers || tiers.length !== tierIds.length) {
+      throw new Error("One or more ticket tiers are invalid");
+    }
+
+    const tierMap = new Map(tiers.map((tier: any) => [tier.id, tier]));
+
+    const faceValueCents = normalizedItems.reduce((total, item) => {
+      const tier = tierMap.get(item.tier_id);
+      return total + resolveUnitPriceCents(item, tier) * item.quantity;
     }, 0);
-    const faceValue = faceValueCents / 100;
 
-    // Fee formula: processingFee = (faceValue * 0.037) + 1.89 + (faceValue * 0.029) + 0.30
-    // Simplified: processingFee = faceValue * 0.066 + 2.19
-    const processingFee = faceValue * 0.066 + 2.19;
-    const totalAmount = faceValue + processingFee;
-    const totalCents = Math.round(totalAmount * 100);
-    const applicationFeeCents = Math.round(processingFee * 100);
+    const currency = tiers[0]?.currency ?? "USD";
+    const pricing = buildPricingBreakdown(faceValueCents, currency ?? "USD");
 
-    // Create checkout session with destination charges if payout account exists
-    const sessionConfig: any = {
-      payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: `${order_data.items.map((i: any) => i.name).join(', ')}`,
-            description: `Event tickets (includes processing fees)`,
+    const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" });
+
+    const siteUrl = req.headers.get("origin")
+      ?? Deno.env.get("SITE_URL")
+      ?? Deno.env.get("SUPABASE_URL")
+      ?? "http://localhost:5173";
+
+    const normalizedEmail = normalizeEmail(orderData.contact_email ?? authenticatedUser?.email ?? null);
+    const contactName = orderData.contact_name
+      ?? profileRecord?.display_name
+      ?? (normalizedEmail ? normalizedEmail.split("@")[0] : null);
+    const contactPhone = orderData.contact_phone ?? profileRecord?.phone ?? null;
+
+    const stripeCustomerId = profileRecord?.stripe_customer_id ?? undefined;
+
+    const lineItemLabel = normalizedItems.length === 1
+      ? `${event.title ?? "Event"} - ${tierMap.get(normalizedItems[0].tier_id)?.name ?? "Ticket"}`
+      : `${event.title ?? "Event"} Tickets`;
+
+    const sessionConfig: Stripe.Checkout.SessionCreateParams = {
+      mode: "payment",
+      payment_method_types: ["card"],
+      customer: stripeCustomerId,
+      customer_email: stripeCustomerId ? undefined : normalizedEmail ?? undefined,
+      line_items: [
+        {
+          price_data: {
+            currency: (currency ?? "USD").toLowerCase(),
+            product_data: {
+              name: lineItemLabel,
+              description: "Event tickets (includes processing fees)",
+            },
+            unit_amount: pricing.totalCents,
           },
-          unit_amount: totalCents,
+          quantity: 1,
         },
-        quantity: 1,
-      }],
-      mode: 'payment',
-      success_url: `${req.headers.get("origin")}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get("origin")}/events/${order_data.event_id}`,
+      ],
+      success_url: `${siteUrl}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/events/${orderData.event_id}`,
+      allow_promotion_codes: true,
       metadata: {
-        event_id: order_data.event_id,
-        user_id: order_data.user_id,
-        platform_fee: applicationFeeCents.toString(),
-        hold_ids: JSON.stringify(reservationResult.hold_ids || []),
+        event_id: orderData.event_id,
+        user_id: orderData.user_id,
+        checkout_session_id: checkoutSessionId,
+        hold_ids: JSON.stringify(reservationResult.hold_ids ?? []),
+      },
+      payment_intent_data: {
+        description: `${event.title ?? "Event"} tickets`,
+        metadata: {
+          event_id: orderData.event_id,
+          user_id: orderData.user_id,
+          checkout_session_id: checkoutSessionId,
+          hold_ids: JSON.stringify(reservationResult.hold_ids ?? []),
+        },
       },
     };
 
-    // Add destination charges if payout account is set up
-    if (payout_destination?.stripe_connect_id && payout_destination?.payouts_enabled) {
+    if (payoutDestination?.stripe_connect_id && payoutDestination?.payouts_enabled) {
       sessionConfig.payment_intent_data = {
-        application_fee_amount: applicationFeeCents,
+        ...sessionConfig.payment_intent_data,
+        application_fee_amount: pricing.feesCents,
         transfer_data: {
-          destination: payout_destination.stripe_connect_id,
+          destination: payoutDestination.stripe_connect_id,
         },
       };
-      
-      console.log(`Setting up destination charge: ${faceValueCents}¢ to ${payout_destination.stripe_connect_id}, fee: ${applicationFeeCents}¢`);
-    } else {
-      console.log("No payout destination configured, processing as regular payment");
     }
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
 
-    const contactEmail = order_data.contact_email?.trim?.().toLowerCase?.() ?? normalizedEmailFromAuth;
-    const contactName = order_data.contact_name ?? (contactEmail ? contactEmail.split('@')[0] : null);
-    const contactPhone = order_data.contact_phone ?? null;
+    const contactSnapshot = await buildContactSnapshot({
+      email: normalizedEmail,
+      name: contactName,
+      phone: contactPhone ?? undefined,
+    });
 
-    // Store order in database
     const { data: order, error: orderError } = await supabaseService
-      .from('orders')
+      .from("orders")
       .insert({
-        event_id: order_data.event_id,
-        user_id: order_data.user_id,
+        event_id: orderData.event_id,
+        user_id: orderData.user_id,
         stripe_session_id: session.id,
-        status: 'pending',
-        currency: 'USD',
-        subtotal_cents: faceValueCents,
-        fees_cents: applicationFeeCents,
-        total_cents: totalCents,
-        payout_destination_owner: payout_destination?.context_type,
-        payout_destination_id: payout_destination?.context_id,
-        hold_ids: reservationResult.hold_ids || [],
-        contact_email: contactEmail,
-        contact_name: contactName,
-        contact_phone: contactPhone,
+        checkout_session_id: checkoutSessionId,
+        status: "pending",
+        currency: (currency ?? "USD").toUpperCase(),
+        subtotal_cents: pricing.subtotalCents,
+        fees_cents: pricing.feesCents,
+        total_cents: pricing.totalCents,
+        payout_destination_owner: payoutDestination?.context_type ?? null,
+        payout_destination_id: payoutDestination?.context_id ?? null,
+        hold_ids: reservationResult.hold_ids ?? [],
+        contact_email: contactSnapshot.email ?? normalizedEmail,
+        contact_name: contactSnapshot.name ?? contactName,
+        contact_phone: contactSnapshot.phone ?? contactPhone,
       })
       .select()
       .single();
 
-    if (orderError) {
-      console.error('Order creation error:', orderError);
-      throw orderError;
+    if (orderError || !order) {
+      throw new Error(orderError?.message ?? "Failed to create order");
     }
 
-    // Store order items
-    const orderItems = order_data.items.map((item: any) => ({
+    const orderItemsPayload = normalizedItems.map((item) => ({
       order_id: order.id,
       tier_id: item.tier_id,
       quantity: item.quantity,
-      unit_price_cents: item.unit_price_cents,
+      unit_price_cents: resolveUnitPriceCents(item, tierMap.get(item.tier_id)),
     }));
 
     const { error: itemsError } = await supabaseService
-      .from('order_items')
-      .insert(orderItems);
+      .from("order_items")
+      .insert(orderItemsPayload);
 
     if (itemsError) {
-      console.error('Order items creation error:', itemsError);
-      throw itemsError;
+      throw new Error(itemsError.message ?? "Failed to create order items");
     }
+
+    const cartSnapshot = {
+      items: orderItemsPayload.map((item) => ({
+        tier_id: item.tier_id,
+        quantity: item.quantity,
+        unit_price_cents: item.unit_price_cents,
+        tier_name: tierMap.get(item.tier_id)?.name ?? null,
+      })),
+    };
+
+    await upsertCheckoutSession(supabaseService, {
+      id: checkoutSessionId,
+      orderId: order.id,
+      eventId: orderData.event_id,
+      userId: orderData.user_id,
+      holdIds: reservationResult.hold_ids ?? [],
+      pricingSnapshot: buildPricingSnapshot(pricing),
+      contactSnapshot,
+      verificationState: { email_verified: true, risk_score: 0 },
+      expressMethods: defaultExpressMethods,
+      cartSnapshot,
+      stripeSessionId: session.id,
+      expiresAt: expiresAtIso,
+      status: "pending",
+    });
 
     return new Response(
       JSON.stringify({
         session_id: session.id,
         session_url: session.url,
         order_id: order.id,
-        total_amount: totalCents,
-        platform_fee: applicationFeeCents,
-        destination_account: payout_destination?.stripe_connect_id || null,
+        checkout_session_id: checkoutSessionId,
+        expires_at: expiresAtIso,
+        pricing: buildPricingSnapshot(pricing),
+        destination_account: payoutDestination?.stripe_connect_id ?? null,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
-      }
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
-
   } catch (error) {
-    console.error('Error in enhanced-checkout:', error);
-    
-    // Error occurred - simplified error handling
-    
+    console.error("[enhanced-checkout] error", error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: false,
-        error: (error as any)?.message || 'Unknown error',
-        error_code: 'CHECKOUT_FAILED'
+        error: (error as Error)?.message ?? "Unknown error",
+        error_code: "CHECKOUT_FAILED",
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
-      }
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });

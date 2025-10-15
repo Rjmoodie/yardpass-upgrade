@@ -4,6 +4,16 @@
 
 This document maps the entire ticket purchasing system including all flows, functions, database tables, variables, and integrations.
 
+### Modernization Goals
+
+To align the Yardpass ticketing experience with current industry standards for both members and guests, the system now emphasizes:
+
+- **Express, low-friction checkout** for authenticated members with saved payment methods.
+- **Guest-to-member conversion** through progressive profiling and email verification flows that remain fast and mobile-friendly.
+- **Shared orchestration services** that consolidate business logic, pricing, inventory, and risk checks.
+- **Operational efficiency** via idempotent APIs, structured observability, and resilient reservation lifecycles.
+- **Regulatory and payment compliance** including SCA support, PCI-reduced scope, and auditable order states.
+
 ---
 
 ## 🏗️ Architecture Overview
@@ -15,17 +25,35 @@ This document maps the entire ticket purchasing system including all flows, func
 │  TicketPurchaseModal.tsx                                     │
 │  ├─ Member Flow → enhanced-checkout                          │
 │  └─ Guest Flow → guest-checkout                              │
+│                                                             │
+│  Shared UX Enhancements:                                     │
+│  ├─ Real-time tier availability polling                      │
+│  ├─ Express checkout button (Apple Pay / Google Pay / Link)  │
+│  ├─ Saved attendee profiles & attendee form autofill         │
+│  └─ Guest email pre-verification + session persistence       │
 └─────────────────────────────────────────────────────────────┘
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                    EDGE FUNCTIONS LAYER                       │
+│                CHECKOUT ORCHESTRATION LAYER                  │
 ├─────────────────────────────────────────────────────────────┤
-│  enhanced-checkout (Member)                                   │
-│  guest-checkout (Guest)                                       │
-│  ├─ Creates Stripe Checkout Session                          │
-│  ├─ Reserves tickets (reserve_tickets_batch)                 │
-│  ├─ Creates order record                                      │
-│  └─ Creates order_items records                               │
+│  checkout-workflow service (shared module)                  │
+│  ├─ Normalizes payloads (member + guest)                    │
+│  ├─ Applies pricing, promotions, and fee policies           │
+│  ├─ Enforces business rules + rate limits                   │
+│  ├─ Emits metrics/log events (structured)                    │
+│  └─ Generates idempotency + session identifiers             │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    EDGE FUNCTIONS LAYER                      │
+├─────────────────────────────────────────────────────────────┤
+│  enhanced-checkout (Member)                                  │
+│  guest-checkout (Guest)                                      │
+│  checkout-session-status (Shared)                            │
+│  ├─ Reserve tickets (reserve_tickets_batch)                  │
+│  ├─ Persist checkout_session snapshots                       │
+│  ├─ Create/Update order + order_items                        │
+│  └─ Initiate Stripe session w/ wallet support                │
 └─────────────────────────────────────────────────────────────┘
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -38,30 +66,35 @@ This document maps the entire ticket purchasing system including all flows, func
 └─────────────────────────────────────────────────────────────┘
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                    WEBHOOK PROCESSING                         │
+│                    WEBHOOK PROCESSING                        │
 ├─────────────────────────────────────────────────────────────┤
-│  stripe-webhook                                               │
-│  ├─ Verifies webhook signature                                │
-│  ├─ Calls process-payment                                     │
-│  └─ Returns success                                           │
-│                                                               │
-│  process-payment                                              │
-│  ├─ Marks order as paid                                       │
-│  ├─ Updates stripe_session_id                                 │
-│  ├─ Calls ensure-tickets                                      │
-│  └─ Sends confirmation email                                  │
-│                                                               │
-│  ensure-tickets                                               │
-│  ├─ Idempotently creates tickets                              │
-│  ├─ Database triggers assign QR codes                         │
-│  ├─ Database triggers assign serial numbers                   │
-│  └─ Updates ticket counts                                     │
+│  stripe-webhook                                              │
+│  ├─ Verifies webhook signature                               │
+│  ├─ Routes events via event dispatcher                       │
+│  ├─ Calls process-payment                                    │
+│  ├─ Schedules retries on transient failures                  │
+│  └─ Emits audit logs + metrics                               │
+│                                                              │
+│  process-payment                                             │
+│  ├─ Marks order as paid                                      │
+│  ├─ Updates stripe_session_id                                │
+│  ├─ Calls ensure-tickets                                     │
+│  ├─ Releases unused holds                                    │
+│  ├─ Publishes notification events                            │
+│  └─ Sends confirmation email                                 │
+│                                                              │
+│  ensure-tickets                                              │
+│  ├─ Idempotently creates tickets                             │
+│  ├─ Database triggers assign QR codes                        │
+│  ├─ Database triggers assign serial numbers                  │
+│  ├─ Updates ticket counts                                    │
+│  └─ Pushes tickets to attendee wallet                        │
 └─────────────────────────────────────────────────────────────┘
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                    DATABASE LAYER                             │
 ├─────────────────────────────────────────────────────────────┤
-│  Tables: orders, order_items, tickets, ticket_tiers          │
+│  Tables: orders, order_items, tickets, ticket_tiers, checkout_sessions│
 │  Functions: reserve_tickets_batch, gen_qr_code               │
 │  Triggers: trg_assign_serial_no, trg_ticket_counts           │
 └─────────────────────────────────────────────────────────────┘
@@ -87,6 +120,12 @@ validatedCode: { id, code, tier_id }     // Validated guest code
 guestEmail: string                        // Guest email address
 guestName: string                         // Guest name
 guestEmailError: string | null           // Validation error
+checkoutSessionId: string | null         // Current checkout session identifier
+checkoutExpiresAt: Date | null           // Hold expiration timestamp
+expressMethodsEnabled: boolean           // Apple/Google Pay availability
+resolvedProfiles: AttendeeProfile[]      // Saved attendee data for autofill
+checkoutStage: 'select' | 'details' | 'review' | 'processing'
+auditContext: { source: 'web' | 'mobile'; campaign?: string }
 ```
 
 **Key Computed Values**:
@@ -101,6 +140,8 @@ summary = {
 
 totalTickets: number             // Total ticket count
 totalAmount: number              // Total in cents
+sessionRemainingMs: number       // Time left before reservation expires
+canExpressCheckout: boolean      // Derived from expressMethodsEnabled + auth
 ```
 
 **Props**:
@@ -111,8 +152,18 @@ totalAmount: number              // Total in cents
   isOpen: boolean,              // Modal visibility
   onClose: () => void,          // Close handler
   onSuccess?: () => void        // Success callback
+  referrer?: string             // Marketing attribution
+  defaultAttendee?: AttendeeProfile
 }
 ```
+
+**UX Enhancements**:
+
+- **Two-stage validation** – ticket selection is validated client-side, and final validation occurs using the shared `checkout-session-status` endpoint before payment.
+- **Reservation countdown** – communicates remaining hold time and renews reservations on interaction to reduce expiry drop-off.
+- **Guest uplift prompts** – offers passwordless account creation post-payment to convert high-intent guests into members.
+- **Optimistic UI updates** – uses React Query/SWR for caching tier availability and reduces flicker on tier refreshes.
+- **Wallet awareness** – conditionally renders Apple Pay/Google Pay buttons when device/browser support is detected.
 
 ---
 
@@ -135,18 +186,29 @@ totalAmount: number              // Total in cents
 }
 ```
 
-**Process**:
-1. Authenticates user via JWT
-2. Fetches event and ticket tier details
-3. Reserves tickets via `reserve_tickets_batch` RPC
-4. Calculates fees: `faceValue * 0.066 + 2.19`
-5. Creates Stripe checkout session
-6. Stores order in database
-7. Returns checkout URL
+**Process Enhancements**:
+1. Authenticates user via JWT and validates membership status/roles.
+2. Delegates request to the shared `checkout-workflow` module to normalize payloads.
+3. Fetches event/tier data and performs availability checks with optimistic locking.
+4. Reserves tickets via `reserve_tickets_batch` RPC with an idempotency key tied to `checkoutSessionId`.
+5. Applies fee schedule (`faceValue * 0.066 + 2.19`) and promotion/discount logic.
+6. Persists or updates the unified `checkout_sessions` snapshot.
+7. Creates/updates Stripe checkout session including wallet + Link support and attaches saved payment method when available.
+8. Stores order + order_items in database with enriched metadata (device, campaign, payment method type).
+9. Returns checkout URL and checkout session details for countdown timers.
 
 **Output**:
 ```typescript
-{ url: string }  // Stripe checkout URL
+{
+  url: string,             // Stripe checkout URL
+  checkoutSessionId: string,
+  expiresAt: string,
+  paymentSummary: {
+    subtotalCents: number,
+    feesCents: number,
+    totalCents: number
+  }
+}
 ```
 
 **Environment Variables Required**:
@@ -180,20 +242,27 @@ totalAmount: number              // Total in cents
 }
 ```
 
-**Process**:
-1. Validates email format
-2. Searches for existing user by email
-3. Creates new user if not found (guest account)
-4. Creates user_profile with display_name
-5. Reserves tickets via `reserve_tickets_batch` RPC
-6. Calculates fees: `faceValue * 0.066 + 2.19`
-7. Creates Stripe checkout session
-8. Stores order in database
-9. Returns checkout URL
+**Process Enhancements**:
+1. Validates email format and triggers passwordless magic-link verification when time allows (skipped on express wallets to minimize friction).
+2. Searches for existing user by email and merges with guest metadata if the user later upgrades to a full account.
+3. Creates guest user with metadata `{ created_via: 'guest_checkout', marketing_opt_in }` when no account exists.
+4. Creates/updates `user_profile` and stores marketing attribution + device fingerprint hash for fraud review.
+5. Reserves tickets via `reserve_tickets_batch` with idempotency + geofenced rate limiting.
+6. Applies fee schedule (`faceValue * 0.066 + 2.19`) and promo logic (e.g., guest welcome codes).
+7. Persists unified `checkout_sessions` snapshot (contact info, holds, pricing, verification status).
+8. Creates Stripe checkout session with support for Link/Apple Pay/Google Pay + collects billing address when SCA requires.
+9. Stores order + order_items in database with guest contact info and onboarding hints.
+10. Returns checkout URL, session expiration, and metadata for progress tracking.
 
 **Output**:
 ```typescript
-{ url: string }  // Stripe checkout URL
+{
+  url: string,
+  checkoutSessionId: string,
+  expiresAt: string,
+  requiresEmailVerification: boolean,
+  upsellEligible: boolean
+}
 ```
 
 **Environment Variables Required**:
@@ -204,7 +273,52 @@ totalAmount: number              // Total in cents
 
 ---
 
-### 3. **stripe-webhook**
+### 3. **checkout-session-status** (Shared)
+
+**File**: `supabase/functions/checkout-session-status/index.ts`
+
+**Authentication**: Optional JWT – relies on session ID + hashed email when unauthenticated.
+
+**Input Variables**:
+```typescript
+{
+  checkoutSessionId: string,
+  email?: string
+}
+```
+
+**Process**:
+1. Retrieves the `checkout_sessions` record and verifies caller access (user ID match or hashed email).
+2. Refreshes reservations nearing expiry and extends holds when the user is still active on the page.
+3. Returns pricing snapshots, payment method eligibility flags, and verification statuses for UI display.
+4. Emits analytics events for heartbeat tracking to spot abandonment trends.
+
+**Output**:
+```typescript
+{
+  status: 'pending' | 'converted' | 'expired',
+  expiresAt: string,
+  pricing: {
+    subtotalCents: number,
+    feesCents: number,
+    totalCents: number
+  },
+  canExtendHold: boolean,
+  expressMethods: {
+    applePay: boolean,
+    googlePay: boolean,
+    link: boolean
+  },
+  verification: {
+    emailVerified: boolean,
+    riskScore: number
+  }
+}
+```
+
+---
+
+### 4. **stripe-webhook**
 
 **File**: `supabase/functions/stripe-webhook/index.ts`
 
@@ -225,7 +339,7 @@ totalAmount: number              // Total in cents
 
 ---
 
-### 4. **process-payment**
+### 5. **process-payment**
 
 **File**: `supabase/functions/process-payment/index.ts`
 
@@ -247,8 +361,10 @@ totalAmount: number              // Total in cents
    - Sets `stripe_session_id = session.id`
    - Sets `stripe_payment_intent_id = payment_intent`
 4. Calls `ensure-tickets` to create tickets
-5. Sends confirmation email via Resend
-6. Returns success
+5. Releases expired holds, flags anomalies, and posts structured audit log entries.
+6. Schedules async enrichment jobs (e.g., CRM sync, marketing automation, analytics).
+7. Sends confirmation email via Resend and optionally SMS/push notifications.
+8. Returns success
 
 **Output**:
 ```typescript
@@ -268,7 +384,7 @@ totalAmount: number              // Total in cents
 
 ---
 
-### 5. **ensure-tickets**
+### 6. **ensure-tickets**
 
 **File**: `supabase/functions/ensure-tickets/index.ts`
 
@@ -290,6 +406,8 @@ totalAmount: number              // Total in cents
    - Generate QR codes via `gen_qr_code()`
    - Assign serial numbers via `trg_assign_serial_no`
    - Update ticket counts via `trg_ticket_counts`
+5. Syncs newly created tickets to the attendee wallet (mobile passbook + in-app storage)
+6. Emits domain events for downstream fulfillment (e.g., door list refresh)
 
 **Output**:
 ```typescript
@@ -415,6 +533,34 @@ CREATE TABLE ticket_tiers (
   created_at TIMESTAMP DEFAULT NOW()
 );
 ```
+
+---
+
+### **checkout_sessions** Table (New)
+
+```sql
+CREATE TABLE checkout_sessions (
+  id UUID PRIMARY KEY,
+  order_id UUID REFERENCES orders,
+  user_id UUID REFERENCES auth.users,
+  event_id UUID REFERENCES events,
+
+  status TEXT,                       -- 'pending' | 'expired' | 'converted'
+  hold_ids UUID[],                   -- Holds returned from reserve_tickets_batch
+  pricing_snapshot JSONB,            -- { subtotal_cents, fees_cents, total_cents, currency }
+  contact_snapshot JSONB,            -- { email, name, phone }
+  verification_state JSONB,          -- { email_verified: boolean, risk_score: number }
+  express_methods JSONB,             -- Wallet/payment method availability flags
+  expires_at TIMESTAMP,              -- Reservation expiration timestamp
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Indexes & Retention**:
+- `CREATE INDEX idx_checkout_sessions_order ON checkout_sessions(order_id);`
+- `CREATE INDEX idx_checkout_sessions_expires ON checkout_sessions(expires_at);`
+- Automatic cleanup job prunes expired sessions beyond 24 hours.
 
 ---
 
@@ -759,6 +905,13 @@ INSERT INTO tickets VALUES
 }
 ```
 
+16. **Session Finalization**:
+```sql
+UPDATE checkout_sessions
+SET status = 'converted', updated_at = NOW()
+WHERE id = 'checkout-session-uuid';
+```
+
 ---
 
 ## 📊 Status Values
@@ -820,11 +973,12 @@ console.log('[ENSURE-TICKETS] Status:', status);
 ✅ `stripe_session_id` populated in order  
 ✅ Order updated to `status = 'paid'`  
 ✅ `paid_at` timestamp set  
-✅ Tickets created (count matches order quantity)  
-✅ QR codes generated on all tickets  
-✅ Serial numbers assigned  
-✅ Ticket counts updated on tiers  
-✅ Confirmation email sent  
+✅ Tickets created (count matches order quantity)
+✅ QR codes generated on all tickets
+✅ Serial numbers assigned
+✅ Ticket counts updated on tiers
+✅ Confirmation email sent
+✅ Checkout session marked `converted` or released when expired
 
 ### **Database Verification Query**:
 
@@ -874,22 +1028,51 @@ uuid     | paid   | cs_...           | <time>  | 6615        | 3            | 3 
 
 ---
 
+## 🚀 Member Express Checkout Enhancements
+
+1. **Account Context Preload** – the modal hydrates membership tier, loyalty balance, and saved attendees on open to minimize API calls mid-checkout.
+2. **Saved Payment Reuse** – Stripe customer IDs are stored on the order and automatically attached to the session, enabling one-click confirmation via Link/Wallets.
+3. **Multi-attendee Autofill** – members can select existing attendee profiles; the UI pre-fills names/emails and syncs them back to the order metadata for downstream experiences.
+4. **Reservation Renewal** – background timers refresh holds when members adjust quantities, reducing cancellation churn.
+5. **Post-purchase Upsell** – upon success the member receives targeted add-on offers (parking, merch) powered by the `checkout-workflow` metadata.
+
+---
+
+## 🙌 Guest Checkout Enhancements
+
+1. **Progressive Profiling** – capture email first, allow optional name/phone, and prompt for passwordless upgrade only after purchase.
+2. **Magic Link Verification** – when time allows, send a verification link that doubles as login credentials for future visits, driving conversion without blocking payment.
+3. **Fraud Controls** – throttle by IP/device fingerprint, check disposable email lists, and block repeated failed attempts using the `checkout_sessions` table.
+4. **Session Persistence** – store cart selections in `checkout_sessions` to allow resume across devices within the hold window.
+5. **Guest-to-member Nudge** – confirmation email includes CTA to claim account and set password, carrying over purchase history automatically.
+
+---
+
+## 📊 Operational Monitoring & Efficiency
+
+- **Metrics** – emit `checkout.session_created`, `checkout.session_converted`, `checkout.session_expired`, `ticket.issued`, and `ticket.scanned` metrics with tags (`flow=member|guest`, `device=web|mobile`).
+- **Tracing** – propagate a `checkoutTraceId` from frontend through edge functions and webhooks for distributed tracing in Honeycomb/DataDog.
+- **Alerting** – trigger alerts on high expiration rates (>5%), webhook retry spikes, or ticket issuance latency >30s.
+- **Data Retention** – archive aged `checkout_sessions` and `order_items` into cold storage monthly to keep OLTP lean.
+- **Accessibility QA** – automated Playwright + Axe scans ensure the modal meets WCAG 2.1 AA for all flows.
+
+---
+
 ## 📝 Summary
 
-The ticket purchasing ecosystem consists of:
+The modernized ticket purchasing ecosystem now offers:
 
-- **2 Entry Points**: Member (enhanced-checkout) & Guest (guest-checkout)
-- **5 Core Functions**: enhanced-checkout, guest-checkout, stripe-webhook, process-payment, ensure-tickets
-- **4 Main Tables**: orders, order_items, tickets, ticket_tiers
-- **3 Database Functions**: reserve_tickets_batch, gen_qr_code, ticket count functions
-- **3 Auto Triggers**: QR generation, serial assignment, count updates
-- **2 External APIs**: Stripe (payments), Resend (email)
-- **1 Fee Formula**: 6.6% + $2.19
+- **3 Entry Points**: Member (enhanced-checkout), Guest (guest-checkout), and Session status polling.
+- **6 Core Functions**: enhanced-checkout, guest-checkout, checkout-session-status, stripe-webhook, process-payment, ensure-tickets.
+- **5 Main Tables**: orders, order_items, tickets, ticket_tiers, checkout_sessions.
+- **Shared Checkout Orchestration**: checkout-workflow module handles pricing, validation, logging, and idempotency for both flows.
+- **Industry-standard Payment UX**: wallet support, Link, SCA readiness, and express checkout timers.
+- **Lifecycle Automation**: structured logging, audit events, downstream notifications, and hold release automation.
 
 All flows converge at the webhook processing layer and result in:
-✅ Paid orders  
-✅ Issued tickets  
-✅ Generated QR codes  
-✅ Sent confirmations  
-
+✅ Paid orders
+✅ Checkout sessions converted or expired cleanly
+✅ Issued tickets delivered to attendee wallets
+✅ Generated QR codes and serial numbers
+✅ Confirmation emails/SMS dispatched with conversion nudges
 
