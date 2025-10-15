@@ -53,17 +53,22 @@ export function useCampaignBoosts({
     enabled,
     staleTime: 60_000,
     queryFn: async (): Promise<CampaignBoostRow[]> => {
-      const { data, error } = await supabase.rpc('get_active_campaign_creatives', {
-        p_placement: placement,
-        p_limit: limit,
-        p_user_id: userId ?? null,
-        p_now: new Date().toISOString(),
-      });
-      if (error) {
-        console.warn('[useCampaignBoosts] rpc failed', error.message);
-        throw error;
+      try {
+        const { data, error } = await supabase.rpc('get_active_campaign_creatives', {
+          p_placement: placement,
+          p_limit: limit,
+          p_user_id: userId ?? null,
+          p_now: new Date().toISOString(),
+        });
+        if (error) {
+          console.warn('[useCampaignBoosts] rpc failed, returning empty array', error.message);
+          return [];
+        }
+        return (data ?? []) as CampaignBoostRow[];
+      } catch (err) {
+        console.warn('[useCampaignBoosts] rpc not available, returning empty array', err);
+        return [];
       }
-      return (data ?? []) as CampaignBoostRow[];
     },
   });
 }

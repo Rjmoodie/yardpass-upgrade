@@ -1,27 +1,26 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
 
-const logStep = (step: string, details?: unknown) => {
+const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
-
-  const correlationId = crypto.randomUUID();
-  const t0 = performance.now();
-
+  // Log immediately - this should always show up
+  console.log("=== WEBHOOK CALLED ===");
+  console.log("Method:", req.method);
+  console.log("URL:", req.url);
+  
   try {
-    logStep("Webhook received", { correlationId });
+    logStep("Webhook received", { method: req.method });
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
     
     if (!stripeKey || !webhookSecret) {
+      logStep("Missing Stripe configuration");
       throw new Error("Missing Stripe configuration");
     }
 
@@ -31,18 +30,18 @@ serve(async (req) => {
     const signature = req.headers.get("stripe-signature");
     
     if (!signature) {
+      logStep("No Stripe signature found");
       throw new Error("No Stripe signature found");
     }
 
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    } catch (err) {
-      logStep("Webhook signature verification failed", { error: (err as any).message, correlationId });
-      throw new Error(`Webhook signature verification failed: ${(err as any).message}`);
+      logStep("Event verified successfully", { type: event.type, id: event.id });
+    } catch (err: any) {
+      logStep("Webhook signature verification failed", { error: err.message });
+      throw new Error(`Webhook signature verification failed: ${err.message}`);
     }
-
-    logStep("Event received", { type: event.type, id: event.id, correlationId });
 
     // Create Supabase service client
     const supabaseService = createClient(
@@ -77,237 +76,56 @@ serve(async (req) => {
       // If already processed, skip
       if (order.status === 'paid') {
         logStep("Order already processed", { orderId: order.id });
-        return createResponse({ received: true });
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
-      // Mark order as paid
-      const { error: updateError } = await supabaseService
-        .from("orders")
-        .update({
-          status: 'paid',
-          paid_at: new Date().toISOString()
-        })
-        .eq("id", order.id);
-
-      if (updateError) {
-        logStep("Failed to update order", { error: updateError.message });
-        throw new Error("Failed to update order status");
-      }
-
-      // Note: Ticket creation is handled by process-payment function
-      // This webhook only marks the order as paid to trigger the process-payment flow
-      logStep("Order marked as paid, process-payment will handle ticket creation");
-
-      logStep("Payment processed successfully", { 
-        orderId: order.id
+      // Call process-payment to handle ticket creation and email sending
+      logStep("Calling process-payment function", { sessionId: session.id });
+      
+      const processPaymentResponse = await supabaseService.functions.invoke('process-payment', {
+        body: { sessionId: session.id }
       });
 
-    } else if (event.type === "checkout.session.expired") {
-      const session = event.data.object as Stripe.Checkout.Session;
-      logStep("Processing checkout.session.expired", { sessionId: session.id });
-
-      // Find the order and release reserved tickets
-      const { data: order, error: orderError } = await supabaseService
-        .from("orders")
-        .select(`
-          *,
-          order_items (
-            tier_id,
-            quantity
-          )
-        `)
-        .eq("stripe_session_id", session.id)
-        .single();
-
-      if (orderError) {
-        logStep("Order not found for expired session", { error: orderError.message });
-      } else {
-        // Release reserved tickets
-        for (const item of order.order_items || []) {
-          const { error: releaseError } = await supabaseService
-            .from("ticket_tiers")
-            .update({
-              quantity: item.quantity // This will be handled by a database function instead
-            })
-            .eq("id", item.tier_id);
-
-          if (releaseError) {
-            logStep("Failed to release tickets", { tierId: item.tier_id, error: releaseError.message });
-          }
-        }
-
-        // Mark order as cancelled
-        const { error: updateError } = await supabaseService
+      if (processPaymentResponse.error) {
+        logStep("process-payment failed", { error: processPaymentResponse.error });
+        // Mark as paid anyway so user can manually retry
+        await supabaseService
           .from("orders")
           .update({
-            status: 'cancelled'
+            status: 'paid',
+            paid_at: new Date().toISOString()
           })
           .eq("id", order.id);
-
-        if (updateError) {
-          logStep("Failed to update expired order", { error: updateError.message });
-        }
-      }
-
-    } else if (event.type === "payment_intent.payment_failed") {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      logStep("Processing payment_intent.payment_failed", { paymentIntentId: paymentIntent.id });
-
-      // Find order by metadata and mark as failed
-      const { error: updateError } = await supabaseService
-        .from("orders")
-        .update({
-          status: 'failed'
-        })
-        .eq("stripe_session_id", paymentIntent.metadata?.session_id);
-
-      if (updateError) {
-        logStep("Failed to update failed order", { error: updateError.message });
-      }
-
-    } else if (event.type === "account.updated") {
-      const account = event.data.object as Stripe.Account;
-      logStep("Processing account.updated", { accountId: account.id });
-
-      // Update payout account status
-      const { error: updateError } = await supabaseService
-        .from("payout_accounts")
-        .update({
-          charges_enabled: account.charges_enabled,
-          payouts_enabled: account.payouts_enabled,
-          details_submitted: account.details_submitted
-        })
-        .eq("stripe_connect_id", account.id);
-
-      if (updateError) {
-        logStep("Failed to update payout account", { error: updateError.message });
       } else {
-        logStep("Payout account updated successfully", { 
-          accountId: account.id,
-          charges_enabled: account.charges_enabled,
-          payouts_enabled: account.payouts_enabled,
-          details_submitted: account.details_submitted
+        logStep("process-payment succeeded", { 
+          orderId: order.id,
+          ticketsCreated: processPaymentResponse.data?.order?.tickets_count
         });
       }
 
-    } else if (event.type === "payout.paid") {
-      const payout = event.data.object as Stripe.Payout;
-      logStep("Processing payout.paid", { payoutId: payout.id, amount: payout.amount });
-
-      // Log successful payout (you can extend this to update your payouts table)
-      // For now, just log it
-      logStep("Payout completed successfully", {
-        payoutId: payout.id,
-        amount: payout.amount,
-        destination: payout.destination
-      });
-
-    } else if (event.type === "payout.failed") {
-      const payout = event.data.object as Stripe.Payout;
-      logStep("Processing payout.failed", { payoutId: payout.id, failureCode: payout.failure_code });
-
-      // Log failed payout
-      logStep("Payout failed", {
-        payoutId: payout.id,
-        amount: payout.amount,
-        failureCode: payout.failure_code,
-        failureMessage: payout.failure_message
-      });
-
-    } else if (event.type === "payment_intent.succeeded") {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const orderId = paymentIntent.metadata?.order_id;
-
-      if (orderId) {
-        logStep("Processing sponsorship payment success", { orderId, paymentIntentId: paymentIntent.id });
-        
-        // Update sponsorship order to escrow status
-        const { error: updateError } = await supabaseService
-          .from("sponsorship_orders")
-          .update({ 
-            status: "escrow", 
-            stripe_payment_intent_id: paymentIntent.id,
-            updated_at: new Date().toISOString() 
-          })
-          .eq("id", orderId);
-
-        if (updateError) {
-          logStep("Failed to update sponsorship order", { error: updateError.message });
-        } else {
-          logStep("Sponsorship order moved to escrow", { orderId });
-        }
-      }
+      logStep("Payment processed successfully", { orderId: order.id });
 
     } else {
-      logStep("Unhandled webhook event", { type: event.type, correlationId });
+      logStep("Unhandled webhook event", { type: event.type });
     }
 
-    // Log successful processing
-    await supabaseService.rpc('log_request', {
-      p_correlation_id: correlationId,
-      p_source_type: 'edge_function',
-      p_function_name: 'stripe-webhook',
-      p_http_method: 'POST',
-      p_url: '/stripe-webhook',
-      p_headers: Object.fromEntries(req.headers.entries()),
-      p_body: { type: event.type, id: event.id },
-      p_response_status: 200,
-      p_response_body: { received: true },
-      p_execution_time_ms: Math.round(performance.now() - t0),
-      p_error_message: null
+    logStep("Webhook processed successfully", { type: event.type });
+
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
     });
 
-    return createResponse({ received: true, correlationId });
-
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in stripe-webhook", { message: errorMessage, correlationId });
+    logStep("ERROR in stripe-webhook", { message: errorMessage });
     
-    // Create Supabase service client for error logging
-    const supabaseService = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
-    );
-
-    try {
-      // Try to get event for DLQ
-      const body = await req.text();
-      const signature = req.headers.get("stripe-signature");
-      const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
-      
-      if (signature && webhookSecret) {
-        const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", { apiVersion: "2023-10-16" });
-        const event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-        
-        // Enqueue to DLQ for later processing
-        await supabaseService.rpc('dlq_enqueue_webhook', {
-          p_correlation_id: correlationId,
-          p_webhook_type: event.type,
-          p_payload: event,
-          p_original_timestamp: event.created ? new Date(event.created * 1000).toISOString() : new Date().toISOString(),
-          p_failure_reason: errorMessage.slice(0, 500)
-        });
-      }
-
-      // Log the error
-      await supabaseService.rpc('log_request', {
-        p_correlation_id: correlationId,
-        p_source_type: 'edge_function',
-        p_function_name: 'stripe-webhook',
-        p_http_method: 'POST',
-        p_url: '/stripe-webhook',
-        p_headers: Object.fromEntries(req.headers.entries()),
-        p_body: {},
-        p_response_status: 500,
-        p_response_body: { error: errorMessage },
-        p_execution_time_ms: Math.round(performance.now() - t0),
-        p_error_message: errorMessage
-      });
-    } catch (logError) {
-      console.error('Failed to log error or enqueue to DLQ:', logError);
-    }
-
-    return createErrorResponse(errorMessage);
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });

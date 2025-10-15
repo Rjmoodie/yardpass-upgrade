@@ -9,12 +9,9 @@ max_rows = 1000
 
 [auth]
 enabled = true
-port = 54324
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://lovable.app/**", "https://*.lovable.app/**"]
 jwt_expiry = 3600
-refresh_token_rotation_enabled = true
-security_update_password_require_reauthentication = true
 enable_signup = true
 
 [auth.email]
@@ -28,22 +25,17 @@ enable_confirmations = true
 
 [realtime]
 enabled = true
-port = 54323
 
 [storage]
 enabled = true
-port = 54324
 file_size_limit = "50MiB"
-bucket_limit = 100
 
 [db]
-enabled = true
 port = 54322
 major_version = 15
 
 [edge_functions]
 enabled = true
-port = 54325
 
 [functions.create-checkout]
 verify_jwt = false
@@ -152,3 +144,6 @@ verify_jwt = true
 
 [functions.org-wallet-auto-reload]
 verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false

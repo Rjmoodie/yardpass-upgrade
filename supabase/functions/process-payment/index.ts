@@ -94,15 +94,29 @@ serve(async (req) => {
 
     // Send purchase confirmation email
     try {
-      // Get user profile for email
+      // Get user profile
       const { data: userProfile } = await supabaseService
         .from("user_profiles")
-        .select("display_name, email")
+        .select("display_name")
         .eq("user_id", order.user_id)
         .single();
 
-      if (userProfile?.email) {
-        logStep("Sending purchase confirmation email", { email: userProfile.email });
+      // Try to get email from auth.users, fallback to order contact_email
+      let userEmail = order.contact_email; // Default fallback
+      
+      try {
+        const { data: authUser } = await supabaseService.auth.admin.listUsers();
+        const user = authUser?.users?.find(u => u.id === order.user_id);
+        if (user?.email) {
+          userEmail = user.email;
+        }
+      } catch (authError) {
+        logStep("Auth admin lookup failed, using contact_email", { error: authError.message });
+        // userEmail already set to order.contact_email
+      }
+
+      if (userEmail) {
+        logStep("Sending purchase confirmation email", { email: userEmail });
 
         // Get first ticket tier name for the email
         const { data: firstTier } = await supabaseService
@@ -133,8 +147,8 @@ serve(async (req) => {
         // Call send-purchase-confirmation edge function
         const emailResponse = await supabaseService.functions.invoke('send-purchase-confirmation', {
           body: {
-            customerName: userProfile.display_name || 'Customer',
-            customerEmail: userProfile.email,
+            customerName: userProfile?.display_name || order.contact_name || 'Customer',
+            customerEmail: userEmail,
             eventTitle: order.events?.title || 'Event',
             eventDate,
             eventLocation,
@@ -150,10 +164,16 @@ serve(async (req) => {
         if (emailResponse.error) {
           logStep("Email sending failed (non-critical)", { error: emailResponse.error });
         } else {
-          logStep("Purchase confirmation email sent successfully");
+          logStep("Purchase confirmation email sent successfully", { 
+            emailId: emailResponse.data?.id,
+            to: userEmail 
+          });
         }
       } else {
-        logStep("No email address found for user", { userId: order.user_id });
+        logStep("No email address found for user", { 
+          userId: order.user_id,
+          contactEmail: order.contact_email 
+        });
       }
     } catch (emailError) {
       // Don't fail the whole payment if email fails

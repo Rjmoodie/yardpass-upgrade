@@ -311,6 +311,9 @@ p {
   bottom: calc(84px + env(safe-area-inset-bottom));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding: 0;
+  margin: 0;
+  background: transparent;
 }
 
 @media (max-width: 640px) {

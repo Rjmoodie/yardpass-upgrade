@@ -1,14 +1,23 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export async function createHold(params: { event_id: string; items: Record<string, number>; guest_code?: string | null }) {
-  // Replace with your Edge Function / RPC call if available.
   const { data, error } = await supabase.functions.invoke('create-hold', { body: params });
   if (error) throw new Error(error.message ?? 'Failed to create hold');
   return data as { id: string; totals: { subtotal_cents: number; fees_cents: number; discount_cents: number; total_cents: number } };
 }
 
-export async function createCheckoutSession(params: { hold_id: string }) {
-  const { data, error } = await supabase.functions.invoke('checkout', { body: params });
+export async function createCheckoutSession(params: { 
+  hold_id: string; 
+  eventId: string; 
+  ticketSelections: { tierId: string; quantity: number }[] 
+}) {
+  const { data, error } = await supabase.functions.invoke('checkout', { 
+    body: {
+      hold_id: params.hold_id,
+      eventId: params.eventId,
+      ticketSelections: params.ticketSelections
+    }
+  });
   if (error) throw new Error(error.message ?? 'Failed to create checkout session');
   return data as { url: string };
 }
@@ -21,9 +30,18 @@ export async function createGuestCheckoutSession(params: {
   contact_phone?: string;
   guest_code?: string | null;
 }) {
-  const { data, error } = await supabase.functions.invoke('guest-checkout', { body: params });
-  if (error) throw new Error(error.message ?? 'Failed to create guest checkout session');
-  return data as { url: string };
+  try {
+    const { data, error } = await supabase.functions.invoke('guest-checkout', { body: params });
+    if (error) {
+      console.error('[createGuestCheckoutSession] Edge function error:', error);
+      throw new Error(error.message ?? 'Failed to create guest checkout session');
+    }
+    return data as { url: string };
+  } catch (err: any) {
+    console.error('[createGuestCheckoutSession] Unexpected error:', err);
+    // Fallback: redirect to regular checkout with a message
+    throw new Error('Guest checkout is temporarily unavailable. Please create an account to purchase tickets.');
+  }
 }
 
 export async function fetchTicketTiers(eventId: string) {

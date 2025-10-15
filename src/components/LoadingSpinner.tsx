@@ -1,41 +1,34 @@
-import { BrandedSpinner, PageSpinner } from './BrandedSpinner';
+import { Loader2 } from 'lucide-react';
 
-type SpinnerSize = 'xs' | 'sm' | 'md' | 'lg';
-type SpinnerAppearance = 'primary' | 'inverted';
-
-const SIZE_CLASSES: Record<SpinnerSize, string> = {
-  xs: 'h-3 w-3',
-  sm: 'h-[18px] w-[18px]',
-  md: 'h-12 w-12',
-  lg: 'h-16 w-16'
-};
-
-const INNER_SIZE_CLASSES: Record<SpinnerSize, string> = {
-  xs: 'h-1.5 w-1.5',
-  sm: 'h-[12px] w-[12px]',
-  md: 'h-9 w-9',
-  lg: 'h-12 w-12'
-};
-
-const BORDER_WIDTH_CLASSES: Record<SpinnerSize, string> = {
-  xs: 'border',
-  sm: 'border-2',
-  md: 'border-[3px]',
-  lg: 'border-4'
-};
-
-interface YardpassSpinnerProps {
-  size?: SpinnerSize;
-  appearance?: SpinnerAppearance;
-  showGlow?: boolean;
-  showLogo?: boolean;
-  className?: string;
-}
-
-export function LoadingSpinner({ size = 'md', className = '' }: LoadingSpinnerProps) {
-  return <BrandedSpinner size={size} className={`p-4 ${className}`} />;
+export function LoadingSpinner({ size = 'md', className = '' }: { size?: string; className?: string }) {
+  return (
+    <div className={`flex items-center justify-center p-4 ${className}`}>
+      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+    </div>
+  );
 }
 
 export function PageLoadingSpinner() {
-  return <PageSpinner text="Loading..." />;
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
+      <div className="text-center space-y-6">
+        <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+// Legacy export for backward compatibility
+export function YardpassSpinner({ size = 'md', className = '', showGlow = false, showLogo = false }: { 
+  size?: string; 
+  className?: string; 
+  showGlow?: boolean; 
+  showLogo?: boolean; 
+}) {
+  return (
+    <div className={`flex items-center justify-center ${className}`}>
+      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+    </div>
+  );
 }

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +10,7 @@ const corsHeaders = {
 interface GuestCheckoutItem {
   tier_id: string;
   quantity: number;
+  unit_price_cents?: number;
 }
 
 interface GuestCheckoutRequest {
@@ -88,50 +89,66 @@ serve(async (req) => {
     const requestedName = payload.contact_name?.trim() || "";
     const requestedPhone = payload.contact_phone?.trim() || "";
 
-    const { data: existingUserRes, error: existingUserErr } = await supabaseService.auth.admin.getUserByEmail(normalizedEmail);
-    if (existingUserErr) {
-      console.error("[guest-checkout] getUserByEmail error", existingUserErr);
-    }
-
-    let userId = existingUserRes?.user?.id ?? null;
+    // Try to find existing user via auth.users email lookup
+    let userId: string | null = null;
     let isNewUser = false;
+
+    // If no profile found, try auth admin API as fallback
+    if (!userId) {
+      try {
+        // Try the newer API first
+        const { data: existingUserRes, error: existingUserErr } = await supabaseService.auth.admin.listUsers();
+        if (!existingUserErr && existingUserRes?.users) {
+          const existingUser = existingUserRes.users.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
+          userId = existingUser?.id ?? null;
+        }
+      } catch (adminErr) {
+        console.warn("[guest-checkout] auth.admin not available, will create new user", adminErr);
+      }
+    }
 
     if (!userId) {
       const displayName = requestedName || normalizedEmail.split("@")[0];
-      const { data: created, error: createErr } = await supabaseService.auth.admin.createUser({
-        email: normalizedEmail,
-        email_confirm: true,
-        user_metadata: {
-          created_via: "guest_checkout",
-          guest_checkout_at: new Date().toISOString(),
-        },
-        app_metadata: {
-          roles: ["guest"],
-        },
-      });
-
-      if (createErr || !created?.user) {
-        console.error("[guest-checkout] createUser failed", createErr);
-        return response({ error: "Failed to provision guest account" }, 500);
-      }
-
-      userId = created.user.id;
-      isNewUser = true;
-
-      const { error: profileErr } = await supabaseService
-        .from("user_profiles")
-        .upsert(
-          {
-            user_id: userId,
-            display_name: displayName || "Guest",
-            role: "attendee",
-            phone: requestedPhone || null,
+      
+      try {
+        const { data: created, error: createErr } = await supabaseService.auth.admin.createUser({
+          email: normalizedEmail,
+          email_confirm: true,
+          user_metadata: {
+            created_via: "guest_checkout",
+            guest_checkout_at: new Date().toISOString(),
           },
-          { onConflict: "user_id" }
-        );
+          app_metadata: {
+            roles: ["guest"],
+          },
+        });
 
-      if (profileErr) {
-        console.warn("[guest-checkout] failed to upsert user profile", profileErr.message);
+        if (createErr || !created?.user) {
+          console.error("[guest-checkout] createUser failed", createErr);
+          return response({ error: "Failed to provision guest account" }, 500);
+        }
+
+        userId = created.user.id;
+        isNewUser = true;
+
+        const { error: profileErr } = await supabaseService
+          .from("user_profiles")
+          .upsert(
+            {
+              user_id: userId,
+              display_name: displayName || "Guest",
+              role: "attendee",
+              phone: requestedPhone || null,
+            },
+            { onConflict: "user_id" }
+          );
+
+        if (profileErr) {
+          console.warn("[guest-checkout] failed to upsert user profile", profileErr.message);
+        }
+      } catch (createError) {
+        console.error("[guest-checkout] Failed to create user", createError);
+        return response({ error: "Unable to create guest account. Please try signing up first." }, 500);
       }
     }
 
@@ -196,6 +213,15 @@ serve(async (req) => {
       const processingFee = faceValue * 0.066 + 2.19;
       return Math.round((faceValue + processingFee) * 100);
     };
+
+    // Calculate total with fees for the entire order
+    const totalFaceValueCents = items.reduce((sum, item) => {
+      const tier = tierMap.get(item.tier_id)!;
+      return sum + (tier.price_cents * item.quantity);
+    }, 0);
+    
+    const totalWithFees = calculateTotalCents(totalFaceValueCents);
+    const totalFees = totalWithFees - totalFaceValueCents;
 
     const lineItems = items.map((item) => {
       const tier = tierMap.get(item.tier_id)!;
@@ -284,8 +310,9 @@ serve(async (req) => {
         event_id: eventId,
         checkout_session_id: session.id,
         status: "pending",
-        subtotal_cents: totalAmount,
-        total_cents: totalAmount,
+        subtotal_cents: totalFaceValueCents,
+        fees_cents: totalFees,
+        total_cents: totalWithFees,
         currency: "USD",
         hold_ids: reservationResult.hold_ids || [],
         contact_email: normalizedEmail,

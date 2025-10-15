@@ -310,72 +310,31 @@ export function TicketPurchaseModal({
         return;
       }
 
-      console.log('🚀 Creating hold for checkout with:', {
-        event_id: event.id,
-        items,
-        guest_code: guestCode || null
+      // Member checkout - use enhanced-checkout
+      console.log('🚀 Using enhanced-checkout for member purchase');
+      const ticketSelections = selectedEntries.map(([tierId, quantity]) => ({
+        tierId,
+        quantity
+      }));
+
+      const { data, error } = await supabase.functions.invoke('enhanced-checkout', {
+        body: {
+          eventId: event.id,
+          ticketSelections
+        }
       });
 
-      try {
-        const hold = await createHold({
-          event_id: event.id,
-          items,
-          guest_code: guestCode || null
-        });
-        const { url } = await createCheckoutSession({ hold_id: hold.id });
-        window.location.href = url;
-      } catch (holdError: any) {
-        console.log('⚠️ Hold API not available, using legacy checkout');
-        const ticketSelections = selectedEntries.map(([tierId, quantity]) => ({
-          tierId,
-          quantity,
-          faceValue: ticketTiers.find(t => t.id === tierId)?.price_cents || 0
-        }));
-
-        const { data, error } = await supabase.functions.invoke('create-checkout', {
-          body: {
-            eventId: event.id,
-            ticketSelections
-          }
-        });
-
-        console.log('📡 Edge function response:', { data, error });
-
-        if (error) {
-          console.error('❌ Edge function error:', error);
-          throw error;
-        }
-
-        console.log('✅ Checkout session created, opening in new tab:', data.url);
-
-        notifyInfo("Opening secure payment in new tab...");
-
-        const checkoutWindow = window.open(data.url, '_blank');
-
-        if (!checkoutWindow) {
-          console.log('🚨 Popup blocked, showing manual redirect');
-          toast({
-            title: "Popup Blocked",
-            description: "Please allow popups or click here to continue to checkout.",
-            action: (
-              <Button
-                size="sm"
-                onClick={() => window.open(data.url, '_blank')}
-              >
-                Go to Checkout
-              </Button>
-            )
-          });
-        } else {
-          const checkInterval = setInterval(() => {
-            if (checkoutWindow.closed) {
-              clearInterval(checkInterval);
-              console.log('🔄 User returned from checkout, calling success callback');
-              onSuccess();
-            }
-          }, 1000);
-        }
+      if (error) {
+        console.error('❌ Enhanced checkout error:', error);
+        throw error;
       }
+
+      if (!data?.url) {
+        throw new Error('No checkout URL returned');
+      }
+
+      console.log('✅ Checkout session created, redirecting...');
+      window.location.href = data.url;
     } catch (error: any) {
       console.error('❌ Purchase error:', error);
       toast({
