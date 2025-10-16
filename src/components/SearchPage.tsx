@@ -372,12 +372,14 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     lastUpdatedAt: searchLastUpdated,
     error: searchError
   } = useSmartSearch({
-    query: q,
-    location: city,
-    category: category !== 'All' ? category : undefined,
-    dateFrom: from || undefined,
-    dateTo: to || undefined,
-    limit: 20
+    initialQuery: q,
+    initialFilters: {
+      location: city,
+      category: category !== 'All' ? category : undefined,
+      dateFrom: from || undefined,
+      dateTo: to || undefined,
+    },
+    pageSize: 20
   });
   
   // Filter search results to only show events (not posts)
@@ -391,7 +393,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       setDisplayedResults(eventResults);
       setHasMore(searchHasMore);
       setIsStale(searchIsStale);
-      setLastUpdatedAt(searchLastUpdated);
+      setLastUpdatedAt(searchLastUpdated ? new Date(searchLastUpdated) : null);
       
       // Set hero event (first result)
       setHeroEvent(eventResults[0]);
@@ -812,71 +814,183 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
         <div className="absolute inset-x-0 top-0 h-[420px] bg-gradient-to-b from-white/80 via-white/60 to-transparent" />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-10 lg:px-8">
-        <header className="relative overflow-hidden rounded-[36px] border border-white/60 bg-white/85 px-6 py-8 shadow-[0_45px_120px_-80px_rgba(15,23,42,0.6)] backdrop-blur">
-          <div className="pointer-events-none absolute right-[-70px] top-[-100px] h-64 w-64 rounded-full bg-amber-100/70 blur-3xl" />
-          <div className="pointer-events-none absolute left-[-70px] bottom-[-90px] h-56 w-56 rounded-full bg-slate-200/60 blur-3xl" />
-          <div className="relative flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex items-start gap-4">
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-4 lg:px-8 lg:pt-10">
+        {/* Mobile-Optimized Header */}
+        <header className="relative mb-6 lg:mb-8">
+          {/* Mobile: Compact header */}
+          <div className="flex items-center justify-between gap-4 lg:hidden">
+            <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onBack}
-                className="mt-1 h-11 w-11 rounded-full border border-transparent bg-white/80 text-slate-700 shadow-sm backdrop-blur transition hover:border-slate-200 hover:shadow-md"
+                className="h-10 w-10 rounded-full border border-transparent bg-white/80 text-slate-700 shadow-sm backdrop-blur"
               >
                 <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Back</span>
               </Button>
-              <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Discover</p>
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-                  Explore events & experiences
-                </h1>
-                <p className="max-w-2xl text-sm text-slate-600">
-                  Search by vibe, location, and date to find memorable things to do. YardPass surfaces trending picks and curated gems just for you.
-                </p>
+              <div>
+                <h1 className="text-lg font-semibold text-slate-900">Discover</h1>
+                <p className="text-xs text-slate-500">{displayedResults.length} events found</p>
               </div>
             </div>
-            <div className="grid gap-4 text-xs text-slate-500 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 shadow-sm">
-                <p className="font-semibold uppercase tracking-wide text-[11px] text-slate-500">Live results</p>
-                <p className="mt-1 text-xl font-semibold text-slate-900">
-                  {displayedResults.length > 0 ? displayedResults.length : '—'}
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  {lastUpdatedAt ? `Updated ${formatDistanceToNow(lastUpdatedAt, { addSuffix: true })}` : 'Fresh events added hourly'}
-                </p>
+            <div className="flex items-center gap-2">
+              {filtersAppliedCount > 0 && (
+                <span className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">
+                  {filtersAppliedCount} filters
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop: Full header */}
+          <div className="hidden lg:block relative overflow-hidden rounded-[36px] border border-white/60 bg-white/85 px-6 py-8 shadow-[0_45px_120px_-80px_rgba(15,23,42,0.6)] backdrop-blur">
+            <div className="pointer-events-none absolute right-[-70px] top-[-100px] h-64 w-64 rounded-full bg-amber-100/70 blur-3xl" />
+            <div className="pointer-events-none absolute left-[-70px] bottom-[-90px] h-56 w-56 rounded-full bg-slate-200/60 blur-3xl" />
+            <div className="relative flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex items-start gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onBack}
+                  className="mt-1 h-11 w-11 rounded-full border border-transparent bg-white/80 text-slate-700 shadow-sm backdrop-blur transition hover:border-slate-200 hover:shadow-md"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                  <span className="sr-only">Back</span>
+                </Button>
+                <div className="space-y-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Discover</p>
+                  <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                    Explore events & experiences
+                  </h1>
+                  <p className="max-w-2xl text-sm text-slate-600">
+                    Search by vibe, location, and date to find memorable things to do. YardPass surfaces trending picks and curated gems just for you.
+                  </p>
+                </div>
               </div>
-              <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 shadow-sm">
-                <p className="font-semibold uppercase tracking-wide text-[11px] text-slate-500">Personalized picks</p>
-                <p className="mt-1 text-xl font-semibold text-slate-900">
-                  {recommendationsToRender.length > 0 ? recommendationsToRender.length : '—'}
-                </p>
-                <p className="text-[11px] text-slate-400">Hand-picked suggestions for you</p>
-              </div>
-              <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 shadow-sm">
-                <p className="font-semibold uppercase tracking-wide text-[11px] text-slate-500">Filters active</p>
-                <p className="mt-1 text-xl font-semibold text-slate-900">{filtersAppliedCount}</p>
-                <p className="text-[11px] text-slate-400">Fine-tune to zero in on the right events</p>
+              <div className="grid gap-4 text-xs text-slate-500 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 shadow-sm">
+                  <p className="font-semibold uppercase tracking-wide text-[11px] text-slate-500">Live results</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">
+                    {displayedResults.length > 0 ? displayedResults.length : '—'}
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    {lastUpdatedAt ? `Updated ${formatDistanceToNow(lastUpdatedAt, { addSuffix: true })}` : 'Fresh events added hourly'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 shadow-sm">
+                  <p className="font-semibold uppercase tracking-wide text-[11px] text-slate-500">Personalized picks</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">
+                    {recommendationsToRender.length > 0 ? recommendationsToRender.length : '—'}
+                  </p>
+                  <p className="text-[11px] text-slate-400">Hand-picked suggestions for you</p>
+                </div>
+                <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 shadow-sm">
+                  <p className="font-semibold uppercase tracking-wide text-[11px] text-slate-500">Filters active</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">{filtersAppliedCount}</p>
+                  <p className="text-[11px] text-slate-400">Fine-tune to zero in on the right events</p>
+                </div>
               </div>
             </div>
           </div>
         </header>
 
-        <section className="mt-8">
+        {/* Mobile: Compact Search Bar */}
+        <section className="lg:hidden mb-6">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              id="search-query-input"
+              value={q}
+              onChange={(e) => setParam('q', e.target.value)}
+              placeholder="Search events, organizers, locations..."
+              className="h-12 rounded-2xl border-slate-200 bg-white/95 pl-11 text-base shadow-sm transition focus-visible:ring-2 focus-visible:ring-slate-900/20"
+            />
+          </div>
+          
+          {/* Mobile: Quick filters */}
+          {!q && (
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+              {quickSearchPresets.map((preset) => (
+                <Button
+                  key={preset.value}
+                  variant="secondary"
+                  onClick={() => setParam('q', preset.value)}
+                  className="flex-shrink-0 rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-slate-800"
+                >
+                  <Sparkles className="mr-2 h-3.5 w-3.5" />
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Mobile: Events First - Show immediately after search */}
+        <section className="lg:hidden">
+          {/* Mobile: Quick filters toggle */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              {filtersAppliedCount > 0 && (
+                <span className="text-sm text-slate-600">{filtersAppliedCount} filters active</span>
+              )}
+            </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="rounded-full">
+                  <SlidersHorizontal className="mr-2 h-4 w-4" />
+                  Filters
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Fine-tune your search</DialogTitle>
+                </DialogHeader>
+                <FilterForm withFooter />
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Mobile: Event Results */}
+          {isInitialLoading ? (
+            <SkeletonGrid />
+          ) : displayedResults.length === 0 ? (
+            <EmptyState onReset={clearAll} />
+          ) : (
+            <>
+              <div className="space-y-4">
+                {visible.map((event, index) => (
+                  <EventCard
+                    key={event.item_id || event.id || `event-${index}`}
+                    event={event}
+                    onClick={() => handleResultClick(event)}
+                    onTicket={(eventId) => handleResultTicketClick(event, eventId)}
+                  />
+                ))}
+              </div>
+              {(visibleCount < displayedResults.length || hasMore) && (
+                <div ref={loaderRef} className="flex h-12 items-center justify-center text-sm text-slate-500">
+                  {loading ? 'Loading more…' : hasMore ? 'Scroll to load more results' : 'You have reached the end'}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        {/* Desktop: Full Search Section */}
+        <section className="hidden lg:block mt-8">
           <div className="relative overflow-hidden rounded-[32px] border border-white/60 bg-white/90 p-6 shadow-[0_40px_120px_-70px_rgba(15,23,42,0.5)] backdrop-blur">
             <div className="pointer-events-none absolute right-[-60px] top-[-60px] h-60 w-60 rounded-full bg-amber-100/70 blur-3xl" />
             <div className="pointer-events-none absolute left-[-50px] bottom-[-70px] h-56 w-56 rounded-full bg-slate-200/70 blur-3xl" />
             <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
               <div className="space-y-6">
                 <div>
-                  <label htmlFor="search-query-input" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <label htmlFor="search-query-input-desktop" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Find events
                   </label>
                   <div className="relative mt-3">
                     <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input
-                      id="search-query-input"
+                      id="search-query-input-desktop"
                       value={q}
                       onChange={(e) => setParam('q', e.target.value)}
                       placeholder="Search events, organizers, or locations (press / to focus)"
@@ -886,7 +1000,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 </div>
 
                 <p className="text-xs text-slate-500">
-                  Try “live music”, “comedy night”, or “startup meetup”. We’ll keep your recent searches handy.
+                  Try "live music", "comedy night", or "startup meetup". We'll keep your recent searches handy.
                 </p>
 
                 <div className="flex flex-wrap gap-2">
@@ -972,12 +1086,12 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 <Button variant="ghost" size="sm" onClick={clearRecent} className="h-7 px-3 text-xs text-slate-500">
                   Clear
                 </Button>
-              ))}
+              </div>
             </div>
           </section>
         )}
 
-        <section className="mt-10 grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <section className="hidden lg:block mt-10 grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="hidden lg:block">
             <div className="sticky top-10 space-y-6">
               <div className="rounded-3xl border border-white/60 bg-white/85 p-6 shadow-sm backdrop-blur">

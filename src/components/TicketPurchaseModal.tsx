@@ -432,22 +432,22 @@ export function TicketPurchaseModal({
         throw error;
       }
 
-      if (!data?.url) {
+      if (!data?.session_url) {
         throw new Error('No checkout URL returned');
       }
 
       // Store checkout session info for polling
-      if (data.checkoutSessionId) {
-        setCheckoutSessionId(data.checkoutSessionId);
-        setCheckoutExpiresAt(data.expiresAt ? new Date(data.expiresAt) : null);
-        localStorage.setItem('checkoutSessionId', data.checkoutSessionId);
+      if (data.checkout_session_id) {
+        setCheckoutSessionId(data.checkout_session_id);
+        setCheckoutExpiresAt(data.expires_at ? new Date(data.expires_at) : null);
+        localStorage.setItem('checkoutSessionId', data.checkout_session_id);
         
         // Start polling session status
-        await pollCheckoutSessionStatus(data.checkoutSessionId);
+        await pollCheckoutSessionStatus(data.checkout_session_id);
       }
 
       console.log('✅ Checkout session created, redirecting...');
-      window.location.href = data.url;
+      window.location.href = data.session_url;
     } catch (error: any) {
       console.error('❌ Purchase error:', error);
       toast({

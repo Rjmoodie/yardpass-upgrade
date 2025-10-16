@@ -50,7 +50,7 @@ export function useCampaignBoosts({
 }) {
   return useQuery({
     queryKey: ['campaign-boosts', placement, limit, userId ?? 'anon'],
-    enabled,
+    enabled: false, // Disabled until RPC function is created
     staleTime: 60_000,
     queryFn: async (): Promise<CampaignBoostRow[]> => {
       try {

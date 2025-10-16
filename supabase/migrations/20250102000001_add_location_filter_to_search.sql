@@ -217,8 +217,8 @@ FROM ranked
 ORDER BY
   -- If a query was provided, sort by rank first (desc), then recency
   CASE WHEN (SELECT qtext FROM q) IS NULL OR (SELECT qtext FROM q) = '' THEN 1 ELSE 0 END,
-  created_at DESC,
-  rank DESC NULLS LAST
+  rank DESC NULLS LAST,
+  created_at DESC
 LIMIT p_limit
 OFFSET p_offset;
 $function$;

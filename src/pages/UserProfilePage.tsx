@@ -376,19 +376,19 @@ export default function UserProfilePage() {
   const statsByRole = useMemo(
     () => ({
       attendee: [
-        { label: 'Posts', value: posts.length },
-        { label: 'Events attended', value: tickets.length },
+        { label: 'Events attended', value: tickets.length, compact: true },
         {
           label: 'Total reactions',
           value: posts.reduce((sum, post) => sum + (post.like_count ?? 0) + (post.comment_count ?? 0), 0),
+          compact: true,
         },
       ],
       organizer: [
-        { label: 'Posts', value: posts.length },
-        { label: 'Events hosted', value: events.length },
+        { label: 'Events hosted', value: events.length, compact: true },
         {
           label: 'Total reactions',
           value: posts.reduce((sum, post) => sum + (post.like_count ?? 0) + (post.comment_count ?? 0), 0),
+          compact: true,
         },
       ],
     }),
@@ -547,9 +547,9 @@ export default function UserProfilePage() {
       </div>
       
       <div className="border-b border-border/40 bg-gradient-to-r from-primary/5 via-background to-background">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-start gap-4 md:items-center">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3 md:items-center">
               <Button
                 onClick={() => {
                   if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -566,40 +566,37 @@ export default function UserProfilePage() {
                 Back
               </Button>
 
-              <div className="flex items-center gap-4">
-                <div className="h-20 w-20 rounded-full bg-gradient-to-r from-primary/80 to-accent/70 shadow-xl flex items-center justify-center overflow-hidden">
+              <div className="flex items-center gap-3">
+                <div className="h-16 w-16 rounded-full bg-gradient-to-r from-primary/80 to-accent/70 shadow-lg flex items-center justify-center overflow-hidden">
                   {profile.photo_url ? (
                     <img src={profile.photo_url} alt={profile.display_name} className="h-full w-full object-cover" />
                   ) : (
-                    <span className="text-2xl font-semibold text-white">{profile.display_name.charAt(0)}</span>
+                    <span className="text-xl font-semibold text-white">{profile.display_name.charAt(0)}</span>
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                       {profile.display_name}
                     </h1>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>Member since {formatDate(profile.created_at)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={profile.role === 'organizer' ? 'default' : 'outline'}>
-                      {profile.role === 'organizer' ? (
-                        <>
-                          <Crown className="mr-1 h-3 w-3" /> Organizer
-                        </>
-                      ) : (
-                        'Attendee'
-                      )}
-                    </Badge>
-                    {profile.verification_status === 'verified' && (
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        ✓ Verified
+                      <Badge variant={profile.role === 'organizer' ? 'default' : 'outline'} className="text-xs px-2 py-0.5">
+                        {profile.role === 'organizer' ? (
+                          <>
+                            <Crown className="mr-1 h-2 w-2" /> Organizer
+                          </>
+                        ) : (
+                          'Attendee'
+                        )}
                       </Badge>
-                    )}
+                      {profile.verification_status === 'verified' && (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs px-2 py-0.5">
+                          ✓ Verified
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   <FollowStats
@@ -613,8 +610,8 @@ export default function UserProfilePage() {
 
             {isViewingOwnProfile ? (
               <div className="flex items-center gap-2">
-                <Button onClick={() => navigate('/edit-profile')} variant="outline" size="sm" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
+                <Button onClick={() => navigate('/edit-profile')} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs px-3 py-1.5">
+                  <Settings className="h-3.5 w-3.5" />
                   Edit profile
                 </Button>
                 <Button 
@@ -632,15 +629,15 @@ export default function UserProfilePage() {
                   }}
                   variant="outline" 
                   size="sm" 
-                  className="flex items-center gap-2 hover:bg-red-50 hover:border-red-200 hover:text-red-700"
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 hover:bg-red-50 hover:border-red-200 hover:text-red-700"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-3.5 w-3.5" />
                   Sign Out
                 </Button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <FollowButton targetType="user" targetId={profile.user_id} size="default" />
+                <FollowButton targetType="user" targetId={profile.user_id} size="sm" />
                 <MessageButton
                   targetType="user"
                   targetId={profile.user_id}
@@ -650,9 +647,9 @@ export default function UserProfilePage() {
             )}
           </div>
 
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-foreground">
+          <div className="space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-base font-semibold text-foreground">
                 Activity overview {activeView === 'organizer' ? '(Organizer View)' : '(Attendee View)'}
               </h2>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
@@ -701,15 +698,16 @@ export default function UserProfilePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3">
               {displayedStats.map((stat) => (
                 <Card
                   key={`${activeView}-${stat.label}`}
                   className="border-border/50 bg-background/70 transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-1"
                 >
-                  <CardContent className="p-4">
-                    <p className="text-sm text-muted-foreground">{stat.label}</p>
-                    <p className="text-2xl font-semibold">{stat.value}</p>
+                  <CardContent className="p-3">
+                    <p className="text-sm text-muted-foreground">
+                      {stat.label}: <span className="text-lg font-semibold text-foreground">{stat.value}</span>
+                    </p>
                   </CardContent>
                 </Card>
               ))}
@@ -725,24 +723,8 @@ export default function UserProfilePage() {
               <div className="flex flex-1 flex-col gap-2">
                 <div className="inline-flex items-center gap-2 self-start rounded-full bg-primary/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
                   <Sparkles className="h-4 w-4" aria-hidden />
-                  Moments
+                  Moments {feedItems.length}
                 </div>
-                <div className="space-y-1">
-                  <CardTitle className="text-xl sm:text-2xl">Moments shared</CardTitle>
-                  <CardDescription className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                    {feedItems.length > 0
-                      ? `Experience ${profile.display_name}'s favorite highlights from events and gatherings.`
-                      : isViewingOwnProfile
-                        ? 'Capture and share a moment to start building your story with the Yardpass network.'
-                        : `${profile.display_name} hasn't shared any highlights yet, but check back soon!`}
-                  </CardDescription>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
-                <Image className="h-4 w-4" aria-hidden />
-                <span>
-                  {feedItems.length} {feedItems.length === 1 ? 'moment' : 'moments'}
-                </span>
               </div>
             </CardHeader>
             <CardContent className="px-6 py-5">

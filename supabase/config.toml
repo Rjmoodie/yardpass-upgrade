@@ -34,8 +34,6 @@ file_size_limit = "50MiB"
 port = 54322
 major_version = 15
 
-[edge_functions]
-enabled = true
 
 [functions.create-checkout]
 verify_jwt = false
@@ -95,7 +93,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.enhanced-checkout]
-verify_jwt = false
+verify_jwt = true
 
 [functions.guest-checkout]
 verify_jwt = false

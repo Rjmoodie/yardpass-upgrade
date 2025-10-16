@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GuestSession } from '@/hooks/useGuestTicketSession';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { AlertTriangle, Clock, LogOut, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Clock, LogOut, RefreshCw, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface GuestSessionManagerProps {
@@ -86,57 +83,41 @@ export function GuestSessionManager({ session, onExtend, onSignOut, onExpired, c
       : 'Event-specific access';
 
   return (
-    <Card className={cn('border-primary/40 bg-primary/5 backdrop-blur supports-[backdrop-filter]:bg-primary/10', className)}>
-      <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-        <div className="flex flex-1 flex-col gap-3 text-left">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="bg-primary/15 text-primary">
-              Guest session active
-            </Badge>
-            <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Accessing tickets for <span className="font-semibold">{contactLabel}</span>
-            </p>
-            <p className="text-xs text-muted-foreground">{scopeLabel}</p>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4 text-primary" aria-hidden />
-            <span className="font-medium text-foreground">Session expires in {timeDisplay}</span>
-            {isExpiringSoon && (
-              <span className="flex items-center gap-1 text-amber-600">
-                <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-                Refresh now to keep access
-              </span>
-            )}
-          </div>
-          <Progress
-            value={progress}
-            className="h-2 w-full overflow-hidden rounded-full bg-primary/20"
-          />
-        </div>
-
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+    <div className={cn('mb-4 flex items-center justify-between rounded-lg border border-border/60 bg-background/80 p-3 text-xs', className)}>
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <User className="h-3 w-3" />
+        <span>Guest access • {contactLabel}</span>
+        {timeLeftMs > 0 && (
+          <>
+            <span>•</span>
+            <Clock className="h-3 w-3" />
+            <span>Expires in {timeDisplay}</span>
+          </>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {isExpiringSoon && timeLeftMs > 0 && (
           <Button
             variant="outline"
+            size="sm"
             onClick={onExtend}
-            className="group flex-1 gap-2 border-primary/40 text-primary hover:bg-primary/10 sm:flex-initial"
+            className="h-6 text-xs"
           >
-            <RefreshCw className="h-4 w-4 transition-transform duration-200 group-hover:rotate-180" aria-hidden />
-            Extend session
+            <RefreshCw className="mr-1 h-3 w-3" />
+            Extend
           </Button>
-          <Button
-            variant="ghost"
-            onClick={onSignOut}
-            className="flex-1 gap-2 text-muted-foreground hover:text-destructive sm:flex-initial"
-          >
-            <LogOut className="h-4 w-4" aria-hidden />
-            Sign out
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onSignOut}
+          className="h-6 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <LogOut className="mr-1 h-3 w-3" />
+          Sign out
+        </Button>
+      </div>
+    </div>
   );
 }
 

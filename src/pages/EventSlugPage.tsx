@@ -281,7 +281,7 @@ export default function EventSlugPage() {
           const [{ data: atts }, { count }] = await Promise.all([
             supabase
               .from('tickets')
-              .select('owner_user_id, user_profiles!tickets_owner_user_id_fkey(id, display_name, photo_url)')
+              .select('owner_user_id')
               .eq('event_id', eventRow.id)
               .in('status', ['issued', 'transferred', 'redeemed'])
               .limit(12),
@@ -291,8 +291,29 @@ export default function EventSlugPage() {
               .eq('event_id', eventRow.id)
               .in('status', ['issued', 'transferred', 'redeemed']),
           ]);
+          
+          if (isMounted && atts && atts.length > 0) {
+            // Fetch user profiles separately
+            const userIds = atts.map((t: any) => t.owner_user_id);
+            const { data: profiles } = await supabase
+              .from('user_profiles')
+              .select('user_id, display_name, photo_url')
+              .in('user_id', userIds);
+            
+            const profilesMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+            setAttendees(atts.map((t: any) => {
+              const profile = profilesMap.get(t.owner_user_id);
+              return {
+                id: profile?.user_id || t.owner_user_id,
+                display_name: profile?.display_name || 'Unknown',
+                photo_url: profile?.photo_url || null
+              };
+            }));
+          } else if (isMounted) {
+            setAttendees([]);
+          }
+          
           if (isMounted) {
-            setAttendees((atts || []).map((t: any) => ({ id: t.user_profiles.id, display_name: t.user_profiles.display_name, photo_url: t.user_profiles.photo_url })));
             setAttendeeCount(count || 0);
           }
         }

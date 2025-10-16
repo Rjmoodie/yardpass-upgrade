@@ -132,23 +132,21 @@ serve(async (req) => {
 
     const payload = await req.json();
     const supabaseService = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-    const supabaseAnon = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } });
 
+    // Get authenticated user from Supabase context (when verify_jwt = true)
     const authHeader = req.headers.get("Authorization");
     let authenticatedUser: any = null;
     
-    // Only try to authenticate if we have a real JWT token (not anon key)
     if (authHeader) {
       const token = authHeader.replace("Bearer", "").trim();
-      if (token && token !== ANON_KEY && token.length > 100) { // Real JWT tokens are longer
+      if (token && token !== ANON_KEY && token.length > 100) {
         try {
-          const { data: userData, error: userError } = await supabaseAnon.auth.getUser(token);
+          const { data: userData, error: userError } = await supabaseService.auth.getUser(token);
           if (!userError && userData?.user) {
             authenticatedUser = userData.user;
           }
         } catch (error) {
-          // Ignore JWT errors - user is not authenticated
-          console.log("[enhanced-checkout] JWT validation failed, treating as unauthenticated");
+          console.log("[enhanced-checkout] JWT validation failed:", error);
         }
       }
     }

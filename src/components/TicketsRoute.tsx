@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGuestTicketSession } from '@/hooks/useGuestTicketSession';
 import TicketsPage from '@/components/TicketsPage';
@@ -97,23 +98,21 @@ export function TicketsRoute() {
     () => [
       {
         icon: TicketIcon,
-        title: 'Event-specific links',
-        description: 'Jump directly to tickets for a single event with /tickets routes.',
-      },
-      {
-        icon: Clock,
-        title: 'Live session timer',
-        description: 'See exactly how long guest access lasts with real-time countdowns.',
+        title: 'Event links that work anywhere',
+        description: 'Instantly open your tickets from any email or message—no app needed.',
+        span: 1,
       },
       {
         icon: ShieldCheck,
-        title: 'Secure guest sessions',
-        description: 'Verified phone or email keeps tickets protected and easy to refresh.',
+        title: 'Always secure, always yours',
+        description: 'We verify every session, so your tickets stay private and easy to refresh.',
+        span: 1,
       },
       {
         icon: Smartphone,
-        title: 'Built for mobile',
-        description: 'Touch-friendly layouts and large QR codes make entry effortless.',
+        title: 'Entry made effortless',
+        description: 'Swipe, scan, and go with touch‑friendly QR codes that work offline.',
+        span: 2, // Full width on mobile, spans 2 columns on desktop
       },
     ],
     [],
@@ -142,69 +141,111 @@ export function TicketsRoute() {
       />
     );
   } else {
-    const heroTitle = eventIdentifier ? 'Tickets for this event' : 'Access your tickets instantly';
+    const heroTitle = eventIdentifier ? 'Tickets for this event' : 'Your tickets, ready when you are';
     const heroDescription = eventIdentifier
       ? 'Verify the phone number or email used at checkout to unlock tickets for this event. No account required.'
-      : 'Enter the contact info you used when purchasing to see every ticket on this device.';
+      : 'View, manage, and enter events—all from one secure place.';
 
     content = (
-      <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background via-background to-background/80">
-        <div className="pointer-events-none absolute inset-0 opacity-40">
-          <div className="absolute left-1/2 top-10 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/30 blur-3xl" />
-          <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-secondary/20 blur-3xl" />
-        </div>
+      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background text-foreground flex items-start justify-center p-4 sm:p-8">
+        <main className="w-full max-w-5xl">
+          {/* Card container */}
+          <section className="mx-auto bg-card/80 backdrop-blur rounded-3xl shadow-xl ring-1 ring-border/20 overflow-hidden">
+            {/* Hero */}
+            <div className="px-6 sm:px-12 py-10 sm:py-14 text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35 }}
+                className="inline-flex items-center gap-3 mb-4"
+              >
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
+                  <TicketIcon className="h-5 w-5 text-primary" aria-hidden="true" />
+                </span>
+                <p className="text-sm font-medium text-muted-foreground">Ticket Wallet</p>
+              </motion.div>
 
-        <div className="relative mx-auto flex max-w-5xl flex-col items-center gap-12 px-4 py-16 text-center sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center gap-4">
-            <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary">
-              Unified ticket wallet
-            </Badge>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              {heroTitle}
-            </h1>
-            <p className="max-w-2xl text-base text-muted-foreground sm:text-lg">
-              {heroDescription}
-            </p>
-          </div>
+              <motion.h1
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05, duration: 0.4 }}
+                className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground"
+              >
+                {heroTitle}
+              </motion.h1>
 
-          <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
-            <Button size="lg" className="gap-2" onClick={handleGuestAccess}>
-              <TicketIcon className="h-5 w-5" aria-hidden />
-              Access my tickets
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
-              onClick={handleMemberSignIn}
-            >
-              <ShieldCheck className="h-5 w-5" aria-hidden />
-              Sign in as a member
-            </Button>
-          </div>
+              <motion.p
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.35 }}
+                className="mt-4 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto"
+              >
+                {heroDescription}
+              </motion.p>
 
-          <div className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {featureCards.map((feature) => {
-              const Icon = feature.icon;
-              return (
-                <Card
-                  key={feature.title}
-                  className="border-border/50 bg-background/80 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70"
+              {/* CTAs */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.35 }}
+                className="mt-8 flex flex-col items-center gap-3"
+              >
+                <Button
+                  onClick={handleGuestAccess}
+                  className="group inline-flex items-center justify-center rounded-2xl px-6 sm:px-8 py-3 text-base sm:text-lg font-semibold bg-primary text-primary-foreground shadow-md hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition"
                 >
-                  <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <Icon className="h-5 w-5" aria-hidden />
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="text-base font-semibold text-foreground">{feature.title}</h3>
-                      <p className="text-sm text-muted-foreground">{feature.description}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
+                  Access My Tickets
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={handleMemberSignIn}
+                  className="text-sm text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                >
+                  Already a member? Sign in here
+                </Button>
+              </motion.div>
+            </div>
+
+            {/* Value props */}
+            <div className="px-6 sm:px-12 pb-10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {featureCards.map((feature, index) => {
+                  const Icon = feature.icon;
+                  const isFullWidth = feature.span === 2;
+                  
+                  return (
+                    <motion.div
+                      key={feature.title}
+                      initial={{ opacity: 0, y: 8 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, amount: 0.4 }}
+                      transition={{ delay: index * 0.05, duration: 0.35 }}
+                      className={`${isFullWidth ? 'sm:col-span-2' : ''} rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                          <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                        </span>
+                        <div>
+                          <h3 className="text-lg font-semibold text-foreground">{feature.title}</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {feature.description}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Trust line */}
+              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                <span>Your data is encrypted and never shared.</span>
+              </div>
+            </div>
+          </section>
+        </main>
       </div>
     );
   }
@@ -215,7 +256,14 @@ export function TicketsRoute() {
       <AuthModal
         isOpen={authState.open}
         onClose={closeAuth}
-        onSuccess={closeAuth}
+        onSuccess={() => {
+          closeAuth();
+          // Trigger storage event to update guest session state
+          window.dispatchEvent(new StorageEvent('storage', {
+            key: 'ticket-guest-session',
+            newValue: localStorage.getItem('ticket-guest-session')
+          }));
+        }}
         title={authState.title}
         description={authState.description}
         allowGuestTicketAccess

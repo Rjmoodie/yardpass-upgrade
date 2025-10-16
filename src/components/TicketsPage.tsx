@@ -12,7 +12,6 @@ import { TicketDetail } from '@/components/tickets/TicketDetail';
 import { GuestSessionManager } from '@/components/GuestSessionManager';
 import { ArrowLeft, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import GuestSessionManager from '@/components/GuestSessionManager';
 import { GuestSession } from '@/hooks/useGuestTicketSession';
 
 interface TicketsPageProps {
@@ -26,8 +25,34 @@ interface TicketsPageProps {
   onBack: () => void;
 }
 
+interface GuestTicketRaw {
+  id: string;
+  event_id: string;
+  tier_id: string;
+  order_id: string;
+  status: string;
+  qr_code: string;
+  created_at: string;
+  owner_email: string;
+  owner_name: string;
+  owner_phone: string;
+  // Event fields (flat structure)
+  event_title: string;
+  event_date: string;
+  event_time: string;
+  event_location: string;
+  organizer_name: string;
+  cover_image: string;
+  // Tier fields (flat structure)
+  ticket_type: string;
+  badge: string;
+  price: number;
+  // Order fields (flat structure)
+  order_date: string;
+}
+
 interface GuestTicketsResponse {
-  tickets: UserTicket[];
+  tickets: GuestTicketRaw[];
 }
 
 const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
@@ -82,7 +107,46 @@ export default function TicketsPage({
         if (error) throw error;
         if (!cancelled) {
           const payload = (data as GuestTicketsResponse | null)?.tickets ?? [];
-          setGuestTickets(payload as UserTicket[]);
+          console.log('🔍 Guest tickets raw data:', payload);
+          // Transform guest tickets to match UserTicket interface
+          const transformedTickets = payload.map(ticket => {
+            // Use the flat structure from tickets-list-guest function
+            const startISO = ticket.event_date || new Date().toISOString();
+            const endISO = new Date(new Date(startISO).getTime() + 2 * 60 * 60 * 1000).toISOString();
+            
+            const start = new Date(startISO);
+            const end = new Date(endISO);
+            const now = new Date();
+            
+            return {
+              id: ticket.id,
+              eventId: ticket.event_id || '',
+              eventTitle: ticket.event_title || 'Event',
+              eventDate: start.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              }),
+              eventTime: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+              venue: ticket.event_location || 'TBA',
+              city: '', // Not available in current structure
+              eventLocation: ticket.event_location || 'TBA',
+              coverImage: ticket.cover_image || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30',
+              ticketType: ticket.ticket_type || 'General',
+              badge: ticket.badge || 'GA',
+              qrCode: ticket.qr_code || '',
+              status: ticket.status || 'issued',
+              price: ticket.price || 0,
+              orderDate: ticket.order_date || ticket.created_at || new Date().toISOString(),
+              isUpcoming: end > now,
+              organizerName: ticket.organizer_name || 'Event Organizer',
+              startAtISO: startISO,
+              endAtISO: endISO,
+            } as UserTicket;
+          });
+          console.log('✅ Guest tickets transformed:', transformedTickets);
+          setGuestTickets(transformedTickets as unknown as UserTicket[]);
         }
       } catch (err) {
         if (!cancelled) {
@@ -136,7 +200,42 @@ export default function TicketsPage({
         .invoke('tickets-list-guest', { body: { token: guestToken, scope: guestScope } })
         .then(({ data, error }) => {
           if (error) throw error;
-          setGuestTickets(((data as GuestTicketsResponse | null)?.tickets ?? []) as UserTicket[]);
+          const rawTickets = (data as GuestTicketsResponse | null)?.tickets ?? [];
+          // Transform raw tickets to UserTicket format using flat structure
+          const transformed = rawTickets.map(ticket => {
+            const startISO = ticket.event_date || new Date().toISOString();
+            const endISO = new Date(new Date(startISO).getTime() + 2 * 60 * 60 * 1000).toISOString();
+            const start = new Date(startISO);
+            const end = new Date(endISO);
+            
+            return {
+              id: ticket.id,
+              eventId: ticket.event_id || '',
+              eventTitle: ticket.event_title || 'Event',
+              eventDate: start.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              }),
+              eventTime: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+              venue: ticket.event_location || 'TBA',
+              city: '',
+              eventLocation: ticket.event_location || 'TBA',
+              coverImage: ticket.cover_image || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30',
+              ticketType: ticket.ticket_type || 'General',
+              badge: ticket.badge || 'GA',
+              qrCode: ticket.qr_code,
+              status: ticket.status,
+              price: ticket.price || 0,
+              orderDate: ticket.order_date || ticket.created_at,
+              isUpcoming: end > new Date(),
+              organizerName: ticket.organizer_name || 'Event Organizer',
+              startAtISO: startISO,
+              endAtISO: endISO,
+            };
+          });
+          setGuestTickets(transformed as unknown as UserTicket[]);
         })
         .catch((err) => setGuestError(err instanceof Error ? err.message : 'Unable to refresh tickets'))
         .finally(() => setGuestLoading(false));
@@ -163,11 +262,9 @@ export default function TicketsPage({
   };
 
   const guestSubtitle = useMemo(() => {
-    if (!guestSession) return 'Guest access • limited time token';
-    const contact = (guestSession as any).contact ?? guestSession.phone ?? guestSession.email;
-    if (!contact) return 'Guest access';
-    return maskGuestContact(contact);
-  }, [guestSession]);
+    if (!guestSession) return `${allTickets.length} ticket${allTickets.length === 1 ? '' : 's'}`;
+    return `${allTickets.length} ticket${allTickets.length === 1 ? '' : 's'}`;
+  }, [guestSession, allTickets.length]);
 
   const totalTicketCount = allTickets.length;
   const visibleTicketCount = visibleTickets.length;
@@ -268,18 +365,7 @@ export default function TicketsPage({
             <h1 className="text-lg font-semibold">My Tickets</h1>
             <p className="text-xs text-muted-foreground">{headerSubtitle}</p>
           </div>
-          {isGuestMode && onGuestSignOut ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGuestSignOut}
-              className="gap-2"
-              aria-label="Sign out guest session"
-            >
-              <LogOut className="h-4 w-4" aria-hidden />
-              Sign out
-            </Button>
-          ) : (
+          {!isGuestMode && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <ShieldCheck className="h-4 w-4" aria-hidden />
               Secure & Verified

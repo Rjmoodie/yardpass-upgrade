@@ -107,10 +107,10 @@ export function QrDisplay({
         </p>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-            {eventId.slice(0, 8)}
+            {eventId?.slice(0, 8) || 'Event'}
           </span>
           <span className="rounded-full bg-muted px-3 py-1 text-xs" aria-label="Ticket identifier">
-            #{ticketId.slice(-6)}
+            #{ticketId?.slice(-6) || 'Ticket'}
           </span>
         </div>
       </div>

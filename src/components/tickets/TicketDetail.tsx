@@ -40,23 +40,46 @@ export function TicketDetail({
   const priceLabel = ticket.price > 0
     ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(ticket.price)
     : 'Free ticket';
-  const { token, isLoading, isError } = useTicketQrToken({
+  // Use QR code directly from ticket data if available, otherwise fetch it
+  const { token: fetchedToken, isLoading, isError } = useTicketQrToken({
     ticketId: ticket.id,
     eventId: ticket.eventId,
   });
+  
+  // Use the QR code from ticket data if available, otherwise use the fetched one
+  const token = ticket.qrCode || fetchedToken;
+  const isQrLoading = !ticket.qrCode && isLoading;
+  const isQrError = !ticket.qrCode && isError;
+  
+  // Debug logging
+  console.log('🎫 TicketDetail QR Debug:', {
+    ticketId: ticket.id,
+    hasQrCode: !!ticket.qrCode,
+    qrCode: ticket.qrCode,
+    fetchedToken,
+    finalToken: token,
+    isQrLoading,
+    isQrError
+  });
 
   return (
-    <Dialog open={isOpen} onOpenChange={(next) => (next ? undefined : onClose())}>
-      <DialogContent className="max-w-xl gap-6 overflow-hidden p-0 sm:rounded-3xl">
+    <Dialog open={isOpen} onOpenChange={(next) => {
+      if (!next) {
+        onClose();
+      }
+    }}>
+      <DialogContent 
+        className="max-w-xl gap-6 overflow-hidden p-0 sm:rounded-3xl [&>button]:absolute [&>button]:right-6 [&>button]:top-6 [&>button]:text-primary-foreground/70 [&>button]:hover:text-primary-foreground [&>button]:transition [&>button]:focus-visible:outline-none [&>button]:focus-visible:ring-2 [&>button]:focus-visible:ring-offset-2"
+        onPointerDownOutside={(e) => {
+          // Prevent dialog from closing on outside clicks
+          e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          // Allow ESC key to close
+          onClose();
+        }}
+      >
         <div className="relative bg-gradient-to-br from-primary/90 via-primary to-primary/80 p-8 text-primary-foreground">
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute right-6 top-6 text-primary-foreground/70 transition hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label="Close ticket details"
-          >
-            ×
-          </button>
           <DialogHeader className="space-y-2 text-left">
             <DialogTitle className="text-2xl font-semibold tracking-tight text-primary-foreground">
               {ticket.eventTitle}
@@ -89,8 +112,8 @@ export function TicketDetail({
             ticketId={ticket.id}
             eventId={ticket.eventId}
             token={token}
-            isLoading={isLoading}
-            errored={isError}
+            isLoading={isQrLoading}
+            errored={isQrError}
           />
           <div className="space-y-4">
             <div>

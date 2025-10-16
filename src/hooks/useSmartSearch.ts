@@ -76,6 +76,16 @@ export function useSmartSearch(options: string | UseSmartSearchOptions = '') {
 
   const [qState, setQState] = useState(initialQuery);
   const [filtersState, setFiltersState] = useState<SearchFilters>(initialFilters);
+
+  // Sync internal state with initialQuery prop changes
+  useEffect(() => {
+    setQState(initialQuery);
+  }, [initialQuery]);
+
+  // Sync internal state with initialFilters prop changes
+  useEffect(() => {
+    setFiltersState(initialFilters);
+  }, [JSON.stringify(initialFilters)]);
   const [results, setResults] = useState<SearchRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);

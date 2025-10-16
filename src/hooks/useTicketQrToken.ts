@@ -43,7 +43,7 @@ export function useTicketQrToken({
           .from('tickets')
           .select('qr_code')
           .eq('id', ticketId)
-          .single();
+          .maybeSingle();
 
         if (error) {
           throw new Error(error.message);

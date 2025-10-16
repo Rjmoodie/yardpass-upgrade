@@ -59,7 +59,7 @@ serve(async (req) => {
       return createErrorResponse('Error fetching tickets', 500);
     }
 
-    // Transform tickets to match expected format
+    // Return tickets in flat structure matching the database view
     const transformedTickets = (tickets || []).map(ticket => ({
       id: ticket.id,
       event_id: ticket.event_id,
@@ -73,23 +73,19 @@ serve(async (req) => {
       owner_email: ticket.owner_email,
       owner_name: ticket.owner_name,
       owner_phone: ticket.owner_phone,
-      event: {
-        id: ticket.event_id,
-        title: ticket.event_title,
-        start_at: ticket.event_date,
-        venue: ticket.event_location,
-        cover_image_url: ticket.cover_image
-      },
-      tier: {
-        id: ticket.tier_id,
-        name: ticket.ticket_type,
-        price_cents: Math.round((ticket.price || 0) * 100),
-        badge_label: ticket.badge
-      },
-      order: {
-        id: ticket.order_id,
-        created_at: ticket.order_date
-      }
+      // Event fields (flat structure)
+      event_title: ticket.event_title,
+      event_date: ticket.event_date,
+      event_time: ticket.event_time,
+      event_location: ticket.event_location,
+      organizer_name: ticket.organizer_name,
+      cover_image: ticket.cover_image,
+      // Tier fields (flat structure)
+      ticket_type: ticket.ticket_type,
+      badge: ticket.badge,
+      price: ticket.price,
+      // Order fields (flat structure)
+      order_date: ticket.order_date
     }));
 
     return createResponse({ 

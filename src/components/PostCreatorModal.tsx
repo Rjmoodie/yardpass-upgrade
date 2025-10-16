@@ -36,7 +36,7 @@ interface Event {
 interface UserTicket {
   id: string;
   event_id: string;
-  tier_id: string;
+  tier_id: string | null;
   events: Event;
   ticket_tiers: {
     badge_label: string;
@@ -325,7 +325,7 @@ export function PostCreatorModal({
         const organizerEvents = (organizedEvents || []).map(event => ({
           id: `org-${event.id}`,
           event_id: event.id,
-          tier_id: 'organizer',
+          tier_id: null, // Organizers don't have a specific tier - let posts-create function handle this
           events: {
             id: event.id,
             title: event.title,

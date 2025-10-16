@@ -62,89 +62,25 @@ export function PurchaseSuccessHandler() {
       inFlightRef.current = true;
 
       try {
-        const { data: ensure, error } = await supabase.functions.invoke('ensure-tickets', {
-          body: { session_id: sessionId },
-        });
-
+        // Tickets are created by the Stripe webhook → process-payment function
+        // We just need to wait a moment and then refresh the wallet
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
         inFlightRef.current = false;
-
-        if (error) {
-          console.error('❌ ensure-tickets network error:', error);
-          // Check if it's a 404 (function not deployed)
-          const status = (error as any)?.context?.status ?? (error as any)?.status;
-          if (status === 404) {
-            // Function not found → fallback: refresh wallet and redirect
-            try { await forceRefreshTickets(); } catch {}
-            toast({
-              title: 'Checking your wallet',
-              description: "Finalizing in the background. If you don't see new tickets, try again shortly.",
-            });
-            setRedirecting(true);
-            setTimeout(() => navigate(redirectPath, { replace: true }), 1500);
-            return;
-          }
-          // Other transient errors → retry with backoff
-          if (attempts < 8) {
-            setTimeout(() => setAttempts(a => a + 1), backoffMs(attempts));
-          }
-          return;
-        }
-
-        console.log('✅ ensure-tickets status:', ensure?.status);
-        setEnsureStatus(ensure?.status || '');
-
-        switch (ensure?.status) {
-          case 'already_issued':
-          case 'issued':
-            localStorage.setItem(triedKey, 'done');
-            await forceRefreshTickets();
-            toast({
-              title: 'Payment Successful!',
-              description: successDescription,
-            });
-            setRedirecting(true);
-            setTimeout(() => navigate(redirectPath, { replace: true }), 2000);
-            return;
-
-          case 'pending':
-          case 'busy':
-            // Retry with backoff
-            if (attempts < 20) {
-              setTimeout(() => setAttempts(a => a + 1), backoffMs(attempts));
-            } else {
-              toast({
-                title: 'Payment Processing',
-                description: 'Your payment is still processing. Check your tickets shortly.',
-              });
-              setTimeout(() => navigate(redirectPath, { replace: true }), 2000);
-            }
-            return;
-
-          case 'capacity_error':
-            localStorage.setItem(triedKey, 'done');
-            toast({
-              title: 'Event at Capacity',
-              description: ensure?.message || 'This tier is sold out.',
-              variant: 'destructive',
-            });
-            setTimeout(() => navigate('/', { replace: true }), 3000);
-            return;
-
-          default:
-            // Unknown status; retry a few times then give up
-            if (attempts < 8) {
-              setTimeout(() => setAttempts(a => a + 1), backoffMs(attempts));
-            } else {
-              toast({
-                title: 'Ticket Issuance Delayed',
-                description: "We'll email your tickets shortly.",
-              });
-              setTimeout(() => navigate(redirectPath, { replace: true }), 2000);
-            }
-        }
+        localStorage.setItem(triedKey, 'done');
+        await forceRefreshTickets();
+        
+        toast({
+          title: 'Payment Successful!',
+          description: successDescription,
+        });
+        
+        setRedirecting(true);
+        setTimeout(() => navigate(redirectPath, { replace: true }), 1500);
       } catch (e) {
         console.error('❌ Unexpected error in tick:', e);
         inFlightRef.current = false;
+        // Retry with backoff on error
         if (attempts < 8) {
           setTimeout(() => setAttempts(a => a + 1), backoffMs(attempts));
         }

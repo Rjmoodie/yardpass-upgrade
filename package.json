@@ -80,6 +80,7 @@
     "dompurify": "^3.2.7",
     "embla-carousel-react": "^8.6.0",
     "eslint-config-prettier": "^10.1.8",
+    "framer-motion": "^12.23.24",
     "hls.js": "^1.6.11",
     "hono": "^4.9.5",
     "input-otp": "^1.4.2",
