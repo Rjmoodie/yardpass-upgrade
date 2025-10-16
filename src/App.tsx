@@ -297,6 +297,7 @@ function AppContent() {
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/invite/org" element={<OrgInvitePage />} />
               <Route path="/e/:identifier" element={<EventSlugPage />} />
+              <Route path="/e/:identifier/tickets" element={<TicketsRoute />} />
               <Route path="/e/:identifier/attendees" element={<EventAttendeesPage />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy onBack={() => navigate('/')} />} />
               <Route path="/terms-of-service" element={<TermsOfService onBack={() => navigate('/')} />} />

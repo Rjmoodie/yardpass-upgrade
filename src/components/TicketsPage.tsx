@@ -4,17 +4,24 @@ import { useTicketAnalytics } from '@/hooks/useTicketAnalytics';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { TicketList } from '@/components/tickets/TicketList';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
 import { ArrowLeft, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import GuestSessionManager from '@/components/GuestSessionManager';
+import { GuestSession } from '@/hooks/useGuestTicketSession';
 
 interface TicketsPageProps {
   guestToken?: string;
   guestScope?: { all?: boolean; eventIds?: string[] };
+  guestSession?: GuestSession | null;
+  focusEventId?: string;
   onGuestSignOut?: () => void;
+  onGuestSessionExpired?: () => void;
+  onExtendGuestSession?: () => void;
   onBack: () => void;
 }
 
@@ -39,7 +46,11 @@ const escapeICS = (str: string) =>
 export default function TicketsPage({
   guestToken,
   guestScope,
+  guestSession,
+  focusEventId,
   onGuestSignOut,
+  onGuestSessionExpired,
+  onExtendGuestSession,
   onBack,
 }: TicketsPageProps) {
   const { user } = useAuth();
@@ -87,9 +98,35 @@ export default function TicketsPage({
     };
   }, [guestToken, guestScope]);
 
-  const tickets = useMemo(() => (isGuestMode ? guestTickets : userTickets), [isGuestMode, guestTickets, userTickets]);
+  const allTickets = useMemo(() => (isGuestMode ? guestTickets : userTickets), [isGuestMode, guestTickets, userTickets]);
   const loading = isGuestMode ? guestLoading : userLoading;
   const error = isGuestMode ? guestError : userError;
+
+  const [showAllTickets, setShowAllTickets] = useState(() => !focusEventId);
+
+  useEffect(() => {
+    setShowAllTickets(!focusEventId);
+  }, [focusEventId]);
+
+  const eventScopedTickets = useMemo(() => {
+    if (!focusEventId) return allTickets;
+    return allTickets.filter((ticket) => ticket.eventId === focusEventId);
+  }, [allTickets, focusEventId]);
+
+  const showingScoped = Boolean(focusEventId) && !showAllTickets;
+  const visibleTickets = showingScoped ? eventScopedTickets : allTickets;
+
+  useEffect(() => {
+    if (selectedTicket && !visibleTickets.some((ticket) => ticket.id === selectedTicket.id)) {
+      setSelectedTicket(null);
+    }
+  }, [visibleTickets, selectedTicket]);
+
+  useEffect(() => {
+    if (showingScoped && eventScopedTickets.length === 1) {
+      setSelectedTicket(eventScopedTickets[0]);
+    }
+  }, [showingScoped, eventScopedTickets]);
 
   const handleRefresh = () => {
     if (isGuestMode && guestToken) {
@@ -108,6 +145,37 @@ export default function TicketsPage({
       setTimeout(() => setIsRefreshing(false), 600);
     }
   };
+
+  const maskGuestContact = (contact?: string | null) => {
+    if (!contact) return 'Guest access';
+    if (contact.includes('@')) {
+      const [userPart, domain] = contact.split('@');
+      if (!domain) return `Guest • ${contact}`;
+      const maskedUser = userPart.length <= 2
+        ? `${userPart[0] ?? ''}*`
+        : `${userPart[0]}${'*'.repeat(Math.max(userPart.length - 2, 1))}${userPart.slice(-1)}`;
+      return `Guest • ${maskedUser}@${domain}`;
+    }
+    const digits = contact.replace(/\D/g, '');
+    if (digits.length < 4) return `Guest • ${contact}`;
+    return `Guest • ••${digits.slice(-4)}`;
+  };
+
+  const guestSubtitle = useMemo(() => {
+    if (!guestSession) return 'Guest access • limited time token';
+    const contact = (guestSession as any).contact ?? guestSession.phone ?? guestSession.email;
+    if (!contact) return 'Guest access';
+    return maskGuestContact(contact);
+  }, [guestSession]);
+
+  const totalTicketCount = allTickets.length;
+  const visibleTicketCount = visibleTickets.length;
+
+  const handleGuestSignOut = () => {
+    onGuestSignOut?.();
+  };
+
+  const ticketsOutsideScope = Math.max(totalTicketCount - eventScopedTickets.length, 0);
 
   const buildICS = (ticket: UserTicket) => {
     const dtstart = toICSUTC(ticket.startAtISO);
@@ -182,8 +250,10 @@ export default function TicketsPage({
   }, [selectedTicket, trackTicketView, trackQRCodeView, user]);
 
   const headerSubtitle = isGuestMode
-    ? 'Guest access • limited time token'
-    : `${tickets.length} ticket${tickets.length === 1 ? '' : 's'}`;
+    ? guestSubtitle
+    : showingScoped
+      ? `${visibleTicketCount} ticket${visibleTicketCount === 1 ? '' : 's'} for this event`
+      : `${totalTicketCount} ticket${totalTicketCount === 1 ? '' : 's'}`;
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-background via-background to-background/80">
@@ -197,11 +267,11 @@ export default function TicketsPage({
             <h1 className="text-lg font-semibold">My Tickets</h1>
             <p className="text-xs text-muted-foreground">{headerSubtitle}</p>
           </div>
-          {isGuestMode ? (
+          {isGuestMode && onGuestSignOut ? (
             <Button
               variant="outline"
               size="sm"
-              onClick={onGuestSignOut}
+              onClick={handleGuestSignOut}
               className="gap-2"
               aria-label="Sign out guest session"
             >
@@ -219,19 +289,97 @@ export default function TicketsPage({
       </header>
 
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
+        {isGuestMode && guestSession && (
+          <GuestSessionManager
+            session={guestSession}
+            onExtend={onExtendGuestSession}
+            onSignOut={handleGuestSignOut}
+            onExpired={onGuestSessionExpired}
+          />
+        )}
+
+        {focusEventId && (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1 text-left">
+                <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary">
+                    Event focus
+                  </Badge>
+                  <span>{eventScopedTickets[0]?.eventTitle ?? 'This event'}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {showingScoped
+                    ? 'Showing tickets just for this event.'
+                    : 'Viewing every ticket saved to your wallet.'}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                {showingScoped && ticketsOutsideScope > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAllTickets(true)}
+                  >
+                    View all tickets
+                  </Button>
+                )}
+                {!showingScoped && focusEventId && eventScopedTickets.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAllTickets(false)}
+                  >
+                    Back to event tickets
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="border-border/60 bg-background/80 p-6 shadow-sm">
           <TicketList
-            tickets={tickets}
+            tickets={visibleTickets}
             loading={loading}
             error={error}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing || guestLoading}
             onSelectTicket={setSelectedTicket}
             emptyState={
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>Purchase a ticket from the explore tab and it will appear here instantly.</p>
-                <p>No extra steps needed — just show your QR and you&apos;re in.</p>
-              </div>
+              showingScoped ? (
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <p>We couldn&apos;t find tickets for this event yet.</p>
+                  {onExtendGuestSession && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={onExtendGuestSession}
+                    >
+                      Try a different email or phone
+                    </Button>
+                  )}
+                  {ticketsOutsideScope > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAllTickets(true)}
+                    >
+                      View all of my tickets
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>Purchase a ticket from the explore tab and it will appear here instantly.</p>
+                  <p>No extra steps needed — just show your QR and you&apos;re in.</p>
+                </div>
+              )
             }
           />
         </Card>
