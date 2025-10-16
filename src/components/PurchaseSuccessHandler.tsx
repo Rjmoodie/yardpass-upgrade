@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTickets } from '@/hooks/useTickets';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useGuestTicketSession } from '@/hooks/useGuestTicketSession';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { CheckCircle, Ticket } from 'lucide-react';
@@ -13,9 +15,18 @@ export function PurchaseSuccessHandler() {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { forceRefreshTickets } = useTickets();
-  
+  const { user } = useAuth();
+  const { update: updateGuestSession } = useGuestTicketSession();
+
   const sessionId = searchParams.get('session_id') ?? '';
-  
+  const eventId = searchParams.get('event_id') ?? searchParams.get('eventId') ?? '';
+  const redirectPath = user ? '/tickets' : eventId ? `/e/${eventId}/tickets` : '/tickets';
+  const successDescription = user
+    ? 'Your tickets are ready! Redirecting...'
+    : eventId
+      ? 'Your tickets are ready! Redirecting to your event wallet...'
+      : 'Your tickets are ready! Redirecting...';
+
   const [redirecting, setRedirecting] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [ensureStatus, setEnsureStatus] = useState<string>('');
@@ -24,6 +35,24 @@ export function PurchaseSuccessHandler() {
   const inFlightRef = useRef(false);
 
   const backoffMs = (n: number) => Math.min(15000, 500 * Math.pow(1.5, n)); // 0.5s -> 15s
+
+  useEffect(() => {
+    if (!eventId) return;
+
+    updateGuestSession((current) => {
+      if (!current || current.scope?.all) return current;
+      const existingIds = new Set(current.scope?.eventIds ?? []);
+      if (existingIds.has(eventId)) return current;
+      existingIds.add(eventId);
+      return {
+        ...current,
+        scope: {
+          ...(current.scope ?? {}),
+          eventIds: Array.from(existingIds),
+        },
+      };
+    });
+  }, [eventId, updateGuestSession]);
 
   // Main polling logic with backoff
   useEffect(() => {
@@ -51,16 +80,7 @@ export function PurchaseSuccessHandler() {
               description: "Finalizing in the background. If you don't see new tickets, try again shortly.",
             });
             setRedirecting(true);
-            // Smart routing: check if user is authenticated or guest
-            setTimeout(() => {
-              const isAuthenticated = localStorage.getItem('supabase.auth.token');
-              if (isAuthenticated) {
-                navigate('/tickets', { replace: true });
-              } else {
-                // For guests, ensure they have access to tickets
-                navigate('/tickets', { replace: true });
-              }
-            }, 1500);
+            setTimeout(() => navigate(redirectPath, { replace: true }), 1500);
             return;
           }
           // Other transient errors → retry with backoff
@@ -80,19 +100,10 @@ export function PurchaseSuccessHandler() {
             await forceRefreshTickets();
             toast({
               title: 'Payment Successful!',
-              description: 'Your tickets are ready! Redirecting...',
+              description: successDescription,
             });
             setRedirecting(true);
-            setTimeout(() => {
-              // Smart routing: check if user is authenticated or guest
-              const isAuthenticated = localStorage.getItem('supabase.auth.token');
-              if (isAuthenticated) {
-                navigate('/tickets', { replace: true });
-              } else {
-                // For guests, ensure they have access to tickets
-                navigate('/tickets', { replace: true });
-              }
-            }, 2000);
+            setTimeout(() => navigate(redirectPath, { replace: true }), 2000);
             return;
 
           case 'pending':
@@ -105,7 +116,7 @@ export function PurchaseSuccessHandler() {
                 title: 'Payment Processing',
                 description: 'Your payment is still processing. Check your tickets shortly.',
               });
-              setTimeout(() => navigate('/tickets', { replace: true }), 2000);
+              setTimeout(() => navigate(redirectPath, { replace: true }), 2000);
             }
             return;
 
@@ -128,7 +139,7 @@ export function PurchaseSuccessHandler() {
                 title: 'Ticket Issuance Delayed',
                 description: "We'll email your tickets shortly.",
               });
-              setTimeout(() => navigate('/tickets', { replace: true }), 2000);
+              setTimeout(() => navigate(redirectPath, { replace: true }), 2000);
             }
         }
       } catch (e) {
@@ -211,9 +222,7 @@ export function PurchaseSuccessHandler() {
               
               <div className="space-y-3">
                 <h2 className="text-xl font-semibold text-gray-900">Payment Successful!</h2>
-                <p className="text-muted-foreground">
-                  Your tickets are ready! Redirecting to your ticket wallet...
-                </p>
+                <p className="text-muted-foreground">{successDescription}</p>
                 
                 {/* Animated redirect indicator */}
                 <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
@@ -250,8 +259,8 @@ export function PurchaseSuccessHandler() {
             </p>
           )}
           <div className="space-y-2">
-            <Button 
-              onClick={() => navigate('/tickets')} 
+            <Button
+              onClick={() => navigate(redirectPath)}
               variant="outline" 
               className="w-full"
             >

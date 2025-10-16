@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export type GuestScope = { all?: boolean; eventIds?: string[] };
 export type GuestSession = { token: string; exp: number; scope?: GuestScope; phone?: string; email?: string };
@@ -21,6 +21,18 @@ function read(): GuestSession | null {
   }
 }
 
+const persist = (value: GuestSession | null) => {
+  try {
+    if (!value) {
+      localStorage.removeItem(KEY);
+    } else {
+      localStorage.setItem(KEY, JSON.stringify(value));
+    }
+  } catch {
+    // no-op
+  }
+};
+
 export function useGuestTicketSession() {
   const [session, setSession] = useState<GuestSession | null>(() => read());
 
@@ -34,11 +46,27 @@ export function useGuestTicketSession() {
   }, []);
 
   const clear = () => {
-    try { localStorage.removeItem(KEY); } catch {}
+    persist(null);
     setSession(null);
   };
 
+  const set = useCallback((value: GuestSession | null) => {
+    persist(value);
+    setSession(value);
+  }, []);
+
+  const update = useCallback(
+    (updater: (current: GuestSession | null) => GuestSession | null) => {
+      setSession((current) => {
+        const next = updater(current);
+        persist(next);
+        return next;
+      });
+    },
+    [],
+  );
+
   const isActive = useMemo(() => !!session, [session]);
 
-  return { session, isActive, clear };
+  return { session, isActive, clear, set, update };
 }
