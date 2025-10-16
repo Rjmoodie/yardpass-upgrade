@@ -43,6 +43,8 @@ interface PurchaseConfirmationRequest {
   eventId?: string;
   orgInfo?: OrgInfo;
   eventInfo?: EventInfo;
+  isGuest?: boolean;
+  userId?: string;
 }
 
 // Fetch org and event info from database
@@ -255,6 +257,81 @@ function formatCurrency(value?: number) {
   }
 }
 
+// Generate PDF tickets for email attachment
+async function generateTicketPDF(ticketIds: string[], eventTitle: string, customerName: string) {
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Get ticket details
+    const { data: tickets } = await supabase
+      .from('tickets')
+      .select(`
+        id,
+        qr_code,
+        ticket_tiers(name, price_cents),
+        events(title, start_at, venue, city)
+      `)
+      .in('id', ticketIds);
+
+    if (!tickets || tickets.length === 0) {
+      throw new Error('No tickets found');
+    }
+
+    // Generate simple HTML for PDF conversion
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${eventTitle} - Tickets</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+            .ticket { border: 2px solid #10b981; border-radius: 12px; padding: 20px; margin: 20px 0; page-break-inside: avoid; }
+            .header { background: #10b981; color: white; padding: 15px; margin: -20px -20px 20px -20px; border-radius: 10px 10px 0 0; text-align: center; }
+            .qr-code { text-align: center; margin: 20px 0; }
+            .qr-code div { background: #f0f0f0; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 24px; font-weight: bold; letter-spacing: 3px; }
+            .details { margin: 15px 0; }
+            .details div { margin: 8px 0; }
+            .event-title { font-size: 18px; font-weight: bold; color: #1f2937; }
+            .ticket-info { color: #6b7280; }
+          </style>
+        </head>
+        <body>
+          <h1 style="text-align: center; color: #10b981;">${eventTitle}</h1>
+          <p style="text-align: center; color: #6b7280;">Tickets for ${customerName}</p>
+          ${tickets.map(ticket => `
+            <div class="ticket">
+              <div class="header">
+                <div class="event-title">${ticket.events?.title || eventTitle}</div>
+              </div>
+              <div class="details">
+                <div><strong>Ticket Holder:</strong> ${customerName}</div>
+                <div><strong>Type:</strong> ${ticket.ticket_tiers?.name || 'General Admission'}</div>
+                <div><strong>Event Date:</strong> ${new Date(ticket.events?.start_at).toLocaleDateString()}</div>
+                <div><strong>Location:</strong> ${ticket.events?.venue || ticket.events?.city || 'TBA'}</div>
+              </div>
+              <div class="qr-code">
+                <div>${ticket.qr_code}</div>
+                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6b7280;">Show this code at the entrance</p>
+              </div>
+            </div>
+          `).join('')}
+        </body>
+      </html>
+    `;
+
+    // For now, return the HTML - in production you'd convert to PDF using a service
+    // like Puppeteer, jsPDF, or an external API
+    return {
+      html,
+      filename: `${eventTitle.replace(/[^a-zA-Z0-9]/g, '_')}_tickets.pdf`
+    };
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    return null;
+  }
+}
+
 function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: PurchaseConfirmationRequest; orgInfo?: OrgInfo; eventInfo?: EventInfo }) {
   const baseUrl = SUPABASE_URL?.replace('/rest/v1', '') || 'https://yardpass.tech';
   const eventTitle = eventInfo?.title || data.eventTitle;
@@ -287,12 +364,42 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
       })
     ) : null,
     React.createElement('div', { style: { marginBottom: '24px' } },
-      React.createElement('h2', { style: { margin: '0 0 12px 0', color: '#0f172a', fontSize: '20px', fontWeight: 600 } }, `Hi ${data.customerName} 👋`),
-      React.createElement('p', { style: { margin: 0, color: '#475569', fontSize: '15px', lineHeight: 1.6 } },
-        'Thank you for your purchase! Your tickets for ',
-        React.createElement('strong', {}, eventTitle),
-        ' have been confirmed and are ready to use.'
-      )
+      data.isGuest ? 
+        React.createElement('div', {},
+          React.createElement('h2', { style: { margin: '0 0 12px 0', color: '#0f172a', fontSize: '20px', fontWeight: 600 } }, '🎉 Your Tickets Are Ready!'),
+          React.createElement('p', { style: { margin: '0 0 16px 0', color: '#475569', fontSize: '15px', lineHeight: 1.6 } },
+            'Thank you for your purchase! Your tickets for ',
+            React.createElement('strong', {}, eventTitle),
+            ' have been confirmed and are ready to use.'
+          ),
+          React.createElement('div', { style: { backgroundColor: '#f0f9ff', border: '1px solid #0ea5e9', borderRadius: '12px', padding: '16px', marginBottom: '16px' } },
+            React.createElement('h3', { style: { margin: '0 0 8px 0', color: '#0c4a6e', fontSize: '16px', fontWeight: 600 } }, '🚀 Get the Best Experience'),
+            React.createElement('p', { style: { margin: '0 0 12px 0', color: '#075985', fontSize: '14px', lineHeight: 1.5 } },
+              'Create a free YardPass account to manage your tickets, get event updates, and discover amazing events in your area.'
+            ),
+            React.createElement('a', {
+              href: `${baseUrl}/auth/signup?email=${encodeURIComponent(data.customerEmail)}`,
+              style: {
+                display: 'inline-block',
+                backgroundColor: '#0ea5e9',
+                color: 'white',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontSize: '14px',
+                fontWeight: 600
+              }
+            }, 'Create Free Account')
+          )
+        ) :
+        React.createElement('div', {},
+          React.createElement('h2', { style: { margin: '0 0 12px 0', color: '#0f172a', fontSize: '20px', fontWeight: 600 } }, `Hi ${data.customerName} 👋`),
+          React.createElement('p', { style: { margin: 0, color: '#475569', fontSize: '15px', lineHeight: 1.6 } },
+            'Thank you for your purchase! Your tickets for ',
+            React.createElement('strong', {}, eventTitle),
+            ' have been confirmed and are ready to use.'
+          )
+        )
     ),
     React.createElement('div', {
       style: {
@@ -407,7 +514,6 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
       React.createElement('ul', { style: { margin: 0, paddingLeft: '20px', color: '#854d0e', fontSize: '14px', lineHeight: 1.8 } },
         React.createElement('li', {}, 'Add this event to your calendar and plan your arrival.'),
         React.createElement('li', {}, 'Bring a valid ID and have your QR code ready for scanning.'),
-        React.createElement('li', {}, 'Need assistance? Reply to this email and our team will help.'),
         React.createElement('li', {}, 'Save this email for easy access to your tickets and order details.')
       )
     )
@@ -429,14 +535,28 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Detect if this is a guest (no userId or guest checkout)
+    const isGuest = data.isGuest || !data.userId || data.customerName === 'User';
+    data.isGuest = isGuest;
+
     // Fetch org/event context if eventId provided
     let orgInfo = data.orgInfo;
     let eventInfo = data.eventInfo;
-
+    
     if (data.eventId && (!orgInfo || !eventInfo)) {
       const context = await fetchEmailContext(data.eventId);
       orgInfo = orgInfo || context.orgInfo;
       eventInfo = eventInfo || context.eventInfo;
+    }
+
+    // Generate PDF tickets for guests
+    let pdfAttachment = null;
+    if (isGuest && data.ticketIds && data.ticketIds.length > 0) {
+      try {
+        pdfAttachment = await generateTicketPDF(data.ticketIds, eventInfo?.title || data.eventTitle, data.customerName);
+      } catch (error) {
+        console.error('PDF generation failed:', error);
+      }
     }
 
     // Render React template
@@ -444,19 +564,31 @@ const handler = async (req: Request): Promise<Response> => {
       React.createElement(PurchaseConfirmationTemplate, { data, orgInfo, eventInfo })
     );
 
+    // Prepare email payload
+    const emailPayload: any = {
+      from: orgInfo?.name ? `${orgInfo.name} via YardPass <noreply@yardpass.tech>` : "YardPass <noreply@yardpass.tech>",
+      to: [data.customerEmail],
+      subject: `✅ Ticket Confirmation - ${eventInfo?.title || data.eventTitle}`,
+      html,
+      reply_to: orgInfo?.supportEmail || "support@yardpass.tech",
+    };
+
+    // Add PDF attachment for guests
+    if (pdfAttachment) {
+      emailPayload.attachments = [{
+        filename: pdfAttachment.filename,
+        content: pdfAttachment.html, // In production, this would be the actual PDF binary
+        type: 'text/html', // In production, this would be 'application/pdf'
+      }];
+    }
+
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: orgInfo?.name ? `${orgInfo.name} via YardPass <noreply@yardpass.tech>` : "YardPass <noreply@yardpass.tech>",
-        to: [data.customerEmail],
-        subject: `✅ Ticket Confirmation - ${eventInfo?.title || data.eventTitle}`,
-        html,
-        reply_to: orgInfo?.supportEmail || "support@yardpass.tech",
-      }),
+      body: JSON.stringify(emailPayload),
     });
 
     if (!response.ok) {

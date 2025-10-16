@@ -127,6 +127,13 @@ export default function Navigation({ userRole }: NavigationProps) {
         user_role: userRole
       });
       
+      // Special handling for tickets - allow guest access
+      if (screen === 'tickets' && !user) {
+        // Navigate directly to tickets - TicketsRoute will handle guest access
+        navigate('/tickets');
+        return;
+      }
+      
       if (requiresAuth(path) && !user) {
         setPendingNavigation(screen);
         setAuthModalOpen(true);

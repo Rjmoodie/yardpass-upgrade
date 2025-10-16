@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { X, Copy, Share, Download, Palette, Check } from 'lucide-react';
 import { BrandedSpinner } from './BrandedSpinner';
-import { generateQRData } from '@/lib/qrCode';
 import { generateStyledQRDataURL } from '@/lib/styledQr';
 import { getQrTheme, getAllThemes, type QrThemeName } from '@/lib/qrTheme';
 import { UserTicket } from '@/hooks/useTickets';
@@ -79,20 +78,17 @@ export function QRCodeModal({
     let cancelled = false;
 
     const generateQRCodes = async () => {
-      console.log('🎯 Starting QR generation with options:', qrOptions);
+      console.log('🎯 Starting QR generation for ticket:', ticket.qrCode);
       setLoading(true);
       setFailed(false);
 
       try {
-        const qrData = generateQRData({
-          id: ticket.id,
-          eventId: ticket.eventId,
-          qrCode: ticket.qrCode,
-          userId: user.id,
-        });
+        if (!ticket.qrCode) {
+          throw new Error('No QR code available for this ticket');
+        }
 
-        // Generate PNG first for display, SVG on demand
-        const pngDataUrl = await generateStyledQRDataURL(qrData, { ...qrOptions, format: 'png' });
+        // Use the simple static QR code from the database
+        const pngDataUrl = await generateStyledQRDataURL(ticket.qrCode, { ...qrOptions, format: 'png' });
         
         // Generate SVG lazily - only when needed for download
         const svgDataUrl = '';
@@ -100,10 +96,10 @@ export function QRCodeModal({
         if (!cancelled) {
           setQrPng(pngDataUrl);
           setQrSvg(svgDataUrl);
-          console.log('✅ QR codes generated successfully');
+          console.log('✅ QR code generated successfully');
         }
       } catch (error) {
-        console.error('❌ Failed to generate QR codes:', error);
+        console.error('❌ Failed to generate QR code:', error);
         if (!cancelled) {
           setFailed(true);
           toast({
@@ -123,7 +119,7 @@ export function QRCodeModal({
     return () => {
       cancelled = true;
     };
-  }, [ticket, user, qrOptions, toast]);
+  }, [ticket.qrCode, qrOptions, toast]);
 
   // Download handler with lazy SVG generation
   const handleDownload = useCallback(async (dataUrl: string, format: 'png' | 'svg') => {
@@ -132,13 +128,10 @@ export function QRCodeModal({
     // Generate SVG on-demand if needed
     if (format === 'svg' && !dataUrl) {
       try {
-        const qrData = generateQRData({
-          id: ticket.id,
-          eventId: ticket.eventId,
-          qrCode: ticket.qrCode,
-          userId: user.id,
-        });
-        finalDataUrl = await generateStyledQRDataURL(qrData, { ...qrOptions, format: 'svg' });
+        if (!ticket.qrCode) {
+          throw new Error('No QR code available');
+        }
+        finalDataUrl = await generateStyledQRDataURL(ticket.qrCode, { ...qrOptions, format: 'svg' });
       } catch (error) {
         console.error('Failed to generate SVG:', error);
         toast({
@@ -161,7 +154,7 @@ export function QRCodeModal({
 
     try {
       const link = document.createElement('a');
-      link.href = dataUrl;
+      link.href = finalDataUrl;
       link.download = `yardpass-ticket-${ticket.id.slice(0, 8)}.${format}`;
       link.rel = 'noopener';
       document.body.appendChild(link);
@@ -180,7 +173,7 @@ export function QRCodeModal({
         variant: "destructive",
       });
     }
-  }, [ticket.id, toast]);
+  }, [ticket.qrCode, qrOptions, toast]);
 
   // Enhanced copy handler with QR data
   const handleCopy = useCallback(() => {

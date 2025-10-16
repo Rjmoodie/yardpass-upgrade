@@ -237,6 +237,8 @@ serve(async (req) => {
             orderId: order.id,
             ticketIds,
             eventId: order.event_id, // This will trigger auto-fetch of org/event context
+            isGuest: !order.user_id || (userProfile?.display_name === 'User'),
+            userId: order.user_id,
           }
         });
 

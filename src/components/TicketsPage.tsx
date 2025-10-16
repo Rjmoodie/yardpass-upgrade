@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { TicketList } from '@/components/tickets/TicketList';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
+import { GuestSessionManager } from '@/components/GuestSessionManager';
 import { ArrowLeft, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import GuestSessionManager from '@/components/GuestSessionManager';
