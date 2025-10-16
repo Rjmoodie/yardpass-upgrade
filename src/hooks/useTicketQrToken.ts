@@ -23,7 +23,7 @@ interface UseTicketQrTokenOptions {
 }
 
 type EdgeResponse = {
-  token: string;
+  token?: string;
   expires_in?: number;
   expires_at?: string;
   issued_at?: string;
@@ -31,6 +31,7 @@ type EdgeResponse = {
     apple?: string;
     google?: string;
   };
+  error?: string;
 };
 
 export function useTicketQrToken({
@@ -102,6 +103,9 @@ export function useTicketQrToken({
       if (error) throw new Error(error.message ?? 'Failed to refresh ticket token');
 
       const payload = (data ?? {}) as EdgeResponse;
+      if (!payload.token) {
+        throw new Error(payload.error ?? 'Invalid ticket token response');
+      }
       const expiresAt = payload.expires_at
         ? new Date(payload.expires_at)
         : payload.expires_in
@@ -140,7 +144,8 @@ export function useTicketQrToken({
   }, [ticketId, eventId, refreshWindowMs, toast, scheduleRefresh]);
 
   useEffect(() => {
-    if (!initialToken) {
+    const needsBootstrap = !initialToken || !initialToken.startsWith('v1.')
+    if (needsBootstrap) {
       void refresh();
     }
     return () => {
