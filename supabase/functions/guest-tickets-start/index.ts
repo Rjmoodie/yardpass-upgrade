@@ -80,26 +80,57 @@ serve(async (req) => {
               to: [contact],
               subject: 'Your YardPass Access Code',
               html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #10b981; margin: 0;">🎫 YardPass</h1>
-                    <h2 style="color: #374151; margin: 10px 0;">Access Your Tickets</h2>
-                  </div>
-                  
-                  <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <p style="margin: 0 0 15px 0; color: #374151;">Your verification code is:</p>
-                    <div style="background: #10b981; color: white; font-size: 32px; font-weight: bold; text-align: center; padding: 15px; border-radius: 8px; letter-spacing: 5px; margin: 15px 0;">
-                      ${otp}
+                <!DOCTYPE html>
+                <html lang="en">
+                  <head>
+                    <meta charset="utf-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                    <title>YardPass Access Code</title>
+                  </head>
+                  <body style="margin:0; padding:0; background-color:#f4f4f5; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color:#0f172a;">
+                    <div style="display:none; overflow:hidden; line-height:1px; max-height:0; max-width:0; opacity:0; color:transparent;">Your YardPass access code is ${otp}. It expires in 5 minutes.</div>
+                    <div style="padding:32px 16px; background-color:#f4f4f5;">
+                      <div style="max-width:520px; margin:0 auto; background-color:#ffffff; border-radius:20px; overflow:hidden; box-shadow:0 18px 30px rgba(15,23,42,0.08);">
+                        <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding:28px 32px; text-align:center;">
+                          <img src="https://yardpass.tech/yardpass-logo.png" alt="YardPass" style="height:40px; width:auto; margin-bottom:12px;" />
+                          <div style="font-size:13px; color:#94a3b8; letter-spacing:0.08em; text-transform:uppercase;">Secure ticket access</div>
+                        </div>
+                        <div style="padding:32px;">
+                          <div style="text-align:center; margin-bottom:24px;">
+                            <h1 style="margin:0; font-size:24px; color:#0f172a;">Access Your Tickets</h1>
+                            <p style="margin:8px 0 0 0; color:#475569; font-size:15px;">Use the one-time code below to verify your email and unlock your tickets.</p>
+                          </div>
+                          <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#ffffff; border-radius:16px; padding:24px; text-align:center; margin-bottom:24px;">
+                            <div style="font-size:14px; letter-spacing:0.12em; text-transform:uppercase; opacity:0.9;">Your secure code</div>
+                            <div style="margin-top:12px; font-size:42px; font-weight:700; letter-spacing:12px;">${otp}</div>
+                            <div style="margin-top:12px; font-size:13px; opacity:0.85;">Expires in 5 minutes</div>
+                          </div>
+                          <div style="background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:18px; margin-bottom:24px;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px; color:#475569;">
+                              <tr>
+                                <td style="padding-bottom:8px;">1. Enter the code in the YardPass guest portal.</td>
+                              </tr>
+                              <tr>
+                                <td style="padding-bottom:8px;">2. Access, download, or share the tickets assigned to you.</td>
+                              </tr>
+                              <tr>
+                                <td>3. Need help? Reply to this email and our team will assist.</td>
+                              </tr>
+                            </table>
+                          </div>
+                          <div style="text-align:center; margin-bottom:16px;">
+                            <a href="https://yardpass.tech/tickets" style="display:inline-block; background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color:#ffffff; padding:14px 32px; border-radius:12px; text-decoration:none; font-size:15px; font-weight:600; box-shadow:0 12px 24px rgba(79,70,229,0.25);">Open YardPass</a>
+                          </div>
+                          <p style="margin:0; color:#64748b; font-size:13px; line-height:1.6;">If you didn’t request this code, you can safely ignore this email. For security, never share this code with anyone.</p>
+                        </div>
+                        <div style="background-color:#f8fafc; padding:20px 32px; border-top:1px solid #e2e8f0; text-align:center; color:#94a3b8; font-size:12px;">
+                          <p style="margin:0 0 6px 0;">© ${new Date().getFullYear()} YardPass. All rights reserved.</p>
+                          <a href="https://yardpass.tech" style="color:#94a3b8; text-decoration:none;">yardpass.tech</a>
+                        </div>
+                      </div>
                     </div>
-                    <p style="margin: 15px 0 0 0; color: #6b7280; font-size: 14px;">
-                      This code expires in 5 minutes. Enter it in the YardPass app to access your tickets.
-                    </p>
-                  </div>
-                  
-                  <p style="color: #6b7280; font-size: 14px; margin: 20px 0 0 0;">
-                    If you didn't request this code, you can safely ignore this email.
-                  </p>
-                </div>
+                  </body>
+                </html>
               `,
             }),
           });

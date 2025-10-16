@@ -106,50 +106,52 @@ const BaseEmailLayout: React.FC<BaseEmailLayoutProps> = ({ children, orgInfo, pr
   const supportEmail = orgInfo?.supportEmail || 'support@yardpass.tech';
 
   return (
-    <div style={{ background: '#f4f4f5', padding: '20px 16px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
+    <div style={{ background: '#f4f4f5', padding: '32px 16px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', color: '#0f172a' }}>
       {preheaderText && <HiddenPreheader text={preheaderText} />}
-      
-      <div style={{ maxWidth: 600, margin: '0 auto', background: '#ffffff' }}>
+
+      <div style={{ maxWidth: 640, margin: '0 auto', background: '#ffffff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 18px 30px rgba(15, 23, 42, 0.08)' }}>
         {/* Header with YardPass Logo */}
-        <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', padding: '24px 32px', borderRadius: '12px 12px 0 0' }}>
-          <div style={{ textAlign: 'center' }}>
-            <img 
-              src={yardpassLogo} 
-              alt="YardPass" 
-              style={{ height: 40, width: 'auto', marginBottom: 8 }}
-            />
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
-              Powered by YardPass
-            </div>
+        <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', padding: '28px 32px', textAlign: 'center' }}>
+          <img
+            src={orgInfo?.logoUrl || yardpassLogo}
+            alt={orgInfo?.name || 'YardPass'}
+            style={{ height: 40, width: 'auto', marginBottom: 12 }}
+          />
+          <div style={{ fontSize: 13, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            Powered by YardPass
           </div>
         </div>
 
         {/* Organization Info (if provided) */}
         {orgInfo && (
-          <div style={{ padding: '20px 32px', borderBottom: '1px solid #e2e8f0', background: '#fafafa' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              {orgInfo.logoUrl && (
-                <img 
-                  src={orgInfo.logoUrl} 
-                  alt={orgInfo.name}
-                  style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }}
-                />
-              )}
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: '#0f172a' }}>
-                  {orgInfo.name}
-                </div>
-                {orgInfo.websiteUrl && (
-                  <a 
-                    href={orgInfo.websiteUrl}
-                    style={{ fontSize: 13, color: '#6366f1', textDecoration: 'none' }}
-                  >
-                    Visit website →
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
+          <table width="100%" style={{ borderBottom: '1px solid #e2e8f0', background: '#fafafa' }} cellPadding={0} cellSpacing={0}>
+            <tbody>
+              <tr>
+                <td style={{ padding: '20px 32px', width: 64 }}>
+                  {orgInfo.logoUrl && (
+                    <img
+                      src={orgInfo.logoUrl}
+                      alt={orgInfo.name}
+                      style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover' }}
+                    />
+                  )}
+                </td>
+                <td style={{ padding: '20px 32px 20px 0' }}>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>
+                    {orgInfo.name}
+                  </div>
+                  {orgInfo.websiteUrl && (
+                    <a
+                      href={orgInfo.websiteUrl}
+                      style={{ fontSize: 13, color: '#6366f1', textDecoration: 'none' }}
+                    >
+                      Visit website →
+                    </a>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         )}
 
         {/* Main Content */}
@@ -158,7 +160,7 @@ const BaseEmailLayout: React.FC<BaseEmailLayoutProps> = ({ children, orgInfo, pr
         </div>
 
         {/* Footer */}
-        <div style={{ background: '#f8fafc', padding: '24px 32px', borderTop: '1px solid #e2e8f0', borderRadius: '0 0 12px 12px' }}>
+        <div style={{ background: '#f8fafc', padding: '24px 32px', borderTop: '1px solid #e2e8f0' }}>
           <div style={{ textAlign: 'center', color: '#64748b', fontSize: 13, lineHeight: 1.6 }}>
             <p style={{ margin: '0 0 8px 0' }}>
               Questions? Contact us at{' '}
@@ -209,28 +211,27 @@ export const PurchaseConfirmationTemplate: React.FC<PurchaseConfirmationTemplate
   const ticketUrl = `${siteUrl}/tickets`;
   const amountText = formatCurrency(totalAmount, currency, isAmountInCents);
   const dateText = tryFormatDate(eventInfo?.date || eventDate);
+  const primaryLocation = eventInfo?.venue || eventLocation;
+  const secondaryLocation = eventInfo?.location && eventInfo?.location !== eventInfo?.venue ? eventInfo.location : undefined;
 
   return (
     <BaseEmailLayout orgInfo={orgInfo} preheaderText={preheaderText}>
-      {/* Success Banner */}
-      <div style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', padding: '20px 24px', borderRadius: 12, marginBottom: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>✓</div>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Purchase Confirmed!</h1>
-        <p style={{ margin: '8px 0 0 0', fontSize: 15, opacity: 0.95 }}>Your tickets are ready</p>
+      <div style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#ffffff', padding: '24px', borderRadius: 14, marginBottom: 28, textAlign: 'center' }}>
+        <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
+        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 700 }}>Purchase Confirmed!</h1>
+        <p style={{ margin: '10px 0 0 0', fontSize: 15, opacity: 0.95 }}>Your tickets are ready to scan at the door.</p>
       </div>
 
-      {/* Event Cover Image */}
       {eventInfo?.coverImageUrl && (
-        <div style={{ marginBottom: 24, borderRadius: 12, overflow: 'hidden' }}>
-          <img 
-            src={eventInfo.coverImageUrl} 
+        <div style={{ marginBottom: 28, borderRadius: 16, overflow: 'hidden' }}>
+          <img
+            src={eventInfo.coverImageUrl}
             alt={eventInfo.title || eventTitle}
             style={{ width: '100%', height: 'auto', display: 'block' }}
           />
         </div>
       )}
 
-      {/* Greeting */}
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ margin: '0 0 12px 0', color: '#0f172a', fontSize: 20, fontWeight: 600 }}>
           Hi {customerName} 👋
@@ -240,76 +241,83 @@ export const PurchaseConfirmationTemplate: React.FC<PurchaseConfirmationTemplate
         </p>
       </div>
 
-      {/* Event Details Card */}
-      <div style={{ background: '#fafafa', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-        <h3 style={{ margin: '0 0 16px 0', color: '#0f172a', fontSize: 17, fontWeight: 600 }}>
-          📅 Event Details
-        </h3>
-        <div style={{ display: 'grid', gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>Event</div>
-            <div style={{ fontSize: 15, color: '#0f172a', fontWeight: 500 }}>{eventInfo?.title || eventTitle}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>Date & Time</div>
-            <div style={{ fontSize: 15, color: '#0f172a', fontWeight: 500 }}>{dateText}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>Location</div>
-            <div style={{ fontSize: 15, color: '#0f172a', fontWeight: 500 }}>
-              {eventInfo?.venue || eventLocation}
-            </div>
-            {eventInfo?.venue && eventInfo.location && eventInfo.location !== eventInfo.venue && (
-              <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{eventInfo.location}</div>
+      <div style={{ background: '#fafafa', border: '1px solid #e2e8f0', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+        <h3 style={{ margin: '0 0 16px 0', color: '#0f172a', fontSize: 17, fontWeight: 600 }}>📅 Event Details</h3>
+        <table role="presentation" width="100%" cellPadding={0} cellSpacing={0}>
+          <tbody>
+            <tr>
+              <td style={{ padding: '6px 0', fontSize: 13, color: '#64748b', width: '35%' }}>Event</td>
+              <td style={{ padding: '6px 0', fontSize: 15, color: '#0f172a', fontWeight: 500 }}>{eventInfo?.title || eventTitle}</td>
+            </tr>
+            {dateText && (
+              <tr>
+                <td style={{ padding: '6px 0', fontSize: 13, color: '#64748b' }}>Date &amp; Time</td>
+                <td style={{ padding: '6px 0', fontSize: 15, color: '#0f172a', fontWeight: 500 }}>{dateText}</td>
+              </tr>
             )}
-          </div>
-        </div>
+            <tr>
+              <td style={{ padding: '6px 0', fontSize: 13, color: '#64748b' }}>Location</td>
+              <td style={{ padding: '6px 0', fontSize: 15, color: '#0f172a', fontWeight: 500 }}>{primaryLocation}</td>
+            </tr>
+            {secondaryLocation && (
+              <tr>
+                <td style={{ padding: '6px 0', fontSize: 13, color: '#64748b' }}>City</td>
+                <td style={{ padding: '6px 0', fontSize: 15, color: '#0f172a', fontWeight: 500 }}>{secondaryLocation}</td>
+              </tr>
+            )}
+            {eventInfo?.description && (
+              <tr>
+                <td style={{ padding: '6px 0', fontSize: 13, color: '#64748b', verticalAlign: 'top' }}>About</td>
+                <td style={{ padding: '6px 0', fontSize: 14, color: '#475569', lineHeight: 1.6 }}>{eventInfo.description}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Ticket Info Card */}
-      <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-        <h3 style={{ margin: '0 0 16px 0', color: '#0c4a6e', fontSize: 17, fontWeight: 600 }}>
-          🎟️ Your Tickets
-        </h3>
-        <div style={{ display: 'grid', gap: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: 13, color: '#075985', marginBottom: 4 }}>Ticket Type</div>
-              <div style={{ fontSize: 15, color: '#0c4a6e', fontWeight: 500 }}>{ticketType}</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 13, color: '#075985', marginBottom: 4 }}>Quantity</div>
-              <div style={{ fontSize: 18, color: '#0c4a6e', fontWeight: 700 }}>×{quantity}</div>
-            </div>
-          </div>
-          <div style={{ borderTop: '1px solid #bae6fd', paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 15, color: '#0c4a6e', fontWeight: 500 }}>Total Paid</div>
-            <div style={{ fontSize: 20, color: '#0c4a6e', fontWeight: 700 }}>{amountText}</div>
-          </div>
-          <div style={{ fontSize: 12, color: '#075985' }}>
-            Order ID: <span style={{ fontFamily: 'monospace' }}>{orderId}</span>
-          </div>
-        </div>
+      <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+        <h3 style={{ margin: '0 0 16px 0', color: '#0c4a6e', fontSize: 17, fontWeight: 600 }}>🎟️ Your Tickets</h3>
+        <table role="presentation" width="100%" cellPadding={0} cellSpacing={0}>
+          <tbody>
+            <tr>
+              <td style={{ padding: '6px 0', fontSize: 13, color: '#075985' }}>Ticket Type</td>
+              <td style={{ padding: '6px 0', fontSize: 15, color: '#0c4a6e', fontWeight: 600, textAlign: 'right' }}>{ticketType}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '6px 0', fontSize: 13, color: '#075985' }}>Quantity</td>
+              <td style={{ padding: '6px 0', fontSize: 18, color: '#0c4a6e', fontWeight: 700, textAlign: 'right' }}>×{quantity}</td>
+            </tr>
+            {amountText && (
+              <tr>
+                <td style={{ padding: '12px 0 6px 0', fontSize: 15, color: '#0c4a6e', fontWeight: 500 }}>Total Paid</td>
+                <td style={{ padding: '12px 0 6px 0', fontSize: 20, color: '#0c4a6e', fontWeight: 700, textAlign: 'right' }}>{amountText}</td>
+              </tr>
+            )}
+            <tr>
+              <td style={{ padding: '6px 0', fontSize: 12, color: '#075985' }}>Order ID</td>
+              <td style={{ padding: '6px 0', fontSize: 12, color: '#075985', fontFamily: 'monospace', textAlign: 'right' }}>{orderId}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ margin: '16px 0 0 0', fontSize: 13, color: '#0369a1', lineHeight: 1.6 }}>
+          Need to transfer tickets to a guest? Forward this email or share access from your YardPass account.
+        </p>
       </div>
 
-      {/* QR Code */}
       {qrCodeUrl && (
-        <div style={{ background: '#ffffff', border: '2px dashed #cbd5e1', borderRadius: 12, padding: 24, marginBottom: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 15, color: '#0f172a', fontWeight: 600, marginBottom: 16 }}>
-            Your Entry Pass
-          </div>
-          <img 
-            src={qrCodeUrl} 
-            alt="Entry QR Code" 
-            style={{ maxWidth: 200, height: 'auto', margin: '0 auto', display: 'block', border: '3px solid #0f172a', borderRadius: 8, padding: 8, background: '#fff' }}
+        <div style={{ background: '#ffffff', border: '2px dashed #cbd5e1', borderRadius: 14, padding: 24, marginBottom: 28, textAlign: 'center' }}>
+          <div style={{ fontSize: 15, color: '#0f172a', fontWeight: 600, marginBottom: 16 }}>Your Entry Pass</div>
+          <img
+            src={qrCodeUrl}
+            alt="Entry QR Code"
+            style={{ maxWidth: 200, height: 'auto', margin: '0 auto', display: 'block', border: '3px solid #0f172a', borderRadius: 12, padding: 10, background: '#fff' }}
           />
           <p style={{ margin: '16px 0 0 0', fontSize: 13, color: '#64748b' }}>
-            Present this QR code at check-in
+            Present this QR code at check-in. Each ticket is also available in the YardPass app.
           </p>
         </div>
       )}
 
-      {/* CTA Button */}
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
         <a
           href={ticketUrl}
@@ -317,28 +325,25 @@ export const PurchaseConfirmationTemplate: React.FC<PurchaseConfirmationTemplate
             display: 'inline-block',
             background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
             color: '#ffffff',
-            padding: '14px 32px',
+            padding: '14px 36px',
             textDecoration: 'none',
-            borderRadius: 10,
+            borderRadius: 12,
             fontSize: 16,
             fontWeight: 600,
-            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+            boxShadow: '0 12px 24px rgba(79, 70, 229, 0.25)',
           }}
         >
           View My Tickets →
         </a>
       </div>
 
-      {/* What's Next */}
-      <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 12, padding: 20 }}>
-        <h3 style={{ margin: '0 0 12px 0', color: '#713f12', fontSize: 16, fontWeight: 600 }}>
-          ✨ What's Next?
-        </h3>
+      <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 14, padding: 20 }}>
+        <h3 style={{ margin: '0 0 12px 0', color: '#713f12', fontSize: 16, fontWeight: 600 }}>✨ Helpful Tips</h3>
         <ul style={{ margin: 0, paddingLeft: 20, color: '#854d0e', fontSize: 14, lineHeight: 1.8 }}>
-          <li>Add this event to your calendar</li>
-          <li>Arrive 15 minutes early for smooth check-in</li>
-          <li>Bring a valid ID and have your QR code ready</li>
-          <li>Save this email for your records</li>
+          <li>Add this event to your calendar and plan your arrival.</li>
+          <li>Bring a valid ID and have your QR code ready for scanning.</li>
+          <li>Need assistance? Reply to this email and our team will help.</li>
+          <li>Save this email for easy access to your tickets and order details.</li>
         </ul>
       </div>
     </BaseEmailLayout>
