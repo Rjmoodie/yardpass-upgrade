@@ -197,6 +197,13 @@ body {
   font-family: var(--font-sans);
   font-display: swap;
   background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(120% 120% at 20% 10%, hsl(var(--primary) / 0.16), transparent 65%),
+    radial-gradient(110% 130% at 85% 5%, hsl(var(--accent) / 0.14), transparent 70%),
+    linear-gradient(180deg, hsl(var(--background)), color-mix(in srgb, hsl(var(--secondary)) 28%, transparent) 45%, hsl(var(--background)) 100%);
+  background-attachment: fixed;
+  background-size: cover;
+  background-repeat: no-repeat;
   color: hsl(var(--foreground));
   transition: background-color var(--transition-smooth), color var(--transition-smooth);
   -webkit-font-smoothing: antialiased;
@@ -211,6 +218,13 @@ body {
   overscroll-behavior-y: none;
   
   /* Safe area support removed from body - apply to specific elements instead */
+}
+
+.dark body {
+  background-image:
+    radial-gradient(135% 135% at 12% 8%, hsl(var(--primary) / 0.24), transparent 70%),
+    radial-gradient(120% 140% at 90% 0%, hsl(var(--accent) / 0.2), transparent 75%),
+    linear-gradient(190deg, color-mix(in srgb, hsl(var(--background)) 85%, transparent) 0%, hsl(var(--background)) 65%, hsl(var(--background)) 100%);
 }
 
 .qr-brightness-boost {
@@ -314,11 +328,128 @@ p {
   padding: 0;
   margin: 0;
   background: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  z-index: 1;
 }
 
 @media (max-width: 640px) {
   .content-on-nav {
     bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+}
+
+.app-frame {
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+}
+
+.app-mesh {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(130% 110% at 0% 0%, hsl(var(--primary) / 0.22), transparent 70%),
+    radial-gradient(110% 130% at 100% 10%, hsl(var(--accent) / 0.18), transparent 75%),
+    linear-gradient(180deg, hsl(var(--background) / 0.85), transparent 65%);
+  opacity: 0.75;
+  filter: saturate(120%);
+}
+
+.dark .app-mesh {
+  opacity: 0.65;
+  background:
+    radial-gradient(140% 120% at 0% 0%, hsl(var(--primary) / 0.18), transparent 72%),
+    radial-gradient(120% 140% at 100% 5%, hsl(var(--accent) / 0.2), transparent 78%),
+    linear-gradient(185deg, hsl(var(--background) / 0.75), transparent 68%);
+  filter: saturate(140%);
+}
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1240px);
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 4vw, 3rem) clamp(2.75rem, 5vw, 3.75rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 2vw, 2rem);
+  min-height: 100%;
+}
+
+.app-surface {
+  position: relative;
+  flex: 1;
+  border-radius: clamp(1.75rem, 3.5vw, 3rem);
+  border: 1px solid hsl(var(--border) / 0.65);
+  background: linear-gradient(140deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.82));
+  box-shadow: 0 24px 68px hsl(0 0% 0% / 0.14), 0 8px 32px hsl(0 0% 0% / 0.08);
+  overflow: hidden;
+  backdrop-filter: blur(28px) saturate(135%);
+  -webkit-backdrop-filter: blur(28px) saturate(135%);
+}
+
+.app-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(120deg, hsl(var(--primary) / 0.12), transparent 30%, hsl(var(--accent) / 0.12) 70%, transparent 100%);
+  opacity: 0.9;
+}
+
+.app-surface-content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2vw, 1.75rem);
+  padding: clamp(1rem, 2.5vw, 2.5rem);
+}
+
+.dark .app-surface {
+  border: 1px solid hsl(var(--border) / 0.55);
+  background: linear-gradient(150deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.72));
+  box-shadow: 0 28px 70px hsl(0 0% 0% / 0.35), 0 12px 34px hsl(0 0% 0% / 0.28);
+}
+
+.dark .app-surface::before {
+  background: linear-gradient(125deg, hsl(var(--primary) / 0.18), transparent 35%, hsl(var(--accent) / 0.16) 72%, transparent 100%);
+}
+
+@media (max-width: 1024px) {
+  .app-shell {
+    padding: clamp(1.25rem, 4vw, 2.25rem) clamp(1rem, 3vw, 2.25rem) clamp(2.25rem, 5vw, 3rem);
+  }
+
+  .app-surface {
+    border-radius: clamp(1.5rem, 4vw, 2.25rem);
+  }
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    width: 100%;
+    padding: 1.25rem 1rem 2.75rem;
+  }
+
+  .app-surface {
+    border-radius: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 1rem 0.75rem 2.5rem;
+    gap: 1rem;
+  }
+
+  .app-surface-content {
+    padding: 1rem;
+    gap: 1rem;
   }
 }
 
