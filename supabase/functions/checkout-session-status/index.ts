@@ -1,12 +1,64 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import {
-  defaultExpressMethods,
-  hashEmail,
-  normalizeEmail,
-  updateCheckoutSession,
-} from "../_shared/checkout-session.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+
+// Shared utilities (copied from _shared/checkout-session.ts)
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+export const normalizeEmail = (email: string | null | undefined): string | null => {
+  if (!email) return null;
+  return email.trim().toLowerCase();
+};
+
+export const hashEmail = async (email: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(email);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+};
+
+export const defaultExpressMethods = {
+  applePay: true,
+  googlePay: true,
+  link: true,
+};
+
+export const updateCheckoutSession = async (
+  client: any,
+  id: string,
+  patch: any,
+): Promise<void> => {
+  const updateRecord: Record<string, unknown> = {};
+
+  if (patch.status !== undefined) updateRecord.status = patch.status;
+  if (patch.verificationState !== undefined) updateRecord.verification_state = patch.verificationState;
+  if (patch.expressMethods !== undefined) updateRecord.express_methods = patch.expressMethods;
+  if (patch.pricingSnapshot !== undefined) updateRecord.pricing_snapshot = patch.pricingSnapshot;
+  if (patch.stripeSessionId !== undefined) updateRecord.stripe_session_id = patch.stripeSessionId;
+  if (patch.contactSnapshot !== undefined) updateRecord.contact_snapshot = patch.contactSnapshot;
+
+  if (patch.expiresAt !== undefined) {
+    updateRecord.expires_at = patch.expiresAt instanceof Date ? patch.expiresAt.toISOString() : patch.expiresAt;
+  }
+
+  if (!Object.keys(updateRecord).length) {
+    return;
+  }
+
+  const { error } = await client
+    .from("checkout_sessions")
+    .update(updateRecord)
+    .eq("id", id);
+
+  if (error) {
+    console.error("[checkout-session] update failed", error);
+    throw error;
+  }
+};
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -41,11 +93,16 @@ serve(async (req) => {
 
     let requesterUserId: string | null = null;
     const authHeader = req.headers.get("Authorization");
-    if (authHeader) {
+    if (authHeader && authHeader !== `Bearer ${ANON_KEY}`) {
       const token = authHeader.replace("Bearer", "").trim();
-      if (token) {
-        const { data: userData } = await supabaseAnon.auth.getUser(token);
-        requesterUserId = userData?.user?.id ?? null;
+      if (token && token !== ANON_KEY) {
+        try {
+          const { data: userData } = await supabaseAnon.auth.getUser(token);
+          requesterUserId = userData?.user?.id ?? null;
+        } catch (error) {
+          // Ignore JWT errors for anon key usage
+          console.log("[checkout-session-status] JWT validation skipped for anon key");
+        }
       }
     }
 

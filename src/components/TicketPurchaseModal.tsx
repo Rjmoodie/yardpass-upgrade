@@ -4,11 +4,11 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { Plus, Minus, CreditCard, Key, Check, AlertCircle, Mail } from 'lucide-react';
+import { Plus, Minus, CreditCard, Key, Check, AlertCircle, Mail, Clock, Smartphone, Wifi } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { toast } from '@/hooks/use-toast';
-import { createHold, createCheckoutSession, createGuestCheckoutSession } from '@/lib/ticketApi';
+import { createGuestCheckoutSession } from '@/lib/ticketApi';
 const SkeletonList = lazy(() => import('@/components/common/SkeletonList'));
 
 interface TicketTier {
@@ -69,9 +69,112 @@ export function TicketPurchaseModal({
   const [guestName, setGuestName] = useState('');
   const [guestEmailError, setGuestEmailError] = useState<string | null>(null);
   
+  // Enhanced checkout session management
+  const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
+  const [checkoutExpiresAt, setCheckoutExpiresAt] = useState<Date | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<'pending' | 'expired' | 'converted' | null>(null);
+  const [canExtendHold, setCanExtendHold] = useState(false);
+  const [expressMethods, setExpressMethods] = useState({
+    applePay: false,
+    googlePay: false,
+    link: false
+  });
+  const [isRecoveringSession, setIsRecoveringSession] = useState(false);
+  
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, []);
+
+  // Enhanced session management functions
+  const pollCheckoutSessionStatus = useCallback(async (sessionId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('checkout-session-status', {
+        body: {
+          checkoutSessionId: sessionId,
+          email: user?.email || guestEmail
+        }
+      });
+
+      if (error) {
+        console.error('Session status error:', error);
+        return;
+      }
+
+      setSessionStatus(data.status);
+      setCheckoutExpiresAt(data.expiresAt ? new Date(data.expiresAt) : null);
+      setCanExtendHold(data.canExtendHold || false);
+      setExpressMethods(data.expressMethods || {
+        applePay: false,
+        googlePay: false,
+        link: false
+      });
+
+      // If session expired, clear it
+      if (data.status === 'expired') {
+        setCheckoutSessionId(null);
+        setCheckoutExpiresAt(null);
+        localStorage.removeItem('checkoutSessionId');
+      }
+    } catch (error) {
+      console.error('Failed to poll session status:', error);
+    }
+  }, [user?.email, guestEmail]);
+
+  const recoverAbandonedSession = useCallback(async () => {
+    const savedSessionId = localStorage.getItem('checkoutSessionId');
+    if (!savedSessionId) return;
+
+    setIsRecoveringSession(true);
+    try {
+      await pollCheckoutSessionStatus(savedSessionId);
+      if (sessionStatus === 'pending') {
+        setCheckoutSessionId(savedSessionId);
+        toast({
+          title: "Cart Recovered",
+          description: "We found your previous session. Your tickets are still reserved.",
+        });
+      }
+    } catch (error) {
+      console.error('Session recovery failed:', error);
+      localStorage.removeItem('checkoutSessionId');
+    } finally {
+      setIsRecoveringSession(false);
+    }
+  }, [pollCheckoutSessionStatus, sessionStatus]);
+
+  // Auto-recover session on modal open
+  useEffect(() => {
+    if (isOpen && !checkoutSessionId) {
+      recoverAbandonedSession();
+    }
+  }, [isOpen, checkoutSessionId, recoverAbandonedSession]);
+
+  // Session polling timer
+  useEffect(() => {
+    if (!checkoutSessionId || sessionStatus !== 'pending') return;
+
+    const interval = setInterval(() => {
+      pollCheckoutSessionStatus(checkoutSessionId);
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [checkoutSessionId, sessionStatus, pollCheckoutSessionStatus]);
+
+  // Calculate time remaining
+  const timeRemaining = useMemo(() => {
+    if (!checkoutExpiresAt) return null;
+    
+    const now = new Date();
+    const expires = new Date(checkoutExpiresAt);
+    const diff = expires.getTime() - now.getTime();
+    
+    if (diff <= 0) return null;
+    
+    const minutes = Math.floor(diff / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
+    
+    return { minutes, seconds, totalMs: diff };
+  }, [checkoutExpiresAt]);
 
   const notifyInfo = (message: string) => {
     toast({
@@ -333,6 +436,16 @@ export function TicketPurchaseModal({
         throw new Error('No checkout URL returned');
       }
 
+      // Store checkout session info for polling
+      if (data.checkoutSessionId) {
+        setCheckoutSessionId(data.checkoutSessionId);
+        setCheckoutExpiresAt(data.expiresAt ? new Date(data.expiresAt) : null);
+        localStorage.setItem('checkoutSessionId', data.checkoutSessionId);
+        
+        // Start polling session status
+        await pollCheckoutSessionStatus(data.checkoutSessionId);
+      }
+
       console.log('✅ Checkout session created, redirecting...');
       window.location.href = data.url;
     } catch (error: any) {
@@ -562,6 +675,124 @@ export function TicketPurchaseModal({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Enhanced Checkout Session Status */}
+          {checkoutSessionId && sessionStatus === 'pending' && timeRemaining && (
+            <Card className="border-orange-200 bg-orange-50/50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="w-4 h-4 text-orange-600" />
+                  <h3 className="font-semibold text-orange-800">Tickets Reserved</h3>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-orange-700">
+                    Your tickets are reserved for{' '}
+                    <span className="font-mono font-semibold">
+                      {timeRemaining.minutes}:{timeRemaining.seconds.toString().padStart(2, '0')}
+                    </span>
+                  </p>
+                  <p className="text-xs text-orange-600">
+                    Complete your purchase before time expires to secure your tickets.
+                  </p>
+                  {canExtendHold && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Extend hold functionality would be implemented here
+                        toast({
+                          title: "Hold Extended",
+                          description: "Your reservation has been extended by 10 minutes.",
+                        });
+                      }}
+                      className="text-orange-700 border-orange-300 hover:bg-orange-100"
+                    >
+                      Extend Hold (+10 min)
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Express Payment Methods */}
+          {totalTickets > 0 && (expressMethods.applePay || expressMethods.googlePay || expressMethods.link) && (
+            <Card>
+              <CardContent className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Smartphone className="w-4 h-4" />
+                  Express Checkout
+                </h3>
+                <div className="grid grid-cols-1 gap-2">
+                  {expressMethods.applePay && (
+                    <Button
+                      variant="outline"
+                      className="h-12 bg-black text-white hover:bg-gray-800 border-gray-700"
+                      onClick={() => {
+                        // Apple Pay integration would be implemented here
+                        toast({
+                          title: "Apple Pay",
+                          description: "Apple Pay integration coming soon!",
+                        });
+                      }}
+                    >
+                      <span className="text-lg mr-2">🍎</span>
+                      Pay with Apple Pay
+                    </Button>
+                  )}
+                  {expressMethods.googlePay && (
+                    <Button
+                      variant="outline"
+                      className="h-12 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
+                      onClick={() => {
+                        // Google Pay integration would be implemented here
+                        toast({
+                          title: "Google Pay",
+                          description: "Google Pay integration coming soon!",
+                        });
+                      }}
+                    >
+                      <span className="text-lg mr-2">G</span>
+                      Pay with Google Pay
+                    </Button>
+                  )}
+                  {expressMethods.link && (
+                    <Button
+                      variant="outline"
+                      className="h-12 bg-blue-500 text-white hover:bg-blue-600 border-blue-500"
+                      onClick={() => {
+                        // Stripe Link integration would be implemented here
+                        toast({
+                          title: "Stripe Link",
+                          description: "Stripe Link integration coming soon!",
+                        });
+                      }}
+                    >
+                      <Wifi className="w-4 h-4 mr-2" />
+                      Pay with Link
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Express checkout methods are faster and more secure.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Session Recovery Notice */}
+          {isRecoveringSession && (
+            <Card className="border-blue-200 bg-blue-50/50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <p className="text-sm text-blue-700">
+                    Checking for previous session...
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Actions */}

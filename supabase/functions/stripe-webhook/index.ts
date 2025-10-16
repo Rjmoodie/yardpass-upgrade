@@ -36,7 +36,7 @@ serve(async (req) => {
 
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
       logStep("Event verified successfully", { type: event.type, id: event.id });
     } catch (err: any) {
       logStep("Webhook signature verification failed", { error: err.message });
@@ -59,16 +59,25 @@ serve(async (req) => {
         .from("orders")
         .select(`
           *,
-          events (
+          events!orders_event_id_fkey (
             title
           )
         `)
         .eq("stripe_session_id", session.id)
-        .single();
+        .maybeSingle();
 
       if (orderError) {
-        logStep("Order not found", { error: orderError.message });
-        throw new Error("Order not found");
+        logStep("Database error finding order", { 
+          sessionId: session.id,
+          error: orderError.message,
+          code: orderError.code 
+        });
+        throw new Error(`Database error: ${orderError.message}`);
+      }
+
+      if (!order) {
+        logStep("Order not found for session", { sessionId: session.id });
+        throw new Error(`Order not found for session: ${session.id}`);
       }
 
       logStep("Order found", { orderId: order.id, status: order.status });

@@ -97,6 +97,12 @@ verify_jwt = true
 [functions.enhanced-checkout]
 verify_jwt = false
 
+[functions.guest-checkout]
+verify_jwt = false
+
+[functions.checkout-session-status]
+verify_jwt = false
+
 [functions.ai-image-generator]
 verify_jwt = false
 

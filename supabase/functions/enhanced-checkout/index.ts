@@ -1,15 +1,96 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import {
-  buildContactSnapshot,
-  buildPricingBreakdown,
-  buildPricingSnapshot,
-  defaultExpressMethods,
-  normalizeEmail,
-  upsertCheckoutSession,
-} from "../_shared/checkout-session.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+
+// Shared utilities (copied from _shared/checkout-session.ts)
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+export const normalizeEmail = (email: string | null | undefined): string | null => {
+  if (!email) return null;
+  return email.trim().toLowerCase();
+};
+
+export const hashEmail = async (email: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(email);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+};
+
+export const defaultExpressMethods = {
+  applePay: true,
+  googlePay: true,
+  link: true,
+};
+
+export const calculateProcessingFeeCents = (faceValueCents: number): number => {
+  const faceValue = faceValueCents / 100;
+  const fee = faceValue * 0.066 + 2.19;
+  return Math.round(fee * 100);
+};
+
+export const buildPricingBreakdown = (faceValueCents: number, currency = "USD") => {
+  const feesCents = calculateProcessingFeeCents(faceValueCents);
+  const totalCents = faceValueCents + feesCents;
+  return {
+    subtotalCents: faceValueCents,
+    feesCents,
+    totalCents,
+    currency,
+  };
+};
+
+export const buildPricingSnapshot = (pricing: any): Record<string, unknown> => ({
+  subtotal_cents: pricing.subtotalCents,
+  fees_cents: pricing.feesCents,
+  total_cents: pricing.totalCents,
+  currency: pricing.currency ?? "USD",
+});
+
+export const buildContactSnapshot = async (contact: any): Promise<Record<string, unknown>> => {
+  const normalizedEmail = normalizeEmail(contact.email ?? null);
+  return {
+    email: normalizedEmail,
+    name: contact.name ?? null,
+    phone: contact.phone ?? null,
+    email_hash: normalizedEmail ? await hashEmail(normalizedEmail) : null,
+  };
+};
+
+export const upsertCheckoutSession = async (
+  client: any,
+  payload: any,
+): Promise<void> => {
+  const record: Record<string, unknown> = {
+    id: payload.id,
+    order_id: payload.orderId,
+    event_id: payload.eventId,
+    user_id: payload.userId ?? null,
+    hold_ids: payload.holdIds ?? [],
+    pricing_snapshot: payload.pricingSnapshot ?? null,
+    contact_snapshot: payload.contactSnapshot ?? null,
+    verification_state: payload.verificationState ?? null,
+    express_methods: payload.expressMethods ?? null,
+    cart_snapshot: payload.cartSnapshot ?? null,
+    stripe_session_id: payload.stripeSessionId ?? null,
+    expires_at: payload.expiresAt instanceof Date ? payload.expiresAt.toISOString() : payload.expiresAt,
+    status: payload.status ?? "pending",
+  };
+
+  const { error } = await client
+    .from("checkout_sessions")
+    .upsert(record, { onConflict: "id" });
+
+  if (error) {
+    console.error("[checkout-session] upsert failed", error);
+    throw error;
+  }
+};
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -55,21 +136,35 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization");
     let authenticatedUser: any = null;
+    
+    // Only try to authenticate if we have a real JWT token (not anon key)
     if (authHeader) {
       const token = authHeader.replace("Bearer", "").trim();
-      if (token) {
-        const { data: userData, error: userError } = await supabaseAnon.auth.getUser(token);
-        if (userError) {
-          throw new Error("User not authenticated");
+      if (token && token !== ANON_KEY && token.length > 100) { // Real JWT tokens are longer
+        try {
+          const { data: userData, error: userError } = await supabaseAnon.auth.getUser(token);
+          if (!userError && userData?.user) {
+            authenticatedUser = userData.user;
+          }
+        } catch (error) {
+          // Ignore JWT errors - user is not authenticated
+          console.log("[enhanced-checkout] JWT validation failed, treating as unauthenticated");
         }
-        authenticatedUser = userData.user;
       }
     }
 
     let orderData = payload?.order_data ?? payload?.orderData ?? null;
     if (!orderData && payload?.eventId && payload?.ticketSelections) {
+      // For member checkout, require authentication
       if (!authenticatedUser?.id) {
-        throw new Error("Authentication required for member checkout");
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Authentication required for member checkout",
+          error_code: "AUTHENTICATION_REQUIRED"
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
       }
       orderData = {
         event_id: payload.eventId,
@@ -137,7 +232,6 @@ serve(async (req) => {
     const { data: reservationResult, error: reservationError } = await supabaseService
       .rpc("reserve_tickets_batch", {
         p_reservations: reservationItems,
-        p_items: reservationItems,
         p_session_id: checkoutSessionId,
         p_user_id: orderData.user_id,
         p_expires_minutes: 15,

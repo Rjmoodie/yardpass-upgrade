@@ -1,7 +1,61 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
-import { updateCheckoutSession } from "../_shared/checkout-session.ts";
+
+// Shared utilities (copied from _shared/cors.ts and _shared/checkout-session.ts)
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+function handleCors(req: Request) {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+}
+
+function createResponse(body: any, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+function createErrorResponse(error: string, status = 400) {
+  return createResponse({ error }, status);
+}
+
+export const updateCheckoutSession = async (
+  client: any,
+  id: string,
+  patch: any,
+): Promise<void> => {
+  const updateRecord: Record<string, unknown> = {};
+
+  if (patch.status !== undefined) updateRecord.status = patch.status;
+  if (patch.verificationState !== undefined) updateRecord.verification_state = patch.verificationState;
+  if (patch.expressMethods !== undefined) updateRecord.express_methods = patch.expressMethods;
+  if (patch.pricingSnapshot !== undefined) updateRecord.pricing_snapshot = patch.pricingSnapshot;
+  if (patch.stripeSessionId !== undefined) updateRecord.stripe_session_id = patch.stripeSessionId;
+  if (patch.contactSnapshot !== undefined) updateRecord.contact_snapshot = patch.contactSnapshot;
+
+  if (patch.expiresAt !== undefined) {
+    updateRecord.expires_at = patch.expiresAt instanceof Date ? patch.expiresAt.toISOString() : patch.expiresAt;
+  }
+
+  if (!Object.keys(updateRecord).length) {
+    return;
+  }
+
+  const { error } = await client
+    .from("checkout_sessions")
+    .update(updateRecord)
+    .eq("id", id);
+
+  if (error) {
+    console.error("[checkout-session] update failed", error);
+    throw error;
+  }
+};
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
