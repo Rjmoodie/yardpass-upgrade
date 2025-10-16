@@ -40,11 +40,9 @@ export function TicketDetail({
   const priceLabel = ticket.price > 0
     ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(ticket.price)
     : 'Free ticket';
-  const { token, secondsRemaining, refresh, walletLinks, isRefreshing, isError } = useTicketQrToken({
+  const { token, isLoading, isError } = useTicketQrToken({
     ticketId: ticket.id,
     eventId: ticket.eventId,
-    initialToken: ticket.qrCode,
-    refreshWindowMs: 8000,
   });
 
   return (
@@ -91,10 +89,7 @@ export function TicketDetail({
             ticketId={ticket.id}
             eventId={ticket.eventId}
             token={token}
-            secondsRemaining={secondsRemaining ?? undefined}
-            onRefresh={refresh}
-            walletLinks={walletLinks}
-            isRefreshing={isRefreshing}
+            isLoading={isLoading}
             errored={isError}
           />
           <div className="space-y-4">
@@ -137,14 +132,14 @@ export function TicketDetail({
                 <Download className="h-4 w-4" aria-hidden />
                 Download .ics
               </Button>
-              {walletLinks && (walletLinks.apple || walletLinks.google) && (
+              {(ticket.appleWalletUrl || ticket.googleWalletUrl) && (
                 <Button
                   variant="secondary"
                   asChild
                   className="justify-start gap-2"
                   aria-label="Add ticket to digital wallet"
                 >
-                  <a href={walletLinks.apple ?? walletLinks.google ?? '#'} target="_blank" rel="noreferrer">
+                  <a href={ticket.appleWalletUrl ?? ticket.googleWalletUrl ?? '#'} target="_blank" rel="noreferrer">
                     Add to Wallet
                   </a>
                 </Button>

@@ -82,8 +82,8 @@ export default function Navigation({ userRole }: NavigationProps) {
         { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
         { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
         { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: userRole === 'attendee' },
-        // Attendees see Tickets
-        { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: userRole === 'attendee' },
+        // Everyone can access Tickets (guests and attendees)
+        { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: true },
         { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
         { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
         { id: 'social' as Screen, path: '/social', icon: Users, label: 'Network', show: true },
@@ -128,6 +128,13 @@ export default function Navigation({ userRole }: NavigationProps) {
         path: path,
         user_role: userRole
       });
+      
+      // Special handling for tickets - allow guest access
+      if (screen === 'tickets' && !user) {
+        // Navigate directly to tickets - TicketsRoute will handle guest access
+        navigate('/tickets');
+        return;
+      }
       
       if (requiresAuth(path) && !user) {
         setPendingNavigation(screen);

@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { TicketList } from '@/components/tickets/TicketList';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
+import { GuestSessionManager } from '@/components/GuestSessionManager';
 import { ArrowLeft, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -219,6 +220,13 @@ export default function TicketsPage({
       </header>
 
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
+        {isGuestMode && onGuestSignOut && (
+          <GuestSessionManager 
+            onSignOut={onGuestSignOut}
+            className="mb-4"
+          />
+        )}
+        
         <Card className="border-border/60 bg-background/80 p-6 shadow-sm">
           <TicketList
             tickets={tickets}

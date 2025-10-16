@@ -51,7 +51,16 @@ export function PurchaseSuccessHandler() {
               description: "Finalizing in the background. If you don't see new tickets, try again shortly.",
             });
             setRedirecting(true);
-            setTimeout(() => navigate('/tickets', { replace: true }), 1500);
+            // Smart routing: check if user is authenticated or guest
+            setTimeout(() => {
+              const isAuthenticated = localStorage.getItem('supabase.auth.token');
+              if (isAuthenticated) {
+                navigate('/tickets', { replace: true });
+              } else {
+                // For guests, ensure they have access to tickets
+                navigate('/tickets', { replace: true });
+              }
+            }, 1500);
             return;
           }
           // Other transient errors → retry with backoff
@@ -74,7 +83,16 @@ export function PurchaseSuccessHandler() {
               description: 'Your tickets are ready! Redirecting...',
             });
             setRedirecting(true);
-            setTimeout(() => navigate('/tickets', { replace: true }), 2000);
+            setTimeout(() => {
+              // Smart routing: check if user is authenticated or guest
+              const isAuthenticated = localStorage.getItem('supabase.auth.token');
+              if (isAuthenticated) {
+                navigate('/tickets', { replace: true });
+              } else {
+                // For guests, ensure they have access to tickets
+                navigate('/tickets', { replace: true });
+              }
+            }, 2000);
             return;
 
           case 'pending':

@@ -153,3 +153,15 @@ verify_jwt = true
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.guest-tickets-start]
+verify_jwt = false
+
+[functions.guest-tickets-verify]
+verify_jwt = false
+
+[functions.tickets-list-guest]
+verify_jwt = false
+
+[functions.validate-guest-code]
+verify_jwt = false
