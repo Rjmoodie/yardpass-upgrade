@@ -579,11 +579,10 @@ p {
 .network-tabs {
   grid-template-columns: 1fr !important;
 }
-  
-  .network-tabs .tabs-trigger {
-    font-size: 0.875rem !important;
-    padding: 0.5rem !important;
-  }
+
+.network-tabs .tabs-trigger {
+  font-size: 0.875rem !important;
+  padding: 0.5rem !important;
 }
 
 /* Tablet responsive design */
@@ -1761,3 +1760,5 @@ input, select, textarea {
   .rail-btn, .bottom-bar { transition: none; }
 }
 }
+
+/* Close the @layer components block */
