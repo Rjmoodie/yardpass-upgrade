@@ -3,12 +3,14 @@
 ---------------------------------*/
 :root {
   --bottom-nav-h: 84px;
+  --bottom-nav-safe: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+  --caption-h: 88px;    /* default; JS updates dynamically */
+  --rail-gap: 14px;
 }
 @media (max-width: 640px) {
-  :root { --bottom-nav-h: 76px; }
-}
-:root {
-  --bottom-nav-safe: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+  :root { 
+    --bottom-nav-h: 76px; 
+  }
 }
 
 /* Utility to opt a screen into edge-to-edge on mobile */
@@ -1394,11 +1396,12 @@ input, select, textarea {
   text-shadow: 0 1px 3px rgba(0,0,0,.45);
 }
 
-/* soft glass with local gradient so text always reads */
+/* Glassy caption with safe-area padding */
 .caption-peek {
   background: linear-gradient(180deg, rgba(8,8,8,.35), rgba(8,8,8,.65));
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
 
 /* compact "chip" pill */
@@ -1412,14 +1415,17 @@ input, select, textarea {
   border: 1px solid rgba(255,255,255,.2);
 }
 
-/* Lift action rail so it never covers the caption or home indicator */
-@media (max-width: 768px) {
-  .action-rail-fixed {
-    position: fixed;
-    right: 12px;
-    bottom: calc(var(--bottom-nav-safe) + 140px);
-    z-index: 40;
-  }
+/* Safe rail position (auto-clears caption & nav) */
+.action-rail-safe {
+  position: fixed;
+  right: 12px;
+  bottom: calc(var(--bottom-nav-safe) + var(--caption-h) + var(--rail-gap));
+  z-index: 40;
+}
+@media (min-width: 640px) { 
+  .action-rail-safe { 
+    right: 16px; 
+  } 
 }
 
 /* ======== ALWAYS-SAFE iOS RAILS & BOTTOM BARS ======== */

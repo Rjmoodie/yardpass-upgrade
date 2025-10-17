@@ -286,192 +286,38 @@ function MediaContainer({ events, currentIndex, scrollRef }: any) {
   );
 }
 
-function EventOverlay({
-  event,
-  onEventSelect,
-  onLike,
-  onShare,
-  onScroll,
-  setShowTicketModal,
-  setShowAttendeeModal,
-  setPostCreatorOpen,
-}: any) {
+import { FeedCaption } from "@/components/feed/FeedCaption";
+import { FeedActionRail } from "@/components/feed/FeedActionRail";
+import { Heart, MessageCircle, Share, MoreVertical, Plus } from "lucide-react";
+
+function EventOverlay(props: any) {
+  const { event, onLike, onShare, setShowTicketModal, setShowAttendeeModal, setPostCreatorOpen } = props;
   const { requireAuth } = useAuthGuard();
   const navigate = useNavigate();
-  const [expanded, setExpanded] = useState(false);
-
-  const hasTickets = !!event?.ticketTiers?.length;
-  const topTier = hasTickets ? event.ticketTiers[0] : null;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20">
-      {/* ===== Right Action Rail (raised so caption can show) ===== */}
-      <div
-        className="
-          action-rail-fixed
-          pointer-events-auto
-          flex flex-col items-center gap-3 sm:gap-4
-        "
-      >
-        <ActionButton
-          icon={<Heart className={event.isLiked ? 'fill-white text-white' : 'text-white'} />}
-          label={event.likes}
-          active={event.isLiked}
-          onClick={() => onLike(event.id)}
-        />
-        <ActionButton
-          icon={<MessageCircle className="text-white" />}
-          label={event.posts?.length || 0}
-          onClick={() => {
+      <FeedActionRail
+        items={[
+          { icon: <Heart className={event.isLiked ? "fill-white text-white" : "text-white"} />, label: event.likes, active: event.isLiked, onClick: () => onLike(event.id) },
+          { icon: <MessageCircle className="text-white" />, label: event.posts?.length || 0, onClick: () => {
             capture('feed_click', { target: 'comment', event_id: event.id });
             navigate(routes.event(event.id));
-          }}
-        />
-        <ActionButton
-          icon={<Plus className="text-white" />}
-          label="Post"
-          onClick={() =>
-            requireAuth(() => {
-              capture('feed_click', { target: 'post', event_id: event.id });
-              setPostCreatorOpen(true);
-            }, 'Sign in to post')
-          }
-        />
-        <ActionButton icon={<Share className="text-white" />} label={event.shares} onClick={() => onShare(event)} />
-        <ActionButton
-          icon={<MoreVertical className="text-white" />}
-          onClick={() => toast({ title: 'More options', description: 'Coming soon...' })}
-        />
-      </div>
+          }},
+          { icon: <Plus className="text-white" />, label: "Post", onClick: () => requireAuth(() => {
+            capture('feed_click', { target: 'post', event_id: event.id });
+            setPostCreatorOpen(true);
+          }, "Sign in to post") },
+          { icon: <Share className="text-white" />, label: event.shares, onClick: () => onShare(event) },
+          { icon: <MoreVertical className="text-white" />, onClick: () => toast({ title: 'More options', description: 'Coming soon...' }) },
+        ]}
+      />
 
-      {/* ===== Caption Peek (always visible) ===== */}
-      <div className="absolute inset-x-0 bottom-[calc(var(--bottom-nav-safe)+12px)] px-3 sm:px-5">
-        <div
-          className="
-            pointer-events-auto
-            caption-peek glass
-            rounded-2xl border border-white/15
-            px-3.5 py-3 sm:px-4 sm:py-3.5
-            text-white shadow-lg
-          "
-        >
-          {/* top row: organizer + quick actions */}
-          <div className="flex items-center justify-between gap-2 mb-1.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <Avatar className="w-7 h-7 shrink-0">
-                <AvatarFallback className="text-xs bg-white/20 text-white">
-                  {event.organizer.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold truncate">{event.organizer}</span>
-                  <Badge variant="secondary" className="text-[10px] bg-white/15 border-white/30">
-                    ORGANIZER
-                  </Badge>
-                </div>
-                <div className="text-[11px] text-white/80 truncate">
-                  @{event.organizer.replaceAll(' ', '').toLowerCase()}
-                </div>
-              </div>
-            </div>
-
-            {/* Quick ticket button (compact) */}
-            <div className="flex items-center gap-2 shrink-0">
-              {hasTickets && (
-                <button
-                  onClick={() =>
-                    requireAuth(() => {
-                      capture('feed_click', { target: 'tickets', event_id: event.id });
-                      setShowTicketModal(true);
-                    }, 'Sign in to buy tickets')
-                  }
-                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 text-black text-xs font-bold px-3 py-1.5 shadow"
-                >
-                  🎟️ Tickets
-                </button>
-              )}
-              <button
-                onClick={() => setExpanded((v) => !v)}
-                className="rounded-full bg-white/10 hover:bg-white/20 border border-white/20 w-8 h-8 grid place-items-center"
-                aria-label={expanded ? 'Collapse' : 'Expand'}
-              >
-                {expanded ? '–' : '+'}
-              </button>
-            </div>
-          </div>
-
-          {/* title + 1–2 lines of caption */}
-          <button
-            onClick={() => {
-              capture('feed_click', { target: 'title', event_id: event.id });
-              navigate(routes.event(event.id));
-            }}
-            className="block text-left w-full"
-          >
-            <h2 className="text-lg sm:text-xl font-extrabold leading-tight mb-1 line-clamp-1">
-              {event.title}
-            </h2>
-          </button>
-
-          <p className="text-[13px] text-white/90 leading-snug line-clamp-2">
-            {event.description || ' '}
-          </p>
-
-          {/* meta chips */}
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/90">
-            <span className="chip"><Calendar className="w-3.5 h-3.5" />{event.dateLabel}</span>
-            {!!event.location && (
-              <span className="chip">
-                <MapPin className="w-3.5 h-3.5" />
-                <span className="truncate max-w-[40vw] sm:max-w-[240px]">{event.location}</span>
-              </span>
-            )}
-            <span className="chip"><Users className="w-3.5 h-3.5" />{event.attendeeCount}</span>
-            <button
-              onClick={() => {
-                capture('feed_click', { target: 'attending', event_id: event.id });
-                setShowAttendeeModal(true);
-              }}
-              className="chip hover:bg-white/25 transition"
-            >
-              {event.attendeeCount} attending
-            </button>
-          </div>
-
-          {/* expanded panel (details + secondary CTA) */}
-          {expanded && (
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <div className="flex gap-2">
-                <Button
-                  size="lg"
-                  variant="default"
-                  onClick={() =>
-                    requireAuth(() => {
-                      capture('feed_click', { target: 'tickets', event_id: event.id });
-                      setShowTicketModal(true);
-                    }, 'Sign in to buy tickets')
-                  }
-                  className="flex-1 min-h-[44px] rounded-full bg-amber-500 text-black hover:bg-amber-600 font-bold shadow-lg"
-                >
-                  Get Tickets
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={() => {
-                    capture('feed_click', { target: 'details', event_id: event.id });
-                    navigate(routes.event(event.id));
-                  }}
-                  className="min-h-[44px] rounded-full border-white/30 text-white bg-white/10 hover:bg-white/20 font-semibold backdrop-blur-md"
-                >
-                  Details
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      <FeedCaption
+        event={event}
+        onOpenTickets={() => setShowTicketModal(true)}
+        onOpenAttendees={() => setShowAttendeeModal(true)}
+      />
     </div>
   );
 }
