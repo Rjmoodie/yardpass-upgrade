@@ -76,7 +76,7 @@ serve(async (req) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              from: 'YardPass <noreply@yardpass.tech>',
+              from: 'YardPass <hello@yardpass.tech>',
               to: [contact],
               subject: 'Your YardPass Access Code',
               html: `

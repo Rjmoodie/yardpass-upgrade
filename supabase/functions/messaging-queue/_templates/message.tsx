@@ -183,9 +183,9 @@ export const MessageEmail = ({
                 <tr>
                   <td align="center">
                     <Img
-                      src={org_logo_url || 'https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/assets/yardpass-logo.png'}
-                      width={120}
-                      height={40}
+                      src={org_logo_url || 'https://yieslxnrfeqchbcmgavz.supabase.co/yardpass-logo.png'}
+                      width={180}
+                      height={60}
                       alt={org_name || 'YardPass'}
                       style={logo}
                     />

@@ -276,7 +276,10 @@ function BaseEmailLayout({ children, orgInfo, preheaderText }: { children: any; 
             React.createElement("img", {
               src: logoUrl,
               alt: orgInfo?.name || "YardPass",
-              style: { height: "40px", maxWidth: "200px", marginBottom: "12px" },
+              style: { height: "60px", maxWidth: "300px", marginBottom: "12px" },
+              loading: "eager",
+              decoding: "sync",
+              onerror: `this.src='${baseUrl()}/yardpass-logo-fallback.png'; this.onerror=null;`,
             }),
             React.createElement(
               "div",
@@ -596,7 +599,7 @@ const handler = async (req: Request): Promise<Response> => {
     const idemKey = req.headers.get("Idempotency-Key") ?? requestId;
 
     const emailPayload: Record<string, unknown> = {
-      from: orgInfo?.name ? `${orgInfo.name} via YardPass <noreply@yardpass.tech>` : "YardPass <noreply@yardpass.tech>",
+      from: orgInfo?.name ? `${orgInfo.name} via YardPass <hello@yardpass.tech>` : "YardPass <hello@yardpass.tech>",
       to: [data.customerEmail],
       subject: `✅ Ticket Confirmation - ${eventInfo?.title || data.eventTitle}`,
       html,

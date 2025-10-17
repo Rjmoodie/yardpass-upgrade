@@ -101,7 +101,7 @@ interface BaseEmailLayoutProps {
 }
 
 const BaseEmailLayout: React.FC<BaseEmailLayoutProps> = ({ children, orgInfo, preheaderText }) => {
-  const yardpassLogo = 'https://yardpass.tech/yardpass-logo.png';
+  const yardpassLogo = 'https://yieslxnrfeqchbcmgavz.supabase.co/yardpass-logo.png';
   const currentYear = new Date().getFullYear();
   const supportEmail = orgInfo?.supportEmail || 'support@yardpass.tech';
 
@@ -115,7 +115,9 @@ const BaseEmailLayout: React.FC<BaseEmailLayoutProps> = ({ children, orgInfo, pr
           <img
             src={orgInfo?.logoUrl || yardpassLogo}
             alt={orgInfo?.name || 'YardPass'}
-            style={{ height: 40, width: 'auto', marginBottom: 12 }}
+            style={{ height: 60, width: 'auto', marginBottom: 12 }}
+            loading="eager"
+            decoding="sync"
           />
           <div style={{ fontSize: 13, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             Powered by YardPass

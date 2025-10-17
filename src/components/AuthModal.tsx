@@ -1,4 +1,5 @@
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import AuthExperience from '@/components/auth/AuthExperience';
 
 interface AuthModalProps {
@@ -27,6 +28,9 @@ export default function AuthModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[420px] sm:max-w-[460px] border-none bg-transparent p-0 shadow-none">
+        <VisuallyHidden>
+          <DialogTitle>{title}</DialogTitle>
+        </VisuallyHidden>
         <AuthExperience
           isOpen={isOpen}
           layout="modal"
@@ -39,10 +43,10 @@ export default function AuthModal({
           onDismiss={onClose}
           onAuthSuccess={() => {
             onSuccess?.();
-    onClose();
+            onClose();
           }}
         />
-      </DialogContent>
-    </Dialog>
+      </DialogContent>
+    </Dialog>
   );
 }

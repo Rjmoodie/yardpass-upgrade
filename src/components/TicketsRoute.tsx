@@ -263,6 +263,12 @@ export function TicketsRoute() {
             key: 'ticket-guest-session',
             newValue: localStorage.getItem('ticket-guest-session')
           }));
+          // Navigate to tickets page after successful guest verification
+          if (eventIdentifier) {
+            navigate(`/e/${eventIdentifier}/tickets`);
+          } else {
+            navigate('/tickets');
+          }
         }}
         title={authState.title}
         description={authState.description}

@@ -722,7 +722,7 @@ export default function UnifiedFeedList() {
 
       <div
         ref={scrollRef}
-        className="relative h-full snap-y snap-mandatory overflow-y-auto overscroll-none"
+        className="relative h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
         style={{ WebkitOverflowScrolling: 'touch', scrollSnapStop: 'always' }}
         {...containerProps}
       >

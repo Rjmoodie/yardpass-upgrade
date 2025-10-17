@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Mail, Phone, RotateCcw, X } from 'lucide-react';
+import { Mail, Phone, RotateCcw, X, LogOut, Clock, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,7 @@ import { useAuthFlow } from '@/hooks/useAuthFlow';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useGuestTicketSession } from '@/hooks/useGuestTicketSession';
 
 export type AuthTab = 'signin' | 'signup' | 'guest';
 export type AuthMethod = 'email' | 'phone';
@@ -47,6 +48,7 @@ export function AuthExperience({
   onDismiss,
   onAuthSuccess,
 }: AuthExperienceProps) {
+  const { session: guestSession, isActive: hasGuestSession, clear: clearGuestSession } = useGuestTicketSession();
   const [activeTab, setActiveTab] = useState<AuthTab>(defaultTab);
   const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
 
@@ -96,6 +98,15 @@ export function AuthExperience({
     setGuestMethod('phone');
     resetGuestState();
   }, [defaultTab, resetGuestState, resetOtpState]);
+
+  const handleGuestSignOut = useCallback(() => {
+    clearGuestSession();
+    toast({
+      title: 'Signed out',
+      description: 'Your guest session has ended.',
+    });
+    onDismiss?.();
+  }, [clearGuestSession, onDismiss]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -279,56 +290,101 @@ export function AuthExperience({
             <img src={logoSrc} alt="YardPass" className="h-16 w-20 object-contain" />
           </div>
 
-          <div className="space-y-2">
-            <CardTitle className="bg-gradient-to-r from-primary to-accent bg-clip-text text-3xl font-bold text-transparent">
-              {title}
-            </CardTitle>
-            <CardDescription className="text-base text-muted-foreground">
-              {description}
-            </CardDescription>
-          </div>
+          {/* Show guest session status if active */}
+          {hasGuestSession && allowGuestTicketAccess ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <CardTitle className="text-2xl font-bold text-center">
+                  Guest Session Active
+                </CardTitle>
+                <CardDescription className="text-base text-center text-muted-foreground">
+                  You're currently signed in as a guest
+                </CardDescription>
+              </div>
 
-          <div className="mx-auto flex rounded-full border border-border/60 bg-background/80 p-1 shadow-inner">
-            <Button
-              type="button"
-              variant={authMethod === 'phone' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                setAuthMethod('phone');
-                resetOtpState();
-              }}
-              className="flex items-center gap-2 rounded-full"
-            >
-              <Phone className="h-4 w-4" />
-              Phone
-            </Button>
-            <Button
-              type="button"
-              variant={authMethod === 'email' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                setAuthMethod('email');
-                resetOtpState();
-              }}
-              className="flex items-center gap-2 rounded-full"
-            >
-              <Mail className="h-4 w-4" />
-              Email
-            </Button>
-          </div>
+              <div className="space-y-3 rounded-xl bg-green-50 dark:bg-green-950/20 p-4 border border-green-200 dark:border-green-900">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <div className="flex-1">
+                    <p className="font-medium text-green-900 dark:text-green-100">
+                      {guestSession?.email ? 'Email' : guestSession?.phone ? 'Phone' : 'Contact'}: {guestSession?.email || guestSession?.phone}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <div className="flex-1">
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Session expires: {new Date(guestSession?.exp || 0).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleGuestSignOut}
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium shadow-lg"
+              >
+                <LogOut className="mr-2 h-5 w-5" />
+                Sign Out
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <CardTitle className="bg-gradient-to-r from-primary to-accent bg-clip-text text-3xl font-bold text-transparent">
+                {title}
+              </CardTitle>
+              <CardDescription className="text-base text-muted-foreground">
+                {description}
+              </CardDescription>
+            </div>
+          )}
+
+          {!hasGuestSession && (
+            <div className="mx-auto flex rounded-full border border-border/60 bg-background/80 p-1 shadow-inner">
+              <Button
+                type="button"
+                variant={authMethod === 'phone' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
+                  setAuthMethod('phone');
+                  resetOtpState();
+                }}
+                className="flex items-center gap-2 rounded-full"
+              >
+                <Phone className="h-4 w-4" />
+                Phone
+              </Button>
+              <Button
+                type="button"
+                variant={authMethod === 'email' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
+                  setAuthMethod('email');
+                  resetOtpState();
+                }}
+                className="flex items-center gap-2 rounded-full"
+              >
+                <Mail className="h-4 w-4" />
+                Email
+              </Button>
+            </div>
+          )}
         </CardHeader>
 
-        <CardContent className="space-y-8 px-6 pb-8 pt-6">
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) => setActiveTab(value as AuthTab)}
-            className="w-full"
-          >
-            <TabsList className={cn('grid w-full gap-2', allowGuestTicketAccess ? 'grid-cols-3' : 'grid-cols-2')}>
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              {allowGuestTicketAccess && <TabsTrigger value="guest">Guest Access</TabsTrigger>}
-            </TabsList>
+        {!hasGuestSession && (
+          <CardContent className="space-y-8 px-6 pb-8 pt-6">
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => setActiveTab(value as AuthTab)}
+              className="w-full"
+            >
+              <TabsList className={cn('grid w-full gap-2', allowGuestTicketAccess ? 'grid-cols-3' : 'grid-cols-2')}>
+                <TabsTrigger value="signin">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                {allowGuestTicketAccess && <TabsTrigger value="guest">Guest Access</TabsTrigger>}
+              </TabsList>
 
             <TabsContent value="signin" className="space-y-4">
               <form onSubmit={handleSignInSubmit} className="space-y-5">
@@ -660,7 +716,8 @@ export function AuthExperience({
               </TabsContent>
             )}
           </Tabs>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
     </div>
   );

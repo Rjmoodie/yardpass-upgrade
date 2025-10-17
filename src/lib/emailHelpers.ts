@@ -11,7 +11,7 @@ export async function getOrgInfoForEmail(orgId: string): Promise<OrgInfo | undef
   try {
     const { data: org, error } = await supabase
       .from('organizations')
-      .select('name, logo_url, handle')
+      .select('name, logo_url, handle, support_email')
       .eq('id', orgId)
       .single();
 
@@ -24,7 +24,7 @@ export async function getOrgInfoForEmail(orgId: string): Promise<OrgInfo | undef
       name: org.name,
       logoUrl: org.logo_url || undefined,
       websiteUrl: org.handle ? `https://yardpass.tech/org/${org.handle}` : undefined,
-      supportEmail: 'support@yardpass.tech',
+      supportEmail: org.support_email || 'support@yardpass.tech',
     };
   } catch (err) {
     console.error('[emailHelpers] Error fetching org info:', err);

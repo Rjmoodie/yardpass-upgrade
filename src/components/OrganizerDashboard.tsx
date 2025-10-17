@@ -679,7 +679,7 @@ export default function OrganizerDashboard() {
   */
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 space-y-6 min-h-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex-1">

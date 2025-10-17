@@ -59,6 +59,9 @@ const AUTH_REQUIRED: Record<string, Screen> = {
 
 export default function Navigation({ userRole }: NavigationProps) {
   const { user } = useAuth();
+  
+  // Ensure role is properly derived from user state
+  const effectiveUserRole = user ? userRole : 'attendee';
   const { trackEvent } = useAnalyticsIntegration();
   const { selectionChanged, impactLight } = useHaptics();
   const navigate = useNavigate();
@@ -80,9 +83,9 @@ export default function Navigation({ userRole }: NavigationProps) {
       [
         { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
         { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
-        { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: userRole === 'attendee' },
+        { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: effectiveUserRole === 'attendee' },
         { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: true },
-        { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: userRole === 'organizer' },
+        { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: effectiveUserRole === 'organizer' },
         { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
         { id: 'social' as Screen, path: '/social', icon: Users, label: 'Network', show: true },
         { id: 'messages' as Screen, path: '/messages', icon: MessageCircle, label: 'Messages', show: true },
@@ -91,7 +94,7 @@ export default function Navigation({ userRole }: NavigationProps) {
     ).filter((i) => i.show);
 
     return items;
-  }, [userRole, sponsorModeEnabled]);
+  }, [effectiveUserRole, sponsorModeEnabled]);
 
   const isDenseLayout = navItems.length >= 6;
 
@@ -216,9 +219,16 @@ export default function Navigation({ userRole }: NavigationProps) {
           setAuthModalOpen(false);
           setPendingNavigation(null);
         }}
-        onSuccess={handleAuthSuccess}
+        onSuccess={() => {
+          handleAuthSuccess();
+          // If user was trying to access tickets and completed guest verification, navigate to tickets
+          if (pendingNavigation === 'tickets') {
+            navigate('/tickets');
+          }
+        }}
         title="Sign in to continue"
         description="You need to be signed in to access this feature"
+        allowGuestTicketAccess={true}
       />
 
       <PostCreatorModal

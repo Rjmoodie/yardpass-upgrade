@@ -86,7 +86,7 @@ serve(async (req) => {
     if (event?.owner_context_type === 'organization' && event?.owner_context_id) {
       const { data: org } = await supabase
         .from("organizations")
-        .select("name, logo_url, handle")
+        .select("name, logo_url, handle, support_email")
         .eq("id", event.owner_context_id)
         .single();
       
@@ -95,6 +95,7 @@ serve(async (req) => {
           name: org.name,
           logoUrl: org.logo_url,
           websiteUrl: org.handle ? `https://yardpass.tech/org/${org.handle}` : undefined,
+          supportEmail: org.support_email,
         };
       }
     }
@@ -120,7 +121,13 @@ serve(async (req) => {
         .replace(/{{event_title}}/g, eventTitle)
         .replace(/{{event_date}}/g, eventDate)
         .replace(/{{first_name}}/g, firstName)
-        .replace(/{{org_name}}/g, orgInfo?.name || eventTitle);
+        .replace(/{{org_name}}/g, orgInfo?.name || eventTitle)
+        .replace(/{{venue}}/g, event?.venue || 'TBA')
+        .replace(/{{city}}/g, event?.city || 'TBA')
+        .replace(/{{event_time}}/g, event?.start_at ? new Date(event.start_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'TBA')
+        .replace(/{{support_email}}/g, orgInfo?.supportEmail || 'support@yardpass.tech')
+        .replace(/{{ticket_portal_url}}/g, `${SUPABASE_URL?.replace('/rest/v1', '') || 'https://yardpass.tech'}/events/${eventId}`)
+        .replace(/{{order_lookup_url}}/g, `${SUPABASE_URL?.replace('/rest/v1', '') || 'https://yardpass.tech'}/tickets`);
     };
 
     let processed = 0;

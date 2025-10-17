@@ -42,9 +42,9 @@ export const RoleInviteEmail = ({
           {/* Logo/Header */}
           <Section style={header}>
             <Img
-              src="https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/assets/yardpass-logo.png"
-              width="120"
-              height="40"
+              src="https://yieslxnrfeqchbcmgavz.supabase.co/yardpass-logo.png"
+              width="180"
+              height="60"
               alt="YardPass"
               style={logo}
             />

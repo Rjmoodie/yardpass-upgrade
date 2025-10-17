@@ -195,7 +195,7 @@ function AppContent() {
     return () => window.removeEventListener('open-share-modal', onShareModalOpen as EventListener);
   }, []);
 
-  const userRole: UserRole = (profile?.role as UserRole) || 'attendee';
+  const userRole: UserRole = user ? ((profile?.role as UserRole) || 'attendee') : 'attendee';
   
   // Use the profile view context for navigation across all pages to maintain consistency
   const navigationRole = activeView;

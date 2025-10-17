@@ -201,6 +201,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setUser(null);
+    setSession(null);
+    
+    // Clear guest sessions to prevent conflicts
+    localStorage.removeItem('ticket-guest-session');
   };
 
   return (

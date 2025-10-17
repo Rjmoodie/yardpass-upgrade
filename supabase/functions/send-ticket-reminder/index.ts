@@ -107,7 +107,7 @@ function BaseEmailLayout({ children, orgInfo }: { children: any; orgInfo?: OrgIn
       React.createElement('div', { style: { maxWidth: '600px', margin: '0 auto', backgroundColor: '#ffffff' } },
         // Header
         React.createElement('div', { style: { backgroundColor: '#1a1a1a', padding: '24px', textAlign: 'center' } },
-          React.createElement('img', { src: logoUrl, alt: orgInfo?.name || 'YardPass', style: { height: '40px', maxWidth: '200px' } })
+          React.createElement('img', { src: logoUrl, alt: orgInfo?.name || 'YardPass', style: { height: '60px', maxWidth: '300px' } })
         ),
         // Content
         React.createElement('div', { style: { padding: '32px 24px' } }, children),
@@ -219,7 +219,7 @@ const handler = async (req: Request): Promise<Response> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: orgInfo?.name ? `${orgInfo.name} via YardPass <noreply@yardpass.tech>` : "YardPass <noreply@yardpass.tech>",
+        from: orgInfo?.name ? `${orgInfo.name} via YardPass <hello@yardpass.tech>` : "YardPass <hello@yardpass.tech>",
         to: [data.customerEmail],
         subject: `⏰ Reminder: ${eventInfo?.title || data.eventTitle} is coming up!`,
         html,

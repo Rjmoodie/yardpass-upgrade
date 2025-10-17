@@ -1,6 +1,6 @@
 // SearchPage with consolidated filter modal
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
@@ -139,6 +139,7 @@ function toRadians(value: number) {
 
 export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   
   // Extract search parameters
   const q = searchParams.get('q') || '';
@@ -293,6 +294,11 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       return updated;
     });
   }, []);
+
+  // User profile navigation
+  const handleViewUserProfile = useCallback((userId: string) => {
+    navigate(`/user/${userId}`);
+  }, [navigate]);
   
   // Location handling
   const requestCurrentLocation = useCallback(async () => {
@@ -1199,7 +1205,8 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                     {userResults.map((person) => (
                       <div
                         key={person.user_id}
-                        className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm"
+                        className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm cursor-pointer hover:shadow-md transition-all duration-200 group"
+                        onClick={() => handleViewUserProfile(person.user_id)}
                       >
                         <div className="flex items-center gap-3">
                           <Avatar className="h-12 w-12">
@@ -1208,7 +1215,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                           </Avatar>
                           <div>
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-slate-900">{person.display_name}</p>
+                              <p className="text-sm font-semibold text-slate-900 group-hover:text-primary transition-colors">{person.display_name}</p>
                               {person.verification_status === 'verified' && (
                                 <Badge variant="secondary" className="text-[10px] uppercase">
                                   Verified
@@ -1218,7 +1225,10 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                             <p className="text-xs text-slate-500 capitalize">{person.role || 'attendee'}</p>
                           </div>
                         </div>
-                        <div className="mt-4 flex items-center gap-2">
+                        <div 
+                          className="mt-4 flex items-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {user?.id === person.user_id ? (
                             <span className="text-xs text-slate-400">This is you</span>
                           ) : (

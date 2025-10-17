@@ -48,13 +48,64 @@ type ContactListSummary = {
   contact_count: number;
 };
 
-type TemplateKey = 'reminder' | 'change' | 'thanks' | 'volunteer' | 'weather';
+// 🧩 Available merge tags in YardPass:
+// {{first_name}} {{event_title}} {{event_date}} {{event_time}} {{venue}} {{city}} {{country}}
+// {{org_name}} {{support_email}} {{ticket_portal_url}} {{event_description}} {{cover_image_url}}
+// {{order_lookup_url}} (for ticket access)
+
+type TemplateKey = 
+  | 'general'
+  | 'reminder'
+  | 'change'
+  | 'thanks'
+  | 'volunteer'
+  | 'weather'
+  | 'announcement'
+  | 'ticket_info'
+  | 'last_call_sales'
+  | 'upsell_vip'
+  | 'door_time_update'
+  | 'parking_info'
+  | 'accessibility_info'
+  | 'sponsor_spotlight'
+  | 'merch_promo'
+  | 'health_safety'
+  | 'lost_and_found'
+  | 'afterparty'
+  | 'livestream'
+  | 'cancellation_refund'
+  | 'apology_service_disruption'
+  | 'code_of_conduct'
+  | 'vendor_checkin'
+  | 'press_media'
+  | 'vip_concierge'
+  | 'survey_nps';
 
 const TEMPLATES: Record<TemplateKey, {
   label: string;
   email: { subject: string; preheader?: string; body: string };
   sms: { body: string };
 }> = {
+  /* --------------------------- General / Core --------------------------- */
+  general: {
+    label: 'General update',
+    email: {
+      subject: '{{event_title}} — quick update',
+      preheader: 'Details inside for {{event_date}}.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Here's a quick update for {{event_title}} on {{event_date}}.\n\n` +
+        `• Time: {{event_time}}\n` +
+        `• Venue: {{venue}}, {{city}}\n` +
+        `• Tickets & info: {{ticket_portal_url}}\n\n` +
+        `Need help? Reply to this email or reach us at {{support_email}}.\n\n` +
+        `— {{org_name}}`
+    },
+    sms: {
+      body: `Update: {{event_title}} {{event_date}} @ {{event_time}} — {{venue}}, {{city}}. Info: {{ticket_portal_url}}`
+    }
+  },
+
   reminder: {
     label: 'Reminder',
     email: {
@@ -63,14 +114,16 @@ const TEMPLATES: Record<TemplateKey, {
       body:
         `Hi {{first_name}},\n\n` +
         `Friendly reminder that {{event_title}} is on {{event_date}}.\n\n` +
-        `• Location: {{event_title}} venue\n` +
-        `• Time: Doors open 30 minutes before start\n\n` +
-        `See you there!\n— Team`,
+        `• Location: {{venue}}, {{city}}\n` +
+        `• Time: {{event_time}}\n` +
+        `• Your tickets: {{order_lookup_url}}\n\n` +
+        `See you there!\n— {{org_name}}`
     },
     sms: {
-      body: `Reminder: {{event_title}} is on {{event_date}}. See you there!`,
-    },
+      body: `Reminder: {{event_title}} {{event_date}} @ {{event_time}}, {{venue}}, {{city}}. Tix: {{order_lookup_url}}`
+    }
   },
+
   change: {
     label: 'Last-minute change',
     email: {
@@ -79,14 +132,16 @@ const TEMPLATES: Record<TemplateKey, {
       body:
         `Hi {{first_name}},\n\n` +
         `We have an update for {{event_title}} on {{event_date}}.\n\n` +
-        `• New time: __\n` +
-        `• New location: __\n\n` +
-        `Thanks for your flexibility.\n— Team`,
+        `• New time: {{event_time}}\n` +
+        `• New location: {{venue}}, {{city}}\n` +
+        `Full details: {{ticket_portal_url}}\n\n` +
+        `Thanks for your flexibility.\n— {{org_name}}`
     },
     sms: {
-      body: `Update for {{event_title}} on {{event_date}}: new time/location. Check email for details.`,
-    },
+      body: `Update: {{event_title}} {{event_date}} — new time/location. Details: {{ticket_portal_url}}`
+    }
   },
+
   thanks: {
     label: 'Thanks / Follow-up',
     email: {
@@ -94,15 +149,298 @@ const TEMPLATES: Record<TemplateKey, {
       preheader: 'Quick recap and next steps.',
       body:
         `Hi {{first_name}},\n\n` +
-        `Thanks for being part of {{event_title}} on {{event_date}}.\n\n` +
-        `We'd love feedback (2 mins): __\n` +
-        `Photos & recap: __\n\n` +
-        `Until next time!\n— Team`,
+        `Thanks for being part of {{event_title}} on {{event_date}}!\n\n` +
+        `• Share feedback (2 mins): [Your survey link]\n` +
+        `• Photos & recap: {{ticket_portal_url}}\n\n` +
+        `Until next time,\n— {{org_name}}`
     },
     sms: {
-      body: `Thanks for joining {{event_title}}! Got 2 mins for feedback? __`,
-    },
+      body: `Thanks for joining {{event_title}}! Got 2 mins for feedback? [Your survey link]`
+    }
   },
+
+  announcement: {
+    label: 'New show / lineup announcement',
+    email: {
+      subject: 'Just announced: {{event_title}} — on sale now',
+      preheader: 'Presale info and details inside.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `We're excited to announce {{event_title}} on {{event_date}} at {{venue}}, {{city}}.\n\n` +
+        `• Start time: {{event_time}}\n` +
+        `• Get tickets: {{ticket_portal_url}}\n` +
+        `• Venue: {{venue}}, {{city}}\n\n` +
+        `See you there!\n— {{org_name}}`
+    },
+    sms: {
+      body: `New: {{event_title}} @ {{venue}}, {{city}} on {{event_date}}. Tix: {{ticket_portal_url}}`
+    }
+  },
+
+  ticket_info: {
+    label: 'Ticket info / delivery',
+    email: {
+      subject: 'Your tickets for {{event_title}}',
+      preheader: 'Access your tickets and arrival info.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Your tickets for {{event_title}} on {{event_date}} are ready.\n\n` +
+        `• Access tickets: {{order_lookup_url}}\n` +
+        `• Show time: {{event_time}}\n` +
+        `• Venue: {{venue}}, {{city}}\n\n` +
+        `Questions? {{support_email}}.\n— {{org_name}}`
+    },
+    sms: {
+      body: `Tickets ready: {{event_title}}. Access: {{order_lookup_url}} • Show {{event_time}} • {{venue}}, {{city}}`
+    }
+  },
+
+  last_call_sales: {
+    label: 'Last call (sales push)',
+    email: {
+      subject: 'Last call: limited tickets for {{event_title}}',
+      preheader: 'Hurry—only a few left.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `We're almost sold out for {{event_title}} on {{event_date}}.\n\n` +
+        `Grab your spot now: {{ticket_portal_url}}\n\n` +
+        `— {{org_name}}`
+    },
+    sms: {
+      body: `Last call: limited tickets for {{event_title}} — {{ticket_portal_url}}`
+    }
+  },
+
+  upsell_vip: {
+    label: 'Upsell VIP / add-ons',
+    email: {
+      subject: 'Upgrade to VIP for {{event_title}}',
+      preheader: 'Early entry, lounge, and perks.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Enhance your {{event_title}} experience:\n\n` +
+        `• VIP early entry\n` +
+        `• Lounge access & merch\n` +
+        `Upgrade here: {{ticket_portal_url}}\n\n` +
+        `— {{org_name}}`
+    },
+    sms: {
+      body: `Upgrade to VIP for {{event_title}}: early entry + perks → {{ticket_portal_url}}`
+    }
+  },
+
+  door_time_update: {
+    label: 'Door time update',
+    email: {
+      subject: 'Door time for {{event_title}}',
+      preheader: 'New door time and arrival info.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Doors open at [door time] for {{event_title}}.\n` +
+        `Show starts {{event_time}}. Venue: {{venue}}, {{city}}.\n\n` +
+        `— {{org_name}}`
+    },
+    sms: {
+      body: `Update: doors [door time] for {{event_title}} (show {{event_time}}). {{venue}}, {{city}}`
+    }
+  },
+
+  parking_info: {
+    label: 'Parking & transit',
+    email: {
+      subject: 'Parking & transit for {{event_title}}',
+      preheader: 'Best routes and lots for smooth arrival.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Plan your arrival to {{venue}}, {{city}}:\n` +
+        `• Parking: [Your parking info]\n` +
+        `• Rideshare: [Drop-off zone]\n` +
+        `• Public transit: [Transit options]\n\n` +
+        `Travel safe,\n— {{org_name}}`
+    },
+    sms: {
+      body: `Parking/transit for {{event_title}} at {{venue}}, {{city}}: [Your parking info]`
+    }
+  },
+
+  accessibility_info: {
+    label: 'Accessibility info',
+    email: {
+      subject: 'Accessibility for {{event_title}}',
+      preheader: 'Seating, entry, and assistance.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Accessibility resources for {{event_title}}:\n` +
+        `• Entry & seating: [Your accessibility info]\n` +
+        `• Assistance contact: {{support_email}}\n\n` +
+        `We're here to help,\n— {{org_name}}`
+    },
+    sms: {
+      body: `Accessibility info for {{event_title}}: [Your accessibility info] • Help: {{support_email}}`
+    }
+  },
+
+  sponsor_spotlight: {
+    label: 'Sponsor spotlight',
+    email: {
+      subject: 'Thanks to our partners at {{event_title}}',
+      preheader: 'Exclusive perks inside.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Shoutout to our partners making {{event_title}} possible.\n` +
+        `Perks and offers: {{ticket_portal_url}}\n\n` +
+        `— {{org_name}}`
+    },
+    sms: {
+      body: `Perks from our partners at {{event_title}} → {{ticket_portal_url}}`
+    }
+  },
+
+  merch_promo: {
+    label: 'Merch promo',
+    email: {
+      subject: '{{event_title}} merch — limited run',
+      preheader: 'Preorder now, pickup at show.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Limited-run merch for {{event_title}} is live.\n` +
+        `Preorder and pickup at the venue: {{ticket_portal_url}}\n\n` +
+        `— {{org_name}}`
+    },
+    sms: {
+      body: `Limited merch for {{event_title}} — preorder: {{ticket_portal_url}}`
+    }
+  },
+
+  health_safety: {
+    label: 'Health & safety',
+    email: {
+      subject: 'Health & safety for {{event_title}}',
+      preheader: 'What to know before you go.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Please review our health & safety guidance for {{event_title}}:\n` +
+        `Details: [Your health & safety info]\n\n` +
+        `Thanks for helping keep everyone safe,\n— {{org_name}}`
+    },
+    sms: {
+      body: `Health & safety info for {{event_title}}: [Your health & safety info]`
+    }
+  },
+
+  lost_and_found: {
+    label: 'Lost & found',
+    email: {
+      subject: 'Lost something at {{event_title}}?',
+      preheader: 'How to check and claim items.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Lost something at {{event_title}}? Report or check here: [Your lost & found info]\n` +
+        `Support: {{support_email}}\n\n` +
+        `— {{org_name}}`
+    },
+    sms: {
+      body: `Lost something at {{event_title}}? Help: [Your lost & found info]`
+    }
+  },
+
+  afterparty: {
+    label: 'Afterparty details',
+    email: {
+      subject: 'Afterparty for {{event_title}}',
+      preheader: 'Location and start time inside.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Keep the night going! Afterparty at [afterparty location] after the show.\n` +
+        `Details & RSVP: {{ticket_portal_url}}\n\n` +
+        `— {{org_name}}`
+    },
+    sms: {
+      body: `Afterparty for {{event_title}} → [afterparty location]. Info: {{ticket_portal_url}}`
+    }
+  },
+
+  livestream: {
+    label: 'Livestream access',
+    email: {
+      subject: 'Your livestream for {{event_title}}',
+      preheader: 'Access link and start time.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Watch {{event_title}} live: [Your livestream URL]\n` +
+        `Goes live at {{event_time}} ({{event_date}}).\n\n` +
+        `— {{org_name}}`
+    },
+    sms: {
+      body: `Livestream: {{event_title}} starts {{event_time}}. Link: [Your livestream URL]`
+    }
+  },
+
+  cancellation_refund: {
+    label: 'Cancellation & refunds',
+    email: {
+      subject: '{{event_title}} — cancellation & refunds',
+      preheader: 'How to request your refund.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `We're sorry to share that {{event_title}} on {{event_date}} has been canceled.\n\n` +
+        `Refund process: {{order_lookup_url}}\n` +
+        `Questions: {{support_email}}\n\n` +
+        `— {{org_name}}`
+    },
+    sms: {
+      body: `{{event_title}} canceled. Refund info: {{order_lookup_url}}`
+    }
+  },
+
+  apology_service_disruption: {
+    label: 'Apology / service disruption',
+    email: {
+      subject: 'Apologies for the issue at {{event_title}}',
+      preheader: 'What happened and what we\'re doing next.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `We apologize for the disruption at {{event_title}}.\n` +
+        `What happened & make-good: [Your explanation]\n` +
+        `We appreciate your support.\n— {{org_name}}`
+    },
+    sms: {
+      body: `Apologies for the disruption at {{event_title}}. Details: [Your explanation]`
+    }
+  },
+
+  code_of_conduct: {
+    label: 'Code of conduct',
+    email: {
+      subject: 'Code of conduct for {{event_title}}',
+      preheader: 'Help us create a great experience.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Please review our code of conduct before {{event_title}}: [Your code of conduct]\n\n` +
+        `Thank you,\n— {{org_name}}`
+    },
+    sms: {
+      body: `Code of conduct for {{event_title}}: [Your code of conduct]`
+    }
+  },
+
+  weather: {
+    label: 'Weather delay',
+    email: {
+      subject: 'Weather update for {{event_title}} ({{event_date}})',
+      preheader: 'Start time adjusted due to weather.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Due to weather, {{event_title}} on {{event_date}} will start later.\n\n` +
+        `New start time: {{event_time}}\n` +
+        `We'll keep you posted. Full plan: [Your weather plan]\n— {{org_name}}`
+    },
+    sms: {
+      body: `Weather: {{event_title}} delayed. New start {{event_time}}. Plan: [Your weather plan]`
+    }
+  },
+
+  /* --------------------------- Ops / Backstage -------------------------- */
   volunteer: {
     label: 'Volunteer call',
     email: {
@@ -112,28 +450,82 @@ const TEMPLATES: Record<TemplateKey, {
         `Hi {{first_name}},\n\n` +
         `We're looking for volunteers for {{event_title}} on {{event_date}}.\n\n` +
         `Roles: check-in, ushers, scanners.\n` +
-        `Shifts: 1–2 hours. Sign-up: __\n\n` +
-        `Thank you!\n— Team`,
+        `Shifts: 1–2 hours. Sign-up: [Your volunteer signup]\n\n` +
+        `Thank you!\n— {{org_name}}`
     },
     sms: {
-      body: `Can you volunteer for {{event_title}} on {{event_date}}? Quick shifts. Signup: __`,
-    },
+      body: `Can you volunteer for {{event_title}} on {{event_date}}? Quick shifts → [Your volunteer signup]`
+    }
   },
-  weather: {
-    label: 'Weather delay',
+
+  vendor_checkin: {
+    label: 'Vendor check-in & ops',
     email: {
-      subject: 'Weather update for {{event_title}} ({{event_date}})',
-      preheader: 'Start time adjusted due to weather.',
+      subject: 'Vendor check-in for {{event_title}}',
+      preheader: 'Load-in times and contact info.',
       body:
         `Hi {{first_name}},\n\n` +
-        `Due to weather, {{event_title}} on {{event_date}} will start later.\n\n` +
-        `New start time: __\n` +
-        `We'll keep you posted with any changes.\n— Team`,
+        `Load-in for {{event_title}} is [load-in time] at {{venue}}, {{city}}.\n` +
+        `Ops details & permits: [Your vendor portal]\n` +
+        `On-site contact: {{support_email}}\n\n` +
+        `— {{org_name}}`
     },
     sms: {
-      body: `Weather update: {{event_title}} on {{event_date}} delayed. New start: __`,
-    },
+      body: `Vendor load-in [load-in time] at {{venue}}, {{city}} for {{event_title}}. Details: [Your vendor portal]`
+    }
   },
+
+  press_media: {
+    label: 'Press / media RSVP',
+    email: {
+      subject: 'Press RSVP for {{event_title}}',
+      preheader: 'Media check-in and guidelines.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Media details for {{event_title}}:\n` +
+        `• Check-in: [Media check-in location]\n` +
+        `• Time: [Check-in time]\n` +
+        `• Guidelines & assets: [Your press kit]\n\n` +
+        `Questions: {{support_email}}\n— {{org_name}}`
+    },
+    sms: {
+      body: `Press check-in [check-in time] @ [check-in location] for {{event_title}}. Details: [Your press kit]`
+    }
+  },
+
+  vip_concierge: {
+    label: 'VIP concierge',
+    email: {
+      subject: 'Your VIP details for {{event_title}}',
+      preheader: 'Early entry and host contact.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `Your VIP plan for {{event_title}}:\n` +
+        `• Early entry: [VIP entry time]\n` +
+        `• Lounge: {{venue}}\n` +
+        `• Concierge: [Your VIP contact]\n\n` +
+        `We look forward to hosting you!\n— {{org_name}}`
+    },
+    sms: {
+      body: `VIP for {{event_title}} — early entry [VIP entry time]. Concierge: [Your VIP contact]`
+    }
+  },
+
+  survey_nps: {
+    label: 'Post-event survey / NPS',
+    email: {
+      subject: '2-minute survey for {{event_title}}',
+      preheader: 'Tell us how we did.',
+      body:
+        `Hi {{first_name}},\n\n` +
+        `We'd love your feedback on {{event_title}}. This takes ~2 minutes:\n` +
+        `Survey: [Your survey link]\n\n` +
+        `Thanks for helping us improve!\n— {{org_name}}`
+    },
+    sms: {
+      body: `Quick survey for {{event_title}}: [Your survey link] (2 mins)`
+    }
+  }
 };
 
 /* ------------------------------ component ------------------------------ */
@@ -173,7 +565,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'queued' | 'failed' | 'draft' | 'sending'>('all');
   const [searchSubject, setSearchSubject] = useState('');
 
-  const [eventDetails, setEventDetails] = useState<{ title?: string; date?: string; orgId?: string | null }>({});
+  const [eventDetails, setEventDetails] = useState<{ title?: string; date?: string; orgId?: string | null; orgName?: string; orgSupportEmail?: string }>({});
   const currentText = useMemo(() => (channel === 'email' ? body : smsBody), [channel, body, smsBody]);
   const { len, segments } = smsLength(smsBody);
 
@@ -223,10 +615,30 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         .eq('id', eventId)
         .single();
       if (data) {
+        const orgId = data.owner_context_type === 'organization' ? data.owner_context_id : null;
+        let orgName = 'YardPass Demo Events'; // Default fallback
+        let orgSupportEmail = 'support@yardpass.tech';
+        
+        // Fetch organization data if event is owned by an organization
+        if (orgId) {
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('name, support_email')
+            .eq('id', orgId)
+            .single();
+          
+          if (orgData) {
+            orgName = orgData.name;
+            orgSupportEmail = orgData.support_email || 'support@yardpass.tech';
+          }
+        }
+        
         setEventDetails({
           title: data.title,
           date: data.start_at ? new Date(data.start_at).toLocaleDateString() : undefined,
-          orgId: data.owner_context_type === 'organization' ? data.owner_context_id : null
+          orgId,
+          orgName,
+          orgSupportEmail
         });
       }
     })();
@@ -337,7 +749,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       body: preheader ? `<!-- preheader: ${preheader} -->\n${body}` : body,
       smsBody,
       fromName: 'YardPass',
-      fromEmail: 'onboarding@resend.dev',
+      fromEmail: 'noreply@yardpass.tech',
       replyTo,
       segment: segmentPayload,
       dryRun,
@@ -389,7 +801,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         body: preheader ? `<!-- preheader: ${preheader} -->\n${body}` : body,
         smsBody,
         fromName: 'YardPass',
-        fromEmail: 'onboarding@resend.dev',
+        fromEmail: 'noreply@yardpass.tech',
         replyTo,
         segment: { type: 'roles', roles: [] },
         dryRun: true,
@@ -840,7 +1252,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   );
 
   const ReviewStep = () => (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Summary & Actions */}
       <div className="grid md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <div className="text-sm font-medium">Summary</div>
@@ -876,6 +1289,132 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
 
       <Separator />
 
+      {/* Message Preview */}
+      <div className="space-y-3">
+        <div className="text-sm font-medium">Email Preview</div>
+        <div className="border rounded-lg overflow-hidden">
+          {channel === 'email' ? (
+            <div className="bg-gray-50 p-4">
+              {/* Email Preview Header */}
+              <div className="mb-4 space-y-2">
+                <div className="text-xs text-gray-600">
+                  <strong>To:</strong> Your selected audience ({audienceCount} recipients)
+                </div>
+                <div className="text-xs text-gray-600">
+                  <strong>From:</strong> noreply@yardpass.tech
+                </div>
+                <div className="text-xs text-gray-600">
+                  <strong>Subject:</strong> {(subject || '(No subject)')
+                    .replace(/\{\{event_title\}\}/g, eventDetails.title || 'your event')
+                    .replace(/\{\{event_date\}\}/g, eventDetails.date || 'your date')}
+                </div>
+                {preheader && (
+                  <div className="text-xs text-gray-500 italic">
+                    Preview: {preheader
+                      .replace(/\{\{event_title\}\}/g, eventDetails.title || 'your event')
+                      .replace(/\{\{event_date\}\}/g, eventDetails.date || 'your date')}
+                  </div>
+                )}
+              </div>
+
+              {/* Actual Email Preview */}
+              <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+                {/* Email Header */}
+                <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-8 py-7 text-center">
+                  <img 
+                    src="/yardpass-logo.png" 
+                    alt="YardPass" 
+                    className="h-16 mx-auto mb-3"
+                  />
+                  <div className="text-xs text-slate-400 uppercase tracking-wider">
+                    Powered by YardPass
+                  </div>
+                </div>
+
+                {/* Email Content */}
+                <div className="px-8 py-8">
+                  {/* Message Body */}
+                  <div className="prose prose-sm max-w-none">
+                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                      {(body || '(No message body)')
+                        .replace(/\{\{event_title\}\}/g, eventDetails.title || 'your event')
+                        .replace(/\{\{event_date\}\}/g, eventDetails.date || 'your date')
+                        .replace(/\{\{event_time\}\}/g, eventDetails.time || 'your time')
+                        .replace(/\{\{venue\}\}/g, eventDetails.venue || 'your venue')
+                        .replace(/\{\{city\}\}/g, eventDetails.city || 'your city')
+                        .replace(/\{\{country\}\}/g, eventDetails.country || 'your country')
+                        .replace(/\{\{event_description\}\}/g, eventDetails.description || 'your event description')
+                        .replace(/\{\{cover_image_url\}\}/g, eventDetails.coverImageUrl || 'https://yardpass.tech/placeholder.jpg')
+                        .replace(/\{\{first_name\}\}/g, 'John')
+                        .replace(/\{\{org_name\}\}/g, eventDetails.orgName || 'YardPass Demo Events')
+                        .replace(/\{\{support_email\}\}/g, eventDetails.orgSupportEmail || 'support@yardpass.tech')
+                        .replace(/\{\{ticket_portal_url\}\}/g, 'https://yardpass.tech/tickets')
+                        .replace(/\{\{order_lookup_url\}\}/g, 'https://yardpass.tech/tickets')}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Email Footer */}
+                <div className="bg-gray-50 px-8 py-6 text-center">
+                  <p className="text-sm text-gray-600 mb-2">
+                    Powered by YardPass
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Questions? Contact{' '}
+                    <a href={`mailto:${eventDetails.orgSupportEmail || 'support@yardpass.tech'}`} className="text-blue-600 hover:text-blue-700">
+                      {eventDetails.orgSupportEmail || 'support@yardpass.tech'}
+                    </a>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* SMS Preview */
+            <div className="bg-gray-50 p-4">
+              <div className="max-w-sm mx-auto">
+                {/* SMS Header */}
+                <div className="mb-4 space-y-2">
+                  <div className="text-xs text-gray-600">
+                    <strong>To:</strong> Your selected audience ({audienceCount} recipients)
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    <strong>From:</strong> YardPass SMS
+                  </div>
+                </div>
+
+                {/* SMS Message Preview */}
+                <div className="bg-green-600 text-white p-4 rounded-2xl rounded-bl-md max-w-xs">
+                  <div className="text-sm leading-relaxed">
+                    {(smsBody || '(No SMS message)')
+                      .replace(/\{\{event_title\}\}/g, eventDetails.title || 'your event')
+                      .replace(/\{\{event_date\}\}/g, eventDetails.date || 'your date')
+                      .replace(/\{\{event_time\}\}/g, eventDetails.time || 'your time')
+                      .replace(/\{\{venue\}\}/g, eventDetails.venue || 'your venue')
+                      .replace(/\{\{city\}\}/g, eventDetails.city || 'your city')
+                      .replace(/\{\{country\}\}/g, eventDetails.country || 'your country')
+                      .replace(/\{\{event_description\}\}/g, eventDetails.description || 'your event description')
+                      .replace(/\{\{cover_image_url\}\}/g, eventDetails.coverImageUrl || 'https://yardpass.tech/placeholder.jpg')
+                      .replace(/\{\{first_name\}\}/g, 'John')
+                      .replace(/\{\{org_name\}\}/g, eventDetails.orgName || 'YardPass Demo Events')
+                      .replace(/\{\{support_email\}\}/g, eventDetails.orgSupportEmail || 'support@yardpass.tech')
+                      .replace(/\{\{ticket_portal_url\}\}/g, 'https://yardpass.tech/tickets')
+                      .replace(/\{\{order_lookup_url\}\}/g, 'https://yardpass.tech/tickets')}
+                  </div>
+                </div>
+                
+                {/* SMS Info */}
+                <div className="mt-3 text-xs text-gray-500 text-center">
+                  Length: {len} characters ({segments} segment{segments > 1 ? 's' : ''})
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Final Actions */}
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => send(false)} disabled={!canSend}>
           {loading ? 'Sending…' : `Send ${channel === 'email' ? 'Email' : 'SMS'} to ${audienceCount}`}
