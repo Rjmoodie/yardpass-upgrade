@@ -26,7 +26,15 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'automatic',
     scrollEnabled: true,
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
+    // Ensure proper safe area handling
+    scheme: 'YardPass',
+    // Optimize for iOS deployment
+    cordovaSwiftVersion: '5.0',
+    // Enable proper keyboard handling
+    keyboardResize: 'native',
+    // Ensure proper status bar handling
+    statusBarStyle: 'default'
   },
   android: {
     allowMixedContent: false,          // safer default

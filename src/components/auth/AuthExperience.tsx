@@ -398,8 +398,18 @@ export function AuthExperience({
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const passwordInput = document.getElementById('signin-password') as HTMLInputElement;
+                          passwordInput?.focus();
+                        }
+                      }}
                       required
                       className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
                     />
                     <div className="space-y-2">
                       <Label htmlFor="signin-password">Password</Label>
@@ -410,8 +420,16 @@ export function AuthExperience({
                         placeholder="••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const form = e.currentTarget.closest('form');
+                            form?.requestSubmit();
+                          }
+                        }}
                         required
                         className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
+                        autoComplete="current-password"
                       />
                     </div>
                     {error?.email && (
@@ -515,8 +533,18 @@ export function AuthExperience({
                         placeholder="you@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const passwordInput = document.getElementById('signup-password') as HTMLInputElement;
+                            passwordInput?.focus();
+                          }
+                        }}
                         required
                         className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
+                        autoComplete="email"
+                        autoCapitalize="none"
+                        autoCorrect="off"
                       />
                     </div>
                     <div className="space-y-2">
@@ -538,6 +566,13 @@ export function AuthExperience({
                         placeholder="Create a secure password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const form = e.currentTarget.closest('form');
+                            form?.requestSubmit();
+                          }
+                        }}
                         required
                         className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
                       />

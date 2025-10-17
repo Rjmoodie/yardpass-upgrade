@@ -18,15 +18,15 @@ type RailProps = {
  */
 export function FeedActionRail({ items, className = "" }: RailProps) {
   return (
-    <div className={`action-rail-safe flex flex-col items-center gap-3 sm:gap-4 ${className}`}>
+    <div className={`action-rail-safe flex flex-col items-center ${className}`}>
       {items.map((it, i) => (
         <button
           key={i}
           onClick={it.onClick}
-          className="flex flex-col items-center gap-1 transition-transform active:scale-95 min-h-[48px] min-w-[48px] p-2 touch-manipulation"
+          className="flex flex-col items-center gap-0 transition-transform active:scale-95 touch-manipulation"
         >
           <div
-            className={`p-3 rounded-full transition-all ${
+            className={`rounded-full transition-all ${
               it.active
                 ? "bg-red-500 shadow-lg shadow-red-500/30 scale-110"
                 : "bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20"
@@ -35,7 +35,7 @@ export function FeedActionRail({ items, className = "" }: RailProps) {
             {it.icon}
           </div>
           {it.label !== undefined && (
-            <span className="text-xs font-medium text-white drop-shadow-lg">{it.label}</span>
+            <span className="text-[9px] font-medium text-white drop-shadow-lg leading-none">{it.label}</span>
           )}
         </button>
       ))}

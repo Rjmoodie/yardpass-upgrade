@@ -16,6 +16,9 @@
 /* Utility to opt a screen into edge-to-edge on mobile */
 .edge-to-edge {
   --edge-padding: 0;
+  /* Ensure edge-to-edge content respects safe areas */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Tailwind CSS */
@@ -354,7 +357,7 @@ p {
 /* Utility class for content positioned directly on navigation bar */
 .content-on-nav {
   position: fixed;
-  top: env(safe-area-inset-top);
+  top: 0; /* Start from the top of the safe area */
   left: 0;
   right: 0;
   bottom: var(--bottom-nav-safe);  /* stops exactly at nav top */
@@ -374,7 +377,7 @@ p {
 
 @media (max-width: 640px) {
   .content-on-nav {
-    top: env(safe-area-inset-top);
+    top: 0; /* Start from the top of the safe area */
     left: 0;
     right: 0;
     bottom: var(--bottom-nav-safe);
@@ -545,12 +548,37 @@ p {
     max-height: 95vh !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    /* Ensure proper safe area handling on mobile */
+    margin-top: env(safe-area-inset-top) !important;
+    margin-bottom: env(safe-area-inset-bottom) !important;
   }
   
-  /* Network page mobile optimization */
-  .network-tabs {
-    grid-template-columns: 1fr !important;
+  /* Prevent modal from being too close to screen edges */
+  [data-radix-dialog-content] {
+    margin-left: max(16px, env(safe-area-inset-left)) !important;
+    margin-right: max(16px, env(safe-area-inset-right)) !important;
   }
+  
+  /* Extra small screens (iPhone SE) */
+  [data-radix-dialog-content] {
+    max-height: 90vh !important;
+    margin: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right)) !important;
+  }
+}
+
+/* Landscape orientation for modals */
+@media (max-height: 500px) and (orientation: landscape) {
+  [data-radix-dialog-content] {
+    max-height: 85vh !important;
+    margin-top: max(4px, env(safe-area-inset-top)) !important;
+    margin-bottom: max(4px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* Network page mobile optimization */
+.network-tabs {
+  grid-template-columns: 1fr !important;
+}
   
   .network-tabs .tabs-trigger {
     font-size: 0.875rem !important;
@@ -593,6 +621,8 @@ p {
   overscroll-behavior: contain;
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
+  /* Ensure it respects safe areas */
+  padding-top: env(safe-area-inset-top);
 }
 .tiktok-feed::-webkit-scrollbar { display: none; }
 
@@ -603,6 +633,8 @@ p {
   scroll-snap-stop: always;
   position: relative;
   contain: layout paint;
+  /* Ensure cards respect safe areas */
+  padding-top: env(safe-area-inset-top);
 }
 
 /* Proportional action rail for each card */
@@ -823,29 +855,44 @@ p {
   @apply safe-top safe-bottom safe-left safe-right;
 }
 
-/* Critical: Ensure top safe area is respected */
+/* Critical: Ensure top safe area is respected ONLY at the app frame level */
 .app-frame {
   padding-top: env(safe-area-inset-top);
 }
 
-/* Ensure main content respects safe areas */
+/* Content positioning - no additional top padding needed since app-frame handles it */
 .content-on-nav {
-  top: env(safe-area-inset-top);
-}
-
-/* Force proper safe area handling for all content */
-.app-surface-content {
-  padding-top: env(safe-area-inset-top);
-}
-
-/* Ensure the main app container respects safe areas */
-.app-shell {
-  padding-top: env(safe-area-inset-top);
+  top: 0; /* Start from the top of the safe area */
+  left: 0;
+  right: 0;
+  bottom: var(--bottom-nav-safe);
 }
 
 /* iOS-specific utilities */
 .min-h-dvh {
   min-height: 100dvh; /* dynamic viewport height - handles iOS keyboard */
+}
+
+/* iOS-specific safe area handling for different screen types */
+@supports (padding: max(0px, env(safe-area-inset-top))) {
+  /* iPhone with notch/dynamic island */
+  .app-frame {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  /* iPhone with home button (no notch) */
+  @media (max-width: 640px) and (max-height: 896px) {
+    .app-frame {
+      padding-top: max(env(safe-area-inset-top), 20px);
+    }
+  }
+  
+  /* iPad */
+  @media (min-width: 768px) {
+    .app-frame {
+      padding-top: max(env(safe-area-inset-top), 20px);
+    }
+  }
 }
 
 .no-page-bounce {
@@ -1470,17 +1517,68 @@ input, select, textarea {
   border: 1px solid rgba(255,255,255,.2);
 }
 
-/* Safe rail position (auto-clears caption & nav) */
+/* Responsive action rail positioning based on screen height */
 .action-rail-safe {
   position: fixed;
   right: 12px;
-  bottom: calc(var(--bottom-nav-safe) + var(--caption-h) + var(--rail-gap));
+  /* Use viewport height percentage for responsive positioning */
+  bottom: calc(var(--bottom-nav-safe) + max(120px, 15vh));
   z-index: 40;
+  /* Responsive max height based on screen size */
+  max-height: calc(100vh - var(--bottom-nav-safe) - max(120px, 15vh));
+  overflow: hidden;
+  pointer-events: auto;
 }
-@media (min-width: 640px) { 
+
+/* Small screens (iPhone SE, etc.) */
+@media (max-width: 640px) and (max-height: 700px) {
+  .action-rail-safe {
+    bottom: calc(var(--bottom-nav-safe) + max(100px, 12vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(100px, 12vh));
+  }
+}
+
+/* Medium screens (iPhone 12/13/14) */
+@media (max-width: 640px) and (min-height: 700px) and (max-height: 900px) {
+  .action-rail-safe {
+    bottom: calc(var(--bottom-nav-safe) + max(120px, 14vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(120px, 14vh));
+  }
+}
+
+/* Large screens (iPhone Pro Max, iPad) */
+@media (min-width: 640px) or (min-height: 900px) {
   .action-rail-safe { 
     right: 16px; 
+    bottom: calc(var(--bottom-nav-safe) + max(140px, 16vh));
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(140px, 16vh));
   } 
+}
+
+/* Extra small screens (iPhone SE, etc.) */
+@media (max-width: 375px) and (max-height: 667px) {
+  .action-rail-safe {
+    bottom: calc(var(--bottom-nav-safe) + max(80px, 10vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(80px, 10vh));
+  }
+  
+  .action-rail-safe button {
+    min-height: 24px !important;
+    min-width: 24px !important;
+  }
+  
+  .action-rail-safe button svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (max-height: 500px) and (orientation: landscape) {
+  .action-rail-safe {
+    bottom: calc(var(--bottom-nav-safe) + max(60px, 8vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(60px, 8vh));
+  }
 }
 
 /* ======== ALWAYS-SAFE iOS RAILS & BOTTOM BARS ======== */
@@ -1488,6 +1586,93 @@ input, select, textarea {
 /* Pads fixed bottom bars so they never overlap the iOS home indicator */
 .rail-safe {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+/* Consistent action rail button sizing across all screen types */
+.action-rail-safe button {
+  /* Responsive but consistent sizing */
+  min-height: clamp(28px, 4vw, 32px) !important;
+  min-width: clamp(28px, 4vw, 32px) !important;
+  max-height: clamp(32px, 5vw, 36px);
+  max-width: clamp(32px, 5vw, 36px);
+  padding: 2px !important;
+}
+
+.action-rail-safe button div {
+  /* Responsive icon containers */
+  padding: clamp(4px, 0.8vw, 6px) !important;
+  min-width: clamp(20px, 3vw, 24px);
+  min-height: clamp(20px, 3vw, 24px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-rail-safe button svg {
+  /* Responsive icon sizing */
+  width: clamp(14px, 2.2vw, 16px) !important;
+  height: clamp(14px, 2.2vw, 16px) !important;
+}
+
+/* Responsive spacing between buttons */
+.action-rail-safe {
+  gap: clamp(6px, 1.2vw, 10px) !important;
+}
+
+/* Ensure consistent sizing for media posts */
+.tiktok-feed .action-rail-safe button {
+  min-height: clamp(28px, 4vw, 32px) !important;
+  min-width: clamp(28px, 4vw, 32px) !important;
+}
+
+.tiktok-feed .action-rail-safe button svg {
+  width: clamp(14px, 2.2vw, 16px) !important;
+  height: clamp(14px, 2.2vw, 16px) !important;
+}
+
+/* Ensure the last button (mute) has extra spacing from bottom */
+.action-rail-safe button:last-child {
+  margin-bottom: 8px !important;
+}
+
+/* Ensure action rail never overlaps with bottom content */
+@media (max-width: 640px) {
+  .action-rail-safe {
+    /* Force it much higher on mobile to prevent overlap */
+    bottom: calc(var(--bottom-nav-safe) + 120px) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - 120px) !important;
+  }
+}
+
+/* Responsive positioning for media posts (TikTok-style feeds) */
+.tiktok-feed .action-rail-safe {
+  /* Use viewport height percentage for responsive positioning */
+  bottom: calc(var(--bottom-nav-safe) + max(140px, 16vh)) !important;
+  max-height: calc(100vh - var(--bottom-nav-safe) - max(140px, 16vh)) !important;
+}
+
+/* Small screens for media posts */
+@media (max-width: 640px) and (max-height: 700px) {
+  .tiktok-feed .action-rail-safe {
+    bottom: calc(var(--bottom-nav-safe) + max(120px, 14vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(120px, 14vh)) !important;
+  }
+}
+
+/* Medium screens for media posts */
+@media (max-width: 640px) and (min-height: 700px) and (max-height: 900px) {
+  .tiktok-feed .action-rail-safe {
+    bottom: calc(var(--bottom-nav-safe) + max(130px, 15vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(130px, 15vh)) !important;
+  }
+}
+
+/* Large screens for media posts */
+@media (min-width: 640px) or (min-height: 900px) {
+  .tiktok-feed .action-rail-safe {
+    bottom: calc(var(--bottom-nav-safe) + max(160px, 18vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(160px, 18vh)) !important;
+  }
 }
 
 /* Ensure bottom nav extends to the very bottom of the screen */
