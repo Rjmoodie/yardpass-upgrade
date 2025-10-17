@@ -32,3 +32,4 @@ SELECT reserve_tickets_batch(
 
 COMMIT;
 
+

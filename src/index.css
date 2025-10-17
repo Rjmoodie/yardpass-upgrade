@@ -1,3 +1,21 @@
+/* -------------------------------
+   Safe-area + bottom nav metrics
+---------------------------------*/
+:root {
+  --bottom-nav-h: 84px;
+}
+@media (max-width: 640px) {
+  :root { --bottom-nav-h: 76px; }
+}
+:root {
+  --bottom-nav-safe: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+}
+
+/* Utility to opt a screen into edge-to-edge on mobile */
+.edge-to-edge {
+  --edge-padding: 0;
+}
+
 /* Tailwind CSS */
 @tailwind base;
 @tailwind components;
@@ -5,7 +23,8 @@
 
 /* Critical: Full height and no margins for flush navigation */
 html, body, #root {
-  height: 100%;
+  height: 100dvh;     /* dynamic viewport on iOS */
+  overflow: hidden;   /* removes OS scrollbar */
   margin: 0;
   padding: 0;
 }
@@ -216,8 +235,10 @@ body {
   width: 100%;
   /* Allow scrolling in main content areas */
   overscroll-behavior-y: contain;
-  
-  /* Safe area support removed from body - apply to specific elements instead */
+  /* Mobile perf: avoid fixed bg on iOS/low-end */
+}
+@media (max-width: 768px) {
+  body { background-attachment: scroll; }
 }
 
 .dark body {
@@ -299,6 +320,9 @@ p {
   body {
     scroll-behavior: auto;
   }
+
+  .app-mesh { opacity: 0.5; }
+  .app-surface::before { opacity: 0.6; }
 }
 
 /* Navigation flush to bottom - Battle-tested fix */
@@ -307,25 +331,23 @@ p {
 
 /* Utility class for main content to prevent overlap with navigation */
 .main-content-with-nav {
-  padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  padding-bottom: 0 !important; /* handled by fixed scroll area */
 }
 
 @media (max-width: 640px) {
   .main-content-with-nav {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    padding-bottom: 0 !important;
   }
 }
 
 /* Utility class for content positioned directly on navigation bar */
 .content-on-nav {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: calc(84px + env(safe-area-inset-bottom));
+  inset: 0 0 var(--bottom-nav-safe) 0;  /* stops exactly at nav top */
   overflow-y: auto;
-  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: none;                 /* Firefox hide */
   padding: 0;
   margin: 0;
   background: transparent;
@@ -333,14 +355,12 @@ p {
   justify-content: center;
   align-items: stretch;
   z-index: 1;
-  /* Ensure scrolling works properly */
-  overscroll-behavior: contain;
-  scroll-behavior: smooth;
 }
+.content-on-nav::-webkit-scrollbar { display: none; } /* WebKit hide */
 
 @media (max-width: 640px) {
   .content-on-nav {
-    bottom: calc(76px + env(safe-area-inset-bottom));
+    inset: 0 0 var(--bottom-nav-safe) 0;
   }
 }
 
@@ -349,6 +369,8 @@ p {
   isolation: isolate;
   z-index: 0;
 }
+.app-mesh { pointer-events: none; will-change: opacity; }
+
 
 .app-mesh {
   position: absolute;
@@ -390,9 +412,10 @@ p {
   border: 1px solid hsl(var(--border) / 0.65);
   background: linear-gradient(140deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.82));
   box-shadow: 0 24px 68px hsl(0 0% 0% / 0.14), 0 8px 32px hsl(0 0% 0% / 0.08);
-  overflow: visible;
+  overflow: hidden;
   backdrop-filter: blur(28px) saturate(135%);
   -webkit-backdrop-filter: blur(28px) saturate(135%);
+  contain: paint layout;
 }
 
 .app-surface::before {
@@ -437,24 +460,36 @@ p {
 @media (max-width: 768px) {
   .app-shell {
     width: 100%;
-    padding: 1.25rem 1rem 2.75rem;
+    margin: 0;
+    padding: 0;               /* no outer gutters */
   }
-
   .app-surface {
-    border-radius: 1.5rem;
+    border-radius: 0;         /* no rounded frame */
+    border-left: none;
+    border-right: none;
+    box-shadow: none;         /* avoid halo/gutter effect */
+  }
+  .app-surface-content {
+    padding: 0;               /* page owns its own padding */
   }
 }
 
 @media (max-width: 640px) {
   .app-shell {
-    padding: 1rem 0.75rem 2.5rem;
-    gap: 1rem;
+    padding: 0;
+    gap: 0;
   }
 
   .app-surface-content {
-    padding: 1rem;
-    gap: 1rem;
+    padding: 0;
+    gap: 0;
   }
+}
+
+/* Force edge-to-edge when a page sets .edge-to-edge on app-surface-content */
+@media (max-width: 768px) {
+  .edge-to-edge .app-surface { border-radius: 0; box-shadow: none; border-left: none; border-right: none; }
+  .edge-to-edge .app-surface-content { padding: 0; }
 }
 
 /* Mobile-first responsive design for Network and Messaging */
@@ -470,6 +505,13 @@ p {
     margin: 1rem !important;
   }
   
+  /* Auth modal mobile optimizations */
+  [data-radix-dialog-content] {
+    max-height: 95vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
   /* Network page mobile optimization */
   .network-tabs {
     grid-template-columns: 1fr !important;
@@ -482,6 +524,79 @@ p {
 }
 
 /* Tablet responsive design */
+
+/* -----------------------------------------
+   Bottom navigation (safe-area aware)
+------------------------------------------*/
+.nav-root {
+  position: fixed;     /* was: sticky */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  height: var(--bottom-nav-h);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: hsl(var(--background));
+  border-top: 1px solid hsl(var(--border) / 0.5);
+  display: grid;
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 3.5vw, 16px);
+  margin: 0;
+}
+
+/* -----------------------------------------
+   TikTok-style feed scaffolding
+------------------------------------------*/
+.tiktok-feed {
+  height: calc(100dvh - var(--bottom-nav-safe));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+.tiktok-feed::-webkit-scrollbar { display: none; }
+
+.feed-card {
+  height: calc(100dvh - var(--bottom-nav-safe));
+  min-height: calc(100dvh - var(--bottom-nav-safe));
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  position: relative;
+  contain: layout paint;
+}
+
+/* Proportional action rail for each card */
+.action-rail {
+  position: absolute;
+  right: clamp(8px, 3vw, 16px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  gap: clamp(8px, 2.8vw, 14px);
+  z-index: 2;
+  pointer-events: none;
+}
+.action-rail .btn {
+  pointer-events: auto;
+  width: clamp(40px, 11vw, 56px);
+  height: clamp(40px, 11vw, 56px);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: hsl(var(--card)/0.6);
+  border: 1px solid hsl(var(--border)/0.5);
+}
+.action-rail .btn svg,
+.action-rail .btn .icon {
+  width: clamp(18px, 5vw, 22px);
+  height: clamp(18px, 5vw, 22px);
+}
+
 @media (min-width: 641px) and (max-width: 1024px) {
   .network-tabs {
     grid-template-columns: repeat(3, 1fr) !important;
@@ -1271,6 +1386,39 @@ input, select, textarea {
     background: #fff !important;
     background-image: none !important;
     border: 1px solid #000 !important;
+  }
+}
+
+/* Optional: slightly stronger text shadow for legibility on bright media */
+.overlay-text-soft {
+  text-shadow: 0 1px 3px rgba(0,0,0,.45);
+}
+
+/* soft glass with local gradient so text always reads */
+.caption-peek {
+  background: linear-gradient(180deg, rgba(8,8,8,.35), rgba(8,8,8,.65));
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* compact "chip" pill */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+}
+
+/* Lift action rail so it never covers the caption or home indicator */
+@media (max-width: 768px) {
+  .action-rail-fixed {
+    position: fixed;
+    right: 12px;
+    bottom: calc(var(--bottom-nav-safe) + 140px);
+    z-index: 40;
   }
 }
 

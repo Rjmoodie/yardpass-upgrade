@@ -286,170 +286,190 @@ function MediaContainer({ events, currentIndex, scrollRef }: any) {
   );
 }
 
-function EventOverlay({ event, onEventSelect, onLike, onShare, onScroll, setShowTicketModal, setShowAttendeeModal, setPostCreatorOpen }: any) {
+function EventOverlay({
+  event,
+  onEventSelect,
+  onLike,
+  onShare,
+  onScroll,
+  setShowTicketModal,
+  setShowAttendeeModal,
+  setPostCreatorOpen,
+}: any) {
   const { requireAuth } = useAuthGuard();
   const navigate = useNavigate();
-  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const hasTickets = !!event?.ticketTiers?.length;
+  const topTier = hasTickets ? event.ticketTiers[0] : null;
+
   return (
-    <div className="absolute bottom-4 left-0 right-0 p-4 text-white rail-safe">
-      <div className="flex justify-between items-end">
-        <div className="flex-1 mr-4 space-y-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge
-              variant="secondary"
-              className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90 transition-colors"
-              onClick={() => capture('feed_click', { target: 'category', event_id: event.id, category: event.category })}
-            >
-              {event.category}
-            </Badge>
-            <Badge
-              variant="outline"
-              className="border-white/30 text-white cursor-pointer hover:bg-white/10"
-                onClick={() => {
-                capture('feed_click', { target: 'attending', event_id: event.id });
-                setShowAttendeeModal(true);
-              }}
-            >
-              {event.attendeeCount} attending
-            </Badge>
-          </div>
-          
-          {/* Show ticket tiers if available */}
-          {event.ticketTiers?.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              {event.ticketTiers.map((tier: any) => (
-                <Button
-                  key={tier.id}
-                  size="sm"
-                  variant="secondary"
-                  className="rounded-full bg-white/15 hover:bg-white/25 backdrop-blur border-white/30"
-                  onClick={() => requireAuth(() => {
-                    capture('feed_click', { target: 'ticket_tier', event_id: event.id, tier: tier.name });
-                    setShowTicketModal(true);
-                  }, 'Sign in to view tickets')}
-                >
-                  {tier.badge && <span className="mr-2 px-1.5 py-0.5 text-[10px] rounded bg-black/40">{tier.badge}</span>}
-                  {tier.name} · ${tier.price}
-                </Button>
-              ))}
+    <div className="pointer-events-none absolute inset-0 z-20">
+      {/* ===== Right Action Rail (raised so caption can show) ===== */}
+      <div
+        className="
+          action-rail-fixed
+          pointer-events-auto
+          flex flex-col items-center gap-3 sm:gap-4
+        "
+      >
+        <ActionButton
+          icon={<Heart className={event.isLiked ? 'fill-white text-white' : 'text-white'} />}
+          label={event.likes}
+          active={event.isLiked}
+          onClick={() => onLike(event.id)}
+        />
+        <ActionButton
+          icon={<MessageCircle className="text-white" />}
+          label={event.posts?.length || 0}
+          onClick={() => {
+            capture('feed_click', { target: 'comment', event_id: event.id });
+            navigate(routes.event(event.id));
+          }}
+        />
+        <ActionButton
+          icon={<Plus className="text-white" />}
+          label="Post"
+          onClick={() =>
+            requireAuth(() => {
+              capture('feed_click', { target: 'post', event_id: event.id });
+              setPostCreatorOpen(true);
+            }, 'Sign in to post')
+          }
+        />
+        <ActionButton icon={<Share className="text-white" />} label={event.shares} onClick={() => onShare(event)} />
+        <ActionButton
+          icon={<MoreVertical className="text-white" />}
+          onClick={() => toast({ title: 'More options', description: 'Coming soon...' })}
+        />
+      </div>
+
+      {/* ===== Caption Peek (always visible) ===== */}
+      <div className="absolute inset-x-0 bottom-[calc(var(--bottom-nav-safe)+12px)] px-3 sm:px-5">
+        <div
+          className="
+            pointer-events-auto
+            caption-peek glass
+            rounded-2xl border border-white/15
+            px-3.5 py-3 sm:px-4 sm:py-3.5
+            text-white shadow-lg
+          "
+        >
+          {/* top row: organizer + quick actions */}
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <Avatar className="w-7 h-7 shrink-0">
+                <AvatarFallback className="text-xs bg-white/20 text-white">
+                  {event.organizer.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold truncate">{event.organizer}</span>
+                  <Badge variant="secondary" className="text-[10px] bg-white/15 border-white/30">
+                    ORGANIZER
+                  </Badge>
+                </div>
+                <div className="text-[11px] text-white/80 truncate">
+                  @{event.organizer.replaceAll(' ', '').toLowerCase()}
+                </div>
+              </div>
             </div>
-          )}
-          
-          <h2
+
+            {/* Quick ticket button (compact) */}
+            <div className="flex items-center gap-2 shrink-0">
+              {hasTickets && (
+                <button
+                  onClick={() =>
+                    requireAuth(() => {
+                      capture('feed_click', { target: 'tickets', event_id: event.id });
+                      setShowTicketModal(true);
+                    }, 'Sign in to buy tickets')
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 text-black text-xs font-bold px-3 py-1.5 shadow"
+                >
+                  🎟️ Tickets
+                </button>
+              )}
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="rounded-full bg-white/10 hover:bg-white/20 border border-white/20 w-8 h-8 grid place-items-center"
+                aria-label={expanded ? 'Collapse' : 'Expand'}
+              >
+                {expanded ? '–' : '+'}
+              </button>
+            </div>
+          </div>
+
+          {/* title + 1–2 lines of caption */}
+          <button
             onClick={() => {
               capture('feed_click', { target: 'title', event_id: event.id });
               navigate(routes.event(event.id));
             }}
-            className="text-2xl font-bold mb-2 max-w-xs cursor-pointer hover:text-primary-foreground/90"
+            className="block text-left w-full"
           >
-            {event.title}
-          </h2>
-          <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
-            <Avatar className="w-6 h-6">
-              <AvatarFallback className="text-xs bg-white/20 text-white">{event.organizer.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <button 
-              onClick={() => {
-                capture('feed_click', { target: 'handle', event_id: event.id });
-                navigate(routes.user(event.organizerId));
-              }}
-              className="cursor-pointer hover:text-white"
-              >
-              @{event.organizer.replaceAll(' ', '').toLowerCase()}
-              </button>
-            <Badge variant="secondary" className="text-xs">
-              <Crown className="w-3 h-3 mr-1" />
-              ORGANIZER
-            </Badge>
-          </div>
-          <div className="flex items-center gap-4 text-sm text-gray-300 mb-3">
-            <div className="flex items-center gap-1">
-              <Calendar className="w-4 h-4" />
-              {event.dateLabel}
-            </div>
-            <div className="flex items-center gap-1">
-                <MapPin className="w-4 h-4" />
-              {event.location}
-            </div>
-            <div className="flex items-center gap-1">
-              <Users className="w-4 h-4" />
-              {event.attendeeCount}
-            </div>
-          </div>
-          <div className="max-w-xs">
-            <p className={`text-sm text-gray-300 ${showFullDescription ? '' : 'line-clamp-2'}`}>
-              {event.description}
-            </p>
-            {event.description && event.description.length > 100 && (
-              <button
-                onClick={() => setShowFullDescription(!showFullDescription)}
-                className="text-xs text-primary-foreground/80 hover:text-primary-foreground mt-1 transition-colors"
-              >
-                {showFullDescription ? 'Show less' : 'Read more'}
-              </button>
+            <h2 className="text-lg sm:text-xl font-extrabold leading-tight mb-1 line-clamp-1">
+              {event.title}
+            </h2>
+          </button>
+
+          <p className="text-[13px] text-white/90 leading-snug line-clamp-2">
+            {event.description || ' '}
+          </p>
+
+          {/* meta chips */}
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/90">
+            <span className="chip"><Calendar className="w-3.5 h-3.5" />{event.dateLabel}</span>
+            {!!event.location && (
+              <span className="chip">
+                <MapPin className="w-3.5 h-3.5" />
+                <span className="truncate max-w-[40vw] sm:max-w-[240px]">{event.location}</span>
+              </span>
             )}
-          </div>
-            <div className="flex gap-3 flex-wrap">
-                <Button 
-                size="lg" 
-                variant="default"
-                onClick={() =>
-                  requireAuth(() => {
-                    capture('feed_click', { target: 'tickets', event_id: event.id });
-                    setShowTicketModal(true);
-                  }, 'Sign in to buy tickets')
-                }
-                className="bg-amber-500 text-black hover:bg-amber-600 min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-4 sm:px-6 text-sm sm:text-base font-bold shadow-lg touch-manipulation rounded-full"
-              >
-                Get Tickets
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline"
-                onClick={() => {
-                  capture('feed_click', { target: 'details', event_id: event.id });
-                  navigate(routes.event(event.id));
-                }}
-                className="border-white/30 text-white bg-white/10 hover:bg-white/20 min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-4 sm:px-6 text-sm sm:text-base font-semibold backdrop-blur-md touch-manipulation"
-              >
-                Details
-              </Button>
-            </div>
-          </div>
-        <div className="flex flex-col items-center gap-4 text-white relative z-20">
-          <ActionButton
-            icon={<Heart className={event.isLiked ? 'fill-white text-white' : 'text-white'} />}
-            label={event.likes}
-            active={event.isLiked}
-            onClick={() => onLike(event.id)}
-          />
-          <ActionButton
-            icon={<MessageCircle className="text-white" />}
-            label={event.posts?.length || 0}
+            <span className="chip"><Users className="w-3.5 h-3.5" />{event.attendeeCount}</span>
+            <button
               onClick={() => {
-              capture('feed_click', { target: 'comment', event_id: event.id });
-              navigate(routes.event(event.id));
-            }}
-          />
-          <ActionButton
-            icon={<Plus className="text-white" />}
-            label="Post"
-            onClick={() =>
-              requireAuth(() => {
-                capture('feed_click', { target: 'post', event_id: event.id });
-                setPostCreatorOpen(true);
-              }, 'Sign in to post')
-            }
-          />
-          <ActionButton
-            icon={<Share className="text-white" />}
-            label={event.shares}
-            onClick={() => onShare(event)}
-          />
-          <ActionButton
-            icon={<MoreVertical className="text-white" />}
-            onClick={() => toast({ title: 'More options', description: 'Coming soon...' })}
-          />
+                capture('feed_click', { target: 'attending', event_id: event.id });
+                setShowAttendeeModal(true);
+              }}
+              className="chip hover:bg-white/25 transition"
+            >
+              {event.attendeeCount} attending
+            </button>
+          </div>
+
+          {/* expanded panel (details + secondary CTA) */}
+          {expanded && (
+            <div className="mt-3 pt-3 border-t border-white/10">
+              <div className="flex gap-2">
+                <Button
+                  size="lg"
+                  variant="default"
+                  onClick={() =>
+                    requireAuth(() => {
+                      capture('feed_click', { target: 'tickets', event_id: event.id });
+                      setShowTicketModal(true);
+                    }, 'Sign in to buy tickets')
+                  }
+                  className="flex-1 min-h-[44px] rounded-full bg-amber-500 text-black hover:bg-amber-600 font-bold shadow-lg"
+                >
+                  Get Tickets
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => {
+                    capture('feed_click', { target: 'details', event_id: event.id });
+                    navigate(routes.event(event.id));
+                  }}
+                  className="min-h-[44px] rounded-full border-white/30 text-white bg-white/10 hover:bg-white/20 font-semibold backdrop-blur-md"
+                >
+                  Details
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

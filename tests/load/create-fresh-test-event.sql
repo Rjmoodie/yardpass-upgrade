@@ -90,3 +90,4 @@ JOIN ticket_tiers tt ON tt.event_id = e.id
 WHERE e.title = '[K6 LOAD TEST] Fresh Event'
 ORDER BY e.created_at DESC
 LIMIT 1;
+

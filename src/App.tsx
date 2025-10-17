@@ -263,14 +263,18 @@ function AppContent() {
       <WarmHlsOnIdle />
       <DeferredImports />
       <AnalyticsWrapper>
-        <div className="app-frame flex min-h-dvh flex-col bg-background relative no-page-bounce page-with-bottom-bar">
+        <div className="app-frame flex min-h-dvh flex-col bg-background relative no-page-bounce">
           <div className="app-mesh pointer-events-none" aria-hidden="true" />
 
           {/* Main Content Area */}
-          <main className="content-on-nav">
+          <main className="content-on-nav" role="main" aria-label="Main content">
             <div className="app-shell">
               <div className="app-surface">
-                <div className="app-surface-content">
+                {/*
+                  Edge-to-edge on mobile for feed/search.
+                  Add more routes as needed.
+                */}
+                <div className={`app-surface-content ${location.pathname === '/' || location.pathname.startsWith('/search') ? 'edge-to-edge' : ''}`}>
                   <Suspense fallback={<PageLoadingSpinner />}>
                     <Routes>
               {/* Public Routes */}
@@ -297,7 +301,7 @@ function AppContent() {
               <Route path="/e/:identifier" element={<EventSlugPage />} />
               <Route path="/e/:identifier/tickets" element={<TicketsRoute />} />
               <Route path="/e/:identifier/attendees" element={<EventAttendeesPage />} />
-              <Route path="/e/:identifier/tickets" element={<TicketsRoute />} />
+              {/* (duplicate tickets route removed above) */}
               <Route path="/privacy-policy" element={<PrivacyPolicy onBack={() => navigate('/')} />} />
               <Route path="/terms-of-service" element={<TermsOfService onBack={() => navigate('/')} />} />
               <Route path="/refund-policy" element={<RefundPolicy onBack={() => navigate('/')} />} />
