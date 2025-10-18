@@ -16,9 +16,8 @@ import {
   ChevronUp,
   ChevronDown,
   Sparkles,
-  Mic,
 } from 'lucide-react';
-import { RecordingModal } from './RecordingModal';
+import { VideoRecorder } from './VideoRecorder';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileView } from '@/contexts/ProfileViewContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -197,7 +196,7 @@ export function PostCreatorModal({
   const [loading, setLoading] = useState(false);
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [showRecorder, setShowRecorder] = useState(false);
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
 
   const dropRef = useRef<HTMLDivElement | null>(null);
   const unmountedRef = useRef(false);
@@ -866,9 +865,9 @@ export function PostCreatorModal({
                         variant="ghost"
                         size="sm"
                         className="rounded-full"
-                        onClick={() => setShowRecorder(true)}
+                        onClick={() => setShowVideoRecorder(true)}
                       >
-                        <Mic className="mr-1 h-4 w-4" /> Record
+                        <VideoIcon className="mr-1 h-4 w-4" /> Record video
                       </Button>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1061,14 +1060,19 @@ export function PostCreatorModal({
         </DialogContent>
       </Dialog>
 
-      <RecordingModal
-        isOpen={showRecorder}
-        onClose={() => setShowRecorder(false)}
-        onRecordingComplete={async (file) => {
-          await addFiles([file]);
-          setShowRecorder(false);
-        }}
-      />
+      {showVideoRecorder && (
+        <VideoRecorder
+          eventId={selectedEventId}
+          onClose={() => setShowVideoRecorder(false)}
+          onSave={(videoBlob) => {
+            const fileType = videoBlob.type || 'video/webm';
+            const fileName = `yardpass-recording-${Date.now()}.webm`;
+            const recordedFile = new File([videoBlob], fileName, { type: fileType });
+            void addFiles([recordedFile]);
+            setShowVideoRecorder(false);
+          }}
+        />
+      )}
     </>
   );
 }

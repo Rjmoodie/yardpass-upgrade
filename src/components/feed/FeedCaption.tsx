@@ -54,10 +54,10 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
     <div className="absolute inset-x-0 bottom-[12px] px-3 sm:px-5 pointer-events-none">
       <div
         ref={captionRef}
-        className="pointer-events-auto caption-peek rounded-2xl border border-white/15 px-3.5 py-3 sm:px-4 sm:py-3.5 text-white shadow-lg"
+        className="pointer-events-auto caption-peek flex flex-col gap-2.5 sm:gap-3 rounded-2xl border border-white/15 px-3.5 py-3 sm:px-4 sm:py-3.5 text-white shadow-lg"
       >
         {/* Top row */}
-        <div className="flex items-center justify-between gap-2 mb-1.5">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Avatar className="w-7 h-7 shrink-0">
               <AvatarFallback className="text-xs bg-white/20 text-white">
@@ -119,7 +119,7 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
         )}
 
         {/* Meta row */}
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/90">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/90">
           <span className="chip"><Calendar className="w-3.5 h-3.5" />{event.dateLabel}</span>
           {!!event.location && (
             <span className="chip">
