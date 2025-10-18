@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Crown,
@@ -34,7 +35,6 @@ import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useShare } from '@/hooks/useShare';
 import { useToast } from '@/hooks/use-toast';
 import { NotificationSystem } from '@/components/NotificationSystem';
-import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { FollowStats } from '@/components/follow/FollowStats';
 import { FollowButton } from '@/components/follow/FollowButton';
 import { MessageButton } from '@/components/messaging/MessageButton';
@@ -188,6 +188,7 @@ export default function UserProfilePage() {
   const { username, userId } = useParams<{ username?: string; userId?: string }>();
   const { user: currentUser, profile: currentProfile } = useAuth();
   const { activeView, setActiveView } = useProfileView();
+  const [density, setDensity] = useState<'cozy' | 'compact'>('compact'); // default to compact
   const { requireAuth } = useAuthGuard();
   const { toggleLike, getOptimisticData } = useOptimisticReactions();
   const { sharePost } = useShare();
@@ -371,6 +372,20 @@ export default function UserProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, username, currentUser, currentProfile]);
 
+  // Performance optimization: pause off-screen media
+  useEffect(() => {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        const id = e.target.getAttribute('data-post-id');
+        if (!id) return;
+        setPausedVideos((prev) => ({ ...prev, [id]: !e.isIntersecting || (selectedPost && selectedPost.item_id !== id) }));
+      });
+    }, { rootMargin: '100px 0px', threshold: 0.1 });
+
+    document.querySelectorAll('.media-tile').forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [selectedPost]);
+
   const feedItems = useMemo(() => posts.map((post) => toFeedItem(post, profile)), [posts, profile]);
 
   const statsByRole = useMemo(
@@ -542,194 +557,186 @@ export default function UserProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/40">
       {/* Notification Bell - Only on Profile Page */}
-      <div className="absolute right-3 top-3 sm:right-4 sm:top-4 z-40">
+      <div className="absolute z-40 notification-bell-container" style={{ 
+        right: 'max(2rem, env(safe-area-inset-right) + 1.5rem)',
+        top: 'max(2rem, env(safe-area-inset-top) + 1.5rem)'
+      }}>
         <NotificationSystem />
       </div>
       
       <div className="border-b border-border/40 bg-gradient-to-r from-primary/5 via-background to-background">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-6 lg:px-8 profile-header">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-3 md:items-center">
-              <Button
-                onClick={() => {
-                  if (typeof window !== 'undefined' && window.history.length > 1) {
-                    navigate(-1);
-                  } else {
-                    navigate('/');
-                  }
-                }}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-              >
+              {/* Back */}
+              <Button onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
+                variant="outline" size="sm" className="gap-1.5" title="Back">
                 <ArrowLeft className="h-4 w-4" />
-                Back
+                <span className="hidden sm:inline">Back</span>
               </Button>
 
+              {/* Avatar + name */}
               <div className="flex items-center gap-3">
-                <div className="h-16 w-16 rounded-full bg-gradient-to-r from-primary/80 to-accent/70 shadow-lg flex items-center justify-center overflow-hidden">
-                  {profile.photo_url ? (
-                    <img src={profile.photo_url} alt={profile.display_name} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-xl font-semibold text-white">{profile.display_name.charAt(0)}</span>
-                  )}
+                <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow">
+                  {profile.photo_url
+                    ? <img src={profile.photo_url} alt={profile.display_name} className="h-full w-full object-cover" />
+                    : <div className="h-full w-full grid place-items-center bg-gradient-to-r from-primary/70 to-accent/70 text-white font-semibold">
+                        {profile.display_name.charAt(0)}
+                      </div>}
                 </div>
 
-                <div className="space-y-1">
-                  <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                      {profile.display_name}
-                    </h1>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>Member since {formatDate(profile.created_at)}</span>
-                      <Badge variant={profile.role === 'organizer' ? 'default' : 'outline'} className="text-xs px-2 py-0.5">
-                        {profile.role === 'organizer' ? (
-                          <>
-                            <Crown className="mr-1 h-2 w-2" /> Organizer
-                          </>
-                        ) : (
-                          'Attendee'
-                        )}
-                      </Badge>
-                      {profile.verification_status === 'verified' && (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs px-2 py-0.5">
-                          ✓ Verified
-                        </Badge>
-                      )}
-                    </div>
+                <div className="space-y-0.5">
+                  <h1 className="text-lg sm:text-xl font-bold leading-tight">
+                    {profile.display_name}
+                  </h1>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>Member since {formatDate(profile.created_at)}</span>
+                    <Badge variant={profile.role === 'organizer' ? 'default' : 'outline'} className="text-[11px] px-2 py-0.5">
+                      {profile.role === 'organizer' ? <> <Crown className="h-3 w-3 mr-1" /> Organizer </> : 'Attendee'}
+                    </Badge>
+                    {profile.verification_status === 'verified' && (
+                      <Badge variant="secondary" className="text-[11px] px-2 py-0.5">✓ Verified</Badge>
+                    )}
                   </div>
-
-                  <FollowStats
-                    targetType="user"
-                    targetId={profile.user_id}
-                    enablePendingReview={isViewingOwnProfile}
-                  />
                 </div>
               </div>
             </div>
 
+            {/* Follow / Actions */}
             {isViewingOwnProfile ? (
               <div className="flex items-center gap-2">
-                <Button onClick={() => navigate('/edit-profile')} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs px-3 py-1.5">
-                  <Settings className="h-3.5 w-3.5" />
-                  Edit profile
+                <Button onClick={() => navigate('/edit-profile')} variant="outline" size="sm" className="px-3 py-1.5">
+                  <Settings className="h-3.5 w-3.5 mr-1" /> Edit
                 </Button>
-                <Button 
-                  onClick={async () => {
-                    try {
-                      await supabase.auth.signOut();
-                      toast({ title: 'Signed out', description: 'You have been signed out.' });
-                    } catch {
-                      toast({
-                        title: 'Error',
-                        description: 'Failed to sign out. Please try again.',
-                        variant: 'destructive',
-                      });
-                    }
-                  }}
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 hover:bg-red-50 hover:border-red-200 hover:text-red-700"
+                <Button
+                  onClick={async () => { try { await supabase.auth.signOut(); toast({ title: 'Signed out' }); } catch { toast({ title:'Error', description:'Failed to sign out', variant:'destructive' }); } }}
+                  variant="outline" size="sm" className="px-3 py-1.5"
                 >
-                  <LogOut className="h-3.5 w-3.5" />
-                  Sign Out
+                  <LogOut className="h-3.5 w-3.5 mr-1" /> Sign out
                 </Button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <FollowButton targetType="user" targetId={profile.user_id} size="sm" />
-                <MessageButton
-                  targetType="user"
-                  targetId={profile.user_id}
-                  targetName={profile.display_name}
-                />
+                <MessageButton targetType="user" targetId={profile.user_id} targetName={profile.display_name} />
               </div>
             )}
           </div>
 
-          <div className="space-y-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-base font-semibold text-foreground">
-                Activity overview {activeView === 'organizer' ? '(Organizer View)' : '(Attendee View)'}
-              </h2>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                <ToggleGroup
-                  type="single"
-                  value={activeView}
-                  onValueChange={(value) => {
-                    console.log('Toggle changed to:', value);
-                    if (value === 'attendee' || value === 'organizer') {
-                      setActiveView(value);
-                      console.log('Active view set to:', value);
-                    }
-                  }}
-                  variant="outline"
-                  className="w-fit rounded-full bg-background/80 p-1 shadow-sm transition-colors"
-                  aria-label="Toggle between attendee and organizer stats"
-                >
-                  <ToggleGroupItem
-                    value="attendee"
-                    className="rounded-full px-4 py-2 text-sm transition-all duration-200 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md"
-                  >
-                    Attendee view
-                  </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="organizer"
-                    className="rounded-full px-4 py-2 text-sm transition-all duration-200 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md"
-                  >
-                    Organizer view
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                {isViewingOwnProfile && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      console.log('Primary role action triggered');
-                      primaryRoleAction.onClick();
-                    }}
-                    className="flex items-center gap-2 rounded-full px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-md"
-                  >
-                    <PrimaryRoleIcon className="h-4 w-4" />
-                    {primaryRoleAction.label}
-                  </Button>
-                )}
+          {/* Inline stat chips, replaces the two stat cards */}
+          <div className="mt-3 flex flex-wrap gap-8">
+            {displayedStats.map((s) => (
+              <div key={`${activeView}-${s.label}`} className="stat-chip">
+                <span className="text-muted-foreground">{s.label}</span>
+                <span className="font-semibold">{s.value}</span>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {displayedStats.map((stat) => (
-                <Card
-                  key={`${activeView}-${stat.label}`}
-                  className="border-border/50 bg-background/70 transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-1"
-                >
-                  <CardContent className="p-3">
-                    <p className="text-sm text-muted-foreground">
-                      {stat.label}: <span className="text-lg font-semibold text-foreground">{stat.value}</span>
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            ))}
+            {isViewingOwnProfile && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={primaryRoleAction.onClick}
+                className="rounded-full px-3 py-1.5"
+              >
+                <LayoutDashboard className="h-4 w-4 mr-1" />
+                {primaryRoleAction.label}
+              </Button>
+            )}
           </div>
+        </div>
+      </div>
+
+      {/* Activity overview (kept compact) */}
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 mt-3 space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-sm sm:text-base font-semibold text-foreground">
+            Activity overview
+          </h2>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <ToggleGroup
+              type="single"
+              value={activeView}
+              onValueChange={(value) => {
+                if (value === 'attendee' || value === 'organizer') setActiveView(value);
+              }}
+              variant="outline"
+              className="w-fit rounded-full bg-background/80 p-1 shadow-sm transition-colors"
+              aria-label="Toggle between attendee and organizer stats"
+            >
+              <ToggleGroupItem
+                value="attendee"
+                className="rounded-full px-4 py-2 text-sm transition-all duration-200 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md"
+              >
+                Attendee view
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="organizer"
+                className="rounded-full px-4 py-2 text-sm transition-all duration-200 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md"
+              >
+                Organizer view
+              </ToggleGroupItem>
+            </ToggleGroup>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full px-3 py-1.5"
+              onClick={() => setDensity(density === 'compact' ? 'cozy' : 'compact')}
+              title="Toggle density"
+            >
+              {density === 'compact' ? 'Compact' : 'Cozy'}
+            </Button>
+
+            {isViewingOwnProfile && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={primaryRoleAction.onClick}
+                className="flex items-center gap-2 rounded-full px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-md"
+              >
+                <PrimaryRoleIcon className="h-4 w-4" />
+                {primaryRoleAction.label}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          {displayedStats.map((stat) => (
+            <Card
+              key={`${activeView}-${stat.label}`}
+              className="border-border/50 bg-background/70 transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-1"
+            >
+              <CardContent className="p-2 sm:p-3">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  {stat.label}:{' '}
+                  <span className="text-base sm:text-lg font-semibold text-foreground">
+                    {stat.value}
+                  </span>
+                </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 lg:flex-row lg:px-8">
         <section className="w-full space-y-6 lg:w-2/3">
-          <Card className="overflow-hidden border-border/50 bg-background/80 shadow-sm">
-            <CardHeader className="flex flex-col gap-4 border-b border-border/40 bg-gradient-to-r from-primary/10 via-primary/5 to-background px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-1 flex-col gap-2">
-                <div className="inline-flex items-center gap-2 self-start rounded-full bg-primary/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
-                  <Sparkles className="h-4 w-4" aria-hidden />
-                  Moments {feedItems.length}
-                </div>
+          <div className="section-shell">
+            <div className="section-head">
+              <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                <Sparkles className="h-4 w-4" aria-hidden />
+                Moments {feedItems.length}
               </div>
-            </CardHeader>
-            <CardContent className="px-6 py-5">
+              <div className="text-xs text-muted-foreground">{density === 'compact' ? 'Compact view' : 'Cozy view'}</div>
+            </div>
+
+            <div className="section-body">
               {feedItems.length > 0 ? (
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:gap-4">
+                <div className={`media-grid ${density === 'compact' ? 'compact' : ''}`}>
                   {feedItems.map((item) => {
                     const mediaUrl = item.media_urls?.[0] ?? null;
                     const isVideo = Boolean(mediaUrl && isVideoUrl(mediaUrl));
@@ -741,24 +748,26 @@ export default function UserProfilePage() {
                         key={item.item_id}
                         type="button"
                         onClick={() => handleSelectPost(item)}
-                        className="relative aspect-square overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-b from-card/50 to-card/30 shadow-sm ring-1 ring-black/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                        className="media-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                         aria-label={item.author_name ? `View post from ${item.author_name}` : 'View post'}
+                        data-post-id={item.item_id}
                       >
-                        {mediaUrl ? (
+                        {preview ? (
                           <ImageWithFallback
                             src={preview}
                             alt={item.author_name ? `Post from ${item.author_name}` : 'Post media'}
                             fallback={item.event_cover_image || DEFAULT_EVENT_COVER}
                             className="h-full w-full object-cover"
                             loading="lazy"
+                            sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 20vw"
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/40 to-muted/20 px-4 text-center text-xs text-muted-foreground">
-                            {item.content ? item.content.slice(0, 120) : 'Post'}
+                          <div className="grid h-full w-full place-items-center px-3 text-center text-xs text-muted-foreground">
+                            {item.content ? item.content.slice(0, 90) : 'Post'}
                           </div>
                         )}
                         {isVideo && (
-                          <div className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white">
+                          <div className="play-dot">
                             <Play className="h-3.5 w-3.5" />
                           </div>
                         )}
@@ -767,26 +776,21 @@ export default function UserProfilePage() {
                   })}
                 </div>
               ) : (
-                <div className="p-8">
-                  <EmptyState isSelf={isViewingOwnProfile} />
-                </div>
+                <div className="p-6"><EmptyState isSelf={isViewingOwnProfile} /></div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           <div className="relative">
             {activeView === 'attendee' ? (
-              <Card
-                key="attendee-role-card"
-                className="border-border/50 bg-background/80 transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-2"
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Ticket className="h-5 w-5" /> Recent tickets
-                  </CardTitle>
-                  <CardDescription>Events this user has attended most recently.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              <div className="section-shell">
+                <div className="section-head">
+                  <div className="flex items-center gap-2">
+                    <Ticket className="h-5 w-5" /> <span>Recent tickets</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Latest activity</span>
+                </div>
+                <div className="section-body space-y-2">
                   {tickets.length > 0 ? (
                     tickets.slice(0, 3).map((ticket) => {
                       const event = ticket.events;
@@ -829,20 +833,17 @@ export default function UserProfilePage() {
                   ) : (
                     <p className="text-sm text-muted-foreground">No ticket history yet.</p>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ) : (
-              <Card
-                key="organizer-role-card"
-                className="border-border/50 bg-background/80 transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-2"
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" /> Dashboard
-                  </CardTitle>
-                  <CardDescription>Overview of your organized events and activity.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              <div className="section-shell">
+                <div className="section-head">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" /> <span>Dashboard</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Event overview</span>
+                </div>
+                <div className="section-body space-y-2">
                   {events.length > 0 ? (
                     events.slice(0, 5).map((event) => (
                       <button
@@ -865,21 +866,21 @@ export default function UserProfilePage() {
                   ) : (
                     <p className="text-sm text-muted-foreground">No events to manage yet.</p>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </div>
         </section>
 
         <aside className="w-full space-y-6 lg:w-1/3">
-          <Card className="border-border/50 bg-background/80">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" /> Profile details
-              </CardTitle>
-              <CardDescription>Quick access to contact and background information.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
+          <div className="section-shell">
+            <div className="section-head">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5" /> <span>Profile details</span>
+              </div>
+              <span className="text-xs text-muted-foreground">Contact info</span>
+            </div>
+            <div className="section-body space-y-3 text-sm">
               <div>
                 <p className="text-muted-foreground">Display name</p>
                 <p className="font-medium">{profile.display_name}</p>
@@ -907,18 +908,18 @@ export default function UserProfilePage() {
                   <p className="font-medium">No social links added</p>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {activeView === 'organizer' && (
-            <Card className="border-border/50 bg-background/80">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" /> Event Management
-                </CardTitle>
-                <CardDescription>Quick access to your organized events.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
+            <div className="section-shell">
+              <div className="section-head">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" /> <span>Event Management</span>
+                </div>
+                <span className="text-xs text-muted-foreground">Quick access</span>
+              </div>
+              <div className="section-body space-y-2 text-sm">
                 {events.length > 0 ? (
                   events.slice(0, 3).map((event) => (
                     <button
@@ -936,8 +937,8 @@ export default function UserProfilePage() {
                 ) : (
                   <p className="text-muted-foreground">No events to manage yet.</p>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
         </aside>
       </main>
@@ -962,7 +963,7 @@ export default function UserProfilePage() {
           isMobile ? (
             <BottomSheetContent className="h-[90vh] overflow-hidden bg-black">
               <UserPostCard 
-                item={selectedPost} 
+                item={selectedPost as Extract<FeedItem, { item_type: 'post' }>} 
                 onLike={(postId) => handleLike(postId)} 
                 onComment={(postId) => handleComment(postId)} 
                 onShare={(postId) => handleSharePost(postId)} 
@@ -988,7 +989,7 @@ export default function UserProfilePage() {
           ) : (
             <DialogContent className="h-[90vh] w-full max-w-4xl overflow-hidden bg-black border-border/50 p-0">
               <UserPostCard 
-                item={selectedPost} 
+                item={selectedPost as Extract<FeedItem, { item_type: 'post' }>} 
                 onLike={(postId) => handleLike(postId)} 
                 onComment={(postId) => handleComment(postId)} 
                 onShare={(postId) => handleSharePost(postId)} 

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
+import { PushNotifications } from '@capacitor/push-notifications';
+import { Capacitor } from '@capacitor/core';
 
 interface NotificationPermission {
   granted: boolean;
@@ -16,10 +18,22 @@ export function usePushNotifications() {
   const [isSupported, setIsSupported] = useState(false);
 
   useEffect(() => {
-    // Check if notifications are supported
-    setIsSupported('Notification' in window);
+    // Check if notifications are supported (Capacitor native or web fallback)
+    const isCapacitor = Capacitor.isNativePlatform();
+    const isWebSupported = 'Notification' in window;
+    setIsSupported(isCapacitor || isWebSupported);
     
-    if ('Notification' in window) {
+    if (isCapacitor) {
+      // In Capacitor, check native permission
+      PushNotifications.checkPermissions().then((result) => {
+        setPermission({
+          granted: result.receive === 'granted',
+          denied: result.receive === 'denied',
+          default: result.receive === 'prompt'
+        });
+      });
+    } else if (isWebSupported) {
+      // Web fallback
       setPermission({
         granted: Notification.permission === 'granted',
         denied: Notification.permission === 'denied',
@@ -30,23 +44,42 @@ export function usePushNotifications() {
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!isSupported) {
-      toast({
-        title: "Not Supported",
-        description: "Push notifications are not supported in this browser",
-        variant: "destructive",
-      });
+      // Only show error in development, not in production
+      if (process.env.NODE_ENV === 'development') {
+        toast({
+          title: "Not Supported",
+          description: "Push notifications are not supported in this browser",
+          variant: "destructive",
+        });
+      }
       return false;
     }
 
     try {
-      const result = await Notification.requestPermission();
-      const granted = result === 'granted';
-      
-      setPermission({
-        granted,
-        denied: result === 'denied',
-        default: result === 'default'
-      });
+      const isCapacitor = Capacitor.isNativePlatform();
+      let granted = false;
+
+      if (isCapacitor) {
+        // Use Capacitor native push notifications
+        const result = await PushNotifications.requestPermissions();
+        granted = result.receive === 'granted';
+        
+        setPermission({
+          granted,
+          denied: result.receive === 'denied',
+          default: result.receive === 'prompt'
+        });
+      } else {
+        // Web fallback
+        const result = await Notification.requestPermission();
+        granted = result === 'granted';
+        
+        setPermission({
+          granted,
+          denied: result === 'denied',
+          default: result === 'default'
+        });
+      }
 
       if (granted) {
         toast({
@@ -56,7 +89,7 @@ export function usePushNotifications() {
       } else {
         toast({
           title: "Notifications Disabled",
-          description: "You can enable them later in your browser settings",
+          description: "You can enable them later in your device settings",
           variant: "destructive",
         });
       }
@@ -80,18 +113,37 @@ export function usePushNotifications() {
     }
 
     try {
-      const notification = new Notification(title, {
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
-        ...options
-      });
+      const isCapacitor = Capacitor.isNativePlatform();
+      
+      if (isCapacitor) {
+        // In Capacitor, use local notifications
+        PushNotifications.schedule({
+          notifications: [{
+            title,
+            body: options?.body || '',
+            id: Date.now(),
+            schedule: { at: new Date(Date.now() + 1000) }, // Show immediately
+            sound: 'default',
+            attachments: undefined,
+            actionTypeId: '',
+            extra: options?.data || {}
+          }]
+        });
+      } else {
+        // Web fallback
+        const notification = new Notification(title, {
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+          ...options
+        });
 
-      // Auto-close after 5 seconds
-      setTimeout(() => {
-        notification.close();
-      }, 5000);
+        // Auto-close after 5 seconds
+        setTimeout(() => {
+          notification.close();
+        }, 5000);
 
-      return notification;
+        return notification;
+      }
     } catch (error) {
       console.error('Error showing notification:', error);
     }

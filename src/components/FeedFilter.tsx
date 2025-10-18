@@ -178,7 +178,7 @@ export function FeedFilter({ onFilterChange, isOpen, onToggle, value }: FeedFilt
                 <input
                   type="text"
                   placeholder="Enter a city..."
-                  className="w-full px-4 py-3 rounded-xl bg-surface-2 border border-border text-text placeholder:text-text-3 focus:outline-none focus:border-accent"
+                  className="w-full px-4 py-3 rounded-xl bg-surface-2 border border-border text-black placeholder:text-gray-500 focus:outline-none focus:border-accent"
                 />
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                   <div className="w-5 h-5 rounded-full border-2 border-border"></div>

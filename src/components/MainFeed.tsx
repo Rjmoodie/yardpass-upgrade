@@ -297,7 +297,8 @@ function EventOverlay(props: any) {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20">
-      <FeedActionRail
+      <div className="pointer-events-auto">
+        <FeedActionRail
         items={[
           { icon: <Heart className={event.isLiked ? "fill-white text-white" : "text-white"} />, label: event.likes, active: event.isLiked, onClick: () => onLike(event.id) },
           { icon: <MessageCircle className="text-white" />, label: event.posts?.length || 0, onClick: () => {
@@ -311,7 +312,8 @@ function EventOverlay(props: any) {
           { icon: <Share className="text-white" />, label: event.shares, onClick: () => onShare(event) },
           { icon: <MoreVertical className="text-white" />, onClick: () => toast({ title: 'More options', description: 'Coming soon...' }) },
         ]}
-      />
+        />
+      </div>
 
       <FeedCaption
         event={event}

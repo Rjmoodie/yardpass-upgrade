@@ -471,13 +471,14 @@ export function NotificationSystem() {
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
             "relative hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary transition-all",
+            "h-10 w-10 sm:h-9 sm:w-9 notification-bell-button", // Larger touch target on mobile
             isOpen && "bg-accent"
           )}
         >
           {unreadCount > 0 ? (
-            <BellDot className="h-5 w-5 text-primary" />
+            <BellDot className="h-6 w-6 sm:h-5 sm:w-5 text-primary" />
           ) : (
-            <Bell className="h-5 w-5" />
+            <Bell className="h-6 w-6 sm:h-5 sm:w-5" />
           )}
           {unreadCount > 0 && (
             <Badge 
@@ -493,7 +494,11 @@ export function NotificationSystem() {
         {isOpen && (
           <Card 
             ref={panelRef}
-            className="absolute right-0 top-full mt-2 w-96 max-h-96 overflow-hidden z-50 shadow-lg border-2"
+            className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] sm:w-96 max-h-96 overflow-hidden z-50 shadow-lg border-2 sm:right-0 sm:left-auto"
+            style={{
+              right: 'max(0px, calc(100vw - 20rem - 1rem))', // Ensure it doesn't go off-screen on mobile
+              left: 'auto'
+            }}
           >
             <div className="flex items-center justify-between p-3 border-b">
               <h3 className="font-semibold">Notifications</h3>

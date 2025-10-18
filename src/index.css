@@ -16,9 +16,12 @@
 /* Utility to opt a screen into edge-to-edge on mobile */
 .edge-to-edge {
   --edge-padding: 0;
-  /* Ensure edge-to-edge content respects safe areas */
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Ensure content is truly edge-to-edge */
+  margin: 0;
+  width: 100vw;
+  max-width: 100vw;
+  /* Remove any padding that might cut off content */
+  padding: 0;
 }
 
 /* Tailwind CSS */
@@ -47,12 +50,11 @@ html, body, #root {
   overscroll-behavior: contain;
 }
 
+/* Remove conflicting scroll from child elements - only content-on-nav should scroll */
 .app-surface-content,
 .content-on-nav > *,
 .main-content-with-nav {
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overflow-y: visible;
 }
 
 .fixed-element {
@@ -377,7 +379,7 @@ p {
 /* Utility class for content positioned directly on navigation bar */
 .content-on-nav {
   position: fixed;
-  top: 0; /* Start from the top of the safe area */
+  top: env(safe-area-inset-top); /* Start from the top of the safe area */
   left: 0;
   right: 0;
   bottom: var(--bottom-nav-safe);  /* stops exactly at nav top */
@@ -388,19 +390,22 @@ p {
   padding: 0;
   margin: 0;
   background: transparent;
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
+  display: block; /* Changed from flex to block for proper scrolling */
   z-index: 1;
+  height: calc(100vh - var(--bottom-nav-safe)); /* Ensure proper height */
 }
 .content-on-nav::-webkit-scrollbar { display: none; } /* WebKit hide */
 
 @media (max-width: 640px) {
   .content-on-nav {
-    top: 0; /* Start from the top of the safe area */
+    top: 0; /* Start from the top of the app frame (which has safe area padding) */
     left: 0;
     right: 0;
     bottom: var(--bottom-nav-safe);
+    display: block; /* Ensure proper scrolling on mobile */
+    height: calc(100vh - var(--bottom-nav-safe));
+    /* Ensure content starts from the very top */
+    padding-top: 0;
   }
   
   /* Force bottom nav to cover entire bottom area on mobile */
@@ -877,14 +882,19 @@ p {
 /* Critical: Ensure top safe area is respected ONLY at the app frame level */
 .app-frame {
   padding-top: env(safe-area-inset-top);
+  /* Ensure the app frame itself respects safe areas */
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-/* Content positioning - no additional top padding needed since app-frame handles it */
+/* Content positioning - start from the top of the safe area */
 .content-on-nav {
-  top: 0; /* Start from the top of the safe area */
+  top: 0; /* Start from the top of the app frame (which has safe area padding) */
   left: 0;
   right: 0;
   bottom: var(--bottom-nav-safe);
+  /* Ensure content starts from the very top */
+  padding-top: 0;
 }
 
 /* iOS-specific utilities */
@@ -946,13 +956,11 @@ p {
   height: 100%;
 }
 
-/* Universal scrolling fix for all main content */
+/* Remove conflicting scroll from child elements - only content-on-nav should scroll */
 .app-surface-content,
 .content-on-nav > *,
 .main-content-with-nav {
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overflow-y: visible;
 }
 
 /* Touch manipulation for better performance */
@@ -1917,6 +1925,199 @@ input, select, textarea {
 @media (prefers-reduced-motion: reduce) {
   .rail-btn, .bottom-bar { transition: none; }
 }
+}
+
+/* Mobile bell icon positioning fixes */
+@media (max-width: 640px) {
+  /* Ensure bell icon has proper spacing from edges and doesn't overlap content */
+  .notification-bell-container {
+    right: max(2rem, env(safe-area-inset-right) + 1.5rem) !important;
+    top: max(2rem, env(safe-area-inset-top) + 1.5rem) !important;
+    z-index: 50 !important;
+  }
+  
+  /* Ensure bell button has proper touch target */
+  .notification-bell-button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    padding: 8px !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  /* Fix any visual artifacts */
+  .notification-bell-button:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 2px hsl(var(--primary)) !important;
+  }
+  
+  /* Ensure bell icon doesn't interfere with content */
+  .notification-bell-button:hover {
+    background: rgba(255, 255, 255, 0.95) !important;
+    transform: scale(1.05) !important;
+  }
+}
+
+/* Dense, media-first grid */
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px; /* default comfy gap */
+}
+.media-grid.compact {
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 6px;
+}
+
+/* Compact header + stat chips */
+.profile-header {
+  padding: 12px 0;
+}
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--border)/0.6);
+  background: hsl(var(--card)/0.6);
+}
+
+/* Make section chrome lighter */
+.section-shell {
+  border: 1px solid hsl(var(--border)/0.5);
+  border-radius: 14px;
+  background: hsl(var(--card)/0.7);
+}
+.section-body {
+  padding: 12px 14px;
+}
+.section-head {
+  padding: 10px 14px;
+  border-bottom: 1px solid hsl(var(--border)/0.45);
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* Smaller media tile affordances */
+.media-tile {
+  position: relative;
+  aspect-ratio: 1/1;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border)/0.45);
+  background: hsl(var(--card)/0.4);
+}
+.media-tile .play-dot {
+  position: absolute; right: 8px; bottom: 8px;
+  width: 28px; height: 28px; border-radius: 9999px;
+  display: grid; place-items: center;
+  background: rgba(0,0,0,.66); color: white;
+}
+
+/* Trim paddings in mobile */
+@media (max-width: 640px) {
+  .profile-header { padding: 8px 0; }
+  .section-body { padding: 10px 12px; }
+  .section-head  { padding: 8px 12px; }
+}
+
+/* --- Feed Rail (caption & safe-area aware) --- */
+.feed-rail {
+  position: fixed;
+  z-index: 40;
+  /* keep a sensible inset from the right edge even with safe areas */
+  right: max(12px, calc(env(safe-area-inset-right) + 8px));
+  /* Position precisely at the top of the caption area with small offset */
+  --caption-top: calc(100vh - var(--bottom-nav-safe) - var(--caption-h));
+  top: calc(var(--caption-top) - 8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(3px, 0.8vh, 6px);
+  /* never collide with the header/top chips */
+  max-height: calc(100svh - var(--caption-top) - 72px);
+  overflow: visible;
+  pointer-events: auto;
+}
+
+/* Touch target + micro interactions */
+.feed-rail__btn {
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 160ms var(--ease-out, cubic-bezier(0.25,0.46,0.45,0.94));
+}
+.feed-rail__btn:active { transform: scale(0.96); }
+
+/* Icon container (glass) */
+.feed-rail__icon {
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  padding: clamp(4px, 1vh, 6px);
+  min-width: clamp(24px, 3.5vh, 28px);
+  min-height: clamp(24px, 3.5vh, 28px);
+  border: 1px solid hsl(0 0% 100% / 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+.feed-rail__icon--idle {
+  background: hsl(0 0% 0% / 0.40);
+}
+.feed-rail__icon--idle:hover {
+  background: hsl(0 0% 100% / 0.18);
+}
+.feed-rail__icon--active {
+  background: hsl(358 75% 59%); /* matches your --destructive / red */
+  box-shadow: 0 8px 18px hsl(358 75% 59% / 0.35);
+  transform: translateZ(0) scale(1.06);
+}
+
+/* SVG sizing stays consistent across screens */
+.feed-rail__icon svg {
+  width: clamp(10px, 1.5vh, 12px);
+  height: clamp(10px, 1.5vh, 12px);
+  color: white;
+}
+
+/* Count/Post label: glass chip for contrast over busy media */
+.feed-rail__label {
+  font-size: 7px;
+  line-height: 1;
+  font-weight: 600;
+  color: white;
+  padding: 1px 3px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35));
+  border: 1px solid rgba(255,255,255,.18);
+  text-shadow: 0 1px 2px rgba(0,0,0,.45);
+}
+
+/* Short screens: hide labels to prevent collisions with caption */
+@media (max-height: 680px) {
+  .feed-rail__label { display: none; }
+}
+
+/* Landscape: rail sits a bit higher so it never hits bottom nav or caption */
+@media (orientation: landscape) and (max-height: 500px) {
+  .feed-rail { bottom: calc(var(--bottom-nav-safe) + max(48px, 10vh)); }
+}
+
+/* Very narrow phones: slightly smaller hit circle but keep 44pt min touch via button wrapper */
+@media (max-width: 360px) {
+  .feed-rail__icon {
+    min-width: 34px; min-height: 34px; padding: 7px;
+  }
+  .feed-rail__icon svg { width: 15px; height: 15px; }
 }
 
 /* Close the @layer components block */

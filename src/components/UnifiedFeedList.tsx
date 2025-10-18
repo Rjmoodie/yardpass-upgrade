@@ -728,6 +728,14 @@ export default function UnifiedFeedList() {
         style={{ WebkitOverflowScrolling: 'touch', scrollSnapStop: 'always' }}
         {...containerProps}
       >
+        {/* Title Section */}
+        <div className="relative z-40 px-3 pt-4 pb-2 sm:px-4">
+          <div className="mx-auto w-full max-w-5xl text-center">
+            <h1 className="text-2xl font-bold text-white mb-1">LAUNDACH</h1>
+            <h2 className="text-4xl font-bold text-white">YARD-PASS</h2>
+          </div>
+        </div>
+        
         <header className="sticky top-0 z-30 bg-gradient-to-b from-black/95 via-black/70 to-transparent px-3 pt-2 pb-2 backdrop-blur-md sm:px-4">
           <div className="mx-auto w-full max-w-5xl">
             <div className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 shadow-lg backdrop-blur-xl">
@@ -742,15 +750,20 @@ export default function UnifiedFeedList() {
               </Button>
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] text-white/70">
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-0.5">
+              <button
+                onClick={() => setFiltersOpen(true)}
+                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-0.5 transition-all hover:bg-black/40 hover:border-white/20 active:scale-95 touch-manipulation"
+                aria-label="Change location filter"
+              >
                 <MapPin className="h-2.5 w-2.5" /> {activeLocation}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-0.5">
+              </button>
+              <button
+                onClick={() => setFiltersOpen(true)}
+                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-0.5 transition-all hover:bg-black/40 hover:border-white/20 active:scale-95 touch-manipulation"
+                aria-label="Change date filter"
+              >
                 <Compass className="h-2.5 w-2.5" /> {activeDate}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 uppercase tracking-wider text-[8px] text-white/50">
-                Organic &amp; boosted
-              </span>
+              </button>
               {boostsLoading && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
                   <BrandedSpinner size="sm" text="Calibrating" />

@@ -866,7 +866,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 value={city}
                 onChange={(e) => setParam('city', e.target.value)}
                 placeholder="City or virtual"
-                className="h-12 rounded-2xl border-slate-200 pl-11"
+                className="h-12 rounded-2xl border-slate-200 pl-11 text-black placeholder:text-slate-500"
               />
             </div>
             <Button
@@ -994,7 +994,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 value={min}
                 onChange={(e) => setParam('min', e.target.value)}
                 placeholder="0"
-                className="mt-2 h-10 rounded-xl"
+                className="mt-2 h-10 rounded-xl text-black placeholder:text-slate-500"
               />
             </div>
             <div>
@@ -1004,7 +1004,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 value={max}
                 onChange={(e) => setParam('max', e.target.value)}
                 placeholder="Any"
-                className="mt-2 h-10 rounded-xl"
+                className="mt-2 h-10 rounded-xl text-black placeholder:text-slate-500"
               />
             </div>
           </div>
@@ -1177,7 +1177,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               value={q}
               onChange={(e) => setParam('q', e.target.value)}
               placeholder="Search events, organizers, locations..."
-              className="h-12 rounded-2xl border-slate-200 bg-white/95 pl-11 text-base shadow-sm transition focus-visible:ring-2 focus-visible:ring-slate-900/20"
+              className="h-12 rounded-2xl border-slate-200 bg-white/95 pl-11 text-base text-black placeholder:text-slate-500 shadow-sm transition focus-visible:ring-2 focus-visible:ring-slate-900/20"
             />
           </div>
           
@@ -1261,7 +1261,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                       value={q}
                       onChange={(e) => setParam('q', e.target.value)}
                       placeholder="Search events, organizers, or locations (press / to focus)"
-                      className="h-12 rounded-2xl border-slate-200 bg-white/95 pl-11 text-base shadow-sm transition focus-visible:ring-2 focus-visible:ring-slate-900/20"
+                      className="h-12 rounded-2xl border-slate-200 bg-white/95 pl-11 text-base text-black placeholder:text-slate-500 shadow-sm transition focus-visible:ring-2 focus-visible:ring-slate-900/20"
                     />
                   </div>
                 </div>

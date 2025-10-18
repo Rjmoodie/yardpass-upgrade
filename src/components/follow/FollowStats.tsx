@@ -24,7 +24,7 @@ export function FollowStats({ targetType, targetId, enablePendingReview = false 
   }, [counts.followerCount, counts.followingCount, counts.pendingCount, enablePendingReview]);
 
   return (
-    <div className="flex items-center gap-6">
+    <div className="flex items-center gap-4 sm:gap-6">
       {items.map(item => (
         <button
           key={item.label}
@@ -32,7 +32,7 @@ export function FollowStats({ targetType, targetId, enablePendingReview = false 
           onClick={() => setModal(item.key)}
           className="flex flex-col items-start text-left"
         >
-          <span className="text-lg font-semibold">{item.value}</span>
+          <span className="text-base sm:text-lg font-semibold">{item.value}</span>
           <span className="text-xs uppercase tracking-wide text-muted-foreground">{item.label}</span>
         </button>
       ))}

@@ -1,5 +1,5 @@
 // src/components/UserPostCard.tsx
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause } from 'lucide-react';
 import { useHlsVideo } from '@/hooks/useHlsVideo';
@@ -59,6 +59,8 @@ export const UserPostCard = memo(function UserPostCard({
 }: UserPostCardProps) {
   const { trackEvent } = useAnalyticsIntegration();
   const [mediaError, setMediaError] = useState(false);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const mediaUrl = useMemo(() => item.media_urls?.[0] || null, [item.media_urls]);
   const isVideo = useMemo(() => Boolean(mediaUrl && isVideoUrl(mediaUrl!)), [mediaUrl]);
@@ -70,7 +72,33 @@ export const UserPostCard = memo(function UserPostCard({
   const likes = item.metrics?.likes ?? 0;
   const comments = item.metrics?.comments ?? 0;
 
-  const { videoRef, ready, error: hlsError } = useHlsVideo(videoSrc);
+  const { videoRef, ready, error: hlsError } = useHlsVideo(shouldLoadVideo ? videoSrc : undefined);
+
+  // Lazy load video when component is about to be visible
+  useEffect(() => {
+    if (!isVideo || shouldLoadVideo) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShouldLoadVideo(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { 
+        rootMargin: '200px 0px', // Start loading when 200px away from viewport
+        threshold: 0.1 
+      }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [isVideo, shouldLoadVideo]);
 
   // Play/pause side effect driven by isVideoPlaying
   useEffect(() => {
@@ -285,7 +313,7 @@ export const UserPostCard = memo(function UserPostCard({
   }
 
   return (
-    <div className="relative h-full w-full flex-1 overflow-hidden bg-black">
+    <div ref={containerRef} className="relative h-full w-full flex-1 overflow-hidden bg-black">
       {/* Background Media */}
       {!showFallback ? (
         <div className="absolute inset-0">
@@ -298,7 +326,7 @@ export const UserPostCard = memo(function UserPostCard({
                 muted
                 loop
                 playsInline
-                preload="auto"
+                preload="none"
                 crossOrigin="anonymous"
                 onClick={handleVideoClick}
                 aria-label={isVideoPlaying ? 'Pause video' : 'Play video'}

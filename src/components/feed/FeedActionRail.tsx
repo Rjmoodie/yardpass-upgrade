@@ -1,3 +1,4 @@
+// components/feed/FeedActionRail.tsx
 import { ReactNode } from "react";
 
 type RailButton = {
@@ -5,6 +6,7 @@ type RailButton = {
   label?: ReactNode;
   active?: boolean;
   onClick?: () => void;
+  title?: string;
 };
 
 type RailProps = {
@@ -13,29 +15,35 @@ type RailProps = {
 };
 
 /**
- * Sits ABOVE the caption & bottom nav using CSS vars:
- * bottom = calc(var(--bottom-nav-safe) + var(--caption-h) + var(--rail-gap))
+ * Safe-area aware, caption-aware action rail.
+ * Positions itself above the bottom nav + caption using CSS vars:
+ * --bottom-nav-safe and --caption-h (already in your codebase).
  */
 export function FeedActionRail({ items, className = "" }: RailProps) {
   return (
-    <div className={`action-rail-safe flex flex-col items-center gap-3 ${className}`}>
+    <div className={`feed-rail pointer-events-auto ${className}`}>
       {items.map((it, i) => (
         <button
           key={i}
+          type="button"
+          title={typeof it.label === "string" ? it.label : it.title}
           onClick={it.onClick}
-          className="touch-target flex flex-col items-center gap-0 transition-transform active:scale-95 touch-manipulation"
+          className="feed-rail__btn"
         >
           <div
-            className={`rounded-full transition-all ${
+            className={[
+              "feed-rail__icon",
               it.active
-                ? "bg-red-500 shadow-lg shadow-red-500/30 scale-110"
-                : "bg-black/40 backdrop-blur-sm border border-white/20 hover:bg-white/20"
-            }`}
+                ? "feed-rail__icon--active"
+                : "feed-rail__icon--idle"
+            ].join(" ")}
           >
             {it.icon}
           </div>
+
+          {/* Auto-hides on short screens via CSS, or when label === undefined */}
           {it.label !== undefined && (
-            <span className="text-[9px] font-medium text-white drop-shadow-lg leading-none">{it.label}</span>
+            <span className="feed-rail__label">{it.label}</span>
           )}
         </button>
       ))}
