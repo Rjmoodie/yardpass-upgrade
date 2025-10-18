@@ -18,12 +18,12 @@ type RailProps = {
  */
 export function FeedActionRail({ items, className = "" }: RailProps) {
   return (
-    <div className={`action-rail-safe flex flex-col items-center ${className}`}>
+    <div className={`action-rail-safe flex flex-col items-center gap-3 ${className}`}>
       {items.map((it, i) => (
         <button
           key={i}
           onClick={it.onClick}
-          className="flex flex-col items-center gap-0 transition-transform active:scale-95 touch-manipulation"
+          className="touch-target flex flex-col items-center gap-0 transition-transform active:scale-95 touch-manipulation"
         >
           <div
             className={`rounded-full transition-all ${

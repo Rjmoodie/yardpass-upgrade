@@ -17,7 +17,6 @@ import { AccessGate } from '@/components/access/AccessGate';
 import { useShare } from '@/hooks/useShare';
 import { useInfiniteScroll } from '@/hooks/useIntersectionObserver';
 import { useEventSlug } from '@/hooks/useEventSlug';
-import { EventSlugDisplay } from '@/components/ui/slug-display';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { shouldIndexEvent, buildEventShareUrl } from '@/lib/visibility';
 import { stripHtml, sanitizeHtml } from '@/lib/security';
@@ -622,17 +621,16 @@ export default function EventSlugPage() {
                       <AvatarImage src={hostAvatar} alt={hostName} />
                       <AvatarFallback className="bg-gradient-to-br from-primary/70 to-accent/70 text-primary-foreground font-bold">{eventInitials}</AvatarFallback>
                     </Avatar>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {event.category && (
                         <Badge variant="secondary" className="uppercase tracking-wide bg-card/50 text-foreground border-border/50">{event.category}</Badge>
                       )}
-                      <h1 className="text-2xl md:text-3xl font-semibold leading-tight">{event.title}</h1>
-                       {beautifiedSlug && (
-                         <div className="mt-3">
-                           <EventSlugDisplay slug={beautifiedSlug} />
-                         </div>
-                       )}
-                      <div className="mt-1 flex flex-col gap-1 text-sm text-muted-foreground">
+                      <div className="space-y-1.5">
+                        <h1 className="text-2xl md:text-3xl font-semibold leading-tight text-foreground">{event.title}</h1>
+                        <p className="event-subtitle">{hostName}</p>
+                        {beautifiedSlug && <p className="event-slug">@{beautifiedSlug}</p>}
+                      </div>
+                      <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><span>{headerWhen}</span></div>
                         <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /><span>{locationDisplay}</span></div>
                       </div>

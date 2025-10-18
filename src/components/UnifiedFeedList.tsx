@@ -689,6 +689,8 @@ export default function UnifiedFeedList() {
   }, [toast]);
 
   const activeLocation = filters.locations[0] ?? 'Near you';
+  const normalizedLocation = activeLocation.replace(/^Near\s+/i, '').trim();
+  const locationHeading = normalizedLocation ? `Near ${normalizedLocation}` : 'Near you';
   const activeDate = filters.dates[0] ?? 'Anytime';
 
   if (status === 'pending') {
@@ -729,7 +731,7 @@ export default function UnifiedFeedList() {
         <header className="sticky top-0 z-30 bg-gradient-to-b from-black/95 via-black/70 to-transparent px-3 pt-2 pb-2 backdrop-blur-md sm:px-4">
           <div className="mx-auto w-full max-w-5xl">
             <div className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 shadow-lg backdrop-blur-xl">
-              <h1 className="text-sm font-semibold leading-tight text-white sm:text-base">Near {activeLocation}</h1>
+              <h1 className="text-sm font-semibold leading-tight text-white sm:text-base">{locationHeading}</h1>
               <Button
                 variant="secondary"
                 size="sm"

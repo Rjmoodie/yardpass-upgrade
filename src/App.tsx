@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProfileViewProvider, useProfileView } from '@/contexts/ProfileViewContext';
 import { ThemeProvider } from "next-themes";
@@ -20,6 +20,7 @@ import { Event } from '@/types/events';
 import { PerfPreconnect } from '@/components/Perf/PerfPreconnect';
 import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
 import { DeferredImports } from '@/components/Perf/DeferredImports';
+import { useAccessibility } from '@/hooks/useAccessibility';
 
 // Lazy load heavy components
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
@@ -64,7 +65,7 @@ const WalletPage = lazy(() => import('@/pages/WalletPage'));
 const OrgWalletPage = lazy(() => import('@/pages/OrgWalletPage'));
 const CampaignDashboardPage = lazy(() => import('@/pages/CampaignDashboardPage'));
 const MessagesPage = lazy(() => import('@/pages/MessagesPage'));
-const UserSocialPage = lazy(() => import('@/pages/UserSocialPage').then((m) => ({ default: m.UserSocialPage })));
+const SocialPage = lazy(() => import('@/components/SocialPage').then((m) => ({ default: m.SocialPage })));
 
 // Auth guard
 import { AuthGuard } from '@/components/AuthGuard';
@@ -162,6 +163,8 @@ function AppContent() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+
+  useAccessibility();
 
   // Initialize iOS Capacitor settings on app load
   useEffect(() => {
@@ -267,14 +270,22 @@ function AppContent() {
           <div className="app-mesh pointer-events-none" aria-hidden="true" />
 
           {/* Main Content Area */}
-          <main className="content-on-nav" role="main" aria-label="Main content">
+          <main
+            id="main-content"
+            className="content-on-nav scroll-container"
+            role="main"
+            aria-label="Main content"
+          >
             <div className="app-shell">
               <div className="app-surface">
-                {/*
-                  Edge-to-edge on mobile for feed/search.
-                  Add more routes as needed.
-                */}
-                <div className={`app-surface-content ${location.pathname === '/' || location.pathname.startsWith('/search') ? 'edge-to-edge' : ''}`}>
+                {/* Edge-to-edge on mobile for feed/search. Add more routes as needed. */}
+                <div
+                  className={`app-surface-content ${
+                    location.pathname === '/' || location.pathname.startsWith('/search')
+                      ? 'edge-to-edge'
+                      : ''
+                  }`}
+                >
                   <Suspense fallback={<PageLoadingSpinner />}>
                     <Routes>
               {/* Public Routes */}
@@ -385,7 +396,7 @@ function AppContent() {
                 path="/social"
                 element={
                   <AuthGuard>
-                    <UserDependentRoute>{() => <UserSocialPage />}</UserDependentRoute>
+                    <SocialPage />
                   </AuthGuard>
                 }
               />

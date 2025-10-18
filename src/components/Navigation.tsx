@@ -1,4 +1,4 @@
-import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign, MessageCircle, Users } from 'lucide-react';
+import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -87,8 +87,7 @@ export default function Navigation({ userRole }: NavigationProps) {
         { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: true },
         { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: effectiveUserRole === 'organizer' },
         { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
-        { id: 'social' as Screen, path: '/social', icon: Users, label: 'Network', show: true },
-        { id: 'messages' as Screen, path: '/messages', icon: MessageCircle, label: 'Messages', show: true },
+        { id: 'social' as Screen, path: '/social', icon: Users, label: 'Social', show: true },
         { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
       ] as const
     ).filter((i) => i.show);
@@ -176,9 +175,9 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-50"
-      style={{ 
-        margin: 0, 
+      className="fixed inset-x-0 bottom-0 z-50 fixed-element"
+      style={{
+        margin: 0,
         padding: 0,
         WebkitTransform: 'translateZ(0)',
         transform: 'translateZ(0)'

@@ -38,6 +38,7 @@ import { FollowButton } from '@/components/follow/FollowButton';
 import { MessageButton } from '@/components/messaging/MessageButton';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { FilterModal, FilterSelections, LocationFilterOption, SortOption, TimeFilterOption } from '@/components/FilterModal';
 
 interface SearchPageProps {
   onBack: () => void;
@@ -147,7 +148,90 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const category = searchParams.get('category') || 'All';
   const from = searchParams.get('from') || '';
   const to = searchParams.get('to') || '';
-  const sort = searchParams.get('sort') || 'relevance';
+  const sortParam = searchParams.get('sort');
+  const locationScopeParam = searchParams.get('location_scope');
+  const whenParam = searchParams.get('when');
+
+  const parseSortOption = (value: string | null): SortOption => {
+    if (value === 'date' || value === 'distance' || value === 'popularity') {
+      return value;
+    }
+    return 'relevance';
+  };
+
+  const parseLocationFilter = (value: string | null): LocationFilterOption => {
+    const allowed: LocationFilterOption[] = ['near-me', 'city', 'state', 'country'];
+    return allowed.includes(value as LocationFilterOption) ? (value as LocationFilterOption) : 'near-me';
+  };
+
+  const parseTimeFilter = (value: string | null): TimeFilterOption => {
+    const allowed: TimeFilterOption[] = ['anytime', 'today', 'tomorrow', 'this-week', 'this-month'];
+    return allowed.includes(value as TimeFilterOption) ? (value as TimeFilterOption) : 'anytime';
+  };
+
+  const [locationFilter, setLocationFilter] = useState<LocationFilterOption>(() => parseLocationFilter(locationScopeParam));
+  const [timeFilter, setTimeFilter] = useState<TimeFilterOption>(() => parseTimeFilter(whenParam));
+  const [sortBy, setSortBy] = useState<SortOption>(() => parseSortOption(sortParam));
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    setLocationFilter(parseLocationFilter(locationScopeParam));
+  }, [locationScopeParam]);
+
+  useEffect(() => {
+    setTimeFilter(parseTimeFilter(whenParam));
+  }, [whenParam]);
+
+  useEffect(() => {
+    setSortBy(parseSortOption(sortParam));
+  }, [sortParam]);
+
+  const locationFilterLabels: Record<LocationFilterOption, string> = {
+    'near-me': 'Near me',
+    'city': 'In my city',
+    'state': 'In my state',
+    'country': 'In my country',
+  };
+
+  const timeFilterLabels: Record<TimeFilterOption, string> = {
+    'anytime': 'Anytime',
+    'today': 'Today',
+    'tomorrow': 'Tomorrow',
+    'this-week': 'This week',
+    'this-month': 'This month',
+  };
+
+  const sortLabels: Record<SortOption, string> = {
+    relevance: 'Best match',
+    date: 'Soonest first',
+    distance: 'Closest first',
+    popularity: 'Most popular',
+  };
+
+  const { cityName, stateName, countryName } = useMemo(() => {
+    const segments = city
+      .split(',')
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    const derivedCity = segments[0]?.toLowerCase() ?? '';
+    let derivedState = '';
+    let derivedCountry = '';
+
+    if (segments.length >= 3) {
+      derivedState = segments[1]?.toLowerCase() ?? '';
+      derivedCountry = segments[2]?.toLowerCase() ?? '';
+    } else if (segments.length === 2) {
+      const second = segments[1];
+      if (second.length > 3) {
+        derivedCountry = second.toLowerCase();
+      } else {
+        derivedState = second.toLowerCase();
+      }
+    }
+
+    return { cityName: derivedCity, stateName: derivedState, countryName: derivedCountry };
+  }, [city]);
   const min = searchParams.get('min') || '';
   const max = searchParams.get('max') || '';
   
@@ -393,28 +477,165 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     return searchResults.filter(result => result.item_type === 'event');
   }, [searchResults]);
 
+  const getEventStartDate = (event: any): Date | null => {
+    const candidate =
+      event.start_at ||
+      event.startAt ||
+      event.starts_at ||
+      event.event_start_at ||
+      event.date ||
+      null;
+
+    if (!candidate) return null;
+    const date = new Date(candidate);
+    if (Number.isNaN(date.getTime())) return null;
+    return date;
+  };
+
+  const getEventLocationText = (event: any): string => {
+    const details = event.locationDetails ?? {};
+    const locationText =
+      details.display ||
+      details.short ||
+      event.location ||
+      [event.city, event.state, event.country].filter(Boolean).join(', ') ||
+      event.venue ||
+      '';
+
+    return String(locationText).toLowerCase();
+  };
+
+  const getEventPopularity = (event: any): number => {
+    if (typeof event.attendeeCount === 'number') return event.attendeeCount;
+    if (typeof event.attending === 'number') return event.attending;
+    if (typeof event.popularity === 'number') return event.popularity;
+    if (typeof event.popularity_score === 'number') return event.popularity_score;
+    if (typeof event.metrics?.likes === 'number') return event.metrics.likes;
+    return 0;
+  };
+
+  const processedResults = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    const endOfTomorrow = new Date(startOfTomorrow);
+    endOfTomorrow.setHours(23, 59, 59, 999);
+
+    const endOfWeek = new Date(startOfToday);
+    endOfWeek.setDate(endOfWeek.getDate() + 7);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const matchesTime = (event: any) => {
+      if (timeFilter === 'anytime') return true;
+      const startDate = getEventStartDate(event);
+      if (!startDate) return true;
+
+      if (timeFilter === 'today') {
+        return startDate >= startOfToday && startDate <= endOfToday;
+      }
+      if (timeFilter === 'tomorrow') {
+        return startDate >= startOfTomorrow && startDate <= endOfTomorrow;
+      }
+      if (timeFilter === 'this-week') {
+        return startDate >= startOfToday && startDate <= endOfWeek;
+      }
+      if (timeFilter === 'this-month') {
+        return startDate.getMonth() === now.getMonth() && startDate.getFullYear() === now.getFullYear();
+      }
+      return true;
+    };
+
+    const matchesLocation = (event: any) => {
+      if (locationFilter === 'near-me') {
+        if (typeof event.distance_km === 'number') {
+          return event.distance_km <= 80;
+        }
+        return true;
+      }
+
+      const locationText = getEventLocationText(event);
+
+      if (locationFilter === 'city') {
+        if (!cityName) return true;
+        return locationText.includes(cityName);
+      }
+
+      if (locationFilter === 'state') {
+        if (!stateName) return true;
+        const eventState = (event.locationDetails?.state || event.state || '').toLowerCase();
+        if (eventState) {
+          return eventState.includes(stateName);
+        }
+        return locationText.includes(stateName);
+      }
+
+      if (locationFilter === 'country') {
+        if (!countryName) return true;
+        const eventCountry = (event.locationDetails?.country || event.country || '').toLowerCase();
+        if (eventCountry) {
+          return eventCountry.includes(countryName);
+        }
+        return locationText.includes(countryName);
+      }
+
+      return true;
+    };
+
+    const filtered = eventResults.filter((event) => matchesTime(event) && matchesLocation(event));
+
+    const sorted = [...filtered];
+
+    if (sortBy === 'date') {
+      sorted.sort((a, b) => {
+        const aDate = getEventStartDate(a);
+        const bDate = getEventStartDate(b);
+        const aTime = aDate ? aDate.getTime() : Number.MAX_SAFE_INTEGER;
+        const bTime = bDate ? bDate.getTime() : Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+      });
+    } else if (sortBy === 'distance') {
+      sorted.sort((a, b) => {
+        const aDistance = typeof a.distance_km === 'number' ? a.distance_km : Number.MAX_SAFE_INTEGER;
+        const bDistance = typeof b.distance_km === 'number' ? b.distance_km : Number.MAX_SAFE_INTEGER;
+        return aDistance - bDistance;
+      });
+    } else if (sortBy === 'popularity') {
+      sorted.sort((a, b) => getEventPopularity(b) - getEventPopularity(a));
+    }
+
+    return sorted;
+  }, [eventResults, timeFilter, locationFilter, sortBy, cityName, stateName, countryName]);
+
   // Update local state when search results change
   useEffect(() => {
-    if (eventResults.length > 0) {
-      setDisplayedResults(eventResults);
-      setHasMore(searchHasMore);
-      setIsStale(searchIsStale);
-      setLastUpdatedAt(searchLastUpdated ? new Date(searchLastUpdated) : null);
-      
-      // Set hero event (first result)
-      setHeroEvent(eventResults[0]);
+    setDisplayedResults(processedResults);
+    setHasMore(searchHasMore);
+    setIsStale(searchIsStale);
+    setLastUpdatedAt(searchLastUpdated ? new Date(searchLastUpdated) : null);
+
+    if (processedResults.length > 0) {
+      setHeroEvent(processedResults[0]);
       setHeroSubtitle(q.trim() ? 'Featured match' : 'Trending now');
-      
-      // Add to recent searches
       if (q.trim()) {
         addRecent(q);
       }
-    } else if (!searchLoading) {
-      setDisplayedResults([]);
+    } else {
       setHeroEvent(null);
       setHeroSubtitle('');
     }
-  }, [eventResults, searchHasMore, searchIsStale, searchLastUpdated, q, addRecent, searchLoading]);
+
+    if (!searchLoading && eventResults.length === 0) {
+      setDisplayedResults([]);
+    }
+  }, [processedResults, searchHasMore, searchIsStale, searchLastUpdated, q, addRecent, searchLoading, eventResults.length]);
+
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [locationFilter, timeFilter, sortBy]);
   
   // Update loading states
   useEffect(() => {
@@ -595,8 +816,41 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       });
     }
 
+    if (locationFilter !== 'near-me') {
+      filters.push({
+        key: 'location-filter',
+        label: locationFilterLabels[locationFilter],
+        onClear: () => {
+          setLocationFilter('near-me');
+          setParam('location_scope', '');
+        },
+      });
+    }
+
+    if (timeFilter !== 'anytime') {
+      filters.push({
+        key: 'time-filter',
+        label: timeFilterLabels[timeFilter],
+        onClear: () => {
+          setTimeFilter('anytime');
+          setParam('when', '');
+        },
+      });
+    }
+
+    if (sortBy !== 'relevance') {
+      filters.push({
+        key: 'sort-filter',
+        label: sortLabels[sortBy],
+        onClear: () => {
+          setSortBy('relevance');
+          setParam('sort', '');
+        },
+      });
+    }
+
     return filters;
-  }, [category, q, city, min, max, from, to, setParam]);
+  }, [category, q, city, min, max, from, to, locationFilter, timeFilter, sortBy, setParam, locationFilterLabels, timeFilterLabels, sortLabels]);
 
   const filtersAppliedCount = activeFilters.length;
 
@@ -712,18 +966,20 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
 
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-slate-800">Category</h3>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((c) => (
-            <Button
-              key={c}
-              variant={category === c ? 'default' : 'outline'}
-              size="sm"
-              className="rounded-full"
-              onClick={() => setParam('category', category === c ? 'All' : c)}
-            >
-              {c}
-            </Button>
-          ))}
+        <div className="filter-container flex-wrap">
+          {categories.map((c) => {
+            const isActive = category === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setParam('category', category === c ? 'All' : c)}
+                className={cn('filter-tag', isActive && 'active')}
+              >
+                {c}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -755,16 +1011,21 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
         </div>
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-800">Sort by</h3>
-          <Select value={sort} onValueChange={(v) => setParam('sort', v)}>
+          <Select
+            value={sortBy}
+            onValueChange={(value: SortOption) => {
+              setSortBy(value);
+              setParam('sort', value === 'relevance' ? '' : value);
+            }}
+          >
             <SelectTrigger className="h-12 rounded-2xl">
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="relevance">Best match</SelectItem>
-              <SelectItem value="date_asc">Soonest first</SelectItem>
-              <SelectItem value="price_asc">Price · Low to High</SelectItem>
-              <SelectItem value="price_desc">Price · High to Low</SelectItem>
-              <SelectItem value="attendees_desc">Most popular</SelectItem>
+              <SelectItem value="date">Soonest first</SelectItem>
+              <SelectItem value="distance">Closest first</SelectItem>
+              <SelectItem value="popularity">Most popular</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -822,7 +1083,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
 
       <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-4 lg:px-8 lg:pt-10">
         {/* Mobile-Optimized Header */}
-        <header className="relative mb-6 lg:mb-8">
+        <header className="page-header relative lg:mb-8">
           {/* Mobile: Compact header */}
           <div className="flex items-center justify-between gap-4 lg:hidden">
             <div className="flex items-center gap-3">
@@ -845,6 +1106,13 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                   {filtersAppliedCount} filters
                 </span>
               )}
+              <Button
+                onClick={() => setFiltersOpen(true)}
+                className="flex h-8 items-center gap-1.5 rounded-full border border-white/20 bg-slate-900 px-3 text-[11px] font-medium text-white shadow-none transition hover:bg-slate-800"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Filter
+              </Button>
             </div>
           </div>
 
@@ -934,26 +1202,19 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
         {/* Mobile: Events First - Show immediately after search */}
         <section className="lg:hidden">
           {/* Mobile: Quick filters toggle */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {filtersAppliedCount > 0 && (
                 <span className="text-sm text-slate-600">{filtersAppliedCount} filters active</span>
               )}
             </div>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="rounded-full">
-                  <SlidersHorizontal className="mr-2 h-4 w-4" />
-                  Filters
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Fine-tune your search</DialogTitle>
-                </DialogHeader>
-                <FilterForm withFooter />
-              </DialogContent>
-            </Dialog>
+            <Button
+              onClick={() => setFiltersOpen(true)}
+              className="flex h-8 items-center gap-1.5 rounded-full border border-white/20 bg-slate-900 px-3 text-[11px] font-medium text-white shadow-none transition hover:bg-slate-800"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filter
+            </Button>
           </div>
 
           {/* Mobile: Event Results */}
@@ -1310,6 +1571,23 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
           </div>
         </section>
       </div>
+      <FilterModal
+        isOpen={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        currentFilters={{ location: locationFilter, time: timeFilter, sort: sortBy }}
+        onApply={(selections: FilterSelections) => {
+          setLocationFilter(selections.location);
+          setTimeFilter(selections.time);
+          setSortBy(selections.sort);
+          setParam('location_scope', selections.location === 'near-me' ? '' : selections.location);
+          setParam('when', selections.time === 'anytime' ? '' : selections.time);
+          setParam('sort', selections.sort === 'relevance' ? '' : selections.sort);
+          if (selections.location === 'near-me') {
+            void requestCurrentLocation();
+          }
+          setFiltersOpen(false);
+        }}
+      />
     </div>
   )
 
