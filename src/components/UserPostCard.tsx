@@ -67,7 +67,7 @@ export const UserPostCard = memo(function UserPostCard({
   const videoSrc = useMemo(() => {
     if (!isVideo || !mediaUrl) return undefined;
     return buildMuxUrl(mediaUrl);
-  }, [isVideo, mediaUrl, item.item_id]);
+  }, [isVideo, mediaUrl]);
 
   const likes = item.metrics?.likes ?? 0;
   const comments = item.metrics?.comments ?? 0;
@@ -102,6 +102,7 @@ export const UserPostCard = memo(function UserPostCard({
   // Preconnect to Mux after idle for reduced handshake latency
   useEffect(() => {
     const add = (href: string) => {
+      if (document.head.querySelector(`link[rel="preconnect"][href="${href}"]`)) return;
       const l = document.createElement('link');
       l.rel = 'preconnect';
       l.href = href;
@@ -347,8 +348,6 @@ export const UserPostCard = memo(function UserPostCard({
                 muted                                      // ← you already sync with effect
                 loop
                 playsInline
-                webkit-playsinline="true"
-                x5-playsinline="true"
                 preload="metadata"                         // ✅ faster first-frame without heavy segments
                 poster={muxToPoster(mediaUrl!)}            // ✅ cheap visual readiness
                 crossOrigin="anonymous"

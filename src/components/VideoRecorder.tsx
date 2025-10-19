@@ -77,6 +77,8 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.setAttribute('playsinline', 'true');
+          videoRef.current.setAttribute('webkit-playsinline', 'true');
+          videoRef.current.setAttribute('x5-playsinline', 'true');
           videoRef.current.muted = true; // avoid echo during preview
           void videoRef.current.play().catch(() => {});
         }
@@ -136,7 +138,7 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
 
       // Start recording time counter
       recordingIntervalRef.current = window.setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
 
       // Optional max duration (e.g., 90s). Remove if not needed.
@@ -154,6 +156,10 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
     if (stopTimerRef.current) {
       clearTimeout(stopTimerRef.current);
       stopTimerRef.current = null;
+    }
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
     }
     const mr = mediaRecorderRef.current;
     if (mr && mr.state !== 'inactive') {
@@ -246,12 +252,10 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
         <div className="relative flex-1 bg-black">
           <video 
             ref={videoRef} 
-            className="h-full w-full object-cover" 
-            autoPlay 
-            muted 
+            className="h-full w-full object-cover"
+            autoPlay
+            muted
             playsInline
-            webkit-playsinline="true"
-            x5-playsinline="true"
           />
           
           {/* Permission Error */}
