@@ -234,21 +234,37 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   const offline = typeof navigator !== 'undefined' && !navigator.onLine;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border/60 bg-background/95 backdrop-blur">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Scanner Mode Header - Distinctive Design */}
+      <header className="sticky top-0 z-10 border-b border-primary/30 bg-slate-950/95 backdrop-blur-xl shadow-xl">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-2" aria-label="Back to event">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onBack} 
+            className="gap-2 text-white hover:bg-white/10" 
+            aria-label="Exit scanner mode"
+          >
             <X className="h-4 w-4" aria-hidden />
-            Close
+            <span className="hidden sm:inline">Exit</span>
           </Button>
-          <div className="text-center">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Event</p>
-            <p className="text-sm font-semibold">{eventId}</p>
+          
+          {/* Scanner Mode Badge */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-full bg-primary/20 px-3 py-1.5 ring-2 ring-primary/50">
+              <div className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Scanner Mode</span>
+            </div>
+            <div className="hidden sm:block text-center">
+              <p className="text-[10px] uppercase tracking-wide text-slate-400">Event ID</p>
+              <p className="text-xs font-mono font-semibold text-white">{eventId}</p>
+            </div>
           </div>
+          
           <Button
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="gap-2 border-primary/30 bg-primary/10 text-white hover:bg-primary/20"
             onClick={() => setMode((prev) => (prev === 'camera' ? 'manual' : 'camera'))}
             aria-label="Toggle scanning mode"
           >
@@ -270,61 +286,119 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
         )}
 
         {mode === 'camera' ? (
-          <Card className="overflow-hidden border-border/60 bg-background/90">
-            <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base font-semibold">Live scanner</CardTitle>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Card className="overflow-hidden border-primary/30 bg-slate-900/50 backdrop-blur-sm shadow-2xl">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 bg-gradient-to-r from-primary/10 to-transparent">
+              <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+                <Camera className="h-5 w-5 text-primary" />
+                Live Camera Scanner
+              </CardTitle>
+              <div className="flex items-center gap-2 rounded-full bg-primary/20 px-3 py-1">
                 <RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" aria-hidden />
-                Auto verify
+                <span className="text-xs font-semibold text-primary">Auto Verify</span>
               </div>
             </CardHeader>
             <CardContent className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-black">
               {initializing && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
-                  <BrandedSpinner size="lg" className="text-white" />
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/80">
+                  <BrandedSpinner size="lg" className="text-primary" />
+                  <p className="text-sm font-medium text-white">Initializing camera...</p>
                 </div>
               )}
               {cameraError && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/70 text-center text-sm text-white">
-                  <AlertCircle className="h-6 w-6" aria-hidden />
-                  <p className="max-w-xs">{cameraError}</p>
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/90 text-center px-6">
+                  <div className="rounded-full bg-red-500/20 p-4">
+                    <AlertCircle className="h-8 w-8 text-red-500" aria-hidden />
+                  </div>
+                  <p className="max-w-xs text-sm font-medium text-white">{cameraError}</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setMode('manual')}
+                    className="mt-2 border-primary/50 text-white hover:bg-primary/20"
+                  >
+                    Switch to Manual Entry
+                  </Button>
                 </div>
               )}
               <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
-              <div className="pointer-events-none absolute inset-8 rounded-2xl border-2 border-white/40">
-                <div className="absolute inset-x-10 top-1/2 h-0.5 -translate-y-1/2 bg-gradient-to-r from-transparent via-white/70 to-transparent animate-pulse" />
+              
+              {/* Enhanced Scanning Overlay */}
+              <div className="pointer-events-none absolute inset-0">
+                {/* Corner Brackets */}
+                <div className="absolute inset-8">
+                  {/* Top Left */}
+                  <div className="absolute left-0 top-0 h-12 w-12 border-l-4 border-t-4 border-primary rounded-tl-2xl" />
+                  {/* Top Right */}
+                  <div className="absolute right-0 top-0 h-12 w-12 border-r-4 border-t-4 border-primary rounded-tr-2xl" />
+                  {/* Bottom Left */}
+                  <div className="absolute bottom-0 left-0 h-12 w-12 border-l-4 border-b-4 border-primary rounded-bl-2xl" />
+                  {/* Bottom Right */}
+                  <div className="absolute bottom-0 right-0 h-12 w-12 border-r-4 border-b-4 border-primary rounded-br-2xl" />
+                  
+                  {/* Animated Scan Line */}
+                  <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2">
+                    <div className="h-full w-full bg-gradient-to-r from-transparent via-primary to-transparent animate-pulse shadow-lg shadow-primary/50" />
+                  </div>
+                </div>
+                
+                {/* Instructions */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+                  <div className="rounded-full bg-black/70 px-4 py-2 backdrop-blur-sm">
+                    <p className="text-xs font-medium text-white text-center">
+                      Position QR code within frame
+                    </p>
+                  </div>
+                </div>
               </div>
             </CardContent>
-            <CardFooter className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                Aim the camera at the QR. We prevent duplicate scans automatically.
-              </span>
+            <CardFooter className="flex items-center justify-between bg-slate-900/30">
+              <div className="flex items-center gap-2">
+                <div className="rounded-full bg-green-500/20 p-1.5">
+                  <CheckCircle className="h-3.5 w-3.5 text-green-400" />
+                </div>
+                <span className="text-xs text-slate-300">
+                  Duplicate protection active
+                </span>
+              </div>
               {torchSupported && (
-                <Button variant={torchOn ? 'default' : 'outline'} size="sm" className="gap-2" onClick={toggleTorch}>
+                <Button 
+                  variant={torchOn ? 'default' : 'outline'} 
+                  size="sm" 
+                  className={torchOn ? "gap-2 bg-primary hover:bg-primary/90" : "gap-2 border-primary/30 text-white hover:bg-primary/20"} 
+                  onClick={toggleTorch}
+                >
                   <Flashlight className="h-4 w-4" aria-hidden />
-                  {torchOn ? 'Torch on' : 'Torch off'}
+                  {torchOn ? 'On' : 'Off'}
                 </Button>
               )}
             </CardFooter>
           </Card>
         ) : (
-          <Card className="border-border/60 bg-background/90">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Manual entry</CardTitle>
+          <Card className="border-primary/30 bg-slate-900/50 backdrop-blur-sm shadow-2xl">
+            <CardHeader className="bg-gradient-to-r from-primary/10 to-transparent">
+              <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+                <QrCode className="h-5 w-5 text-primary" />
+                Manual Entry Mode
+              </CardTitle>
+              <p className="text-xs text-slate-400 mt-1">Enter ticket code manually or scan from device</p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <form onSubmit={handleManualSubmit} className="flex flex-col gap-3 sm:flex-row">
                 <Input
                   value={manualCode}
                   onChange={(event) => setManualCode(event.target.value)}
-                  placeholder="Scan or paste code"
+                  placeholder="Enter or paste ticket code..."
                   aria-label="Ticket code"
                   autoFocus
-                  className="text-base"
+                  className="text-base bg-slate-800/50 border-primary/30 text-white placeholder:text-slate-500 focus:border-primary"
                 />
-                <Button type="submit" className="gap-2">
+                <Button 
+                  type="submit" 
+                  className="gap-2 bg-primary hover:bg-primary/90 whitespace-nowrap"
+                  disabled={!manualCode.trim()}
+                >
                   <CheckCircle className="h-4 w-4" aria-hidden />
-                  Verify
+                  Verify Ticket
                 </Button>
               </form>
             </CardContent>
@@ -356,27 +430,34 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
         )}
 
         {history.length > 0 && (
-          <Card className="border-border/60 bg-background/70">
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold">Recent scans</CardTitle>
+          <Card className="border-primary/20 bg-slate-900/40 backdrop-blur-sm shadow-xl">
+            <CardHeader className="bg-gradient-to-r from-slate-800/50 to-transparent">
+              <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-primary" />
+                Scan History ({history.length})
+              </CardTitle>
+              <p className="text-xs text-slate-400 mt-1">Last {history.length} scans</p>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {history.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between rounded-xl border border-border/60 bg-background/80 px-3 py-2">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <div 
+                  key={entry.id} 
+                  className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-800/30 px-3 py-3 transition-all hover:bg-slate-800/50"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       {new Date(entry.timestamp).toLocaleTimeString()}
                     </p>
-                    <p className="font-mono text-xs text-muted-foreground/80">{entry.code}</p>
+                    <p className="font-mono text-xs text-slate-500 truncate mt-0.5">{entry.code}</p>
                   </div>
                   <Badge
                     variant="outline"
                     className={
                       entry.status === 'valid'
-                        ? 'border-emerald-500 text-emerald-600'
+                        ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-semibold'
                         : entry.status === 'duplicate' || entry.status === 'wrong_event' || entry.status === 'refunded'
-                          ? 'border-amber-500 text-amber-600'
-                          : 'border-red-500 text-red-600'
+                          ? 'border-amber-500/50 bg-amber-500/10 text-amber-400 font-semibold'
+                          : 'border-red-500/50 bg-red-500/10 text-red-400 font-semibold'
                     }
                   >
                     {RESULT_COPY[entry.status].label}

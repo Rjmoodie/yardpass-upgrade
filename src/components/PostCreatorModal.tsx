@@ -921,20 +921,21 @@ export function PostCreatorModal({
 
                   {/* Simple Media Controls */}
                   <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {/* Add Files Button */}
                       <Button 
                         type="button"
                         variant="ghost" 
                         size="sm" 
-                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/10"
+                        className="flex items-center gap-2 h-9 px-3 rounded-full hover:bg-primary/10 transition-colors"
                         title="Add photos or videos"
                         onClick={() => {
                           console.log('Upload button clicked, triggering file input');
                           document.getElementById(imageInputId)?.click();
                         }}
                       >
-                        <Upload className="h-5 w-5" />
+                        <Upload className="h-4 w-4" />
+                        <span className="text-xs font-medium hidden sm:inline">Media</span>
                       </Button>
                       <input
                         id={imageInputId}
@@ -950,7 +951,7 @@ export function PostCreatorModal({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/10"
+                        className="flex items-center gap-2 h-9 px-3 rounded-full hover:bg-red-500/10 transition-colors disabled:opacity-40"
                         onClick={() => {
                           console.log('Record video button clicked, selectedEventId:', selectedEventId);
                           if (!selectedEventId) {
@@ -964,16 +965,24 @@ export function PostCreatorModal({
                           console.log('Opening video recorder');
                           setShowVideoRecorder(true);
                         }}
-                        title={`Record video ${!selectedEventId ? '(select an event first)' : ''}`}
+                        title={!selectedEventId ? 'Select an event first' : 'Record video'}
                         disabled={!selectedEventId}
                       >
-                        <VideoIcon className="h-5 w-5" />
+                        <VideoIcon className="h-4 w-4" />
+                        <span className="text-xs font-medium hidden sm:inline">Record</span>
                       </Button>
                     </div>
                     
-                    {/* Character Counter */}
-                    <div className="text-xs text-muted-foreground">
-                      {content.length}/2000
+                    {/* Character Counter & Upload Status */}
+                    <div className="flex items-center gap-3">
+                      <div className="text-xs text-muted-foreground">
+                        {content.length}/2000
+                      </div>
+                      {queue.length > 0 && (
+                        <div className="text-xs font-medium text-primary">
+                          {queue.filter(q => q.status === 'done').length}/{queue.length} ready
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -658,9 +658,6 @@ export default function EventSlugPage() {
                       ))}
                       {attendees.length === 0 && <span className="text-xs text-muted-foreground">Be the first to attend</span>}
                     </div>
-                    <Button variant="ghost" size="sm" className="self-start text-muted-foreground hover:text-foreground" onClick={() => navigate(`/e/${event.slug ?? event.id}/attendees`)}>
-                      <Users className="mr-2 h-4 w-4" /> See attendees
-                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -693,7 +690,7 @@ export default function EventSlugPage() {
                              <Navigation className="h-4 w-4" /> Open in Maps
                            </Button>
                         ) : null} />
-                        <InfoCard color="yellow" className="md:col-span-2" icon={<Users className="h-5 w-5" />} title="Network" subtitle={attendeeCount > 0 ? `${attendeeCount} going` : 'Be the first to RSVP'} detail="See who's attending and start making connections early." action={<Button variant="outline" size="sm" className="mt-2 border-border/50 text-muted-foreground hover:text-foreground" onClick={() => navigate(`/e/${event.slug ?? event.id}/attendees`)}>Meet the guest list</Button>} />
+                        <InfoCard color="yellow" className="md:col-span-2" icon={<Users className="h-5 w-5" />} title="Network" subtitle={attendeeCount > 0 ? `${attendeeCount} going` : 'Be the first to RSVP'} detail="See who's attending and start making connections early." />
                       </div>
                       <div className="flex flex-wrap gap-2 pt-2">
                         {event.category && <Pill>{event.category}</Pill>}

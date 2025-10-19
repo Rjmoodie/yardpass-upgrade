@@ -602,32 +602,35 @@ export function TicketPurchaseModal({
             {ticketTiers.map((tier) => (
               <Card key={tier.id} className="border">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-medium">{tier.name}</h4>
-                        <Badge variant="outline">{tier.badge_label}</Badge>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <h4 className="font-medium truncate">{tier.name}</h4>
+                        <Badge variant="outline" className="flex-shrink-0">{tier.badge_label}</Badge>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span className="font-semibold text-foreground">
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                        <span className="font-semibold text-foreground whitespace-nowrap">
                           ${(tier.price_cents / 100).toFixed(2)}
                         </span>
-                        <span>{tier.quantity} available</span>
-                        <span>Max {tier.max_per_order} per order</span>
+                        <span>•</span>
+                        <span className="whitespace-nowrap">{tier.quantity} available</span>
+                        <span>•</span>
+                        <span className="whitespace-nowrap">Max {tier.max_per_order}</span>
                       </div>
                     </div>
 
                     {/* Quantity Selector */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => updateSelection(tier.id, -1)}
                         disabled={!selections[tier.id]}
+                        className="h-9 w-9 p-0"
                       >
                         <Minus className="w-4 h-4" />
                       </Button>
-                      <span className="w-8 text-center">
+                      <span className="w-8 text-center font-medium">
                         {selections[tier.id] || 0}
                       </span>
                       <Button
@@ -638,6 +641,7 @@ export function TicketPurchaseModal({
                           (selections[tier.id] || 0) >= tier.max_per_order ||
                           (selections[tier.id] || 0) >= tier.quantity
                         }
+                        className="h-9 w-9 p-0"
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
@@ -717,69 +721,6 @@ export function TicketPurchaseModal({
           )}
 
           {/* Express Payment Methods */}
-          {totalTickets > 0 && (expressMethods.applePay || expressMethods.googlePay || expressMethods.link) && (
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Smartphone className="w-4 h-4" />
-                  Express Checkout
-                </h3>
-                <div className="grid grid-cols-1 gap-2">
-                  {expressMethods.applePay && (
-                    <Button
-                      variant="outline"
-                      className="h-12 bg-black text-white hover:bg-gray-800 border-gray-700"
-                      onClick={() => {
-                        // Apple Pay integration would be implemented here
-                        toast({
-                          title: "Apple Pay",
-                          description: "Apple Pay integration coming soon!",
-                        });
-                      }}
-                    >
-                      <span className="text-lg mr-2">🍎</span>
-                      Pay with Apple Pay
-                    </Button>
-                  )}
-                  {expressMethods.googlePay && (
-                    <Button
-                      variant="outline"
-                      className="h-12 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
-                      onClick={() => {
-                        // Google Pay integration would be implemented here
-                        toast({
-                          title: "Google Pay",
-                          description: "Google Pay integration coming soon!",
-                        });
-                      }}
-                    >
-                      <span className="text-lg mr-2">G</span>
-                      Pay with Google Pay
-                    </Button>
-                  )}
-                  {expressMethods.link && (
-                    <Button
-                      variant="outline"
-                      className="h-12 bg-blue-500 text-white hover:bg-blue-600 border-blue-500"
-                      onClick={() => {
-                        // Stripe Link integration would be implemented here
-                        toast({
-                          title: "Stripe Link",
-                          description: "Stripe Link integration coming soon!",
-                        });
-                      }}
-                    >
-                      <Wifi className="w-4 h-4 mr-2" />
-                      Pay with Link
-                    </Button>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Express checkout methods are faster and more secure.
-                </p>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Session Recovery Notice */}
           {isRecoveringSession && (
@@ -796,8 +737,8 @@ export function TicketPurchaseModal({
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4">
-            <Button variant="outline" onClick={onClose} className="flex-1">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <Button variant="outline" onClick={onClose} className="flex-1 whitespace-nowrap">
               Cancel
             </Button>
             <Button 
@@ -805,7 +746,13 @@ export function TicketPurchaseModal({
               disabled={submitting || loading || totalTickets === 0}
               className="flex-1"
             >
-              {submitting || loading ? 'Processing...' : `Purchase ${totalTickets > 0 ? `(${totalTickets} ticket${totalTickets !== 1 ? 's' : ''})` : 'Tickets'}`}
+              {submitting || loading ? (
+                <span className="whitespace-nowrap">Processing...</span>
+              ) : (
+                <span className="whitespace-nowrap">
+                  Purchase {totalTickets > 0 && `(${totalTickets})`}
+                </span>
+              )}
             </Button>
           </div>
         </div>

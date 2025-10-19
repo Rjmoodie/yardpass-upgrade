@@ -49,6 +49,14 @@ export function useHlsVideo(src?: string) {
 
     const isHls = src.includes('.m3u8');
     const canPlayNative = v.canPlayType('application/vnd.apple.mpegurl') !== '';
+    
+    // iOS-specific: Ensure proper attributes are set
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isIOS) {
+      v.setAttribute('playsinline', 'true');
+      v.setAttribute('webkit-playsinline', 'true');
+      v.setAttribute('x5-playsinline', 'true');
+    }
 
     let disposed = false;
 
@@ -56,10 +64,28 @@ export function useHlsVideo(src?: string) {
       try {
         if (import.meta.env?.DEV) {
           // eslint-disable-next-line no-console
-          console.debug('useHlsVideo: Starting video setup for:', src);
+          console.debug('useHlsVideo: Starting video setup for:', src, 'iOS:', isIOS, 'canPlayNative:', canPlayNative);
         }
         
-        if (isHls && !canPlayNative) {
+        // iOS Safari supports HLS natively - prefer that over HLS.js
+        if (isHls && canPlayNative) {
+          if (import.meta.env?.DEV) {
+            // eslint-disable-next-line no-console
+            console.debug('useHlsVideo: Using native HLS for iOS:', src);
+          }
+          v.src = src;
+          v.onloadedmetadata = () => {
+            if (import.meta.env?.DEV) {
+              // eslint-disable-next-line no-console
+              console.debug('useHlsVideo: Native iOS HLS metadata loaded for:', src);
+            }
+            if (!disposed) setReady(true);
+          };
+          v.onerror = (e) => {
+            console.error('useHlsVideo: Native iOS HLS error for:', src, e);
+            if (!disposed) setError('Video playback error');
+          };
+        } else if (isHls && !canPlayNative) {
           const Hls = (await import('hls.js')).default;
           if (import.meta.env?.DEV) {
             // eslint-disable-next-line no-console

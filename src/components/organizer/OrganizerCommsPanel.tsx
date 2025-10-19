@@ -1031,8 +1031,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       {/* Editor */}
       <div className="space-y-4">
         {/* Template picker */}
-        <div className="flex items-end justify-between gap-2">
-          <div className="flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex-1 min-w-0">
             <Label htmlFor="template-select">Template</Label>
             <Select value={templateKey} onValueChange={(v: TemplateKey | '') => setTemplateKey(v)}>
               <SelectTrigger id="template-select"><SelectValue placeholder="Choose a template (optional)" /></SelectTrigger>
@@ -1043,11 +1043,11 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex gap-2 pt-6">
-            <Button type="button" variant="outline" size="sm" disabled={!templateKey} onClick={() => applyTemplate('replace')}>
+          <div className="flex gap-2 flex-shrink-0">
+            <Button type="button" variant="outline" size="sm" disabled={!templateKey} onClick={() => applyTemplate('replace')} className="flex-1 sm:flex-initial whitespace-nowrap">
               Apply
             </Button>
-            <Button type="button" variant="secondary" size="sm" disabled={!templateKey} onClick={() => applyTemplate('append')}>
+            <Button type="button" variant="secondary" size="sm" disabled={!templateKey} onClick={() => applyTemplate('append')} className="flex-1 sm:flex-initial whitespace-nowrap">
               Append
             </Button>
           </div>
@@ -1091,15 +1091,15 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         )}
 
         <div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <Label htmlFor="body-input">{channel === 'email' ? 'Email Body' : 'SMS Message'}</Label>
             <div className="flex flex-wrap gap-1">
-              <Button variant="ghost" size="sm" onClick={aiImprove} disabled={aiLoading || !currentText} className="text-xs">
-                <Wand2 className="w-3 h-3 mr-1" /> Improve
+              <Button variant="ghost" size="sm" onClick={aiImprove} disabled={aiLoading || !currentText} className="text-xs h-8 px-2">
+                <Wand2 className="w-3 h-3 sm:mr-1" /> <span className="hidden sm:inline">Improve</span>
               </Button>
               <Select onValueChange={(tone) => aiTone(tone)} disabled={aiLoading || !currentText}>
-                <SelectTrigger className="w-auto h-8 text-xs">
-                  <Volume2 className="w-3 h-3 mr-1" /> Tone
+                <SelectTrigger className="w-auto h-8 text-xs px-2">
+                  <Volume2 className="w-3 h-3 sm:mr-1" /> <span className="hidden sm:inline">Tone</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="professional">Professional</SelectItem>
@@ -1108,20 +1108,20 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                   <SelectItem value="casual">Casual</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="ghost" size="sm" onClick={aiShorten} disabled={aiLoading || !currentText} className="text-xs">
-                <Scissors className="w-3 h-3 mr-1" /> Shorten
+              <Button variant="ghost" size="sm" onClick={aiShorten} disabled={aiLoading || !currentText} className="text-xs h-8 px-2">
+                <Scissors className="w-3 h-3 sm:mr-1" /> <span className="hidden sm:inline">Shorten</span>
               </Button>
-              <Button variant="ghost" size="sm" onClick={aiExpand} disabled={aiLoading || !currentText} className="text-xs">
-                <Expand className="w-3 h-3 mr-1" /> Expand
+              <Button variant="ghost" size="sm" onClick={aiExpand} disabled={aiLoading || !currentText} className="text-xs h-8 px-2">
+                <Expand className="w-3 h-3 sm:mr-1" /> <span className="hidden sm:inline">Expand</span>
               </Button>
-              <Button variant="ghost" size="sm" onClick={aiCTAs} disabled={aiLoading} className="text-xs">
-                <CheckCheck className="w-3 h-3 mr-1" /> CTAs
+              <Button variant="ghost" size="sm" onClick={aiCTAs} disabled={aiLoading} className="text-xs h-8 px-2">
+                <CheckCheck className="w-3 h-3 sm:mr-1" /> <span className="hidden sm:inline">CTAs</span>
               </Button>
-              <Button variant="ghost" size="sm" onClick={aiSpam} disabled={aiLoading || !currentText} className="text-xs">
-                <ShieldCheck className="w-3 h-3 mr-1" /> Minimize spam
+              <Button variant="ghost" size="sm" onClick={aiSpam} disabled={aiLoading || !currentText} className="text-xs h-8 px-2">
+                <ShieldCheck className="w-3 h-3 sm:mr-1" /> <span className="hidden sm:inline">Spam</span>
               </Button>
-              <Button variant="ghost" size="sm" onClick={aiGrammar} disabled={aiLoading || !currentText} className="text-xs">
-                <CheckCheck className="w-3 h-3 mr-1" /> Grammar
+              <Button variant="ghost" size="sm" onClick={aiGrammar} disabled={aiLoading || !currentText} className="text-xs h-8 px-2">
+                <CheckCheck className="w-3 h-3 sm:mr-1" /> <span className="hidden sm:inline">Grammar</span>
               </Button>
             </div>
           </div>
