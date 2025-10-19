@@ -3,8 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, Copy, Share, Download, Palette, Check } from 'lucide-react';
-import { BrandedSpinner } from './BrandedSpinner';
+import { X, Copy, Share, Palette, Check } from 'lucide-react';
 import { generateStyledQRDataURL } from '@/lib/styledQr';
 import { getQrTheme, getAllThemes, type QrThemeName } from '@/lib/qrTheme';
 import { UserTicket } from '@/hooks/useTickets';
@@ -39,13 +38,12 @@ export function QRCodeModal({
   brandHex = '#ffb400',
 }: QRCodeModalProps) {
   const [qrPng, setQrPng] = useState<string>('');
-  const [qrSvg, setQrSvg] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<QrThemeName>(initialTheme);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
 
-  const availableThemes = getAllThemes();
+  const availableThemes = useMemo(() => getAllThemes(), []);
 
   // Close on ESC key
   useEffect(() => {
@@ -78,7 +76,6 @@ export function QRCodeModal({
     let cancelled = false;
 
     const generateQRCodes = async () => {
-      console.log('🎯 Starting QR generation for ticket:', ticket.qrCode);
       setLoading(true);
       setFailed(false);
 
@@ -89,14 +86,8 @@ export function QRCodeModal({
 
         // Use the simple static QR code from the database
         const pngDataUrl = await generateStyledQRDataURL(ticket.qrCode, { ...qrOptions, format: 'png' });
-        
-        // Generate SVG lazily - only when needed for download
-        const svgDataUrl = '';
-
         if (!cancelled) {
           setQrPng(pngDataUrl);
-          setQrSvg(svgDataUrl);
-          console.log('✅ QR code generated successfully');
         }
       } catch (error) {
         console.error('❌ Failed to generate QR code:', error);
@@ -119,60 +110,6 @@ export function QRCodeModal({
     return () => {
       cancelled = true;
     };
-  }, [ticket.qrCode, qrOptions, toast]);
-
-  // Download handler with lazy SVG generation
-  const handleDownload = useCallback(async (dataUrl: string, format: 'png' | 'svg') => {
-    let finalDataUrl = dataUrl;
-    
-    // Generate SVG on-demand if needed
-    if (format === 'svg' && !dataUrl) {
-      try {
-        if (!ticket.qrCode) {
-          throw new Error('No QR code available');
-        }
-        finalDataUrl = await generateStyledQRDataURL(ticket.qrCode, { ...qrOptions, format: 'svg' });
-      } catch (error) {
-        console.error('Failed to generate SVG:', error);
-        toast({
-          title: "Download Failed",
-          description: "Could not generate SVG QR code",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    
-    if (!finalDataUrl) {
-      toast({
-        title: "Download Failed",
-        description: "QR code not ready for download",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const link = document.createElement('a');
-      link.href = finalDataUrl;
-      link.download = `yardpass-ticket-${ticket.id.slice(0, 8)}.${format}`;
-      link.rel = 'noopener';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast({
-        title: "Download Started",
-        description: `QR code saved as ${format.toUpperCase()}`,
-      });
-    } catch (error) {
-      console.error('Download failed:', error);
-      toast({
-        title: "Download Failed",
-        description: "Could not download QR code",
-        variant: "destructive",
-      });
-    }
   }, [ticket.qrCode, qrOptions, toast]);
 
   // Enhanced copy handler with QR data
@@ -328,7 +265,7 @@ export function QRCodeModal({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowThemeSelector(!showThemeSelector)}
+            onClick={() => setShowThemeSelector((prev) => !prev)}
             className="w-full h-8 text-xs"
           >
             <Palette className="w-3 h-3 mr-1.5" />

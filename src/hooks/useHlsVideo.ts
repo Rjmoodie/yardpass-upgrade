@@ -25,6 +25,8 @@ export function useHlsVideo(src?: string) {
       try {
         v.pause();
         v.removeAttribute('src');
+        v.onloadedmetadata = null;
+        v.onerror = null;
         v.load();
       } catch (e) {
         if (import.meta.env?.DEV) {
@@ -51,7 +53,7 @@ export function useHlsVideo(src?: string) {
     const canPlayNative = v.canPlayType('application/vnd.apple.mpegurl') !== '';
     
     // iOS-specific: Ensure proper attributes are set
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
     if (isIOS) {
       v.setAttribute('playsinline', 'true');
       v.setAttribute('webkit-playsinline', 'true');
