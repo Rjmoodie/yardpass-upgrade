@@ -1,5 +1,5 @@
 // components/feed/FeedActionRail.tsx
-import { ReactNode } from "react";
+import { CSSProperties, ReactNode } from "react";
 
 type RailButton = {
   icon: ReactNode;
@@ -20,8 +20,17 @@ type RailProps = {
  * --bottom-nav-safe and --caption-h (already in your codebase).
  */
 export function FeedActionRail({ items, className = "" }: RailProps) {
+  const railStyle: CSSProperties = {
+    // Expose item count to CSS so the rail can adapt spacing responsively.
+    "--rail-count": items.length
+  };
+
   return (
-    <div className={`feed-rail pointer-events-auto ${className}`}>
+    <div
+      className={`feed-rail pointer-events-auto ${className}`}
+      style={railStyle}
+      data-rail-count={items.length}
+    >
       {items.map((it, i) => {
         const labelVariant =
           typeof it.label === "number" ||

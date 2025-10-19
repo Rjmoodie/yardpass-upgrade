@@ -2046,25 +2046,51 @@ input, select, textarea {
 
 /* --- Feed Rail (caption & safe-area aware) --- */
 .feed-rail {
+  --rail-count: var(--rail-count, 6);
+  --rail-item-count: var(--rail-count);
   --rail-side-gap: max(12px, calc(env(safe-area-inset-right) + clamp(8px, 1.5vw, 14px)));
   --rail-bottom-gap: clamp(12px, 2vh, 20px);
-  --rail-top-clearance: clamp(104px, 16vh, 144px);
+  --rail-gap-base: clamp(6px, 1.6vh, 12px);
+  --rail-padding-block-base: clamp(12px, 2vh, 16px);
+  --rail-item-size-base: clamp(48px, 6vh, 66px);
+  --rail-icon-size-base: clamp(32px, 4.6vh, 40px);
+  --rail-icon-padding-base: clamp(4px, 0.9vh, 6px);
+  --rail-icon-svg-base: clamp(16px, 2.2vh, 20px);
+  --rail-label-font-base: clamp(10px, 1.2vh, 12px);
+  --rail-top-min: clamp(
+    calc(env(safe-area-inset-top) + 92px),
+    calc(env(safe-area-inset-top) + 18vh),
+    calc(env(safe-area-inset-top) + 156px)
+  );
+  --rail-natural-height: calc(
+    var(--rail-item-count) * var(--rail-item-size-base) +
+      (var(--rail-item-count) - 1) * var(--rail-gap-base) +
+      2 * var(--rail-padding-block-base)
+  );
+  --rail-bottom-base: calc(var(--bottom-nav-safe) + var(--caption-h, 0px) + var(--rail-bottom-gap));
+  --rail-bottom: max(
+    0px,
+    min(
+      var(--rail-bottom-base),
+      calc(100svh - var(--rail-top-min)),
+      calc(100svh - var(--rail-top-min) - var(--rail-natural-height) * 0.55)
+    )
+  );
+  --rail-available: max(0px, calc(100svh - var(--rail-bottom) - var(--rail-top-min)));
+  --rail-scale: min(1, calc(var(--rail-available) / var(--rail-natural-height)));
   position: fixed;
   z-index: 40;
   right: var(--rail-side-gap);
   inset-inline-end: var(--rail-side-gap);
-  bottom: calc(var(--bottom-nav-safe) + var(--caption-h, 0px) + var(--rail-bottom-gap));
+  bottom: var(--rail-bottom);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(6px, 1.6vh, 12px);
-  max-height: max(
-    0px,
-    calc(100svh - (var(--bottom-nav-safe) + var(--caption-h, 0px)) - var(--rail-top-clearance))
-  );
+  gap: calc(var(--rail-gap-base) * var(--rail-scale));
+  max-height: var(--rail-available);
   overflow: visible;
   pointer-events: auto;
-  padding: clamp(10px, 1.9vh, 14px);
+  padding-block: calc(var(--rail-padding-block-base) * var(--rail-scale));
   padding-inline: clamp(12px, 3vw, 18px);
   border-radius: clamp(20px, 4vh, 26px);
   background: linear-gradient(180deg, hsl(0 0% 8% / 0.82), hsl(0 0% 4% / 0.72));
@@ -2073,17 +2099,18 @@ input, select, textarea {
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   width: clamp(120px, 32vw, 148px);
+  transform-origin: bottom right;
 }
 
 /* Touch target + micro interactions */
 .feed-rail__btn {
   min-inline-size: clamp(44px, 5.5vh, 56px);
   max-inline-size: clamp(56px, 6.2vh, 64px);
-  min-block-size: clamp(48px, 6vh, 66px);
+  min-block-size: calc(var(--rail-item-size-base) * var(--rail-scale));
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(2px, 0.8vh, 6px);
+  gap: calc(clamp(2px, 0.8vh, 6px) * var(--rail-scale));
   border-radius: clamp(14px, 3vh, 20px);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -2094,14 +2121,12 @@ input, select, textarea {
 
 /* Icon container (glass) */
 .feed-rail__icon {
-  inline-size: var(--rail-hit);
-  block-size: var(--rail-hit);
   display: grid;
   place-items: center;
   border-radius: 9999px;
-  padding: clamp(4px, 0.9vh, 6px);
-  width: clamp(32px, 4.6vh, 40px);
-  height: clamp(32px, 4.6vh, 40px);
+  padding: calc(var(--rail-icon-padding-base) * var(--rail-scale));
+  width: calc(var(--rail-icon-size-base) * var(--rail-scale));
+  height: calc(var(--rail-icon-size-base) * var(--rail-scale));
   border: 1px solid hsl(0 0% 100% / 0.18);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -2123,18 +2148,19 @@ input, select, textarea {
 
 /* SVG sizing stays consistent across screens */
 .feed-rail__icon svg {
-  width: clamp(16px, 2.2vh, 20px);
-  height: clamp(16px, 2.2vh, 20px);
+  width: calc(var(--rail-icon-svg-base) * var(--rail-scale));
+  height: calc(var(--rail-icon-svg-base) * var(--rail-scale));
   color: white;
 }
 
 /* Count/Post label: glass chip for contrast over busy media */
 .feed-rail__label {
-  font-size: clamp(10px, 1.2vh, 12px);
+  font-size: clamp(9px, calc(var(--rail-label-font-base) * var(--rail-scale)), 12px);
   line-height: 1;
   font-weight: 600;
   color: white;
-  padding: clamp(1px, 0.3vh, 3px) clamp(4px, 0.9vh, 6px);
+  padding-block: calc(clamp(1px, 0.3vh, 3px) * var(--rail-scale));
+  padding-inline: clamp(4px, 0.9vh, 6px);
   border-radius: 9999px;
   background: linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35));
   border: 1px solid rgba(255,255,255,.18);
@@ -2159,7 +2185,7 @@ input, select, textarea {
 
 /* Landscape: rail sits a bit higher so it never hits bottom nav or caption */
 @media (orientation: landscape) and (max-height: 500px) {
-  .feed-rail { bottom: calc(var(--bottom-nav-safe) + max(48px, 10vh)); }
+  .feed-rail { --rail-bottom: calc(var(--bottom-nav-safe) + max(48px, 10vh)); }
 }
 
 /* Narrow phones: revert to icon stack and trim paddings */
@@ -2167,14 +2193,16 @@ input, select, textarea {
   .feed-rail {
     width: max-content;
     padding-inline: clamp(10px, 2vw, 14px);
+    --rail-gap-base: clamp(4px, 0.9vh, 6px);
   }
 
   .feed-rail__btn {
     inline-size: clamp(52px, 16vw, 64px);
     flex-direction: column;
     align-items: center;
-    gap: clamp(4px, 0.9vh, 6px);
-    padding: clamp(6px, 1vh, 8px) clamp(4px, 0.8vh, 6px);
+    gap: calc(clamp(4px, 0.9vh, 6px) * var(--rail-scale));
+    padding-block: calc(clamp(6px, 1vh, 8px) * var(--rail-scale));
+    padding-inline: clamp(4px, 0.8vh, 6px);
   }
 
   .feed-rail__label {
@@ -2186,21 +2214,24 @@ input, select, textarea {
 @media (max-width: 360px) {
   .feed-rail {
     --rail-bottom-gap: clamp(8px, 1.4vh, 14px);
+    --rail-item-size-base: clamp(44px, 5.4vh, 58px);
+    --rail-icon-size-base: clamp(30px, 4.4vh, 36px);
+    --rail-icon-padding-base: clamp(3px, 0.8vh, 5px);
+    --rail-icon-svg-base: clamp(14px, 2vh, 18px);
   }
   .feed-rail__btn {
     min-inline-size: clamp(40px, 5.5vh, 52px);
     max-inline-size: clamp(52px, 6vh, 60px);
-    min-block-size: clamp(44px, 5.4vh, 58px);
-    gap: clamp(2px, 0.6vh, 4px);
+    gap: calc(clamp(2px, 0.6vh, 4px) * var(--rail-scale));
   }
   .feed-rail__icon {
-    width: clamp(30px, 4.4vh, 36px);
-    height: clamp(30px, 4.4vh, 36px);
-    padding: clamp(3px, 0.8vh, 5px);
+    width: calc(clamp(30px, 4.4vh, 36px) * var(--rail-scale));
+    height: calc(clamp(30px, 4.4vh, 36px) * var(--rail-scale));
+    padding: calc(clamp(3px, 0.8vh, 5px) * var(--rail-scale));
   }
   .feed-rail__icon svg {
-    width: clamp(14px, 2vh, 18px);
-    height: clamp(14px, 2vh, 18px);
+    width: calc(clamp(14px, 2vh, 18px) * var(--rail-scale));
+    height: calc(clamp(14px, 2vh, 18px) * var(--rail-scale));
   }
 }
 
