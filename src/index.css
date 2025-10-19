@@ -2048,7 +2048,7 @@ input, select, textarea {
 .feed-rail {
   --rail-side-gap: max(12px, calc(env(safe-area-inset-right) + clamp(8px, 1.5vw, 14px)));
   --rail-bottom-gap: clamp(12px, 2vh, 20px);
-  --rail-top-clearance: clamp(96px, 14vh, 136px);
+  --rail-top-clearance: clamp(104px, 16vh, 144px);
   position: fixed;
   z-index: 40;
   right: var(--rail-side-gap);
@@ -2056,8 +2056,8 @@ input, select, textarea {
   bottom: calc(var(--bottom-nav-safe) + var(--caption-h, 0px) + var(--rail-bottom-gap));
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: clamp(8px, 1.6vh, 14px);
+  align-items: center;
+  gap: clamp(6px, 1.6vh, 12px);
   max-height: max(
     0px,
     calc(100svh - (var(--bottom-nav-safe) + var(--caption-h, 0px)) - var(--rail-top-clearance))
@@ -2077,36 +2077,18 @@ input, select, textarea {
 
 /* Touch target + micro interactions */
 .feed-rail__btn {
-  --rail-hit: clamp(40px, 4.6vh, 48px);
+  min-inline-size: clamp(44px, 5.5vh, 56px);
+  max-inline-size: clamp(56px, 6.2vh, 64px);
+  min-block-size: clamp(48px, 6vh, 66px);
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: clamp(8px, 1.4vh, 12px);
-  inline-size: 100%;
-  min-inline-size: 0;
-  padding: clamp(6px, 1vh, 9px) clamp(6px, 1.4vh, 10px);
-  border-radius: clamp(18px, 3.6vh, 22px);
-  border: 1px solid hsl(0 0% 100% / 0.08);
-  background: hsl(0 0% 100% / 0.04);
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
+  justify-content: center;
+  gap: clamp(2px, 0.8vh, 6px);
+  border-radius: clamp(14px, 3vh, 20px);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition:
-    transform 160ms var(--ease-out, cubic-bezier(0.25,0.46,0.45,0.94)),
-    background-color 160ms var(--ease-out),
-    border-color 160ms var(--ease-out),
-    box-shadow 160ms var(--ease-out);
-}
-.feed-rail__btn:hover {
-  background: hsl(0 0% 100% / 0.08);
-  border-color: hsl(0 0% 100% / 0.16);
-}
-.feed-rail__btn:focus-visible {
-  outline: none;
-  border-color: hsl(0 0% 100% / 0.28);
-  box-shadow: 0 0 0 3px hsl(0 0% 100% / 0.16);
+  transition: transform 160ms var(--ease-out, cubic-bezier(0.25,0.46,0.45,0.94));
+  background: transparent;
 }
 .feed-rail__btn:active { transform: scale(0.97); }
 
@@ -2117,15 +2099,16 @@ input, select, textarea {
   display: grid;
   place-items: center;
   border-radius: 9999px;
-  background: linear-gradient(180deg, hsl(0 0% 16% / 0.88), hsl(0 0% 6% / 0.78));
-  border: 1px solid hsl(0 0% 100% / 0.16);
-  box-shadow: 0 14px 28px hsl(0 0% 0% / 0.4);
-  flex-shrink: 0;
-  transition:
-    transform 160ms var(--ease-out),
-    background-color 160ms var(--ease-out),
-    box-shadow 160ms var(--ease-out),
-    border-color 160ms var(--ease-out);
+  padding: clamp(4px, 0.9vh, 6px);
+  width: clamp(32px, 4.6vh, 40px);
+  height: clamp(32px, 4.6vh, 40px);
+  border: 1px solid hsl(0 0% 100% / 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+.feed-rail__icon--idle {
+  background: hsl(0 0% 0% / 0.40);
 }
 .feed-rail__icon--idle:hover {
   background: linear-gradient(180deg, hsl(0 0% 28% / 0.88), hsl(0 0% 12% / 0.8));
@@ -2140,45 +2123,23 @@ input, select, textarea {
 
 /* SVG sizing stays consistent across screens */
 .feed-rail__icon svg {
-  width: clamp(18px, 2.4vh, 22px);
-  height: clamp(18px, 2.4vh, 22px);
+  width: clamp(16px, 2.2vh, 20px);
+  height: clamp(16px, 2.2vh, 20px);
   color: white;
 }
 
 /* Count/Post label: glass chip for contrast over busy media */
 .feed-rail__label {
-  flex: 1;
-  min-inline-size: 0;
-  font-size: clamp(11px, 1.3vh, 13px);
+  font-size: clamp(10px, 1.2vh, 12px);
   line-height: 1;
   font-weight: 600;
-  color: hsl(0 0% 100% / 0.9);
-  padding: clamp(4px, 0.8vh, 6px) clamp(10px, 1.6vh, 14px);
+  color: white;
+  padding: clamp(1px, 0.3vh, 3px) clamp(4px, 0.9vh, 6px);
   border-radius: 9999px;
-  background: hsl(0 0% 100% / 0.1);
-  border: 1px solid hsl(0 0% 100% / 0.18);
-  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.2);
+  background: linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35));
+  border: 1px solid rgba(255,255,255,.18);
+  text-shadow: 0 1px 2px rgba(0,0,0,.45);
   white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  text-align: center;
-  letter-spacing: 0.01em;
-}
-
-.feed-rail__btn[data-label-variant="count"] .feed-rail__label {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  padding-inline: clamp(6px, 1.2vh, 10px);
-  min-inline-size: clamp(30px, 5vw, 40px);
-}
-
-.feed-rail__btn[data-has-label="false"] {
-  justify-content: center;
-  padding-inline: clamp(6px, 1vh, 8px);
-}
-
-.feed-rail__btn[data-has-label="false"] .feed-rail__label {
-  display: none;
 }
 
 .feed-rail__btn[data-has-label="false"] .feed-rail__icon {
@@ -2225,17 +2186,21 @@ input, select, textarea {
 @media (max-width: 360px) {
   .feed-rail {
     --rail-bottom-gap: clamp(8px, 1.4vh, 14px);
-    padding-inline: clamp(8px, 1.6vh, 12px);
   }
-
   .feed-rail__btn {
-    --rail-hit: clamp(36px, 4.4vh, 44px);
-    inline-size: clamp(48px, 18vw, 58px);
-    gap: clamp(3px, 0.8vh, 4px);
+    min-inline-size: clamp(40px, 5.5vh, 52px);
+    max-inline-size: clamp(52px, 6vh, 60px);
+    min-block-size: clamp(44px, 5.4vh, 58px);
+    gap: clamp(2px, 0.6vh, 4px);
   }
-
-  .feed-rail__label {
-    font-size: clamp(10px, 1.2vh, 12px);
+  .feed-rail__icon {
+    width: clamp(30px, 4.4vh, 36px);
+    height: clamp(30px, 4.4vh, 36px);
+    padding: clamp(3px, 0.8vh, 5px);
+  }
+  .feed-rail__icon svg {
+    width: clamp(14px, 2vh, 18px);
+    height: clamp(14px, 2vh, 18px);
   }
 }
 
