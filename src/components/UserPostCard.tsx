@@ -74,31 +74,53 @@ export const UserPostCard = memo(function UserPostCard({
 
   const { videoRef, ready, error: hlsError } = useHlsVideo(shouldLoadVideo ? videoSrc : undefined);
 
-  // Lazy load video when component is about to be visible
+  // Lazy load video when component is about to be visible (more aggressive)
   useEffect(() => {
     if (!isVideo || shouldLoadVideo) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
+        for (const entry of entries) {
           if (entry.isIntersecting) {
-            setShouldLoadVideo(true);
+            setShouldLoadVideo(true); // ✅ same variable, just triggers earlier
             observer.disconnect();
+            break;
           }
-        });
+        }
       },
-      { 
-        rootMargin: '200px 0px', // Start loading when 200px away from viewport
-        threshold: 0.1 
+      {
+        // start loading ~2 screen-heights before entry; tiny threshold so it fires early
+        rootMargin: '200% 0px',
+        threshold: 0.01,
       }
     );
 
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-
+    if (containerRef.current) observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, [isVideo, shouldLoadVideo]);
+
+  // Preconnect to Mux after idle for reduced handshake latency
+  useEffect(() => {
+    const add = (href: string) => {
+      const l = document.createElement('link');
+      l.rel = 'preconnect';
+      l.href = href;
+      document.head.appendChild(l);
+    };
+    // defer so we don't compete with critical paint
+    const run = () => {
+      add('https://stream.mux.com');
+      add('https://image.mux.com');
+    };
+    if ('requestIdleCallback' in window) {
+      // @ts-ignore
+      const id = window.requestIdleCallback(run);
+      return () => window.cancelIdleCallback?.(id as number);
+    } else {
+      const t = window.setTimeout(run, 1500);
+      return () => window.clearTimeout(t);
+    }
+  }, []);
 
   // Play/pause side effect driven by isVideoPlaying
   useEffect(() => {
@@ -320,13 +342,13 @@ export const UserPostCard = memo(function UserPostCard({
           {isVideo ? (
             <div className="absolute inset-0">
               <video
-                ref={videoRef}
+                ref={videoRef}                             // ← same ref for useHlsVideo
                 className="absolute inset-0 w-full h-full object-cover cursor-pointer"
-                // Always start muted for autoplay compatibility, controlled via useEffect
-                muted
+                muted                                      // ← you already sync with effect
                 loop
                 playsInline
-                preload="none"
+                preload="metadata"                         // ✅ faster first-frame without heavy segments
+                poster={muxToPoster(mediaUrl!)}            // ✅ cheap visual readiness
                 crossOrigin="anonymous"
                 onClick={handleVideoClick}
                 aria-label={isVideoPlaying ? 'Pause video' : 'Play video'}

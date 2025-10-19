@@ -4,6 +4,8 @@ import { getHlsModule, createHlsInstance } from '@/utils/hlsLoader';
 export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<any>(null);
+  const lastUrlRef = useRef<string | null>(null);
+  const fatalCountRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -11,84 +13,116 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
     (async () => {
       const el = videoRef.current;
       if (!el || !manifestUrl) {
-        console.log('🚫 Video element or manifest URL missing:', { hasElement: !!el, manifestUrl });
+        if (import.meta.env.DEV) {
+          console.log('🚫 Video element or manifest URL missing:', { hasElement: !!el, manifestUrl });
+        }
         return;
       }
 
-      console.log('🎥 Setting up video for URL:', manifestUrl);
+      // Make autoplay more reliable across mobile browsers
+      el.muted = true;
+      el.setAttribute('muted', '');
+      el.playsInline = true;
 
-      // iOS Safari native HLS
-      const canNative = el.canPlayType('application/vnd.apple.mpegurl');
+      // Native HLS path (Safari)
+      const canNative = !!el.canPlayType?.('application/vnd.apple.mpegurl');
       if (canNative) {
-        console.log('📱 Using native HLS support');
         if (visible) {
-          if (el.src !== manifestUrl) {
+          if (lastUrlRef.current !== manifestUrl) {
             el.src = manifestUrl;
-            // Preload first few seconds immediately
             el.preload = 'auto';
+            // Commit the new src quickly
+            try { el.load?.(); } catch {}
+            lastUrlRef.current = manifestUrl;
           }
-          try { 
-            await el.play().catch((error) => {
-              console.log('⚠️ Native HLS play failed:', error);
-            }); 
-          } catch {}
+          // Try play now; also try again after canplay
+          const tryPlay = () => el.play().catch(() => {});
+          tryPlay();
+          const onCanPlay = () => { tryPlay(); el.removeEventListener('canplay', onCanPlay); };
+          el.addEventListener('canplay', onCanPlay);
+          return () => el.removeEventListener('canplay', onCanPlay);
         } else {
           try { el.pause(); } catch {}
-          // Switch back to metadata preload to save bandwidth
+          el.preload = 'metadata'; // keep it cheap off-screen
+        }
+        return;
+      }
+
+      // hls.js path — only load module/instance if we actually need to show it
+      if (!visible) {
+        // Off-screen: pause & stop downloads if we already have an instance
+        try { el.pause(); } catch {}
+        if (hlsRef.current) {
+          try { hlsRef.current.stopLoad(); } catch {}
+        } else {
+          // No instance = nothing to do; avoid importing the module yet
           el.preload = 'metadata';
         }
         return;
       }
 
-      // hls.js path
+      // Visible: ensure instance exists and is attached
       try {
-        console.log('🔧 Loading HLS.js module');
         const HlsMod = await getHlsModule();
         if (cancelled) return;
 
-        // create once with optimized settings
+        // Create once with feed-friendly defaults
         if (!hlsRef.current) {
-          console.log('🆕 Creating new HLS instance');
+          if (import.meta.env.DEV) console.log('🆕 Creating HLS instance');
           hlsRef.current = createHlsInstance(HlsMod);
+
           hlsRef.current.attachMedia(el);
-          
-          // Add error handling
-          hlsRef.current.on(HlsMod.default.Events.ERROR, (event: any, data: any) => {
-            console.error('❌ HLS Error:', data);
-            if (data.fatal) {
-              console.error('💀 Fatal HLS error, destroying instance');
-              hlsRef.current?.destroy();
+
+          // Errors: try to recover media once; destroy on fatal network or repeated fatals
+          hlsRef.current.on(HlsMod.default.Events.ERROR, (_event: any, data: any) => {
+            if (import.meta.env.DEV) console.error('❌ HLS Error:', data);
+            if (!data?.fatal) return;
+
+            if (data.type === HlsMod.default.ErrorTypes.NETWORK_ERROR) {
+              // network fatals generally require a destroy/recreate
+              try { hlsRef.current?.destroy(); } catch {}
               hlsRef.current = null;
+              return;
+            }
+
+            // Media error: try to recover once, then bail if it keeps happening
+            if (data.type === HlsMod.default.ErrorTypes.MEDIA_ERROR) {
+              fatalCountRef.current += 1;
+              if (fatalCountRef.current <= 1) {
+                try { hlsRef.current?.recoverMediaError(); } catch {}
+              } else {
+                try { hlsRef.current?.destroy(); } catch {}
+                hlsRef.current = null;
+              }
             }
           });
         }
 
-        // swap source only when visible to avoid unnecessary network
-        if (visible) {
-          console.log('👁️ Video is visible, loading source');
+        // Only (re)load source if it changed
+        if (lastUrlRef.current !== manifestUrl) {
           hlsRef.current.loadSource(manifestUrl);
-          // Trigger immediate buffer start for faster playback
-          hlsRef.current.startLoad(0);
-          // play may fail silently due to autoplay policy; that's ok
-          try { 
-            await el.play().catch((error) => {
-              console.log('⚠️ HLS.js play failed:', error);
-            }); 
-          } catch {}
-        } else {
-          try { el.pause(); } catch {}
-          // Stop loading to save bandwidth when not visible
-          hlsRef.current.stopLoad();
+          lastUrlRef.current = manifestUrl;
         }
+
+        // Start fetching/buffering now that we're visible
+        try { hlsRef.current.startLoad(0); } catch {}
+
+        // Kick playback now and after canplay to satisfy some browsers
+        const tryPlay = () => el.play().catch(() => {});
+        tryPlay();
+        const onCanPlay = () => { tryPlay(); el.removeEventListener('canplay', onCanPlay); };
+        el.addEventListener('canplay', onCanPlay);
+
+        return () => el.removeEventListener('canplay', onCanPlay);
       } catch (error) {
-        console.error('💥 Failed to set up HLS:', error);
+        if (import.meta.env.DEV) console.error('💥 Failed to set up HLS:', error);
       }
     })();
 
     return () => { cancelled = true; };
   }, [manifestUrl, visible]);
 
-  // cleanup on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       try { videoRef.current?.pause(); } catch {}
@@ -96,6 +130,8 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
         try { hlsRef.current.destroy(); } catch {}
         hlsRef.current = null;
       }
+      lastUrlRef.current = null;
+      fatalCountRef.current = 0;
     };
   }, []);
 

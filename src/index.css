@@ -1,12 +1,26 @@
 /* -------------------------------
-   Safe-area + bottom nav metrics
+   iOS-specific viewport and keyboard handling
 ---------------------------------*/
-:root {
+html, body { 
+  height: 100%; 
+  overscroll-behavior-y: contain; /* Prevent overscroll chain reactions */
+}
+
+/* Avoid the 100vh jump on iOS when keyboard shows */
+:root { 
+  --vh: 100vh; 
   --bottom-nav-h: 84px;
   --bottom-nav-safe: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
   --caption-h: 88px;    /* default; JS updates dynamically */
   --rail-gap: 14px;
 }
+
+@supports (-webkit-touch-callout: none) {
+  .vh-screen { height: -webkit-fill-available; }
+}
+
+/* Space for the safe area so StatusBar toggles don't jerk layout */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 @media (max-width: 640px) {
   :root { 
     --bottom-nav-h: 76px; 

@@ -78,10 +78,40 @@ type QueuedFile = {
   progress?: number; // 0-100 (upload only; processing not included)
 };
 
+/** ---------- Helper Functions ---------- */
+const backoff = async <T,>(fn: () => Promise<T>, tries = 3, base = 400) => {
+  let lastErr: any;
+  for (let i = 0; i < tries; i++) {
+    try { return await fn(); } catch (e) {
+      lastErr = e;
+      await sleep(Math.min(4000, base * Math.pow(2, i)));
+    }
+  }
+  throw lastErr;
+};
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// basic HEIC->canvas fallback (lossy): draws into canvas via createImageBitmap if the browser can decode it
+const maybeTranscodeHeic = async (file: File): Promise<File> => {
+  if (!/\.heic$/i.test(file.name) && file.type !== 'image/heic') return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = bmp.width; canvas.height = bmp.height;
+    const ctx = canvas.getContext('2d'); if (!ctx) return file;
+    ctx.drawImage(bmp, 0, 0);
+    const blob: Blob | null = await new Promise((res) => canvas.toBlob((b) => res(b), 'image/jpeg', 0.9));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' });
+  } catch {
+    return file; // leave as-is; storage preview may not show it
+  }
+};
+
 const bytesToMB = (b: number) => +(b / (1024 * 1024)).toFixed(2);
 const isImageFile = (f: File) => f.type.startsWith('image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(f.name);
 const isVideoFile = (f: File) => f.type.startsWith('video') || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function uploadImageToSupabase(file: File): Promise<string> {
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -353,11 +383,18 @@ export function PostCreatorModal({
         const allEvents = Array.from(eventMap.values());
 
         setUserTickets(allEvents);
+        console.log('Available events for user:', allEvents.length, allEvents.map(e => ({ id: e.event_id, title: e.events.title, source: e.source })));
 
         if (preselectedEventId) {
           setSelectedEventId(preselectedEventId);
+          console.log('Set selectedEventId to preselected:', preselectedEventId);
         } else if (!selectedEventId && allEvents.length === 1) {
           setSelectedEventId(allEvents[0].event_id);
+          console.log('Auto-selected single event:', allEvents[0].event_id);
+        } else if (allEvents.length > 1) {
+          console.log('Multiple events available, user needs to select one');
+        } else {
+          console.log('No events available for user');
         }
       } catch (err) {
         console.error('Error fetching user events:', err);
@@ -381,6 +418,20 @@ export function PostCreatorModal({
       queue.forEach((q) => q.previewUrl && URL.revokeObjectURL(q.previewUrl));
     };
   }, [queue]);
+
+  // Warn if leaving mid-upload or with non-empty content
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      const uploading = queue.some(q => q.status === 'uploading' || q.status === 'processing');
+      if (uploading || content.trim().length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [queue, content]);
 
   const selectedTicket = useMemo(
     () => userTickets.find((t) => t.event_id === selectedEventId),
@@ -409,6 +460,10 @@ export function PostCreatorModal({
 
       for (let i = 0; i < slice.length; i++) {
         let f = slice[i];
+
+        // HEIC → JPEG fallback
+        f = await maybeTranscodeHeic(f);
+
         const kind: FileKind = isVideoFile(f)
           ? 'video'
           : isImageFile(f)
@@ -416,10 +471,10 @@ export function PostCreatorModal({
           : f.type.startsWith('audio')
           ? 'video'
           : 'image';
+
         const sizeMB = bytesToMB(f.size);
 
         if (kind === 'image' && sizeMB > MAX_IMAGE_MB) {
-          // try preprocessing (resize/compress). If still too large, reject.
           const optimized = await preprocessImage(f);
           if (bytesToMB(optimized.size) > MAX_IMAGE_MB) {
             toast({
@@ -429,7 +484,6 @@ export function PostCreatorModal({
             });
             continue;
           }
-          // replace file with optimized
           f = optimized;
         } else if (kind === 'video' && sizeMB > MAX_VIDEO_MB) {
           toast({
@@ -441,8 +495,33 @@ export function PostCreatorModal({
         }
 
         // de-dupe by name+size
-        if (queue.some((q) => q.name === f.name && q.size === f.size)) {
-          continue;
+        if (queue.some((q) => q.name === f.name && q.size === f.size)) continue;
+
+        // Quick poster for videos (best-effort, no decode = icon fallback)
+        let previewUrl: string | undefined = undefined;
+        if (kind === 'image') {
+          previewUrl = URL.createObjectURL(f);
+        } else if (kind === 'video') {
+          try {
+            const v = document.createElement('video');
+            v.preload = 'metadata';
+            v.src = URL.createObjectURL(f);
+            await new Promise<void>((res, rej) => {
+              v.onloadeddata = () => res();
+              v.onerror = () => rej(new Error('video preview failed'));
+            });
+            const canvas = document.createElement('canvas');
+            canvas.width = 320;
+            canvas.height = Math.round((v.videoHeight / v.videoWidth) * 320) || 180;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+              const blob: Blob | null = await new Promise((r) => canvas.toBlob((b) => r(b), 'image/jpeg', 0.7));
+              if (blob) previewUrl = URL.createObjectURL(blob);
+            }
+            // revoke raw video preview if created
+            URL.revokeObjectURL(v.src);
+          } catch {}
         }
 
         next.push({
@@ -451,7 +530,7 @@ export function PostCreatorModal({
           status: 'queued',
           name: f.name,
           size: f.size,
-          previewUrl: kind === 'image' ? URL.createObjectURL(f) : undefined,
+          previewUrl,
           progress: 0,
         });
       }
@@ -463,6 +542,13 @@ export function PostCreatorModal({
 
   const handleFilePick = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(ev.target.files || []);
+    console.log('Files selected:', files.length, files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+    
+    if (files.length === 0) {
+      console.log('No files selected');
+      return;
+    }
+    
     // fire-and-forget async (preprocess can be async)
     addFiles(files);
     ev.currentTarget.value = ''; // allow reselecting same file
@@ -583,88 +669,83 @@ export function PostCreatorModal({
     });
 
   const uploadQueue = async (): Promise<string[]> => {
-    const urls: string[] = [];
-    const updates = [...queue];
+    const results: string[] = [];
+    const items = [...queue];
 
-    // sequential keeps it simple; adjust to limited concurrency if desired
-    for (let i = 0; i < updates.length; i++) {
-      const item = updates[i];
+    // Helper to update one item in state by name
+    const updateByIndex = (i: number, patch: Partial<QueuedFile>) => {
+      items[i] = { ...items[i], ...patch };
+      setQueue((prev) => {
+        const copy = [...prev];
+        const key = items[i].name + items[i].size;
+        const idx = copy.findIndex((f) => f.name === items[i].name && f.size === items[i].size);
+        if (idx !== -1) copy[idx] = { ...copy[idx], ...patch };
+        return copy;
+      });
+    };
 
-      // skip finished or canceled
-      if (item.status === 'done' && item.remoteUrl) {
-        urls.push(item.remoteUrl);
-        continue;
-      }
-      if (item.status === 'canceled') continue;
+    // Upload worker for one item
+    const work = async (i: number) => {
+      const item = items[i];
+      if (!item) return;
+      if (item.status === 'done' && item.remoteUrl) { results.push(item.remoteUrl); return; }
+      if (item.status === 'canceled') return;
 
       try {
         const controller = new AbortController();
-        updates[i] = { ...item, status: 'uploading', controller, errorMsg: undefined, progress: 0 };
-        setQueue([...updates]);
+        updateByIndex(i, { status: 'uploading', controller, errorMsg: undefined, progress: 0 });
 
         if (item.kind === 'image') {
-          const publicUrl = await uploadImageToSupabase(item.file);
-          updates[i] = {
-            ...updates[i],
-            status: 'done',
-            remoteUrl: publicUrl,
-            controller: undefined,
-            progress: 100,
-          };
-          urls.push(publicUrl);
-          setQueue([...updates]);
+          const publicUrl = await backoff(() => uploadImageToSupabase(item.file));
+          updateByIndex(i, { status: 'done', remoteUrl: publicUrl, controller: undefined, progress: 100 });
+          results.push(publicUrl);
         } else {
-          // VIDEO → Mux Direct Upload
           if (!selectedEventId) throw new Error('Select an event before uploading video');
 
-          const { upload_id, upload_url } = await createMuxDirectUpload(selectedEventId);
+          // Create direct upload
+          const { upload_id, upload_url } = await backoff(() => createMuxDirectUpload(selectedEventId));
 
-          // PUT binary to Mux upload URL with progress
-          await uploadMuxWithProgress(
+          // PUT to Mux with progress
+          await backoff(() => uploadMuxWithProgress(
             upload_url,
             item.file,
             controller,
-            (p) => {
-              updates[i] = { ...updates[i], progress: p };
-              if (!unmountedRef.current) setQueue([...updates]);
-            }
-          );
+            (p) => updateByIndex(i, { progress: p })
+          ), 2, 800);
 
-          // now video is processing on Mux
-          updates[i] = { ...updates[i], status: 'processing', controller: undefined };
-          setQueue([...updates]);
+          // Mark processing
+          updateByIndex(i, { status: 'processing', controller: undefined });
 
-          // Poll until we get a playback_id
-          const playback_id = await resolveMuxUploadToPlaybackId(upload_id);
-
+          // Resolve to playback_id
+          const playback_id = await backoff(() => resolveMuxUploadToPlaybackId(upload_id), 6, 1200);
           const muxUrl = `mux:${playback_id}`;
-          updates[i] = { ...updates[i], status: 'done', remoteUrl: muxUrl, progress: 100 };
-          urls.push(muxUrl);
-          setQueue([...updates]);
+          updateByIndex(i, { status: 'done', remoteUrl: muxUrl, progress: 100 });
+          results.push(muxUrl);
         }
       } catch (err: any) {
-        console.error('Upload error:', err);
-        updates[i] = {
-          ...updates[i],
-          status: updates[i].status === 'canceled' ? 'canceled' : 'error',
-          controller: undefined,
-          errorMsg: err?.message || 'Upload failed',
-        };
-        setQueue([...updates]);
-
-        if (updates[i].status !== 'canceled') {
-          toast({
-            title: 'Upload Failed',
-            description: `Failed to upload ${updates[i].name}: ${updates[i].errorMsg}`,
-            variant: 'destructive',
-          });
-          // stop entire submission pipeline on first failure
-          throw err;
-        }
+        const msg = err?.message || 'Upload failed';
+        updateByIndex(i, { status: 'error', controller: undefined, errorMsg: msg });
+        toast({ title: 'Upload Failed', description: `Failed to upload ${items[i].name}: ${msg}`, variant: 'destructive' });
+        // NOTE: Unlike before, do not throw here → other files keep going.
+        // If you prefer to cancel all on first error, rethrow.
       }
-    }
+    };
 
-    return urls;
+    // Limited concurrency (e.g., 2 at a time)
+    const CONCURRENCY = 2;
+    const queueIdxs = items.map((_, i) => i);
+    const runners: Promise<any>[] = [];
+    for (let k = 0; k < CONCURRENCY; k++) {
+      runners.push((async () => {
+        while (queueIdxs.length) {
+          const i = queueIdxs.shift()!;
+          await work(i);
+        }
+      })());
+    }
+    await Promise.all(runners);
+
+    return results;
   };
 
   /** -------------- Submit -------------- */
@@ -820,7 +901,14 @@ export function PostCreatorModal({
                 )}
 
                 {/* Composer */}
-                <div className="rounded-3xl border border-border/60 bg-background/80 p-5 shadow-inner">
+                <div 
+                  className={`rounded-3xl border border-border/60 bg-background/80 p-5 shadow-inner transition-all ${
+                    isDragging ? 'border-primary bg-primary/5' : ''
+                  }`}
+                  onDrop={onDrop}
+                  onDragOver={onDragOver}
+                  onDragLeave={onDragLeave}
+                >
                   <Textarea
                     placeholder="What's the vibe? Share the story, shout out a set, or drop some highlights…"
                     value={content}
@@ -831,83 +919,67 @@ export function PostCreatorModal({
                     aria-label="Post content"
                   />
 
-                  <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                      <span className="text-foreground">Add to your post</span>
-                      <label htmlFor={imageInputId} className="inline-flex">
-                        <input
-                          id={imageInputId}
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={handleFilePick}
-                          className="hidden"
-                        />
-                        <Button variant="ghost" size="sm" className="rounded-full">
-                          <ImageIcon className="mr-1 h-4 w-4" /> Photos
-                        </Button>
-                      </label>
-                      <label htmlFor={videoInputId} className="inline-flex">
-                        <input
-                          id={videoInputId}
-                          type="file"
-                          accept="video/*"
-                          multiple
-                          onChange={handleFilePick}
-                          className="hidden"
-                        />
-                        <Button variant="ghost" size="sm" className="rounded-full">
-                          <VideoIcon className="mr-1 h-4 w-4" /> Video
-                        </Button>
-                      </label>
+                  {/* Simple Media Controls */}
+                  <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-4">
+                    <div className="flex items-center gap-3">
+                      {/* Add Files Button */}
+                      <Button 
+                        type="button"
+                        variant="ghost" 
+                        size="sm" 
+                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/10"
+                        title="Add photos or videos"
+                        onClick={() => {
+                          console.log('Upload button clicked, triggering file input');
+                          document.getElementById(imageInputId)?.click();
+                        }}
+                      >
+                        <Upload className="h-5 w-5" />
+                      </Button>
+                      <input
+                        id={imageInputId}
+                        type="file"
+                        accept="image/*,video/*"
+                        multiple
+                        onChange={handleFilePick}
+                        className="hidden"
+                      />
+                      
+                      {/* Record Video Button */}
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="rounded-full"
-                        onClick={() => setShowVideoRecorder(true)}
+                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/10"
+                        onClick={() => {
+                          console.log('Record video button clicked, selectedEventId:', selectedEventId);
+                          if (!selectedEventId) {
+                            toast({
+                              title: 'Select an event first',
+                              description: 'Please choose an event before recording a video.',
+                              variant: 'destructive'
+                            });
+                            return;
+                          }
+                          console.log('Opening video recorder');
+                          setShowVideoRecorder(true);
+                        }}
+                        title={`Record video ${!selectedEventId ? '(select an event first)' : ''}`}
+                        disabled={!selectedEventId}
                       >
-                        <VideoIcon className="mr-1 h-4 w-4" /> Record video
+                        <VideoIcon className="h-5 w-5" />
                       </Button>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{content.length}/2000 characters</span>
-                      <span className="hidden sm:inline">•</span>
-                      <span>{queue.length}/{MAX_FILES} media attached</span>
-                      <span className="hidden sm:inline">•</span>
-                      <span>⌘/Ctrl + Enter to post</span>
+                    
+                    {/* Character Counter */}
+                    <div className="text-xs text-muted-foreground">
+                      {content.length}/2000
                     </div>
                   </div>
                 </div>
 
-                {/* Media Upload */}
+                {/* Media Queue */}
                 <div className="space-y-4">
-                  <div
-                    ref={dropRef}
-                    onDrop={onDrop}
-                    onDragOver={onDragOver}
-                    onDragLeave={onDragLeave}
-                    onClick={() => document.getElementById(imageInputId)?.click()}
-                    className={`group relative flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed p-8 text-center transition-all ${
-                      isDragging
-                        ? 'border-primary bg-primary/10 shadow-[0_0_30px_rgba(var(--primary-rgb),0.15)]'
-                        : 'border-border/70 bg-muted/10 hover:border-primary/60'
-                    }`}
-                    aria-label="Drop media here"
-                  >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <Upload className="h-6 w-6" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold">Drop photos or videos to upload</p>
-                      <p className="text-xs text-muted-foreground">
-                        You can also paste from your clipboard. Images ≤ {MAX_IMAGE_MB}MB · Videos ≤ {MAX_VIDEO_MB}MB · Up to {MAX_FILES} files
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-                      <span>Need inspiration? Share behind-the-scenes moments, teasers, or quick recaps.</span>
-                    </div>
-                  </div>
 
                   {queue.length > 0 && (
                     <div className="space-y-3 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner">
@@ -1060,7 +1132,7 @@ export function PostCreatorModal({
         </DialogContent>
       </Dialog>
 
-      {showVideoRecorder && (
+      {showVideoRecorder && selectedEventId && (
         <VideoRecorder
           eventId={selectedEventId}
           onClose={() => setShowVideoRecorder(false)}

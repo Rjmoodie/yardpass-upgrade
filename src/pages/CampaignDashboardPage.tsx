@@ -62,7 +62,7 @@ const CampaignDashboardPage = () => {
             organizations={organizations}
             value={selectedOrgId}
             onSelect={setSelectedOrgId}
-            className="w-[300px]"
+            className="w-[220px]"
           />
         </div>
       </div>

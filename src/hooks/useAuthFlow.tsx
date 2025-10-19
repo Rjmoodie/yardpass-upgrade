@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { mapAuthError } from '@/lib/authErrors';
+import { focusGate, isIOS, log } from '@/utils/platform';
 
 type Options = {
   onSuccess?: () => void;
@@ -15,11 +16,12 @@ export function useAuthFlow(opts: Options = {}) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signInWithPhone, verifyPhoneOtp, signUp, signUpWithPhone } = useAuth();
+  const { signIn, signInWithPhone, verifyPhoneOtp, signUp, signUpWithPhone, user, loading } = useAuth();
   
   const [isLoading, setIsLoading] = useState(false);
   const busyRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const navigatedRef = useRef(false);
 
   // email/password
   const [email, setEmail] = useState('');
@@ -59,9 +61,40 @@ export function useAuthFlow(opts: Options = {}) {
   }
 
   function successRedirect() {
-    const redirectTo = (location.state as any)?.from ?? '/';
+    // 1) Never navigate while we're juggling focus/keyboard
+    if (focusGate.active) {
+      log('successRedirect blocked - focus gate active');
+      return;
+    }
+
+    // 2) Only navigate when truly authenticated
+    const authed = !!user;
+    const stillLoading = loading || isLoading;
+    if (!authed || stillLoading) {
+      log('successRedirect blocked - not authenticated or still loading', { authed, stillLoading });
+      return;
+    }
+
+    // 3) Make it idempotent
+    if (navigatedRef.current) {
+      log('successRedirect blocked - already navigated');
+      return;
+    }
+    navigatedRef.current = true;
+
+    // 4) Do the actual navigate
+    const state = location.state as any;
+    const redirectTo = state?.from ?? '/';
+    log('successRedirect executing', { redirectTo, gate: focusGate.active });
     navigate(redirectTo, { replace: true });
     opts.onSuccess?.();
+  }
+
+  // Debounced redirect for iOS
+  let redirectTimeout: any;
+  function scheduleSuccessRedirect() {
+    clearTimeout(redirectTimeout);
+    redirectTimeout = setTimeout(successRedirect, isIOS() ? 200 : 80);
   }
 
   async function emailPasswordAuth(mode: 'signin' | 'signup') {
@@ -77,7 +110,7 @@ export function useAuthFlow(opts: Options = {}) {
         if (error) throw error;
         toast({ title: 'Account created', description: 'Please check your email to verify (optional).' });
       }
-      successRedirect();
+      scheduleSuccessRedirect();
     } catch (e) {
       setError({ email: (opts.mapError ?? mapAuthError)(e, 'Unable to authenticate.') });
     } finally {
@@ -124,7 +157,7 @@ export function useAuthFlow(opts: Options = {}) {
       const { error } = await verifyPhoneOtp(phoneForOtp || phone, otp);
       if (error) throw error;
       toast({ title: mode === 'signin' ? 'Signed in' : 'Phone verified', description: 'Successfully authenticated.' });
-      successRedirect();
+      scheduleSuccessRedirect();
     } catch (e) {
       setError({ phone: (opts.mapError ?? mapAuthError)(e, 'Could not verify code.') });
     } finally {
@@ -169,7 +202,7 @@ export function useAuthFlow(opts: Options = {}) {
       const sess = { token, contact: guestContact, exp, scope };
       localStorage.setItem('ticket-guest-session', JSON.stringify(sess));
       toast({ title: 'Guest access granted', description: 'You can now view your tickets.' });
-      successRedirect();
+      scheduleSuccessRedirect();
     } catch (e) {
       setError({ guest: (opts.mapError ?? mapAuthError)(e, 'Could not verify code.') });
     } finally {

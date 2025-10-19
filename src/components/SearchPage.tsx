@@ -1107,8 +1107,14 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 </span>
               )}
               <Button
-                onClick={() => setFiltersOpen(true)}
+                onClick={() => {
+                  console.log('Top filter button clicked, current filtersOpen state:', filtersOpen);
+                  setFiltersOpen(true);
+                  console.log('Filter modal should now be open');
+                }}
                 className="flex h-8 items-center gap-1.5 rounded-full border border-white/20 bg-slate-900 px-3 text-[11px] font-medium text-white shadow-none transition hover:bg-slate-800"
+                title="Open filters"
+                aria-label="Open filter modal"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 Filter
@@ -1208,13 +1214,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
                 <span className="text-sm text-slate-600">{filtersAppliedCount} filters active</span>
               )}
             </div>
-            <Button
-              onClick={() => setFiltersOpen(true)}
-              className="flex h-8 items-center gap-1.5 rounded-full border border-white/20 bg-slate-900 px-3 text-[11px] font-medium text-white shadow-none transition hover:bg-slate-800"
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Filter
-            </Button>
+            {/* Bottom filter button removed - using only top filter button */}
           </div>
 
           {/* Mobile: Event Results */}
@@ -1574,14 +1574,76 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
       <FilterModal
         isOpen={filtersOpen}
         onClose={() => setFiltersOpen(false)}
-        currentFilters={{ location: locationFilter, time: timeFilter, sort: sortBy }}
+        currentFilters={{ 
+          location: locationFilter, 
+          time: timeFilter, 
+          sort: sortBy,
+          priceRange: 'any',
+          eventTypes: ['all'],
+          maxDistance: 25,
+          includeOnline: true,
+          includeSoldOut: false,
+          minRating: 0
+        }}
         onApply={(selections: FilterSelections) => {
+          console.log('SearchPage: Applying advanced filters:', selections);
+          
+          // Update basic filters
           setLocationFilter(selections.location);
           setTimeFilter(selections.time);
           setSortBy(selections.sort);
+          
+          // Update URL parameters
           setParam('location_scope', selections.location === 'near-me' ? '' : selections.location);
           setParam('when', selections.time === 'anytime' ? '' : selections.time);
           setParam('sort', selections.sort === 'relevance' ? '' : selections.sort);
+          
+          // Handle new filter parameters
+          if (selections.priceRange !== 'any') {
+            setParam('price', selections.priceRange);
+          } else {
+            setParam('price', '');
+          }
+          
+          if (selections.eventTypes.length > 0 && !selections.eventTypes.includes('all')) {
+            setParam('types', selections.eventTypes.join(','));
+          } else {
+            setParam('types', '');
+          }
+          
+          if (selections.maxDistance !== 25) {
+            setParam('distance', selections.maxDistance.toString());
+          } else {
+            setParam('distance', '');
+          }
+          
+          if (selections.customLocation) {
+            setParam('custom_location', selections.customLocation);
+          } else {
+            setParam('custom_location', '');
+          }
+          
+          if (selections.customDateFrom) {
+            setParam('date_from', selections.customDateFrom);
+          } else {
+            setParam('date_from', '');
+          }
+          
+          if (selections.customDateTo) {
+            setParam('date_to', selections.customDateTo);
+          } else {
+            setParam('date_to', '');
+          }
+          
+          setParam('online', selections.includeOnline ? 'true' : '');
+          setParam('sold_out', selections.includeSoldOut ? 'true' : '');
+          
+          if (selections.minRating > 0) {
+            setParam('min_rating', selections.minRating.toString());
+          } else {
+            setParam('min_rating', '');
+          }
+          
           if (selections.location === 'near-me') {
             void requestCurrentLocation();
           }

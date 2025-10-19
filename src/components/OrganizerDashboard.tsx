@@ -700,7 +700,7 @@ export default function OrganizerDashboard() {
                 }
                 trackEvent('dashboard_org_selected', { org_id: nextOrgId, source: 'switcher' });
               }}
-              className="w-[260px]"
+              className="w-[200px]"
             />
           </div>
 

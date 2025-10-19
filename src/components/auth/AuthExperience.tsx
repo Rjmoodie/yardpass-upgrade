@@ -10,6 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useGuestTicketSession } from '@/hooks/useGuestTicketSession';
+import { focusGate, isIOS, log } from '@/utils/platform';
+import { installIosAuthScreenTuning, restoreIosAuthScreenTuning } from '@/utils/keyboard-guards';
 
 export type AuthTab = 'signin' | 'signup' | 'guest';
 export type AuthMethod = 'email' | 'phone';
@@ -113,6 +115,14 @@ export function AuthExperience({
       resetAll();
     }
   }, [isOpen, resetAll]);
+
+  // Install iOS keyboard tuning when auth screen opens
+  useEffect(() => {
+    if (isOpen) {
+      installIosAuthScreenTuning();
+      return () => restoreIosAuthScreenTuning();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     setActiveTab(defaultTab);
@@ -395,19 +405,33 @@ export function AuthExperience({
                       id="signin-email"
                       name="email"
                       type="email"
+                      inputMode="email"
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
+                      onKeyUp={(e) => {
+                        if (e.key === 'Enter' && !(e.nativeEvent as any).isComposing) {
                           e.preventDefault();
-                          const passwordInput = document.getElementById('signin-password') as HTMLInputElement;
-                          passwordInput?.focus();
+                          const el = document.getElementById('signin-password') as HTMLInputElement | null;
+                          if (el) {
+                            log('email Enter → focusing password', { gate: focusGate.active });
+                            focusGate.with(() => {
+                              requestAnimationFrame(() => {
+                                try {
+                                  el.focus({ preventScroll: true } as any);
+                                } catch {
+                                  el.focus(); // for older WKWebView
+                                }
+                                // Optional: nudge into view after focus, not before
+                                setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), isIOS() ? 80 : 0);
+                              });
+                            }, isIOS() ? 300 : 120);
+                          }
                         }
                       }}
                       required
-                      className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
-                      autoComplete="email"
+                      className="h-12 rounded-xl border-2 border-border/40 bg-background/80 text-base"
+                      autoComplete="username"
                       autoCapitalize="none"
                       autoCorrect="off"
                     />
@@ -428,7 +452,7 @@ export function AuthExperience({
                           }
                         }}
                         required
-                        className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
+                        className="h-12 rounded-xl border-2 border-border/40 bg-background/80 text-base"
                         autoComplete="current-password"
                       />
                     </div>
@@ -530,18 +554,31 @@ export function AuthExperience({
                         id="signup-email"
                         name="email"
                         type="email"
+                        inputMode="email"
                         placeholder="you@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                        onKeyUp={(e) => {
+                          if (e.key === 'Enter' && !(e.nativeEvent as any).isComposing) {
                             e.preventDefault();
-                            const passwordInput = document.getElementById('signup-password') as HTMLInputElement;
-                            passwordInput?.focus();
+                            const el = document.getElementById('signup-password') as HTMLInputElement | null;
+                            if (el) {
+                              log('signup email Enter → focusing password', { gate: focusGate.active });
+                              focusGate.with(() => {
+                                requestAnimationFrame(() => {
+                                  try {
+                                    el.focus({ preventScroll: true } as any);
+                                  } catch {
+                                    el.focus(); // for older WKWebView
+                                  }
+                                  setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), isIOS() ? 80 : 0);
+                                });
+                              }, isIOS() ? 300 : 120);
+                            }
                           }
                         }}
                         required
-                        className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
+                        className="h-12 rounded-xl border-2 border-border/40 bg-background/80 text-base"
                         autoComplete="email"
                         autoCapitalize="none"
                         autoCorrect="off"
@@ -574,7 +611,8 @@ export function AuthExperience({
                           }
                         }}
                         required
-                        className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
+                        className="h-12 rounded-xl border-2 border-border/40 bg-background/80 text-base"
+                        autoComplete="new-password"
                       />
                     </div>
                     {error?.email && (

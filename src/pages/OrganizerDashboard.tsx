@@ -227,7 +227,7 @@ export default function OrganizerDashboard() {
                     value={selectedOrganization}
                     onSelect={handleOrganizationSelect}
                     onCreateOrgPath="/create-organization"
-                    className="w-full sm:w-[240px] md:w-[280px]"
+                    className="w-full sm:w-[200px] md:w-[220px]"
                   />
                   {selectedOrganization && (
                     <Button
