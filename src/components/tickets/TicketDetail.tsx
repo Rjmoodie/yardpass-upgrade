@@ -69,7 +69,7 @@ export function TicketDetail({
       }
     }}>
       <DialogContent 
-        className="max-w-xl gap-6 overflow-hidden p-0 sm:rounded-3xl [&>button]:absolute [&>button]:right-6 [&>button]:top-6 [&>button]:text-primary-foreground/70 [&>button]:hover:text-primary-foreground [&>button]:transition [&>button]:focus-visible:outline-none [&>button]:focus-visible:ring-2 [&>button]:focus-visible:ring-offset-2"
+        className="max-w-xl gap-[clamp(1rem,3vh,1.5rem)] overflow-hidden p-0 sm:rounded-3xl [&>button]:absolute [&>button]:right-[clamp(1rem,4vw,1.5rem)] [&>button]:top-[clamp(1rem,4vw,1.5rem)] [&>button]:text-primary-foreground/70 [&>button]:hover:text-primary-foreground [&>button]:transition [&>button]:focus-visible:outline-none [&>button]:focus-visible:ring-2 [&>button]:focus-visible:ring-offset-2"
         onPointerDownOutside={(e) => {
           // Prevent dialog from closing on outside clicks
           e.preventDefault();
@@ -79,35 +79,35 @@ export function TicketDetail({
           onClose();
         }}
       >
-        <div className="relative bg-gradient-to-br from-primary/90 via-primary to-primary/80 p-8 text-primary-foreground">
-          <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-2xl font-semibold tracking-tight text-primary-foreground">
+        <div className="relative bg-gradient-to-br from-primary/90 via-primary to-primary/80 p-[clamp(1.5rem,5vh,2rem)] text-primary-foreground" style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}>
+          <DialogHeader className="space-y-[clamp(0.375rem,1.5vh,0.5rem)] text-left">
+            <DialogTitle className="text-[clamp(1.25rem,5vw,1.5rem)] font-semibold tracking-tight text-primary-foreground leading-tight">
               {ticket.eventTitle}
             </DialogTitle>
-            <p className="text-sm text-primary-foreground/80">{ticket.organizerName}</p>
+            <p className="text-[clamp(0.8125rem,3.5vw,0.875rem)] text-primary-foreground/80">{ticket.organizerName}</p>
           </DialogHeader>
-          <div className="mt-4 grid gap-2 text-sm">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" aria-hidden />
+          <div className="mt-[clamp(0.75rem,2.5vh,1rem)] grid gap-[clamp(0.375rem,1.5vh,0.5rem)] text-[clamp(0.8125rem,3.5vw,0.875rem)]">
+            <div className="flex items-center gap-[clamp(0.375rem,1.5vw,0.5rem)]">
+              <Calendar className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
               <span>{ticket.eventDate}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4" aria-hidden />
+            <div className="flex items-center gap-[clamp(0.375rem,1.5vw,0.5rem)]">
+              <Clock className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
               <span>{ticket.eventTime}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" aria-hidden />
+            <div className="flex items-center gap-[clamp(0.375rem,1.5vw,0.5rem)]">
+              <MapPin className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
               <span>{ticket.eventLocation}</span>
             </div>
           </div>
-          <div className="mt-4 flex items-center gap-3">
-            <Badge variant={status.variant}>{status.label}</Badge>
-            <Badge variant="secondary" className="bg-primary-foreground/20 text-xs text-primary-foreground">
+          <div className="mt-[clamp(0.75rem,2.5vh,1rem)] flex items-center gap-[clamp(0.5rem,2vw,0.75rem)] flex-wrap">
+            <Badge variant={status.variant} className="text-[clamp(0.75rem,3vw,0.875rem)]">{status.label}</Badge>
+            <Badge variant="secondary" className="bg-primary-foreground/20 text-[clamp(0.6875rem,2.8vw,0.75rem)] text-primary-foreground">
               {ticket.ticketType}
             </Badge>
           </div>
         </div>
-        <div className="space-y-6 p-6">
+        <div className="space-y-[clamp(1rem,4vh,1.5rem)] p-[clamp(1rem,4vw,1.5rem)]" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
           <QrDisplay
             ticketId={ticket.id}
             eventId={ticket.eventId}
@@ -115,44 +115,44 @@ export function TicketDetail({
             isLoading={isQrLoading}
             errored={isQrError}
           />
-          <div className="space-y-4">
+          <div className="space-y-[clamp(0.75rem,3vh,1rem)]">
             <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Ticket Holder</h3>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <Badge variant="outline" className="gap-2 text-sm">
-                  <Ticket className="h-4 w-4" aria-hidden />
+              <h3 className="text-[clamp(0.6875rem,3vw,0.75rem)] font-semibold uppercase tracking-wide text-muted-foreground">Ticket Holder</h3>
+              <div className="mt-[clamp(0.375rem,1.5vh,0.5rem)] flex flex-wrap items-center gap-[clamp(0.5rem,2vw,0.75rem)]">
+                <Badge variant="outline" className="gap-[clamp(0.375rem,1.5vw,0.5rem)] text-[clamp(0.8125rem,3.5vw,0.875rem)] min-h-[44px]">
+                  <Ticket className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
                   {ticket.ticketType}
                 </Badge>
-                <span className="text-sm text-muted-foreground">{priceLabel}</span>
+                <span className="text-[clamp(0.8125rem,3.5vw,0.875rem)] text-muted-foreground">{priceLabel}</span>
                 {ticket.orderDate && (
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-[clamp(0.8125rem,3.5vw,0.875rem)] text-muted-foreground">
                     Ordered {new Date(ticket.orderDate).toLocaleDateString()}
                   </span>
                 )}
               </div>
             </div>
             <Separator />
-            <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
-              <Button variant="secondary" onClick={() => onShare?.(ticket)} className="justify-start gap-2" aria-label="Share ticket">
-                <Share2 className="h-4 w-4" aria-hidden />
+            <div className="grid gap-[clamp(0.5rem,2vh,0.75rem)] sm:grid-cols-2 sm:gap-[clamp(0.5rem,2vh,0.75rem)]">
+              <Button variant="secondary" onClick={() => onShare?.(ticket)} className="justify-start gap-[clamp(0.375rem,1.5vw,0.5rem)] min-h-[44px] text-[clamp(0.8125rem,3.5vw,0.875rem)]" aria-label="Share ticket">
+                <Share2 className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
                 Share ticket
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => onAddToCalendar?.(ticket)}
-                className="justify-start gap-2"
+                className="justify-start gap-[clamp(0.375rem,1.5vw,0.5rem)] min-h-[44px] text-[clamp(0.8125rem,3.5vw,0.875rem)]"
                 aria-label="Add to calendar"
               >
-                <Calendar className="h-4 w-4" aria-hidden />
+                <Calendar className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
                 Add to calendar
               </Button>
               <Button
                 variant="ghost"
                 onClick={() => onDownloadCalendar?.(ticket)}
-                className="justify-start gap-2"
+                className="justify-start gap-[clamp(0.375rem,1.5vw,0.5rem)] min-h-[44px] text-[clamp(0.8125rem,3.5vw,0.875rem)]"
                 aria-label="Download calendar file"
               >
-                <Download className="h-4 w-4" aria-hidden />
+                <Download className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
                 Download .ics
               </Button>
               {(ticket.appleWalletUrl || ticket.googleWalletUrl) && (
