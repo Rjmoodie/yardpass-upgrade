@@ -234,6 +234,13 @@ export function PostCreatorModal({
   const imageInputId = useId();
   const videoInputId = useId();
 
+  const readyCount = useMemo(() => queue.filter((item) => item.status === 'done').length, [queue]);
+  const inProgressCount = useMemo(
+    () => queue.filter((item) => item.status === 'uploading' || item.status === 'processing').length,
+    [queue]
+  );
+  const totalQueued = queue.length;
+
   // Load draft + last-event (if no preselect)
   useEffect(() => {
     if (!isOpen) return;
@@ -920,21 +927,19 @@ export function PostCreatorModal({
                   />
 
                   {/* Simple Media Controls */}
-                  <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-4">
-                    <div className="flex items-center gap-3">
-                      {/* Add Files Button */}
-                      <Button 
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
+                    <div className="flex flex-1 flex-wrap gap-3">
+                      <Button
                         type="button"
-                        variant="ghost" 
-                        size="sm" 
-                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/10"
-                        title="Add photos or videos"
+                        variant="outline"
+                        className="flex flex-1 min-w-[140px] items-center justify-center gap-2 rounded-2xl border-dashed border-primary/40 bg-primary/5 py-3 text-sm font-medium text-primary transition hover:bg-primary/10 sm:flex-none sm:px-4"
+                        title="Upload photos or videos"
                         onClick={() => {
-                          console.log('Upload button clicked, triggering file input');
                           document.getElementById(imageInputId)?.click();
                         }}
                       >
-                        <Upload className="h-5 w-5" />
+                        <Upload className="h-4 w-4" aria-hidden />
+                        <span>Upload media</span>
                       </Button>
                       <input
                         id={imageInputId}
@@ -944,15 +949,12 @@ export function PostCreatorModal({
                         onChange={handleFilePick}
                         className="hidden"
                       />
-                      
-                      {/* Record Video Button */}
+
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/10"
+                        variant="outline"
+                        className="flex flex-1 min-w-[140px] items-center justify-center gap-2 rounded-2xl border-dashed border-primary/40 bg-primary/5 py-3 text-sm font-medium text-primary transition hover:bg-primary/10 sm:flex-none sm:px-4 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => {
-                          console.log('Record video button clicked, selectedEventId:', selectedEventId);
                           if (!selectedEventId) {
                             toast({
                               title: 'Select an event first',
@@ -961,19 +963,23 @@ export function PostCreatorModal({
                             });
                             return;
                           }
-                          console.log('Opening video recorder');
                           setShowVideoRecorder(true);
                         }}
                         title={`Record video ${!selectedEventId ? '(select an event first)' : ''}`}
                         disabled={!selectedEventId}
                       >
-                        <VideoIcon className="h-5 w-5" />
+                        <VideoIcon className="h-4 w-4" aria-hidden />
+                        <span>Record video</span>
                       </Button>
                     </div>
-                    
-                    {/* Character Counter */}
-                    <div className="text-xs text-muted-foreground">
-                      {content.length}/2000
+
+                    <div className="flex flex-col items-end text-right text-[11px] leading-tight text-muted-foreground">
+                      <span className="text-xs font-semibold text-foreground">{content.length}/2000</span>
+                      {totalQueued > 0 && (
+                        <span>
+                          {readyCount}/{totalQueued} ready{inProgressCount ? ` · ${inProgressCount} processing` : ''}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

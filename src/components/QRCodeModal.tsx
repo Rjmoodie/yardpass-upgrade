@@ -3,13 +3,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, Copy, Share, Download, Palette, Check } from 'lucide-react';
+import { X, Copy, Share, Palette, Check } from 'lucide-react';
 import { BrandedSpinner } from './BrandedSpinner';
 import { generateStyledQRDataURL } from '@/lib/styledQr';
 import { getQrTheme, getAllThemes, type QrThemeName } from '@/lib/qrTheme';
 import { UserTicket } from '@/hooks/useTickets';
 import { toast } from '@/hooks/use-toast';
-import { YardpassSpinner } from '@/components/LoadingSpinner';
 
 interface User {
   id: string;
@@ -39,7 +38,6 @@ export function QRCodeModal({
   brandHex = '#ffb400',
 }: QRCodeModalProps) {
   const [qrPng, setQrPng] = useState<string>('');
-  const [qrSvg, setQrSvg] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<QrThemeName>(initialTheme);
@@ -90,12 +88,8 @@ export function QRCodeModal({
         // Use the simple static QR code from the database
         const pngDataUrl = await generateStyledQRDataURL(ticket.qrCode, { ...qrOptions, format: 'png' });
         
-        // Generate SVG lazily - only when needed for download
-        const svgDataUrl = '';
-
         if (!cancelled) {
           setQrPng(pngDataUrl);
-          setQrSvg(svgDataUrl);
           console.log('✅ QR code generated successfully');
         }
       } catch (error) {
@@ -119,60 +113,6 @@ export function QRCodeModal({
     return () => {
       cancelled = true;
     };
-  }, [ticket.qrCode, qrOptions, toast]);
-
-  // Download handler with lazy SVG generation
-  const handleDownload = useCallback(async (dataUrl: string, format: 'png' | 'svg') => {
-    let finalDataUrl = dataUrl;
-    
-    // Generate SVG on-demand if needed
-    if (format === 'svg' && !dataUrl) {
-      try {
-        if (!ticket.qrCode) {
-          throw new Error('No QR code available');
-        }
-        finalDataUrl = await generateStyledQRDataURL(ticket.qrCode, { ...qrOptions, format: 'svg' });
-      } catch (error) {
-        console.error('Failed to generate SVG:', error);
-        toast({
-          title: "Download Failed",
-          description: "Could not generate SVG QR code",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    
-    if (!finalDataUrl) {
-      toast({
-        title: "Download Failed",
-        description: "QR code not ready for download",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const link = document.createElement('a');
-      link.href = finalDataUrl;
-      link.download = `yardpass-ticket-${ticket.id.slice(0, 8)}.${format}`;
-      link.rel = 'noopener';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast({
-        title: "Download Started",
-        description: `QR code saved as ${format.toUpperCase()}`,
-      });
-    } catch (error) {
-      console.error('Download failed:', error);
-      toast({
-        title: "Download Failed",
-        description: "Could not download QR code",
-        variant: "destructive",
-      });
-    }
   }, [ticket.qrCode, qrOptions, toast]);
 
   // Enhanced copy handler with QR data
@@ -205,7 +145,7 @@ export function QRCodeModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -215,180 +155,111 @@ export function QRCodeModal({
       aria-modal="true"
       aria-labelledby="qr-modal-title"
     >
-      <Card className="w-full max-w-md relative animate-in fade-in zoom-in duration-300 shadow-2xl border-0 bg-white dark:bg-neutral-900">
-        <CardHeader className="text-center pb-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center border border-accent">
-                <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM16 13h2v2h-2v-2zM16 17h2v2h-2v-2zM20 13h2v2h-2v-2zM20 17h2v2h-2v-2z"/>
-                </svg>
-              </div>
-              <div>
-                <CardTitle id="qr-modal-title" className="text-lg font-semibold text-accent">
-                  Event Ticket
-                </CardTitle>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {/* Theme selector toggle */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowThemeSelector(!showThemeSelector)}
-                className="hover:bg-gray-100 dark:hover:bg-neutral-800 btn-enhanced"
-                aria-label="Change theme"
-              >
-                <Palette className="w-4 h-4" />
-              </Button>
-              
-              {/* Close button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                className="hover:bg-gray-100 dark:hover:bg-neutral-800 btn-enhanced"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
+      <Card className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border/50 bg-background shadow-xl">
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-400"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <CardHeader className="space-y-2 pb-2 pt-6 text-center">
+          <div className="flex flex-col items-center gap-2">
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">Scanner ready</span>
+            <CardTitle id="qr-modal-title" className="text-base font-semibold">
+              {ticket.eventTitle}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {ticket.eventDate} · {ticket.eventTime}
+            </p>
           </div>
-
-          {/* Theme selector */}
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowThemeSelector((prev) => !prev)}
+              className="h-8 gap-2 rounded-full bg-muted px-3 text-xs font-medium text-foreground hover:bg-muted/80"
+            >
+              <Palette className="h-3.5 w-3.5" />
+              Theme
+            </Button>
+          </div>
           {showThemeSelector && (
-            <div className="flex gap-2 justify-center mt-3 p-2 bg-gray-50 dark:bg-neutral-800 rounded-lg border border-accent">
+            <div className="mx-auto mt-2 flex max-w-xs flex-wrap justify-center gap-2 rounded-2xl bg-muted/50 p-2">
               {availableThemes.map((theme) => (
                 <Button
                   key={theme.id}
-                  variant={currentTheme === theme.id ? "default" : "outline"}
+                  variant={currentTheme === theme.id ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => handleThemeChange(theme.id)}
-                  className="btn-enhanced relative"
+                  className="h-8 rounded-full px-3 text-xs"
                 >
-                  <span className="mr-2">{theme.info.icon}</span>
-                  {theme.info.name}
-                  {currentTheme === theme.id && (
-                    <Check className="w-3 h-3 ml-1" />
-                  )}
+                  <span>{theme.info.icon}</span>
+                  <span className="ml-2">{theme.info.name}</span>
+                  {currentTheme === theme.id && <Check className="ml-1 h-3 w-3" />}
                 </Button>
               ))}
             </div>
           )}
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          {/* Event Information */}
-          <div className="text-center space-y-2">
-            <h3 className="font-semibold leading-tight text-accent">
-              {ticket.eventTitle}
-            </h3>
-            <p className="text-sm text-accent-muted">
-              {ticket.eventDate} at {ticket.eventTime}
-            </p>
-            <p className="text-sm text-accent-muted">
-              {ticket.eventLocation}
-            </p>
-            <Badge variant="secondary" className="badge-enhanced">
+        <CardContent className="space-y-5 px-6 pb-6">
+          <div className="flex flex-col items-center gap-2 text-center text-xs text-muted-foreground">
+            {ticket.eventLocation && <p className="text-sm text-foreground/80">{ticket.eventLocation}</p>}
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-[11px] font-medium uppercase">
               {ticket.ticketType || 'General Admission'}
             </Badge>
           </div>
 
-          {/* QR Code Display */}
-          <div className="qr-card qr-size-md">
-            <div className="qr-grid">
-              {loading && (
-                <div className="qr-box">
-                  <BrandedSpinner size="lg" className="text-primary mx-auto" />
-                  <p className="text-sm text-accent-muted mt-3">
-                    Generating premium QR code…
-                  </p>
+          <div className="relative mx-auto flex h-56 w-56 items-center justify-center rounded-3xl bg-white p-5 shadow-inner dark:bg-white">
+            {loading && (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <BrandedSpinner size="lg" className="text-primary" />
+                <p className="text-xs text-muted-foreground">Preparing your QR code…</p>
+              </div>
+            )}
+            {!loading && failed && (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+                  <X className="h-5 w-5 text-destructive" />
                 </div>
-              )}
-
-              {!loading && failed && (
-                <div className="qr-box">
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto border border-accent">
-                    <X className="w-6 h-6 text-red-500" />
-                  </div>
-                  <p className="text-sm text-accent-muted mt-3">
-                    QR code generation failed
-                  </p>
-                  <p className="text-xs text-accent-muted">
-                    Please try refreshing or contact support
-                  </p>
-                </div>
-              )}
-
-              {!loading && !failed && qrPng && (
-                <div className="qr-img-wrap">
-                  <img
-                    src={qrPng}
-                    alt="Premium ticket QR code"
-                    className="qr-img"
-                    draggable={false}
-                  />
-                </div>
-              )}
-            </div>
+                <p className="text-xs text-muted-foreground">QR code unavailable. Try again shortly.</p>
+              </div>
+            )}
+            {!loading && !failed && qrPng && (
+              <img
+                src={qrPng}
+                alt="Ticket QR code"
+                className="h-full w-full select-none object-contain"
+                draggable={false}
+              />
+            )}
           </div>
 
-          {/* Ticket Information */}
-          <div className="text-center text-xs text-accent-muted space-y-1">
-            <p>Ticket ID: {ticket.id.slice(0, 8)}…</p>
-            <p>Show this QR code at event entry</p>
+          <div className="space-y-1 text-center text-[11px] text-muted-foreground">
+            <p>Ticket ID • {ticket.id.slice(0, 8)}…</p>
+            <p>Present this code at entry</p>
           </div>
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Button
-              variant="outline"
-              className="btn-enhanced border-accent hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all"
+              variant="secondary"
+              className="h-11 rounded-full bg-primary/10 text-sm font-semibold text-primary hover:bg-primary/20"
               onClick={handleCopy}
               disabled={loading || failed}
             >
-              <Copy className="w-4 h-4 mr-2" />
-              Copy
+              <Copy className="mr-2 h-4 w-4" /> Copy code
             </Button>
-
             <Button
-              variant="outline"
-              className="btn-enhanced border-accent hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-all"
+              className="h-11 rounded-full bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90"
               onClick={handleShare}
               disabled={loading || failed}
             >
-              <Share className="w-4 h-4 mr-2" />
-              Share
-            </Button>
-
-            <Button
-              variant="outline"
-              className="btn-enhanced border-accent hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all"
-              onClick={() => handleDownload(qrPng, 'png')}
-              disabled={loading || failed || !qrPng}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              PNG
-            </Button>
-
-            <Button
-              variant="outline"
-              className="btn-enhanced border-accent hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all"
-              onClick={() => handleDownload(qrSvg, 'svg')}
-              disabled={loading || failed || !qrSvg}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              SVG
+              <Share className="mr-2 h-4 w-4" /> Share pass
             </Button>
           </div>
 
-          {/* YardPass branding */}
-          <div className="text-center pt-2">
-            <p className="text-xs text-accent-muted">
-              Made for YardPass
-            </p>
-          </div>
+          <p className="text-center text-[11px] text-muted-foreground">Tap outside to close</p>
         </CardContent>
       </Card>
     </div>

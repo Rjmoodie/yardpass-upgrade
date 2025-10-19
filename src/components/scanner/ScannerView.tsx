@@ -234,21 +234,27 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   const offline = typeof navigator !== 'undefined' && !navigator.onLine;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border/60 bg-background/95 backdrop-blur">
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/80 backdrop-blur">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-2" aria-label="Back to event">
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-2 text-slate-200 hover:bg-slate-800/70" aria-label="Back to event">
             <X className="h-4 w-4" aria-hidden />
             Close
           </Button>
-          <div className="text-center">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Event</p>
-            <p className="text-sm font-semibold">{eventId}</p>
+          <div className="flex flex-col items-center gap-1 text-center">
+            <span className="flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-emerald-300">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              Scanner Mode
+            </span>
+            <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Event #{eventId}</p>
           </div>
           <Button
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="gap-2 border-white/20 bg-slate-900/70 text-slate-200 hover:bg-slate-800"
             onClick={() => setMode((prev) => (prev === 'camera' ? 'manual' : 'camera'))}
             aria-label="Toggle scanning mode"
           >
@@ -260,7 +266,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
 
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
         {offline && (
-          <Alert variant="destructive" className="border-amber-500/60 bg-amber-50 text-amber-900 dark:border-amber-500/80 dark:bg-amber-400/10 dark:text-amber-200">
+          <Alert className="border-amber-400/50 bg-amber-500/10 text-amber-200">
             <ShieldAlert className="h-4 w-4" aria-hidden />
             <AlertTitle>Offline mode</AlertTitle>
             <AlertDescription>
@@ -270,37 +276,48 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
         )}
 
         {mode === 'camera' ? (
-          <Card className="overflow-hidden border-border/60 bg-background/90">
+          <Card className="overflow-hidden border-white/10 bg-slate-900/70 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.9)]">
             <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base font-semibold">Live scanner</CardTitle>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" aria-hidden />
-                Auto verify
+              <CardTitle className="text-base font-semibold text-white">Live scanner</CardTitle>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-300" aria-hidden />
+                Auto verify enabled
               </div>
             </CardHeader>
-            <CardContent className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-black">
+            <CardContent className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-slate-950">
               {initializing && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
-                  <BrandedSpinner size="lg" className="text-white" />
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/70">
+                  <BrandedSpinner size="lg" className="text-emerald-300" />
                 </div>
               )}
               {cameraError && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/70 text-center text-sm text-white">
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-slate-950/80 text-center text-sm text-red-100">
                   <AlertCircle className="h-6 w-6" aria-hidden />
                   <p className="max-w-xs">{cameraError}</p>
                 </div>
               )}
-              <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
-              <div className="pointer-events-none absolute inset-8 rounded-2xl border-2 border-white/40">
-                <div className="absolute inset-x-10 top-1/2 h-0.5 -translate-y-1/2 bg-gradient-to-r from-transparent via-white/70 to-transparent animate-pulse" />
+              <video ref={videoRef} className="h-full w-full object-cover opacity-80" playsInline muted />
+              <div className="pointer-events-none absolute inset-6 rounded-3xl border border-white/15">
+                <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                  <div className="border-b border-r border-white/40" />
+                  <div className="border-b border-l border-white/40" />
+                  <div className="border-t border-r border-white/40" />
+                  <div className="border-t border-l border-white/40" />
+                </div>
+                <div className="absolute inset-x-10 top-1/2 h-0.5 -translate-y-1/2 animate-pulse bg-gradient-to-r from-transparent via-emerald-300 to-transparent opacity-80" />
               </div>
             </CardContent>
-            <CardFooter className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                Aim the camera at the QR. We prevent duplicate scans automatically.
+            <CardFooter className="flex flex-col gap-3 text-sm text-slate-300 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs text-slate-400">
+                Aim the camera at the QR. Duplicate scans are blocked for 10 minutes.
               </span>
               {torchSupported && (
-                <Button variant={torchOn ? 'default' : 'outline'} size="sm" className="gap-2" onClick={toggleTorch}>
+                <Button
+                  variant={torchOn ? 'default' : 'outline'}
+                  size="sm"
+                  className={`gap-2 ${torchOn ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400' : 'border-white/20 text-slate-200 hover:bg-slate-800'}`}
+                  onClick={toggleTorch}
+                >
                   <Flashlight className="h-4 w-4" aria-hidden />
                   {torchOn ? 'Torch on' : 'Torch off'}
                 </Button>
@@ -308,9 +325,9 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
             </CardFooter>
           </Card>
         ) : (
-          <Card className="border-border/60 bg-background/90">
+          <Card className="border-white/10 bg-slate-900/60">
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Manual entry</CardTitle>
+              <CardTitle className="text-base font-semibold text-white">Manual entry</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleManualSubmit} className="flex flex-col gap-3 sm:flex-row">
@@ -320,9 +337,9 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
                   placeholder="Scan or paste code"
                   aria-label="Ticket code"
                   autoFocus
-                  className="text-base"
+                  className="border-white/10 bg-slate-950/80 text-base text-slate-100 placeholder:text-slate-500"
                 />
-                <Button type="submit" className="gap-2">
+                <Button type="submit" className="gap-2 bg-emerald-500 text-slate-950 hover:bg-emerald-400">
                   <CheckCircle className="h-4 w-4" aria-hidden />
                   Verify
                 </Button>
@@ -336,47 +353,47 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
             key={status.id}
             className={
               status.status === 'valid'
-                ? 'border-emerald-500/60 bg-emerald-50 text-emerald-900 dark:border-emerald-400/60 dark:bg-emerald-400/10 dark:text-emerald-100'
+                ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-200'
                 : status.status === 'duplicate' || status.status === 'wrong_event' || status.status === 'refunded'
-                  ? 'border-amber-500/60 bg-amber-50 text-amber-900 dark:border-amber-400/60 dark:bg-amber-400/10 dark:text-amber-100'
-                  : 'border-red-500/60 bg-red-50 text-red-900 dark:border-red-500/70 dark:bg-red-500/10 dark:text-red-100'
+                  ? 'border-amber-400/50 bg-amber-500/10 text-amber-200'
+                  : 'border-red-500/60 bg-red-500/10 text-red-200'
             }
           >
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold uppercase tracking-wide">{RESULT_COPY[status.status].label}</CardTitle>
-              <Badge variant="outline" className="bg-white/60 text-xs">
+              <Badge variant="outline" className="border-white/20 bg-white/10 text-xs text-white">
                 {new Date(status.timestamp).toLocaleTimeString()}
               </Badge>
             </CardHeader>
             <CardContent className="text-sm">
-              <p className="font-mono text-xs text-muted-foreground">{status.code}</p>
-              <p className="mt-2 text-sm">{status.message}</p>
+              <p className="font-mono text-xs text-white/70">{status.code}</p>
+              <p className="mt-2 text-sm text-white/90">{status.message}</p>
             </CardContent>
           </Card>
         )}
 
         {history.length > 0 && (
-          <Card className="border-border/60 bg-background/70">
+          <Card className="border-white/10 bg-slate-900/60">
             <CardHeader>
-              <CardTitle className="text-sm font-semibold">Recent scans</CardTitle>
+              <CardTitle className="text-sm font-semibold text-white">Recent scans</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {history.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between rounded-xl border border-border/60 bg-background/80 px-3 py-2">
+                <div key={entry.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       {new Date(entry.timestamp).toLocaleTimeString()}
                     </p>
-                    <p className="font-mono text-xs text-muted-foreground/80">{entry.code}</p>
+                    <p className="font-mono text-xs text-slate-500">{entry.code}</p>
                   </div>
                   <Badge
                     variant="outline"
                     className={
                       entry.status === 'valid'
-                        ? 'border-emerald-500 text-emerald-600'
+                        ? 'border-emerald-400 text-emerald-200'
                         : entry.status === 'duplicate' || entry.status === 'wrong_event' || entry.status === 'refunded'
-                          ? 'border-amber-500 text-amber-600'
-                          : 'border-red-500 text-red-600'
+                          ? 'border-amber-400 text-amber-200'
+                          : 'border-red-500 text-red-200'
                     }
                   >
                     {RESULT_COPY[entry.status].label}

@@ -1031,7 +1031,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       {/* Editor */}
       <div className="space-y-4">
         {/* Template picker */}
-        <div className="flex items-end justify-between gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex-1">
             <Label htmlFor="template-select">Template</Label>
             <Select value={templateKey} onValueChange={(v: TemplateKey | '') => setTemplateKey(v)}>
@@ -1043,11 +1043,25 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex gap-2 pt-6">
-            <Button type="button" variant="outline" size="sm" disabled={!templateKey} onClick={() => applyTemplate('replace')}>
+          <div className="flex flex-wrap gap-2 sm:pt-6">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!templateKey}
+              onClick={() => applyTemplate('replace')}
+              className="flex-1 whitespace-nowrap sm:flex-none"
+            >
               Apply
             </Button>
-            <Button type="button" variant="secondary" size="sm" disabled={!templateKey} onClick={() => applyTemplate('append')}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={!templateKey}
+              onClick={() => applyTemplate('append')}
+              className="flex-1 whitespace-nowrap sm:flex-none"
+            >
               Append
             </Button>
           </div>
@@ -1055,23 +1069,47 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
 
         {channel === 'email' && (
           <>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Label htmlFor="subject-input">Subject</Label>
-              <div className="flex gap-1">
-                <Button variant="ghost" size="sm" onClick={aiGenerateSubject} disabled={aiLoading} className="text-xs">
-                  <Sparkles className="w-3 h-3 mr-1" /> AI Subject
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={aiGenerateSubject}
+                  disabled={aiLoading}
+                  className="text-xs sm:px-3"
+                >
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  <span className="hidden sm:inline">AI Subject</span>
+                  <span className="sm:hidden">AI</span>
                 </Button>
-                <Button variant="ghost" size="sm" onClick={aiSubjectVariants} disabled={aiLoading} className="text-xs">
-                  <ListChecks className="w-3 h-3 mr-1" /> 3 Variants
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={aiSubjectVariants}
+                  disabled={aiLoading}
+                  className="text-xs sm:px-3"
+                >
+                  <ListChecks className="mr-1 h-3 w-3" />
+                  <span className="hidden sm:inline">3 Variants</span>
+                  <span className="sm:hidden">3x</span>
                 </Button>
               </div>
             </div>
             <Input id="subject-input" placeholder="Event update: {{event_title}}" value={subject} onChange={e => setSubject(e.target.value)} />
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Label htmlFor="preheader-input">Preheader (optional)</Label>
-              <Button variant="ghost" size="sm" onClick={aiPreheader} disabled={aiLoading} className="text-xs">
-                <Sparkles className="w-3 h-3 mr-1" /> AI Preheader
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={aiPreheader}
+                disabled={aiLoading}
+                className="text-xs sm:px-3"
+              >
+                <Sparkles className="mr-1 h-3 w-3" />
+                <span className="hidden sm:inline">AI Preheader</span>
+                <span className="sm:hidden">AI</span>
               </Button>
             </div>
             <Input id="preheader-input" placeholder="A short teaser that boosts opens…" value={preheader} onChange={e => setPreheader(e.target.value)} />

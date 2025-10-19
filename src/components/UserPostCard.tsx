@@ -342,16 +342,18 @@ export const UserPostCard = memo(function UserPostCard({
           {isVideo ? (
             <div className="absolute inset-0">
               <video
-                ref={videoRef}                             // ← same ref for useHlsVideo
-                className="absolute inset-0 w-full h-full object-cover cursor-pointer"
-                muted                                      // ← you already sync with effect
+                ref={videoRef}
+                className="absolute inset-0 h-full w-full cursor-pointer object-cover"
+                muted
                 loop
                 playsInline
-                preload="metadata"                         // ✅ faster first-frame without heavy segments
-                poster={muxToPoster(mediaUrl!)}            // ✅ cheap visual readiness
+                preload="metadata"
+                poster={muxToPoster(mediaUrl!)}
                 crossOrigin="anonymous"
                 onClick={handleVideoClick}
                 aria-label={isVideoPlaying ? 'Pause video' : 'Play video'}
+                disablePictureInPicture
+                controlsList="nodownload noremoteplayback"
               />
               {/* Loading / error mask */}
               {(!ready || hlsError) && (

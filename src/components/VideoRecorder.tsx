@@ -30,11 +30,16 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
   const [maxReached, setMaxReached] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const stopTimerRef = useRef<number | null>(null);
+  const stopTimerRef = useRef<{ maxTimeout: number | null; tickInterval: number | null; startedAt: number | null }>({
+    maxTimeout: null,
+    tickInterval: null,
+    startedAt: null,
+  });
 
   void eventId;
 
@@ -106,6 +111,7 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
     try {
       setRecordedChunks([]);
       setMaxReached(false);
+      setElapsedMs(0);
 
       const mimeType = pickBestMime();
       const mr = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : undefined);
@@ -127,9 +133,16 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
       mr.start(400);
       setIsRecording(true);
 
+      stopTimerRef.current.startedAt = performance.now();
+      stopTimerRef.current.tickInterval = window.setInterval(() => {
+        if (!stopTimerRef.current.startedAt) return;
+        const diff = Math.max(0, performance.now() - stopTimerRef.current.startedAt);
+        setElapsedMs(Math.round(diff));
+      }, 200);
+
       // Optional max duration (e.g., 90s). Remove if not needed.
       const MAX_MS = 90_000;
-      stopTimerRef.current = window.setTimeout(() => {
+      stopTimerRef.current.maxTimeout = window.setTimeout(() => {
         setMaxReached(true);
         stopRecording();
       }, MAX_MS);
@@ -139,10 +152,15 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
   }, []);
 
   const stopRecording = useCallback(() => {
-    if (stopTimerRef.current) {
-      clearTimeout(stopTimerRef.current);
-      stopTimerRef.current = null;
+    if (stopTimerRef.current.maxTimeout) {
+      clearTimeout(stopTimerRef.current.maxTimeout);
+      stopTimerRef.current.maxTimeout = null;
     }
+    if (stopTimerRef.current.tickInterval) {
+      clearInterval(stopTimerRef.current.tickInterval);
+      stopTimerRef.current.tickInterval = null;
+    }
+    stopTimerRef.current.startedAt = null;
     const mr = mediaRecorderRef.current;
     if (mr && mr.state !== 'inactive') {
       try { mr.stop(); } catch {}
@@ -154,6 +172,7 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
     if (isRecording) stopRecording();
     setRecordedChunks([]);
     setMaxReached(false);
+    setElapsedMs(0);
     // keep the preview stream alive; user may re-record
   }, [isRecording, stopRecording]);
 
@@ -166,11 +185,13 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
     const blob = new Blob(recordedChunks, { type });
     onSave(blob);
     setRecordedChunks([]);
+    setElapsedMs(0);
   }, [recordedChunks, onSave]);
 
   const handleClose = useCallback(() => {
     if (isRecording) stopRecording();
     setRecordedChunks([]);
+    setElapsedMs(0);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -182,6 +203,15 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
   useEffect(() => {
     return () => {
       try { mediaRecorderRef.current?.stop(); } catch {}
+      if (stopTimerRef.current.tickInterval) {
+        clearInterval(stopTimerRef.current.tickInterval);
+        stopTimerRef.current.tickInterval = null;
+      }
+      if (stopTimerRef.current.maxTimeout) {
+        clearTimeout(stopTimerRef.current.maxTimeout);
+        stopTimerRef.current.maxTimeout = null;
+      }
+      stopTimerRef.current.startedAt = null;
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -189,76 +219,112 @@ export function VideoRecorder({ eventId, onClose, onSave }: VideoRecorderProps) 
     };
   }, []);
 
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const formattedMinutes = totalSeconds >= 0 ? String(Math.floor(totalSeconds / 60)).padStart(2, '0') : '00';
+  const formattedSeconds = totalSeconds >= 0 ? String(totalSeconds % 60).padStart(2, '0') : '00';
+  const hasRecording = recordedChunks.length > 0;
+  const statusLabel = permissionError
+    ? permissionError
+    : maxReached
+      ? 'Max duration reached'
+      : isRecording
+        ? 'Recording'
+        : hasRecording
+          ? 'Preview ready'
+          : 'Camera ready';
+
   return (
     <div className="fixed inset-0 z-50 bg-black">
-      <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between bg-black/80 p-4">
-          <Button variant="ghost" onClick={handleClose} className="text-white">
-            <X className="h-5 w-5" />
+      <div className="flex h-full flex-col text-white">
+        <div className="flex items-center justify-between bg-black/80 px-4 py-3">
+          <Button variant="ghost" onClick={handleClose} className="text-white hover:bg-white/10">
+            <X className="h-5 w-5" aria-hidden />
+            <span className="sr-only">Close recorder</span>
           </Button>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-white">Record video</h2>
+          <div className="flex flex-col items-center gap-0.5 text-xs uppercase tracking-wide text-white/80">
+            <span className="text-sm font-semibold text-white">Video Recorder</span>
+            <span className="text-[10px]">Max 1:30</span>
+          </div>
           <div className="w-10" />
         </div>
 
         <div className="relative flex-1 bg-black">
-          <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
-          {isRecording && (
-            <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
-              Recording
-            </div>
-          )}
-          {permissionError && (
-            <div className="absolute inset-x-0 top-4 mx-auto w-fit rounded-full bg-black/70 px-3 py-1 text-xs text-white">
-              {permissionError}
-            </div>
-          )}
-          {maxReached && (
-            <div className="absolute inset-x-0 bottom-4 mx-auto w-fit rounded-full bg-black/70 px-3 py-1 text-xs text-white">
-              Max duration reached
-            </div>
-          )}
-        </div>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/10 to-black/60" aria-hidden />
+          <video ref={videoRef} className="relative h-full w-full object-cover" autoPlay muted playsInline />
 
-        <div className="space-y-4 bg-black/80 p-4">
-          <div className="flex items-center justify-center gap-6">
-            <Button
-              onClick={() => setCamera((prev) => (prev === 'rear' ? 'front' : 'rear'))}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30"
-              type="button"
-              disabled={isRecording}
-              title="Switch camera"
-            >
-              <Camera className="h-5 w-5" />
-            </Button>
-            <Button
-              onClick={isRecording ? stopRecording : startRecording}
-              className={`flex h-16 w-16 items-center justify-center rounded-full ${
-                isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-white text-black hover:bg-white/80'
-              }`}
-              type="button"
-              title={isRecording ? 'Stop' : 'Start'}
-            >
-              <Video className="h-8 w-8" />
-            </Button>
-            <Button
-              onClick={resetRecording}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30"
-              type="button"
-              title="Reset"
-              disabled={isRecording}
-            >
-              <RotateCcw className="h-5 w-5" />
-            </Button>
+          <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center">
+            <div className="flex items-center gap-3 rounded-full bg-black/70 px-4 py-2 text-sm font-semibold">
+              <span className={`flex h-2 w-2 items-center justify-center rounded-full ${isRecording ? 'animate-pulse bg-red-500' : 'bg-white/60'}`} />
+              <span aria-live="polite">{statusLabel}</span>
+              <span className="text-xs font-medium text-white/70">{formattedMinutes}:{formattedSeconds}</span>
+            </div>
           </div>
 
-          {recordedChunks.length > 0 && (
-            <div className="flex justify-center">
-              <Button onClick={saveVideo} className="rounded-full bg-primary px-6 text-primary-foreground" type="button">
-                Save video
+          <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center text-xs text-white/70">
+            <div className="rounded-full bg-black/60 px-3 py-1">
+              Tap stop to finish. You can re-record before saving.
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-black/90 px-4 py-5 shadow-[0_-12px_24px_-16px_rgba(0,0,0,1)]">
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-3 gap-3">
+              <Button
+                onClick={() => setCamera((prev) => (prev === 'rear' ? 'front' : 'rear'))}
+                className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white/10 py-3 text-white hover:bg-white/20"
+                type="button"
+                disabled={isRecording}
+              >
+                <Camera className="h-5 w-5" aria-hidden />
+                <span className="text-xs font-medium">Flip</span>
+              </Button>
+              <Button
+                onClick={isRecording ? stopRecording : startRecording}
+                className={`flex flex-col items-center justify-center gap-1 rounded-xl py-3 text-white transition ${
+                  isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-primary hover:bg-primary/90'
+                }`}
+                type="button"
+              >
+                <Video className="h-6 w-6" aria-hidden />
+                <span className="text-xs font-semibold">{isRecording ? 'Stop' : 'Record'}</span>
+              </Button>
+              <Button
+                onClick={resetRecording}
+                className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white/10 py-3 text-white hover:bg-white/20 disabled:opacity-40"
+                type="button"
+                disabled={isRecording || !hasRecording}
+              >
+                <RotateCcw className="h-5 w-5" aria-hidden />
+                <span className="text-xs font-medium">Retake</span>
               </Button>
             </div>
-          )}
+
+            <div className="flex flex-col gap-2 text-xs text-white/70">
+              <div className="flex items-center justify-between">
+                <span>Recording length</span>
+                <span className="font-semibold text-white">{formattedMinutes}:{formattedSeconds}</span>
+              </div>
+              {maxReached && <span className="text-[11px] text-amber-300">Maximum clip length reached.</span>}
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                onClick={handleClose}
+                variant="secondary"
+                className="h-11 flex-1 rounded-xl bg-white/10 text-sm font-medium text-white hover:bg-white/20"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={saveVideo}
+                disabled={!hasRecording}
+                className="h-11 flex-1 rounded-xl bg-white text-sm font-semibold text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/40"
+              >
+                Save &amp; attach
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

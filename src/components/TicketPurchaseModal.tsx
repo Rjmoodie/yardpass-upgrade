@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { Plus, Minus, CreditCard, Key, Check, AlertCircle, Mail, Clock, Smartphone, Wifi } from 'lucide-react';
+import { Plus, Minus, CreditCard, Key, Check, AlertCircle, Mail, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { toast } from '@/hooks/use-toast';
@@ -74,11 +74,6 @@ export function TicketPurchaseModal({
   const [checkoutExpiresAt, setCheckoutExpiresAt] = useState<Date | null>(null);
   const [sessionStatus, setSessionStatus] = useState<'pending' | 'expired' | 'converted' | null>(null);
   const [canExtendHold, setCanExtendHold] = useState(false);
-  const [expressMethods, setExpressMethods] = useState({
-    applePay: false,
-    googlePay: false,
-    link: false
-  });
   const [isRecoveringSession, setIsRecoveringSession] = useState(false);
   
   useEffect(() => {
@@ -103,11 +98,6 @@ export function TicketPurchaseModal({
       setSessionStatus(data.status);
       setCheckoutExpiresAt(data.expiresAt ? new Date(data.expiresAt) : null);
       setCanExtendHold(data.canExtendHold || false);
-      setExpressMethods(data.expressMethods || {
-        applePay: false,
-        googlePay: false,
-        link: false
-      });
 
       // If session expired, clear it
       if (data.status === 'expired') {
@@ -601,47 +591,46 @@ export function TicketPurchaseModal({
             <h3 className="font-semibold">Select Tickets</h3>
             {ticketTiers.map((tier) => (
               <Card key={tier.id} className="border">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-medium">{tier.name}</h4>
-                        <Badge variant="outline">{tier.badge_label}</Badge>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span className="font-semibold text-foreground">
-                          ${(tier.price_cents / 100).toFixed(2)}
-                        </span>
-                        <span>{tier.quantity} available</span>
-                        <span>Max {tier.max_per_order} per order</span>
-                      </div>
+                <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="text-base font-semibold">{tier.name}</h4>
+                      <Badge variant="outline" className="whitespace-nowrap">
+                        {tier.badge_label}
+                      </Badge>
                     </div>
-
-                    {/* Quantity Selector */}
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateSelection(tier.id, -1)}
-                        disabled={!selections[tier.id]}
-                      >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                      <span className="w-8 text-center">
-                        {selections[tier.id] || 0}
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground whitespace-nowrap">
+                        ${(tier.price_cents / 100).toFixed(2)}
                       </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateSelection(tier.id, 1)}
-                        disabled={
-                          (selections[tier.id] || 0) >= tier.max_per_order ||
-                          (selections[tier.id] || 0) >= tier.quantity
-                        }
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
+                      <span className="whitespace-nowrap">{tier.quantity} available</span>
+                      <span className="whitespace-nowrap">Max {tier.max_per_order} per order</span>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => updateSelection(tier.id, -1)}
+                      disabled={!selections[tier.id]}
+                      className="h-9 w-9 p-0"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-9 text-center text-sm font-semibold">{selections[tier.id] || 0}</span>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => updateSelection(tier.id, 1)}
+                      disabled={
+                        (selections[tier.id] || 0) >= tier.max_per_order ||
+                        (selections[tier.id] || 0) >= tier.quantity
+                      }
+                      className="h-9 w-9 p-0"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -716,71 +705,6 @@ export function TicketPurchaseModal({
             </Card>
           )}
 
-          {/* Express Payment Methods */}
-          {totalTickets > 0 && (expressMethods.applePay || expressMethods.googlePay || expressMethods.link) && (
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Smartphone className="w-4 h-4" />
-                  Express Checkout
-                </h3>
-                <div className="grid grid-cols-1 gap-2">
-                  {expressMethods.applePay && (
-                    <Button
-                      variant="outline"
-                      className="h-12 bg-black text-white hover:bg-gray-800 border-gray-700"
-                      onClick={() => {
-                        // Apple Pay integration would be implemented here
-                        toast({
-                          title: "Apple Pay",
-                          description: "Apple Pay integration coming soon!",
-                        });
-                      }}
-                    >
-                      <span className="text-lg mr-2">🍎</span>
-                      Pay with Apple Pay
-                    </Button>
-                  )}
-                  {expressMethods.googlePay && (
-                    <Button
-                      variant="outline"
-                      className="h-12 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
-                      onClick={() => {
-                        // Google Pay integration would be implemented here
-                        toast({
-                          title: "Google Pay",
-                          description: "Google Pay integration coming soon!",
-                        });
-                      }}
-                    >
-                      <span className="text-lg mr-2">G</span>
-                      Pay with Google Pay
-                    </Button>
-                  )}
-                  {expressMethods.link && (
-                    <Button
-                      variant="outline"
-                      className="h-12 bg-blue-500 text-white hover:bg-blue-600 border-blue-500"
-                      onClick={() => {
-                        // Stripe Link integration would be implemented here
-                        toast({
-                          title: "Stripe Link",
-                          description: "Stripe Link integration coming soon!",
-                        });
-                      }}
-                    >
-                      <Wifi className="w-4 h-4 mr-2" />
-                      Pay with Link
-                    </Button>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Express checkout methods are faster and more secure.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Session Recovery Notice */}
           {isRecoveringSession && (
             <Card className="border-blue-200 bg-blue-50/50">
@@ -796,16 +720,16 @@ export function TicketPurchaseModal({
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4">
-            <Button variant="outline" onClick={onClose} className="flex-1">
+          <div className="flex flex-col gap-3 pt-4 sm:flex-row">
+            <Button variant="outline" onClick={onClose} className="h-11 flex-1 whitespace-nowrap">
               Cancel
             </Button>
-            <Button 
-              onClick={handlePurchase} 
+            <Button
+              onClick={handlePurchase}
               disabled={submitting || loading || totalTickets === 0}
-              className="flex-1"
+              className="h-11 flex-1 whitespace-nowrap"
             >
-              {submitting || loading ? 'Processing...' : `Purchase ${totalTickets > 0 ? `(${totalTickets} ticket${totalTickets !== 1 ? 's' : ''})` : 'Tickets'}`}
+              {submitting || loading ? 'Processing…' : `Purchase ${totalTickets > 0 ? `(${totalTickets} ticket${totalTickets !== 1 ? 's' : ''})` : 'tickets'}`}
             </Button>
           </div>
         </div>

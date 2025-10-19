@@ -48,7 +48,18 @@ export function useHlsVideo(src?: string) {
     cleanup();
 
     const isHls = src.includes('.m3u8');
-    const canPlayNative = v.canPlayType('application/vnd.apple.mpegurl') !== '';
+    const canPlayNative =
+      v.canPlayType('application/vnd.apple.mpegurl') !== '' ||
+      /iP(ad|hone|od)/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (isHls) {
+      v.setAttribute('playsinline', 'true');
+      v.setAttribute('webkit-playsinline', 'true');
+      v.setAttribute('x5-playsinline', 'true');
+      v.setAttribute('x5-video-player-type', 'h5');
+      v.setAttribute('x-webkit-airplay', 'allow');
+    }
 
     let disposed = false;
 

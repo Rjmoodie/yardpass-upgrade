@@ -1222,7 +1222,12 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full sm:max-w-xs"
                     />
-                    <Button variant="outline" size="sm" onClick={handleExportAttendees}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportAttendees}
+                      className="whitespace-nowrap"
+                    >
                       <Download className="w-4 h-4 mr-1" />
                       Export CSV
                     </Button>
@@ -1660,20 +1665,20 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 pt-4 border-t">
+            <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row">
               <Button
                 variant="outline"
                 onClick={() => setShowEditDialog(false)}
-                className="flex-1"
+                className="h-11 flex-1 whitespace-nowrap"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleEditEvent}
                 disabled={isSaving || !editForm.title}
-                className="flex-1"
+                className="h-11 flex-1 whitespace-nowrap"
               >
-                {isSaving ? 'Saving...' : 'Save Changes'}
+                {isSaving ? 'Saving…' : 'Save Changes'}
               </Button>
             </div>
           </div>
