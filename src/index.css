@@ -2046,34 +2046,41 @@ input, select, textarea {
 
 /* --- Feed Rail (caption & safe-area aware) --- */
 .feed-rail {
+  --rail-side-gap: max(12px, calc(env(safe-area-inset-right) + clamp(8px, 1.5vw, 14px)));
+  --rail-bottom-gap: clamp(12px, 2vh, 20px);
+  --rail-top-clearance: clamp(104px, 16vh, 144px);
   position: fixed;
   z-index: 40;
-  /* keep a sensible inset from the right edge even with safe areas */
-  right: max(12px, calc(env(safe-area-inset-right) + 8px));
-  /* Position precisely at the top of the caption area with small offset */
-  --caption-top: calc(100vh - var(--bottom-nav-safe) - var(--caption-h));
-  top: calc(var(--caption-top) - 8px);
+  right: var(--rail-side-gap);
+  inset-inline-end: var(--rail-side-gap);
+  bottom: calc(var(--bottom-nav-safe) + var(--caption-h, 0px) + var(--rail-bottom-gap));
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(3px, 0.8vh, 6px);
-  /* never collide with the header/top chips */
-  max-height: calc(100svh - var(--caption-top) - 72px);
+  gap: clamp(6px, 1.6vh, 12px);
+  max-height: max(
+    0px,
+    calc(100svh - (var(--bottom-nav-safe) + var(--caption-h, 0px)) - var(--rail-top-clearance))
+  );
   overflow: visible;
   pointer-events: auto;
 }
 
 /* Touch target + micro interactions */
 .feed-rail__btn {
-  min-width: 32px;
-  min-height: 32px;
+  min-inline-size: clamp(44px, 5.5vh, 56px);
+  max-inline-size: clamp(56px, 6.2vh, 64px);
+  min-block-size: clamp(48px, 6vh, 66px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  gap: clamp(2px, 0.8vh, 6px);
+  border-radius: clamp(14px, 3vh, 20px);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   transition: transform 160ms var(--ease-out, cubic-bezier(0.25,0.46,0.45,0.94));
+  background: transparent;
 }
 .feed-rail__btn:active { transform: scale(0.96); }
 
@@ -2082,9 +2089,9 @@ input, select, textarea {
   display: grid;
   place-items: center;
   border-radius: 9999px;
-  padding: clamp(4px, 1vh, 6px);
-  min-width: clamp(24px, 3.5vh, 28px);
-  min-height: clamp(24px, 3.5vh, 28px);
+  padding: clamp(4px, 0.9vh, 6px);
+  width: clamp(32px, 4.6vh, 40px);
+  height: clamp(32px, 4.6vh, 40px);
   border: 1px solid hsl(0 0% 100% / 0.18);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -2104,22 +2111,23 @@ input, select, textarea {
 
 /* SVG sizing stays consistent across screens */
 .feed-rail__icon svg {
-  width: clamp(10px, 1.5vh, 12px);
-  height: clamp(10px, 1.5vh, 12px);
+  width: clamp(16px, 2.2vh, 20px);
+  height: clamp(16px, 2.2vh, 20px);
   color: white;
 }
 
 /* Count/Post label: glass chip for contrast over busy media */
 .feed-rail__label {
-  font-size: 7px;
+  font-size: clamp(10px, 1.2vh, 12px);
   line-height: 1;
   font-weight: 600;
   color: white;
-  padding: 1px 3px;
+  padding: clamp(1px, 0.3vh, 3px) clamp(4px, 0.9vh, 6px);
   border-radius: 9999px;
   background: linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35));
   border: 1px solid rgba(255,255,255,.18);
   text-shadow: 0 1px 2px rgba(0,0,0,.45);
+  white-space: nowrap;
 }
 
 /* Short screens: hide labels to prevent collisions with caption */
@@ -2134,10 +2142,24 @@ input, select, textarea {
 
 /* Very narrow phones: slightly smaller hit circle but keep 44pt min touch via button wrapper */
 @media (max-width: 360px) {
-  .feed-rail__icon {
-    min-width: 34px; min-height: 34px; padding: 7px;
+  .feed-rail {
+    --rail-bottom-gap: clamp(8px, 1.4vh, 14px);
   }
-  .feed-rail__icon svg { width: 15px; height: 15px; }
+  .feed-rail__btn {
+    min-inline-size: clamp(40px, 5.5vh, 52px);
+    max-inline-size: clamp(52px, 6vh, 60px);
+    min-block-size: clamp(44px, 5.4vh, 58px);
+    gap: clamp(2px, 0.6vh, 4px);
+  }
+  .feed-rail__icon {
+    width: clamp(30px, 4.4vh, 36px);
+    height: clamp(30px, 4.4vh, 36px);
+    padding: clamp(3px, 0.8vh, 5px);
+  }
+  .feed-rail__icon svg {
+    width: clamp(14px, 2vh, 18px);
+    height: clamp(14px, 2vh, 18px);
+  }
 }
 
 /* Close the @layer components block */
