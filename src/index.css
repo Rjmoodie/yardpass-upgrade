@@ -2064,6 +2064,15 @@ input, select, textarea {
   );
   overflow: visible;
   pointer-events: auto;
+  padding: clamp(10px, 1.9vh, 14px);
+  padding-inline: clamp(12px, 3vw, 18px);
+  border-radius: clamp(20px, 4vh, 26px);
+  background: linear-gradient(180deg, hsl(0 0% 8% / 0.82), hsl(0 0% 4% / 0.72));
+  border: 1px solid hsl(0 0% 100% / 0.12);
+  box-shadow: 0 22px 44px hsl(0 0% 0% / 0.38);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  width: clamp(120px, 32vw, 148px);
 }
 
 /* Touch target + micro interactions */
@@ -2072,7 +2081,6 @@ input, select, textarea {
   max-inline-size: clamp(56px, 6.2vh, 64px);
   min-block-size: clamp(48px, 6vh, 66px);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: clamp(2px, 0.8vh, 6px);
@@ -2082,10 +2090,12 @@ input, select, textarea {
   transition: transform 160ms var(--ease-out, cubic-bezier(0.25,0.46,0.45,0.94));
   background: transparent;
 }
-.feed-rail__btn:active { transform: scale(0.96); }
+.feed-rail__btn:active { transform: scale(0.97); }
 
 /* Icon container (glass) */
 .feed-rail__icon {
+  inline-size: var(--rail-hit);
+  block-size: var(--rail-hit);
   display: grid;
   place-items: center;
   border-radius: 9999px;
@@ -2101,12 +2111,14 @@ input, select, textarea {
   background: hsl(0 0% 0% / 0.40);
 }
 .feed-rail__icon--idle:hover {
-  background: hsl(0 0% 100% / 0.18);
+  background: linear-gradient(180deg, hsl(0 0% 28% / 0.88), hsl(0 0% 12% / 0.8));
+  border-color: hsl(0 0% 100% / 0.22);
 }
 .feed-rail__icon--active {
-  background: hsl(358 75% 59%); /* matches your --destructive / red */
-  box-shadow: 0 8px 18px hsl(358 75% 59% / 0.35);
-  transform: translateZ(0) scale(1.06);
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.95), hsl(var(--primary-glow, 35 100% 70%) / 0.9));
+  border-color: hsl(var(--primary-glow, 35 100% 70%) / 0.65);
+  box-shadow: 0 18px 36px hsl(var(--primary) / 0.5);
+  transform: translateZ(0) scale(1.04);
 }
 
 /* SVG sizing stays consistent across screens */
@@ -2130,14 +2142,44 @@ input, select, textarea {
   white-space: nowrap;
 }
 
-/* Short screens: hide labels to prevent collisions with caption */
+.feed-rail__btn[data-has-label="false"] .feed-rail__icon {
+  box-shadow: 0 16px 32px hsl(0 0% 0% / 0.45);
+}
+
+/* Short screens: collapse text labels but keep counts */
 @media (max-height: 680px) {
-  .feed-rail__label { display: none; }
+  .feed-rail__btn[data-label-variant="text"] .feed-rail__label {
+    display: none;
+  }
+
+  .feed-rail__btn {
+    justify-content: center;
+  }
 }
 
 /* Landscape: rail sits a bit higher so it never hits bottom nav or caption */
 @media (orientation: landscape) and (max-height: 500px) {
   .feed-rail { bottom: calc(var(--bottom-nav-safe) + max(48px, 10vh)); }
+}
+
+/* Narrow phones: revert to icon stack and trim paddings */
+@media (max-width: 420px) {
+  .feed-rail {
+    width: max-content;
+    padding-inline: clamp(10px, 2vw, 14px);
+  }
+
+  .feed-rail__btn {
+    inline-size: clamp(52px, 16vw, 64px);
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(4px, 0.9vh, 6px);
+    padding: clamp(6px, 1vh, 8px) clamp(4px, 0.8vh, 6px);
+  }
+
+  .feed-rail__label {
+    width: 100%;
+  }
 }
 
 /* Very narrow phones: slightly smaller hit circle but keep 44pt min touch via button wrapper */
