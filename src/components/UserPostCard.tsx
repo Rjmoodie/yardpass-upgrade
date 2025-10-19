@@ -348,6 +348,7 @@ export const UserPostCard = memo(function UserPostCard({
                 muted                                      // ← you already sync with effect
                 loop
                 playsInline
+                {...{ 'webkit-playsinline': 'true', 'x5-playsinline': 'true' }}
                 preload="metadata"                         // ✅ faster first-frame without heavy segments
                 poster={muxToPoster(mediaUrl!)}            // ✅ cheap visual readiness
                 crossOrigin="anonymous"

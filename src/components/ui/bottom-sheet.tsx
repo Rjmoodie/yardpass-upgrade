@@ -22,22 +22,28 @@ const BottomSheetOverlay = React.forwardRef<
 ));
 BottomSheetOverlay.displayName = DrawerPrimitive.Overlay.displayName;
 
+type BottomSheetContentProps = React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+  showHandle?: boolean;
+};
+
 const BottomSheetContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  BottomSheetContentProps
+>(({ className, children, showHandle = true, ...props }, ref) => (
   <BottomSheetPortal>
     <BottomSheetOverlay />
     <DrawerPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-3xl bg-card border-t border-border safe-bottom',
+        'fixed inset-x-0 bottom-0 z-50 flex h-auto flex-col rounded-t-3xl bg-card border-t border-border safe-bottom',
         'focus:outline-none',
         className
       )}
       {...props}
     >
-      <div className="mx-auto mt-4 h-1 w-12 rounded-full bg-muted" />
+      {showHandle ? (
+        <div className="mx-auto mt-4 h-1 w-12 rounded-full bg-muted" />
+      ) : null}
       {children}
     </DrawerPrimitive.Content>
   </BottomSheetPortal>
