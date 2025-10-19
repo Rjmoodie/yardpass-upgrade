@@ -59,3 +59,34 @@ export const shareContent = async (data: { title: string; text?: string; url: st
     return false;
   }
 };
+
+// Map utilities
+export const openMap = (address: string): void => {
+  try {
+    // Encode the address for URL
+    const encodedAddress = encodeURIComponent(address);
+    
+    // Try to open in the default map app
+    if (isIOS()) {
+      // iOS: Try Apple Maps first, then fallback to Google Maps
+      const appleMapsUrl = `maps://maps.apple.com/?q=${encodedAddress}`;
+      const googleMapsUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
+      
+      // Try Apple Maps first
+      const appleMapsLink = document.createElement('a');
+      appleMapsLink.href = appleMapsUrl;
+      appleMapsLink.target = '_blank';
+      appleMapsLink.click();
+    } else {
+      // Android/Desktop: Use Google Maps
+      const googleMapsUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
+      window.open(googleMapsUrl, '_blank');
+    }
+  } catch (error) {
+    console.error('Failed to open map:', error);
+    // Fallback: open Google Maps in new tab
+    const encodedAddress = encodeURIComponent(address);
+    const googleMapsUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
+    window.open(googleMapsUrl, '_blank');
+  }
+};
