@@ -59,10 +59,15 @@ const DialogContent = React.forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 /* iOS-style bottom sheet content for mobile */
+type BottomSheetContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  showHandle?: boolean
+  contentClassName?: string
+}
+
 const BottomSheetContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  BottomSheetContentProps
+>(({ className, children, showHandle = true, contentClassName = "px-2 pb-2", ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -79,8 +84,10 @@ const BottomSheetContent = React.forwardRef<
       {...props}
     >
       {/* Grab handle */}
-      <div className="mx-auto mb-3 mt-2 h-1.5 w-12 rounded-full bg-muted/70" />
-      <div className="px-2 pb-2">{children}</div>
+      {showHandle ? (
+        <div className="mx-auto mb-3 mt-2 h-1.5 w-12 rounded-full bg-muted/70" />
+      ) : null}
+      <div className={cn(contentClassName)}>{children}</div>
       <DialogPrimitive.Close
         className="absolute right-4 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100
                    focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground"

@@ -961,29 +961,33 @@ export default function UserProfilePage() {
       >
         {selectedPost && selectedPost.item_type === 'post' ? (
           isMobile ? (
-            <BottomSheetContent className="h-[90vh] overflow-hidden bg-black">
-              <UserPostCard 
-                item={selectedPost as Extract<FeedItem, { item_type: 'post' }>} 
-                onLike={(postId) => handleLike(postId)} 
-                onComment={(postId) => handleComment(postId)} 
-                onShare={(postId) => handleSharePost(postId)} 
-                onEventClick={(eventId) => { 
-                  setSelectedPost(null); 
+            <BottomSheetContent
+              className="h-[100dvh] mt-0 overflow-hidden bg-black safe-bottom p-0"
+              contentClassName="h-full w-full"
+              showHandle={false}
+            >
+              <UserPostCard
+                item={selectedPost as Extract<FeedItem, { item_type: 'post' }>}
+                onLike={(postId) => handleLike(postId)}
+                onComment={(postId) => handleComment(postId)}
+                onShare={(postId) => handleSharePost(postId)}
+                onEventClick={(eventId) => {
+                  setSelectedPost(null);
                   setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
-                  navigate(routes.event(eventId)); 
-                }} 
-                onAuthorClick={(authorId) => { 
-                  setSelectedPost(null); 
+                  navigate(routes.event(eventId));
+                }}
+                onAuthorClick={(authorId) => {
+                  setSelectedPost(null);
                   setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
-                  navigate(`/u/${authorId}`); 
-                }} 
-                onCreatePost={() => {}} 
-                onReport={handleReport} 
-                onSoundToggle={() => setSoundEnabled(prev => !prev)} 
-                onVideoToggle={handleVideoToggle} 
-                onOpenTickets={(eventId) => navigate(routes.event(eventId))} 
-                soundEnabled={soundEnabled} 
-                isVideoPlaying={!pausedVideos[selectedPost.item_id]} 
+                  navigate(`/u/${authorId}`);
+                }}
+                onCreatePost={() => {}}
+                onReport={handleReport}
+                onSoundToggle={() => setSoundEnabled(prev => !prev)}
+                onVideoToggle={handleVideoToggle}
+                onOpenTickets={(eventId) => navigate(routes.event(eventId))}
+                soundEnabled={soundEnabled}
+                isVideoPlaying={!pausedVideos[selectedPost.item_id]}
               />
             </BottomSheetContent>
           ) : (

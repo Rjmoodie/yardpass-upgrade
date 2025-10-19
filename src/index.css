@@ -17,6 +17,12 @@ html, body {
 
 @supports (-webkit-touch-callout: none) {
   .vh-screen { height: -webkit-fill-available; }
+
+  [role="dialog"] [class*="BottomSheet"] {
+    height: 100dvh !important;
+    max-height: -webkit-fill-available;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 /* Space for the safe area so StatusBar toggles don't jerk layout */
