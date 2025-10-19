@@ -2046,85 +2046,154 @@ input, select, textarea {
 
 /* --- Feed Rail (caption & safe-area aware) --- */
 .feed-rail {
+  --rail-side-gap: max(12px, calc(env(safe-area-inset-right) + clamp(8px, 1.5vw, 14px)));
+  --rail-bottom-gap: clamp(12px, 2vh, 20px);
+  --rail-top-clearance: clamp(96px, 14vh, 136px);
   position: fixed;
   z-index: 40;
-  /* keep a sensible inset from the right edge even with safe areas */
-  right: max(12px, calc(env(safe-area-inset-right) + 8px));
-  /* Position precisely at the top of the caption area with small offset */
-  --caption-top: calc(100vh - var(--bottom-nav-safe) - var(--caption-h));
-  top: calc(var(--caption-top) - 8px);
+  right: var(--rail-side-gap);
+  inset-inline-end: var(--rail-side-gap);
+  bottom: calc(var(--bottom-nav-safe) + var(--caption-h, 0px) + var(--rail-bottom-gap));
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: clamp(3px, 0.8vh, 6px);
-  /* never collide with the header/top chips */
-  max-height: calc(100svh - var(--caption-top) - 72px);
+  align-items: stretch;
+  gap: clamp(8px, 1.6vh, 14px);
+  max-height: max(
+    0px,
+    calc(100svh - (var(--bottom-nav-safe) + var(--caption-h, 0px)) - var(--rail-top-clearance))
+  );
   overflow: visible;
   pointer-events: auto;
+  padding: clamp(10px, 1.9vh, 14px);
+  padding-inline: clamp(12px, 3vw, 18px);
+  border-radius: clamp(20px, 4vh, 26px);
+  background: linear-gradient(180deg, hsl(0 0% 8% / 0.82), hsl(0 0% 4% / 0.72));
+  border: 1px solid hsl(0 0% 100% / 0.12);
+  box-shadow: 0 22px 44px hsl(0 0% 0% / 0.38);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  width: clamp(120px, 32vw, 148px);
 }
 
 /* Touch target + micro interactions */
 .feed-rail__btn {
-  min-width: 32px;
-  min-height: 32px;
+  --rail-hit: clamp(40px, 4.6vh, 48px);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
+  justify-content: flex-start;
+  gap: clamp(8px, 1.4vh, 12px);
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: clamp(6px, 1vh, 9px) clamp(6px, 1.4vh, 10px);
+  border-radius: clamp(18px, 3.6vh, 22px);
+  border: 1px solid hsl(0 0% 100% / 0.08);
+  background: hsl(0 0% 100% / 0.04);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform 160ms var(--ease-out, cubic-bezier(0.25,0.46,0.45,0.94));
+  transition:
+    transform 160ms var(--ease-out, cubic-bezier(0.25,0.46,0.45,0.94)),
+    background-color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out);
 }
-.feed-rail__btn:active { transform: scale(0.96); }
+.feed-rail__btn:hover {
+  background: hsl(0 0% 100% / 0.08);
+  border-color: hsl(0 0% 100% / 0.16);
+}
+.feed-rail__btn:focus-visible {
+  outline: none;
+  border-color: hsl(0 0% 100% / 0.28);
+  box-shadow: 0 0 0 3px hsl(0 0% 100% / 0.16);
+}
+.feed-rail__btn:active { transform: scale(0.97); }
 
 /* Icon container (glass) */
 .feed-rail__icon {
+  inline-size: var(--rail-hit);
+  block-size: var(--rail-hit);
   display: grid;
   place-items: center;
   border-radius: 9999px;
-  padding: clamp(4px, 1vh, 6px);
-  min-width: clamp(24px, 3.5vh, 28px);
-  min-height: clamp(24px, 3.5vh, 28px);
-  border: 1px solid hsl(0 0% 100% / 0.18);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
-}
-.feed-rail__icon--idle {
-  background: hsl(0 0% 0% / 0.40);
+  background: linear-gradient(180deg, hsl(0 0% 16% / 0.88), hsl(0 0% 6% / 0.78));
+  border: 1px solid hsl(0 0% 100% / 0.16);
+  box-shadow: 0 14px 28px hsl(0 0% 0% / 0.4);
+  flex-shrink: 0;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out),
+    border-color 160ms var(--ease-out);
 }
 .feed-rail__icon--idle:hover {
-  background: hsl(0 0% 100% / 0.18);
+  background: linear-gradient(180deg, hsl(0 0% 28% / 0.88), hsl(0 0% 12% / 0.8));
+  border-color: hsl(0 0% 100% / 0.22);
 }
 .feed-rail__icon--active {
-  background: hsl(358 75% 59%); /* matches your --destructive / red */
-  box-shadow: 0 8px 18px hsl(358 75% 59% / 0.35);
-  transform: translateZ(0) scale(1.06);
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.95), hsl(var(--primary-glow, 35 100% 70%) / 0.9));
+  border-color: hsl(var(--primary-glow, 35 100% 70%) / 0.65);
+  box-shadow: 0 18px 36px hsl(var(--primary) / 0.5);
+  transform: translateZ(0) scale(1.04);
 }
 
 /* SVG sizing stays consistent across screens */
 .feed-rail__icon svg {
-  width: clamp(10px, 1.5vh, 12px);
-  height: clamp(10px, 1.5vh, 12px);
+  width: clamp(18px, 2.4vh, 22px);
+  height: clamp(18px, 2.4vh, 22px);
   color: white;
 }
 
 /* Count/Post label: glass chip for contrast over busy media */
 .feed-rail__label {
-  font-size: 7px;
+  flex: 1;
+  min-inline-size: 0;
+  font-size: clamp(11px, 1.3vh, 13px);
   line-height: 1;
   font-weight: 600;
-  color: white;
-  padding: 1px 3px;
+  color: hsl(0 0% 100% / 0.9);
+  padding: clamp(4px, 0.8vh, 6px) clamp(10px, 1.6vh, 14px);
   border-radius: 9999px;
-  background: linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35));
-  border: 1px solid rgba(255,255,255,.18);
-  text-shadow: 0 1px 2px rgba(0,0,0,.45);
+  background: hsl(0 0% 100% / 0.1);
+  border: 1px solid hsl(0 0% 100% / 0.18);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  text-align: center;
+  letter-spacing: 0.01em;
 }
 
-/* Short screens: hide labels to prevent collisions with caption */
+.feed-rail__btn[data-label-variant="count"] .feed-rail__label {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  padding-inline: clamp(6px, 1.2vh, 10px);
+  min-inline-size: clamp(30px, 5vw, 40px);
+}
+
+.feed-rail__btn[data-has-label="false"] {
+  justify-content: center;
+  padding-inline: clamp(6px, 1vh, 8px);
+}
+
+.feed-rail__btn[data-has-label="false"] .feed-rail__label {
+  display: none;
+}
+
+.feed-rail__btn[data-has-label="false"] .feed-rail__icon {
+  box-shadow: 0 16px 32px hsl(0 0% 0% / 0.45);
+}
+
+/* Short screens: collapse text labels but keep counts */
 @media (max-height: 680px) {
-  .feed-rail__label { display: none; }
+  .feed-rail__btn[data-label-variant="text"] .feed-rail__label {
+    display: none;
+  }
+
+  .feed-rail__btn {
+    justify-content: center;
+  }
 }
 
 /* Landscape: rail sits a bit higher so it never hits bottom nav or caption */
@@ -2132,12 +2201,42 @@ input, select, textarea {
   .feed-rail { bottom: calc(var(--bottom-nav-safe) + max(48px, 10vh)); }
 }
 
+/* Narrow phones: revert to icon stack and trim paddings */
+@media (max-width: 420px) {
+  .feed-rail {
+    width: max-content;
+    padding-inline: clamp(10px, 2vw, 14px);
+  }
+
+  .feed-rail__btn {
+    inline-size: clamp(52px, 16vw, 64px);
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(4px, 0.9vh, 6px);
+    padding: clamp(6px, 1vh, 8px) clamp(4px, 0.8vh, 6px);
+  }
+
+  .feed-rail__label {
+    width: 100%;
+  }
+}
+
 /* Very narrow phones: slightly smaller hit circle but keep 44pt min touch via button wrapper */
 @media (max-width: 360px) {
-  .feed-rail__icon {
-    min-width: 34px; min-height: 34px; padding: 7px;
+  .feed-rail {
+    --rail-bottom-gap: clamp(8px, 1.4vh, 14px);
+    padding-inline: clamp(8px, 1.6vh, 12px);
   }
-  .feed-rail__icon svg { width: 15px; height: 15px; }
+
+  .feed-rail__btn {
+    --rail-hit: clamp(36px, 4.4vh, 44px);
+    inline-size: clamp(48px, 18vw, 58px);
+    gap: clamp(3px, 0.8vh, 4px);
+  }
+
+  .feed-rail__label {
+    font-size: clamp(10px, 1.2vh, 12px);
+  }
 }
 
 /* Close the @layer components block */

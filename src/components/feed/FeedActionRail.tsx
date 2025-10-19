@@ -22,31 +22,49 @@ type RailProps = {
 export function FeedActionRail({ items, className = "" }: RailProps) {
   return (
     <div className={`feed-rail pointer-events-auto ${className}`}>
-      {items.map((it, i) => (
-        <button
-          key={i}
-          type="button"
-          title={typeof it.label === "string" ? it.label : it.title}
-          onClick={it.onClick}
-          className="feed-rail__btn"
-        >
-          <div
-            className={[
-              "feed-rail__icon",
-              it.active
-                ? "feed-rail__icon--active"
-                : "feed-rail__icon--idle"
-            ].join(" ")}
-          >
-            {it.icon}
-          </div>
+      {items.map((it, i) => {
+        const labelVariant =
+          typeof it.label === "number" ||
+          (typeof it.label === "string" && /[\d\s.,]+/.test(it.label.trim()))
+            ? "count"
+            : it.label !== undefined
+            ? "text"
+            : undefined;
 
-          {/* Auto-hides on short screens via CSS, or when label === undefined */}
-          {it.label !== undefined && (
-            <span className="feed-rail__label">{it.label}</span>
-          )}
-        </button>
-      ))}
+        const ariaLabel =
+          typeof it.title === "string"
+            ? it.title
+            : typeof it.label === "string"
+            ? it.label
+            : undefined;
+
+        return (
+          <button
+            key={i}
+            type="button"
+            title={typeof it.label === "string" ? it.label : it.title}
+            onClick={it.onClick}
+            className="feed-rail__btn"
+            data-has-label={it.label !== undefined ? "true" : "false"}
+            data-label-variant={labelVariant}
+            aria-label={ariaLabel}
+          >
+            <div
+              className={[
+                "feed-rail__icon",
+                it.active ? "feed-rail__icon--active" : "feed-rail__icon--idle"
+              ].join(" ")}
+            >
+              {it.icon}
+            </div>
+
+            {/* Auto-hides on short screens via CSS, or when label === undefined */}
+            {it.label !== undefined && (
+              <span className="feed-rail__label">{it.label}</span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
