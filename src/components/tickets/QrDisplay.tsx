@@ -73,11 +73,11 @@ export function QrDisplay({
   }, [token]);
 
   return (
-    <Card className="relative flex flex-col items-center gap-4 rounded-3xl border border-border/60 bg-background/95 p-6 shadow-xl">
-      <div className="flex w-full items-center justify-center text-xs uppercase tracking-wide text-muted-foreground">
+    <Card className="relative flex flex-col items-center gap-[clamp(0.75rem,3vh,1rem)] rounded-3xl border border-border/60 bg-background/95 p-[clamp(1rem,4vw,1.5rem)] shadow-xl">
+      <div className="flex w-full items-center justify-center text-[clamp(0.625rem,2.5vw,0.75rem)] uppercase tracking-wide text-muted-foreground">
         <span>Your Ticket QR Code</span>
       </div>
-      <div className="relative flex aspect-square w-full max-w-xs items-center justify-center rounded-3xl bg-white p-6 shadow-inner">
+      <div className="relative flex aspect-square w-full max-w-[clamp(12rem,70vw,18rem)] items-center justify-center rounded-3xl bg-white p-[clamp(1rem,4vw,1.5rem)] shadow-inner">
         {(rendering || isLoading) && (
           <BrandedSpinner size="lg" className="absolute text-primary" />
         )}
@@ -101,15 +101,15 @@ export function QrDisplay({
           />
         )}
       </div>
-      <div className="flex w-full flex-col items-center gap-3 text-center text-sm text-muted-foreground">
+      <div className="flex w-full flex-col items-center gap-[clamp(0.5rem,2.5vh,0.75rem)] text-center text-[clamp(0.75rem,3vw,0.875rem)] text-muted-foreground">
         <p id={`qr-meta-${ticketId}`}>
           Present this code at the entrance for quick scanning.
         </p>
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <span className="rounded-full bg-primary/10 px-3 py-1 text-[clamp(0.625rem,2.5vw,0.75rem)] font-semibold text-primary">
             {eventId?.slice(0, 8) || 'Event'}
           </span>
-          <span className="rounded-full bg-muted px-3 py-1 text-xs" aria-label="Ticket identifier">
+          <span className="rounded-full bg-muted px-3 py-1 text-[clamp(0.625rem,2.5vw,0.75rem)]" aria-label="Ticket identifier">
             #{ticketId?.slice(-6) || 'Ticket'}
           </span>
         </div>
