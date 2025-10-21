@@ -63,7 +63,7 @@ export function OrgSwitcher({
         <Button
           type="button"
           variant="outline"
-          className={className || "w-full sm:w-[200px] justify-between"}
+          className={className || "w-full sm:w-[200px] justify-between bg-white border-ink-200 hover:bg-ink-50"}
           aria-label="Switch organization"
         >
           <div className="flex items-center gap-2 truncate min-w-0 flex-1">
@@ -74,7 +74,7 @@ export function OrgSwitcher({
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" className={className || "w-[240px]"}>
+      <DropdownMenuContent align="start" className={className || "w-[240px] bg-white border-ink-200 shadow-card"}>
         <div className="px-2 pt-2 pb-1">
           <div className="relative">
             <Search className="absolute left-2 top-[9px] h-4 w-4 text-muted-foreground" />
@@ -82,7 +82,7 @@ export function OrgSwitcher({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search organizations…"
-              className="pl-8 h-8"
+              className="pl-8 h-8 border-ink-200 focus:border-brand-600 focus:ring-brand-600"
             />
           </div>
         </div>
@@ -95,7 +95,7 @@ export function OrgSwitcher({
                 <Building2 className="mr-2 h-4 w-4" />
                 <span className="truncate">{org.name}</span>
                 {org.is_verified && (
-                  <span className="ml-auto inline-flex items-center gap-1 text-xs text-blue-600">
+                  <span className="ml-auto inline-flex items-center gap-1 text-xs text-brand-600">
                     <CheckCircle2 className="h-3.5 w-3.5" /> Verified
                   </span>
                 )}
@@ -113,7 +113,7 @@ export function OrgSwitcher({
                 <Building2 className="mr-2 h-4 w-4" />
                 <span className="truncate">{org.name}</span>
                 {org.is_verified && (
-                  <span className="ml-auto inline-flex items-center gap-1 text-xs text-blue-600">
+                  <span className="ml-auto inline-flex items-center gap-1 text-xs text-brand-600">
                     <CheckCircle2 className="h-3.5 w-3.5" /> Verified
                   </span>
                 )}

@@ -898,46 +898,87 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   /* ------------------------------ sub-views ----------------------------- */
 
   const Stepper = () => (
-    <div className="flex items-center gap-2 text-sm">
-      {[
-        { n: 1, label: 'Channel' },
-        { n: 2, label: 'Audience' },
-        { n: 3, label: 'Content' },
-        { n: 4, label: 'Review & Send' },
-      ].map(({ n, label }) => {
-        const active = step === (n as Step);
-        const done = step > (n as Step);
-        return (
-          <div key={n} className={cn("flex items-center gap-2", n !== 1 && "opacity-90")}>
-            {n !== 1 && <Separator orientation="vertical" className="h-5" />}
-            <Badge variant={active ? "default" : done ? "secondary" : "outline"}>
-              {n}. {label}
-            </Badge>
-          </div>
-        );
-      })}
-      <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-        <Users className="w-4 h-4" />
-        {isPending ? 'Counting…' : `Recipients: ${audienceCount}`}
+    <div className="flex items-center justify-between gap-4 min-w-0">
+      {/* Refined step indicators */}
+      <div className="flex items-center gap-1 min-w-0 flex-1">
+        {[
+          { n: 1, label: 'Channel' },
+          { n: 2, label: 'Audience' },
+          { n: 3, label: 'Content' },
+          { n: 4, label: 'Review & Send' },
+        ].map(({ n, label }) => {
+          const active = step === (n as Step);
+          const done = step > (n as Step);
+          return (
+            <div key={n} className="flex items-center">
+              {n !== 1 && (
+                <div className="w-4 h-px bg-neutral-200 mx-1" />
+              )}
+              <button
+                onClick={() => setStep(n as Step)}
+                className={cn(
+                  "flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm font-medium transition-all duration-200",
+                  "hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2",
+                  active && "bg-brand-50 text-brand-600 border border-brand-200",
+                  done && "bg-neutral-100 text-neutral-600",
+                  !active && !done && "text-neutral-500 hover:text-neutral-700"
+                )}
+              >
+                <div className={cn(
+                  "w-4 h-4 rounded-full flex items-center justify-center text-xs font-semibold",
+                  active && "bg-brand-600 text-white",
+                  done && "bg-neutral-400 text-white",
+                  !active && !done && "bg-neutral-200 text-neutral-500"
+                )}>
+                  {done ? "✓" : n}
+                </div>
+                <span className="hidden md:inline text-xs">{label}</span>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Recipient count - more compact and contained */}
+      <div className="flex items-center gap-1.5 text-xs text-neutral-500 bg-neutral-50 px-2 py-1 rounded-md flex-shrink-0">
+        <Users className="w-3 h-3" />
+        <span className="whitespace-nowrap">{isPending ? 'Counting…' : `${audienceCount} recipients`}</span>
       </div>
     </div>
   );
 
   const ChannelStep = () => (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-2">
       <div>
-        <Label htmlFor="channel-select">Channel</Label>
+        <Label htmlFor="channel-select" className="text-sm font-medium text-neutral-700 mb-2 block">Channel</Label>
         <Select value={channel} onValueChange={(v: MessageChannel) => setChannel(v)}>
-          <SelectTrigger id="channel-select"><SelectValue placeholder="Select channel" /></SelectTrigger>
+          <SelectTrigger id="channel-select" className="h-11 border-neutral-200 focus:border-brand-600 focus:ring-brand-600">
+            <SelectValue placeholder="Select channel" />
+          </SelectTrigger>
           <SelectContent>
-            <SelectItem value="email"><div className="flex items-center gap-2"><Mail className="h-4 w-4" /> Email</div></SelectItem>
-            <SelectItem value="sms"><div className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> SMS</div></SelectItem>
+            <SelectItem value="email">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-neutral-600" /> 
+                <span>Email</span>
+              </div>
+            </SelectItem>
+            <SelectItem value="sms">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-neutral-600" /> 
+                <span>SMS</span>
+              </div>
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
-      <div className="p-3 bg-muted/50 rounded-lg text-sm">
-        <div className="font-medium mb-1">Tip</div>
-        <div>Email supports subject, preheader, and rich content. SMS is best for short, time-sensitive reminders.</div>
+      <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-md">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-2 h-2 bg-brand-600 rounded-full"></div>
+          <span className="text-sm font-medium text-neutral-700">Tip</span>
+        </div>
+        <p className="text-sm text-neutral-600 leading-relaxed">
+          Email supports subject, preheader, and rich content. SMS is best for short, time-sensitive reminders.
+        </p>
       </div>
     </div>
   );
@@ -982,7 +1023,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
             {ROLES.map(role => (
               <Badge
                 key={role}
-                variant={selectedRoles.includes(role) ? "default" : "outline"}
+                variant={selectedRoles.includes(role) ? "brand" : "neutral"}
                 className="cursor-pointer"
                 onClick={() =>
                   setSelectedRoles(prev =>
@@ -1259,7 +1300,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
           <div className="text-sm font-medium">Summary</div>
           <div className="text-sm p-3 border rounded-lg bg-muted/30">
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline">{channel.toUpperCase()}</Badge>
+              <Badge variant="neutral">{channel.toUpperCase()}</Badge>
               <Separator orientation="vertical" className="h-4" />
               <div>Recipients: {audienceCount}</div>
             </div>
@@ -1439,15 +1480,17 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       }} 
       tabIndex={0}
     >
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Send className="h-5 w-5" />
+      <Card className="border-neutral-200 shadow-subtle overflow-hidden">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg text-neutral-800">
+            <Send className="h-5 w-5 text-brand-600" />
             Send Message
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <Stepper />
+        <CardContent className="space-y-6 min-w-0">
+          <div className="w-full overflow-hidden">
+            <Stepper />
+          </div>
 
           {/* Step content */}
           {step === 1 && <ChannelStep />}
@@ -1456,17 +1499,18 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
           {step === 4 && <ReviewStep />}
 
           {/* Step controls */}
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
             <Button
               variant="outline"
               size="sm"
               onClick={() => startTransition(() => setStep(prev => (prev > 1 ? ((prev - 1) as Step) : prev)))}
               disabled={step === 1}
+              className="h-9 px-4 border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300"
             >
               <ChevronLeft className="w-4 h-4 mr-1" /> Back
             </Button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {step < 4 && (
                 <Button
                   size="sm"
@@ -1476,12 +1520,18 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                     return ((prev + 1) as Step);
                   }))}
                   disabled={(step === 2 && !canProceedFromStep2) || (step === 3 && !(channel === 'email' ? body.trim() || subject.trim() : smsBody.trim()))}
+                  className="h-9 px-4 bg-neutral-900 text-white hover:bg-neutral-800 focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
                 >
                   Next <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               )}
               {step === 3 && (
-                <Button variant="secondary" size="sm" onClick={() => setStep(4)}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setStep(4)}
+                  className="h-9 px-4 border-brand-200 text-brand-600 hover:bg-brand-50 hover:border-brand-300"
+                >
                   Review <Eye className="w-4 h-4 ml-1" />
                 </Button>
               )}
@@ -1491,18 +1541,18 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       </Card>
 
       {/* Recent Messages (compact, collapsible) */}
-      <Card>
+      <Card className="border-neutral-200 shadow-subtle">
         <CardHeader className="py-3">
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-base text-neutral-800">
+            <Clock className="h-4 w-4 text-neutral-600" />
             Recent Messages
-            <span className="text-xs text-muted-foreground">({recentJobs.length})</span>
+            <span className="text-xs text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full">{recentJobs.length}</span>
             <Button
               variant="ghost"
               size="icon"
               onClick={refreshRecent}
               title="Refresh"
-              className="ml-auto"
+              className="ml-auto h-8 w-8 hover:bg-neutral-100"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -1601,8 +1651,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                             switch (job.status) {
                               case 'draft': return <Badge variant="secondary" className={common}>Draft</Badge>;
                               case 'queued': return clickable('Queued (run)', () => retry(job.id), "outline", "animate-pulse border-yellow-400 text-yellow-600");
-                              case 'sending': return <Badge variant="default" className={cn(common, "bg-blue-500 animate-pulse")}>Sending…</Badge>;
-                              case 'sent': return <Badge variant="default" className={cn(common, "bg-green-500")}>Sent</Badge>;
+                              case 'sending': return <Badge variant="brand" className={cn(common, "bg-blue-500 animate-pulse")}>Sending…</Badge>;
+                              case 'sent': return <Badge variant="success" className={cn(common, "bg-green-500")}>Sent</Badge>;
                               case 'failed': return clickable('Failed (retry)', () => retry(job.id), "destructive");
                               default: return <Badge variant="secondary" className={common}>{job.status}</Badge>;
                             }

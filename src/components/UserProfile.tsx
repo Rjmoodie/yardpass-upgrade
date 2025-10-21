@@ -393,7 +393,7 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
                     <ImageWithFallback
                         src={ticket.coverImage || DEFAULT_EVENT_COVER}
                       alt={ticket.eventTitle}
-                      className="w-20 h-20 object-cover"
+                      className="w-20 h-24 object-cover"
                     />
                     <CardContent className="flex-1 p-4">
                       <div className="flex justify-between items-start mb-2">

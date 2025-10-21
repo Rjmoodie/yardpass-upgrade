@@ -1,36 +1,45 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
+// components/ui/Badge.tsx
+import React from "react";
+import { cn } from "@/lib/utils";
 
-import { cn } from "@/lib/utils"
-
-const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-  {
-    variants: {
-      variant: {
-        default:
-          "border-primary/20 bg-primary text-primary-foreground hover:bg-primary/80 shadow-sm",
-        secondary:
-          "border-secondary/20 bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm",
-        destructive:
-          "border-destructive/20 bg-destructive text-destructive-foreground hover:bg-destructive/80 shadow-sm",
-        outline: "text-accent border-accent bg-transparent hover:bg-accent/10",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
-  }
-)
-
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
-
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
-  )
+interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+  children: React.ReactNode;
+  variant?: "brand" | "success" | "warning" | "neutral" | "danger";
+  size?: "sm" | "md";
+  className?: string;
 }
 
-export { Badge, badgeVariants }
+export const Badge: React.FC<BadgeProps> = ({
+  children,
+  variant = "brand",
+  size = "md",
+  className,
+  ...props
+}) => {
+  const variants = {
+    brand: "bg-brand-50 text-brand-600 border-brand-200",
+    success: "bg-green-50 text-green-600 border-green-200",
+    warning: "bg-yellow-50 text-yellow-600 border-yellow-200",
+    danger: "bg-red-50 text-red-600 border-red-200",
+    neutral: "bg-neutral-100 text-neutral-600 border-neutral-200",
+  };
+
+  const sizes = {
+    sm: "px-2 py-0.5 text-xs",
+    md: "px-3 py-1 text-sm",
+  };
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-pill border font-semibold tracking-wide",
+        variants[variant],
+        sizes[size],
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </span>
+  );
+};

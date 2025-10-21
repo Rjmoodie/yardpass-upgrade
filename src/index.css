@@ -1726,8 +1726,8 @@ input, select, textarea {
 /* Medium screens (iPhone 12/13/14) */
 @media (max-width: 640px) and (min-height: 700px) and (max-height: 900px) {
   .action-rail-safe {
-    bottom: calc(var(--bottom-nav-safe) + max(120px, 14vh)) !important;
-    max-height: calc(100vh - var(--bottom-nav-safe) - max(120px, 14vh));
+    bottom: calc(var(--bottom-nav-safe) + max(90px, 10.5vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(90px, 10.5vh));
   }
 }
 
@@ -1847,8 +1847,8 @@ input, select, textarea {
 /* Medium screens for media posts */
 @media (max-width: 640px) and (min-height: 700px) and (max-height: 900px) {
   .tiktok-feed .action-rail-safe {
-    bottom: calc(var(--bottom-nav-safe) + max(130px, 15vh)) !important;
-    max-height: calc(100vh - var(--bottom-nav-safe) - max(130px, 15vh)) !important;
+    bottom: calc(var(--bottom-nav-safe) + max(97.5px, 11.25vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(97.5px, 11.25vh)) !important;
   }
 }
 
@@ -2051,7 +2051,7 @@ input, select, textarea {
   --icon-size: clamp(26px, 7vw, 36px);
   --gap-size: clamp(6px, 2.6vw, 12px);
   --rail-overlay-top: calc(100svh - var(--bottom-nav-safe) - var(--caption-h, 0px));
-  --rail-safe-top: calc(env(safe-area-inset-top) + clamp(56px, 14vh, 120px));
+  --rail-safe-top: calc(env(safe-area-inset-top) + clamp(42px, 10.5vh, 90px));
   --rail-height: calc(
     var(--rail-count) * var(--button-size) +
       max(0, var(--rail-count) - 1) * var(--gap-size)
@@ -2066,9 +2066,9 @@ input, select, textarea {
   z-index: 40;
   inset-inline-end: max(12px, calc(env(safe-area-inset-right) + clamp(10px, 3vw, 18px)));
   top: clamp(
-    var(--rail-safe-top),
-    var(--rail-top-centered),
-    calc(var(--rail-overlay-top) - var(--gap-size) - var(--button-size) * var(--rail-scale))
+    calc(var(--rail-safe-top) * 0.75),
+    calc(var(--rail-top-centered) * 0.75),
+    calc((var(--rail-overlay-top) - var(--gap-size) - var(--button-size) * var(--rail-scale)) * 0.75)
   );
   display: flex;
   flex-direction: column;

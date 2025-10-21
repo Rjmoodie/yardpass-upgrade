@@ -75,7 +75,7 @@ function TicketCard({ ticket, onSelect }: TicketCardProps) {
     >
       <div className="absolute inset-x-6 top-0 h-1 rounded-full bg-gradient-to-r from-primary via-primary/60 to-primary/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
       <div className="flex items-start gap-4">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted">
+        <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">
           <img
             src={ticket.coverImage}
             alt={ticket.eventTitle}

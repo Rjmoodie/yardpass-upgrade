@@ -591,11 +591,11 @@ export default function UserProfilePage() {
                   </h1>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span>Member since {formatDate(profile.created_at)}</span>
-                    <Badge variant={profile.role === 'organizer' ? 'default' : 'outline'} className="text-[11px] px-2 py-0.5">
+                    <Badge variant={profile.role === 'organizer' ? 'brand' : 'neutral'} className="text-[11px] px-2 py-0.5">
                       {profile.role === 'organizer' ? <> <Crown className="h-3 w-3 mr-1" /> Organizer </> : 'Attendee'}
                     </Badge>
                     {profile.verification_status === 'verified' && (
-                      <Badge variant="secondary" className="text-[11px] px-2 py-0.5">✓ Verified</Badge>
+                      <Badge variant="success" className="text-[11px] px-2 py-0.5">✓ Verified</Badge>
                     )}
                   </div>
                 </div>
@@ -804,7 +804,7 @@ export default function UserProfilePage() {
                           className="w-full rounded-2xl border border-border/40 bg-background/60 p-4 text-left transition hover:border-primary/50 hover:shadow-sm"
                         >
                           <div className="flex gap-4">
-                            <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl">
+                            <div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-xl">
                               <img
                                 src={event.cover_image_url ?? DEFAULT_EVENT_COVER}
                                 alt={event.title}
@@ -820,7 +820,7 @@ export default function UserProfilePage() {
                                 </span>
                               </div>
                               <Badge
-                                variant={ticket.status === 'redeemed' ? 'default' : 'secondary'}
+                                variant={ticket.status === 'redeemed' ? 'success' : 'neutral'}
                                 className="capitalize"
                               >
                                 {ticket.status ?? 'pending'}

@@ -34,6 +34,36 @@ export default {
         "short": { raw: "(max-height: 680px)" },  // dense layouts
       },
       colors: {
+        // Refined neutral system for premium feel
+        neutral: {
+          900: "#0F172A",   // Dark slate for primary text
+          800: "#1E293B",   // Slate for headings
+          700: "#334155",   // Medium slate
+          600: "#475569",   // Soft slate
+          500: "#64748B",   // Muted slate
+          400: "#94A3B8",   // Light slate
+          300: "#CBD5E1",   // Very light slate
+          200: "#E2E8F0",   // Divider color
+          100: "#F1F5F9",   // Background tint
+          50: "#F8FAFC",    // Soft background
+          0: "#FFFFFF",     // Pure white
+        },
+        // Refined brand orange for subtle accents
+        brand: {
+          600: "#FF8C00",   // Primary brand orange
+          500: "#FF9B0F",    // Lighter brand
+          400: "#FFB547",    // Light brand
+          300: "#FFD9A3",    // Very light brand
+          200: "#FFE9C7",    // Lightest brand
+          100: "#FFF3E1",    // Brand tint
+          50: "#FFF8EE",     // Subtle brand background
+        },
+        // Semantic colors
+        success: "#16A34A",
+        warning: "#F59E0B", 
+        danger: "#DC2626",
+        
+        // Keep existing CSS variables for compatibility
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -68,58 +98,81 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        success: {
-          DEFAULT: "hsl(var(--success))",
-          foreground: "hsl(var(--success-foreground))",
-        },
-        warning: {
-          DEFAULT: "hsl(var(--warning))",
-          foreground: "hsl(var(--warning-foreground))",
-        },
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
-        display: ["var(--font-display)"],
-        mono: ["var(--font-mono)"],
+        sans: ["Inter", "SF Pro Display", "system-ui", "sans-serif"],
+        display: ["Inter", "SF Pro Display", "system-ui", "sans-serif"],
+        mono: ["SF Mono", "Monaco", "Consolas", "monospace"],
       },
       fontSize: {
-        xxs: ["0.625rem", { lineHeight: "0.875rem" }],  // 10px
-        xs:  ["0.75rem",  { lineHeight: "1rem" }],
-        sm:  ["0.875rem", { lineHeight: "1.25rem" }],
-        base:["1rem",     { lineHeight: "1.5rem" }],
-        lg:  ["1.125rem", { lineHeight: "1.75rem" }],
-        xl:  ["1.25rem",  { lineHeight: "1.75rem" }],
-        "2xl": ["1.5rem", { lineHeight: "2rem" }],
-        "3xl": ["1.875rem",{ lineHeight: "2.25rem" }],
-        "4xl": ["2.25rem", { lineHeight: "2.5rem" }],
-        "5xl": ["3rem",    { lineHeight: "1" }],
+        // Refined typography scale
+        xs: ["0.75rem", { lineHeight: "1rem", letterSpacing: "0.025em" }],      // 12px
+        sm: ["0.875rem", { lineHeight: "1.25rem", letterSpacing: "0.025em" }],  // 14px
+        base: ["1rem", { lineHeight: "1.5rem", letterSpacing: "0" }],           // 16px
+        lg: ["1.125rem", { lineHeight: "1.75rem", letterSpacing: "0" }],       // 18px
+        xl: ["1.25rem", { lineHeight: "1.75rem", letterSpacing: "-0.025em" }], // 20px
+        "2xl": ["1.375rem", { lineHeight: "2rem", letterSpacing: "-0.025em" }], // 22px
+        "3xl": ["1.5rem", { lineHeight: "2rem", letterSpacing: "-0.025em" }],   // 24px
+        "4xl": ["1.875rem", { lineHeight: "2.25rem", letterSpacing: "-0.025em" }], // 30px
+        "5xl": ["2.25rem", { lineHeight: "2.5rem", letterSpacing: "-0.025em" }], // 36px
       },
       spacing: {
-        18: "4.5rem",
-        22: "5.5rem",
-        26: "6.5rem",
-        30: "7.5rem",
+        // 8pt grid system for consistent spacing
+        "0.5": "2px",   // 0.25 * 8
+        "1": "4px",     // 0.5 * 8
+        "1.5": "6px",   // 0.75 * 8
+        "2": "8px",     // 1 * 8
+        "3": "12px",    // 1.5 * 8
+        "4": "16px",    // 2 * 8
+        "5": "20px",    // 2.5 * 8
+        "6": "24px",    // 3 * 8
+        "8": "32px",    // 4 * 8
+        "10": "40px",   // 5 * 8
+        "12": "48px",   // 6 * 8
+        "16": "64px",   // 8 * 8
+        "20": "80px",   // 10 * 8
+        "24": "96px",   // 12 * 8
+        "32": "128px",  // 16 * 8
+        "40": "160px",  // 20 * 8
+        "48": "192px",  // 24 * 8
+        "56": "224px",  // 28 * 8
+        "64": "256px",  // 32 * 8
+        // Safe area spacing
         "safe-top": "var(--safe-area-inset-top)",
         "safe-bottom": "var(--safe-area-inset-bottom)",
         "safe-left": "var(--safe-area-inset-left)",
         "safe-right": "var(--safe-area-inset-right)",
         "safe-or-2": "max(env(safe-area-inset-bottom, 0rem), 0.5rem)",
         "safe-or-4": "max(env(safe-area-inset-bottom, 0rem), 1rem)",
-        // iOS-specific spacing for top safe area
         "safe-top-or-2": "max(env(safe-area-inset-top, 0rem), 0.5rem)",
         "safe-top-or-4": "max(env(safe-area-inset-top, 0rem), 1rem)",
       },
       borderRadius: {
-        xs: "var(--radius-xs)",
-        sm: "var(--radius-sm)",
-        md: "var(--radius-md)",
-        lg: "var(--radius-lg)",
-        xl: "var(--radius-xl)",
-        "2xl": "var(--radius-2xl)",
-        "3xl": "var(--radius-3xl)",
+        // Refined corner radius system
+        xs: "4px",
+        sm: "6px", 
+        md: "12px",   // Consistent 12px for cards/buttons
+        lg: "16px",
+        xl: "20px",
+        pill: "9999px",
+        // Keep existing variables for compatibility
+        "xs-var": "var(--radius-xs)",
+        "sm-var": "var(--radius-sm)",
+        "md-var": "var(--radius-md)",
+        "lg-var": "var(--radius-lg)",
+        "xl-var": "var(--radius-xl)",
+        "2xl-var": "var(--radius-2xl)",
+        "3xl-var": "var(--radius-3xl)",
         full: "var(--radius-full)",
       },
       boxShadow: {
+        // Refined shadow system for premium feel
+        subtle: "0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)",
+        card: "0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)",
+        elevated: "0 4px 12px rgba(0,0,0,0.08), 0 16px 32px rgba(0,0,0,0.12)",
+        focus: "0 0 0 3px rgba(255,140,0,0.22)",
+        brand: "0 0 0 3px rgba(255,140,0,0.22)",
+        // Keep existing variables for compatibility
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
