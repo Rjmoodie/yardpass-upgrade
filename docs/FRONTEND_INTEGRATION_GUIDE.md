@@ -1068,24 +1068,22 @@ export function useRealtimeProposal(threadId: string) {
 
 ## 7. Sponsorship Wing Dashboards
 
-Ground your UI in the actual sponsorship lifecycle tables: packages, matches, proposals, deliverables, and orders. The patterns below compose them into a cohesive operator dashboard without relying on undocumented views or workspace abstractions.
+The sponsorship wing surfaces curated sponsor workspaces, configurable widgets, and a live command center. Pair these UI patterns with the new backend contracts to deliver an opinionated experience fast.
 
-### 7.1 Pipeline Shell
+### 7.1 Workspace Shell
 
 ```tsx
-// src/features/sponsorship-wing/components/PipelineShell.tsx
+// src/features/sponsorship-wing/components/WorkspaceShell.tsx
 import { PropsWithChildren } from 'react'
-import { SponsorList } from './SponsorList'
-import { KeyMetricsBar } from './KeyMetricsBar'
+import { WorkspaceSidebar } from './WorkspaceSidebar'
+import { WorkspaceHeader } from './WorkspaceHeader'
 
-export function PipelineShell({ children }: PropsWithChildren) {
+export function WorkspaceShell({ children }: PropsWithChildren) {
   return (
-    <div className="grid min-h-screen grid-cols-[320px_1fr] bg-surface-1">
-      <aside className="border-r border-border-subtle bg-surface-0">
-        <SponsorList />
-      </aside>
+    <div className="grid min-h-screen grid-cols-[280px_1fr] bg-surface-1">
+      <WorkspaceSidebar />
       <div className="flex flex-col">
-        <KeyMetricsBar />
+        <WorkspaceHeader />
         <main className="flex-1 overflow-y-auto px-8 py-6">{children}</main>
       </div>
     </div>
@@ -1094,107 +1092,89 @@ export function PipelineShell({ children }: PropsWithChildren) {
 ```
 
 **Key ideas**
-- Sidebar queries `sponsorship_matches` joined with `sponsors` to surface high-value prospects.
-- `KeyMetricsBar` aggregates `sponsorship_orders`, `deliverables`, and `payout_queue` counts for quick readouts.
-- Keep route structure simple: e.g. `/sponsorship/pipeline/[eventId]` and `/sponsorship/proposals/[threadId]`.
+- Sidebar pulls workspace + member data from `useWorkspace()` hook
+- Header surfaces quick stats (GMV, win rate, active proposals)
+- Wrap all wing routes (e.g. `/wing/[workspaceSlug]/*`) with this shell
 
-### 7.2 Packages & Match View
+### 7.2 Widget Grid
 
 ```tsx
-// src/features/sponsorship-wing/components/PackagesBoard.tsx
-import { useMatches } from '../hooks/useMatches'
-import { usePackages } from '../hooks/usePackages'
+// src/features/sponsorship-wing/components/WidgetGrid.tsx
+import { lazy } from 'react'
+import { useWidgetRegistry } from '../hooks/useWidgetRegistry'
+import { MarketplaceCardWidget } from './widgets/MarketplaceCardWidget'
+import { CommandCenterWidget } from './widgets/CommandCenterWidget'
 
-export function PackagesBoard({ eventId }: { eventId: string }) {
-  const { data: packages } = usePackages(eventId)
-  const { data: matches } = useMatches(eventId)
+const registryComponentMap = {
+  marketplace_card: MarketplaceCardWidget,
+  command_center: CommandCenterWidget,
+  pipeline_funnel: lazy(() => import('./widgets/PipelineFunnelWidget'))
+} as const
+
+export function WidgetGrid({ workspaceId }: { workspaceId: string }) {
+  const { data: widgets, isLoading } = useWidgetRegistry(workspaceId)
+
+  if (isLoading) {
+    return <SkeletonGrid />
+  }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-      <section className="space-y-4">
-        {packages?.map((pkg) => (
-          <PackageCard key={pkg.id} pkg={pkg} />
-        ))}
-      </section>
-      <aside className="space-y-3">
-        {matches?.map((match) => (
-          <MatchTile key={match.id} match={match} />
-        ))}
-      </aside>
+    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      {widgets?.map((widget) => {
+        const Component = registryComponentMap[widget.widget_type]
+        if (!Component) return null
+
+        return <Component key={widget.id} widget={widget} />
+      })}
     </div>
   )
 }
 ```
 
 **Implementation tips**
-- `usePackages` selects from `sponsorship_packages` and enriches with event metadata as needed.
-- `useMatches` joins `sponsorship_matches` with `match_features` for context such as `features.audience_overlap`.
-- Provide visual cues for `status` (e.g. highlight `accepted` matches).
+- `useWidgetRegistry` subscribes to `widget.updated` realtime channel for instant updates
+- Provide lazy loading for experimental widget types so labs can ship faster
+- Ship analytics by wrapping `Component` with `withWidgetInstrumentation`
 
-### 7.3 Negotiation Workspace
+### 7.3 Command Center Stream
 
 ```tsx
-// src/features/sponsorship-wing/components/NegotiationThread.tsx
-import { useProposalThread } from '../hooks/useProposalThread'
-import { useProposalMessages } from '../hooks/useProposalMessages'
+// src/features/sponsorship-wing/hooks/useCommandCenterFeed.ts
+import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { createBrowserSupabaseClient } from '@/lib/supabase-browser'
 
-export function NegotiationThread({ threadId }: { threadId: string }) {
-  const { data: thread } = useProposalThread(threadId)
-  const { data: messages, sendMessage } = useProposalMessages(threadId)
+export function useCommandCenterFeed(workspaceId: string) {
+  const client = createBrowserSupabaseClient()
+  const queryClient = useQueryClient()
 
-  return (
-    <div className="flex h-full flex-col rounded-lg border border-border-subtle bg-surface-0">
-      <header className="border-b border-border-subtle px-6 py-4">
-        <h2 className="text-lg font-semibold">{thread?.sponsor?.name}</h2>
-        <p className="text-sm text-muted-foreground">Status: {thread?.status}</p>
-      </header>
-      <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-        {messages?.map((message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
-      </div>
-      <footer className="border-t border-border-subtle px-6 py-4">
-        <ComposeBar threadId={threadId} onSend={sendMessage} />
-      </footer>
-    </div>
-  )
+  useEffect(() => {
+    const channel = client
+      .channel(`command_center:${workspaceId}`)
+      .on('broadcast', { event: 'metrics' }, ({ payload }) => {
+        queryClient.setQueryData(['command-center-feed', workspaceId], (prev: any[] = []) => {
+          return [payload, ...prev].slice(0, 50)
+        })
+      })
+      .subscribe()
+
+    return () => {
+      client.removeChannel(channel)
+    }
+  }, [client, queryClient, workspaceId])
 }
 ```
 
-**Implementation tips**
-- Use Supabase realtime on `proposal_messages` to append new messages instantly.
-- Promote negotiation milestones by reading `sponsorship_orders` rows tied to the same sponsor/event.
-- Link deliverable requirements inline by pulling `deliverables` filtered by sponsor/event.
+**Usage**
+- Call inside dashboard page component and pair with a standard `useQuery` for initial feed
+- Render latest metrics in a sparkline/leaderboard hybrid view
+- Bubble warnings (e.g. SLA drift) using toast notifications triggered by payload flags
 
-### 7.4 Financial Status Snapshot
+### 7.4 Navigation & Routing
 
-```tsx
-// src/features/sponsorship-wing/components/FinanceSnapshot.tsx
-import { useOrders } from '../hooks/useOrders'
-import { usePayoutQueue } from '../hooks/usePayoutQueue'
-
-export function FinanceSnapshot({ eventId }: { eventId: string }) {
-  const { data: orders } = useOrders(eventId)
-  const { data: payouts } = usePayoutQueue()
-
-  const fundedOrders = orders?.filter((order) => order.status === 'funded') ?? []
-  const pendingPayouts = payouts?.filter((p) => p.status === 'pending') ?? []
-
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <MetricTile label="Funded Orders" value={fundedOrders.length} trend="day" />
-      <MetricTile label="Pending Payouts" value={pendingPayouts.length} trend="week" />
-      <OrdersTable orders={orders ?? []} />
-      <PayoutQueueTable items={payouts ?? []} />
-    </div>
-  )
-}
-```
-
-**Implementation tips**
-- Drive `OrdersTable` directly from `sponsorship_orders` (status, escrow_state, stripe ids).
-- `PayoutQueueTable` pairs `payout_queue` with `sponsorship_payouts` to show fulfillment history.
-- Include alerts when `attempts` nears `max_attempts` so operators can intervene.
+- App Router suggestion: nest wing routes under `app/(sponsorship-wing)/wing/[workspaceSlug]/page.tsx`
+- Preload workspace + widget data via server components for snappy time-to-first-interaction
+- Gate access with middleware that checks `sponsorship_workspace_members` membership via Supabase JWT claims
 
 ---
 

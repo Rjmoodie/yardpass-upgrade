@@ -325,17 +325,89 @@ ORDER BY pq.scheduled_for;
 
 ---
 
+## 🛠 Sponsorship Wing Activation (15 min)
+
+Follow this checklist once the core workflow above is green to light up the new sponsorship wing modules end-to-end.
+
+### Configure Sponsor Workspace (5 min)
+
+```sql
+-- Create workspace container
+INSERT INTO sponsorship_workspaces (organization_id, name, slug, created_by)
+VALUES (
+  'your-org-id',
+  'Premium Sponsors',
+  'premium-sponsors',
+  auth.uid()
+) RETURNING *;
+
+-- Seed workspace roles
+INSERT INTO sponsorship_workspace_members (workspace_id, user_id, role)
+VALUES
+  ('workspace-id', auth.uid(), 'owner'),
+  ('workspace-id', 'sponsor-manager-user-id', 'manager');
+```
+
+### Register Marketplace Widgets (5 min)
+
+```sql
+-- Connect packages to wing dashboards
+INSERT INTO sponsorship_widget_registry (
+  workspace_id,
+  package_id,
+  widget_type,
+  config
+)
+SELECT
+  'workspace-id',
+  id,
+  'marketplace_card',
+  jsonb_build_object('highlight', tier, 'cta', 'Request Proposal')
+FROM sponsorship_packages
+WHERE event_id = 'your-event-id';
+
+-- Verify widgets resolve
+SELECT *
+FROM v_sponsorship_workspace_widgets
+WHERE workspace_id = 'workspace-id';
+```
+
+### Enable Sponsor Command Center (5 min)
+
+```sql
+-- Start telemetry stream for sponsorship wing dashboards
+SELECT enable_sponsorship_command_center(
+  workspace_id := 'workspace-id',
+  capture_rollups := true,
+  notify_slack_webhook := 'https://hooks.slack.com/services/...'
+);
+
+-- Check live metrics feed
+SELECT * FROM sponsorship_command_center_feed
+WHERE workspace_id = 'workspace-id'
+ORDER BY collected_at DESC
+LIMIT 20;
+```
+
+---
+
 ## ✅ Verification Checklist
 
-- [ ] Sponsor exists in `sponsors` with a linked row in `sponsor_profiles`
-- [ ] Active package stored in `sponsorship_packages` for your event
-- [ ] Event/sponsor relationship captured in `event_sponsorships`
-- [ ] Match data written to both `match_features` and `sponsorship_matches`
-- [ ] Proposal thread + message present in `proposal_threads` / `proposal_messages`
-- [ ] Deliverable and proof rows created
-- [ ] Order advanced from `pending` → `funded`
-- [ ] Pending payout entry scheduled in `payout_queue`
-- [ ] Queue growth visible through `SELECT COUNT(*) FROM fit_recalc_queue WHERE processed_at IS NULL`
+After completing the quick start, verify:
+
+- [ ] Package appears in `v_sponsorship_package_cards`
+- [ ] Sponsor profile exists with targeting data
+- [ ] Match score computed and stored in `sponsorship_matches`
+- [ ] Recommendations appear in views
+- [ ] Proposal thread created with messages
+- [ ] Order created with correct status
+- [ ] Queue processing works
+- [ ] Materialized views refresh successfully
+- [ ] Sponsorship workspace online with members
+- [ ] Widgets render in `v_sponsorship_workspace_widgets`
+- [ ] Command center feed streaming latest metrics
+
+---
 
 If every box checks out, the sponsorship wing is ready for deeper API and UI integration.
 

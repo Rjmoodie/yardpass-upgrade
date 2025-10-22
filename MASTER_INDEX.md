@@ -39,7 +39,7 @@
 | **QUICK_START.md** | Hands-on activation runbook for the sponsorship wing | Implementers |
 | **docs/BACKEND_INTEGRATION_COMPLETE.md** | End-to-end API contract for sponsorship wing services | Backend & platform teams |
 | **docs/FRONTEND_INTEGRATION_GUIDE.md** | UI patterns and hooks for sponsorship wing dashboards | Frontend teams |
-| **supabase/migrations/** | Canonical sponsorship schema (existing migrations) | DBAs, data teams |
+| **docs/DATABASE_SCHEMA_COMPLETE.sql** | Authoritative schema for sponsorship wing tables & views | DBAs, data teams |
 
 ### Operations
 | Document | Purpose | Audience |
