@@ -34,7 +34,7 @@ serve(async (req) => {
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
     if (type === 'view') {
-      // Insert post view
+      // Insert post view with enhanced video metrics
       const { error } = await supabaseClient
         .from('post_views')
         .insert({
@@ -48,7 +48,14 @@ serve(async (req) => {
           watch_percentage: data.watch_percentage || 0,
           source: data.source,
           ip_address: clientIP,
-          user_agent: userAgent
+          user_agent: userAgent,
+          // Enhanced video performance metrics
+          video_load_time: data.video_load_time || null,
+          video_start_time: data.video_start_time || null,
+          video_buffer_events: data.video_buffer_events || 0,
+          video_quality: data.video_quality || null,
+          connection_type: data.connection_type || null,
+          device_type: data.device_type || null,
         });
 
       if (error) {
@@ -79,6 +86,69 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error inserting post click:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+    } else if (type === 'video_performance') {
+      // Enhanced video performance tracking
+      const { error } = await supabaseClient
+        .from('video_performance_metrics')
+        .insert({
+          post_id: data.post_id,
+          event_id: data.event_id,
+          user_id: data.user_id || null,
+          session_id: data.session_id,
+          video_url: data.video_url,
+          load_time_ms: data.load_time_ms,
+          first_frame_time_ms: data.first_frame_time_ms,
+          buffer_events: data.buffer_events || 0,
+          quality_changes: data.quality_changes || 0,
+          connection_speed: data.connection_speed,
+          device_type: data.device_type,
+          browser_type: data.browser_type,
+          video_format: data.video_format,
+          error_events: data.error_events || 0,
+          ip_address: clientIP,
+          user_agent: userAgent
+        });
+
+      if (error) {
+        console.error('Error inserting video performance:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+    } else if (type === 'feed_performance') {
+      // Track feed loading performance
+      const { error } = await supabaseClient
+        .from('feed_performance_metrics')
+        .insert({
+          user_id: data.user_id || null,
+          session_id: data.session_id,
+          feed_type: data.feed_type || 'home',
+          load_time_ms: data.load_time_ms,
+          query_time_ms: data.query_time_ms,
+          item_count: data.item_count,
+          cache_hit: data.cache_hit || false,
+          connection_speed: data.connection_speed,
+          device_type: data.device_type,
+          ip_address: clientIP,
+          user_agent: userAgent
+        });
+
+      if (error) {
+        console.error('Error inserting feed performance:', error);
         return new Response(
           JSON.stringify({ error: error.message }),
           { 

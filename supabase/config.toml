@@ -32,7 +32,7 @@ file_size_limit = "50MiB"
 
 [db]
 port = 54322
-major_version = 15
+major_version = 17
 
 
 [functions.create-checkout]

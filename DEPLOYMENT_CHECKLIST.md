@@ -1,372 +1,433 @@
-# YardPass 3.0 - Stripe Enhancement Deployment Checklist
+# ✅ Sponsorship System Deployment Checklist
 
-## 📋 Pre-Deployment Verification
+## Pre-Deployment
 
-- [ ] All code changes reviewed
-- [ ] No linting errors
-- [ ] Migrations tested locally
-- [ ] Edge functions tested locally
+### 1. Database Backup
+- [ ] Create full database backup
+- [ ] Verify backup is restorable
+- [ ] Document current schema version
 
----
+### 2. Review Migrations
+- [ ] Review all migration files for correctness
+- [ ] Check for naming conflicts
+- [ ] Verify foreign key relationships
+- [ ] Confirm index strategies
 
-## 🗄️ Database Migrations
+## Deployment Order
 
-Run these in order:
+### Phase 1: Foundation (✅ Deployed)
+- [x] `20251021_0000_sponsorship_system_fixed.sql`
+  - Core tables and schema
+  - Basic views and functions
 
+### Phase 2: Scale & Money Flow (✅ Deployed)
+- [x] `20251021_0100_phase2_partitioning.sql`
+- [x] `20251021_0101_phase2_quality_scores.sql` 
+- [x] `20251021_0102_phase2_stripe_connect.sql`
+
+### Phase 3: Intelligence (✅ Deployed)
+- [x] `20251021_0200_phase3_pgvector.sql`
+- [x] `20251021_0201_phase3_advanced_scoring.sql`
+- [x] `20251021_0202_phase3_semantic_marketplace.sql`
+
+### Phase 4: Optimization (✅ Deployed)
+- [x] `20251022_0001_optimized_sponsorship_system.sql`
+  - Optimized views and functions
+  - Performance indexes
+  - Vector search setup
+
+### Phase 5: Cleanup & Constraints (⏳ Ready to Deploy)
+- [ ] `20251022_0002_sponsorship_cleanup_and_constraints.sql`
+  - Currency normalization
+  - Unique constraints
+  - CASCADE deletes
+  - Data validation
+
+### Phase 6: Enterprise Features (⏳ Ready to Deploy)
+- [ ] `20251022_0003_sponsorship_enterprise_features.sql`
+  - Public sponsor profiles
+  - Proposal/negotiation system
+  - Deliverables tracking
+  - ML feature store
+  - SLA management
+
+## Deployment Commands
+
+### Option 1: CLI Deployment (Recommended)
 ```bash
-# 1. Credit lot system (core tables and functions)
-supabase migration up --file 20250113000001_add_credit_lots_system.sql
+# Deploy cleanup and constraints
+npx supabase db push --include-all
 
-# 2. Stripe customer ID for portal
-supabase migration up --file 20250113000002_add_stripe_customer_id.sql
+# Verify deployment
+npx supabase db diff
 ```
 
-**Verify:**
+### Option 2: Dashboard Deployment
+1. Open Supabase Dashboard → SQL Editor
+2. Copy contents of `20251022_0002_sponsorship_cleanup_and_constraints.sql`
+3. Execute
+4. Copy contents of `20251022_0003_sponsorship_enterprise_features.sql`
+5. Execute
+
+## Post-Deployment Validation
+
+### 1. Schema Validation
 ```sql
--- Check tables exist
-SELECT table_name FROM information_schema.tables 
-WHERE table_name = 'credit_lots';
+-- Check all tables exist
+SELECT table_name 
+FROM information_schema.tables 
+WHERE table_schema = 'public' 
+AND table_name LIKE '%sponsor%'
+ORDER BY table_name;
 
--- Check functions exist
-SELECT routine_name FROM information_schema.routines 
-WHERE routine_name IN ('deduct_credits_fifo', 'get_available_credits', 'get_credit_lot_breakdown');
-
--- Check column exists
-SELECT column_name FROM information_schema.columns 
-WHERE table_name = 'user_profiles' AND column_name = 'stripe_customer_id';
+-- Expected tables (22+):
+-- - sponsors
+-- - sponsor_profiles
+-- - sponsor_public_profiles
+-- - sponsor_members
+-- - sponsorship_packages
+-- - sponsorship_matches
+-- - sponsorship_orders
+-- - sponsorship_payouts
+-- - sponsorship_slas
+-- - event_sponsorships
+-- - package_templates
+-- - package_variants
+-- - proposal_threads
+-- - proposal_messages
+-- - deliverables
+-- - deliverable_proofs
+-- - match_features
+-- - match_feedback
+-- - audience_consents
+-- - payout_configurations
+-- - payout_queue
+-- - fit_recalc_queue
 ```
 
----
+### 2. Views Validation
+```sql
+-- Check all views exist
+SELECT viewname 
+FROM pg_views 
+WHERE schemaname = 'public' 
+AND viewname LIKE '%sponsor%'
+ORDER BY viewname;
 
-## 🚀 Edge Function Deployments
-
-Deploy in this order:
-
-```bash
-# 1. Webhook handler (processes credit lots)
-supabase functions deploy wallet-stripe-webhook
-
-# 2. Purchase functions (updated with attribution)
-supabase functions deploy purchase-credits
-supabase functions deploy purchase-org-credits
-
-# 3. Spending function (FIFO deduction)
-supabase functions deploy internal-spend
-
-# 4. New customer portal
-supabase functions deploy customer-portal
-
-# 5. Updated checkout (fraud prevention)
-supabase functions deploy create-checkout
+-- Expected views:
+-- - v_sponsorship_package_cards
+-- - v_sponsor_recommended_packages
+-- - v_event_recommended_sponsors
+-- - v_event_performance_summary
+-- - v_event_quality_score
 ```
 
-**Verify:**
-```bash
-# Check function status
-supabase functions list
+### 3. Materialized Views
+```sql
+-- Check MVs exist
+SELECT matviewname 
+FROM pg_matviews 
+WHERE schemaname = 'public'
+ORDER BY matviewname;
 
-# Test functions
-curl -X POST https://your-project.supabase.co/functions/v1/customer-portal \
-  -H "Authorization: Bearer $ANON_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"return_url": "https://app.yardpass.com/wallet"}'
+-- Expected MVs:
+-- - mv_event_quality_scores
+-- - mv_event_reach_snapshot
+-- - mv_sponsor_event_fit_scores (if exists)
+
+-- Refresh MVs
+SELECT refresh_sponsorship_mvs(true);
 ```
 
----
+### 4. Functions Validation
+```sql
+-- Check all functions exist
+SELECT routine_name, routine_type
+FROM information_schema.routines 
+WHERE routine_schema = 'public' 
+AND (routine_name LIKE '%sponsor%' OR routine_name LIKE '%match%' OR routine_name LIKE '%payout%')
+ORDER BY routine_name;
 
-## 🔐 Stripe Dashboard Configuration
-
-### **1. Enable Stripe Radar** (5 min)
-- [ ] Go to: [Stripe Dashboard → Radar](https://dashboard.stripe.com/settings/radar)
-- [ ] Click "Enable Radar"
-- [ ] Confirm pricing: $0.05 per screened transaction
-
-### **2. Configure Radar Rules** (10 min)
-Navigate to: Stripe Dashboard → Radar → Rules
-
-**Add these rules:**
-
-```
-Rule 1: Block low-value international
-Block if :card_country: != 'US' AND :amount: < 500
-
-Rule 2: Review high-value purchases  
-Review if :amount: > 50000
-
-Rule 3: Block multiple failures
-Block if :ip_address_block_attempts_count: > 3
-
-Rule 4: Review email velocity
-Review if :email_domain_attempts_count_1h: > 5
+-- Expected functions:
+-- - fn_compute_match_score
+-- - fn_upsert_match
+-- - process_match_queue
+-- - refresh_sponsorship_mvs
+-- - calculate_platform_fee
+-- - queue_sponsorship_payout
+-- - process_payout_queue
+-- - validate_sponsorship_data
 ```
 
-- [ ] Rule 1 added
-- [ ] Rule 2 added
-- [ ] Rule 3 added
-- [ ] Rule 4 added
+### 5. Indexes Validation
+```sql
+-- Check critical indexes exist
+SELECT indexname 
+FROM pg_indexes 
+WHERE schemaname = 'public' 
+AND (indexname LIKE '%sponsor%' OR indexname LIKE '%match%' OR indexname LIKE '%pkg%')
+ORDER BY indexname;
 
-### **3. Configure Fraud Alerts** (5 min)
-- [ ] Go to: Stripe Dashboard → Radar → Alerts
-- [ ] Enable email alerts for:
-  - [ ] High-risk payments
-  - [ ] Blocked payments
-  - [ ] Disputed payments
-
-### **4. Enable Customer Portal** (2 min)
-- [ ] Go to: [Stripe Dashboard → Settings → Customer Portal](https://dashboard.stripe.com/settings/billing/portal)
-- [ ] Click "Activate portal"
-- [ ] Configure features:
-  - [ ] ✅ Invoice history
-  - [ ] ✅ Payment methods
-  - [ ] ❌ Cancel subscription (not applicable)
-  - [ ] ❌ Update subscription (not applicable)
-
----
-
-## 🧪 Testing Checklist
-
-### **1. Credit Lot Creation**
-```bash
-# Test user credit purchase
-curl -X POST https://your-project.supabase.co/functions/v1/purchase-credits \
-  -H "Authorization: Bearer $USER_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: test-$(date +%s)" \
-  -d '{"package_id": "starter-package-id"}'
-
-# Verify lot created:
-SELECT * FROM credit_lots WHERE wallet_id = 'user-wallet-id';
+-- Should include vector indexes if pgvector enabled:
+-- - idx_events_desc_vec_hnsw
+-- - idx_sponsor_objectives_vec_hnsw
 ```
 
-- [ ] User credit purchase creates lot
-- [ ] Org credit purchase creates lot
-- [ ] purchased_by_user_id is set
-- [ ] unit_price_cents is correct
-- [ ] expires_at is NULL
+### 6. Constraints Validation
+```sql
+-- Check constraints
+SELECT 
+  constraint_name, 
+  constraint_type,
+  table_name
+FROM information_schema.table_constraints 
+WHERE table_schema = 'public' 
+AND table_name LIKE '%sponsor%'
+ORDER BY table_name, constraint_type;
 
-### **2. FIFO Deduction**
-```bash
-# Trigger ad spend
-curl -X POST https://your-project.supabase.co/functions/v1/internal-spend \
-  -H "Authorization: Bearer $SERVICE_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: spend-test-$(date +%s)" \
-  -d '{
-    "campaign_id": "uuid",
-    "org_wallet_id": "uuid",
-    "metric_type": "impression",
-    "quantity": 1000,
-    "rate_model": "cpm",
-    "rate_usd_cents": 500
-  }'
-
-# Verify FIFO deduction:
-SELECT * FROM credit_lots 
-WHERE org_wallet_id = 'uuid' 
-ORDER BY created_at ASC;
+-- Should include:
+-- - UNIQUE constraints (event-sponsor pairs, event-tier packages)
+-- - CHECK constraints (scores 0-1, currencies, money >= 0)
+-- - FOREIGN KEY constraints with appropriate CASCADE/RESTRICT
 ```
 
-- [ ] Oldest lot deducted first
-- [ ] quantity_remaining updated
-- [ ] depleted_at set when lot empty
-- [ ] metadata.lots_used tracked in transaction
+### 7. Data Integrity Test
+```sql
+-- Run validation function
+SELECT * FROM validate_sponsorship_data();
 
-### **3. Fraud Prevention**
-Use Stripe test cards:
-
-```
-4000000000003220 - Requires 3D Secure
-4242424242424242 - Standard success
-4100000000000019 - Fraudulent (Radar blocks)
+-- All checks should return 'PASS'
 ```
 
-- [ ] 3DS challenged on test card
-- [ ] Billing address required
-- [ ] Metadata appears in Stripe Dashboard
-- [ ] Radar rule triggers (if configured)
+### 8. Performance Test
+```sql
+-- Test scoring function
+SELECT * FROM fn_compute_match_score(
+  (SELECT id FROM events LIMIT 1),
+  (SELECT id FROM sponsors LIMIT 1)
+);
 
-### **4. Customer Portal**
+-- Should return: { score: numeric, breakdown: jsonb }
+
+-- Test queue processing
+SELECT process_match_queue(10);
+
+-- Should return: number of processed items
+```
+
+## Configuration
+
+### 1. Enable pg_cron (if available)
+```sql
+-- Check if pg_cron is available
+SELECT * FROM pg_extension WHERE extname = 'pg_cron';
+
+-- Schedule jobs (if enabled)
+SELECT cron.schedule(
+  'refresh-sponsorship-mvs',
+  '0 * * * *',  -- Every hour
+  'SELECT refresh_sponsorship_mvs(true);'
+);
+
+SELECT cron.schedule(
+  'process-match-queue',
+  '*/5 * * * *',  -- Every 5 minutes
+  'SELECT process_match_queue(100);'
+);
+
+SELECT cron.schedule(
+  'process-payout-queue',
+  '*/5 * * * *',  -- Every 5 minutes
+  'SELECT process_payout_queue();'
+);
+```
+
+### 2. Set Up Edge Functions
+- [ ] Deploy `sponsorship-recalc` Edge Function
+- [ ] Deploy `sponsorship-score-onchange` Edge Function
+- [ ] Deploy `sponsorship-payouts` Edge Function
+- [ ] Configure cron triggers
+
+### 3. Configure Environment Variables
+```env
+# Add to .env.local or Supabase Dashboard
+STRIPE_SECRET_KEY=sk_...
+STRIPE_CONNECT_CLIENT_ID=ca_...
+OPENAI_API_KEY=sk-...  # For embedding generation
+```
+
+## Data Migration
+
+### 1. Generate Initial Embeddings
 ```typescript
-// Test portal access
-const { data } = await supabase.functions.invoke('customer-portal', {
-  body: { return_url: '/wallet' }
-});
+// Run once to generate embeddings for existing data
+import { createClient } from '@supabase/supabase-js'
+import OpenAI from 'openai'
 
-// Should return: { url: 'https://billing.stripe.com/session/...' }
+const supabase = createClient(...)
+const openai = new OpenAI(...)
+
+// For events
+const { data: events } = await supabase.from('events').select('id, title, description')
+for (const event of events) {
+  const embedding = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: `${event.title}. ${event.description}`
+  })
+  await supabase
+    .from('events')
+    .update({ description_embedding: embedding.data[0].embedding })
+    .eq('id', event.id)
+}
+
+// For sponsors
+// Similar process for sponsor_profiles.objectives_embedding
 ```
 
-- [ ] Portal URL generated
-- [ ] stripe_customer_id saved
-- [ ] Invoices visible in portal
-- [ ] Receipts downloadable
-
----
-
-## 📊 Monitoring Setup
-
-### **1. Add Database Monitoring**
+### 2. Populate Event Audience Insights
 ```sql
--- Create monitoring view
-CREATE OR REPLACE VIEW credit_system_health AS
+-- Create initial insights from existing data
+INSERT INTO event_audience_insights (event_id, attendee_count, engagement_score)
 SELECT 
-  'Total Lots' as metric,
-  COUNT(*) as value
-FROM credit_lots
-UNION ALL
-SELECT 
-  'Active Lots',
-  COUNT(*)
-FROM credit_lots
-WHERE quantity_remaining > 0
-UNION ALL
-SELECT 
-  'Depleted Lots',
-  COUNT(*)
-FROM credit_lots
-WHERE quantity_remaining = 0
-UNION ALL
-SELECT 
-  'Total Credits Available',
-  SUM(quantity_remaining)::bigint
-FROM credit_lots
-WHERE quantity_remaining > 0;
-
--- Query health
-SELECT * FROM credit_system_health;
+  e.id,
+  COUNT(DISTINCT t.owner_user_id),
+  COALESCE(AVG(pi.dwell_ms) / 10000.0, 0.5)
+FROM events e
+LEFT JOIN tickets t ON t.event_id = e.id
+LEFT JOIN post_impressions pi ON pi.post_id IN (
+  SELECT id FROM event_posts WHERE event_id = e.id
+)
+GROUP BY e.id
+ON CONFLICT (event_id) DO NOTHING;
 ```
 
-### **2. Set Up Alerts**
-- [ ] Stripe Radar alert emails configured
-- [ ] Low balance alerts (if using auto-reload)
-- [ ] Failed payment alerts
-- [ ] Chargeback alerts
+### 3. Run Initial Match Scoring
+```sql
+-- Process all event-sponsor pairs
+SELECT process_match_queue(1000);
+
+-- Or insert all pairs into queue first
+INSERT INTO fit_recalc_queue (event_id, sponsor_id, reason)
+SELECT e.id, s.id, 'initial_load'
+FROM events e
+CROSS JOIN sponsors s
+WHERE e.sponsorable = true
+ON CONFLICT DO NOTHING;
+```
+
+## Monitoring Setup
+
+### 1. Set Up Alerting
+- [ ] Configure alerts for queue backlog
+- [ ] Set up payout failure notifications
+- [ ] Monitor match score quality distribution
+- [ ] Track API response times
+
+### 2. Dashboard Metrics
+```sql
+-- Create monitoring queries
+-- Queue health
+SELECT COUNT(*) as pending FROM fit_recalc_queue WHERE processed_at IS NULL;
+
+-- Match quality distribution
+SELECT 
+  CASE 
+    WHEN score >= 0.8 THEN 'Excellent'
+    WHEN score >= 0.6 THEN 'Good'
+    WHEN score >= 0.4 THEN 'Fair'
+    ELSE 'Poor'
+  END as quality,
+  COUNT(*) as count
+FROM sponsorship_matches
+GROUP BY quality;
+
+-- Revenue metrics
+SELECT 
+  DATE_TRUNC('day', created_at) as day,
+  COUNT(*) as orders,
+  SUM(amount_cents) / 100.0 as revenue
+FROM sponsorship_orders
+WHERE status = 'paid'
+GROUP BY day
+ORDER BY day DESC
+LIMIT 30;
+```
+
+## Rollback Plan
+
+### If Issues Arise
+```sql
+-- 1. Stop all cron jobs
+SELECT cron.unschedule('refresh-sponsorship-mvs');
+SELECT cron.unschedule('process-match-queue');
+SELECT cron.unschedule('process-payout-queue');
+
+-- 2. Restore from backup
+-- Use your backup restoration procedure
+
+-- 3. Re-deploy previous stable version
+```
+
+## Success Criteria
+
+- [ ] All migrations applied successfully
+- [ ] All validation checks pass
+- [ ] Sample queries return expected results
+- [ ] Edge functions deploy and run
+- [ ] MVs refresh without errors
+- [ ] Queue processing completes
+- [ ] No orphaned data (validation passes)
+- [ ] Performance tests meet targets (<100ms for scoring)
+- [ ] RLS policies working correctly
+
+## Documentation
+
+- [ ] Update API documentation with new endpoints
+- [ ] Create user guides for new features
+- [ ] Document Edge Function deployment
+- [ ] Update TypeScript types
+- [ ] Create runbook for operations team
+
+## Sign-Off
+
+- [ ] Database Admin Review
+- [ ] Backend Lead Review
+- [ ] Product Owner Approval
+- [ ] QA Testing Complete
+- [ ] Production Deployment Scheduled
 
 ---
 
-## 🔄 Rollback Plan
+## Quick Commands Reference
 
-If critical issues arise:
-
-### **Database Rollback**
 ```bash
-# Rollback in reverse order
-supabase migration down --version 20250113000002
-supabase migration down --version 20250113000001
+# Deploy all migrations
+npx supabase db push --include-all
+
+# Check migration status
+npx supabase migration list
+
+# Test connection
+npx supabase db ping
+
+# View schema diff
+npx supabase db diff
+
+# Reset local database (CAREFUL!)
+npx supabase db reset
+
+# Link to project
+npx supabase link --project-ref your-project-id
+
+# Deploy Edge Functions
+npx supabase functions deploy sponsorship-recalc
+npx supabase functions deploy sponsorship-score-onchange
+npx supabase functions deploy sponsorship-payouts
 ```
 
-### **Edge Function Rollback**
-```bash
-# Get previous version from git
-git checkout HEAD~1 supabase/functions/wallet-stripe-webhook/index.ts
-git checkout HEAD~1 supabase/functions/purchase-credits/index.ts
-git checkout HEAD~1 supabase/functions/purchase-org-credits/index.ts
-git checkout HEAD~1 supabase/functions/internal-spend/index.ts
-
-# Redeploy
-supabase functions deploy wallet-stripe-webhook
-supabase functions deploy purchase-credits
-supabase functions deploy purchase-org-credits
-supabase functions deploy internal-spend
-```
-
 ---
 
-## ✅ Post-Deployment Validation
-
-### **Immediate (First Hour)**
-- [ ] Monitor Stripe webhook dashboard for errors
-- [ ] Check Supabase function logs for errors
-- [ ] Test 1 real purchase (small amount)
-- [ ] Verify credit lot created
-- [ ] Verify balance updated
-
-### **First Day**
-- [ ] Monitor transaction volume
-- [ ] Check for Radar blocks (false positives?)
-- [ ] Verify 3DS completion rate
-- [ ] Check customer portal usage
-- [ ] Review any failed payments
-
-### **First Week**
-- [ ] Analyze lot fragmentation
-- [ ] Review FIFO performance
-- [ ] Check attribution data quality
-- [ ] Monitor chargeback rate
-- [ ] Gather user feedback on portal
-
----
-
-## 📈 Success Metrics
-
-**Week 1 Targets:**
-- ✅ 0 critical errors in webhooks
-- ✅ 100% of purchases create lots
-- ✅ 100% of spends use FIFO
-- ✅ < 1% false positive Radar blocks
-- ✅ > 95% 3DS completion rate
-
-**Month 1 Targets:**
-- ✅ < 0.5% chargeback rate
-- ✅ > 80% customer portal satisfaction
-- ✅ 0 double-charge incidents (idempotency working)
-- ✅ Accurate attribution for all org purchases
-
----
-
-## 🚨 Emergency Contacts
-
-**Stripe Issues:**
-- Support: https://support.stripe.com
-- Phone: Check your Stripe Dashboard for support number
-- Status: https://status.stripe.com
-
-**Supabase Issues:**
-- Support: https://supabase.com/support
-- Status: https://status.supabase.com
-
-**YardPass Team:**
-- Engineering lead: [Add contact]
-- On-call: [Add rotation]
-
----
-
-## 📝 Documentation Links
-
-- **Credit System:** See `CREDIT_SYSTEM_QUICK_REFERENCE.md`
-- **Fraud Prevention:** See `STRIPE_FRAUD_PREVENTION.md`
-- **Full Summary:** See `STRIPE_IMPLEMENTATION_SUMMARY.md`
-- **Connect Integration:** See `STRIPE_CONNECT_INTEGRATION.md`
-
----
-
-## 🎯 Final Checklist
-
-**Before Going Live:**
-- [ ] All migrations applied
-- [ ] All edge functions deployed
-- [ ] Stripe Radar enabled
-- [ ] Radar rules configured
-- [ ] Customer portal activated
-- [ ] Test purchases completed
-- [ ] Monitoring dashboards ready
-- [ ] Team trained on new features
-- [ ] Documentation shared
-- [ ] Rollback plan reviewed
-
-**After Going Live:**
-- [ ] Monitor for first 24 hours
-- [ ] Daily checks for first week
-- [ ] Weekly review for first month
-- [ ] Gather user feedback
-- [ ] Optimize based on data
-
----
-
-**Ready to deploy! 🚀**
-
-Estimated total deployment time: **45 minutes**
-- Database migrations: 5 min
-- Edge function deployment: 15 min
-- Stripe Dashboard config: 20 min
-- Testing: 5 min
-
+**Date**: _____________  
+**Deployed By**: _____________  
+**Verified By**: _____________  
+**Production URL**: _____________

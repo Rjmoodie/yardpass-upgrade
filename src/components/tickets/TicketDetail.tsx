@@ -24,10 +24,10 @@ export interface TicketDetailProps {
 }
 
 function getStatusBadge(ticket: UserTicket) {
-  if (ticket.status === 'checked_in') return { label: 'Used', variant: 'secondary' as const };
-  if (ticket.status === 'void' || ticket.status === 'refunded') return { label: 'Inactive', variant: 'outline' as const };
-  if (ticket.isUpcoming) return { label: 'Active', variant: 'default' as const };
-  return { label: 'Expired', variant: 'outline' as const };
+  if (ticket.status === 'checked_in') return { label: 'Used', variant: 'neutral' as const };
+  if (ticket.status === 'void' || ticket.status === 'refunded') return { label: 'Inactive', variant: 'neutral' as const };
+  if (ticket.isUpcoming) return { label: 'Active', variant: 'brand' as const };
+  return { label: 'Expired', variant: 'neutral' as const };
 }
 
 export function TicketDetail({
@@ -38,6 +38,9 @@ export function TicketDetail({
   onAddToCalendar,
   onDownloadCalendar,
 }: TicketDetailProps) {
+  // Debug logging for modal state
+  console.log('🎫 TicketDetail render:', { isOpen, ticketId: ticket.id });
+  
   const status = useMemo(() => getStatusBadge(ticket), [ticket]);
   const priceLabel = ticket.price > 0
     ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(ticket.price)
@@ -65,6 +68,10 @@ export function TicketDetail({
   });
 
   const isMobile = useIsMobile();
+  
+  // Debug mobile detection
+  console.log('🎫 Mobile detection:', { isMobile, userAgent: navigator.userAgent });
+  
   const modalBody = (
     <>
       <div
@@ -93,7 +100,7 @@ export function TicketDetail({
         </div>
         <div className="mt-[clamp(0.75rem,2.5vh,1rem)] flex flex-wrap items-center gap-[clamp(0.5rem,2vw,0.75rem)]">
           <Badge variant={status.variant} className="text-[clamp(0.75rem,3vw,0.875rem)]">{status.label}</Badge>
-          <Badge variant="secondary" className="bg-primary-foreground/20 text-[clamp(0.6875rem,2.8vw,0.75rem)] text-primary-foreground">
+          <Badge variant="neutral" className="bg-primary-foreground/20 text-[clamp(0.6875rem,2.8vw,0.75rem)] text-primary-foreground">
             {ticket.ticketType}
           </Badge>
         </div>
@@ -111,15 +118,15 @@ export function TicketDetail({
         />
         <div className="space-y-[clamp(0.75rem,3vh,1rem)]">
           <div>
-            <h3 className="text-[clamp(0.6875rem,3vw,0.75rem)] font-semibold uppercase tracking-wide text-muted-foreground">Ticket Holder</h3>
+            <h3 className="text-[clamp(0.6875rem,3vw,0.75rem)] font-semibold uppercase tracking-wide text-neutral-700">Ticket Holder</h3>
             <div className="mt-[clamp(0.375rem,1.5vh,0.5rem)] flex flex-wrap items-center gap-[clamp(0.5rem,2vw,0.75rem)]">
-              <Badge variant="outline" className="min-h-[44px] gap-[clamp(0.375rem,1.5vw,0.5rem)] text-[clamp(0.8125rem,3.5vw,0.875rem)]">
+              <Badge variant="neutral" className="min-h-[44px] gap-[clamp(0.375rem,1.5vw,0.5rem)] text-[clamp(0.8125rem,3.5vw,0.875rem)]">
                 <Ticket className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
                 {ticket.ticketType}
               </Badge>
-              <span className="text-[clamp(0.8125rem,3.5vw,0.875rem)] text-muted-foreground">{priceLabel}</span>
+              <span className="text-[clamp(0.8125rem,3.5vw,0.875rem)] text-neutral-800 font-medium">{priceLabel}</span>
               {ticket.orderDate && (
-                <span className="text-[clamp(0.8125rem,3.5vw,0.875rem)] text-muted-foreground">
+                <span className="text-[clamp(0.8125rem,3.5vw,0.875rem)] text-neutral-600">
                   Ordered {new Date(ticket.orderDate).toLocaleDateString()}
                 </span>
               )}
@@ -127,23 +134,23 @@ export function TicketDetail({
           </div>
           <Separator />
           <div className="grid gap-[clamp(0.5rem,2vh,0.75rem)] sm:grid-cols-2 sm:gap-[clamp(0.5rem,2vh,0.75rem)]">
-            <Button variant="secondary" onClick={() => onShare?.(ticket)} className="min-h-[44px] justify-start gap-[clamp(0.375rem,1.5vw,0.5rem)] text-[clamp(0.8125rem,3.5vw,0.875rem)]" aria-label="Share ticket">
+            <Button variant="secondary" onClick={() => onShare?.(ticket)} className="min-h-[44px] justify-start gap-[clamp(0.375rem,1.5vw,0.5rem)] text-[clamp(0.8125rem,3.5vw,0.875rem)] text-neutral-800 border-neutral-200 hover:bg-neutral-50" aria-label="Share ticket">
               <Share2 className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
               Share ticket
             </Button>
             <Button
               variant="secondary"
               onClick={() => onAddToCalendar?.(ticket)}
-              className="min-h-[44px] justify-start gap-[clamp(0.375rem,1.5vw,0.5rem)] text-[clamp(0.8125rem,3.5vw,0.875rem)]"
+              className="min-h-[44px] justify-start gap-[clamp(0.375rem,1.5vw,0.5rem)] text-[clamp(0.8125rem,3.5vw,0.875rem)] text-neutral-800 border-neutral-200 hover:bg-neutral-50"
               aria-label="Add to calendar"
             >
               <Calendar className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
               Add to calendar
             </Button>
             <Button
-              variant="ghost"
+              variant="secondary"
               onClick={() => onDownloadCalendar?.(ticket)}
-              className="min-h-[44px] justify-start gap-[clamp(0.375rem,1.5vw,0.5rem)] text-[clamp(0.8125rem,3.5vw,0.875rem)]"
+              className="min-h-[44px] justify-start gap-[clamp(0.375rem,1.5vw,0.5rem)] text-[clamp(0.8125rem,3.5vw,0.875rem)] text-neutral-800 border-neutral-200 hover:bg-neutral-50"
               aria-label="Download calendar file"
             >
               <Download className="h-[clamp(0.875rem,3.5vw,1rem)] w-[clamp(0.875rem,3.5vw,1rem)]" aria-hidden />
@@ -153,7 +160,7 @@ export function TicketDetail({
               <Button
                 variant="secondary"
                 asChild
-                className="justify-start gap-2"
+                className="justify-start gap-2 text-neutral-800 border-neutral-200 hover:bg-neutral-50"
                 aria-label="Add ticket to digital wallet"
               >
                 <a href={ticket.appleWalletUrl ?? ticket.googleWalletUrl ?? '#'} target="_blank" rel="noreferrer">
@@ -182,13 +189,19 @@ export function TicketDetail({
             'max-h-[min(95vh,720px)] w-full max-w-none gap-[clamp(1rem,3vh,1.5rem)] overflow-y-auto p-0 [&>button]:absolute [&>button]:right-[clamp(1rem,4vw,1.5rem)] [&>button]:top-[clamp(1rem,4vw,1.5rem)] [&>button]:text-primary-foreground/70 [&>button]:transition [&>button]:hover:text-primary-foreground [&>button]:focus-visible:outline-none [&>button]:focus-visible:ring-2 [&>button]:focus-visible:ring-offset-2',
             'bottom-0 translate-x-0 translate-y-0 rounded-t-[28px] border-none bg-transparent shadow-none'
           )}
+          showHandle={false}
           onPointerDownOutside={(e) => {
-            // Prevent dialog from closing on outside clicks
-            e.preventDefault();
+            // Allow natural BottomSheet behavior for closing
+            console.log('🎫 BottomSheet onPointerDownOutside:', e.target);
           }}
           onEscapeKeyDown={(e) => {
             // Allow ESC key to close
+            console.log('🎫 BottomSheet onEscapeKeyDown');
             onClose();
+          }}
+          onOpenAutoFocus={(e) => {
+            console.log('🎫 BottomSheet onOpenAutoFocus');
+            e.preventDefault();
           }}
         >
           {modalBody}
@@ -200,11 +213,12 @@ export function TicketDetail({
             'translate-x-[-50%] translate-y-[-50%]'
           )}
           onPointerDownOutside={(e) => {
-            // Prevent dialog from closing on outside clicks
-            e.preventDefault();
+            // Allow natural Dialog behavior for closing
+            console.log('🎫 Dialog onPointerDownOutside:', e.target);
           }}
           onEscapeKeyDown={(e) => {
             // Allow ESC key to close
+            console.log('🎫 Dialog onEscapeKeyDown');
             onClose();
           }}
         >

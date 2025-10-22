@@ -476,7 +476,10 @@ export default function TicketsPage({
         <TicketDetail
           ticket={selectedTicket}
           isOpen={Boolean(selectedTicket)}
-          onClose={() => setSelectedTicket(null)}
+          onClose={() => {
+            console.log('🎫 Closing ticket modal');
+            setSelectedTicket(null);
+          }}
           onShare={handleShareTicket}
           onAddToCalendar={(ticket) => downloadICS(ticket, false)}
           onDownloadCalendar={(ticket) => downloadICS(ticket, true)}
