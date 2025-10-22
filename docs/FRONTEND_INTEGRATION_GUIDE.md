@@ -12,6 +12,7 @@ This guide shows how to connect your comprehensive sponsorship backend to your f
 4. [UI Components](#ui-components)
 5. [Page Examples](#page-examples)
 6. [Real-time Features](#real-time-features)
+7. [Sponsorship Wing Dashboards](#sponsorship-wing-dashboards)
 
 ---
 
@@ -995,6 +996,118 @@ export function useRealtimeProposal(threadId: string) {
   }, [threadId, queryClient])
 }
 ```
+
+---
+
+## 7. Sponsorship Wing Dashboards
+
+The sponsorship wing surfaces curated sponsor workspaces, configurable widgets, and a live command center. Pair these UI patterns with the new backend contracts to deliver an opinionated experience fast.
+
+### 7.1 Workspace Shell
+
+```tsx
+// src/features/sponsorship-wing/components/WorkspaceShell.tsx
+import { PropsWithChildren } from 'react'
+import { WorkspaceSidebar } from './WorkspaceSidebar'
+import { WorkspaceHeader } from './WorkspaceHeader'
+
+export function WorkspaceShell({ children }: PropsWithChildren) {
+  return (
+    <div className="grid min-h-screen grid-cols-[280px_1fr] bg-surface-1">
+      <WorkspaceSidebar />
+      <div className="flex flex-col">
+        <WorkspaceHeader />
+        <main className="flex-1 overflow-y-auto px-8 py-6">{children}</main>
+      </div>
+    </div>
+  )
+}
+```
+
+**Key ideas**
+- Sidebar pulls workspace + member data from `useWorkspace()` hook
+- Header surfaces quick stats (GMV, win rate, active proposals)
+- Wrap all wing routes (e.g. `/wing/[workspaceSlug]/*`) with this shell
+
+### 7.2 Widget Grid
+
+```tsx
+// src/features/sponsorship-wing/components/WidgetGrid.tsx
+import { lazy } from 'react'
+import { useWidgetRegistry } from '../hooks/useWidgetRegistry'
+import { MarketplaceCardWidget } from './widgets/MarketplaceCardWidget'
+import { CommandCenterWidget } from './widgets/CommandCenterWidget'
+
+const registryComponentMap = {
+  marketplace_card: MarketplaceCardWidget,
+  command_center: CommandCenterWidget,
+  pipeline_funnel: lazy(() => import('./widgets/PipelineFunnelWidget'))
+} as const
+
+export function WidgetGrid({ workspaceId }: { workspaceId: string }) {
+  const { data: widgets, isLoading } = useWidgetRegistry(workspaceId)
+
+  if (isLoading) {
+    return <SkeletonGrid />
+  }
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      {widgets?.map((widget) => {
+        const Component = registryComponentMap[widget.widget_type]
+        if (!Component) return null
+
+        return <Component key={widget.id} widget={widget} />
+      })}
+    </div>
+  )
+}
+```
+
+**Implementation tips**
+- `useWidgetRegistry` subscribes to `widget.updated` realtime channel for instant updates
+- Provide lazy loading for experimental widget types so labs can ship faster
+- Ship analytics by wrapping `Component` with `withWidgetInstrumentation`
+
+### 7.3 Command Center Stream
+
+```tsx
+// src/features/sponsorship-wing/hooks/useCommandCenterFeed.ts
+import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { createBrowserSupabaseClient } from '@/lib/supabase-browser'
+
+export function useCommandCenterFeed(workspaceId: string) {
+  const client = createBrowserSupabaseClient()
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const channel = client
+      .channel(`command_center:${workspaceId}`)
+      .on('broadcast', { event: 'metrics' }, ({ payload }) => {
+        queryClient.setQueryData(['command-center-feed', workspaceId], (prev: any[] = []) => {
+          return [payload, ...prev].slice(0, 50)
+        })
+      })
+      .subscribe()
+
+    return () => {
+      client.removeChannel(channel)
+    }
+  }, [client, queryClient, workspaceId])
+}
+```
+
+**Usage**
+- Call inside dashboard page component and pair with a standard `useQuery` for initial feed
+- Render latest metrics in a sparkline/leaderboard hybrid view
+- Bubble warnings (e.g. SLA drift) using toast notifications triggered by payload flags
+
+### 7.4 Navigation & Routing
+
+- App Router suggestion: nest wing routes under `app/(sponsorship-wing)/wing/[workspaceSlug]/page.tsx`
+- Preload workspace + widget data via server components for snappy time-to-first-interaction
+- Gate access with middleware that checks `sponsorship_workspace_members` membership via Supabase JWT claims
 
 ---
 

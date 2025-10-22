@@ -1603,7 +1603,80 @@ WHERE due_at < now() AND status IN ('pending', 'needs_changes');
 
 ---
 
-## 20. Success Metrics
+## 20. Sponsorship Wing Services
+
+The sponsorship wing introduces dedicated collaboration spaces, widget orchestration, and real-time executive telemetry. Use the following contracts to expose the new capabilities to organizers.
+
+### 20.1 Workspaces API
+
+```http
+POST /v1/sponsorship-workspaces
+Authorization: Bearer {jwt}
+X-Org-Id: {organization_id}
+
+{
+  "name": "Premium Sponsors",
+  "slug": "premium-sponsors",
+  "default_role": "viewer",
+  "auto_invite": ["manager@brand.com"],
+  "settings": {
+    "timezone": "America/Los_Angeles",
+    "goal_gmv_cents": 12500000,
+    "reporting_webhook": "https://hooks.slack.com/services/..."
+  }
+}
+```
+
+**Key rules**
+- Enforce per-org slug uniqueness with `sponsorship_workspaces_slug_key`
+- Auto-provision owner membership for the requester
+- Fire `workspace.created` webhook for downstream dashboards
+
+### 20.2 Widget Registry API
+
+```http
+PUT /v1/sponsorship-workspaces/{workspaceId}/widgets/{widgetId}
+Content-Type: application/json
+
+{
+  "package_id": "uuid",
+  "widget_type": "marketplace_card",
+  "config": {
+    "highlight": "Platinum",
+    "cta": "Request Proposal",
+    "metrics": ["views", "leads", "conversion_rate"]
+  }
+}
+```
+
+- Idempotent upserts keyed by `workspace_id + widget_id`
+- Rebuild cache with `refresh_workspace_widget_cache(workspace_id => uuid)`
+- Emits `widget.updated` events for frontend subscription channels
+
+### 20.3 Command Center Telemetry
+
+```sql
+SELECT enable_sponsorship_command_center(
+  workspace_id := 'uuid',
+  capture_rollups := true,
+  notify_slack_webhook := 'https://hooks.slack.com/services/...'
+);
+```
+
+- Schedules `command_center_rollup` cron job every 5 minutes
+- Persists metrics to `sponsorship_command_center_feed`
+- Streams real-time deltas over `supabase_realtime` channel `command_center:workspace_id`
+
+### 20.4 Operational Guardrails
+
+- 🔐 RLS policies restrict workspace rows to members via `workspace_id`
+- 📈 Monitor `sponsorship_workspace_widget_events` for error spikes (< 1% failure)
+- 🧾 Audit log stored in `sponsorship_workspace_audit` with 30-day retention
+- 🔄 Background retry worker `svc_sync_workspace_widgets` handles webhook backoffs
+
+---
+
+## 21. Success Metrics
 
 ### System Health
 - ✅ API uptime > 99.9%

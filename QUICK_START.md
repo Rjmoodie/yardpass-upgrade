@@ -207,6 +207,72 @@ SELECT * FROM mv_refresh_log ORDER BY ran_at DESC LIMIT 5;
 
 ---
 
+## 🛠 Sponsorship Wing Activation (15 min)
+
+Follow this checklist once the core workflow above is green to light up the new sponsorship wing modules end-to-end.
+
+### Configure Sponsor Workspace (5 min)
+
+```sql
+-- Create workspace container
+INSERT INTO sponsorship_workspaces (organization_id, name, slug, created_by)
+VALUES (
+  'your-org-id',
+  'Premium Sponsors',
+  'premium-sponsors',
+  auth.uid()
+) RETURNING *;
+
+-- Seed workspace roles
+INSERT INTO sponsorship_workspace_members (workspace_id, user_id, role)
+VALUES
+  ('workspace-id', auth.uid(), 'owner'),
+  ('workspace-id', 'sponsor-manager-user-id', 'manager');
+```
+
+### Register Marketplace Widgets (5 min)
+
+```sql
+-- Connect packages to wing dashboards
+INSERT INTO sponsorship_widget_registry (
+  workspace_id,
+  package_id,
+  widget_type,
+  config
+)
+SELECT
+  'workspace-id',
+  id,
+  'marketplace_card',
+  jsonb_build_object('highlight', tier, 'cta', 'Request Proposal')
+FROM sponsorship_packages
+WHERE event_id = 'your-event-id';
+
+-- Verify widgets resolve
+SELECT *
+FROM v_sponsorship_workspace_widgets
+WHERE workspace_id = 'workspace-id';
+```
+
+### Enable Sponsor Command Center (5 min)
+
+```sql
+-- Start telemetry stream for sponsorship wing dashboards
+SELECT enable_sponsorship_command_center(
+  workspace_id := 'workspace-id',
+  capture_rollups := true,
+  notify_slack_webhook := 'https://hooks.slack.com/services/...'
+);
+
+-- Check live metrics feed
+SELECT * FROM sponsorship_command_center_feed
+WHERE workspace_id = 'workspace-id'
+ORDER BY collected_at DESC
+LIMIT 20;
+```
+
+---
+
 ## ✅ Verification Checklist
 
 After completing the quick start, verify:
@@ -219,6 +285,9 @@ After completing the quick start, verify:
 - [ ] Order created with correct status
 - [ ] Queue processing works
 - [ ] Materialized views refresh successfully
+- [ ] Sponsorship workspace online with members
+- [ ] Widgets render in `v_sponsorship_workspace_widgets`
+- [ ] Command center feed streaming latest metrics
 
 ---
 
