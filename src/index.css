@@ -1726,8 +1726,8 @@ input, select, textarea {
 /* Medium screens (iPhone 12/13/14) */
 @media (max-width: 640px) and (min-height: 700px) and (max-height: 900px) {
   .action-rail-safe {
-    bottom: calc(var(--bottom-nav-safe) + max(90px, 10.5vh)) !important;
-    max-height: calc(100vh - var(--bottom-nav-safe) - max(90px, 10.5vh));
+    bottom: calc(var(--bottom-nav-safe) + max(120px, 14vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(120px, 14vh));
   }
 }
 
@@ -1847,8 +1847,8 @@ input, select, textarea {
 /* Medium screens for media posts */
 @media (max-width: 640px) and (min-height: 700px) and (max-height: 900px) {
   .tiktok-feed .action-rail-safe {
-    bottom: calc(var(--bottom-nav-safe) + max(97.5px, 11.25vh)) !important;
-    max-height: calc(100vh - var(--bottom-nav-safe) - max(97.5px, 11.25vh)) !important;
+    bottom: calc(var(--bottom-nav-safe) + max(130px, 15vh)) !important;
+    max-height: calc(100vh - var(--bottom-nav-safe) - max(130px, 15vh)) !important;
   }
 }
 
@@ -2044,76 +2044,95 @@ input, select, textarea {
   .section-head  { padding: 8px 12px; }
 }
 
-/* --- Feed Rail (caption & safe-area aware) --- */
+/* --- Feed Rail (caption & safe-area aware) - COMPREHENSIVE RESPONSIVE --- */
 .feed-rail {
   --rail-count: var(--rail-count, 6);
-  --button-size: clamp(44px, 12vw, 64px);
-  --icon-size: clamp(26px, 7vw, 36px);
-  --gap-size: clamp(6px, 2.6vw, 12px);
-  --rail-overlay-top: calc(100svh - var(--bottom-nav-safe) - var(--caption-h, 0px));
-  --rail-safe-top: calc(env(safe-area-inset-top) + clamp(42px, 10.5vh, 90px));
-  --rail-height: calc(
-    var(--rail-count) * var(--button-size) +
-      max(0, var(--rail-count) - 1) * var(--gap-size)
+  --rail-item-count: var(--rail-count);
+  
+  /* Universal responsive spacing using clamp() for fluid scaling 320px-1600px */
+  --rail-side-gap: max(12px, calc(env(safe-area-inset-right) + clamp(8px, 1.5vw, 14px)));
+  --rail-bottom-gap: clamp(12px, 2vh, 20px);
+  --rail-gap-base: clamp(6px, 1.6vh, 12px);
+  --rail-padding-block-base: clamp(12px, 2vh, 16px);
+  
+  /* Fluid button sizing with device-specific optimizations */
+  --rail-item-size-base: clamp(44px, 5.5vh, 66px);
+  --rail-icon-size-base: clamp(32px, 4.6vh, 40px);
+  --rail-icon-padding-base: clamp(4px, 0.9vh, 6px);
+  --rail-icon-svg-base: clamp(16px, 2.2vh, 20px);
+  --rail-label-font-base: clamp(9px, 1.2vw, 12px);
+  --rail-label-font-base: clamp(10px, 1.2vh, 12px);
+  --rail-top-min: clamp(
+    calc(env(safe-area-inset-top) + 92px),
+    calc(env(safe-area-inset-top) + 18vh),
+    calc(env(safe-area-inset-top) + 156px)
   );
-  --rail-available: max(0px, calc(var(--rail-overlay-top) - var(--rail-safe-top)));
-  --rail-scale: min(1, max(0.6, calc(var(--rail-available) / var(--rail-height))));
-  --rail-top-centered: calc(
-    var(--rail-safe-top) +
-      max(0px, (var(--rail-available) - var(--rail-height) * var(--rail-scale)) / 2)
+  --rail-natural-height: calc(
+    var(--rail-item-count) * var(--rail-item-size-base) +
+      (var(--rail-item-count) - 1) * var(--rail-gap-base) +
+      2 * var(--rail-padding-block-base)
   );
+  --rail-bottom-base: calc(var(--bottom-nav-safe) + var(--caption-h, 0px) + var(--rail-bottom-gap));
+  --rail-bottom: max(
+    0px,
+    min(
+      var(--rail-bottom-base),
+      calc(100svh - var(--rail-top-min)),
+      calc(100svh - var(--rail-top-min) - var(--rail-natural-height) * 0.55)
+    )
+  );
+  --rail-available: max(0px, calc(100svh - var(--rail-bottom) - var(--rail-top-min)));
+  --rail-scale: min(1, calc(var(--rail-available) / var(--rail-natural-height)));
   position: fixed;
   z-index: 40;
-  inset-inline-end: max(12px, calc(env(safe-area-inset-right) + clamp(10px, 3vw, 18px)));
-  top: clamp(
-    calc(var(--rail-safe-top) * 0.75),
-    calc(var(--rail-top-centered) * 0.75),
-    calc((var(--rail-overlay-top) - var(--gap-size) - var(--button-size) * var(--rail-scale)) * 0.75)
-  );
+  right: var(--rail-side-gap);
+  inset-inline-end: var(--rail-side-gap);
+  bottom: var(--rail-bottom);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: calc(var(--gap-size) * var(--rail-scale));
-  max-height: calc(var(--rail-height) * var(--rail-scale));
+  gap: calc(var(--rail-gap-base) * var(--rail-scale));
+  max-height: var(--rail-available);
+  overflow: visible;
   pointer-events: auto;
-  padding-block: calc(var(--gap-size) * 0.85 * var(--rail-scale));
-  padding-inline: clamp(12px, 4vw, 18px);
-  border-radius: clamp(18px, 6vw, 28px);
+  padding-block: calc(var(--rail-padding-block-base) * var(--rail-scale));
+  padding-inline: clamp(12px, 3vw, 18px);
+  border-radius: clamp(20px, 4vh, 26px);
   background: linear-gradient(180deg, hsl(0 0% 8% / 0.82), hsl(0 0% 4% / 0.72));
   border: 1px solid hsl(0 0% 100% / 0.12);
   box-shadow: 0 22px 44px hsl(0 0% 0% / 0.38);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  width: max-content;
-  transform-origin: top right;
+  width: clamp(120px, 32vw, 148px);
+  transform-origin: bottom right;
 }
 
-/* Touch target + micro interactions */
+/* Touch target + micro interactions - SIMPLIFIED */
 .feed-rail__btn {
-  min-inline-size: calc(var(--button-size) * var(--rail-scale));
-  min-block-size: calc(var(--button-size) * var(--rail-scale));
-  display: inline-flex;
+  width: var(--button-size);
+  height: var(--button-size);
+  min-width: var(--button-size);
+  min-height: var(--button-size);
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--gap-size) * 0.45 * var(--rail-scale));
-  border-radius: clamp(16px, 5vw, 22px);
-  padding-inline: clamp(10px, 3vw, 14px);
-  padding-block: clamp(6px, 2.2vw, 10px);
+  gap: var(--gap-size);
+  border-radius: calc(var(--button-size) * 0.3);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform 160ms var(--ease-out, cubic-bezier(0.25,0.46,0.45,0.94));
+  transition: transform 120ms var(--ease-out);
   background: transparent;
+  margin-bottom: var(--gap-size);
 }
 .feed-rail__btn:active { transform: scale(0.97); }
 
-/* Icon container (glass) */
+/* Icon container (glass) - SIMPLIFIED */
 .feed-rail__icon {
   display: grid;
   place-items: center;
-  border-radius: 9999px;
-  padding: calc(var(--gap-size) * 0.35 * var(--rail-scale));
-  width: calc(var(--icon-size) * var(--rail-scale));
-  height: calc(var(--icon-size) * var(--rail-scale));
+  border-radius: 50%;
+  width: var(--icon-size);
+  height: var(--icon-size);
   border: 1px solid hsl(0 0% 100% / 0.18);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -2133,21 +2152,21 @@ input, select, textarea {
   transform: translateZ(0) scale(1.04);
 }
 
-/* SVG sizing stays consistent across screens */
+/* SVG sizing - SIMPLIFIED */
 .feed-rail__icon svg {
-  width: calc(var(--icon-size) * 0.6 * var(--rail-scale));
-  height: calc(var(--icon-size) * 0.6 * var(--rail-scale));
+  width: calc(var(--icon-size) * 0.6);
+  height: calc(var(--icon-size) * 0.6);
   color: white;
 }
 
 /* Count/Post label: glass chip for contrast over busy media */
 .feed-rail__label {
-  font-size: clamp(10px, 2.8vw, 13px);
+  font-size: clamp(9px, calc(var(--rail-label-font-base) * var(--rail-scale)), 12px);
   line-height: 1;
   font-weight: 600;
   color: white;
-  padding-block: calc(var(--gap-size) * 0.25 * var(--rail-scale));
-  padding-inline: clamp(4px, 1.6vw, 8px);
+  padding-block: calc(clamp(1px, 0.3vh, 3px) * var(--rail-scale));
+  padding-inline: clamp(4px, 0.9vh, 6px);
   border-radius: 9999px;
   background: linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35));
   border: 1px solid rgba(255,255,255,.18);
@@ -2159,59 +2178,307 @@ input, select, textarea {
   box-shadow: 0 16px 32px hsl(0 0% 0% / 0.45);
 }
 
+/* ===== SIMPLE ASPECT RATIO BASED RESPONSIVE DESIGN ===== */
+
+/* Ultra-simple approach: Use aspect ratio and viewport units */
+.feed-rail {
+  /* Base sizing that scales with screen size */
+  --button-size: clamp(40px, 5vw, 60px);
+  --icon-size: clamp(24px, 3vw, 36px);
+  --gap-size: clamp(4px, 0.8vw, 8px);
+}
+
+/* Small screens (aspect ratio < 0.6 = tall and narrow) */
+@media (max-aspect-ratio: 3/5) {
+  .feed-rail {
+    --button-size: clamp(36px, 4.5vw, 48px);
+    --icon-size: clamp(20px, 2.5vw, 28px);
+    --gap-size: clamp(2px, 0.5vw, 4px);
+  }
+}
+
+/* Very small screens (iPhone SE style) */
+@media (max-width: 375px) and (max-height: 700px) {
+  .feed-rail {
+    --button-size: clamp(32px, 4vw, 42px);
+    --icon-size: clamp(18px, 2.2vw, 24px);
+    --gap-size: 1px;
+  }
+}
+
+/* Wide screens (aspect ratio > 1.5 = landscape or wide) */
+@media (min-aspect-ratio: 3/2) {
+  .feed-rail {
+    --button-size: clamp(48px, 6vw, 72px);
+    --icon-size: clamp(28px, 3.5vw, 40px);
+    --gap-size: clamp(6px, 1vw, 12px);
+  }
+}
+
 /* Short screens: collapse text labels but keep counts */
 @media (max-height: 680px) {
   .feed-rail__btn[data-label-variant="text"] .feed-rail__label {
     display: none;
   }
-
   .feed-rail__btn {
     justify-content: center;
   }
 }
 
-/* Aspect-ratio tweaks so tall/short devices scale naturally */
-@media (max-aspect-ratio: 3 / 5) {
-  .feed-rail {
-    --button-size: clamp(40px, 14vw, 56px);
+/* Simple z-index fix for overlays */
+.feed-rail {
+  z-index: 50;
+  position: relative;
+}
+
+.feed-rail__btn {
+  z-index: 51;
+  position: relative;
+}
+
+/* Landscape mode optimizations */
+@media (orientation: landscape) and (max-height: 500px) {
+  .feed-rail { 
+    --rail-bottom: calc(var(--bottom-nav-safe) + max(48px, 10vh)); 
+    --rail-gap-base: clamp(4px, 0.8vh, 8px);
   }
 }
 
-@media (min-aspect-ratio: 3 / 2) {
-  .feed-rail {
-    --button-size: clamp(52px, 10vw, 72px);
+/* High DPI displays - ensure crisp icons */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .feed-rail__icon svg {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
   }
 }
 
-/* Narrow phones: stack icon + label and trim paddings */
-@media (max-width: 420px) {
-  .feed-rail {
-    align-items: stretch;
-    padding-inline: clamp(10px, 5vw, 14px);
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .feed-rail__btn,
+  .feed-rail__icon {
+    transition: none;
   }
-
-  .feed-rail__btn {
-    inline-size: clamp(56px, 22vw, 78px);
-    flex-direction: column;
-    align-items: center;
-    gap: calc(var(--gap-size) * 0.6 * var(--rail-scale));
+  .feed-rail__btn:active {
+    transform: none;
   }
+}
 
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .feed-rail__icon {
+    border-width: 2px;
+    border-color: white;
+  }
   .feed-rail__label {
-    width: 100%;
-    text-align: center;
+    background: black;
+    color: white;
+    border: 1px solid white;
   }
 }
 
-/* Very narrow phones: guarantee comfortable hit targets */
-@media (max-width: 360px) {
-  .feed-rail {
-    --button-size: clamp(40px, 18vw, 54px);
-    --icon-size: clamp(24px, 12vw, 32px);
-  }
+/* ===== CRITICAL FIXES FOR SMALL SCREENS ===== */
 
+/* That's it! The simple approach handles everything automatically */
+
+/* ===== RESPONSIVE DIALOG/SHEET COMPONENTS ===== */
+
+/* Universal responsive dialog sizing */
+.dialog-responsive {
+  width: clamp(320px, 90vw, 600px);
+  max-width: 90vw;
+  max-height: 90vh;
+  margin: clamp(1rem, 5vh, 2rem);
+}
+
+/* Mobile-first sheet behavior */
+@media (max-width: 640px) {
+  .dialog-responsive {
+    width: 100vw;
+    max-width: 100vw;
+    height: calc(100dvh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    margin: 1rem;
+    border-radius: 1rem 1rem 0 0;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .dialog-responsive {
+    width: clamp(400px, 80vw, 700px);
+    max-width: 80vw;
+    border-radius: 1.5rem;
+  }
+}
+
+/* Desktop optimizations */
+@media (min-width: 1025px) {
+  .dialog-responsive {
+    width: clamp(500px, 70vw, 800px);
+    max-width: 70vw;
+    border-radius: 2rem;
+  }
+}
+
+/* Ultrawide optimizations */
+@media (min-width: 1600px) {
+  .dialog-responsive {
+    width: clamp(600px, 60vw, 1000px);
+    max-width: 60vw;
+  }
+}
+
+/* Responsive padding system */
+.dialog-content-responsive {
+  padding: clamp(1rem, 4vw, 2rem);
+}
+
+@media (max-width: 640px) {
+  .dialog-content-responsive {
+    padding: clamp(0.75rem, 3vw, 1.5rem);
+  }
+}
+
+/* Landscape mode dialog adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  .dialog-responsive {
+    height: calc(100dvh - 1rem);
+    max-height: calc(100dvh - 1rem);
+    margin: 0.5rem;
+  }
+  
+  .dialog-content-responsive {
+    padding: clamp(0.5rem, 2vw, 1rem);
+  }
+}
+
+/* Safe area handling for iPhone notches */
+@supports (padding: max(0px)) {
+  .dialog-responsive {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Backdrop blur with fallback */
+.dialog-backdrop {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+@supports not (backdrop-filter: blur(8px)) {
+  .dialog-backdrop {
+    background: rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* ===== RESPONSIVE GRID SYSTEM ===== */
+
+/* Universal responsive grid */
+.grid-responsive {
+  display: grid;
+  gap: clamp(0.5rem, 2vw, 1.5rem);
+  grid-template-columns: repeat(auto-fit, minmax(clamp(280px, 30vw, 400px), 1fr));
+}
+
+/* Mobile grid */
+@media (max-width: 640px) {
+  .grid-responsive {
+    grid-template-columns: 1fr;
+    gap: clamp(0.75rem, 3vw, 1rem);
+  }
+}
+
+/* Tablet grid */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .grid-responsive {
+    grid-template-columns: repeat(auto-fit, minmax(clamp(300px, 40vw, 500px), 1fr));
+  }
+}
+
+/* Desktop grid */
+@media (min-width: 1025px) {
+  .grid-responsive {
+    grid-template-columns: repeat(auto-fit, minmax(clamp(350px, 25vw, 600px), 1fr));
+  }
+}
+
+/* ===== ACCESSIBILITY ENHANCEMENTS ===== */
+
+/* Focus management for keyboard navigation */
+.feed-rail__btn:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
   .feed-rail__btn {
-    inline-size: clamp(52px, 24vw, 72px);
+    border: 2px solid currentColor;
+  }
+  
+  .dialog-responsive {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .feed-rail__btn,
+  .feed-rail__icon,
+  .dialog-responsive {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ===== VIEWPORT DEBUG UTILITY (Development Only) ===== */
+@media (min-width: 0px) {
+  .viewport-debug::before {
+    content: "XS: " attr(data-width) "×" attr(data-height);
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    z-index: 9999;
+    pointer-events: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .viewport-debug::before {
+    content: "SM: " attr(data-width) "×" attr(data-height);
+  }
+}
+
+@media (min-width: 768px) {
+  .viewport-debug::before {
+    content: "MD: " attr(data-width) "×" attr(data-height);
+  }
+}
+
+@media (min-width: 1024px) {
+  .viewport-debug::before {
+    content: "LG: " attr(data-width) "×" attr(data-height);
+  }
+}
+
+@media (min-width: 1280px) {
+  .viewport-debug::before {
+    content: "XL: " attr(data-width) "×" attr(data-height);
+  }
+}
+
+@media (min-width: 1600px) {
+  .viewport-debug::before {
+    content: "2XL: " attr(data-width) "×" attr(data-height);
   }
 }
 

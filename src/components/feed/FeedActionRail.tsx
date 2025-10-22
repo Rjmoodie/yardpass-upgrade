@@ -23,13 +23,16 @@ export function FeedActionRail({ items, className = "" }: RailProps) {
   const railStyle: CSSProperties = {
     // Expose item count to CSS so the rail can adapt spacing responsively.
     "--rail-count": items.length
-  };
+  } as CSSProperties;
 
   return (
     <div
       className={`feed-rail pointer-events-auto ${className}`}
       style={railStyle}
       data-rail-count={items.length}
+      data-viewport-width={typeof window !== 'undefined' ? window.innerWidth : 0}
+      data-viewport-height={typeof window !== 'undefined' ? window.innerHeight : 0}
+      data-compact-mode={typeof window !== 'undefined' && window.innerWidth <= 375 && window.innerHeight <= 700 ? 'true' : 'false'}
     >
       {items.map((it, i) => {
         const labelVariant =
