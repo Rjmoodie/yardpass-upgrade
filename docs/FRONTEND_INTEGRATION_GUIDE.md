@@ -35,12 +35,12 @@ export interface Sponsor {
   logo_url: string | null
   website_url: string | null
   contact_email: string | null
-  industry: string | null
-  company_size: string | null
-  brand_values: Record<string, any>
   created_by: string
   created_at: string
-  updated_at?: string
+  industry: string | null
+  company_size: string | null
+  brand_values: Record<string, unknown>
+  preferred_visibility_options: Record<string, unknown>
 }
 
 export interface SponsorProfile {
@@ -49,43 +49,85 @@ export interface SponsorProfile {
   industry: string | null
   company_size: string | null
   annual_budget_cents: number | null
-  brand_objectives: Record<string, any>
-  target_audience: Record<string, any>
+  brand_objectives: Record<string, unknown>
+  target_audience: Record<string, unknown>
   preferred_categories: string[]
   regions: string[]
-  activation_preferences: Record<string, any>
+  activation_preferences: Record<string, unknown>
+  reputation_score: number | null
   verification_status: 'none' | 'pending' | 'verified' | 'revoked'
   public_visibility: 'hidden' | 'limited' | 'full'
-  case_studies: Record<string, any> | null
+  case_studies: Record<string, unknown> | null
   preferred_formats: string[] | null
   objectives_embedding: number[] | null
   created_at: string
   updated_at: string
 }
 
+export interface SponsorPublicProfile {
+  sponsor_id: string
+  slug: string
+  headline: string | null
+  about: string | null
+  brand_values: Record<string, unknown>
+  badges: string[]
+  is_verified: boolean
+  social_links: Record<string, unknown>[]
+  created_at: string
+  updated_at: string
+}
+
+export interface EventSponsorship {
+  event_id: string
+  sponsor_id: string
+  tier: string
+  amount_cents: number
+  benefits: Record<string, unknown>
+  status: string
+  activation_status: string | null
+  activation_state: 'draft' | 'in_progress' | 'complete' | null
+  deliverables_due_date: string | null
+  deliverables_submitted_at: string | null
+  organizer_approved_at: string | null
+  roi_summary: Record<string, unknown>
+}
+
 export interface SponsorshipPackage {
   id: string
   event_id: string
   tier: string
-  price_cents: number
   title: string | null
   description: string | null
-  benefits: Record<string, any>
+  price_cents: number
+  currency: string
   inventory: number
+  benefits: Record<string, unknown>
+  visibility: string
   sold: number
   is_active: boolean
-  visibility: string
+  created_by: string | null
   expected_reach: number | null
   avg_engagement_score: number | null
   package_type: string | null
+  stat_snapshot_id: string | null
   quality_score: number | null
+  quality_updated_at: string | null
   template_id: string | null
   version: number
-  availability: Record<string, any> | null
-  audience_snapshot: Record<string, any> | null
-  constraints: Record<string, any> | null
+  availability: Record<string, unknown> | null
+  audience_snapshot: Record<string, unknown> | null
+  constraints: Record<string, unknown> | null
   created_at: string
-  updated_at: string
+  updated_at: string | null
+}
+
+export interface MatchFeature {
+  id: string
+  event_id: string
+  sponsor_id: string
+  features: Record<string, unknown>
+  version: number
+  computed_at: string
 }
 
 export interface SponsorshipMatch {
@@ -93,13 +135,15 @@ export interface SponsorshipMatch {
   event_id: string
   sponsor_id: string
   score: number
-  overlap_metrics: Record<string, any>
+  overlap_metrics: Record<string, unknown>
   status: 'pending' | 'suggested' | 'accepted' | 'rejected'
-  explanations: Record<string, any> | null
-  reason_codes: string[] | null
   viewed_at: string | null
   contacted_at: string | null
+  declined_reason: string | null
+  notes: string | null
   updated_at: string
+  explanations: Record<string, unknown> | null
+  reason_codes: string[] | null
 }
 
 export interface ProposalThread {
@@ -118,8 +162,8 @@ export interface ProposalMessage {
   sender_type: 'organizer' | 'sponsor'
   sender_user_id: string
   body: string | null
-  offer: Record<string, any>
-  attachments: Record<string, any> | null
+  offer: Record<string, unknown>
+  attachments: Record<string, unknown> | null
   created_at: string
 }
 
@@ -128,31 +172,54 @@ export interface Deliverable {
   event_id: string
   sponsor_id: string
   type: string
-  spec: Record<string, any>
+  spec: Record<string, unknown>
   due_at: string | null
   status: 'pending' | 'submitted' | 'needs_changes' | 'approved' | 'waived'
   evidence_required: boolean
-  order_id: string | null
-  package_id: string | null
   created_at: string
   updated_at: string
 }
 
-// View types
-export interface PackageCard {
+export interface DeliverableProof {
+  id: string
+  deliverable_id: string
+  asset_url: string
+  metrics: Record<string, unknown>
+  submitted_by: string | null
+  submitted_at: string
+  approved_at: string | null
+  rejected_reason: string | null
+}
+
+export interface SponsorshipOrder {
+  id: string
   package_id: string
+  sponsor_id: string
   event_id: string
-  title: string
-  tier: string
-  price_cents: number
-  inventory: number
-  sold: number
-  quality_score: number | null
-  total_views: number
-  tickets_sold: number
-  avg_engagement_score: number | null
-  event_title: string
-  event_start: string
+  amount_cents: number
+  currency: string
+  status: string
+  escrow_state: 'pending' | 'funded' | 'locked' | 'released' | 'refunded' | 'cancelled' | null
+  stripe_payment_intent_id: string | null
+  stripe_charge_id: string | null
+  stripe_transfer_id: string | null
+  application_fee_cents: number
+  created_at: string
+  updated_at: string | null
+  payout_status: string | null
+}
+
+export interface PayoutQueueItem {
+  id: string
+  order_id: string
+  priority: number
+  scheduled_for: string
+  attempts: number
+  max_attempts: number
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
+  error_message: string | null
+  created_at: string
+  processed_at: string | null
 }
 ```
 
@@ -1001,22 +1068,24 @@ export function useRealtimeProposal(threadId: string) {
 
 ## 7. Sponsorship Wing Dashboards
 
-The sponsorship wing surfaces curated sponsor workspaces, configurable widgets, and a live command center. Pair these UI patterns with the new backend contracts to deliver an opinionated experience fast.
+Ground your UI in the actual sponsorship lifecycle tables: packages, matches, proposals, deliverables, and orders. The patterns below compose them into a cohesive operator dashboard without relying on undocumented views or workspace abstractions.
 
-### 7.1 Workspace Shell
+### 7.1 Pipeline Shell
 
 ```tsx
-// src/features/sponsorship-wing/components/WorkspaceShell.tsx
+// src/features/sponsorship-wing/components/PipelineShell.tsx
 import { PropsWithChildren } from 'react'
-import { WorkspaceSidebar } from './WorkspaceSidebar'
-import { WorkspaceHeader } from './WorkspaceHeader'
+import { SponsorList } from './SponsorList'
+import { KeyMetricsBar } from './KeyMetricsBar'
 
-export function WorkspaceShell({ children }: PropsWithChildren) {
+export function PipelineShell({ children }: PropsWithChildren) {
   return (
-    <div className="grid min-h-screen grid-cols-[280px_1fr] bg-surface-1">
-      <WorkspaceSidebar />
+    <div className="grid min-h-screen grid-cols-[320px_1fr] bg-surface-1">
+      <aside className="border-r border-border-subtle bg-surface-0">
+        <SponsorList />
+      </aside>
       <div className="flex flex-col">
-        <WorkspaceHeader />
+        <KeyMetricsBar />
         <main className="flex-1 overflow-y-auto px-8 py-6">{children}</main>
       </div>
     </div>
@@ -1025,89 +1094,107 @@ export function WorkspaceShell({ children }: PropsWithChildren) {
 ```
 
 **Key ideas**
-- Sidebar pulls workspace + member data from `useWorkspace()` hook
-- Header surfaces quick stats (GMV, win rate, active proposals)
-- Wrap all wing routes (e.g. `/wing/[workspaceSlug]/*`) with this shell
+- Sidebar queries `sponsorship_matches` joined with `sponsors` to surface high-value prospects.
+- `KeyMetricsBar` aggregates `sponsorship_orders`, `deliverables`, and `payout_queue` counts for quick readouts.
+- Keep route structure simple: e.g. `/sponsorship/pipeline/[eventId]` and `/sponsorship/proposals/[threadId]`.
 
-### 7.2 Widget Grid
+### 7.2 Packages & Match View
 
 ```tsx
-// src/features/sponsorship-wing/components/WidgetGrid.tsx
-import { lazy } from 'react'
-import { useWidgetRegistry } from '../hooks/useWidgetRegistry'
-import { MarketplaceCardWidget } from './widgets/MarketplaceCardWidget'
-import { CommandCenterWidget } from './widgets/CommandCenterWidget'
+// src/features/sponsorship-wing/components/PackagesBoard.tsx
+import { useMatches } from '../hooks/useMatches'
+import { usePackages } from '../hooks/usePackages'
 
-const registryComponentMap = {
-  marketplace_card: MarketplaceCardWidget,
-  command_center: CommandCenterWidget,
-  pipeline_funnel: lazy(() => import('./widgets/PipelineFunnelWidget'))
-} as const
-
-export function WidgetGrid({ workspaceId }: { workspaceId: string }) {
-  const { data: widgets, isLoading } = useWidgetRegistry(workspaceId)
-
-  if (isLoading) {
-    return <SkeletonGrid />
-  }
+export function PackagesBoard({ eventId }: { eventId: string }) {
+  const { data: packages } = usePackages(eventId)
+  const { data: matches } = useMatches(eventId)
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-      {widgets?.map((widget) => {
-        const Component = registryComponentMap[widget.widget_type]
-        if (!Component) return null
-
-        return <Component key={widget.id} widget={widget} />
-      })}
+    <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <section className="space-y-4">
+        {packages?.map((pkg) => (
+          <PackageCard key={pkg.id} pkg={pkg} />
+        ))}
+      </section>
+      <aside className="space-y-3">
+        {matches?.map((match) => (
+          <MatchTile key={match.id} match={match} />
+        ))}
+      </aside>
     </div>
   )
 }
 ```
 
 **Implementation tips**
-- `useWidgetRegistry` subscribes to `widget.updated` realtime channel for instant updates
-- Provide lazy loading for experimental widget types so labs can ship faster
-- Ship analytics by wrapping `Component` with `withWidgetInstrumentation`
+- `usePackages` selects from `sponsorship_packages` and enriches with event metadata as needed.
+- `useMatches` joins `sponsorship_matches` with `match_features` for context such as `features.audience_overlap`.
+- Provide visual cues for `status` (e.g. highlight `accepted` matches).
 
-### 7.3 Command Center Stream
+### 7.3 Negotiation Workspace
 
 ```tsx
-// src/features/sponsorship-wing/hooks/useCommandCenterFeed.ts
-import { useEffect } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { createBrowserSupabaseClient } from '@/lib/supabase-browser'
+// src/features/sponsorship-wing/components/NegotiationThread.tsx
+import { useProposalThread } from '../hooks/useProposalThread'
+import { useProposalMessages } from '../hooks/useProposalMessages'
 
-export function useCommandCenterFeed(workspaceId: string) {
-  const client = createBrowserSupabaseClient()
-  const queryClient = useQueryClient()
+export function NegotiationThread({ threadId }: { threadId: string }) {
+  const { data: thread } = useProposalThread(threadId)
+  const { data: messages, sendMessage } = useProposalMessages(threadId)
 
-  useEffect(() => {
-    const channel = client
-      .channel(`command_center:${workspaceId}`)
-      .on('broadcast', { event: 'metrics' }, ({ payload }) => {
-        queryClient.setQueryData(['command-center-feed', workspaceId], (prev: any[] = []) => {
-          return [payload, ...prev].slice(0, 50)
-        })
-      })
-      .subscribe()
-
-    return () => {
-      client.removeChannel(channel)
-    }
-  }, [client, queryClient, workspaceId])
+  return (
+    <div className="flex h-full flex-col rounded-lg border border-border-subtle bg-surface-0">
+      <header className="border-b border-border-subtle px-6 py-4">
+        <h2 className="text-lg font-semibold">{thread?.sponsor?.name}</h2>
+        <p className="text-sm text-muted-foreground">Status: {thread?.status}</p>
+      </header>
+      <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+        {messages?.map((message) => (
+          <MessageBubble key={message.id} message={message} />
+        ))}
+      </div>
+      <footer className="border-t border-border-subtle px-6 py-4">
+        <ComposeBar threadId={threadId} onSend={sendMessage} />
+      </footer>
+    </div>
+  )
 }
 ```
 
-**Usage**
-- Call inside dashboard page component and pair with a standard `useQuery` for initial feed
-- Render latest metrics in a sparkline/leaderboard hybrid view
-- Bubble warnings (e.g. SLA drift) using toast notifications triggered by payload flags
+**Implementation tips**
+- Use Supabase realtime on `proposal_messages` to append new messages instantly.
+- Promote negotiation milestones by reading `sponsorship_orders` rows tied to the same sponsor/event.
+- Link deliverable requirements inline by pulling `deliverables` filtered by sponsor/event.
 
-### 7.4 Navigation & Routing
+### 7.4 Financial Status Snapshot
 
-- App Router suggestion: nest wing routes under `app/(sponsorship-wing)/wing/[workspaceSlug]/page.tsx`
-- Preload workspace + widget data via server components for snappy time-to-first-interaction
-- Gate access with middleware that checks `sponsorship_workspace_members` membership via Supabase JWT claims
+```tsx
+// src/features/sponsorship-wing/components/FinanceSnapshot.tsx
+import { useOrders } from '../hooks/useOrders'
+import { usePayoutQueue } from '../hooks/usePayoutQueue'
+
+export function FinanceSnapshot({ eventId }: { eventId: string }) {
+  const { data: orders } = useOrders(eventId)
+  const { data: payouts } = usePayoutQueue()
+
+  const fundedOrders = orders?.filter((order) => order.status === 'funded') ?? []
+  const pendingPayouts = payouts?.filter((p) => p.status === 'pending') ?? []
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <MetricTile label="Funded Orders" value={fundedOrders.length} trend="day" />
+      <MetricTile label="Pending Payouts" value={pendingPayouts.length} trend="week" />
+      <OrdersTable orders={orders ?? []} />
+      <PayoutQueueTable items={payouts ?? []} />
+    </div>
+  )
+}
+```
+
+**Implementation tips**
+- Drive `OrdersTable` directly from `sponsorship_orders` (status, escrow_state, stripe ids).
+- `PayoutQueueTable` pairs `payout_queue` with `sponsorship_payouts` to show fulfillment history.
+- Include alerts when `attempts` nears `max_attempts` so operators can intervene.
 
 ---
 

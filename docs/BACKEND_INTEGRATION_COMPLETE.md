@@ -1561,118 +1561,171 @@ Deno.serve(async () => {
 
 ---
 
-## 19. Quick Command Reference
+## 19. Operational SQL Cheat Sheet
 
-### Data Operations
+### Queue & Intelligence Monitoring
 ```sql
--- Process match queue
-SELECT process_match_queue(100);
+-- Pending match recalculations
+SELECT event_id, sponsor_id, reason, queued_at
+FROM fit_recalc_queue
+WHERE processed_at IS NULL
+ORDER BY queued_at ASC
+LIMIT 25;
 
--- Refresh materialized views
-SELECT refresh_sponsorship_mvs(true);
+-- Match score distribution
+SELECT status, COUNT(*)
+FROM sponsorship_matches
+GROUP BY status
+ORDER BY status;
 
--- Check queue health
-SELECT * FROM check_recalc_queue_health();
-
--- Validate data integrity
-SELECT * FROM validate_sponsorship_data();
-
--- Check SLA compliance
-SELECT * FROM check_sla_compliance();
+-- Freshest materialized view refresh (see migrations for exact view names)
+SELECT ran_at, note, duration_ms
+FROM mv_refresh_log
+ORDER BY ran_at DESC
+LIMIT 5;
 ```
 
-### Operational Queries
+### Commercial Pipeline Health
 ```sql
--- Today's orders
-SELECT COUNT(*), SUM(amount_cents) / 100 as revenue
+-- Orders created today and gross value in USD
+SELECT COUNT(*) AS orders_today,
+       SUM(amount_cents) / 100 AS revenue_today
 FROM sponsorship_orders
 WHERE created_at >= CURRENT_DATE;
 
--- Pending payouts
-SELECT COUNT(*), SUM(amount_cents) / 100 as pending
-FROM payout_queue
-WHERE status = 'pending';
+-- Payout readiness by status
+SELECT status, COUNT(*) AS queue_depth,
+       SUM(amount_cents) / 100 AS total_amount_usd
+FROM payout_queue pq
+JOIN sponsorship_orders so ON so.id = pq.order_id
+GROUP BY status
+ORDER BY status;
 
--- Active proposals
-SELECT COUNT(*) FROM proposal_threads WHERE status IN ('sent', 'counter');
+-- Active proposals that need organizer follow-up
+SELECT id, sponsor_id, status, updated_at
+FROM proposal_threads
+WHERE status IN ('sent', 'counter')
+ORDER BY updated_at DESC
+LIMIT 20;
 
--- Overdue deliverables
-SELECT COUNT(*) FROM deliverables 
-WHERE due_at < now() AND status IN ('pending', 'needs_changes');
+-- Deliverables approaching or past due
+SELECT id, type, due_at, status
+FROM deliverables
+WHERE due_at < now() + interval '3 days'
+  AND status IN ('pending', 'needs_changes')
+ORDER BY due_at;
+```
+
+### Data Integrity Spot Checks
+```sql
+-- Ensure every active package still references a valid event
+SELECT sp.id, sp.event_id
+FROM sponsorship_packages sp
+LEFT JOIN events e ON e.id = sp.event_id
+WHERE sp.is_active = true
+  AND e.id IS NULL;
+
+-- Confirm sponsor profiles exist for public sponsors
+SELECT s.id
+FROM sponsors s
+LEFT JOIN sponsor_profiles sp ON sp.sponsor_id = s.id
+WHERE (s.preferred_visibility_options ->> 'public_visibility') = 'full'
+  AND sp.id IS NULL;
+
+-- Cross-check funded orders have payout entries queued or completed
+SELECT so.id
+FROM sponsorship_orders so
+LEFT JOIN payout_queue pq ON pq.order_id = so.id
+LEFT JOIN sponsorship_payouts pay ON pay.order_id = so.id
+WHERE so.status = 'funded'
+  AND pq.id IS NULL
+  AND pay.id IS NULL;
 ```
 
 ---
 
 ## 20. Sponsorship Wing Services
 
-The sponsorship wing introduces dedicated collaboration spaces, widget orchestration, and real-time executive telemetry. Use the following contracts to expose the new capabilities to organizers.
+The live schema models the sponsorship wing across four major service surfaces. Expose each surface through authenticated API endpoints that map directly to the existing tables.
 
-### 20.1 Workspaces API
+### 20.1 Event Sponsorship Management
 
 ```http
-POST /v1/sponsorship-workspaces
+POST /v1/event-sponsorships
 Authorization: Bearer {jwt}
 X-Org-Id: {organization_id}
 
 {
-  "name": "Premium Sponsors",
-  "slug": "premium-sponsors",
-  "default_role": "viewer",
-  "auto_invite": ["manager@brand.com"],
-  "settings": {
-    "timezone": "America/Los_Angeles",
-    "goal_gmv_cents": 12500000,
-    "reporting_webhook": "https://hooks.slack.com/services/..."
-  }
+  "event_id": "uuid",
+  "sponsor_id": "uuid",
+  "tier": "intent",
+  "amount_cents": 2500000,
+  "benefits": {"logo_stage": true, "lead_capture": true},
+  "activation_status": "draft"
 }
 ```
 
-**Key rules**
-- Enforce per-org slug uniqueness with `sponsorship_workspaces_slug_key`
-- Auto-provision owner membership for the requester
-- Fire `workspace.created` webhook for downstream dashboards
+- Primary key is `(event_id, sponsor_id, tier)` so updates should use UPSERT semantics.
+- `activation_status` progresses from `draft` → `in_progress` → `complete` as deliverables are approved.
+- Emit `event_sponsorship.updated` webhooks when status or financials change so dashboards stay current.
 
-### 20.2 Widget Registry API
+### 20.2 Deliverables & SLA Tracking
 
 ```http
-PUT /v1/sponsorship-workspaces/{workspaceId}/widgets/{widgetId}
+POST /v1/deliverables
+Authorization: Bearer {jwt}
+X-Org-Id: {organization_id}
+
+{
+  "event_id": "uuid",
+  "sponsor_id": "uuid",
+  "type": "stage_branding",
+  "spec": {"asset_format": "PSD", "notes": "1920x1080"},
+  "due_at": "2025-01-15T17:00:00Z"
+}
+```
+
+- Status lifecycle: `pending` → `submitted` → `approved` / `needs_changes` / `waived`.
+- Store supporting evidence in `deliverable_proofs` and link SLAs in `sponsorship_slas` when obligations carry penalties.
+- Use change-data-capture on `deliverables` to notify sponsors when reviews are completed.
+
+### 20.3 Match Intelligence Service
+
+```http
+POST /v1/matches/recompute
+Authorization: Bearer {jwt}
+Content-Type: application/json
+
+{
+  "event_id": "uuid",
+  "sponsor_id": "uuid",
+  "reason": "profile_update"
+}
+```
+
+- API handler inserts into `fit_recalc_queue` so async workers can update `match_features` and `sponsorship_matches`.
+- Scores live in `sponsorship_matches.score` (0 → 1). Persist additional diagnostics in `overlap_metrics`.
+- Record feedback in `match_feedback` to improve your models and to drive re-scoring decisions.
+
+### 20.4 Commercial & Finance Operations
+
+```http
+POST /v1/sponsorship-orders
+Authorization: Bearer {jwt}
 Content-Type: application/json
 
 {
   "package_id": "uuid",
-  "widget_type": "marketplace_card",
-  "config": {
-    "highlight": "Platinum",
-    "cta": "Request Proposal",
-    "metrics": ["views", "leads", "conversion_rate"]
-  }
+  "sponsor_id": "uuid",
+  "event_id": "uuid",
+  "amount_cents": 2500000,
+  "currency": "usd"
 }
 ```
 
-- Idempotent upserts keyed by `workspace_id + widget_id`
-- Rebuild cache with `refresh_workspace_widget_cache(workspace_id => uuid)`
-- Emits `widget.updated` events for frontend subscription channels
-
-### 20.3 Command Center Telemetry
-
-```sql
-SELECT enable_sponsorship_command_center(
-  workspace_id := 'uuid',
-  capture_rollups := true,
-  notify_slack_webhook := 'https://hooks.slack.com/services/...'
-);
-```
-
-- Schedules `command_center_rollup` cron job every 5 minutes
-- Persists metrics to `sponsorship_command_center_feed`
-- Streams real-time deltas over `supabase_realtime` channel `command_center:workspace_id`
-
-### 20.4 Operational Guardrails
-
-- 🔐 RLS policies restrict workspace rows to members via `workspace_id`
-- 📈 Monitor `sponsorship_workspace_widget_events` for error spikes (< 1% failure)
-- 🧾 Audit log stored in `sponsorship_workspace_audit` with 30-day retention
-- 🔄 Background retry worker `svc_sync_workspace_widgets` handles webhook backoffs
+- `sponsorship_orders` captures escrow and lifecycle state. Update `status` (`pending` → `funded` → `completed`) from payment webhooks.
+- Insert payout tasks into `payout_queue`; when processed, create a row in `sponsorship_payouts` with Stripe transfer identifiers.
+- Audit `org_wallet_transactions` and `ad_spend_ledger` when campaigns bundle media spend with sponsorship packages.
 
 ---
 

@@ -1,132 +1,204 @@
 # ⚡ Quick Start - Sponsorship System
 
-## 🚀 Get Running in 30 Minutes
+This runbook walks an implementer through proving out the sponsorship wing end-to-end using only the tables and constraints that ship in the Supabase migrations. Every SQL snippet below runs against the schema that already exists in this repo—no helper functions or custom views required.
 
-### Step 1: Verify Deployment (2 min)
+---
+
+## 🚦 Step 1: Confirm the Core Schema (2 min)
 
 ```sql
--- Run in Supabase SQL Editor
-SELECT * FROM validate_sponsorship_data();
+-- Verify the key sponsorship tables exist
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name IN (
+    'sponsors',
+    'sponsor_profiles',
+    'sponsorship_packages',
+    'sponsorship_matches',
+    'proposal_threads',
+    'proposal_messages',
+    'deliverables',
+    'sponsorship_orders',
+    'sponsorship_payouts',
+    'event_sponsorships'
+  )
+ORDER BY table_name;
 ```
 
-✅ All checks should return `PASS`
+You should see every table above. If anything is missing, re-run the Supabase migrations before continuing.
 
-### Step 2: Create Your First Package (5 min)
+---
+
+## 🗂️ Step 2: Pick an Organization & Event (3 min)
 
 ```sql
--- 1. Get an event ID
-SELECT id, title FROM events LIMIT 5;
+-- List organizations you can act on
+SELECT id, name FROM organizations ORDER BY created_at DESC LIMIT 5;
 
--- 2. Create a package
+-- Inspect upcoming events for one of those orgs
+SELECT id, title, start_at
+FROM events
+WHERE owner_context_id = 'your-org-id'
+ORDER BY start_at DESC LIMIT 5;
+```
+
+Grab the `organization_id` and `event_id` you will reuse through the rest of the quick start.
+
+---
+
+## 🤝 Step 3: Create a Sponsor Profile (5 min)
+
+```sql
+-- Create the sponsor shell
+INSERT INTO sponsors (
+  name,
+  logo_url,
+  website_url,
+  contact_email,
+  created_by,
+  industry,
+  company_size,
+  brand_values,
+  preferred_visibility_options
+) VALUES (
+  'Acme Robotics',
+  'https://example.com/logo.png',
+  'https://acmerobotics.example',
+  'partnerships@acmerobotics.example',
+  '00000000-0000-0000-0000-000000000000', -- replace with an auth.users.id
+  'technology',
+  '201-500',
+  '{"sustainability": true, "innovation_index": 92}'::jsonb,
+  '{"preferred_formats": ["booth", "stage"], "requires_contract": true}'::jsonb
+) RETURNING id;
+
+-- Attach detailed targeting & budgeting data
+INSERT INTO sponsor_profiles (
+  sponsor_id,
+  industry,
+  company_size,
+  annual_budget_cents,
+  brand_objectives,
+  target_audience,
+  preferred_categories,
+  regions,
+  activation_preferences
+) VALUES (
+  'sponsor-id-from-above',
+  'technology',
+  '201-500',
+  7500000,
+  '{"goals": ["brand_awareness", "lead_gen"]}'::jsonb,
+  '{"demographics": {"age": "25-44", "interests": ["robotics", "ai"]}}'::jsonb,
+  ARRAY['technology', 'education'],
+  ARRAY['North America', 'Europe'],
+  '{"activation_channels": ["main_stage", "expo_floor"], "min_roi": 2.5}'::jsonb
+) RETURNING *;
+```
+
+---
+
+## 📦 Step 4: Publish a Sponsorship Package (5 min)
+
+```sql
 INSERT INTO sponsorship_packages (
   event_id,
   tier,
   title,
   description,
   price_cents,
+  currency,
   inventory,
-  benefits
+  benefits,
+  visibility,
+  is_active,
+  created_by
 ) VALUES (
   'your-event-id',
   'gold',
-  'Gold Sponsor',
-  'Premier sponsorship with maximum visibility',
-  250000,  -- $2,500
-  5,
-  '{"logo_placement": true, "booth": "10x10", "social_posts": 5}'::jsonb
-) RETURNING *;
-
--- 3. Publish it
-UPDATE sponsorship_packages 
-SET is_active = true 
-WHERE id = 'package-id-from-above';
+  'Gold Stage Partner',
+  'Premium logo placement, emcee mentions, and a 20x20 booth.',
+  2500000,
+  'USD',
+  3,
+  '{"logo_stage": true, "booth_size": "20x20", "social_posts": 4}'::jsonb,
+  'public',
+  true,
+  '00000000-0000-0000-0000-000000000000'
+) RETURNING id, tier, price_cents;
 ```
 
-### Step 3: View in Marketplace (1 min)
+---
+
+## 🔗 Step 5: Link the Sponsor to the Event (3 min)
 
 ```sql
--- See your package with all metrics
-SELECT * FROM v_sponsorship_package_cards 
-WHERE package_id = 'your-package-id';
-```
-
-### Step 4: Create a Sponsor (5 min)
-
-```sql
--- 1. Create sponsor entity
-INSERT INTO sponsors (
-  name,
-  logo_url,
-  website_url,
-  created_by
-) VALUES (
-  'Acme Corporation',
-  'https://example.com/logo.png',
-  'https://acme.com',
-  auth.uid()
-) RETURNING *;
-
--- 2. Create sponsor profile
-INSERT INTO sponsor_profiles (
+INSERT INTO event_sponsorships (
+  event_id,
   sponsor_id,
-  industry,
-  annual_budget_cents,
-  preferred_categories,
-  regions,
-  brand_objectives
+  tier,
+  amount_cents,
+  benefits,
+  activation_status
 ) VALUES (
-  'sponsor-id-from-above',
-  'technology',
-  500000,  -- $5,000 annual budget
-  ARRAY['technology', 'business'],
-  ARRAY['North America', 'Europe'],
-  '{"goals": ["brand awareness", "lead generation"]}'::jsonb
-) RETURNING *;
+  'your-event-id',
+  'your-sponsor-id',
+  'intent',
+  2500000,
+  '{"announcements": true, "lead_capture": true}'::jsonb,
+  'draft'
+) ON CONFLICT (event_id, sponsor_id, tier) DO UPDATE
+SET amount_cents = EXCLUDED.amount_cents,
+    benefits = EXCLUDED.benefits,
+    activation_status = EXCLUDED.activation_status;
 ```
 
-### Step 5: Compute Match Score (2 min)
+`event_sponsorships` acts as the source of truth for organizer-facing views, so keep it in sync with packages and orders.
+
+---
+
+## 📊 Step 6: Seed Matching Intelligence (4 min)
 
 ```sql
--- Get match score between your event and sponsor
-SELECT * FROM fn_compute_match_score(
-  'your-event-id'::uuid,
-  'your-sponsor-id'::uuid
-);
+-- Record the feature vector that powered this match
+INSERT INTO match_features (
+  event_id,
+  sponsor_id,
+  features
+) VALUES (
+  'your-event-id',
+  'your-sponsor-id',
+  '{"audience_overlap": 0.82, "budget_fit": 0.76, "category_alignment": 0.9}'::jsonb
+) RETURNING id;
+
+-- Persist the actual match score surfaced to users
+INSERT INTO sponsorship_matches (
+  event_id,
+  sponsor_id,
+  score,
+  overlap_metrics,
+  status,
+  notes
+) VALUES (
+  'your-event-id',
+  'your-sponsor-id',
+  0.78,
+  '{"audience_overlap": 0.82, "budget_fit": 0.76}'::jsonb,
+  'suggested',
+  'Auto-generated during quick start run'
+) RETURNING id;
+
+-- Queue a recomputation so background workers can refine it later
+INSERT INTO fit_recalc_queue (event_id, sponsor_id, reason)
+VALUES ('your-event-id', 'your-sponsor-id', 'quick_start_validation');
 ```
 
-Expected output:
-```json
-{
-  "score": 0.7234,
-  "breakdown": {
-    "budget_fit": 0.850,
-    "audience_overlap": {...},
-    "engagement_quality": 0.720,
-    ...
-  }
-}
-```
+---
 
-### Step 6: View Recommendations (1 min)
+## 💬 Step 7: Send a Proposal (4 min)
 
 ```sql
--- See recommended packages for the sponsor
-SELECT * FROM v_sponsor_recommended_packages
-WHERE sponsor_id = 'your-sponsor-id'
-ORDER BY score DESC
-LIMIT 10;
-
--- See recommended sponsors for the event
-SELECT * FROM v_event_recommended_sponsors
-WHERE event_id = 'your-event-id'
-ORDER BY score DESC
-LIMIT 10;
-```
-
-### Step 7: Create a Proposal (5 min)
-
-```sql
--- 1. Create proposal thread
 INSERT INTO proposal_threads (
   event_id,
   sponsor_id,
@@ -135,11 +207,10 @@ INSERT INTO proposal_threads (
 ) VALUES (
   'your-event-id',
   'your-sponsor-id',
-  'draft',
-  auth.uid()
-) RETURNING *;
+  'sent',
+  '00000000-0000-0000-0000-000000000000'
+) RETURNING id;
 
--- 2. Add initial message
 INSERT INTO proposal_messages (
   thread_id,
   sender_type,
@@ -148,22 +219,53 @@ INSERT INTO proposal_messages (
   offer
 ) VALUES (
   'thread-id-from-above',
-  'organizer',  -- or 'sponsor'
-  auth.uid(),
-  'We would love to have you sponsor our event!',
-  '{"price_cents": 250000, "benefits": {"logo_stage": true}}'::jsonb
+  'organizer',
+  '00000000-0000-0000-0000-000000000000',
+  'Excited to partner with Acme Robotics for the main stage experience!',
+  '{"price_cents": 2500000, "benefits": ["logo_stage", "lead_capture"]}'::jsonb
 );
-
--- 3. Send proposal
-UPDATE proposal_threads 
-SET status = 'sent' 
-WHERE id = 'thread-id';
 ```
 
-### Step 8: Test Order Creation (5 min)
+---
+
+## 📦 Step 8: Track Deliverables (3 min)
 
 ```sql
--- Create sponsorship order
+INSERT INTO deliverables (
+  event_id,
+  sponsor_id,
+  type,
+  spec,
+  due_at,
+  status
+) VALUES (
+  'your-event-id',
+  'your-sponsor-id',
+  'stage_branding',
+  '{"description": "Provide stage backdrop assets", "asset_format": "PSD"}'::jsonb,
+  now() + interval '14 days',
+  'pending'
+) RETURNING id;
+
+INSERT INTO deliverable_proofs (
+  deliverable_id,
+  asset_url,
+  metrics,
+  submitted_by
+) VALUES (
+  'deliverable-id-from-above',
+  'https://files.example.com/stage-backdrop.pdf',
+  '{"dpi": 300, "dimensions": "1920x1080"}'::jsonb,
+  '00000000-0000-0000-0000-000000000000'
+);
+```
+
+---
+
+## 💳 Step 9: Create & Advance an Order (5 min)
+
+```sql
+-- Initial escrow order
 INSERT INTO sponsorship_orders (
   package_id,
   sponsor_id,
@@ -177,185 +279,108 @@ INSERT INTO sponsorship_orders (
   'your-package-id',
   'your-sponsor-id',
   'your-event-id',
-  250000,
-  'USD',
+  2500000,
+  'usd',
   'pending',
   'pending',
-  auth.uid()
-) RETURNING *;
-```
+  '00000000-0000-0000-0000-000000000000'
+) RETURNING id;
 
-### Step 9: Process Match Queue (2 min)
-
-```sql
--- Manually process any pending matches
-SELECT process_match_queue(100);
-
--- Check queue health
-SELECT * FROM check_recalc_queue_health();
-```
-
-### Step 10: Refresh Analytics (2 min)
-
-```sql
--- Refresh materialized views
-SELECT refresh_sponsorship_mvs(true);
-
--- Check refresh log
-SELECT * FROM mv_refresh_log ORDER BY ran_at DESC LIMIT 5;
+-- Mark as funded after payment confirmation
+UPDATE sponsorship_orders
+SET status = 'funded',
+    escrow_state = 'funded',
+    updated_at = now()
+WHERE id = 'order-id-from-above';
 ```
 
 ---
 
-## 🛠 Sponsorship Wing Activation (15 min)
-
-Follow this checklist once the core workflow above is green to light up the new sponsorship wing modules end-to-end.
-
-### Configure Sponsor Workspace (5 min)
+## 💸 Step 10: Prepare the Payout (3 min)
 
 ```sql
--- Create workspace container
-INSERT INTO sponsorship_workspaces (organization_id, name, slug, created_by)
-VALUES (
-  'your-org-id',
-  'Premium Sponsors',
-  'premium-sponsors',
-  auth.uid()
-) RETURNING *;
+INSERT INTO payout_queue (
+  order_id,
+  priority,
+  scheduled_for,
+  status
+) VALUES (
+  'order-id-from-above',
+  10,
+  now() + interval '2 days',
+  'pending'
+) RETURNING id;
 
--- Seed workspace roles
-INSERT INTO sponsorship_workspace_members (workspace_id, user_id, role)
-VALUES
-  ('workspace-id', auth.uid(), 'owner'),
-  ('workspace-id', 'sponsor-manager-user-id', 'manager');
-```
-
-### Register Marketplace Widgets (5 min)
-
-```sql
--- Connect packages to wing dashboards
-INSERT INTO sponsorship_widget_registry (
-  workspace_id,
-  package_id,
-  widget_type,
-  config
-)
-SELECT
-  'workspace-id',
-  id,
-  'marketplace_card',
-  jsonb_build_object('highlight', tier, 'cta', 'Request Proposal')
-FROM sponsorship_packages
-WHERE event_id = 'your-event-id';
-
--- Verify widgets resolve
-SELECT *
-FROM v_sponsorship_workspace_widgets
-WHERE workspace_id = 'workspace-id';
-```
-
-### Enable Sponsor Command Center (5 min)
-
-```sql
--- Start telemetry stream for sponsorship wing dashboards
-SELECT enable_sponsorship_command_center(
-  workspace_id := 'workspace-id',
-  capture_rollups := true,
-  notify_slack_webhook := 'https://hooks.slack.com/services/...'
-);
-
--- Check live metrics feed
-SELECT * FROM sponsorship_command_center_feed
-WHERE workspace_id = 'workspace-id'
-ORDER BY collected_at DESC
-LIMIT 20;
+-- Inspect pending payouts
+SELECT pq.id,
+       pq.order_id,
+       pq.status,
+       so.amount_cents,
+       so.currency
+FROM payout_queue pq
+JOIN sponsorship_orders so ON so.id = pq.order_id
+WHERE pq.status = 'pending'
+ORDER BY pq.scheduled_for;
 ```
 
 ---
 
 ## ✅ Verification Checklist
 
-After completing the quick start, verify:
+- [ ] Sponsor exists in `sponsors` with a linked row in `sponsor_profiles`
+- [ ] Active package stored in `sponsorship_packages` for your event
+- [ ] Event/sponsor relationship captured in `event_sponsorships`
+- [ ] Match data written to both `match_features` and `sponsorship_matches`
+- [ ] Proposal thread + message present in `proposal_threads` / `proposal_messages`
+- [ ] Deliverable and proof rows created
+- [ ] Order advanced from `pending` → `funded`
+- [ ] Pending payout entry scheduled in `payout_queue`
+- [ ] Queue growth visible through `SELECT COUNT(*) FROM fit_recalc_queue WHERE processed_at IS NULL`
 
-- [ ] Package appears in `v_sponsorship_package_cards`
-- [ ] Sponsor profile exists with targeting data
-- [ ] Match score computed and stored in `sponsorship_matches`
-- [ ] Recommendations appear in views
-- [ ] Proposal thread created with messages
-- [ ] Order created with correct status
-- [ ] Queue processing works
-- [ ] Materialized views refresh successfully
-- [ ] Sponsorship workspace online with members
-- [ ] Widgets render in `v_sponsorship_workspace_widgets`
-- [ ] Command center feed streaming latest metrics
+If every box checks out, the sponsorship wing is ready for deeper API and UI integration.
 
 ---
 
-## 🎯 Next Steps
+## 🧭 Next Steps
 
-### Backend Integration (1-2 days)
-1. Implement REST API endpoints (see `docs/BACKEND_INTEGRATION_COMPLETE.md`)
-2. Set up Stripe Connect integration
-3. Configure webhooks
-4. Deploy Edge Functions
-5. Set up cron jobs
+### Backend Integration (see `docs/BACKEND_INTEGRATION_COMPLETE.md`)
+- Implement authenticated REST endpoints that wrap each SQL operation above
+- Schedule workers for `fit_recalc_queue` and `payout_queue`
+- Build Stripe Connect webhooks that update `sponsorship_orders`
 
-### Frontend Integration (3-5 days)
-1. Generate TypeScript types
-2. Create React hooks (see `docs/FRONTEND_INTEGRATION_GUIDE.md`)
-3. Build UI components
-4. Implement pages
-5. Add real-time subscriptions
-
-### Launch Preparation (1 week)
-1. Test all workflows end-to-end
-2. Load test with realistic data
-3. Set up monitoring and alerts
-4. Train support team
-5. Create user documentation
-6. Soft launch with beta users
+### Frontend Integration (see `docs/FRONTEND_INTEGRATION_GUIDE.md`)
+- Generate TypeScript types from Supabase
+- Create hooks for packages, matches, proposals, deliverables, and orders
+- Build dashboards that surface sponsor intent, negotiation status, and payout readiness
 
 ---
 
-## 🔧 Development Commands
+## 📊 Handy Operational Queries
 
-```bash
-# Generate types
-npx supabase gen types typescript --project-id your-project > src/types/database.types.ts
+```sql
+-- Monitor sponsorship pipeline health
+SELECT status, COUNT(*)
+FROM sponsorship_matches
+GROUP BY status
+ORDER BY status;
 
-# Deploy Edge Functions
-npx supabase functions deploy sponsorship-recalc
-npx supabase functions deploy rollup-event-stats
-npx supabase functions deploy reconcile-payments
+-- Track proposals awaiting response
+SELECT status, COUNT(*)
+FROM proposal_threads
+GROUP BY status;
 
-# Check migration status
-npx supabase migration list
+-- Watch deliverable completion
+SELECT status, COUNT(*)
+FROM deliverables
+GROUP BY status;
 
-# Run local development
-npm run dev
+-- Summarize escrow and payouts
+SELECT so.status,
+       so.escrow_state,
+       SUM(so.amount_cents) / 100 AS total_usd
+FROM sponsorship_orders so
+GROUP BY so.status, so.escrow_state
+ORDER BY so.status;
 ```
 
----
-
-## 📚 Learn More
-
-- **Complete System Overview**: `SYSTEM_COMPLETE.md`
-- **Backend API Guide**: `docs/BACKEND_INTEGRATION_COMPLETE.md`
-- **Frontend Guide**: `docs/FRONTEND_INTEGRATION_GUIDE.md`
-- **All Documentation**: `MASTER_INDEX.md`
-
----
-
-## 💡 Pro Tips
-
-1. **Start Simple**: Create 1-2 test packages and sponsors first
-2. **Use Views**: Query `v_*` views instead of joining tables manually
-3. **Monitor Queues**: Keep `fit_recalc_queue` under 1000 items
-4. **Refresh MVs**: Run `refresh_sponsorship_mvs(true)` after bulk data changes
-5. **Test Locally**: Use Supabase local development for testing
-
----
-
-**You're ready to build! 🎉**
-
-Start with Step 1 above and work through each step to see your sponsorship system in action.
+You now have a production-aligned sponsorship wing walkthrough that mirrors the live schema.
