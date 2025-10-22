@@ -33,6 +33,14 @@
 | **docs/API_ROUTES_REFERENCE.md** | Next.js API routes | Full-stack devs |
 | **docs/BACKEND_FRONTEND_FLOW.md** | Data flow diagrams | Full-stack devs |
 
+### Sponsorship Wing Implementation
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| **QUICK_START.md** | Hands-on activation runbook for the sponsorship wing | Implementers |
+| **docs/BACKEND_INTEGRATION_COMPLETE.md** | End-to-end API contract for sponsorship wing services | Backend & platform teams |
+| **docs/FRONTEND_INTEGRATION_GUIDE.md** | UI patterns and hooks for sponsorship wing dashboards | Frontend teams |
+| **supabase/migrations/** | Canonical sponsorship schema (existing migrations) | DBAs, data teams |
+
 ### Operations
 | Document | Purpose | Audience |
 |----------|---------|----------|
