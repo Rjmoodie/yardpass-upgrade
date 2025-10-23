@@ -230,7 +230,7 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
       try {
         // Always get events where user has tickets (attendee events)
         const { data: ticketsData, error: ticketsError } = await supabase
-          .from('tickets')
+          .from('ticketing.tickets')
           .select(`
             id,
             event_id,
@@ -259,7 +259,7 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
         if (user.role === 'organizer') {
           // Get events where user is organizer
           const { data: organizerEvents, error: orgError } = await supabase
-            .from('events')
+            .from('events.events')
             .select(`
               id,
               title,
@@ -275,7 +275,7 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
 
           // Also get events where user is an organization member with posting rights
           const { data: orgMemberships, error: memberError } = await supabase
-            .from('org_memberships')
+            .from('organizations.org_memberships')
             .select('org_id')
             .eq('user_id', user.id)
             .in('role', ['owner', 'admin', 'editor']);
@@ -287,7 +287,7 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
           
           if (orgIds.length > 0) {
             const { data: orgEventsData, error: orgEventsError } = await supabase
-              .from('events')
+              .from('events.events')
               .select(`
                 id,
                 title,

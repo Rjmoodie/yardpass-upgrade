@@ -92,33 +92,73 @@ body {
 }
 
 
-/* iOS-Native Design System Tokens */
+/* iOS-Native Design System Tokens (REVAMPED) */
 :root {
-  /* Core Colors - Vibrant Orange/Amber palette */
+  /* Surfaces */
+  --bg: 0 0% 100%;
+  --bg-elev: 240 5% 98%;
+  --bg-subtle: 240 4.8% 95.9%;
   --background: 0 0% 100%;
-  --foreground: 215 25% 8%;
+  --foreground: 240 10% 3.9%;
+  --fg: 240 10% 3.9%;
+  
   --card: 0 0% 100%;
-  --card-foreground: 215 25% 8%;
+  --card-foreground: 240 10% 3.9%;
   --popover: 0 0% 100%;
-  --popover-foreground: 215 25% 8%;
-  --primary: 32 95% 55%;             /* Vibrant Orange */
+  --popover-foreground: 240 10% 3.9%;
+  
+  /* Brand Colors - YardPass Yellow/Orange */
+  --primary: 42 96% 52%;             /* YardPass brand yellow/orange */
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 35 100% 70%;       /* Bright amber glow */
-  --secondary: 210 17% 96%;          /* iOS Light Gray */
-  --secondary-foreground: 215 25% 8%;
-  --muted: 210 17% 96%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 32 95% 55%;              /* Match primary orange */
+  --primary-glow: 42 96% 62%;
+  
+  /* Accent - Blue for CTAs and highlights */
+  --accent: 221 83% 53%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 358 75% 59%;        /* iOS Red */
-  --destructive-foreground: 0 0% 100%;
-  --success: 145 63% 49%;            /* iOS Green */
+  
+  /* Secondary and Muted */
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 10% 3.9%;
+  --muted: 240 4% 46%;
+  --muted-foreground: 240 3.8% 46.1%;
+  
+  /* Semantic Colors */
+  --success: 142 72% 29%;
   --success-foreground: 0 0% 100%;
-  --warning: 41 97% 55%;             /* iOS Orange */
+  --warning: 38 92% 50%;
   --warning-foreground: 0 0% 100%;
-  --border: 210 17% 89%;
-  --input: 210 17% 89%;
-  --ring: 32 95% 55%;
+  --danger: 0 84% 57%;
+  --destructive: 0 84% 57%;
+  --destructive-foreground: 0 0% 100%;
+  
+  /* Surfaces (optional warm variant) */
+  --surface-warm: 38 44% 96%;        /* Tokenized beige instead of #FDF8F2 */
+  
+  /* Borders & Focus */
+  --border: 240 5% 90%;
+  --input: 240 5% 90%;
+  --ring: 221 83% 70%;
+  
+  /* Elevation shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  
+  /* Typography */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  /* Motion & Duration */
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  
+  /* Spacing & Density */
+  --spacing-comfortable: 1rem;
+  --spacing-compact: 0.5rem;
   
   /* Safe Area Variables */
   --safe-area-inset-top: env(safe-area-inset-top);
@@ -204,30 +244,50 @@ body {
 /* Dark Theme - iOS-inspired dark colors */
 /* Dark mode variables - using .dark class selector for next-themes */
 .dark {
-  --background: 210 22% 9%;           /* iOS Dark Background */
-  --foreground: 210 17% 95%;
-  --card: 210 22% 11%;                /* iOS Dark Card */
-  --card-foreground: 210 17% 95%;
-  --popover: 210 22% 11%;
-  --popover-foreground: 210 17% 95%;
-  --primary: 35 100% 65%;             /* Bright orange for dark mode */
+  /* Surfaces */
+  --bg: 240 10% 4%;
+  --bg-elev: 240 8% 8%;
+  --bg-subtle: 240 7% 12%;
+  --background: 240 10% 4%;
+  --foreground: 0 0% 100%;
+  --fg: 0 0% 100%;
+  
+  --card: 240 8% 8%;
+  --card-foreground: 0 0% 100%;
+  --popover: 240 8% 8%;
+  --popover-foreground: 0 0% 100%;
+  
+  /* Brand Colors - YardPass Yellow/Orange (brighter for dark) */
+  --primary: 42 96% 62%;
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 35 100% 75%;        /* Bright amber glow */
-  --secondary: 210 22% 15%;           /* iOS Dark Secondary */
-  --secondary-foreground: 210 17% 85%;
-  --muted: 210 22% 15%;
-  --muted-foreground: 210 17% 60%;
-  --accent: 35 100% 65%;              /* Match primary orange */
+  --primary-glow: 42 96% 72%;
+  
+  /* Accent - Blue */
+  --accent: 221 83% 63%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 358 75% 65%;         /* Slightly lighter red for dark mode */
-  --destructive-foreground: 210 22% 9%;
-  --success: 145 63% 55%;             /* Slightly lighter green for dark mode */
-  --success-foreground: 210 22% 9%;
-  --warning: 41 97% 60%;              /* Slightly lighter orange for dark mode */
-  --warning-foreground: 210 22% 9%;
-  --border: 210 22% 18%;
-  --input: 210 22% 15%;
-  --ring: 35 100% 65%;                /* Match primary orange */
+  
+  /* Secondary and Muted */
+  --secondary: 240 7% 12%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 240 4% 56%;
+  --muted-foreground: 240 5% 64.9%;
+  
+  /* Semantic Colors */
+  --success: 142 72% 39%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 60%;
+  --warning-foreground: 0 0% 100%;
+  --danger: 0 84% 67%;
+  --destructive: 0 84% 67%;
+  --destructive-foreground: 0 0% 100%;
+  
+  /* Surfaces (optional warm variant) */
+  --surface-warm: 240 8% 10%;
+  
+  /* Borders & Focus */
+  --border: 240 10% 18%;
+  --input: 240 10% 15%;
+  --ring: 221 83% 70%;
   
   /* Dark mode glassmorphism */
   --glass-bg: hsl(210 22% 11% / 0.8);

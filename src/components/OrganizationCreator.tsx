@@ -75,7 +75,7 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
       setCheckingHandle(true);
       try {
         const { data, error } = await supabase
-          .from('organizations')
+          .from('organizations.organizations')
           .select('id')
           .eq('handle', formData.handle)
           .maybeSingle();
@@ -137,7 +137,7 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
 
     if (publicUrl) {
       const { error: patchErr } = await supabase
-        .from('organizations')
+        .from('organizations.organizations')
         .update({ logo_url: publicUrl })
         .eq('id', orgId);
 
@@ -171,7 +171,7 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
 
       // 2) Update with description and social links
       const { error: updateError } = await supabase
-        .from('organizations')
+        .from('organizations.organizations')
         .update({
           description: formData.description?.trim() || null,
           social_links: socialLinks,

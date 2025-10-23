@@ -65,7 +65,7 @@ async function handlePreloadHints(req: Request, supabase: any, userId: string | 
 
   // Get video metadata for the posts
   const { data: posts, error } = await supabase
-    .from('event_posts_with_meta')
+    .from('events.event_posts_with_meta')
     .select('id, media_urls, created_at')
     .in('id', postIds)
     .limit(20); // Limit to prevent large responses

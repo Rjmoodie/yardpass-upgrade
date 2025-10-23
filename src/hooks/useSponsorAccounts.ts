@@ -16,7 +16,7 @@ export function useSponsorAccounts(userId?: string) {
     if (!userId) throw new Error('User not authenticated');
 
     const { data: sponsor, error: sponsorError } = await supabase
-      .from('sponsors')
+      .from('sponsorship.sponsors')
       .insert({
         ...data,
         created_by: userId
@@ -28,7 +28,7 @@ export function useSponsorAccounts(userId?: string) {
 
     // Add user as owner
     const { error: memberError } = await supabase
-      .from('sponsor_members')
+      .from('sponsorship.sponsor_members')
       .insert({
         sponsor_id: sponsor.id,
         user_id: userId,
@@ -55,7 +55,7 @@ export function useSponsorAccounts(userId?: string) {
     try {
       // First get sponsor IDs user belongs to
       const { data: memberships, error: membershipError } = await supabase
-        .from('sponsor_members')
+        .from('sponsorship.sponsor_members')
         .select('sponsor_id')
         .eq('user_id', userId);
 
@@ -71,7 +71,7 @@ export function useSponsorAccounts(userId?: string) {
 
       // Then get sponsor details
       const { data: sponsors, error: sponsorError } = await supabase
-        .from('sponsors')
+        .from('sponsorship.sponsors')
         .select('*')
         .in('id', sponsorIds);
 

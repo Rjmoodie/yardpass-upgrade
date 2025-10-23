@@ -26,7 +26,7 @@ export async function canUserViewEventServerSide(params:{
     // Organizer check
     if (userId) {
       const { data } = await supabase
-        .from('events')
+        .from('events.events')
         .select('owner_context_type, owner_context_id, created_by')
         .eq('id', eventId)
         .single();
@@ -37,7 +37,7 @@ export async function canUserViewEventServerSide(params:{
       // Organization member check
       if (data?.owner_context_type === 'organization' && data.owner_context_id) {
         const { data: m } = await supabase
-          .from('org_memberships')
+          .from('organizations.org_memberships')
           .select('user_id')
           .eq('org_id', data.owner_context_id)
           .eq('user_id', userId)
@@ -48,7 +48,7 @@ export async function canUserViewEventServerSide(params:{
 
     // Token match?
     const { data: tokenRow } = await supabase
-      .from('events')
+      .from('events.events')
       .select('link_token')
       .eq('id', eventId)
       .single();
@@ -65,19 +65,19 @@ export async function canUserViewEventServerSide(params:{
   // Organizer OR Ticket-holder OR Invitee can view
   const [{ data: ev }, { data: ticket }, { data: invite }] = await Promise.all([
     supabase
-      .from('events')
+      .from('events.events')
       .select('owner_context_type, owner_context_id, created_by')
       .eq('id', eventId)
       .single(),
     supabase
-      .from('tickets')
+      .from('ticketing.tickets')
       .select('id')
       .eq('event_id', eventId)
       .eq('owner_user_id', userId)
       .limit(1)
       .maybeSingle(),
     supabase
-      .from('event_invites')
+      .from('events.event_invites')
       .select('id')
       .eq('event_id', eventId)
       .eq('user_id', userId)
@@ -91,7 +91,7 @@ export async function canUserViewEventServerSide(params:{
   const isOrgMember =
     ev?.owner_context_type === 'organization' && ev.owner_context_id
       ? !!(await supabase
-          .from('org_memberships')
+          .from('organizations.org_memberships')
           .select('user_id')
           .eq('org_id', ev.owner_context_id)
           .eq('user_id', userId)

@@ -52,7 +52,7 @@ serve(async (req) => {
 
     // Check if user has access to this event
     const { data: event } = await supabase
-      .from('events')
+      .from('events.events')
       .select('*')
       .eq('id', eventId)
       .single();
@@ -70,7 +70,7 @@ serve(async (req) => {
       hasAccess = true;
     } else if (event.owner_context_type === 'organization') {
       const { data: membership } = await supabase
-        .from('org_memberships')
+        .from('organizations.org_memberships')
         .select('role')
         .eq('org_id', event.owner_context_id)
         .eq('user_id', user.id)
@@ -101,12 +101,12 @@ serve(async (req) => {
 
     // Get ticket tiers and their performance
     const { data: tiers } = await supabase
-      .from('ticket_tiers')
+      .from('ticketing.ticket_tiers')
       .select('*')
       .eq('event_id', eventId);
 
     const { data: tierSales } = await supabase
-      .from('order_items')
+      .from('ticketing.order_items')
       .select(`
         tier_id, 
         quantity, 
@@ -144,7 +144,7 @@ serve(async (req) => {
 
     // Get posts and engagement for this event
     const { data: postsData } = await supabase
-      .from('event_posts')
+      .from('events.event_posts')
       .select('id')
       .eq('event_id', eventId)
       .gte('created_at', defaultFromDate)

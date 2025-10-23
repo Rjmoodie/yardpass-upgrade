@@ -112,7 +112,7 @@ export default function CommentModal({
 
   async function resolvePostIdFromMedia(eventId: string, playbackId: string) {
     const { data } = await supabase
-      .from('event_posts')
+      .from('events.event_posts')
       .select('id, media_urls')
       .eq('event_id', eventId);
     for (const row of data ?? []) {
@@ -272,7 +272,7 @@ export default function CommentModal({
       const to = from + PAGE_SIZE - 1;
 
       let postQuery = supabase
-        .from('event_posts')
+        .from('events.event_posts')
         .select('id, text, author_user_id, created_at, media_urls, like_count, comment_count, ticket_tier_id');
 
       if (singleMode) {
@@ -293,7 +293,7 @@ export default function CommentModal({
       let authorProfiles: Record<string, { display_name: string; photo_url?: string | null }> = {};
       if (authorIds.length) {
         const { data: profiles } = await supabase
-          .from('user_profiles')
+          .from('users.user_profiles')
           .select('user_id, display_name, photo_url')
           .in('user_id', authorIds);
         authorProfiles = (profiles ?? []).reduce((acc, p: any) => { acc[p.user_id] = p; return acc; }, {});
@@ -304,7 +304,7 @@ export default function CommentModal({
       let ticketTiers: Record<string, { badge_label?: string | null }> = {};
       if (tierIds.length) {
         const { data: tiers } = await supabase
-          .from('ticket_tiers')
+          .from('ticketing.ticket_tiers')
           .select('id, badge_label')
           .in('id', tierIds);
         ticketTiers = (tiers ?? []).reduce((acc: Record<string, any>, t: any) => { acc[t.id] = t; return acc; }, {});
@@ -312,7 +312,7 @@ export default function CommentModal({
 
       // Comments for these posts
       const { data: commentRows, error: commentsError } = await supabase
-        .from('event_comments')
+        .from('events.event_comments')
         .select('id, text, author_user_id, created_at, post_id')
         .in('post_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: true });
@@ -322,7 +322,7 @@ export default function CommentModal({
       let commentAuthorProfiles: Record<string, any> = {};
       if (commentAuthorIds.length) {
         const { data: profiles } = await supabase
-          .from('user_profiles')
+          .from('users.user_profiles')
           .select('user_id, display_name, photo_url')
           .in('user_id', commentAuthorIds);
         commentAuthorProfiles = (profiles ?? []).reduce((acc: Record<string, any>, p: any) => { acc[p.user_id] = p; return acc; }, {});
@@ -432,7 +432,7 @@ export default function CommentModal({
     try {
       console.log('🔥 CommentModal: Inserting comment to DB', { postId: activePost.id, text: optimistic.text });
       const { data, error } = await supabase
-        .from('event_comments')
+        .from('events.event_comments')
         .insert({ 
           post_id: activePost.id, 
           author_user_id: user.id, 
@@ -496,12 +496,12 @@ export default function CommentModal({
     try {
       if (optimistic) {
         const { error } = await supabase
-          .from('event_comment_reactions')
+          .from('events.event_comment_reactions')
           .insert({ comment_id: commentId, user_id: user.id, kind: 'like' });
         if (error && (error as any).code !== '23505') throw error;
       } else {
         const { error } = await supabase
-          .from('event_comment_reactions')
+          .from('events.event_comment_reactions')
           .delete()
           .eq('comment_id', commentId).eq('user_id', user.id).eq('kind', 'like');
         if (error) throw error;
@@ -537,7 +537,7 @@ export default function CommentModal({
     const snapshot = posts;
     setPosts(prev => prev.map(p => ({ ...p, comments: p.comments.filter(c => c.id !== commentId) })));
     try {
-      const { error } = await supabase.from('event_comments').delete().eq('id', commentId).eq('author_user_id', user.id);
+      const { error } = await supabase.from('events.event_comments').delete().eq('id', commentId).eq('author_user_id', user.id);
       if (error) throw error;
       toast({ title: 'Deleted', description: 'Your comment was removed.' });
     } catch {

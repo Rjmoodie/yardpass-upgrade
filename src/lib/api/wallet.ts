@@ -4,7 +4,7 @@ export async function fetchWalletTx({ orgId, page, limit }:{
   orgId: string, page: number, limit: number
 }) {
   const { data: wallet, error: wErr } = await supabase
-    .from('org_wallets')
+    .from('payments.org_wallets')
     .select('id')
     .eq('org_id', orgId)
     .single();
@@ -15,13 +15,13 @@ export async function fetchWalletTx({ orgId, page, limit }:{
 
   const [{ data: rows, error }, { count, error: cErr }] = await Promise.all([
     supabase
-      .from('org_wallet_transactions')
+      .from('payments.org_wallet_transactions')
       .select('*')
       .eq('wallet_id', wallet.id)
       .order('created_at', { ascending: false })
       .range(from, to),
     supabase
-      .from('org_wallet_transactions')
+      .from('payments.org_wallet_transactions')
       .select('*', { count: 'exact', head: true })
       .eq('wallet_id', wallet.id),
   ]);

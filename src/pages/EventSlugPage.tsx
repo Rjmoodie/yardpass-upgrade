@@ -250,7 +250,7 @@ export default function EventSlugPage() {
       setLoading(true);
       try {
         let { data, error } = await supabase
-          .from('events')
+          .from('events.events')
           .select(`
               id, slug, title, description, category, start_at, end_at, venue, city, country, address, lat, lng, cover_image_url,
               owner_context_type, owner_context_id, created_by, visibility, link_token,
@@ -262,7 +262,7 @@ export default function EventSlugPage() {
 
         if ((!data || !data.length) && /^[0-9a-f-]{36}$/i.test(identifier)) {
           const byId = await supabase
-            .from('events')
+            .from('events.events')
             .select(`
                 id, slug, title, description, category, start_at, end_at, venue, city, country, address, lat, lng, cover_image_url,
                 owner_context_type, owner_context_id, created_by, visibility, link_token,
@@ -279,13 +279,13 @@ export default function EventSlugPage() {
         if (eventRow) {
           const [{ data: atts }, { count }] = await Promise.all([
             supabase
-              .from('tickets')
+              .from('ticketing.tickets')
               .select('owner_user_id')
               .eq('event_id', eventRow.id)
               .in('status', ['issued', 'transferred', 'redeemed'])
               .limit(12),
             supabase
-              .from('tickets')
+              .from('ticketing.tickets')
               .select('id', { count: 'exact', head: true })
               .eq('event_id', eventRow.id)
               .in('status', ['issued', 'transferred', 'redeemed']),
@@ -295,7 +295,7 @@ export default function EventSlugPage() {
             // Fetch user profiles separately
             const userIds = atts.map((t: any) => t.owner_user_id);
             const { data: profiles } = await supabase
-              .from('user_profiles')
+              .from('users.user_profiles')
               .select('user_id, display_name, photo_url')
               .in('user_id', userIds);
             

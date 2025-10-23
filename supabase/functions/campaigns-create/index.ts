@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: campaign, error } = await supabase
-      .from('campaigns')
+      .from('campaigns.campaigns')
       .insert({
         org_id,
         name,

@@ -49,7 +49,7 @@ serve(async (req) => {
     } else if (context_type === 'organization') {
       // Check if user is member of the organization
       const { data: membership } = await supabaseService
-        .from('org_memberships')
+        .from('organizations.org_memberships')
         .select('role')
         .eq('org_id', context_id)
         .eq('user_id', userData.user.id)
@@ -66,7 +66,7 @@ serve(async (req) => {
 
     // Get the payout account
     const { data: payoutAccount, error: accountError } = await supabaseService
-      .from('payout_accounts')
+      .from('payments.payout_accounts')
       .select('*')
       .eq('context_type', context_type)
       .eq('context_id', context_id)

@@ -1,11 +1,12 @@
-// Platform-aware routing based on your strategic breakdown
-// Implements the mobile vs web feature distribution strategy
+// Platform-aware routing (REVAMPED)
+// Implements the mobile vs web feature distribution strategy with capability gates
 
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { WebOnly, MobileOnly } from './PlatformWrapper';
+import { WebOnly } from '@/components/gates/WebOnly';
+import { MobileOnly } from '@/components/gates/MobileOnly';
+import { UpsellDesktop, UpsellMobile } from '@/components/Upsells';
 import { PageLoadingSpinner } from './LoadingSpinner';
-import { Button } from './ui/button';
 
 // Web-only components (Management, Analytics, Admin)
 const WebSponsorshipPage = lazy(() => import('@/pages/web/WebSponsorshipPage'));
@@ -29,27 +30,8 @@ const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
 const UserProfile = lazy(() => import('@/components/UserProfile'));
 const SearchPage = lazy(() => import('@/components/SearchPage'));
 
-const mobileUpsell = (
-  <div className="flex min-h-[320px] flex-col items-center justify-center space-y-4 rounded-2xl border border-dashed border-border/70 bg-muted/10 p-8 text-center">
-    <h2 className="text-xl font-semibold">Designed for Mobile</h2>
-    <p className="text-sm text-muted-foreground">
-      This experience is best on the YardPass mobile app where QR scanning, wallets, and social tools are optimized.
-    </p>
-    <Button size="sm" variant="outline">Download App</Button>
-  </div>
-);
-
-const webUpsell = (
-  <div className="flex min-h-[320px] flex-col items-center justify-center space-y-4 rounded-2xl border border-dashed border-border/70 bg-muted/10 p-8 text-center">
-    <h2 className="text-xl font-semibold">Available on Desktop</h2>
-    <p className="text-sm text-muted-foreground">
-      Management, analytics, and contract workflows live on the desktop web experience for full control.
-    </p>
-    <p className="text-xs text-muted-foreground">
-      Visit yardpass.tech from a desktop browser to unlock these tools.
-    </p>
-  </div>
-);
+// Upsells are now handled by the gate components themselves
+// but can be customized per route if needed
 
 export const PlatformAwareRoutes: React.FC = () => {
   return (
@@ -65,7 +47,7 @@ export const PlatformAwareRoutes: React.FC = () => {
       <Route
         path="/sponsorship"
         element={
-          <WebOnly fallback={webUpsell}>
+          <WebOnly fallback={<UpsellDesktop feature="Sponsorship Management" />}>
             <Suspense fallback={<PageLoadingSpinner />}>
               <WebSponsorshipPage />
             </Suspense>

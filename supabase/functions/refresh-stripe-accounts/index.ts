@@ -27,7 +27,7 @@ serve(async (req) => {
 
     // Get all payout accounts with Stripe Connect IDs
     const { data: accounts, error } = await supabaseService
-      .from('payout_accounts')
+      .from('payments.payout_accounts')
       .select('*')
       .not('stripe_connect_id', 'is', null);
 
@@ -42,7 +42,7 @@ serve(async (req) => {
         
         // Update database with latest status
         const { error: updateError } = await supabaseService
-          .from('payout_accounts')
+          .from('payments.payout_accounts')
           .update({
             charges_enabled: stripeAccount.charges_enabled,
             payouts_enabled: stripeAccount.payouts_enabled,

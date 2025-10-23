@@ -610,7 +610,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   useEffect(() => {
     (async () => {
       const { data } = await supabase
-        .from('events')
+        .from('events.events')
         .select('title,start_at,owner_context_type,owner_context_id')
         .eq('id', eventId)
         .single();
@@ -622,7 +622,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         // Fetch organization data if event is owned by an organization
         if (orgId) {
           const { data: orgData } = await supabase
-            .from('organizations')
+            .from('organizations.organizations')
             .select('name, support_email')
             .eq('id', orgId)
             .single();
@@ -653,7 +653,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       }
       setContactListsLoading(true);
       const { data, error } = await supabase
-        .from('org_contact_imports')
+        .from('organizations.org_contact_imports')
         .select('id,name,org_contact_import_entries(count)')
         .eq('org_id', eventDetails.orgId)
         .order('imported_at', { ascending: false });
@@ -676,7 +676,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   // Recent jobs
   const refreshRecent = useCallback(async () => {
     const { data, error } = await supabase
-      .from('message_jobs')
+      .from('messaging.message_jobs')
       .select('*')
       .eq('event_id', eventId)
       .order('created_at', { ascending: false })

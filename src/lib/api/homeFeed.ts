@@ -56,7 +56,7 @@ export async function fetchHomeFeed(limit: number = 3): Promise<HomeFeedEvent[]>
     const nowISO = new Date().toISOString();
 
     const { data, error } = await supabase
-      .from('events')
+      .from('events.events')
       .select(`
         id,
         title,

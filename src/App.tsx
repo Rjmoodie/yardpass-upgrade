@@ -63,7 +63,7 @@ const AuthPage = lazy(() => import('@/pages/AuthPage'));
 const SponsorDashboard = lazy(() => import('@/components/sponsor/SponsorDashboard'));
 import { SponsorGuard } from '@/components/access/SponsorGuard';
 const WalletPage = lazy(() => import('@/pages/WalletPage'));
-const SponsorshipPage = lazy(() => import('@/pages/SponsorshipPageBasic'));
+const SponsorshipPage = lazy(() => import('@/pages/SponsorshipPage'));
 const SponsorshipTestPage = lazy(() => import('@/pages/SponsorshipTestPage'));
 const OrgWalletPage = lazy(() => import('@/pages/OrgWalletPage'));
 const CampaignDashboardPage = lazy(() => import('@/pages/CampaignDashboardPage'));

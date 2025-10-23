@@ -123,7 +123,7 @@ export function OrgContactImportPanel({ organizationId }: OrgContactImportPanelP
     const loadLists = async () => {
       setLoadingLists(true);
       const { data, error } = await supabase
-        .from('org_contact_imports')
+        .from('organizations.org_contact_imports')
         .select('id,name,source,imported_at,original_row_count,org_contact_import_entries(count)')
         .eq('org_id', organizationId)
         .order('imported_at', { ascending: false });
@@ -289,7 +289,7 @@ export function OrgContactImportPanel({ organizationId }: OrgContactImportPanelP
       const listLabel = suggestedName || 'Imported contacts';
       const { data: { user } } = await supabase.auth.getUser();
       const { data: createdImport, error: importError } = await supabase
-        .from('org_contact_imports')
+        .from('organizations.org_contact_imports')
         .insert({
           org_id: organizationId,
           name: listLabel,
@@ -313,7 +313,7 @@ export function OrgContactImportPanel({ organizationId }: OrgContactImportPanelP
           consent: contact.consent,
           metadata: { source: fileName },
         }));
-        const { error: entryError } = await supabase.from('org_contact_import_entries').insert(chunk);
+        const { error: entryError } = await supabase.from('organizations.org_contact_import_entries').insert(chunk);
         if (entryError) throw entryError;
       }
 
@@ -328,7 +328,7 @@ export function OrgContactImportPanel({ organizationId }: OrgContactImportPanelP
       setFileName('');
 
       const refreshed = await supabase
-        .from('org_contact_imports')
+        .from('organizations.org_contact_imports')
         .select('id,name,source,imported_at,original_row_count,org_contact_import_entries(count)')
         .eq('org_id', organizationId)
         .order('imported_at', { ascending: false });

@@ -60,7 +60,7 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('ticket_tiers')
+        .from('ticketing.ticket_tiers')
         .select('id, name, price_cents, badge_label, quantity, max_per_order')
         .eq('event_id', event.id)
         .order('price_cents', { ascending: true });

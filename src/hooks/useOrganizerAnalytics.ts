@@ -97,7 +97,7 @@ export function useOrganizerAnalytics() {
       console.warn('Edge function failed, using fallback queries:', funcError);
       
       const { data: events, error: eventsError } = await supabase
-        .from('events')
+        .from('events.events')
         .select('id, title, created_at, end_at')
         .eq('created_by', user.id);
 
@@ -118,7 +118,7 @@ export function useOrganizerAnalytics() {
 
       // Fetch orders and tickets
       const { data: orders } = await supabase
-        .from('orders')
+        .from('ticketing.orders')
         .select(`
           event_id, 
           total_cents, 
@@ -129,18 +129,18 @@ export function useOrganizerAnalytics() {
         .eq('status', 'paid');
 
       const { data: tickets } = await supabase
-        .from('tickets')
+        .from('ticketing.tickets')
         .select('event_id, status')
         .in('event_id', eventIds);
 
       const { data: scanLogs } = await supabase
-        .from('scan_logs')
+        .from('ticketing.scan_logs')
         .select('event_id, result')
         .in('event_id', eventIds)
         .eq('result', 'valid');
 
       const { data: reactions } = await supabase
-        .from('event_reactions')
+        .from('events.event_reactions')
         .select(`
           kind,
           event_posts!inner (event_id)

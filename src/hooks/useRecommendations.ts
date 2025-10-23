@@ -64,7 +64,7 @@ export function useRecommendations(userId?: string, limit = 8) {
       // 2) Fallback to upcoming events (generic)
       try {
         const { data: rows, error: selError } = await supabase
-          .from('events')
+          .from('events.events')
           .select('id, title, category, start_at, cover_image_url, description, venue')
           .gte('start_at', new Date().toISOString())
           .order('start_at', { ascending: true })

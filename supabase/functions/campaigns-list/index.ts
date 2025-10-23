@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: campaigns, error } = await supabase
-      .from('campaigns')
+      .from('campaigns.campaigns')
       .select('*')
       .eq('org_id', orgId)
       .order('created_at', { ascending: false });

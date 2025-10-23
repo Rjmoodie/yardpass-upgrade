@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
     if (SIGNED_QR_RE.test(qr_token)) {
       const verification = await verifySignedTicketToken(qr_token)
       if (verification.status === 'expired') {
-        await admin.from('scan_logs').insert({
+        await admin.from('ticketing.scan_logs').insert({
           event_id,
           scanner_user_id: user.id,
           result: 'expired',
@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
         return ok(<ValidateResponse>{ success: false, result: 'expired', message: 'QR code has expired' })
       }
       if (verification.status === 'invalid') {
-        await admin.from('scan_logs').insert({
+        await admin.from('ticketing.scan_logs').insert({
           event_id,
           scanner_user_id: user.id,
           result: 'invalid',
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
     if (!allowed) {
       // 2) Explicit scanner assignment for this event?
       const { data: scannerRow, error: scanErr } = await client
-        .from('event_scanners').select('status')
+        .from('ticketing.event_scanners').select('status')
         .eq('event_id', event_id).eq('user_id', user.id).eq('status', 'enabled').maybeSingle()
       if (scanErr) console.warn('[scanner-validate] event_scanners error:', scanErr?.message)
       allowed = !!scannerRow
@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
 
     // --- Lookup ticket by code ---
     let ticketQuery = admin
-      .from('tickets')
+      .from('ticketing.tickets')
       .select('id, event_id, status, redeemed_at, owner_user_id, tier_id, qr_code')
 
     if (tokenPayload?.tid) {
@@ -243,7 +243,7 @@ Deno.serve(async (req) => {
 
     if (tErr || !ticket) {
       // Log and return "invalid"
-      await admin.from('scan_logs').insert({
+      await admin.from('ticketing.scan_logs').insert({
         event_id, scanner_user_id: user.id, result: 'invalid',
         details: { qr_token, error: tErr ? 'db_lookup_error' : 'ticket_not_found' }
       })
@@ -251,7 +251,7 @@ Deno.serve(async (req) => {
     }
 
     if (tokenPayload && ticket.qr_code !== qr_token) {
-      await admin.from('scan_logs').insert({
+      await admin.from('ticketing.scan_logs').insert({
         event_id,
         ticket_id: ticket.id,
         scanner_user_id: user.id,
@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
 
     // Wrong event?
     if (tokenPayload && tokenPayload.eid !== event_id) {
-      await admin.from('scan_logs').insert({
+      await admin.from('ticketing.scan_logs').insert({
         event_id,
         ticket_id: ticket.id,
         scanner_user_id: user.id,
@@ -274,7 +274,7 @@ Deno.serve(async (req) => {
     }
 
     if (ticket.event_id !== event_id) {
-      await admin.from('scan_logs').insert({
+      await admin.from('ticketing.scan_logs').insert({
         event_id, ticket_id: ticket.id, scanner_user_id: user.id, result: 'wrong_event',
         details: { qr_token, actual_event_id: ticket.event_id }
       })
@@ -283,18 +283,18 @@ Deno.serve(async (req) => {
 
     // Refunded / void?
     if (ticket.status === 'refunded') {
-      await admin.from('scan_logs').insert({ event_id, ticket_id: ticket.id, scanner_user_id: user.id, result: 'refunded', details: { qr_token } })
+      await admin.from('ticketing.scan_logs').insert({ event_id, ticket_id: ticket.id, scanner_user_id: user.id, result: 'refunded', details: { qr_token } })
       return ok(<ValidateResponse>{ success: false, result: 'refunded', message: 'Ticket has been refunded' })
     }
     if (ticket.status === 'void') {
-      await admin.from('scan_logs').insert({ event_id, ticket_id: ticket.id, scanner_user_id: user.id, result: 'void', details: { qr_token } })
+      await admin.from('ticketing.scan_logs').insert({ event_id, ticket_id: ticket.id, scanner_user_id: user.id, result: 'void', details: { qr_token } })
       return ok(<ValidateResponse>{ success: false, result: 'void', message: 'Ticket is void' })
     }
 
     // Event ended?
-    const { data: evt, error: evtErr } = await admin.from('events').select('end_at').eq('id', event_id).single()
+    const { data: evt, error: evtErr } = await admin.from('events.events').select('end_at').eq('id', event_id).single()
     if (!evtErr && evt?.end_at && new Date(evt.end_at).getTime() < Date.now()) {
-      await admin.from('scan_logs').insert({
+      await admin.from('ticketing.scan_logs').insert({
         event_id, ticket_id: ticket.id, scanner_user_id: user.id, result: 'expired',
         details: { qr_token, event_end: evt.end_at }
       })
@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
     // Only redeem if not already redeemed.
     const now = new Date().toISOString()
     const { data: redeemedRow, error: updErr } = await admin
-      .from('tickets')
+      .from('ticketing.tickets')
       .update({ redeemed_at: now, status: 'redeemed' })
       .eq('id', ticket.id)
       .is('redeemed_at', null)               // <-- atomic guard
@@ -319,9 +319,9 @@ Deno.serve(async (req) => {
 
     // Fetch presentation data (safe to do after)
     const [{ data: tier }, { data: profile }] = await Promise.all([
-      admin.from('ticket_tiers').select('name, badge_label').eq('id', ticket.tier_id).maybeSingle(),
+      admin.from('ticketing.ticket_tiers').select('name, badge_label').eq('id', ticket.tier_id).maybeSingle(),
       ticket.owner_user_id
-        ? admin.from('user_profiles').select('display_name').eq('user_id', ticket.owner_user_id).maybeSingle()
+        ? admin.from('users.user_profiles').select('display_name').eq('user_id', ticket.owner_user_id).maybeSingle()
         : Promise.resolve({ data: null as any }),
     ])
 
@@ -335,13 +335,13 @@ Deno.serve(async (req) => {
     if (!redeemedRow) {
       // Someone else redeemed first → treat as duplicate; get current redeemed_at
       const { data: fresh } = await admin
-        .from('tickets')
+        .from('ticketing.tickets')
         .select('redeemed_at')
         .eq('id', ticket.id)
         .single()
 
       const ts = fresh?.redeemed_at ?? ticket.redeemed_at ?? now
-      await admin.from('scan_logs').insert({
+      await admin.from('ticketing.scan_logs').insert({
         event_id, ticket_id: ticket.id, scanner_user_id: user.id, result: 'duplicate',
         details: { qr_token, original_redeemed_at: ts }
       })
@@ -356,7 +356,7 @@ Deno.serve(async (req) => {
     }
 
     // Success
-    await admin.from('scan_logs').insert({
+    await admin.from('ticketing.scan_logs').insert({
       event_id, ticket_id: ticket.id, scanner_user_id: user.id, result: 'valid',
       details: { qr_token, redeemed_at: now }
     })

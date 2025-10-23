@@ -102,7 +102,7 @@ export const handlePostComment = async (postId: string, comment: string) => {
     }
 
     const { error } = await supabase
-      .from('event_comments')
+      .from('events.event_comments')
       .insert({
         post_id: postId,
         author_user_id: userData.user.id,
@@ -139,7 +139,7 @@ export const handleEventFollow = async (eventId: string, currentlyFollowing: boo
     if (currentlyFollowing) {
       // Unfollow event
       const { error } = await supabase
-        .from('follows')
+        .from('users.follows')
         .delete()
         .eq('follower_user_id', userData.user.id)
         .eq('target_type', 'event')
@@ -154,7 +154,7 @@ export const handleEventFollow = async (eventId: string, currentlyFollowing: boo
     } else {
       // Follow event
       const { error } = await supabase
-        .from('follows')
+        .from('users.follows')
         .insert({
           follower_user_id: userData.user.id,
           target_type: 'event',

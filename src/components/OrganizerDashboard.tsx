@@ -217,7 +217,7 @@ export default function OrganizerDashboard() {
     setLoadingEvents(true);
     try {
       const { data, error } = await supabase
-        .from('events')
+        .from('events.events')
         .select(`
           id, title, created_at, start_at, end_at, venue, category, cover_image_url, description, city, visibility, owner_context_type, owner_context_id,
           orders:orders!orders_event_id_fkey(total_cents, status),
@@ -336,13 +336,13 @@ export default function OrganizerDashboard() {
       setLoadingDetails(true);
       try {
         const { data: tiers } = await supabase
-          .from('ticket_tiers')
+          .from('ticketing.ticket_tiers')
           .select('id, name, price_cents, total_quantity, reserved_quantity, issued_quantity')
           .eq('event_id', selectedEvent.id)
           .order('price_cents', { ascending: true });
 
         const { data: posts } = await supabase
-          .from('event_posts')
+          .from('events.event_posts')
           .select('id, text, created_at, media_urls, like_count, comment_count')
           .eq('event_id', selectedEvent.id)
           .is('deleted_at', null)

@@ -80,7 +80,7 @@ export function useRoleInvites() {
 
   async function revokeInvite(inviteId: string) {
     const { error } = await supabase
-      .from('role_invites')
+      .from('organizations.role_invites')
       .update({ status: 'revoked' })
       .eq('id', inviteId);
     if (error) throw new Error(error.message);
@@ -89,7 +89,7 @@ export function useRoleInvites() {
   // Optional helpers if you want to fetch elsewhere with consistent shapes
   async function listInvites(eventId: string) {
     const { data, error } = await supabase
-      .from('role_invites')
+      .from('organizations.role_invites')
       .select('*')
       .eq('event_id', eventId)
       .order('created_at', { ascending: false });
@@ -99,7 +99,7 @@ export function useRoleInvites() {
 
   async function listMembers(eventId: string) {
     const { data, error } = await supabase
-      .from('event_roles')
+      .from('events.event_roles')
       .select(`
         id, user_id, role, status, created_by, created_at, event_id,
         user_profiles!inner(display_name)

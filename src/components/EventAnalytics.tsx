@@ -244,7 +244,7 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
     try {
       // Individual events
       const { data: individualEvents, error: indErr } = await supabase
-        .from('events')
+        .from('events.events')
         .select('id, title, start_at')
         .eq('owner_context_type', 'individual')
         .eq('owner_context_id', user?.id)
@@ -254,7 +254,7 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
 
       // Org memberships
       const { data: orgMemberships, error: memErr } = await supabase
-        .from('org_memberships')
+        .from('organizations.org_memberships')
         .select('org_id')
         .eq('user_id', user?.id);
 
@@ -265,7 +265,7 @@ const EventAnalytics: React.FC<EventAnalyticsProps> = ({ eventId: initialEventId
 
       if (orgIds.length > 0) {
         const { data, error } = await supabase
-          .from('events')
+          .from('events.events')
           .select('id, title, start_at')
           .eq('owner_context_type', 'organization')
           .in('owner_context_id', orgIds)

@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       // User exists → idempotent upsert into event_scanners
       const targetId = userRes.user.id
       const { error: upErr } = await admin
-        .from('event_scanners')
+        .from('ticketing.event_scanners')
         .upsert(
           { event_id, user_id: targetId, status: 'enabled', invited_by: caller.id },
           { onConflict: 'event_id,user_id' }

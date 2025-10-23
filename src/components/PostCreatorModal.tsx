@@ -276,7 +276,7 @@ export function PostCreatorModal({
       try {
         // Fetch events where user has tickets (attendee role)
         const { data: ticketData, error: ticketError } = await supabase
-          .from('tickets')
+          .from('ticketing.tickets')
           .select(`
             id,
             event_id,
@@ -299,7 +299,7 @@ export function PostCreatorModal({
 
         // Fetch organizations the user manages
         const { data: userOrganizations, error: orgError } = await supabase
-          .from('org_memberships')
+          .from('organizations.org_memberships')
           .select(`
             org_id,
             role,
@@ -318,7 +318,7 @@ export function PostCreatorModal({
 
         // Fetch events created by user OR owned by their organizations
         let eventsQuery = supabase
-          .from('events')
+          .from('events.events')
           .select(`
             id,
             title,

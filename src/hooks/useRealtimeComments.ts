@@ -61,7 +61,7 @@ export const useRealtimeComments = ({
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
-        .from('event_posts')
+        .from('events.event_posts')
         .select('id')
         .eq('event_id', eventId)
         .is('deleted_at', null);
@@ -136,7 +136,7 @@ export const useRealtimeComments = ({
                 return;
               }
               const { data: profile } = await supabase
-                .from('user_profiles')
+                .from('users.user_profiles')
                 .select('display_name')
                 .eq('user_id', newComment.author_user_id)
                 .maybeSingle();

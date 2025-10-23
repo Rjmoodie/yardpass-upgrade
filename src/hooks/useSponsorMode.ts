@@ -19,7 +19,7 @@ export function useSponsorMode() {
         }
 
         const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
+          .from('users.user_profiles')
           .select('sponsor_mode_enabled')
           .eq('user_id', user.id)
           .single();
@@ -49,7 +49,7 @@ export function useSponsorMode() {
       }
 
       const { error: updateError } = await supabase
-        .from('user_profiles')
+        .from('users.user_profiles')
         .update({ sponsor_mode_enabled: true })
         .eq('user_id', user.id);
 
@@ -83,7 +83,7 @@ export function useSponsorMode() {
       }
 
       const { error: updateError } = await supabase
-        .from('user_profiles')
+        .from('users.user_profiles')
         .update({ sponsor_mode_enabled: false })
         .eq('user_id', user.id);
 

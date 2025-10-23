@@ -271,7 +271,7 @@ export function NotificationSystem() {
     if (user) {
       try {
         const { error } = await supabase
-          .from('notifications')
+          .from('messaging.notifications')
           .update({ read_at: new Date().toISOString() })
           .eq('id', id)
           .eq('user_id', user.id);
@@ -296,7 +296,7 @@ export function NotificationSystem() {
     if (user) {
       try {
         const { error } = await supabase
-          .from('notifications')
+          .from('messaging.notifications')
           .update({ read_at: new Date().toISOString() })
           .eq('user_id', user.id)
           .is('read_at', null);
@@ -317,7 +317,7 @@ export function NotificationSystem() {
 
     if (user) {
       void supabase
-        .from('notifications')
+        .from('messaging.notifications')
         .delete()
         .eq('id', id)
         .eq('user_id', user.id);
@@ -354,7 +354,7 @@ export function NotificationSystem() {
     if (!user) return;
 
     try {
-      await supabase.from('notifications').upsert({
+      await supabase.from('messaging.notifications').upsert({
         id: notification.id,
         user_id: user.id,
         title: notification.title,
@@ -402,7 +402,7 @@ export function NotificationSystem() {
     setIsLoading(true);
 
     supabase
-      .from('notifications')
+      .from('messaging.notifications')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })

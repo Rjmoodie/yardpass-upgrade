@@ -120,6 +120,9 @@ export default {
         // 8pt grid system for consistent spacing
         "0.5": "2px",   // 0.25 * 8
         "1": "4px",     // 0.5 * 8
+        // Density spacing tokens
+        "comfortable": "var(--spacing-comfortable, 1rem)",
+        "compact": "var(--spacing-compact, 0.5rem)",
         "1.5": "6px",   // 0.75 * 8
         "2": "8px",     // 1 * 8
         "3": "12px",    // 1.5 * 8
@@ -189,6 +192,11 @@ export default {
         spring: "var(--ease-spring)",
       },
       transitionDuration: {
+        // Motion tokens from design system
+        fast: "var(--duration-fast, 120ms)",
+        normal: "var(--duration-normal, 200ms)",
+        slow: "var(--duration-slow, 300ms)",
+        // Legacy aliases
         quick: "200ms",
         smooth: "300ms",
         spring: "400ms",

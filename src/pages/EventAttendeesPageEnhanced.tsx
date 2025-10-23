@@ -40,7 +40,7 @@ export default function EventAttendeesPageEnhanced() {
 
         // Try by slug first
         const bySlug = await supabase
-          .from('events')
+          .from('events.events')
           .select('id, title')
           .eq('slug', identifier)
           .limit(1)
@@ -50,7 +50,7 @@ export default function EventAttendeesPageEnhanced() {
         if (!ev.data && /^[0-9a-f-]{36}$/i.test(identifier)) {
           // Fallback by id if identifier looks like a UUID
           ev = await supabase
-            .from('events')
+            .from('events.events')
             .select('id, title')
             .eq('id', identifier)
             .limit(1)
@@ -75,7 +75,7 @@ export default function EventAttendeesPageEnhanced() {
 
         // Get attendees directly from tickets with deduplication
         const { data, error, count } = await supabase
-          .from('tickets')
+          .from('ticketing.tickets')
           .select(`
             owner_user_id,
             user_profiles!inner(
@@ -131,7 +131,7 @@ export default function EventAttendeesPageEnhanced() {
     try {
       const from = page * PAGE_SIZE;
       const { data, error } = await supabase
-        .from('tickets')
+        .from('ticketing.tickets')
         .select(`
           owner_user_id,
           user_profiles!inner(

@@ -97,7 +97,7 @@ export default function EventsPage() {
       
       // Try to fetch by slug first, then fallback to ID
       let query = supabase
-        .from('events')
+        .from('events.events')
         .select(`
           *,
           user_profiles!events_created_by_fkey (
@@ -134,7 +134,7 @@ export default function EventsPage() {
 
       // Fetch ticket tiers
       const { data: tierData, error: tierError } = await supabase
-        .from('ticket_tiers')
+        .from('ticketing.ticket_tiers')
         .select('*')
         .eq('event_id', eventData.id)
         .order('sort_index');

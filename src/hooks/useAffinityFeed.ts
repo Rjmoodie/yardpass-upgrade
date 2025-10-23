@@ -50,7 +50,7 @@ export function useAffinityFeed(limit = 8) {
 
         // 3) Fetch light event metadata + organizer + min price + remaining
         const { data: events, error: evErr } = await supabase
-          .from('events')
+          .from('events.events')
           .select(`
             id, title, description, start_at, end_at, venue, city, country,
             cover_image_url, owner_context_id, owner_context_type,

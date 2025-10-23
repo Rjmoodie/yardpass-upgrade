@@ -18,7 +18,7 @@ export function useSponsorDeals(sponsorId?: string | null) {
 
     try {
       const { data, error: queryError } = await supabase
-        .from('sponsorship_orders')
+        .from('sponsorship.sponsorship_orders')
         .select(`
           *,
           event_title:events(title),

@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
     // Get campaigns for this org
     const { data: campaigns } = await supabase
-      .from('campaigns')
+      .from('campaigns.campaigns')
       .select('id')
       .eq('org_id', orgId);
 

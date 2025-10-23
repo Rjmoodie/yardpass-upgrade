@@ -26,7 +26,7 @@ export const useBatchedAnalytics = () => {
         const batch = events.slice(i, i + BATCH_SIZE);
         
         await supabase
-          .from('analytics_events')
+          .from('analytics.analytics_events')
           .insert(batch.map(event => ({
             ...event,
             created_at: new Date().toISOString()

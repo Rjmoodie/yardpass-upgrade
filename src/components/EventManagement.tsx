@@ -251,7 +251,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
 
     try {
       const { data: ticketsData } = await supabase
-        .from('tickets')
+        .from('ticketing.tickets')
         .select(`
           id,
           status,
@@ -263,13 +263,13 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
 
       const userIds = [...new Set((ticketsData || []).map((ticket) => ticket.owner_user_id))];
       const { data: profilesData } = await supabase
-        .from('user_profiles')
+        .from('users.user_profiles')
         .select('user_id, display_name, phone')
         .in('user_id', userIds);
 
       const tierIds = [...new Set((ticketsData || []).map((ticket) => ticket.tier_id))];
       const { data: tiersData } = await supabase
-        .from('ticket_tiers')
+        .from('ticketing.ticket_tiers')
         .select('id, name, badge_label, price_cents')
         .in('id', tierIds);
 
@@ -294,7 +294,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
       });
 
       const { data: scanData } = await supabase
-        .from('scan_logs')
+        .from('ticketing.scan_logs')
         .select('ticket_id, result')
         .eq('event_id', eventId);
 
@@ -319,7 +319,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
 
     try {
       const { data: scanData } = await supabase
-        .from('scan_logs')
+        .from('ticketing.scan_logs')
         .select('result, created_at')
         .eq('event_id', eventId);
 
@@ -346,14 +346,14 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
 
     try {
       const { data: orders } = await supabase
-        .from('orders')
+        .from('ticketing.orders')
         .select('id, total_cents, status, created_at')
         .eq('event_id', eventId);
 
       const orderIds = orders?.map((order) => order.id) || [];
       const { data: refunds } = orderIds.length > 0
         ? await supabase
-            .from('refunds')
+            .from('ticketing.refunds')
             .select('amount_cents')
             .in('order_id', orderIds)
         : { data: [] };
@@ -590,7 +590,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
 
     const loadEventDetails = async () => {
       const { data, error } = await supabase
-        .from('events')
+        .from('events.events')
         .select('*')
         .eq('id', eventId)
         .single();
@@ -867,7 +867,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
           : null;
 
       const { error } = await supabase
-        .from('events')
+        .from('events.events')
         .update({
           title: editForm.title,
           description: editForm.description,

@@ -62,7 +62,7 @@ export function AddGuestModal({ isOpen, onClose, onAddGuest, eventId }: AddGuest
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('ticket_tiers')
+        .from('ticketing.ticket_tiers')
         .select('id, name, price_cents, status')
         .eq('event_id', eventId)
         .eq('status', 'active')

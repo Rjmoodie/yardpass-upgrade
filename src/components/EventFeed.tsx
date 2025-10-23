@@ -208,7 +208,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       const uniqueEventIds = [...new Set(rows.map((r) => r.event_id))].filter(Boolean);
       let titles: Record<string, string> = {};
       if (uniqueEventIds.length) {
-        const { data: eventsRows } = await supabase.from('events').select('id,title').in('id', uniqueEventIds);
+        const { data: eventsRows } = await supabase.from('events.events').select('id,title').in('id', uniqueEventIds);
         titles = (eventsRows ?? []).reduce((acc: Record<string, string>, r: { id: string; title: string }) => {
           acc[r.id] = r.title;
           return acc;
@@ -247,7 +247,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       // Comments preview (first few) — keep lightweight
       if (mapped.length) {
         const { data: commentsData } = await supabase
-          .from('event_comments')
+          .from('events.event_comments')
           .select(`
             id, text, created_at, author_user_id, post_id,
             user_profiles!event_comments_author_user_id_fkey (

@@ -59,7 +59,7 @@ export function useOptimizedQueries() {
       `user-profile-${userId}`,
       async () => {
         const { data, error } = await supabase
-          .from('user_profiles')
+          .from('users.user_profiles')
           .select(`
             *,
             tickets!fk_tickets_owner_user_id (

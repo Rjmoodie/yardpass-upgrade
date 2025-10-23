@@ -30,7 +30,7 @@ export default function OrgInvitePage() {
     const fetchInviteDetails = async () => {
       try {
         const { data, error } = await supabase
-          .from('org_invitations')
+          .from('organizations.org_invitations')
           .select(`
             *,
             organizations (

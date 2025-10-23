@@ -112,7 +112,7 @@ export function useAnalytics() {
         const batch = eventsToFlush.slice(i, i + BATCH_SIZE);
         
         const { error } = await supabase
-          .from('analytics_events')
+          .from('analytics.analytics_events')
           .insert(batch);
 
         if (error) {

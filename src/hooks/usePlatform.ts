@@ -1,72 +1,73 @@
-// Platform detection hook for hybrid web/mobile deployment
-// Determines if the app is running on web or mobile (native) platform
+// Platform detection hook for hybrid web/mobile deployment (REVAMPED)
+// Uses feature detection over UA parsing, with pointer type and breakpoint checks
 
 import { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 
+export type Platform = 'web' | 'native';
+export type Screen = 'mobile' | 'tablet' | 'desktop';
+export type PointerType = 'coarse' | 'fine';
+
+export interface PlatformInfo {
+  platform: Platform;
+  isNative: boolean;
+  isWeb: boolean;
+  screen: Screen;
+  isMobile: boolean;
+  isDesktop: boolean;
+  pointer: PointerType;
+}
+
 const DEFAULT_PLATFORM_INFO: PlatformInfo = {
+  platform: 'web',
   isNative: false,
   isWeb: true,
+  screen: 'desktop',
   isMobile: false,
   isDesktop: true,
-  platform: 'web',
-  userAgent: '',
-  screenSize: 'desktop'
+  pointer: 'fine'
 };
-
-const MOBILE_USER_AGENT_REGEX = /Mobi|Android|iP(ad|hone)|Windows Phone/i;
 
 const computePlatformInfo = (): PlatformInfo => {
   if (typeof window === 'undefined') {
     return DEFAULT_PLATFORM_INFO;
   }
 
-  const isNative = Capacitor.isNativePlatform();
+  // Check if native platform (Capacitor)
+  const isNative = typeof (window as any).Capacitor !== 'undefined' && Capacitor.isNativePlatform();
   const isWeb = !isNative;
-  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-  const width = window.innerWidth;
-  const prefersTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 
-  let screenSize: PlatformInfo['screenSize'] = 'desktop';
-  if (width < 768) {
-    screenSize = 'mobile';
-  } else if (width < 1024) {
-    screenSize = 'tablet';
-  }
+  // Feature detection: pointer type (coarse = touch, fine = mouse/trackpad)
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  const pointer: PointerType = coarse ? 'coarse' : 'fine';
 
-  const inferredMobile = MOBILE_USER_AGENT_REGEX.test(userAgent) || prefersTouch || screenSize !== 'desktop';
-  const isMobile = isNative || inferredMobile;
-  const isDesktop = !isMobile && !isNative;
+  // Breakpoint detection (prefer Tailwind breakpoints)
+  const lg = window.matchMedia('(min-width: 1024px)').matches;
+  const md = window.matchMedia('(min-width: 768px)').matches;
+
+  const screen: Screen = lg ? 'desktop' : md ? 'tablet' : 'mobile';
+  const isMobile = screen === 'mobile';
+  const isDesktop = screen === 'desktop';
 
   return {
+    platform: isNative ? 'native' : 'web',
     isNative,
     isWeb,
+    screen,
     isMobile,
     isDesktop,
-    platform: isMobile ? 'mobile' : 'web',
-    userAgent,
-    screenSize: isNative ? 'mobile' : screenSize
-  };
+    pointer,
+  } as const;
 };
 
 const shallowEqual = (a: PlatformInfo, b: PlatformInfo) =>
+  a.platform === b.platform &&
   a.isNative === b.isNative &&
   a.isWeb === b.isWeb &&
+  a.screen === b.screen &&
   a.isMobile === b.isMobile &&
   a.isDesktop === b.isDesktop &&
-  a.platform === b.platform &&
-  a.userAgent === b.userAgent &&
-  a.screenSize === b.screenSize;
-
-export interface PlatformInfo {
-  isNative: boolean;
-  isWeb: boolean;
-  isMobile: boolean;
-  isDesktop: boolean;
-  platform: 'web' | 'mobile';
-  userAgent: string;
-  screenSize: 'mobile' | 'tablet' | 'desktop';
-}
+  a.pointer === b.pointer;
 
 export const usePlatform = (): PlatformInfo => {
   const [platformInfo, setPlatformInfo] = useState<PlatformInfo>(() => computePlatformInfo());

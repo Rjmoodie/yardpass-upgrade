@@ -10,7 +10,7 @@ import type { OrgInfo, EventInfo } from '@/components/EmailTemplates';
 export async function getOrgInfoForEmail(orgId: string): Promise<OrgInfo | undefined> {
   try {
     const { data: org, error } = await supabase
-      .from('organizations')
+      .from('organizations.organizations')
       .select('name, logo_url, handle, support_email')
       .eq('id', orgId)
       .single();
@@ -38,7 +38,7 @@ export async function getOrgInfoForEmail(orgId: string): Promise<OrgInfo | undef
 export async function getEventInfoForEmail(eventId: string): Promise<EventInfo | undefined> {
   try {
     const { data: event, error } = await supabase
-      .from('events')
+      .from('events.events')
       .select('title, start_at, venue, city, cover_image_url, description')
       .eq('id', eventId)
       .single();
@@ -71,7 +71,7 @@ export async function getEmailContext(eventId: string): Promise<{
 }> {
   try {
     const { data: event } = await supabase
-      .from('events')
+      .from('events.events')
       .select(`
         title,
         start_at,

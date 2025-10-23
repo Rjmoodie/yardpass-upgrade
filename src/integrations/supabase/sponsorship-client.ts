@@ -58,7 +58,7 @@ export class SponsorshipClient {
   async createSponsor(data: CreateSponsorRequest): Promise<ApiResponse<SponsorComplete>> {
     try {
       const { data: sponsor, error } = await this.client
-        .from('sponsors')
+        .from('sponsorship.sponsors')
         .insert([data])
         .select(`
           *,
@@ -81,7 +81,7 @@ export class SponsorshipClient {
   async getSponsor(id: string): Promise<ApiResponse<SponsorComplete>> {
     try {
       const { data: sponsor, error } = await this.client
-        .from('sponsors')
+        .from('sponsorship.sponsors')
         .select(`
           *,
           sponsor_profiles!inner(*),
@@ -108,7 +108,7 @@ export class SponsorshipClient {
   ): Promise<ApiResponse<SponsorComplete>> {
     try {
       const { data, error } = await this.client
-        .from('sponsor_profiles')
+        .from('sponsorship.sponsor_profiles')
         .update(updates)
         .eq('sponsor_id', sponsorId)
         .select(`
@@ -133,7 +133,7 @@ export class SponsorshipClient {
   async createPackage(data: CreatePackageRequest): Promise<ApiResponse<SponsorshipPackage>> {
     try {
       const { data: package_, error } = await this.client
-        .from('sponsorship_packages')
+        .from('sponsorship.sponsorship_packages')
         .insert([data])
         .select('*')
         .single();
@@ -220,7 +220,7 @@ export class SponsorshipClient {
   ): Promise<ApiResponse<SponsorshipMatch[]>> {
     try {
       let query = this.client
-        .from('sponsorship_matches')
+        .from('sponsorship.sponsorship_matches')
         .select(`
           *,
           events!inner(*),
@@ -250,7 +250,7 @@ export class SponsorshipClient {
   ): Promise<ApiResponse<SponsorshipMatch>> {
     try {
       const { data: match, error } = await this.client
-        .from('sponsorship_matches')
+        .from('sponsorship.sponsorship_matches')
         .update(updates)
         .eq('id', matchId)
         .select('*')
@@ -272,7 +272,7 @@ export class SponsorshipClient {
   async createProposal(data: CreateProposalRequest): Promise<ApiResponse<ProposalThread>> {
     try {
       const { data: thread, error } = await this.client
-        .from('proposal_threads')
+        .from('sponsorship.proposal_threads')
         .insert([{
           event_id: data.event_id,
           sponsor_id: data.sponsor_id,
@@ -287,7 +287,7 @@ export class SponsorshipClient {
       // Create initial message
       if (data.message || data.offer) {
         await this.client
-          .from('proposal_messages')
+          .from('sponsorship.proposal_messages')
           .insert([{
             thread_id: thread.id,
             sender_type: 'organizer',
@@ -313,7 +313,7 @@ export class SponsorshipClient {
   ): Promise<ApiResponse<ProposalThread[]>> {
     try {
       let query = this.client
-        .from('proposal_threads')
+        .from('sponsorship.proposal_threads')
         .select(`
           *,
           proposal_messages(*)
@@ -340,7 +340,7 @@ export class SponsorshipClient {
   async createDeliverable(data: CreateDeliverableRequest): Promise<ApiResponse<Deliverable>> {
     try {
       const { data: deliverable, error } = await this.client
-        .from('deliverables')
+        .from('sponsorship.deliverables')
         .insert([data])
         .select('*')
         .single();
@@ -362,7 +362,7 @@ export class SponsorshipClient {
   ): Promise<ApiResponse<void>> {
     try {
       const { error } = await this.client
-        .from('deliverable_proofs')
+        .from('sponsorship.deliverable_proofs')
         .insert([{
           deliverable_id: deliverableId,
           asset_url: proof.asset_url,

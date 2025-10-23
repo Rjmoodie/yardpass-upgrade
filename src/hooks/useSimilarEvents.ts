@@ -26,7 +26,7 @@ export function useSimilarEvents(eventId?: string, limit = 5) {
     const fetchData = async () => {
       try {
         const { data, error } = await supabase
-          .from('events')
+          .from('events.events')
           .select('id, title, start_at')
           .gte('start_at', new Date().toISOString())
           .neq('id', eventId)

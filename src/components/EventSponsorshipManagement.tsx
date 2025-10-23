@@ -56,7 +56,7 @@ export function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme
     setPackageLoading(true);
     try {
       const { data, error } = await supabase
-        .from('sponsorship_packages')
+        .from('sponsorship.sponsorship_packages')
         .select('*')
         .eq('event_id', eventId)
         .order('price_cents', { ascending: false });
@@ -86,7 +86,7 @@ export function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme
     setOrdersLoading(true);
     try {
       const { data, error } = await supabase
-        .from('sponsorship_orders')
+        .from('sponsorship.sponsorship_orders')
         .select(`
           *,
           sponsor:sponsors(name, logo_url),
@@ -121,7 +121,7 @@ export function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme
 
     try {
       const { error } = await supabase
-        .from('sponsorship_packages')
+        .from('sponsorship.sponsorship_packages')
         .insert({
           event_id: eventId,
           tier: packageData.tier,
@@ -173,7 +173,7 @@ export function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme
   const handleOrderAction = async (orderId: string, action: 'accept' | 'reject') => {
     try {
       const { error } = await supabase
-        .from('sponsorship_orders')
+        .from('sponsorship.sponsorship_orders')
         .update({ status: action === 'accept' ? 'accepted' : 'cancelled' })
         .eq('id', orderId);
 

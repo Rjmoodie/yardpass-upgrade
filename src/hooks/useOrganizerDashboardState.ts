@@ -62,7 +62,7 @@ function useOrganizerScopedEvents({ userId, organizationId, scopeKey }: UseOrgan
     setLoading(true);
     try {
       let query = supabase
-        .from('events')
+        .from('events.events')
         .select('id, title, created_at, start_at, end_at, venue, category, cover_image_url, description, city, visibility, owner_context_type, owner_context_id')
         .order('start_at', { ascending: false });
 
@@ -87,14 +87,14 @@ function useOrganizerScopedEvents({ userId, organizationId, scopeKey }: UseOrgan
       const [kpisRes, scansRes, videoRes, engagementRes, sponsorRes, tiersRes] = await Promise.all([
         supabase.rpc('get_event_kpis_daily', { p_event_ids: eventIds, p_from_date: from, p_to_date: to }),
         supabase.rpc('get_event_scans_daily', { p_event_ids: eventIds, p_from_date: from, p_to_date: to }),
-        supabase.from('event_video_counters').select('event_id, views_total').in('event_id', eventIds),
+        supabase.from('events.event_video_counters').select('event_id, views_total').in('event_id', eventIds),
         supabase.rpc('get_post_engagement_daily', { p_event_ids: eventIds, p_from_date: from, p_to_date: to }),
         supabase
-          .from('event_sponsorships')
+          .from('sponsorship.event_sponsorships')
           .select('event_id, amount_cents')
           .in('event_id', eventIds)
           .eq('status', 'active'),
-        supabase.from('ticket_tiers').select('event_id, quantity').in('event_id', eventIds),
+        supabase.from('ticketing.ticket_tiers').select('event_id, quantity').in('event_id', eventIds),
       ]);
 
       const ensureArray = <T,>(label: string, result: { data: T[] | null; error: any }) => {
