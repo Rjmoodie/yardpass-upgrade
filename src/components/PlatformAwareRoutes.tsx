@@ -8,7 +8,9 @@ import { PageLoadingSpinner } from './LoadingSpinner';
 import { Button } from './ui/button';
 
 // Web-only components (Management, Analytics, Admin)
+const WebSponsorshipPage = lazy(() => import('@/pages/web/WebSponsorshipPage'));
 const SponsorshipPage = lazy(() => import('@/pages/SponsorshipPage'));
+const WebAnalyticsPage = lazy(() => import('@/pages/web/WebAnalyticsPage'));
 const AnalyticsHub = lazy(() => import('@/components/AnalyticsHub'));
 const EventManagement = lazy(() => import('@/components/EventManagement'));
 const OrganizationDashboard = lazy(() => import('@/components/OrganizationDashboard'));
@@ -65,7 +67,7 @@ export const PlatformAwareRoutes: React.FC = () => {
         element={
           <WebOnly fallback={webUpsell}>
             <Suspense fallback={<PageLoadingSpinner />}>
-              <SponsorshipPage userRole="sponsor" />
+              <WebSponsorshipPage />
             </Suspense>
           </WebOnly>
         }
@@ -85,7 +87,7 @@ export const PlatformAwareRoutes: React.FC = () => {
         element={
           <WebOnly>
             <Suspense fallback={<PageLoadingSpinner />}>
-              <AnalyticsHub />
+              <WebAnalyticsPage />
             </Suspense>
           </WebOnly>
         } 
@@ -143,31 +145,11 @@ export const PlatformAwareRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/scanner"
-        element={
-          <MobileOnly fallback={mobileUpsell}>
-            <Suspense fallback={<PageLoadingSpinner />}>
-              <ScannerPage />
-            </Suspense>
-          </MobileOnly>
-        }
-      />
-      <Route
         path="/social"
         element={
           <MobileOnly fallback={mobileUpsell}>
             <Suspense fallback={<PageLoadingSpinner />}>
               <SocialPage />
-            </Suspense>
-          </MobileOnly>
-        }
-      />
-      <Route
-        path="/notifications"
-        element={
-          <MobileOnly fallback={mobileUpsell}>
-            <Suspense fallback={<PageLoadingSpinner />}>
-              <NotificationSystem userId="current-user" />
             </Suspense>
           </MobileOnly>
         }

@@ -302,18 +302,18 @@ function EventOverlay(props: any) {
         items={[
           { icon: <Heart className={event.isLiked ? "fill-white text-white" : "text-white"} />, label: event.likes, active: event.isLiked, onClick: () => onLike(event.id) },
           { icon: <MessageCircle className="text-white" />, label: event.posts?.length || 0, onClick: () => {
-            capture('feed_click', { target: 'comment', event_id: event.id });
-            navigate(routes.event(event.id));
+              capture('feed_click', { target: 'comment', event_id: event.id });
+              navigate(routes.event(event.id));
           }},
           { icon: <Plus className="text-white" />, label: "Post", onClick: () => requireAuth(() => {
-            capture('feed_click', { target: 'post', event_id: event.id });
-            setPostCreatorOpen(true);
+                capture('feed_click', { target: 'post', event_id: event.id });
+                setPostCreatorOpen(true);
           }, "Sign in to post") },
           { icon: <Share className="text-white" />, label: event.shares, onClick: () => onShare(event) },
           { icon: <MoreVertical className="text-white" />, onClick: () => toast({ title: 'More options', description: 'Coming soon...' }) },
         ]}
-        />
-      </div>
+          />
+        </div>
 
       <FeedCaption
         event={event}

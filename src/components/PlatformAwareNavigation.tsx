@@ -116,6 +116,7 @@ export const PlatformAwareNavigation: React.FC<PlatformAwareNavigationProps> = (
       ].filter((item) => item.show);
     }
 
+    // Mobile: ONLY core consumer features (profile, social, tickets, search, feed)
     return [
       {
         id: 'feed',
@@ -128,7 +129,7 @@ export const PlatformAwareNavigation: React.FC<PlatformAwareNavigationProps> = (
       {
         id: 'search',
         path: '/search',
-        label: 'Discover',
+        label: 'Search',
         icon: Search,
         show: true,
         description: 'Explore events & hosts'
@@ -142,29 +143,12 @@ export const PlatformAwareNavigation: React.FC<PlatformAwareNavigationProps> = (
         description: 'Wallet & purchases'
       },
       {
-        id: 'scanner',
-        path: '/scanner',
-        label: 'Scan',
-        icon: QrCode,
-        show: true,
-        description: 'Entry & deliverables',
-        badge: 'Mobile'
-      },
-      {
         id: 'social',
         path: '/social',
         label: 'Social',
         icon: Users,
         show: true,
         description: 'Connect with attendees'
-      },
-      {
-        id: 'notifications',
-        path: '/notifications',
-        label: 'Alerts',
-        icon: Bell,
-        show: true,
-        description: 'Messages & reminders'
       },
       {
         id: 'profile',

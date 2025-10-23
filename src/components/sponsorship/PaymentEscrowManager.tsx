@@ -537,7 +537,7 @@ export const PaymentEscrowManager: React.FC<PaymentEscrowManagerProps> = ({
                   {orders.filter(o => o.escrow_state === 'released').length}
                 </div>
                 <p className="text-sm text-muted-foreground">Released</p>
-              </div>
+              </CardContent>
             </Card>
           </div>
         </TabsContent>
