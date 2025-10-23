@@ -4,6 +4,60 @@
 import { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 
+const DEFAULT_PLATFORM_INFO: PlatformInfo = {
+  isNative: false,
+  isWeb: true,
+  isMobile: false,
+  isDesktop: true,
+  platform: 'web',
+  userAgent: '',
+  screenSize: 'desktop'
+};
+
+const MOBILE_USER_AGENT_REGEX = /Mobi|Android|iP(ad|hone)|Windows Phone/i;
+
+const computePlatformInfo = (): PlatformInfo => {
+  if (typeof window === 'undefined') {
+    return DEFAULT_PLATFORM_INFO;
+  }
+
+  const isNative = Capacitor.isNativePlatform();
+  const isWeb = !isNative;
+  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const width = window.innerWidth;
+  const prefersTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+
+  let screenSize: PlatformInfo['screenSize'] = 'desktop';
+  if (width < 768) {
+    screenSize = 'mobile';
+  } else if (width < 1024) {
+    screenSize = 'tablet';
+  }
+
+  const inferredMobile = MOBILE_USER_AGENT_REGEX.test(userAgent) || prefersTouch || screenSize !== 'desktop';
+  const isMobile = isNative || inferredMobile;
+  const isDesktop = !isMobile && !isNative;
+
+  return {
+    isNative,
+    isWeb,
+    isMobile,
+    isDesktop,
+    platform: isMobile ? 'mobile' : 'web',
+    userAgent,
+    screenSize: isNative ? 'mobile' : screenSize
+  };
+};
+
+const shallowEqual = (a: PlatformInfo, b: PlatformInfo) =>
+  a.isNative === b.isNative &&
+  a.isWeb === b.isWeb &&
+  a.isMobile === b.isMobile &&
+  a.isDesktop === b.isDesktop &&
+  a.platform === b.platform &&
+  a.userAgent === b.userAgent &&
+  a.screenSize === b.screenSize;
+
 export interface PlatformInfo {
   isNative: boolean;
   isWeb: boolean;
@@ -15,65 +69,30 @@ export interface PlatformInfo {
 }
 
 export const usePlatform = (): PlatformInfo => {
-  const [platformInfo, setPlatformInfo] = useState<PlatformInfo>({
-    isNative: false,
-    isWeb: true,
-    isMobile: false,
-    isDesktop: true,
-    platform: 'web',
-    userAgent: '',
-    screenSize: 'desktop'
-  });
+  const [platformInfo, setPlatformInfo] = useState<PlatformInfo>(() => computePlatformInfo());
 
   useEffect(() => {
     const detectPlatform = () => {
-      const isNative = Capacitor.isNativePlatform();
-      const isWeb = !isNative;
-      const userAgent = navigator.userAgent;
-      
-      // Screen size detection
-      const width = window.innerWidth;
-      let screenSize: 'mobile' | 'tablet' | 'desktop' = 'desktop';
-      let isMobile = false;
-      let isDesktop = true;
-
-      if (width < 768) {
-        screenSize = 'mobile';
-        isMobile = true;
-        isDesktop = false;
-      } else if (width < 1024) {
-        screenSize = 'tablet';
-        isMobile = true;
-        isDesktop = false;
-      }
-
-      // Override for native platforms
-      if (isNative) {
-        isMobile = true;
-        isDesktop = false;
-        screenSize = 'mobile';
-      }
-
-      setPlatformInfo({
-        isNative,
-        isWeb,
-        isMobile,
-        isDesktop,
-        platform: isNative ? 'mobile' : 'web',
-        userAgent,
-        screenSize
-      });
+      const nextInfo = computePlatformInfo();
+      setPlatformInfo((previous) => (shallowEqual(previous, nextInfo) ? previous : nextInfo));
     };
 
     detectPlatform();
 
-    // Listen for resize events
-    const handleResize = () => {
-      detectPlatform();
-    };
+    if (typeof window === 'undefined') {
+      return;
+    }
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const resizeHandler = () => detectPlatform();
+    const orientationHandler = () => detectPlatform();
+
+    window.addEventListener('resize', resizeHandler);
+    window.addEventListener('orientationchange', orientationHandler);
+
+    return () => {
+      window.removeEventListener('resize', resizeHandler);
+      window.removeEventListener('orientationchange', orientationHandler);
+    };
   }, []);
 
   return platformInfo;

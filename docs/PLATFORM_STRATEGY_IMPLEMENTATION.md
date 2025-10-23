@@ -109,6 +109,12 @@ const WebFeatures = {
 
 ## 🔄 Shared Features (Both Platforms)
 
+### **Platform-Aware Navigation & Routing Enhancements**
+- `PlatformAwareNavigation` now feeds contextual navigation items into the shared `Navigation` component, surfacing sponsor analytics and management tools only on the web interface while prioritizing tickets, scanner, and social actions on mobile.
+- `Navigation.tsx` adapts its layout depending on platform context—sticky top navigation for desktop management experiences and safe-area aware bottom navigation for mobile.
+- `PlatformAwareRoutes` applies consistent fallbacks so web-only routes prompt a desktop upsell, while mobile-only routes now guide users toward the mobile app with a branded upsell state.
+- `FeatureAccessControl` renders a detailed access matrix, highlighting mobile vs web capability expectations with badges and descriptive guidance for each feature flag.
+
 ### **Cross-Platform Components**
 ```typescript
 // Shared components that work on both platforms

@@ -3,9 +3,9 @@
 
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { usePlatform } from '@/hooks/usePlatform';
-import { WebOnly, MobileOnly, PlatformWrapper } from './PlatformWrapper';
+import { WebOnly, MobileOnly } from './PlatformWrapper';
 import { PageLoadingSpinner } from './LoadingSpinner';
+import { Button } from './ui/button';
 
 // Web-only components (Management, Analytics, Admin)
 const SponsorshipPage = lazy(() => import('@/pages/SponsorshipPage'));
@@ -27,9 +27,29 @@ const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
 const UserProfile = lazy(() => import('@/components/UserProfile'));
 const SearchPage = lazy(() => import('@/components/SearchPage'));
 
-export const PlatformAwareRoutes: React.FC = () => {
-  const { isWeb, isMobile } = usePlatform();
+const mobileUpsell = (
+  <div className="flex min-h-[320px] flex-col items-center justify-center space-y-4 rounded-2xl border border-dashed border-border/70 bg-muted/10 p-8 text-center">
+    <h2 className="text-xl font-semibold">Designed for Mobile</h2>
+    <p className="text-sm text-muted-foreground">
+      This experience is best on the YardPass mobile app where QR scanning, wallets, and social tools are optimized.
+    </p>
+    <Button size="sm" variant="outline">Download App</Button>
+  </div>
+);
 
+const webUpsell = (
+  <div className="flex min-h-[320px] flex-col items-center justify-center space-y-4 rounded-2xl border border-dashed border-border/70 bg-muted/10 p-8 text-center">
+    <h2 className="text-xl font-semibold">Available on Desktop</h2>
+    <p className="text-sm text-muted-foreground">
+      Management, analytics, and contract workflows live on the desktop web experience for full control.
+    </p>
+    <p className="text-xs text-muted-foreground">
+      Visit yardpass.tech from a desktop browser to unlock these tools.
+    </p>
+  </div>
+);
+
+export const PlatformAwareRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Shared Routes - Available on both platforms */}
@@ -40,15 +60,15 @@ export const PlatformAwareRoutes: React.FC = () => {
       <Route path="/profile" element={<UserProfile />} />
 
       {/* Web-only Routes - Management, Analytics, Admin */}
-      <Route 
-        path="/sponsorship" 
+      <Route
+        path="/sponsorship"
         element={
-          <WebOnly>
+          <WebOnly fallback={webUpsell}>
             <Suspense fallback={<PageLoadingSpinner />}>
               <SponsorshipPage userRole="sponsor" />
             </Suspense>
           </WebOnly>
-        } 
+        }
       />
       <Route 
         path="/sponsorship/event/:eventId" 
@@ -58,7 +78,7 @@ export const PlatformAwareRoutes: React.FC = () => {
               <SponsorshipPage userRole="organizer" />
             </Suspense>
           </WebOnly>
-        } 
+        }
       />
       <Route 
         path="/analytics" 
@@ -112,65 +132,45 @@ export const PlatformAwareRoutes: React.FC = () => {
       />
 
       {/* Mobile-only Routes - Consumer, Social, Discovery */}
-      <Route 
-        path="/tickets" 
+      <Route
+        path="/tickets"
         element={
-          <MobileOnly>
+          <MobileOnly fallback={mobileUpsell}>
             <Suspense fallback={<PageLoadingSpinner />}>
               <TicketsPage />
             </Suspense>
           </MobileOnly>
-        } 
+        }
       />
-      <Route 
-        path="/scanner" 
+      <Route
+        path="/scanner"
         element={
-          <MobileOnly>
+          <MobileOnly fallback={mobileUpsell}>
             <Suspense fallback={<PageLoadingSpinner />}>
               <ScannerPage />
             </Suspense>
           </MobileOnly>
-        } 
+        }
       />
-      <Route 
-        path="/social" 
+      <Route
+        path="/social"
         element={
-          <MobileOnly>
+          <MobileOnly fallback={mobileUpsell}>
             <Suspense fallback={<PageLoadingSpinner />}>
               <SocialPage />
             </Suspense>
           </MobileOnly>
-        } 
+        }
       />
-      <Route 
-        path="/notifications" 
+      <Route
+        path="/notifications"
         element={
-          <MobileOnly>
+          <MobileOnly fallback={mobileUpsell}>
             <Suspense fallback={<PageLoadingSpinner />}>
               <NotificationSystem userId="current-user" />
             </Suspense>
           </MobileOnly>
-        } 
-      />
-
-      {/* Platform-specific fallbacks */}
-      <Route 
-        path="/sponsorship" 
-        element={
-          <PlatformWrapper webOnly fallback={<div className="p-8 text-center">
-            <h2 className="text-xl font-bold mb-4">Sponsorship Management</h2>
-            <p className="text-muted-foreground">
-              This feature is available on the web platform for full management capabilities.
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Visit yardpass.tech on your desktop to access sponsorship tools.
-            </p>
-          </div>}>
-            <Suspense fallback={<PageLoadingSpinner />}>
-              <SponsorshipPage userRole="sponsor" />
-            </Suspense>
-          </PlatformWrapper>
-        } 
+        }
       />
     </Routes>
   );

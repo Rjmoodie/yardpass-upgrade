@@ -2,56 +2,186 @@
 // Implements the mobile vs web feature distribution strategy
 
 import React, { useMemo } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Home,
+  Search,
+  Ticket,
+  QrCode,
+  Users,
+  Bell,
+  User,
+  Handshake,
+  BarChart3,
+  LayoutDashboard,
+  Landmark,
+  ShieldCheck
+} from 'lucide-react';
 import { usePlatform } from '@/hooks/usePlatform';
-import Navigation from './Navigation';
+import Navigation, { type Screen } from './Navigation';
 
-interface PlatformAwareNavigationProps {
+type PlatformAwareNavigationProps = {
   userRole?: 'attendee' | 'organizer' | 'admin';
   currentScreen?: string;
   onNavigate?: (screen: string) => void;
-}
+};
+
+type PlatformNavigationItem = {
+  id: Screen;
+  path: string;
+  label: string;
+  icon: LucideIcon;
+  show: boolean;
+  description?: string;
+  badge?: string;
+};
 
 export const PlatformAwareNavigation: React.FC<PlatformAwareNavigationProps> = ({
   userRole = 'attendee',
   currentScreen,
   onNavigate
 }) => {
-  const { isWeb, isMobile, platform } = usePlatform();
+  const { isWeb, platform } = usePlatform();
+  const isOrganizer = userRole === 'organizer';
+  const isAdmin = userRole === 'admin';
 
-  // Define navigation items based on your strategic breakdown
-  const getNavigationItems = () => {
+  const navigationItems = useMemo<PlatformNavigationItem[]>(() => {
     if (isWeb) {
-      // Web-only features: Management, analytics, admin
       return [
-        { id: 'feed', path: '/', label: 'Feed', show: true },
-        { id: 'search', path: '/search', label: 'Search', show: true },
-        { id: 'sponsorship', path: '/sponsorship', label: 'Sponsorship', show: true },
-        { id: 'analytics', path: '/analytics', label: 'Analytics', show: userRole === 'organizer' },
-        { id: 'dashboard', path: '/dashboard', label: 'Dashboard', show: userRole === 'organizer' },
-        { id: 'admin', path: '/admin', label: 'Admin', show: userRole === 'admin' },
-        { id: 'profile', path: '/profile', label: 'Profile', show: true }
-      ];
-    } else {
-      // Mobile features: Consumer-focused, social, discovery
-      return [
-        { id: 'feed', path: '/', label: 'Feed', show: true },
-        { id: 'search', path: '/search', label: 'Search', show: true },
-        { id: 'tickets', path: '/tickets', label: 'Tickets', show: true },
-        { id: 'scanner', path: '/scanner', label: 'Scanner', show: true },
-        { id: 'social', path: '/social', label: 'Social', show: true },
-        { id: 'notifications', path: '/notifications', label: 'Notifications', show: true },
-        { id: 'profile', path: '/profile', label: 'Profile', show: true }
-      ];
+        {
+          id: 'feed',
+          path: '/',
+          label: 'Feed',
+          icon: Home,
+          show: true,
+          description: 'Live updates across events'
+        },
+        {
+          id: 'search',
+          path: '/search',
+          label: 'Search',
+          icon: Search,
+          show: true,
+          description: 'Find events, people, and sponsors'
+        },
+        {
+          id: 'sponsorship',
+          path: '/sponsorship',
+          label: 'Sponsorship',
+          icon: Handshake,
+          show: true,
+          description: 'Marketplace & proposals'
+        },
+        {
+          id: 'analytics',
+          path: '/analytics',
+          label: 'Analytics',
+          icon: BarChart3,
+          show: isOrganizer || isAdmin,
+          description: 'Deep performance reporting',
+          badge: 'Web'
+        },
+        {
+          id: 'dashboard',
+          path: '/dashboard',
+          label: 'Dashboard',
+          icon: LayoutDashboard,
+          show: isOrganizer || isAdmin,
+          description: 'Manage events & teams'
+        },
+        {
+          id: 'payments',
+          path: '/payments',
+          label: 'Payments',
+          icon: Landmark,
+          show: isOrganizer || isAdmin,
+          description: 'Disbursements & escrow'
+        },
+        {
+          id: 'admin',
+          path: '/admin',
+          label: 'Admin',
+          icon: ShieldCheck,
+          show: isAdmin,
+          description: 'Platform controls'
+        },
+        {
+          id: 'profile',
+          path: '/profile',
+          label: 'Profile',
+          icon: User,
+          show: true,
+          description: 'Account preferences'
+        }
+      ].filter((item) => item.show);
     }
-  };
 
-  const navigationItems = useMemo(() => getNavigationItems(), [isWeb, userRole]);
+    return [
+      {
+        id: 'feed',
+        path: '/',
+        label: 'Feed',
+        icon: Home,
+        show: true,
+        description: 'Curated updates near you'
+      },
+      {
+        id: 'search',
+        path: '/search',
+        label: 'Discover',
+        icon: Search,
+        show: true,
+        description: 'Explore events & hosts'
+      },
+      {
+        id: 'tickets',
+        path: '/tickets',
+        label: 'Tickets',
+        icon: Ticket,
+        show: true,
+        description: 'Wallet & purchases'
+      },
+      {
+        id: 'scanner',
+        path: '/scanner',
+        label: 'Scan',
+        icon: QrCode,
+        show: true,
+        description: 'Entry & deliverables',
+        badge: 'Mobile'
+      },
+      {
+        id: 'social',
+        path: '/social',
+        label: 'Social',
+        icon: Users,
+        show: true,
+        description: 'Connect with attendees'
+      },
+      {
+        id: 'notifications',
+        path: '/notifications',
+        label: 'Alerts',
+        icon: Bell,
+        show: true,
+        description: 'Messages & reminders'
+      },
+      {
+        id: 'profile',
+        path: '/profile',
+        label: 'Profile',
+        icon: User,
+        show: true,
+        description: 'Your preferences'
+      }
+    ];
+  }, [isWeb, isAdmin, isOrganizer]);
 
   return (
-    <Navigation 
-      userRole={userRole}
+    <Navigation
+      userRole={isAdmin ? 'admin' : userRole}
       currentScreen={currentScreen}
-      onNavigate={onNavigate}
+      onNavigate={(screen) => onNavigate?.(screen)}
       platform={platform}
       items={navigationItems}
     />

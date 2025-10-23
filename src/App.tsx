@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { initIOSCapacitor, setupKeyboardListeners } from '@/lib/ios-capacitor';
 import Index from '@/pages/Index';
-import Navigation from '@/components/Navigation';
+import PlatformAwareNavigation from '@/components/PlatformAwareNavigation';
 import { GlobalErrorHandler } from '@/components/GlobalErrorHandler';
 import { ShareModal } from '@/components/ShareModal';
 import { SharePayload } from '@/lib/share';
@@ -202,9 +202,14 @@ function AppContent() {
   }, []);
 
   const userRole: UserRole = user ? ((profile?.role as UserRole) || 'attendee') : 'attendee';
-  
-  // Use the profile view context for navigation across all pages to maintain consistency
-  const navigationRole = activeView;
+
+  // Determine the platform-aware navigation role, prioritizing admin access where applicable
+  const navigationRole: 'attendee' | 'organizer' | 'admin' =
+    (profile?.role as UserRole) === 'admin'
+      ? 'admin'
+      : activeView === 'organizer' || (profile?.role as UserRole) === 'organizer'
+        ? 'organizer'
+        : 'attendee';
 
   const handleEventSelect = (eventId: string) => {
     navigate(`/e/${eventId}`);
@@ -597,7 +602,11 @@ function AppContent() {
           !location.pathname.startsWith('/event-management/') &&
           location.pathname !== '/ticket-success' &&
           location.pathname !== '/auth' && (
-            <Navigation currentScreen={location.pathname} userRole={navigationRole} onNavigate={() => {}} />
+            <PlatformAwareNavigation
+              currentScreen={location.pathname}
+              userRole={navigationRole}
+              onNavigate={() => {}}
+            />
           )}
 
         {/* Toast notifications */}
