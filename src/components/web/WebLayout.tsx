@@ -141,28 +141,11 @@ export const WebLayout: React.FC<WebLayoutProps> = ({ children, userRole = 'orga
       </nav>
 
 
-      {/* Main Content - Yardpass Style with Black Content Area */}
+      {/* Main Content - Clean Layout */}
       <main className="flex-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Black Content Area - Like Yardpass */}
-          <div className="bg-black rounded-lg min-h-[600px] flex items-center justify-center relative">
-            <div className="text-center text-white">
-              <div className="w-16 h-16 bg-yellow-500 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-white font-bold text-2xl">Y</span>
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Yardpass</h2>
-              <p className="text-gray-300 mb-4">Event Management Platform</p>
-              <div className="flex items-center justify-center space-x-4">
-                <span className="text-sm text-gray-400">Re</span>
-                <div className="w-2 h-2 bg-white rounded-full"></div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Page Content Below */}
-          <div className="mt-8">
-            {children}
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Page Content */}
+          {children}
         </div>
       </main>
 
