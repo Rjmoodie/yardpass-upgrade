@@ -1,4 +1,4 @@
-import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign, Users } from 'lucide-react';
+import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign, Users, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -34,7 +34,8 @@ export type Screen =
   | 'scanner'
   | 'ticket-success'
   | 'posts-test'
-  | 'sponsor';
+  | 'sponsor'
+  | 'sponsorship';
 
 export type UserRole = 'attendee' | 'organizer';
 
@@ -46,7 +47,7 @@ interface NavigationProps {
 
 
 // Small helper — paths that require auth
-const AUTH_REQUIRED: Record<string, Screen> = {
+  const AUTH_REQUIRED: Record<string, Screen> = {
   '/create-event': 'create-event',
   '/create-post': 'create-post',
   '/dashboard': 'dashboard',
@@ -55,6 +56,7 @@ const AUTH_REQUIRED: Record<string, Screen> = {
   '/social': 'social',
   '/scanner': 'scanner',
   '/sponsor': 'sponsor',
+  '/sponsorship': 'sponsorship',
 };
 
 export default function Navigation({ userRole }: NavigationProps) {
@@ -87,6 +89,7 @@ export default function Navigation({ userRole }: NavigationProps) {
         { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: true },
         { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: effectiveUserRole === 'organizer' },
         { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
+        { id: 'sponsorship' as Screen, path: '/sponsorship', icon: Building2, label: 'Sponsorship', show: sponsorModeEnabled },
         { id: 'social' as Screen, path: '/social', icon: Users, label: 'Social', show: true },
         { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
       ] as const
@@ -161,6 +164,7 @@ export default function Navigation({ userRole }: NavigationProps) {
       'tickets': '/tickets',
       'scanner': '/scanner',
       'sponsor': '/sponsor',
+      'sponsorship': '/sponsorship',
     };
     const path = pathMap[pendingNavigation];
     if (path) navigate(path);

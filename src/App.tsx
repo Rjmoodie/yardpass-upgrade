@@ -21,6 +21,7 @@ import { PerfPreconnect } from '@/components/Perf/PerfPreconnect';
 import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
 import { DeferredImports } from '@/components/Perf/DeferredImports';
 import { useAccessibility } from '@/hooks/useAccessibility';
+import { usePlatform } from '@/hooks/usePlatform';
 
 // Lazy load heavy components
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
@@ -62,6 +63,8 @@ const AuthPage = lazy(() => import('@/pages/AuthPage'));
 const SponsorDashboard = lazy(() => import('@/components/sponsor/SponsorDashboard'));
 import { SponsorGuard } from '@/components/access/SponsorGuard';
 const WalletPage = lazy(() => import('@/pages/WalletPage'));
+const SponsorshipPage = lazy(() => import('@/pages/SponsorshipPage'));
+const SponsorshipTestPage = lazy(() => import('@/pages/SponsorshipTestPage'));
 const OrgWalletPage = lazy(() => import('@/pages/OrgWalletPage'));
 const CampaignDashboardPage = lazy(() => import('@/pages/CampaignDashboardPage'));
 const MessagesPage = lazy(() => import('@/pages/MessagesPage'));
@@ -511,6 +514,32 @@ function AppContent() {
                 }
               />
               <Route
+                path="/sponsorship"
+                element={
+                  <AuthGuard>
+                    <SponsorshipPage userRole="sponsor" />
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/sponsorship/event/:eventId"
+                element={
+                  <AuthGuard>
+                    <SponsorshipPage userRole="organizer" />
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/sponsorship/sponsor/:sponsorId"
+                element={
+                  <AuthGuard>
+                    <SponsorGuard>
+                      <SponsorshipPage userRole="sponsor" />
+                    </SponsorGuard>
+                  </AuthGuard>
+                }
+              />
+              <Route
                 path="/wallet"
                 element={
                   <AuthGuard>
@@ -539,6 +568,14 @@ function AppContent() {
                 element={
                   <AuthGuard>
                     <CampaignDashboardPage />
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/sponsorship-test"
+                element={
+                  <AuthGuard>
+                    <SponsorshipTestPage />
                   </AuthGuard>
                 }
               />
