@@ -1,18 +1,34 @@
-import { Home, Plus, BarChart3, User, Search, Ticket, Scan, TrendingUp, DollarSign, Users, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AuthModal from './AuthModal';
 import { PostCreatorModal } from './PostCreatorModal';
 import { PurchaseGateModal } from './PurchaseGateModal';
 import { OrganizerMenu } from './OrganizerMenu';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useSponsorMode } from '@/hooks/useSponsorMode';
 import { cn } from '@/lib/utils';
-
+import { Badge } from './ui/badge';
+import {
+  Home,
+  Search,
+  Plus,
+  Ticket,
+  BarChart3,
+  DollarSign,
+  Building2,
+  Users,
+  User,
+  QrCode,
+  Bell,
+  LayoutDashboard,
+  ShieldCheck,
+  Landmark,
+  MessageCircle
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 export type Screen =
   | 'feed'
@@ -35,19 +51,33 @@ export type Screen =
   | 'ticket-success'
   | 'posts-test'
   | 'sponsor'
-  | 'sponsorship';
+  | 'sponsorship'
+  | 'analytics'
+  | 'admin'
+  | 'payments'
+  | 'notifications';
 
-export type UserRole = 'attendee' | 'organizer';
+export type UserRole = 'attendee' | 'organizer' | 'admin';
+
+type NavigationItem = {
+  id: Screen;
+  path: string;
+  label: string;
+  icon?: LucideIcon;
+  show?: boolean;
+  badge?: string;
+  description?: string;
+};
 
 interface NavigationProps {
   currentScreen?: string; // unused but kept for compatibility
   userRole: UserRole;
   onNavigate?: (screen: Screen) => void; // optional callback for host screens
+  platform?: 'web' | 'mobile';
+  items?: NavigationItem[];
 }
 
-
-// Small helper — paths that require auth
-  const AUTH_REQUIRED: Record<string, Screen> = {
+const AUTH_REQUIRED: Record<string, Screen> = {
   '/create-event': 'create-event',
   '/create-post': 'create-post',
   '/dashboard': 'dashboard',
@@ -57,21 +87,44 @@ interface NavigationProps {
   '/scanner': 'scanner',
   '/sponsor': 'sponsor',
   '/sponsorship': 'sponsorship',
+  '/analytics': 'analytics',
+  '/payments': 'payments',
+  '/admin': 'admin',
+  '/notifications': 'notifications'
 };
 
-export default function Navigation({ userRole }: NavigationProps) {
+const DEFAULT_ICON_MAP: Partial<Record<Screen, LucideIcon>> = {
+  feed: Home,
+  search: Search,
+  'create-post': Plus,
+  tickets: Ticket,
+  dashboard: LayoutDashboard,
+  profile: User,
+  social: Users,
+  scanner: QrCode,
+  sponsor: DollarSign,
+  sponsorship: Building2,
+  analytics: BarChart3,
+  payments: Landmark,
+  admin: ShieldCheck,
+  notifications: Bell,
+  messages: MessageCircle
+};
+
+export function Navigation({ userRole, onNavigate, platform = 'mobile', items }: NavigationProps) {
   const { user } = useAuth();
-  
+
   // Ensure role is properly derived from user state
-  const effectiveUserRole = user ? userRole : 'attendee';
+  const effectiveUserRole: UserRole = user ? userRole : 'attendee';
   const { trackEvent } = useAnalyticsIntegration();
   const { selectionChanged, impactLight } = useHaptics();
   const navigate = useNavigate();
   const location = useLocation();
   const { sponsorModeEnabled } = useSponsorMode();
 
-  // Navigation render
+  const isWebPlatform = platform === 'web';
 
+  // Navigation render
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<Screen | null>(null);
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
@@ -81,24 +134,26 @@ export default function Navigation({ userRole }: NavigationProps) {
 
   // Build nav items from role
   const navItems = useMemo(() => {
-    const items = (
-      [
-        { id: 'feed' as Screen, path: '/', icon: Home, label: 'Feed', show: true },
-        { id: 'search' as Screen, path: '/search', icon: Search, label: 'Search', show: true },
-        { id: 'posts-test' as Screen, path: '/posts-test', icon: Plus, label: 'Posts', show: effectiveUserRole === 'attendee' },
-        { id: 'tickets' as Screen, path: '/tickets', icon: Ticket, label: 'Tickets', show: true },
-        { id: 'dashboard' as Screen, path: '/dashboard', icon: BarChart3, label: 'Dashboard', show: effectiveUserRole === 'organizer' },
-        { id: 'sponsor' as Screen, path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
-        { id: 'sponsorship' as Screen, path: '/sponsorship', icon: Building2, label: 'Sponsorship', show: sponsorModeEnabled },
-        { id: 'social' as Screen, path: '/social', icon: Users, label: 'Social', show: true },
-        { id: 'profile' as Screen, path: '/profile', icon: User, label: 'Profile', show: true },
-      ] as const
-    ).filter((i) => i.show);
+    if (items && items.length > 0) {
+      return items.filter((item) => item.show !== false);
+    }
 
-    return items;
-  }, [effectiveUserRole, sponsorModeEnabled]);
+    const defaults: NavigationItem[] = [
+      { id: 'feed', path: '/', icon: Home, label: 'Feed', show: true },
+      { id: 'search', path: '/search', icon: Search, label: 'Search', show: true },
+      { id: 'posts-test', path: '/posts-test', icon: Plus, label: 'Posts', show: effectiveUserRole === 'attendee' },
+      { id: 'tickets', path: '/tickets', icon: Ticket, label: 'Tickets', show: true },
+      { id: 'dashboard', path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', show: effectiveUserRole !== 'attendee' },
+      { id: 'sponsor', path: '/sponsor', icon: DollarSign, label: 'Sponsor', show: sponsorModeEnabled },
+      { id: 'sponsorship', path: '/sponsorship', icon: Building2, label: 'Sponsorship', show: sponsorModeEnabled },
+      { id: 'social', path: '/social', icon: Users, label: 'Social', show: true },
+      { id: 'profile', path: '/profile', icon: User, label: 'Profile', show: true }
+    ];
 
-  const isDenseLayout = navItems.length >= 6;
+    return defaults.filter((item) => item.show !== false);
+  }, [items, effectiveUserRole, sponsorModeEnabled]);
+
+  const isDenseLayout = navItems.length >= (isWebPlatform ? 6 : 5);
 
   const requiresAuth = useCallback((path: string) => path in AUTH_REQUIRED, []);
 
@@ -109,48 +164,50 @@ export default function Navigation({ userRole }: NavigationProps) {
       user_role: userRole,
       source: 'navigation'
     });
-    
+
     if (!user) {
       setAuthModalOpen(true);
       return;
     }
-    
+
     // Always open post creator for authenticated users
     setPostCreatorOpen(true);
   }, [user, userRole, trackEvent]);
 
   const handleNavigation = useCallback(
     async (path: string, screen: Screen) => {
-      
       // Haptic feedback for navigation
       await selectionChanged();
-      
+
       // Track navigation click
       trackEvent('engagement_navigation_click', {
         destination: screen,
-        path: path,
+        path,
         user_role: userRole
       });
-      
+
       // Special handling for tickets - allow guest access
       if (screen === 'tickets' && !user) {
-        // Navigate directly to tickets - TicketsRoute will handle guest access
         navigate('/tickets');
+        onNavigate?.(screen);
         return;
       }
-      
+
       if (requiresAuth(path) && !user) {
         setPendingNavigation(screen);
         setAuthModalOpen(true);
         return;
       }
+
       if (screen === 'posts-test') {
         void handleCreatePost();
         return;
       }
+
       navigate(path);
+      onNavigate?.(screen);
     },
-    [navigate, requiresAuth, user, userRole, handleCreatePost, trackEvent, selectionChanged]
+    [navigate, requiresAuth, user, userRole, handleCreatePost, trackEvent, selectionChanged, onNavigate]
   );
 
   const handleAuthSuccess = useCallback(() => {
@@ -159,61 +216,79 @@ export default function Navigation({ userRole }: NavigationProps) {
     const pathMap: Partial<Record<Screen, string>> = {
       'create-event': '/create-event',
       'create-post': '/create-post',
-      'dashboard': '/dashboard',
-      'profile': '/profile',
-      'tickets': '/tickets',
-      'scanner': '/scanner',
-      'sponsor': '/sponsor',
-      'sponsorship': '/sponsorship',
+      dashboard: '/dashboard',
+      profile: '/profile',
+      tickets: '/tickets',
+      scanner: '/scanner',
+      sponsor: '/sponsor',
+      sponsorship: '/sponsorship',
+      analytics: '/analytics',
+      payments: '/payments',
+      admin: '/admin',
+      notifications: '/notifications'
     };
     const path = pathMap[pendingNavigation];
-    if (path) navigate(path);
+    if (path) {
+      navigate(path);
+      onNavigate?.(pendingNavigation);
+    }
     setPendingNavigation(null);
-  }, [pendingNavigation, navigate]);
+  }, [pendingNavigation, navigate, onNavigate]);
 
   const isActive = useCallback(
     (path: string) =>
-      location.pathname === path || (path !== '/' && location.pathname.startsWith(path + '/')),
+      location.pathname === path || (path !== '/' && location.pathname.startsWith(`${path}/`)),
     [location.pathname]
   );
 
+  const containerClass = cn(
+    'z-50 pointer-events-auto',
+    isWebPlatform
+      ? 'sticky top-0 border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70'
+      : 'fixed inset-x-0 bottom-0 border-t border-border/60 bg-black/90 backdrop-blur'
+  );
+
+  const navBarClass = cn(
+    'relative flex items-center',
+    isWebPlatform
+      ? 'mx-auto w-full max-w-5xl justify-between gap-1 px-4 py-3 sm:px-6'
+      : 'justify-evenly px-0 py-2.5 sm:py-3'
+  );
+
+  const navStyle: CSSProperties | undefined = isWebPlatform
+    ? undefined
+    : {
+        paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))'
+      };
+
   return (
-    <div
-      className="fixed inset-x-0 bottom-0 z-50 fixed-element"
-      style={{
-        margin: 0,
-        padding: 0,
-        WebkitTransform: 'translateZ(0)',
-        transform: 'translateZ(0)'
-      }}
-    >
-      <div
-        className="w-full bg-black/95 backdrop-blur-xl"
+    <div className={containerClass} style={isWebPlatform ? undefined : { margin: 0, padding: 0 }}>
+      <nav
+        role="tablist"
+        aria-label="Primary navigation"
+        className={navBarClass}
+        style={navStyle}
       >
-        <div
-          role="tablist"
-          aria-label="Primary navigation"
-          className="relative flex items-center justify-evenly px-0 py-2.5 sm:py-3"
-          style={{ 
-            paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))'
-          }}
-        >
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <NavButton
-                key={item.id}
-                active={active}
-                label={item.label}
-                onClick={() => handleNavigation(item.path, item.id)}
-              >
-                <Icon className={`transition-all duration-300 ${active ? 'h-6 w-6' : 'h-5 w-5'}`} strokeWidth={active ? 2.5 : 2} />
-              </NavButton>
-            );
-          })}
-        </div>
-      </div>
+        {navItems.map((item) => {
+          const Icon = item.icon ?? DEFAULT_ICON_MAP[item.id] ?? Home;
+          const active = isActive(item.path);
+
+          return (
+            <NavButton
+              key={item.id}
+              active={active}
+              label={item.label}
+              onClick={() => handleNavigation(item.path, item.id)}
+              badge={item.badge}
+              description={item.description}
+              platform={isWebPlatform ? 'web' : 'mobile'}
+              dense={isDenseLayout}
+            >
+              <Icon className={cn('transition-all duration-300', active ? 'h-5 w-5' : 'h-5 w-5')} strokeWidth={active ? 2.4 : 2} />
+            </NavButton>
+          );
+        })}
+      </nav>
 
       {/* Modals */}
       <AuthModal
@@ -224,9 +299,9 @@ export default function Navigation({ userRole }: NavigationProps) {
         }}
         onSuccess={() => {
           handleAuthSuccess();
-          // If user was trying to access tickets and completed guest verification, navigate to tickets
           if (pendingNavigation === 'tickets') {
             navigate('/tickets');
+            onNavigate?.('tickets');
           }
         }}
         title="Sign in to continue"
@@ -277,13 +352,22 @@ function NavButton({
   label,
   active,
   onClick,
+  badge,
+  description,
+  platform,
+  dense
 }: {
   children: ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
+  badge?: string;
+  description?: string;
+  platform: 'web' | 'mobile';
+  dense?: boolean;
 }) {
   const { impactLight } = useHaptics();
+  const isWeb = platform === 'web';
 
   const handleClick = async () => {
     await impactLight();
@@ -297,37 +381,63 @@ function NavButton({
       aria-current={active ? 'page' : undefined}
       role="tab"
       tabIndex={0}
-      className={`group relative flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 transition-all duration-300 ease-out touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 min-h-[60px] sm:min-h-[64px] ${
+      className={cn(
+        'group relative flex items-center transition-all duration-300 ease-out touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+        isWeb
+          ? 'min-h-[48px] gap-3 rounded-xl px-3 py-2'
+          : 'flex-1 flex-col gap-1 rounded-2xl px-3 py-2 min-h-[60px] sm:min-h-[64px]',
         active ? 'text-primary' : 'text-muted-foreground hover:text-primary/90'
-      }`}
+      )}
     >
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-0 rounded-2xl border transition-all duration-300 ${
+        className={cn(
+          'pointer-events-none absolute inset-0 rounded-2xl border transition-all duration-300',
+          isWeb ? 'rounded-xl' : 'rounded-2xl',
           active
             ? 'border-primary/30 bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5 opacity-100'
             : 'border-transparent bg-transparent opacity-0 group-hover:opacity-100 group-hover:border-border/40 group-hover:bg-muted/30'
-        }`}
+        )}
       />
       <span
-        className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-300 ${
-          active
-            ? 'bg-primary/15'
-            : 'bg-muted/20 group-hover:bg-muted/40'
-        }`}
+        className={cn(
+          'relative z-10 flex items-center justify-center rounded-xl transition-all duration-300',
+          isWeb ? 'h-9 w-9' : 'h-9 w-9',
+          active ? 'bg-primary/15' : 'bg-muted/20 group-hover:bg-muted/40'
+        )}
       >
-        <span className={`transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-105'}`}>{children}</span>
+        <span className={cn('transition-transform duration-300', active ? 'scale-110' : 'group-hover:scale-105')}>{children}</span>
       </span>
 
       <span
-        className={`relative z-10 text-[10px] font-medium leading-none transition-all duration-300 ${
-          active
-            ? 'font-semibold text-primary'
-            : 'text-muted-foreground group-hover:text-primary'
-        }`}
+        className={cn(
+          'relative z-10 font-medium leading-none transition-all duration-300',
+          isWeb ? 'text-sm' : dense ? 'text-[10px]' : 'text-xs',
+          active ? 'font-semibold text-primary' : 'text-muted-foreground group-hover:text-primary'
+        )}
       >
         {label}
       </span>
+
+      {badge && (
+        <Badge
+          variant="secondary"
+          className={cn(
+            'relative z-10 uppercase tracking-wide',
+            isWeb ? 'ml-auto text-[10px]' : 'mt-1 text-[9px]'
+          )}
+        >
+          {badge}
+        </Badge>
+      )}
+
+      {isWeb && description && (
+        <span className="relative z-10 hidden text-[11px] text-muted-foreground sm:block">
+          {description}
+        </span>
+      )}
     </button>
   );
 }
+
+export default Navigation;

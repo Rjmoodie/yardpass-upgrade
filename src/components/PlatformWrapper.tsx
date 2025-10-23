@@ -1,7 +1,7 @@
 // Platform wrapper components for conditional rendering
 // Allows components to be shown only on specific platforms
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { usePlatform } from '@/hooks/usePlatform';
 
 interface PlatformWrapperProps {
@@ -32,11 +32,17 @@ export const PlatformWrapper: React.FC<PlatformWrapperProps> = ({
 }) => {
   const { isWeb, isMobile, isNative, isDesktop } = usePlatform();
 
-  // Check conditions
-  if (webOnly && !isWeb) return <>{fallback}</>;
-  if (mobileOnly && !isMobile) return <>{fallback}</>;
-  if (nativeOnly && !isNative) return <>{fallback}</>;
-  if (desktopOnly && !isDesktop) return <>{fallback}</>;
+  const shouldRender = useMemo(() => {
+    if (webOnly && !isWeb) return false;
+    if (mobileOnly && !isMobile) return false;
+    if (nativeOnly && !isNative) return false;
+    if (desktopOnly && !isDesktop) return false;
+    return true;
+  }, [desktopOnly, isDesktop, isMobile, isNative, isWeb, mobileOnly, nativeOnly, webOnly]);
+
+  if (!shouldRender) {
+    return <>{fallback}</>;
+  }
 
   return <>{children}</>;
 };
