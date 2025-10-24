@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Search, MapPin, Calendar, DollarSign, Filter, X } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { supabase } from "@/integrations/supabase/client";
-import { transformEvents } from "@/lib/dataTransformers";
 import { useDebounce } from "@/hooks/useDebounce";
 
 interface SearchResult {
@@ -20,7 +19,7 @@ interface SearchResult {
 
 const categories = ["All", "Music", "Sports", "Comedy", "Food", "Conference", "Art", "Nightlife"];
 
-export function SearchPage() {
+export default function SearchPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
