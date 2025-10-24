@@ -32,7 +32,7 @@ serve(async (req) => {
 
     // do we already have a like?
     const { data: existing } = await supabase
-      .from("event_reactions")
+      .from("events.event_reactions")
       .select("*")
       .eq("post_id", post_id)
       .eq("user_id", user_id)
@@ -44,7 +44,7 @@ serve(async (req) => {
     if (existing) {
       // UNLIKE - delete using composite key
       const { error: delErr } = await supabase
-        .from("event_reactions")
+        .from("events.event_reactions")
         .delete()
         .eq("post_id", post_id)
         .eq("user_id", user_id)
@@ -54,7 +54,7 @@ serve(async (req) => {
     } else {
       // LIKE (ignore duplicate under race)
       const { error: insErr } = await supabase
-        .from("event_reactions")
+        .from("events.event_reactions")
         .insert({ post_id, user_id, kind: "like" });
       // If conflict (race), proceed — unique index protects us
       if (insErr && (insErr as any).code !== "23505") {
@@ -65,7 +65,7 @@ serve(async (req) => {
 
     // Get exact count in a single query
     const { count, error: cntErr } = await supabase
-      .from("event_reactions")
+      .from("events.event_reactions")
       .select("*", { count: "exact", head: true })
       .eq("post_id", post_id)
       .eq("kind", "like");

@@ -247,7 +247,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       // Comments preview (first few) — keep lightweight
       if (mapped.length) {
         const { data: commentsData } = await supabase
-          .from('event_comments')
+          .from('events.event_comments')
           .select(`
             id, text, created_at, author_user_id, post_id,
             user_profiles!event_comments_author_user_id_fkey (
