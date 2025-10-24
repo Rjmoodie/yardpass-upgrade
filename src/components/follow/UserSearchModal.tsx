@@ -106,7 +106,7 @@ export function UserSearchModal({ open, onOpenChange, eventId }: UserSearchModal
     try {
       // Create a conversation with the user
       const { data: conversation, error } = await supabase
-        .from('messaging.direct_conversations')
+        .from('direct_conversations')
         .insert({
           subject: null,
           request_status: 'open',
@@ -119,7 +119,7 @@ export function UserSearchModal({ open, onOpenChange, eventId }: UserSearchModal
 
       // Add both users as participants
       const { error: participantError } = await supabase
-        .from('messaging.conversation_participants')
+        .from('conversation_participants')
         .insert([
           {
             conversation_id: conversation.id,

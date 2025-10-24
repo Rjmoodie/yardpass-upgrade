@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
 
     // Ensure post exists and is not soft-deleted
     const { data: post, error: postErr } = await supabase
-      .from('events.event_posts')
+      .from('event_posts')
       .select('id, event_id, deleted_at')
       .eq('id', post_id)
       .single();
@@ -152,14 +152,14 @@ Deno.serve(async (req) => {
 
     // Database triggers automatically update comment_count, just fetch the updated count
     const { data: countRow } = await supabase
-      .from('events.event_posts')
+      .from('event_posts')
       .select('comment_count')
       .eq('id', post_id)
       .single();
 
     // Enrich author (display name + photo)
     const { data: profile } = await supabase
-      .from('users.user_profiles')
+      .from('user_profiles')
       .select('display_name, photo_url')
       .eq('user_id', user.id)
       .single();

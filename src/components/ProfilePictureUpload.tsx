@@ -78,7 +78,7 @@ export function ProfilePictureUpload({
 
       // Update user profile
       const { error: updateError } = await supabase
-        .from('users.user_profiles')
+        .from('user_profiles')
         .update({ photo_url: publicUrl })
         .eq('user_id', user.id);
 
@@ -115,7 +115,7 @@ export function ProfilePictureUpload({
     try {
       // Update user profile to remove photo
       const { error } = await supabase
-        .from('users.user_profiles')
+        .from('user_profiles')
         .update({ photo_url: null })
         .eq('user_id', user.id);
 

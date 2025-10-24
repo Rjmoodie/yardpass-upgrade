@@ -72,7 +72,7 @@ export function useOrganizerData(user: any) {
 
       // Fetch events with ticket sales data
       const { data: eventsData, error: eventsError } = await supabase
-        .from('events.events')
+        .from('events')
         .select(`
           id,
           title,
@@ -111,13 +111,13 @@ export function useOrganizerData(user: any) {
 
         // Get actual ticket sales data
         const { data: ticketsData } = await supabase
-          .from('ticketing.tickets')
+          .from('tickets')
           .select('status, tier_id')
           .eq('event_id', event.id);
 
         // Get actual order data for revenue
         const { data: ordersData } = await supabase
-          .from('ticketing.orders')
+          .from('orders')
           .select('total_cents, status')
           .eq('event_id', event.id)
           .eq('status', 'paid');
@@ -128,7 +128,7 @@ export function useOrganizerData(user: any) {
         
         // Get actual check-ins
         const { data: checkInsData } = await supabase
-          .from('ticketing.scan_logs')
+          .from('scan_logs')
           .select('id')
           .eq('event_id', event.id)
           .eq('result', 'valid');
@@ -137,7 +137,7 @@ export function useOrganizerData(user: any) {
 
         // Get actual engagement metrics
         const { data: reactionsData } = await supabase
-          .from('events.event_reactions')
+          .from('event_reactions')
           .select('kind, event_posts!inner(event_id)')
           .eq('event_posts.event_id', event.id);
 

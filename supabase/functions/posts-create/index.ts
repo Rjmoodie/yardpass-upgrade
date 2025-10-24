@@ -48,7 +48,7 @@ serve(async (req) => {
     const idempotencyKey = req.headers.get('Idempotency-Key');
     if (idempotencyKey) {
       const { data: existing } = await serviceClient
-        .from('public.idempotency_keys')
+        .from('idempotency_keys')
         .select('response')
         .eq('key', idempotencyKey)
         .eq('user_id', user.id)
@@ -65,7 +65,7 @@ serve(async (req) => {
     const minute = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes());
     
     const { data: rateCheck } = await serviceClient
-      .from('public.rate_limits')
+      .from('rate_limits')
       .upsert({ 
         user_id: user.id, 
         bucket: 'posts-create', 
@@ -114,7 +114,7 @@ serve(async (req) => {
     let finalTicketTierId = ticket_tier_id;
     if (!finalTicketTierId) {
       const { data: tickets } = await supabaseClient
-        .from('ticketing.tickets')
+        .from('tickets')
         .select('tier_id')
         .eq('event_id', event_id)
         .eq('owner_user_id', user.id)
@@ -129,7 +129,7 @@ serve(async (req) => {
 
     // Create the post
     const { data: post, error: postError } = await supabaseClient
-      .from('events.event_posts')
+      .from('event_posts')
       .insert({
         event_id,
         author_user_id: user.id,
@@ -149,7 +149,7 @@ serve(async (req) => {
 
     // Fetch from the new view for rich metadata
     const { data: fullPost, error: viewError } = await supabaseClient
-      .from('events.event_posts_with_meta')
+      .from('event_posts_with_meta')
       .select('*')
       .eq('id', post.id)
       .maybeSingle();
@@ -165,7 +165,7 @@ serve(async (req) => {
     // Cache successful response for idempotency
     if (idempotencyKey) {
       await serviceClient
-        .from('public.idempotency_keys')
+        .from('idempotency_keys')
         .insert({
           key: idempotencyKey,
           user_id: user.id,

@@ -23,7 +23,7 @@ serve(async (req) => {
 
     // Check for oversold tiers (critical alert)
     const { data: allTiers, error: tiersError } = await supabaseService
-      .from('ticketing.ticket_tiers')
+      .from('ticket_tiers')
       .select('id, name, event_id, total_quantity, reserved_quantity, issued_quantity');
 
     if (tiersError) {
@@ -50,7 +50,7 @@ serve(async (req) => {
     // Check for stale holds (over 30 minutes old)
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const { data: staleHolds, error: staleHoldsError } = await supabaseService
-      .from('ticketing.ticket_holds')
+      .from('ticket_holds')
       .select('id, tier_id, quantity, expires_at, created_at')
       .eq('status', 'active')
       .lt('expires_at', thirtyMinutesAgo);
@@ -61,7 +61,7 @@ serve(async (req) => {
 
     // Get overall inventory health metrics
     const { data: inventoryStats, error: statsError } = await supabaseService
-      .from('ticketing.ticket_tiers')
+      .from('ticket_tiers')
       .select(`
         count(*) as total_tiers,
         sum(total_quantity) as total_tickets,
@@ -120,7 +120,7 @@ serve(async (req) => {
 
     // Log to operations table
     const { error: logError } = await supabaseService
-      .from('ticketing.inventory_operations')
+      .from('inventory_operations')
       .insert({
         operation_type: 'health_check',
         user_id: null,

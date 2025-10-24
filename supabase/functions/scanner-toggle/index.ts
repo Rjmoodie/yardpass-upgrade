@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
 
     // Upsert scanner row atomically (idempotent)
     const { error: upErr } = await admin
-      .from('ticketing.event_scanners')
+      .from('event_scanners')
       .upsert(
         { event_id, user_id: target_user_id, status: statusIn },
         { onConflict: 'event_id,user_id' }
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
 
     // (Optional) read back to confirm current state
     const { data: row } = await admin
-      .from('ticketing.event_scanners')
+      .from('event_scanners')
       .select('status, updated_at')
       .eq('event_id', event_id)
       .eq('user_id', target_user_id)

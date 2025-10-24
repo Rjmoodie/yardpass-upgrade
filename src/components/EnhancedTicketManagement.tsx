@@ -90,7 +90,7 @@ export function EnhancedTicketManagement({ eventId }: TicketManagementProps) {
       
       // Fetch tickets with related data
       const { data: ticketsData, error } = await supabase
-        .from('ticketing.tickets')
+        .from('tickets')
         .select(`
           id,
           status,
@@ -106,14 +106,14 @@ export function EnhancedTicketManagement({ eventId }: TicketManagementProps) {
       // Get user profiles separately
       const userIds = [...new Set((ticketsData || []).map(t => t.owner_user_id))];
       const { data: profilesData } = await supabase
-        .from('users.user_profiles')
+        .from('user_profiles')
         .select('user_id, display_name, phone')
         .in('user_id', userIds);
 
       // Get ticket tiers separately  
       const tierIds = [...new Set((ticketsData || []).map(t => t.tier_id))];
       const { data: tiersData } = await supabase
-        .from('ticketing.ticket_tiers')
+        .from('ticket_tiers')
         .select('id, name, price_cents, badge_label')
         .in('id', tierIds);
 

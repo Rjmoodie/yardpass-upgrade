@@ -47,7 +47,7 @@ const [displayAddress, setDisplayAddress] = useState<string | null>(null);
         const userId = auth?.user?.id;
 
         let query = supabase
-          .from('events.events')
+          .from('events')
           .select(`
             id,
             title,

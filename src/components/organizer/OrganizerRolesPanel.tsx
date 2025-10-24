@@ -30,7 +30,7 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
     try {
       // Get invites
       const { data: inviteData, error: inviteError } = await supabase
-        .from('organizations.role_invites')
+        .from('role_invites')
         .select('*')
         .eq('event_id', eventId)
         .order('created_at', { ascending: false });
@@ -43,7 +43,7 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
 
       // Get current members - fix relationship issue by fetching separately
       const { data: memberData, error: memberError } = await supabase
-        .from('events.event_roles')
+        .from('event_roles')
         .select('*')
         .eq('event_id', eventId)
         .eq('status', 'active');
@@ -53,7 +53,7 @@ export function OrganizerRolesPanel({ eventId }: OrganizerRolesPanelProps) {
         const userIds = memberData.map(m => m.user_id);
         if (userIds.length > 0) {
           const { data: profileData } = await supabase
-            .from('users.user_profiles')
+            .from('user_profiles')
             .select('user_id, display_name')
             .in('user_id', userIds);
           

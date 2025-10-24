@@ -27,7 +27,7 @@ async function fetchEventPostsPage(
   
   // Fallback to direct query since RPC doesn't exist
   const query = supabase
-    .from('events.event_posts')
+    .from('event_posts')
     .select('*')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })

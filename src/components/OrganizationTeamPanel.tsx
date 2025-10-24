@@ -55,7 +55,7 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
     try {
       // 1) members
       const { data: rawMembers, error: membersErr } = await supabase
-        .from('organizations.org_memberships')
+        .from('org_memberships')
         .select('org_id, user_id, role, created_at')
         .eq('org_id', organizationId);
       if (membersErr) throw membersErr;
@@ -65,7 +65,7 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
       let profiles: Record<string, { display_name?: string | null; phone?: string | null }> = {};
       if (userIds.length) {
         const { data: profileRows, error: profErr } = await supabase
-          .from('users.user_profiles')
+          .from('user_profiles')
           .select('user_id, display_name, phone')
           .in('user_id', userIds);
         if (!profErr && profileRows) {
@@ -169,7 +169,7 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
     setMembers(prev => prev.filter(m => m.id !== rowId));
     try {
       const { error } = await supabase
-        .from('organizations.org_memberships')
+        .from('org_memberships')
         .delete()
         .eq('org_id', member.org_id)
         .eq('user_id', member.user_id);
@@ -190,7 +190,7 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
     setMembers(prev => prev.map(m => (m.id === rowId ? { ...m, role: newRole } : m)));
     try {
       const { error } = await supabase
-        .from('organizations.org_memberships')
+        .from('org_memberships')
         .update({ role: newRole })
         .eq('org_id', member.org_id)
         .eq('user_id', member.user_id);

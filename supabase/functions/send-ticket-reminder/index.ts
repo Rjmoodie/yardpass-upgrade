@@ -46,7 +46,7 @@ async function fetchEmailContext(eventId: string) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
   const { data: event } = await supabase
-    .from('events.events')
+    .from('events')
     .select(`
       title,
       start_at,
@@ -75,7 +75,7 @@ async function fetchEmailContext(eventId: string) {
   
   if (event.owner_context_type === 'organization' && event.owner_context_id) {
     const { data: org } = await supabase
-      .from('organizations.organizations')
+      .from('organizations')
       .select('name, logo_url, handle')
       .eq('id', event.owner_context_id)
       .single();

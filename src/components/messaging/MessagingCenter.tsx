@@ -99,7 +99,7 @@ export function MessagingCenter() {
     try {
       // Check if messaging tables exist first
       const { data: tableCheck, error: tableError } = await supabase
-        .from('information_schema.tables')
+        .from('tables')
         .select('table_name')
         .eq('table_schema', 'public')
         .eq('table_name', 'direct_conversations')
@@ -114,7 +114,7 @@ export function MessagingCenter() {
 
       // Query conversations directly from the tables
       const { data: conversations, error: conversationsError } = await supabase
-        .from('messaging.direct_conversations')
+        .from('direct_conversations')
         .select(`
           id,
           subject,
@@ -164,13 +164,13 @@ export function MessagingCenter() {
       const [userProfiles, orgRows] = await Promise.all([
         userIds.size
           ? supabase
-              .from('users.user_profiles')
+              .from('user_profiles')
               .select('user_id,display_name,photo_url')
               .in('user_id', Array.from(userIds))
           : Promise.resolve({ data: [] as any[], error: null }),
         organizationIds.size
           ? supabase
-              .from('organizations.organizations')
+              .from('organizations')
               .select('id,name,logo_url')
               .in('id', Array.from(organizationIds))
           : Promise.resolve({ data: [] as any[], error: null }),
@@ -252,7 +252,7 @@ export function MessagingCenter() {
   const loadMessages = useCallback(async (conversationId: string) => {
     try {
       const { data, error } = await supabase
-        .from('messaging.direct_messages')
+        .from('direct_messages')
         .select('id,body,created_at,sender_type,sender_user_id,sender_org_id,status')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
@@ -386,7 +386,7 @@ export function MessagingCenter() {
         sender_org_id: activeIdentity.type === 'organization' ? activeIdentity.id : null,
       };
 
-      const { error } = await supabase.from('messaging.direct_messages').insert(payload);
+      const { error } = await supabase.from('direct_messages').insert(payload);
       if (error) {
         if (error.message?.includes('does not exist')) {
           console.log('Messaging system not available');
@@ -418,7 +418,7 @@ export function MessagingCenter() {
   const acceptRequest = async (conversationId: string) => {
     try {
       const { error } = await supabase
-        .from('messaging.direct_conversations')
+        .from('direct_conversations')
         .update({ request_status: 'accepted' })
         .eq('id', conversationId);
       if (error) throw error;
@@ -432,7 +432,7 @@ export function MessagingCenter() {
   const declineRequest = async (conversationId: string) => {
     try {
       const { error } = await supabase
-        .from('messaging.direct_conversations')
+        .from('direct_conversations')
         .update({ request_status: 'declined' })
         .eq('id', conversationId);
       if (error) throw error;

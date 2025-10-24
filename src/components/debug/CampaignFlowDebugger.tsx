@@ -58,7 +58,7 @@ export const CampaignFlowDebugger: React.FC = () => {
         let orgMemberships: any[] = [];
         if (user) {
           const { data: memberships, error: membershipError } = await supabase
-            .from('organizations.org_memberships')
+            .from('org_memberships')
             .select(`
               role,
               organizations!fk_org_memberships_org_id (

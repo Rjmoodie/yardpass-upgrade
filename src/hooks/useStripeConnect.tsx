@@ -104,7 +104,7 @@ export function useStripeConnect(
         safeSetState(setError, null);
 
         const { data, error: fetchError } = await supabase
-          .from('payments.payout_accounts')
+          .from('payout_accounts')
           .select('*')
           .eq('context_type', contextType)
           .eq('context_id', id)

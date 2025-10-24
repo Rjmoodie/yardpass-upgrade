@@ -110,7 +110,7 @@ export function OrgContactExportPanel({ organizationId }: OrgContactExportPanelP
   useEffect(() => {
     const fetchEvents = async () => {
       const { data, error } = await supabase
-        .from('events.events')
+        .from('events')
         .select('id,title,start_at')
         .eq('owner_context_id', organizationId)
         .order('start_at', { ascending: false })
@@ -161,7 +161,7 @@ export function OrgContactExportPanel({ organizationId }: OrgContactExportPanelP
     setIsLoading(true);
     try {
       const { data: ticketRows, error: ticketError } = await supabase
-        .from('ticketing.tickets')
+        .from('tickets')
         .select('id,event_id,owner_user_id,order_id,created_at')
         .in('event_id', selectedEvents);
 
@@ -182,7 +182,7 @@ export function OrgContactExportPanel({ organizationId }: OrgContactExportPanelP
       const userIds = Array.from(new Set(tickets.map((row) => row.owner_user_id).filter(Boolean)));
 
       const { data: profileRows, error: profileError } = await supabase
-        .from('users.user_profiles')
+        .from('user_profiles')
         .select('user_id,display_name,email,phone')
         .in('user_id', userIds);
 

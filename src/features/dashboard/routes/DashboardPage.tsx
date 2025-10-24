@@ -172,7 +172,7 @@ export default function OrganizerDashboard() {
 
     try {
       const { error } = await supabase
-        .from('organizations.organizations')
+        .from('organizations')
         .update({
           name: editForm.name,
           description: editForm.description || null,

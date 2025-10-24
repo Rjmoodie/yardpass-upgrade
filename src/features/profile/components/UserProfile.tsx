@@ -101,7 +101,7 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
     try {
       // Posts (normalized -> UserPost)
       const { data: posts, error: postsError } = await supabase
-        .from('events.event_posts')
+        .from('event_posts')
         .select(`
           id,
           text,
@@ -162,7 +162,7 @@ function UserProfile({ user, onRoleToggle, onBack }: UserProfileProps) {
   async function fetchUserSocialLinks() {
     try {
       const { data: profile, error } = await supabase
-        .from('users.user_profiles')
+        .from('user_profiles')
         .select('social_links, photo_url')
         .eq('user_id', user.id)
         .single();

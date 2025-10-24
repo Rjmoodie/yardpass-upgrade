@@ -9,7 +9,7 @@ import { ensureAvailableSlug } from './slugUtils';
 export async function backfillEventSlugs() {
   try {
     const { data: events, error } = await supabase
-      .from('events.events')
+      .from('events')
       .select('id, title, slug')
       .or('slug.is.null,slug.eq.""');
 
@@ -20,7 +20,7 @@ export async function backfillEventSlugs() {
     for (const ev of events) {
       const slug = await ensureAvailableSlug(ev.title, async (candidate) => {
         const { count, error: existsErr } = await supabase
-          .from('events.events')
+          .from('events')
           .select('id', { head: true, count: 'exact' })
           .eq('slug', candidate);
         if (existsErr) return true;
@@ -28,7 +28,7 @@ export async function backfillEventSlugs() {
       });
 
       const { error: updateError } = await supabase
-        .from('events.events')
+        .from('events')
         .update({ slug })
         .eq('id', ev.id);
 

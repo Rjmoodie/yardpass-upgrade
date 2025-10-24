@@ -135,7 +135,7 @@ export function UserFollowList({
   const handleFollowRequestDecision = useCallback(async (followId: string, status: 'accepted' | 'declined') => {
     try {
       const { error } = await supabase
-        .from('users.follows')
+        .from('follows')
         .update({ status })
         .eq('id', followId);
       

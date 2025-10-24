@@ -43,7 +43,7 @@ export function useOrganizerAnalytics() {
     try {
       // Fetch events created by the user
       const { data: events, error: eventsError } = await supabase
-        .from('events.events')
+        .from('events')
         .select('id, title, created_at')
         .eq('created_by', user.id);
 
@@ -64,7 +64,7 @@ export function useOrganizerAnalytics() {
 
       // Fetch ticket sales and revenue
       const { data: ticketData, error: ticketError } = await supabase
-        .from('ticketing.tickets')
+        .from('tickets')
         .select(`
           event_id,
             status,
@@ -78,7 +78,7 @@ export function useOrganizerAnalytics() {
 
       // Fetch check-ins from scan_logs table
       const { data: checkInData, error: checkInError } = await supabase
-        .from('ticketing.scan_logs')
+        .from('scan_logs')
         .select('event_id, ticket_id')
         .in('event_id', eventIds);
 
@@ -86,7 +86,7 @@ export function useOrganizerAnalytics() {
 
       // Fetch engagement metrics
       const { data: engagementData, error: engagementError } = await supabase
-        .from('events.event_reactions')
+        .from('event_reactions')
         .select('post_id, kind, event_posts!event_reactions_post_id_fkey (event_id)')
         .in('event_posts.event_id', eventIds);
 

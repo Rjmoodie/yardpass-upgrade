@@ -21,7 +21,7 @@ export function useFollowCounts(targetType: 'user' | 'organizer', targetId: stri
     try {
       // Count followers (people following this target)
       const { count: followerCount, error: followerError } = await supabase
-        .from('users.follows')
+        .from('follows')
         .select('*', { count: 'exact', head: true })
         .eq('target_type', targetType)
         .eq('target_id', targetId)
@@ -33,7 +33,7 @@ export function useFollowCounts(targetType: 'user' | 'organizer', targetId: stri
       let pendingCount = 0;
       if (targetType === 'user') {
         const { count, error: pendingError } = await supabase
-          .from('users.follows')
+          .from('follows')
           .select('*', { count: 'exact', head: true })
           .eq('target_type', 'user')
           .eq('target_id', targetId)
@@ -47,7 +47,7 @@ export function useFollowCounts(targetType: 'user' | 'organizer', targetId: stri
       let followingCount = 0;
       if (targetType === 'user') {
         const { count, error: followingError } = await supabase
-          .from('users.follows')
+          .from('follows')
           .select('*', { count: 'exact', head: true })
           .eq('follower_user_id', targetId)
           .eq('status', 'accepted');
@@ -109,7 +109,7 @@ export function useFollowList({ targetType, targetId, direction, includePending 
       if (direction === 'followers') {
         // Get followers (people following this target)
         const { data, error: followsError } = await supabase
-          .from('users.follows')
+          .from('follows')
           .select('id,status,created_at,follower_user_id')
           .eq('target_type', targetType)
           .eq('target_id', targetId)
@@ -125,7 +125,7 @@ export function useFollowList({ targetType, targetId, direction, includePending 
 
         const { data: userProfiles, error: profilesError } = userIds.length
           ? await supabase
-              .from('users.user_profiles')
+              .from('user_profiles')
               .select('user_id,display_name,photo_url')
               .in('user_id', Array.from(new Set(userIds)))
           : { data: [] as any[], error: null };
@@ -157,7 +157,7 @@ export function useFollowList({ targetType, targetId, direction, includePending 
       } else {
         // following list
         const { data, error: followsError } = await supabase
-          .from('users.follows')
+          .from('follows')
           .select('id,status,created_at,target_type,target_id')
           .eq('follower_user_id', direction === 'following' ? targetId : '')
           .in('status', includePending ? ['accepted', 'pending'] : ['accepted'])
@@ -175,13 +175,13 @@ export function useFollowList({ targetType, targetId, direction, includePending 
         const [orgRows, userProfiles] = await Promise.all([
           organizerIds.length
             ? supabase
-                .from('organizations.organizations')
+                .from('organizations')
                 .select('id,name,logo_url')
                 .in('id', Array.from(new Set(organizerIds)))
             : Promise.resolve({ data: [] as any[], error: null }),
           userTargetIds.length
             ? supabase
-                .from('users.user_profiles')
+                .from('user_profiles')
                 .select('user_id,display_name,photo_url')
                 .in('user_id', Array.from(new Set(userTargetIds)))
             : Promise.resolve({ data: [] as any[], error: null }),
@@ -263,14 +263,14 @@ export function useMutualFollow(targetUserId: string | null | undefined) {
 
     const [{ data: outgoingRow }, { data: incomingRow }] = await Promise.all([
       supabase
-        .from('users.follows')
+        .from('follows')
         .select('status')
         .eq('follower_user_id', user.id)
         .eq('target_type', 'user')
         .eq('target_id', targetUserId)
         .maybeSingle(),
       supabase
-        .from('users.follows')
+        .from('follows')
         .select('status')
         .eq('follower_user_id', targetUserId)
         .eq('target_type', 'user')

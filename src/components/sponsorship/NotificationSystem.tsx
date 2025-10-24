@@ -19,7 +19,7 @@ import {
   Users,
   Calendar,
   Settings,
-  MarkAsRead,
+  CheckCheck,
   Trash2,
   Archive,
   Filter,
@@ -350,7 +350,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
           </div>
           {unreadCount > 0 && (
             <Button variant="outline" onClick={markAllAsRead}>
-              <MarkAsRead className="h-4 w-4 mr-2" />
+              <CheckCheck className="h-4 w-4 mr-2" />
               Mark All Read
             </Button>
           )}

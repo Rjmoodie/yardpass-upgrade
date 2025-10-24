@@ -60,7 +60,7 @@ export function useMessaging() {
 
       // 1) Create job
       const { data: job, error } = await supabase
-        .from('messaging.message_jobs')
+        .from('message_jobs')
         .insert({
           event_id: input.eventId,
           channel: input.channel,
@@ -94,7 +94,7 @@ export function useMessaging() {
       if (input.segment.type === 'all_attendees') {
         // Fetch only user IDs from tickets to avoid FK join requirements
         const { data: tickets, error: ticketsError } = await supabase
-          .from('ticketing.tickets')
+          .from('tickets')
           .select('owner_user_id')
           .eq('event_id', input.eventId)
           .eq('status', 'issued');
@@ -113,7 +113,7 @@ export function useMessaging() {
         } else {
           // For SMS, fetch phones from user_profiles in a separate query
           const { data: profiles, error: profilesError } = await supabase
-            .from('users.user_profiles')
+            .from('user_profiles')
             .select('user_id, phone')
             .in('user_id', userIds);
           if (profilesError) {
@@ -131,7 +131,7 @@ export function useMessaging() {
       } else if (input.segment.type === 'roles') {
         // Roles segment: fetch role user IDs first
         const { data: roleUsers, error: rolesError } = await supabase
-          .from('events.event_roles')
+          .from('event_roles')
           .select('user_id')
           .eq('event_id', input.eventId)
           .in('role', input.segment.roles ?? []);
@@ -148,7 +148,7 @@ export function useMessaging() {
           recipients = userIds.map(userId => ({ user_id: userId, email: null, phone: null }));
         } else {
           const { data: profiles, error: profilesError } = await supabase
-            .from('users.user_profiles')
+            .from('user_profiles')
             .select('user_id, phone')
             .in('user_id', userIds);
           if (profilesError) {
@@ -159,7 +159,7 @@ export function useMessaging() {
       } else if (input.segment.type === 'import_list') {
         console.log('[useMessaging] Using imported contact list:', input.segment.listId);
         const { data: contacts, error: contactsError } = await supabase
-          .from('organizations.org_contact_import_entries')
+          .from('org_contact_import_entries')
           .select('email, phone')
           .eq('import_id', input.segment.listId);
 
@@ -207,7 +207,7 @@ export function useMessaging() {
             email: r.email ?? null,
             phone: r.phone ?? null,
           }));
-          const { error: insertError } = await supabase.from('messaging.message_job_recipients').insert(chunk);
+          const { error: insertError } = await supabase.from('message_job_recipients').insert(chunk);
           if (insertError) {
             console.error('[useMessaging] Error inserting recipients chunk:', insertError);
             throw insertError;
@@ -247,21 +247,21 @@ export function useMessaging() {
     try {
       if (segment.type === 'all_attendees') {
         const { count } = await supabase
-          .from('ticketing.tickets')
+          .from('tickets')
           .select('*', { count: 'exact', head: true })
           .eq('event_id', eventId)
           .eq('status', 'issued');
         return count || 0;
       } else if (segment.type === 'roles') {
         const { count } = await supabase
-          .from('events.event_roles')
+          .from('event_roles')
           .select('*', { count: 'exact', head: true })
           .eq('event_id', eventId)
           .in('role', segment.roles ?? []);
         return count || 0;
       } else {
         const { count } = await supabase
-          .from('organizations.org_contact_import_entries')
+          .from('org_contact_import_entries')
           .select('*', { count: 'exact', head: true })
           .eq('import_id', segment.listId);
         return count || 0;

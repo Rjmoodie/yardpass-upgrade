@@ -23,7 +23,7 @@ export function useFollow(target: Target) {
       }
 
       const { data, error } = await supabase
-        .from('users.follows')
+        .from('follows')
         .select('id,status')
         .eq('follower_user_id', user.id)
         .eq('target_type', target.type)
@@ -76,7 +76,7 @@ export function useFollow(target: Target) {
     }
 
     const { data, error } = await supabase
-      .from('users.follows')
+      .from('follows')
       .insert(payload)
       .select('id,status')
       .maybeSingle();
@@ -95,7 +95,7 @@ export function useFollow(target: Target) {
     if (!user) throw new Error('Not authenticated');
 
     const query = supabase
-      .from('users.follows')
+      .from('follows')
       .delete()
       .eq('follower_user_id', user.id)
       .eq('target_type', target.type)
@@ -118,7 +118,7 @@ export function useFollow(target: Target) {
   const accept = useCallback(async () => {
     if (!rowId) return;
     const { error } = await supabase
-      .from('users.follows')
+      .from('follows')
       .update({ status: 'accepted' })
       .eq('id', rowId);
     if (error) throw error;
@@ -128,7 +128,7 @@ export function useFollow(target: Target) {
   const decline = useCallback(async () => {
     if (!rowId) return;
     const { error } = await supabase
-      .from('users.follows')
+      .from('follows')
       .update({ status: 'declined' })
       .eq('id', rowId);
     if (error) throw error;

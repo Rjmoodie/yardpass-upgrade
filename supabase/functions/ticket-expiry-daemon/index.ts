@@ -23,7 +23,7 @@ serve(async (req) => {
 
     // Get all expired holds
     const { data: expiredHolds, error: expiredError } = await supabaseService
-      .from('ticketing.ticket_holds')
+      .from('ticket_holds')
       .select('id, tier_id, quantity')
       .eq('status', 'active')
       .lt('expires_at', new Date().toISOString());
@@ -59,7 +59,7 @@ serve(async (req) => {
     for (let i = 0; i < expiredHolds.length; i += batchSize) {
       const batch = expiredHolds.slice(i, i + batchSize);
       const { error: markExpiredError } = await supabaseService
-        .from('ticketing.ticket_holds')
+        .from('ticket_holds')
         .update({ status: 'expired' })
         .in('id', batch.map(h => h.id));
 
@@ -90,7 +90,7 @@ serve(async (req) => {
 
     // Log operation to inventory_operations table
     const { error: logError } = await supabaseService
-      .from('ticketing.inventory_operations')
+      .from('inventory_operations')
       .insert({
         operation_type: 'bulk_release',
         user_id: null, // System operation

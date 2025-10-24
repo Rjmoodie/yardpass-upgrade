@@ -5,7 +5,7 @@ const IMAGE_BASE  = "https://image.mux.com";  // thumbnails & storyboards
 export type MuxIds = { playbackId: string };
 
 export function extractMuxPlaybackId(input?: string | null): string | null {
-  if (!input) return null;
+  if (!input || typeof input !== "string") return null;
   // Accept mux:ABC or https://stream.mux.com/ABC(.m3u8|/...)
   const muxProto = input.match(/^mux:([a-zA-Z0-9]+)$/)?.[1];
   if (muxProto) return muxProto;

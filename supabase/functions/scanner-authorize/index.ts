@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
     // --- 2) Check explicit scanner enablement for this event ---
     const { data: scannerRow, error: scannerErr } = await supabase
-      .from('ticketing.event_scanners')
+      .from('event_scanners')
       .select('status')
       .eq('event_id', event_id)
       .eq('user_id', user.id)

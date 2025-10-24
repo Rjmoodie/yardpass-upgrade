@@ -33,7 +33,7 @@ export function SponsorCreateDialog({ open, onOpenChange, userId, onCreated }: S
     try {
       // Create sponsor account
       const { data: sponsor, error: sponsorError } = await supabase
-        .from('sponsorship.sponsors')
+        .from('sponsors')
         .insert({
           name: formData.name,
           website_url: formData.website_url || null,
@@ -47,7 +47,7 @@ export function SponsorCreateDialog({ open, onOpenChange, userId, onCreated }: S
 
       // Add user as owner
       const { error: memberError } = await supabase
-        .from('sponsorship.sponsor_members')
+        .from('sponsor_members')
         .insert({
           sponsor_id: sponsor.id,
           user_id: userId,

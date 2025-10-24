@@ -130,7 +130,7 @@ export function useUserConnections(userId?: string) {
   const handleFollowRequest = useCallback(async (followId: string, status: 'accepted' | 'declined') => {
     try {
       const { error } = await supabase
-        .from('users.follows')
+        .from('follows')
         .update({ status })
         .eq('id', followId);
       

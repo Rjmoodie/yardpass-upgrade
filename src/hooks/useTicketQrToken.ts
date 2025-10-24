@@ -40,7 +40,7 @@ export function useTicketQrToken({
         setState((prev) => ({ ...prev, isLoading: true, isError: false }));
 
         const { data: ticket, error } = await supabase
-          .from('ticketing.tickets')
+          .from('tickets')
           .select('qr_code')
           .eq('id', ticketId)
           .maybeSingle();

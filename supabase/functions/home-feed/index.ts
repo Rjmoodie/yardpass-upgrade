@@ -16,6 +16,7 @@ const ALLOWED_ORIGINS = [
   "https://staging.yardpass.com",
   "http://localhost:5173",
   "http://localhost:8080",
+  "http://localhost:8081",
   "http://localhost:8084",
   "http://localhost:8085",
   "https://*.lovable.app",

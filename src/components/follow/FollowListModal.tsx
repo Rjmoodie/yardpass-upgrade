@@ -31,7 +31,7 @@ export function FollowListModal({ open, onOpenChange, targetType, targetId, dire
     try {
       setUpdating(followId);
       const { error } = await supabase
-        .from('users.follows')
+        .from('follows')
         .update({ status })
         .eq('id', followId);
       if (error) throw error;
