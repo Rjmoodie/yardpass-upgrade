@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { QrCode, Download, Share2, MoreVertical, Clock, MapPin, Calendar, ChevronDown } from "lucide-react";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { useAuth } from "../contexts/AuthContext";
-import { supabase } from "../integrations/supabase/client";
-import { transformTickets } from "../lib/dataTransformers";
+import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { transformTickets } from "@/lib/dataTransformers";
 import QRCode from "qrcode";
 
 interface Ticket {

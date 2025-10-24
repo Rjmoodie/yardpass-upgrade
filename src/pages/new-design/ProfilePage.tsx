@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Settings, Share2, Grid3x3, Calendar, Heart, Users, MapPin, Instagram, Twitter, Globe } from "lucide-react";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { useAuth } from "../contexts/AuthContext";
-import { useUserConnections } from "../hooks/useUserConnections";
-import { supabase } from "../integrations/supabase/client";
-import { transformUserProfile, transformPosts } from "../lib/dataTransformers";
+import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserConnections } from "@/hooks/useUserConnections";
+import { supabase } from "@/integrations/supabase/client";
+import { transformUserProfile, transformPosts } from "@/lib/dataTransformers";
 
 interface UserProfile {
   name: string;

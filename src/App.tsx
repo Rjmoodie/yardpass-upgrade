@@ -27,6 +27,14 @@ import { usePlatform } from '@/hooks/usePlatform';
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
 const EventAttendeesPage = lazy(() => import('@/pages/EventAttendeesPageEnhanced'));
 const ModernFeedPage = lazy(() => import('@/pages/ModernFeedPage'));
+
+// New Design Components (Integrated with Real Data)
+const ProfilePageNew = lazy(() => import('@/pages/new-design/ProfilePage'));
+const TicketsPageNew = lazy(() => import('@/pages/new-design/TicketsPage'));
+const SearchPageNew = lazy(() => import('@/pages/new-design/SearchPage'));
+const EventDetailsPageNew = lazy(() => import('@/pages/new-design/EventDetailsPage'));
+const MessagesPageNew = lazy(() => import('@/pages/new-design/MessagesPage'));
+const NotificationsPageNew = lazy(() => import('@/pages/new-design/NotificationsPage'));
 const CreateEventFlow = lazy(() =>
   import('@/components/CreateEventFlow').then((m) => ({ default: m.CreateEventFlow })),
 );
@@ -423,6 +431,73 @@ function AppContent() {
                 }
               />
               <Route path="/tickets" element={<TicketsRoute />} />
+              
+              {/* New Design Routes - Integrated with Real Data */}
+              <Route
+                path="/profile-new"
+                element={
+                  <AuthGuard>
+                    <Suspense fallback={<PageLoadingSpinner />}>
+                      <ProfilePageNew />
+                    </Suspense>
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/profile-new/:userId"
+                element={
+                  <Suspense fallback={<PageLoadingSpinner />}>
+                    <ProfilePageNew />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/tickets-new"
+                element={
+                  <AuthGuard>
+                    <Suspense fallback={<PageLoadingSpinner />}>
+                      <TicketsPageNew />
+                    </Suspense>
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/search-new"
+                element={
+                  <Suspense fallback={<PageLoadingSpinner />}>
+                    <SearchPageNew />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/event-new/:eventId"
+                element={
+                  <Suspense fallback={<PageLoadingSpinner />}>
+                    <EventDetailsPageNew />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/messages-new"
+                element={
+                  <AuthGuard>
+                    <Suspense fallback={<PageLoadingSpinner />}>
+                      <MessagesPageNew />
+                    </Suspense>
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/notifications-new"
+                element={
+                  <AuthGuard>
+                    <Suspense fallback={<PageLoadingSpinner />}>
+                      <NotificationsPageNew />
+                    </Suspense>
+                  </AuthGuard>
+                }
+              />
+              
               <Route
                 path="/purchase-success"
                 element={

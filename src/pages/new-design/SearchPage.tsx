@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, MapPin, Calendar, DollarSign, Filter, X } from "lucide-react";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { supabase } from "../integrations/supabase/client";
-import { transformEvents } from "../lib/dataTransformers";
-import { useDebounce } from "../hooks/useDebounce";
+import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { supabase } from "@/integrations/supabase/client";
+import { transformEvents } from "@/lib/dataTransformers";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface SearchResult {
   id: string;

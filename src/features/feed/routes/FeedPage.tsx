@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePlatform } from '@/hooks/usePlatform';
 import { WebLandingPage } from '@/components/landing/WebLandingPage';
 
-const UnifiedFeedList = lazy(() => import('../components/UnifiedFeedList'));
+const FeedPageNewDesign = lazy(() => import('./FeedPageNewDesign'));
 
 export default function FeedPage() {
   const { user } = useAuth();
@@ -18,7 +18,7 @@ export default function FeedPage() {
         <WebLandingPage />
       ) : (
         <Suspense fallback={<div className="flex items-center justify-center h-screen"><LoadingSpinner /></div>}>
-          <UnifiedFeedList />
+          <FeedPageNewDesign />
         </Suspense>
       )}
     </div>
