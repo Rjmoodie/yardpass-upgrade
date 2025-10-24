@@ -54,7 +54,7 @@ export function useTicketAnalytics() {
 
     try {
       flushingRef.current = true;
-      const { error } = await supabase.from('analytics.analytics_events').insert(queue);
+      const { error } = await supabase.from('analytics_events').insert(queue);
       if (!error) {
         setQueue([]);
       } else {
@@ -92,7 +92,7 @@ export function useTicketAnalytics() {
     }
 
     // Try immediate insert
-    const { error } = await supabase.from('analytics.analytics_events').insert(payload);
+    const { error } = await supabase.from('analytics_events').insert(payload);
     if (error) {
       // fall back to queue
       const q = getQueue();
@@ -191,7 +191,7 @@ export function useProfileAnalytics() {
     if (!queue.length || !navigator.onLine) return;
     try {
       flushingRef.current = true;
-      const { error } = await supabase.from('analytics.analytics_events').insert(queue);
+      const { error } = await supabase.from('analytics_events').insert(queue);
       if (!error) setQueue([]);
     } catch {
       // keep queue
@@ -221,7 +221,7 @@ export function useProfileAnalytics() {
       return;
     }
 
-    const { error } = await supabase.from('analytics.analytics_events').insert(payload);
+    const { error } = await supabase.from('analytics_events').insert(payload);
     if (error) {
       const q = getQueue();
       q.push(payload);

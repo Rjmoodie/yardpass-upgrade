@@ -27,7 +27,7 @@ export function useMuxAnalytics(eventId: string, fromDate?: string, toDate?: str
     try {
       // Get all posts with video media for this event
       const { data: posts, error: postsError } = await supabase
-        .from('events.event_posts')
+        .from('event_posts')
         .select('media_urls')
         .eq('event_id', eventId)
         .not('media_urls', 'is', null);

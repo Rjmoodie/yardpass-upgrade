@@ -46,7 +46,7 @@ export async function createGuestCheckoutSession(params: {
 
 export async function fetchTicketTiers(eventId: string) {
   const { data, error } = await supabase
-    .from('ticketing.ticket_tiers')
+    .from('ticket_tiers')
     .select('*')
     .eq('event_id', eventId)
     .in('status', ['active', 'sold_out'])
@@ -57,7 +57,7 @@ export async function fetchTicketTiers(eventId: string) {
 
 export async function fetchOrderStatus(orderId: string) {
   const { data, error } = await supabase
-    .from('ticketing.orders')
+    .from('orders')
     .select('status')
     .eq('id', orderId)
     .maybeSingle();

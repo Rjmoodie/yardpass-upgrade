@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     const { data, error } = await supabase
-      .from('users.user_profiles')
+      .from('user_profiles')
       .select('*')
       .eq('user_id', userId)
       .single();
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const phone = session.user.phone || session.user.user_metadata?.phone;
             
             const { error: profileError } = await supabase
-              .from('users.user_profiles')
+              .from('user_profiles')
               .upsert({
                 user_id: session.user.id,
                 display_name: displayName,
@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('updateRole: Updating role to:', role, 'for user:', user.id);
     
     const { data, error } = await supabase
-      .from('users.user_profiles')
+      .from('user_profiles')
       .update({ role })
       .eq('user_id', user.id)
       .select();

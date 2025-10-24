@@ -234,7 +234,7 @@ export default function UserProfilePage() {
     const loadUserData = async (userId: string) => {
       const [ticketsResult, eventsResult, postsResult]: [any, any, any] = await Promise.all([
         supabase
-          .from('ticketing.tickets')
+          .from('tickets')
           .select(
             `
               id,
@@ -251,13 +251,13 @@ export default function UserProfilePage() {
           .eq('owner_user_id', userId)
           .order('created_at', { ascending: false }),
         supabase
-          .from('events.events')
+          .from('events')
           .select('*')
           .eq('created_by', userId)
           .order('start_at', { ascending: false })
 ,
         supabase
-          .from('events.event_posts')
+          .from('event_posts')
           .select(
             `
               id,
@@ -304,7 +304,7 @@ export default function UserProfilePage() {
         
         if (profileIdToLoad) {
           const result = await supabase
-            .from('users.user_profiles')
+            .from('user_profiles')
             .select('user_id, display_name, phone, role, verification_status, photo_url, created_at, social_links')
             .eq('user_id', profileIdToLoad)
             .maybeSingle();

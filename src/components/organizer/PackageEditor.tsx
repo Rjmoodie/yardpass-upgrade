@@ -55,7 +55,7 @@ export function PackageEditor({ eventId, onCreated }: PackageEditorProps) {
       const filteredBenefits = benefits.filter(b => b.trim());
 
       const { error } = await supabase
-        .from('sponsorship.sponsorship_packages')
+        .from('sponsorship_packages')
         .insert({
           event_id: eventId,
           tier: title.trim(), // Use title as tier for backward compatibility

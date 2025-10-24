@@ -30,7 +30,7 @@ export async function startConversation({
   const requestStatus = forceRequest ? 'pending' : 'accepted';
 
   const { data: conversation, error: convoError } = await supabase
-    .from('messaging.direct_conversations')
+    .from('direct_conversations')
     .insert({
       subject: subject ?? null,
       request_status: requestStatus,
@@ -65,7 +65,7 @@ export async function startConversation({
   ];
 
   const { error: participantError } = await supabase
-    .from('messaging.conversation_participants')
+    .from('conversation_participants')
     .insert(participantRows);
 
   if (participantError) throw participantError;

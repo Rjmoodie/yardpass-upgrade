@@ -53,7 +53,7 @@ export function useMarketplaceSponsorships(filters?: MarketplaceFilters) {
     queryKey: ['marketplace-sponsorships', filters],
     queryFn: async () => {
       let query = supabase
-        .from('sponsorship.sponsorship_packages')
+        .from('sponsorship_packages')
         .select(`
           id,
           event_id,
@@ -118,7 +118,7 @@ export function useEventSponsorshipPackages(eventId: string) {
     queryKey: ['event-sponsorship-packages', eventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('sponsorship.sponsorship_packages')
+        .from('sponsorship_packages')
         .select('*')
         .eq('event_id', eventId)
         .eq('is_active', true)
@@ -136,7 +136,7 @@ export function useSponsorOrders(sponsorId: string) {
     queryKey: ['sponsor-orders', sponsorId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('sponsorship.sponsorship_orders')
+        .from('sponsorship_orders')
         .select(`
           *,
           sponsorship_packages!inner(
@@ -172,7 +172,7 @@ export function useOrganizerSponsorshipOrders(eventId: string) {
     queryKey: ['organizer-sponsorship-orders', eventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('sponsorship.sponsorship_orders')
+        .from('sponsorship_orders')
         .select(`
           *,
           sponsorship_packages!inner(

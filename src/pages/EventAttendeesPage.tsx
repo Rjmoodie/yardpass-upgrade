@@ -49,7 +49,7 @@ export default function EventAttendeesPage() {
 
         // Try by slug first
         const bySlug = await supabase
-          .from('events.events')
+          .from('events')
           .select('id, title')
           .eq('slug', identifier)
           .limit(1)
@@ -59,7 +59,7 @@ export default function EventAttendeesPage() {
         if (!ev.data && /^[0-9a-f-]{36}$/i.test(identifier)) {
           // Fallback by id if identifier looks like a UUID
           ev = await supabase
-            .from('events.events')
+            .from('events')
             .select('id, title')
             .eq('id', identifier)
             .limit(1)
@@ -84,7 +84,7 @@ export default function EventAttendeesPage() {
 
         // first page
         const { data, error } = await supabase
-          .from('ticketing.tickets')
+          .from('tickets')
           .select('owner_user_id, user_profiles!inner(id, display_name, photo_url), created_at')
           .eq('event_id', ev.data.id)
           .in('status', ['issued', 'transferred', 'redeemed'])
@@ -118,7 +118,7 @@ export default function EventAttendeesPage() {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
       const { data, error } = await supabase
-        .from('ticketing.tickets')
+        .from('tickets')
         .select('owner_user_id, user_profiles!inner(id, display_name, photo_url), created_at')
         .eq('event_id', eventId)
         .in('status', ['issued', 'transferred', 'redeemed'])

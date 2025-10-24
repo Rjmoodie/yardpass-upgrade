@@ -25,7 +25,7 @@ serve(async (req) => {
     // Rate limiting check
     const rateLimitKey = `guest-otp:${method}:${contact}`;
     const { data: rateLimit } = await supabase
-      .from('public.rate_limits')
+      .from('rate_limits')
       .select('count')
       .eq('bucket', rateLimitKey)
       .eq('minute', new Date(Math.floor(Date.now() / 60000) * 60000).toISOString())
@@ -43,7 +43,7 @@ serve(async (req) => {
     // Store OTP with 5-minute expiry
     const expiry = new Date(Date.now() + 5 * 60 * 1000);
     await supabase
-      .from('ticketing.guest_otp_codes')
+      .from('guest_otp_codes')
       .upsert({
         method,
         contact,
@@ -55,7 +55,7 @@ serve(async (req) => {
 
     // Update rate limit
     await supabase
-      .from('public.rate_limits')
+      .from('rate_limits')
       .upsert({
         bucket: rateLimitKey,
         user_id: '00000000-0000-0000-0000-000000000000', // dummy UUID for guest

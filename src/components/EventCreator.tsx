@@ -73,7 +73,7 @@ async function ensureUniqueSlug(base: string) {
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const { data, error } = await supabase
-      .from('events.events')
+      .from('events')
       .select('id')
       .eq('slug', slug)
       .limit(1);
@@ -413,7 +413,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
               status: 'active',
             }))
           );
-          const { error: tiersErr } = await supabase.from('ticketing.ticket_tiers').insert(payload);
+          const { error: tiersErr } = await supabase.from('ticket_tiers').insert(payload);
           if (tiersErr) throw tiersErr;
         }
 
@@ -437,7 +437,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       const linkToken = formData.visibility === 'unlisted' && 'randomUUID' in crypto ? crypto.randomUUID() : null;
 
       const { data: event, error: eventError } = await supabase
-        .from('events.events')
+        .from('events')
         .insert({
           title: formData.title,
           description: formData.description,
@@ -474,7 +474,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           currency: 'USD',
           status: 'active',
         }));
-        const { error: tiersErr } = await supabase.from('ticketing.ticket_tiers').insert(tiersPayload);
+        const { error: tiersErr } = await supabase.from('ticket_tiers').insert(tiersPayload);
         if (tiersErr) throw tiersErr;
       }
 

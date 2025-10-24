@@ -57,7 +57,7 @@ serve(async (req) => {
 
     // Check if user has access to this org
     const { data: membership, error: membershipError } = await supabase
-      .from('organizations.org_memberships')
+      .from('org_memberships')
       .select('role')
       .eq('org_id', orgId)
       .eq('user_id', user.id)
@@ -70,7 +70,7 @@ serve(async (req) => {
       console.log('No membership found, checking if user is organization creator');
       // Also check if user is the organization creator
       const { data: org } = await supabase
-        .from('organizations.organizations')
+        .from('organizations')
         .select('created_by')
         .eq('id', orgId)
         .single();
@@ -85,7 +85,7 @@ serve(async (req) => {
 
     // Get org events for filtering
     const { data: events } = await supabase
-      .from('events.events')
+      .from('events')
       .select('id')
       .eq('owner_context_type', 'organization')
       .eq('owner_context_id', orgId);
@@ -149,7 +149,7 @@ serve(async (req) => {
 
     // Get unique buyers
     const { data: buyersData } = await supabase
-      .from('ticketing.orders')
+      .from('orders')
       .select('user_id')
       .in('event_id', eventIds)
       .eq('status', 'paid')
@@ -161,7 +161,7 @@ serve(async (req) => {
 
     // Get posts and engagement data
     const { data: postsData } = await supabase
-      .from('events.event_posts')
+      .from('event_posts')
       .select('id')
       .in('event_id', eventIds)
       .gte('created_at', defaultFromDate)
@@ -191,7 +191,7 @@ serve(async (req) => {
     });
 
     const { data: eventDetails } = await supabase
-      .from('events.events')
+      .from('events')
       .select('id, title')
       .in('id', eventIds);
 

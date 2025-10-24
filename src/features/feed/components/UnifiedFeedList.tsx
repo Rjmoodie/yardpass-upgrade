@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SlidersHorizontal, MapPin, Compass } from 'lucide-react';
-import { BrandedSpinner } from './BrandedSpinner';
+import { BrandedSpinner } from '@/components/BrandedSpinner';
 import { useUnifiedFeedInfinite } from '@/hooks/useUnifiedFeedInfinite';
 import { useCampaignBoosts, type CampaignBoostRow } from '@/hooks/useCampaignBoosts';
 import { useAuth } from '@/contexts/AuthContext';

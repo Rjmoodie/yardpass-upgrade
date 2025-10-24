@@ -7,7 +7,7 @@ export async function fetchOrgEvents({ orgId, page = 1, limit = 100 }:{
   const from = (page - 1) * limit;
   const to = from + limit - 1;
   const { data, error } = await supabase
-    .from('events.events')
+    .from('events')
     .select('*')
     .eq('owner_context_id', orgId)
     .order('start_at', { ascending: false })

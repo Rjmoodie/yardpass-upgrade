@@ -40,7 +40,7 @@ serve(async (req) => {
       const lastId = Number(idStr);
 
       const { data: posts, error: postsError } = await supabaseClient
-        .from('events.event_posts_with_meta')
+        .from('event_posts_with_meta')
         .select('id, created_at, title, preview, author_user_id, like_count, comment_count')
         .or(`created_at.lt.${ts.toISOString()},and(created_at.eq.${ts.toISOString()},id.lt.${lastId})`)
         .order('created_at', { ascending: false })
@@ -70,7 +70,7 @@ serve(async (req) => {
       const offset = (safePage - 1) * safeLimit;
 
       const { data: posts, error: postsError } = await supabaseClient
-        .from('events.event_posts_with_meta')
+        .from('event_posts_with_meta')
         .select('id, created_at, title, preview, author_user_id, like_count, comment_count')
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })

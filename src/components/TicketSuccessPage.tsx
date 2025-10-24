@@ -193,7 +193,7 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
       let url = `${window.location.origin}`;
       try {
         if (eventMeta.eventId) {
-          const { data: e } = await supabase.from('events.events').select('slug').eq('id', eventMeta.eventId).single();
+          const { data: e } = await supabase.from('events').select('slug').eq('id', eventMeta.eventId).single();
           url = `${window.location.origin}/events/${e?.slug || eventMeta.eventId}`;
         }
       } catch {

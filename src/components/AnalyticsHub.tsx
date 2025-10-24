@@ -633,7 +633,7 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
     setLoading(true);
     try {
       const { data: events, error } = await supabase
-        .from('events.events')
+        .from('events')
         .select(`
           id,
           title,
@@ -1192,7 +1192,7 @@ const AnalyticsHub: React.FC<{ initialOrgId?: string | null }> = ({ initialOrgId
   const feedbackAI = async (helpful: boolean) => {
     try {
       // Optional: store feedback for tuning
-      await supabase.from('analytics.analytics_events').insert({
+      await supabase.from('analytics_events').insert({
         event_type: 'ai_insights_feedback',
         metadata: {
           org_id: selectedOrg,

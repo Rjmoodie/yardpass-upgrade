@@ -148,11 +148,11 @@ export function OrganizationDashboard({
     setLoading(true);
     try {
       // 1) Organization
-      const orgPromise = supabase.from('organizations.organizations').select('*').eq('id', organizationId).single();
+      const orgPromise = supabase.from('organizations').select('*').eq('id', organizationId).single();
 
       // 2) Members (basic)
       const membersPromise = supabase
-        .from('organizations.org_memberships')
+        .from('org_memberships')
         .select('user_id, role, created_at')
         .eq('org_id', organizationId);
 
@@ -179,7 +179,7 @@ export function OrganizationDashboard({
 
       if (userIds.length) {
         const { data: profiles, error: profilesErr } = await supabase
-          .from('users.user_profiles')
+          .from('user_profiles')
           .select('user_id, display_name, photo_url')
           .in('user_id', userIds);
 
@@ -279,7 +279,7 @@ export function OrganizationDashboard({
 
     try {
       const { error } = await supabase
-        .from('organizations.org_memberships')
+        .from('org_memberships')
         .delete()
         .eq('user_id', userId)
         .eq('org_id', organizationId);
@@ -300,7 +300,7 @@ export function OrganizationDashboard({
   const handleChangeRole = async (userId: string, nextRole: OrgRole) => {
     try {
       const { error } = await supabase
-        .from('organizations.org_memberships')
+        .from('org_memberships')
         .update({ role: nextRole })
         .eq('user_id', userId)
         .eq('org_id', organizationId);
@@ -404,7 +404,7 @@ export function OrganizationDashboard({
   const handleEditOrg = async () => {
     try {
       const { error } = await supabase
-        .from('organizations.organizations')
+        .from('organizations')
         .update({
           name: editForm.name,
           description: editForm.description || null,
@@ -881,7 +881,7 @@ export function OrganizationDashboard({
                   onChange={async (newLinks) => {
                     try {
                       const { error } = await supabase
-                        .from('organizations.organizations')
+                        .from('organizations')
                         .update({ social_links: newLinks as any })
                         .eq('id', organizationId);
                         

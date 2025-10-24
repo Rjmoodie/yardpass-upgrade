@@ -21,7 +21,7 @@ serve(async (req) => {
 
     // Get event details
     const { data: event, error } = await supabase
-      .from('events.events')
+      .from('events')
       .select('id, title, description, start_at, location')
       .eq('id', event_id)
       .single();

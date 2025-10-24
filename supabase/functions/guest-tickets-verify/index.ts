@@ -24,7 +24,7 @@ serve(async (req) => {
 
     // Verify OTP
     const { data: otpRecord, error: otpError } = await supabase
-      .from('ticketing.guest_otp_codes')
+      .from('guest_otp_codes')
       .select('*')
       .eq('method', method)
       .eq('contact', contact)
@@ -50,7 +50,7 @@ serve(async (req) => {
 
     // Store session
     await supabase
-      .from('ticketing.guest_ticket_sessions')
+      .from('guest_ticket_sessions')
       .insert({
         token_hash: tokenHash,
         method,
@@ -62,7 +62,7 @@ serve(async (req) => {
 
     // Clean up OTP
     await supabase
-      .from('ticketing.guest_otp_codes')
+      .from('guest_otp_codes')
       .delete()
       .eq('method', method)
       .eq('contact', contact);

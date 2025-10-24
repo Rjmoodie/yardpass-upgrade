@@ -54,7 +54,7 @@ export function CreateEventFlow({ onBack, onCreate }: CreateEventFlowProps) {
 
       try {
         const { data, error } = await supabase
-          .from('organizations.org_memberships')
+          .from('org_memberships')
           .select(`
             role,
             organizations!fk_org_memberships_org_id (

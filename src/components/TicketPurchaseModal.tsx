@@ -193,7 +193,7 @@ export function TicketPurchaseModal({
     try {
       // Get guest code data
       const { data, error } = await supabase
-        .from('ticketing.guest_codes')
+        .from('guest_codes')
         .select(`
           id,
           code,
@@ -227,7 +227,7 @@ export function TicketPurchaseModal({
       let tierName: string | undefined;
       if (data.tier_id) {
         const { data: tierData } = await supabase
-          .from('ticketing.ticket_tiers')
+          .from('ticket_tiers')
           .select('name')
           .eq('id', data.tier_id)
           .maybeSingle();

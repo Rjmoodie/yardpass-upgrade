@@ -317,7 +317,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
     (async () => {
       try {
         const { data, error } = await supabase
-          .from('users.user_profiles')
+          .from('user_profiles')
           .select('user_id,display_name,photo_url,role,verification_status')
           .ilike('display_name', `%${q}%`)
           .order('display_name', { ascending: true })

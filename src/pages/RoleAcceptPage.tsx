@@ -29,7 +29,7 @@ export default function RoleAcceptPage() {
     async function loadInvite() {
       try {
         const { data, error } = await supabase
-          .from('organizations.role_invites')
+          .from('role_invites')
           .select(`
             *,
             events(title, start_at)

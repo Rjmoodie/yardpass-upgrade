@@ -29,7 +29,7 @@ serve(async (req) => {
 
     // Get the order
     const { data: order, error: orderError } = await supabaseService
-      .from('ticketing.orders')
+      .from('orders')
       .select('*')
       .eq('stripe_session_id', sessionId)
       .single();
@@ -40,7 +40,7 @@ serve(async (req) => {
 
     // Get order items
     const { data: orderItems, error: itemsError } = await supabaseService
-      .from('ticketing.order_items')
+      .from('order_items')
       .select('*')
       .eq('order_id', order.id);
 
@@ -71,7 +71,7 @@ serve(async (req) => {
 
     // Mark order as paid
     const { error: updateError } = await supabaseService
-      .from('ticketing.orders')
+      .from('orders')
       .update({ 
         status: 'paid',
         paid_at: new Date().toISOString()
@@ -98,7 +98,7 @@ serve(async (req) => {
     }
 
     const { error: ticketsError } = await supabaseService
-      .from('ticketing.tickets')
+      .from('tickets')
       .insert(ticketsToCreate);
 
     if (ticketsError) {
@@ -110,7 +110,7 @@ serve(async (req) => {
 
     // Log the operation
     const { error: logError } = await supabaseService
-      .from('ticketing.inventory_operations')
+      .from('inventory_operations')
       .insert({
         operation_type: 'payment_success',
         user_id: order.user_id,

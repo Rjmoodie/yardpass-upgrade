@@ -144,7 +144,7 @@ export const AnalyticsDebugPanel: React.FC = () => {
     try {
       // --- analytics_events ---
       let ae = supabase
-        .from('analytics.analytics_events')
+        .from('analytics_events')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -160,7 +160,7 @@ export const AnalyticsDebugPanel: React.FC = () => {
 
       // --- post_views (video events) ---
       let pv = supabase
-        .from('analytics.post_views')
+        .from('post_views')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(limit);

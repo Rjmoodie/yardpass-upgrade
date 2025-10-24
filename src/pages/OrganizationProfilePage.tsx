@@ -115,7 +115,7 @@ export default function OrganizationProfilePage() {
     if (!user?.id) return false;
     // Use org_memberships table with proper column names
     const { data, error } = await supabase
-      .from('organizations.org_memberships')
+      .from('org_memberships')
       .select('role')
       .eq('org_id', orgId)
       .eq('user_id', user.id)
@@ -136,7 +136,7 @@ export default function OrganizationProfilePage() {
       let org, orgError;
       if (isUUID) {
         const result = await supabase
-          .from('organizations.organizations')
+          .from('organizations')
           .select('*')
           .eq('id', id)
           .single();
@@ -145,7 +145,7 @@ export default function OrganizationProfilePage() {
       } else {
         // Try to find by handle
         const result = await supabase
-          .from('organizations.organizations')
+          .from('organizations')
           .select('*')
           .eq('handle', id)
           .single();
@@ -174,7 +174,7 @@ export default function OrganizationProfilePage() {
 
       // Fetch organization's public events using the actual org id
       const { data: eventsData, error: eventsError } = await supabase
-        .from('events.events')
+        .from('events')
         .select('id, title, description, start_at, city, venue, cover_image_url, category')
         .eq('owner_context_type', 'organization')
         .eq('owner_context_id', org.id)
@@ -300,7 +300,7 @@ export default function OrganizationProfilePage() {
       };
 
       const { error } = await supabase
-        .from('organizations.organizations')
+        .from('organizations')
         .update(payload)
         .eq('id', organization.id);
 

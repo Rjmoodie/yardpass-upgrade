@@ -24,7 +24,7 @@ serve(async (req) => {
 
     // Verify session
     const { data: session, error: sessionError } = await supabase
-      .from('ticketing.guest_ticket_sessions')
+      .from('guest_ticket_sessions')
       .select('*')
       .eq('token_hash', tokenHash)
       .gt('expires_at', new Date().toISOString())

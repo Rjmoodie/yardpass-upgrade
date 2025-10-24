@@ -51,7 +51,7 @@ serve(async (req) => {
     } else if (context_type === 'organization') {
       // For organizations, verify user has admin/owner role
       const { data: membership, error: membershipError } = await supabaseService
-        .from('organizations.org_memberships')
+        .from('org_memberships')
         .select('role')
         .eq('org_id', context_id)
         .eq('user_id', userData.user.id)
@@ -73,7 +73,7 @@ serve(async (req) => {
 
     // Check if account already exists
     let { data: existingAccount } = await supabaseService
-      .from('payments.payout_accounts')
+      .from('payout_accounts')
       .select('*')
       .eq('context_type', context_type)
       .eq('context_id', context_id)
@@ -127,7 +127,7 @@ serve(async (req) => {
       // Store in database
       if (existingAccount) {
         await supabaseService
-          .from('payments.payout_accounts')
+          .from('payout_accounts')
           .update({
             stripe_connect_id: stripeAccountId,
             charges_enabled: account.charges_enabled,
@@ -137,7 +137,7 @@ serve(async (req) => {
           .eq('id', existingAccount.id);
       } else {
         await supabaseService
-          .from('payments.payout_accounts')
+          .from('payout_accounts')
           .insert({
             context_type,
             context_id,

@@ -84,7 +84,7 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
     const load = async () => {
       try {
         const { data, error } = await supabase
-          .from('events.events')
+          .from('events')
           .select(`id,title,description,start_at,end_at,venue,city,category,cover_image_url,visibility,
                    user_profiles!events_created_by_fkey ( display_name )`)
           .eq('visibility', 'public')

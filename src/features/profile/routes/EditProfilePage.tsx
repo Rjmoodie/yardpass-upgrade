@@ -51,7 +51,7 @@ export default function EditProfilePage() {
 
     try {
       const { error } = await supabase
-        .from('users.user_profiles')
+        .from('user_profiles')
         .update({ 
           display_name: displayName.trim(),
           photo_url: photoUrl || null,

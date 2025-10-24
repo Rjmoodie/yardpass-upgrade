@@ -112,19 +112,28 @@ export function useAnalytics() {
         const batch = eventsToFlush.slice(i, i + BATCH_SIZE);
         
         const { error } = await supabase
-          .from('analytics.analytics_events')
+          .from('analytics_events')
           .insert(batch);
 
         if (error) {
-          console.error('Failed to insert analytics batch:', error);
-          // Re-queue failed events
-          queueRef.current.unshift(...batch);
+          if ((error as { code?: string }).code === 'PGRST205') {
+            console.warn('Analytics tracking unavailable:', error.message ?? error);
+          } else {
+            console.error('Failed to insert analytics batch:', error);
+            // Re-queue failed events for retry
+            queueRef.current.unshift(...batch);
+          }
+          continue;
         }
       }
     } catch (error) {
-      console.error('Failed to flush analytics queue:', error);
-      // Re-queue all events on error
-      queueRef.current.unshift(...eventsToFlush);
+      if ((error as { code?: string }).code === 'PGRST205') {
+        console.warn('Analytics tracking unavailable:', (error as any).message ?? error);
+      } else {
+        console.error('Failed to flush analytics queue:', error);
+        // Re-queue all events on unexpected errors
+        queueRef.current.unshift(...eventsToFlush);
+      }
     } finally {
       isFlushingRef.current = false;
     }

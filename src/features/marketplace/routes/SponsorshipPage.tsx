@@ -28,7 +28,7 @@ import SponsorProfileManager from '@/components/sponsorship/SponsorProfileManage
 import MatchAlgorithm from '@/components/sponsorship/MatchAlgorithm';
 import ProposalNegotiation from '@/components/sponsorship/ProposalNegotiation';
 import PaymentEscrowManager from '@/components/sponsorship/PaymentEscrowManager';
-import AnalyticsDashboard from '@/components/sponsorship/AnalyticsDashboard';
+import { AnalyticsDashboard } from '@/components/sponsorship/AnalyticsDashboard';
 import NotificationSystem from '@/components/sponsorship/NotificationSystem';
 
 interface SponsorshipPageProps {

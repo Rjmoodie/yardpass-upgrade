@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: ticket, error: ticketErr } = await admin
-      .from('ticketing.tickets')
+      .from('tickets')
       .select('id, event_id, owner_user_id, qr_code, status, redeemed_at, wallet_pass_url')
       .eq('id', ticketId)
       .maybeSingle()
