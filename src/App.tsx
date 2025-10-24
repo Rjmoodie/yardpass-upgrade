@@ -69,6 +69,7 @@ const SponsorshipTestPage = lazy(() => import('@/pages/SponsorshipTestPage'));
 const OrgWalletPage = lazy(() => import('@/pages/OrgWalletPage'));
 const CampaignDashboardPage = lazy(() => import('@/pages/CampaignDashboardPage'));
 const MessagesPage = lazy(() => import('@/pages/MessagesPage'));
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
 const SocialPage = lazy(() => import('@/components/SocialPage').then((m) => ({ default: m.SocialPage })));
 
 // Auth guard
@@ -408,6 +409,10 @@ function AppContent() {
               <Route
                 path="/messages"
                 element={<UserDependentRoute>{() => <MessagesPage />}</UserDependentRoute>}
+              />
+              <Route
+                path="/notifications"
+                element={<UserDependentRoute>{() => <NotificationsPage />}</UserDependentRoute>}
               />
               <Route
                 path="/social"
