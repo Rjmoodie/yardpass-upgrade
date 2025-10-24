@@ -18,6 +18,7 @@ import { FloatingActions } from '@/components/feed/FloatingActions';
 import { BrandedSpinner } from '@/components/BrandedSpinner';
 import { isVideoUrl } from '@/utils/mux';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
+import { Volume2, VolumeX } from 'lucide-react';
 
 type FeedFilters = {
   dates: string[];
@@ -33,6 +34,13 @@ const DEFAULT_FILTERS: FeedFilters = {
   searchRadius: 25,
 };
 
+const createDefaultFilters = (): FeedFilters => ({
+  dates: [...DEFAULT_FILTERS.dates],
+  locations: [...DEFAULT_FILTERS.locations],
+  categories: [...DEFAULT_FILTERS.categories],
+  searchRadius: DEFAULT_FILTERS.searchRadius,
+});
+
 const isVideoPost = (item: FeedItem) =>
   item.item_type === 'post' &&
   Array.isArray(item.media_urls) &&
@@ -46,7 +54,7 @@ export default function FeedPageNewDesign() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const [filters, setFilters] = useState<FeedFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FeedFilters>(() => createDefaultFilters());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [globalSoundEnabled, setGlobalSoundEnabled] = useState(false);
   const [pausedVideos, setPausedVideos] = useState<Record<string, boolean>>({});
@@ -57,6 +65,8 @@ export default function FeedPageNewDesign() {
   const [postCreatorOpen, setPostCreatorOpen] = useState(false);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [ticketModalEvent, setTicketModalEvent] = useState<any>(null);
+  const [soundToastVisible, setSoundToastVisible] = useState(false);
+  const [lastGlobalSoundState, setLastGlobalSoundState] = useState(globalSoundEnabled);
 
   const {
     data,
@@ -75,6 +85,7 @@ export default function FeedPageNewDesign() {
   const { data: boosts } = useCampaignBoosts({ placement: 'feed', enabled: true, userId: user?.id });
   const { share } = useShare();
   const { applyOptimisticLike, applyEngagementDelta } = useOptimisticReactions();
+  const soundToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allFeedItems = useMemo(() => {
     const items = data?.pages.flatMap((p) => p.items) ?? [];
@@ -92,6 +103,19 @@ export default function FeedPageNewDesign() {
   const registerInteraction = useCallback(() => {
     if (!autoplayReady) setAutoplayReady(true);
   }, [autoplayReady]);
+
+  const hasActiveFilters = useMemo(() => {
+    const locationsChanged =
+      filters.locations.length !== DEFAULT_FILTERS.locations.length ||
+      filters.locations.some((location, index) => DEFAULT_FILTERS.locations[index] !== location);
+
+    return (
+      filters.dates.length > 0 ||
+      filters.categories.length > 0 ||
+      filters.searchRadius !== DEFAULT_FILTERS.searchRadius ||
+      locationsChanged
+    );
+  }, [filters]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -159,6 +183,25 @@ export default function FeedPageNewDesign() {
     registerInteraction();
   }, [registerInteraction]);
 
+  const handleToggleGlobalSound = useCallback(() => {
+    setGlobalSoundEnabled((prev) => {
+      const next = !prev;
+      setLastGlobalSoundState(next);
+      setSoundToastVisible(true);
+      if (soundToastTimeoutRef.current) clearTimeout(soundToastTimeoutRef.current);
+      soundToastTimeoutRef.current = setTimeout(() => setSoundToastVisible(false), 2400);
+      return next;
+    });
+    registerInteraction();
+  }, [registerInteraction]);
+
+  const handleClearFilters = useCallback(() => {
+    setFilters(createDefaultFilters());
+    setFiltersOpen(false);
+    toast({ title: 'Filters cleared', description: 'Showing events near you anytime.' });
+    registerInteraction();
+  }, [registerInteraction, toast]);
+
   const handleCreatePost = useCallback(() => {
     requireAuth(() => {
       setPostCreatorOpen(true);
@@ -172,6 +215,14 @@ export default function FeedPageNewDesign() {
       description: 'Thank you for your report. Our team will review this content.',
     });
   }, [toast]);
+
+  useEffect(() => {
+    return () => {
+      if (soundToastTimeoutRef.current) {
+        clearTimeout(soundToastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (status === 'loading') {
     return (
@@ -205,15 +256,30 @@ export default function FeedPageNewDesign() {
         onLocationClick={() => setFiltersOpen(true)}
         onDateClick={() => setFiltersOpen(true)}
         onFiltersClick={() => setFiltersOpen(true)}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={hasActiveFilters ? handleClearFilters : undefined}
       />
 
       {/* Floating Actions */}
       <FloatingActions
         isMuted={!globalSoundEnabled}
-        onMuteToggle={() => setGlobalSoundEnabled(!globalSoundEnabled)}
+        onMuteToggle={handleToggleGlobalSound}
         onCreatePost={handleCreatePost}
         onOpenMessages={() => navigate('/messages-new')}
       />
+
+      {soundToastVisible && (
+        <div className="fixed left-1/2 top-32 z-40 -translate-x-1/2 sm:top-36">
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-2 text-xs font-semibold text-white shadow-2xl backdrop-blur-md sm:px-5 sm:text-sm">
+            {lastGlobalSoundState ? (
+              <Volume2 className="h-4 w-4" />
+            ) : (
+              <VolumeX className="h-4 w-4" />
+            )}
+            <span>{lastGlobalSoundState ? 'Sound on for all videos' : 'Muted all videos'}</span>
+          </div>
+        </div>
+      )}
 
       {/* Feed Content - Full Screen TikTok Style */}
       <div 

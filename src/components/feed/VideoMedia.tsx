@@ -20,10 +20,11 @@ interface VideoMediaProps {
   };
   visible: boolean;
   trackVideoProgress?: (postId: string, eventId: string, video: HTMLVideoElement) => void;
+  globalSoundEnabled?: boolean;
 }
 
-export function VideoMedia({ url, post, visible, trackVideoProgress }: VideoMediaProps) {
-  const [muted, setMuted] = useState(true);
+export function VideoMedia({ url, post, visible, trackVideoProgress, globalSoundEnabled }: VideoMediaProps) {
+  const [muted, setMuted] = useState(() => !(globalSoundEnabled ?? false));
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -33,6 +34,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress }: VideoMedi
   const viewTrackedRef = useRef(false);
   const playTrackedRef = useRef(false);
   const completeTrackedRef = useRef(false);
+  const previousGlobalSound = useRef<boolean | undefined>(globalSoundEnabled);
 
   const playbackId = useMemo(() => extractMuxPlaybackId(url), [url]);
   const muxEnvKey = import.meta.env.VITE_MUX_DATA_ENV_KEY ?? "5i41hf91q117pfu1fgli0glfs";
@@ -130,6 +132,25 @@ export function VideoMedia({ url, post, visible, trackVideoProgress }: VideoMedi
       completeTrackedRef.current = false;
     }
   }, [visible, muted, isReady]);
+
+  useEffect(() => {
+    if (globalSoundEnabled === undefined) return;
+    if (previousGlobalSound.current === globalSoundEnabled) return;
+
+    previousGlobalSound.current = globalSoundEnabled;
+    const el = playerRef.current;
+    const nextMuted = !globalSoundEnabled;
+
+    setMuted(nextMuted);
+
+    if (el) {
+      el.muted = nextMuted;
+      if (!nextMuted && visible) {
+        setShowTapHint(false);
+        el.play().catch(() => {});
+      }
+    }
+  }, [globalSoundEnabled, visible]);
 
   useEffect(() => {
     if (!trackVideoProgress || !post?.id || !post?.event_id) return;
