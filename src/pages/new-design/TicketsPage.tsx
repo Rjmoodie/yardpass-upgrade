@@ -4,7 +4,6 @@ import { QrCode, Download, Share2, MoreVertical, Clock, MapPin, Calendar, Chevro
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { transformTickets } from "@/lib/dataTransformers";
 import QRCode from "qrcode";
 
 interface Ticket {
@@ -21,7 +20,7 @@ interface Ticket {
   eventId?: string;
 }
 
-export function TicketsPage() {
+export default function TicketsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
@@ -67,8 +66,6 @@ export function TicketsPage() {
 
         if (error) throw error;
 
-        const transformed = transformTickets(data || []);
-        
         // Map to the format expected by UI
         const mappedTickets: Ticket[] = (data || []).map((ticket: any) => {
           const event = ticket.events || {};

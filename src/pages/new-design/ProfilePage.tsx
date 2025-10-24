@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Settings, Share2, Grid3x3, Calendar, Heart, Users, MapPin, Instagram, Twitter, Globe } from "lucide-react";
+import { Settings, Share2, Grid3x3, Calendar, Heart, MapPin, Instagram, Twitter, Globe } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserConnections } from "@/hooks/useUserConnections";
 import { supabase } from "@/integrations/supabase/client";
-import { transformUserProfile, transformPosts } from "@/lib/dataTransformers";
+import { transformUserProfile } from "@/lib/dataTransformers";
 
 interface UserProfile {
   name: string;
@@ -33,7 +33,7 @@ interface Post {
   type: 'post' | 'event';
 }
 
-export function ProfilePage() {
+export default function ProfilePage() {
   const { user } = useAuth();
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -114,35 +114,37 @@ export function ProfilePage() {
 
         if (error) throw error;
 
-        const transformed = (data || []).map(post => {
-          const likeCount = post.event_reactions?.filter((r: any) => r.kind === 'like').length || 0;
-          return {
-            id: post.id,
-            image: post.media_urls?.[0] || '',
-            likes: likeCount,
-            type: post.event_id ? 'event' as const : 'post' as const
-          };
-        }).filter(post => post.image); // Only show posts with images
+        const transformed = (data || [])
+          .map(post => {
+            const likeCount = post.event_reactions?.filter((r: any) => r.kind === 'like').length || 0;
+            return {
+              id: post.id,
+              image: post.media_urls?.[0] || '',
+              likes: likeCount,
+              type: post.event_id ? 'event' as const : 'post' as const
+            };
+          })
+          .filter(post => post.image); // Only show posts with images
 
         setPosts(transformed);
-        
-        // Update profile stats
-        if (profile) {
-          setProfile({
-            ...profile,
-            stats: {
-              ...profile.stats,
-              posts: transformed.length
-            }
-          });
-        }
+        setProfile(prev =>
+          prev
+            ? {
+                ...prev,
+                stats: {
+                  ...prev.stats,
+                  posts: transformed.length
+                }
+              }
+            : prev
+        );
       } catch (error) {
         console.error('Error loading posts:', error);
       }
     };
 
     loadPosts();
-  }, [targetUserId, profile]);
+  }, [targetUserId]);
 
   // Load user events
   useEffect(() => {
