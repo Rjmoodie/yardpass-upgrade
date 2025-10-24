@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Search, Ticket, User, Bell, MessageCircle } from "lucide-react";
+import { Home, Search, Ticket, User, MessageCircle } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 
 export function NavigationNewDesign() {
@@ -67,20 +67,6 @@ export function NavigationNewDesign() {
           );
         })}
       </div>
-
-      {/* Notification Badge */}
-      {user && (
-        <button
-          onClick={() => navigate('/notifications')}
-          className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all hover:bg-white/10 sm:right-4 sm:h-10 sm:w-10"
-        >
-          <Bell className={`h-4 w-4 sm:h-5 sm:w-5 ${
-            currentScreen === 'notifications' ? 'text-[#FF8C00]' : 'text-white/60'
-          }`} />
-          {/* Unread indicator - connect to real notification count */}
-          <div className="absolute right-0 top-0 h-2 w-2 rounded-full bg-[#FF8C00]" />
-        </button>
-      )}
     </nav>
   );
 }

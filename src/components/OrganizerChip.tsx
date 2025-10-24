@@ -22,7 +22,7 @@ export function OrganizerChip({
     if (contextType === 'organization') {
       navigate(routes.org(organizerId));
     } else {
-      navigate(`/u/${organizerId}`);
+      navigate(`/profile/${organizerId}`);
     }
   };
 

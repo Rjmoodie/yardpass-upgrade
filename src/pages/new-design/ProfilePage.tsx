@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationSystem } from "@/components/NotificationSystem";
+import { UsernameEditor } from "@/components/profile/UsernameEditor";
 
 interface UserProfile {
   user_id: string;
@@ -43,9 +44,9 @@ interface UserEvent {
 
 export function ProfilePage() {
   const { user: currentUser } = useAuth();
-  const { userId } = useParams();
+  const { username } = useParams<{ username?: string }>();
   const navigate = useNavigate();
-  const targetUserId = userId || currentUser?.id;
+  const targetUserId = username || currentUser?.id;
   
   const [activeTab, setActiveTab] = useState<'posts' | 'events' | 'saved'>('posts');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -61,7 +62,7 @@ export function ProfilePage() {
     id: targetUserId || ''
   });
   
-  const isOwnProfile = !userId || userId === currentUser?.id;
+  const isOwnProfile = !username || username === currentUser?.id;
 
   // Fetch profile data
   useEffect(() => {
@@ -74,12 +75,24 @@ export function ProfilePage() {
       try {
         setLoading(true);
         
-        // Fetch user profile
-        const { data: profileData, error: profileError } = await supabase
+        // First try to find by username (case-insensitive)
+        let { data: profileData, error: profileError } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('user_id', targetUserId)
-          .single();
+          .ilike('username', targetUserId)
+          .maybeSingle();
+
+        // If no match by username, try by UUID
+        if (!profileData && !profileError) {
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          if (uuidRegex.test(targetUserId)) {
+            ({ data: profileData, error: profileError } = await supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('user_id', targetUserId)
+              .single());
+          }
+        }
 
         if (profileError) throw profileError;
         setProfile(profileData);
@@ -377,9 +390,25 @@ export function ProfilePage() {
         {/* Profile Info */}
         <div className="mb-4">
           <h1 className="mb-1 text-2xl font-bold text-white sm:text-3xl">{profile.display_name}</h1>
-          <p className="mb-3 text-sm text-white/60 sm:text-base">
-            @{profile.username || profile.user_id.slice(0, 8)}
-          </p>
+          {isOwnProfile ? (
+            <div className="mb-3">
+              <UsernameEditor
+                currentUsername={profile.username}
+                userId={profile.user_id}
+                onUpdate={(newUsername) => {
+                  setProfile({ ...profile, username: newUsername });
+                  // Update URL if username changed
+                  if (newUsername) {
+                    navigate(`/profile/${newUsername}`, { replace: true });
+                  }
+                }}
+              />
+            </div>
+          ) : (
+            <p className="mb-3 text-sm text-white/60 sm:text-base">
+              @{profile.username || profile.user_id.slice(0, 8)}
+            </p>
+          )}
           
           {/* Bio */}
           {profile.bio && (
@@ -451,14 +480,14 @@ export function ProfilePage() {
               </p>
             </div>
             <button 
-              onClick={() => navigate(`/u/${targetUserId}/followers`)}
+              onClick={() => navigate(`/profile/${targetUserId}/followers`)}
               className="text-center transition-opacity hover:opacity-80"
             >
               <p className="mb-1 text-lg font-bold text-white sm:text-xl">{followers.length.toLocaleString()}</p>
               <p className="text-xs text-white/60 sm:text-sm">Followers</p>
             </button>
             <button 
-              onClick={() => navigate(`/u/${targetUserId}/following`)}
+              onClick={() => navigate(`/profile/${targetUserId}/following`)}
               className="text-center transition-opacity hover:opacity-80"
             >
               <p className="mb-1 text-lg font-bold text-white sm:text-xl">{following.length}</p>

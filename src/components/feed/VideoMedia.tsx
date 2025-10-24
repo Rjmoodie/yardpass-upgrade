@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MuxPlayer from "@mux/mux-player-react";
-import { Button } from "@/components/ui/button";
-import { Bookmark, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { BrandedSpinner } from '../BrandedSpinner';
 import { extractMuxPlaybackId, posterUrl } from "@/lib/video/muxClient";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +27,6 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [showTapHint, setShowTapHint] = useState(true);
   const playerRef = useRef<MuxPlayerRefElement | null>(null);
   const viewTrackedRef = useRef(false);
   const playTrackedRef = useRef(false);
@@ -125,7 +122,6 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
       el.currentTime = 0;
       setIsPlaying(false);
       setProgress(0);
-      setShowTapHint(true);
       setIsBuffering(false);
       viewTrackedRef.current = false;
       playTrackedRef.current = false;
@@ -146,7 +142,6 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
     if (el) {
       el.muted = nextMuted;
       if (!nextMuted && visible) {
-        setShowTapHint(false);
         el.play().catch(() => {});
       }
     }
@@ -167,7 +162,6 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
     setMuted(next);
     el.muted = next;
     if (!next) {
-      setShowTapHint(false);
       el.play().catch(() => {});
     }
   }, [muted]);
@@ -278,15 +272,6 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
         </div>
       )}
 
-      {muted && showTapHint && (
-        <div className="absolute bottom-24 left-4 z-30 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500/90 to-orange-600/90 px-4 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-xl">
-            <Volume2 className="h-3.5 w-3.5" />
-            Tap for sound
-          </span>
-        </div>
-      )}
-
       {post?.user_profiles?.display_name && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/60 to-transparent px-5 pb-5 pt-20">
           <p className="text-base font-bold text-white drop-shadow-lg">
@@ -297,61 +282,6 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           )}
         </div>
       )}
-
-      <div className="absolute bottom-20 right-4 z-30 flex flex-col gap-3">
-        {/* Play/Pause Button */}
-        <div className="group relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleTogglePlayback}
-            className="pointer-events-auto h-14 w-14 rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-white/40 hover:bg-white/20 active:scale-95"
-            aria-label={isPlaying ? "Pause video" : "Play video"}
-          >
-            {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-0.5" />}
-          </Button>
-          <div className="pointer-events-none absolute right-16 top-1/2 -translate-y-1/2 opacity-0 transition-all group-hover:opacity-100">
-            <span className="whitespace-nowrap rounded-lg bg-black/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
-              {isPlaying ? "Pause" : "Play"}
-            </span>
-          </div>
-        </div>
-
-        {/* Sound Toggle Button */}
-        <div className="group relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleToggleMute}
-            className="pointer-events-auto h-14 w-14 rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-white/40 hover:bg-white/20 active:scale-95"
-            aria-label={muted ? "Unmute video" : "Mute video"}
-          >
-            {muted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
-          </Button>
-          <div className="pointer-events-none absolute right-16 top-1/2 -translate-y-1/2 opacity-0 transition-all group-hover:opacity-100">
-            <span className="whitespace-nowrap rounded-lg bg-black/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
-              {muted ? "Unmute" : "Mute"}
-            </span>
-          </div>
-        </div>
-
-        {/* Save Button */}
-        <div className="group relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="pointer-events-auto h-14 w-14 rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-orange-500/60 hover:bg-orange-500/20 active:scale-95"
-            aria-label="Save post"
-          >
-            <Bookmark className="h-6 w-6" />
-          </Button>
-          <div className="pointer-events-none absolute right-16 top-1/2 -translate-y-1/2 opacity-0 transition-all group-hover:opacity-100">
-            <span className="whitespace-nowrap rounded-lg bg-black/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
-              Save
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

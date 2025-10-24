@@ -66,7 +66,7 @@ export function EventCardNewDesign({
         />
         
         {/* Gradient overlay for readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90" />
       </div>
 
       {/* Bottom Info Card - Glassmorphic - Expandable */}
@@ -112,14 +112,14 @@ export function EventCardNewDesign({
                 <div className="rounded-full bg-white/10 p-1.5">
                   <Calendar className="h-4 w-4" />
                 </div>
-                <span className="text-sm font-medium">{formatDate(item.event_start_at)} • {formatTime(item.event_start_at)}</span>
+                <span className="text-sm font-medium">{formatDate(item.event_starts_at)} • {formatTime(item.event_starts_at)}</span>
               </div>
               
               <div className="flex items-center gap-2.5 text-white/80">
                 <div className="rounded-full bg-white/10 p-1.5">
                   <MapPin className="h-4 w-4" />
                 </div>
-                <span className="text-sm font-medium">{item.event_venue || 'Location TBA'}</span>
+                <span className="text-sm font-medium">{item.event_location || 'Location TBA'}</span>
               </div>
             </div>
 
@@ -145,15 +145,6 @@ export function EventCardNewDesign({
                   {item.event_description || 'Join us for an amazing experience'}
                 </p>
               </div>
-
-              {item.event_category && (
-                <div>
-                  <h4 className="text-sm font-bold text-white mb-3">Category</h4>
-                  <span className="inline-flex items-center rounded-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 px-4 py-1.5 text-xs font-bold text-orange-400">
-                    {item.event_category}
-                  </span>
-                </div>
-              )}
 
               <button
                 onClick={(e) => {

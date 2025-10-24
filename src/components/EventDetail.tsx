@@ -150,7 +150,7 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
               {event.category}
             </Badge>
             <Badge variant="outline" className="border-white/30 text-white bg-black/30">
-              {event.attendeeCount} attending
+              {event.attendeeCount}
             </Badge>
           </div>
           <h1 className="mb-2">{event.title}</h1>

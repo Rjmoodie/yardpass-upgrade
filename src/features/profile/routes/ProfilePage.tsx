@@ -47,6 +47,7 @@ interface SocialLink {
 interface UserProfile {
   user_id: string;
   display_name: string;
+  username?: string | null;
   phone: string | null;
   role: string | null;
   verification_status: string | null;
@@ -303,13 +304,27 @@ export default function UserProfilePage() {
         const profileIdToLoad = userId || username;
         
         if (profileIdToLoad) {
-          const result = await supabase
+          // First try to find by username (case-insensitive)
+          let result = await supabase
             .from('user_profiles')
-            .select('user_id, display_name, phone, role, verification_status, photo_url, created_at, social_links')
-            .eq('user_id', profileIdToLoad)
+            .select('user_id, display_name, username, phone, role, verification_status, photo_url, created_at, social_links')
+            .ilike('username', profileIdToLoad)
             .maybeSingle();
 
-          if (result.error) {
+          // If no match by username, try by UUID (handles legacy UUID-based URLs)
+          if (!result.data && result.error?.code !== 'PGRST116') {
+            // Check if it's a valid UUID format
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (uuidRegex.test(profileIdToLoad)) {
+              result = await supabase
+                .from('user_profiles')
+                .select('user_id, display_name, username, phone, role, verification_status, photo_url, created_at, social_links')
+                .eq('user_id', profileIdToLoad)
+                .maybeSingle();
+            }
+          }
+
+          if (result.error && result.error.code !== 'PGRST116') {
             throw result.error;
           }
 
@@ -323,6 +338,7 @@ export default function UserProfilePage() {
           const userProfile: UserProfile = {
             user_id: result.data.user_id,
             display_name: result.data.display_name,
+            username: result.data.username,
             phone: result.data.phone,
             role: result.data.role,
             verification_status: result.data.verification_status,
@@ -979,7 +995,7 @@ export default function UserProfilePage() {
                 onAuthorClick={(authorId) => {
                   setSelectedPost(null);
                   setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
-                  navigate(`/u/${authorId}`);
+                  navigate(`/profile/${authorId}`);
                 }}
                 onCreatePost={() => {}}
                 onReport={handleReport}
@@ -1005,7 +1021,7 @@ export default function UserProfilePage() {
                 onAuthorClick={(authorId) => { 
                   setSelectedPost(null); 
                   setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
-                  navigate(`/u/${authorId}`); 
+                  navigate(`/profile/${authorId}`); 
                 }} 
                 onCreatePost={() => {}} 
                 onReport={handleReport} 

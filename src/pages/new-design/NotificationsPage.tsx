@@ -148,7 +148,7 @@ export function NotificationsPageIntegrated() {
     } else if (notification.eventId) {
       navigate(`/e/${notification.eventId}`);
     } else if (notification.user.id && notification.type === 'follow') {
-      navigate(`/u/${notification.user.id}`);
+      navigate(`/profile/${notification.user.id}`);
     }
   };
 

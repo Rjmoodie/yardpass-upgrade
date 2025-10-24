@@ -199,7 +199,7 @@ export default function EventsPage() {
     } else {
       // For individual users, we need to get their username/handle
       // For now, we'll use their user ID and let UserProfilePage handle it
-      navigate(`/u/${event.created_by}`);
+      navigate(`/profile/${event.created_by}`);
     }
   };
 
@@ -267,7 +267,7 @@ export default function EventsPage() {
               </Badge>
             )}
             <Badge variant="outline" className="border-white/30 text-white bg-black/30">
-              {event.attendee_count || 0} attending
+              {event.attendee_count || 0}
             </Badge>
           </div>
           <h1 className="text-2xl font-bold mb-2">{event.title}</h1>

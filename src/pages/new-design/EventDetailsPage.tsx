@@ -314,7 +314,7 @@ export function EventDetailsPageIntegrated() {
               </span>
             ))}
             <span className="rounded-full border border-white/30 bg-black/40 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm sm:text-sm">
-              {event.attendees} attending
+              {event.attendees}
             </span>
           </div>
 
@@ -329,7 +329,7 @@ export function EventDetailsPageIntegrated() {
               if (event.ownerContextType === 'organization') {
                 navigate(`/org/${event.ownerContextId}`);
               } else {
-                navigate(`/u/${event.organizer.id}`);
+                navigate(`/profile/${event.organizer.id}`);
               }
             }}
             className="flex items-center gap-2 text-sm text-white transition-opacity hover:opacity-80"

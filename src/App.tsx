@@ -187,14 +187,15 @@ function AppContent() {
 
   // Redirect component for legacy profile routes
   function RedirectToUserProfile() {
-    const { id } = useParams<{ id: string }>();
+    const { id, username, userId } = useParams<{ id?: string; username?: string; userId?: string }>();
     
     useEffect(() => {
-      if (id) {
-        // Redirect to primary user profile route
-        navigate(`/u/${id}`, { replace: true });
+      const identifier = id || username || userId;
+      if (identifier) {
+        // Redirect to primary profile route
+        navigate(`/profile/${identifier}`, { replace: true });
       }
-    }, [id]);
+    }, [id, username, userId]);
     
     return <PageLoadingSpinner />;
   }
@@ -328,10 +329,10 @@ function AppContent() {
               <Route path="/events/:id" element={<RedirectToEventSlug />} />
               <Route path="/event/:id" element={<RedirectToEventSlug />} />
               
-              {/* Redirect legacy profile routes to /u/:id format */}
-              <Route path="/profile/:id" element={<RedirectToUserProfile />} />
+              {/* Redirect legacy profile routes to /profile format */}
+              <Route path="/u/:username" element={<RedirectToUserProfile />} />
+              <Route path="/user/:userId" element={<RedirectToUserProfile />} />
               
-              <Route path="/u/:username" element={<UserProfilePage />} />
               <Route path="/org/:id" element={<OrganizationProfilePage />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/invite/org" element={<OrgInvitePage />} />
@@ -402,6 +403,14 @@ function AppContent() {
                       <ProfilePageNew />
                     </Suspense>
                   </AuthGuard>
+                }
+              />
+              <Route
+                path="/profile/:username"
+                element={
+                  <Suspense fallback={<PageLoadingSpinner />}>
+                    <ProfilePageNew />
+                  </Suspense>
                 }
               />
               <Route

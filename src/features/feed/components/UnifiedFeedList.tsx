@@ -815,7 +815,7 @@ export default function UnifiedFeedList() {
                       onComment={() => handleComment(item)}
                       onShare={() => handleSharePost(item)}
                       onEventClick={(eventId) => handleEventClick(eventId)}
-                      onAuthorClick={(authorId) => navigate(`/u/${authorId}`)}
+                      onAuthorClick={(authorId) => navigate(`/profile/${authorId}`)}
                       onCreatePost={() => handleCreatePost(item.event_id)}
                       onReport={handleReport}
                       onSoundToggle={() => {

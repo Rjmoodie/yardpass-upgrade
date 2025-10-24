@@ -86,7 +86,7 @@ export const EventCard = memo(function EventCard({
       if (item.event_owner_context_type === 'organization') {
         navigate(`/org/${item.event_organizer_id}`);
       } else {
-        navigate(`/u/${item.event_organizer_id}`);
+        navigate(`/profile/${item.event_organizer_id}`);
       }
     },
     [item.event_organizer_id, item.event_owner_context_type, navigate]
@@ -223,7 +223,7 @@ export const EventCard = memo(function EventCard({
           if (item.event_owner_context_type === 'organization') {
             navigate(`/org/${item.event_organizer_id}`);
           } else {
-            navigate(`/u/${item.event_organizer_id}`);
+            navigate(`/profile/${item.event_organizer_id}`);
           }
         }}
         className="text-white/90 hover:text-white font-semibold text-sm underline-offset-2 hover:underline"

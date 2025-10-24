@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MessageCircle, Share2, MoreVertical, Flag, UserX, Bookmark, ChevronUp } from "lucide-react";
+import { Heart, MoreVertical, Flag, UserX, Bookmark, ChevronUp, MapPin, Calendar, Ticket } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { VideoMedia } from "@/components/feed/VideoMedia";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,9 +54,36 @@ export function UserPostCardNewDesign({
     onLike();
   };
 
-  const truncatedCaption = (item.content_text || '').length > 120 
-    ? (item.content_text || '').slice(0, 120) + "..." 
-    : (item.content_text || '');
+  const truncatedCaption = (item.content || '').length > 120 
+    ? (item.content || '').slice(0, 120) + "..." 
+    : (item.content || '');
+
+  const formatEventDate = (dateStr: string | null) => {
+    if (!dateStr) return 'TBA';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'TBA';
+    }
+  };
+
+  const formatEventTime = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    } catch {
+      return '';
+    }
+  };
 
   return (
     <div className="relative h-full w-full">
@@ -72,7 +99,7 @@ export function UserPostCardNewDesign({
         ) : mediaUrl ? (
           <ImageWithFallback
             src={mediaUrl}
-            alt={item.content_text || 'Post'}
+            alt={item.content || 'Post'}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -80,71 +107,8 @@ export function UserPostCardNewDesign({
         )}
         
         {/* Gradient overlay for readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90" />
       </div>
-
-      {/* Quick action rail when collapsed */}
-      {!isExpanded && (
-        <div className="absolute bottom-32 left-4 right-4 z-30 flex justify-center sm:bottom-36">
-          <div className="flex items-center gap-4 rounded-full border border-white/10 bg-black/60 px-4 py-2 text-xs font-semibold text-white shadow-2xl backdrop-blur-md sm:gap-6 sm:px-6 sm:py-2.5">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleLike();
-              }}
-              className="group flex items-center gap-2 rounded-full px-2 py-1 transition-all hover:bg-white/10 active:scale-95"
-              aria-label={liked ? "Unlike" : "Like"}
-            >
-              <Heart
-                className={`h-4 w-4 transition-colors ${
-                  liked ? "fill-red-500 text-red-500" : "text-white/80 group-hover:text-white"
-                }`}
-              />
-              <span>{likeCount}</span>
-            </button>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onComment();
-              }}
-              className="group flex items-center gap-2 rounded-full px-2 py-1 transition-all hover:bg-white/10 active:scale-95"
-              aria-label="Open comments"
-            >
-              <MessageCircle className="h-4 w-4 text-white/80 transition-colors group-hover:text-white" />
-              <span>{item.metrics?.comments || 0}</span>
-            </button>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onShare();
-              }}
-              className="group flex items-center gap-2 rounded-full px-2 py-1 transition-all hover:bg-white/10 active:scale-95"
-              aria-label="Share post"
-            >
-              <Share2 className="h-4 w-4 text-white/80 transition-colors group-hover:text-white" />
-              <span>Share</span>
-            </button>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSaved(!saved);
-                toast({
-                  title: saved ? 'Removed from saved' : 'Saved!',
-                  description: saved ? 'Post removed from saved items' : 'Post saved to your collection',
-                });
-              }}
-              className="group flex items-center gap-2 rounded-full px-2 py-1 transition-all hover:bg-white/10 active:scale-95"
-              aria-label={saved ? "Unsave post" : "Save post"}
-            >
-              <Bookmark className={`h-4 w-4 transition-colors ${saved ? 'text-orange-400' : 'text-white/80 group-hover:text-white'}`} />
-              <span>{saved ? 'Saved' : 'Save'}</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Bottom Info Card - Glassmorphic - Expandable */}
       <div
@@ -185,11 +149,40 @@ export function UserPostCardNewDesign({
                   className="cursor-pointer group"
                 >
                   <div className="text-base font-bold text-white group-hover:text-orange-500 transition-colors">{item.author_name || 'User'}</div>
-                  <div className="text-xs text-white/70 font-medium">
-                    {item.event_title && `${item.event_title} • `}
-                    {item.created_at && new Date(item.created_at).toLocaleDateString()}
-                  </div>
+                  {item.author_badge && (
+                    <div className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
+                      <Ticket className="h-3 w-3" />
+                      {item.author_badge}
+                    </div>
+                  )}
                 </div>
+                {item.event_title && (
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      item.event_id && navigate(`/e/${item.event_id}`);
+                    }}
+                    className="mt-1.5 cursor-pointer group/event"
+                  >
+                    <div className="text-xs font-semibold text-white/90 group-hover/event:text-orange-500 transition-colors">
+                      📍 {item.event_title}
+                    </div>
+                    <div className="mt-1 space-y-0.5">
+                      {item.event_starts_at && (
+                        <div className="flex items-center gap-1 text-[10px] text-white/70">
+                          <Calendar className="h-2.5 w-2.5" />
+                          {formatEventDate(item.event_starts_at)} • {formatEventTime(item.event_starts_at)}
+                        </div>
+                      )}
+                      {item.event_location && (
+                        <div className="flex items-center gap-1 text-[10px] text-white/60">
+                          <MapPin className="h-2.5 w-2.5" />
+                          {item.event_location}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <DropdownMenu>
@@ -248,11 +241,11 @@ export function UserPostCardNewDesign({
             </div>
 
             {/* Caption */}
-            {item.content_text && (
+            {item.content && (
               <div className="mt-3">
                 <p className={`text-sm leading-relaxed text-white/90 ${isExpanded ? '' : 'line-clamp-2'}`}>
                   <span className="font-bold text-white">{item.author_name}</span>{' '}
-                  <span className="font-normal">{item.content_text}</span>
+                  <span className="font-normal">{item.content}</span>
                 </p>
               </div>
             )}
@@ -269,48 +262,10 @@ export function UserPostCardNewDesign({
             </div>
           </div>
 
-          {/* Expanded Content - Interactions */}
+          {/* Expanded Content - Interactions (Hidden - using side buttons) */}
           {isExpanded && (
             <div className="border-t border-white/10 bg-black/20 p-6 sm:p-7">
-              {/* Action buttons when expanded */}
-              <div className="flex items-center justify-around gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleLike();
-                  }}
-                  className="group flex flex-col items-center gap-2 rounded-2xl px-6 py-3 transition-all hover:scale-105 hover:bg-white/5 active:scale-95"
-                >
-                  <Heart
-                    className={`h-7 w-7 transition-all ${
-                      liked ? "fill-red-500 text-red-500 scale-110" : "text-white group-hover:text-red-500"
-                    }`}
-                  />
-                  <span className="text-sm font-bold text-white/90">{likeCount}</span>
-                </button>
-
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onComment();
-                  }}
-                  className="group flex flex-col items-center gap-2 rounded-2xl px-6 py-3 transition-all hover:scale-105 hover:bg-white/5 active:scale-95"
-                >
-                  <MessageCircle className="h-7 w-7 text-white transition-colors group-hover:text-blue-400" />
-                  <span className="text-sm font-bold text-white/90">{item.metrics?.comments || 0}</span>
-                </button>
-
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShare();
-                  }}
-                  className="group flex flex-col items-center gap-2 rounded-2xl px-6 py-3 transition-all hover:scale-105 hover:bg-white/5 active:scale-95"
-                >
-                  <Share2 className="h-7 w-7 text-white transition-colors group-hover:text-green-400" />
-                  <span className="text-sm font-bold text-white/90">Share</span>
-                </button>
-              </div>
+              {/* Action buttons removed - now in side FloatingActions */}
 
               {/* Event link if post is from an event */}
               {item.event_title && (

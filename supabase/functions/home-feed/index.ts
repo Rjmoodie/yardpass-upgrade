@@ -441,13 +441,13 @@ async function expandRows({
     `)
     .in("id", eventIds.length ? eventIds : ["00000000-0000-0000-0000-000000000000"]);
 
-  // ✅ FIX: Query event_posts without join (schema mismatch issue)
-  // We fetch author profiles separately in Phase 2 anyway
+  // Query event_posts (temporarily without ticket_tier join until we verify schema)
   const postsQ = postIds.length
     ? supabase
         .from("event_posts")
         .select(`
-          id, event_id, text, media_urls, like_count, comment_count, author_user_id, created_at
+          id, event_id, text, media_urls, like_count, comment_count, author_user_id, created_at,
+          ticket_tier_id
         `)
         .in("id", postIds)
         .is("deleted_at", null)
@@ -486,10 +486,10 @@ async function expandRows({
     samplePosts: posts.slice(0, 2).map((p: any) => ({ id: p.id, has_media: !!p.media_urls }))
   });
 
-  // Phase 2: author profiles (fetch display_name and social_links)
+  // Phase 2: author profiles (fetch display_name, username, avatar_url, and social_links)
   const authorIds = dedupe(posts.map((p: any) => p.author_user_id).filter(Boolean));
   const { data: authorProfiles } = authorIds.length
-    ? await supabase.from("user_profiles").select("user_id, display_name, social_links").in("user_id", authorIds)
+    ? await supabase.from("user_profiles").select("user_id, display_name, username, photo_url, social_links").in("user_id", authorIds)
     : { data: [] as any[] };
 
   // Performance: Phase 2 queries completed
@@ -501,6 +501,12 @@ async function expandRows({
   );
   const authorNamesMap = new Map(
     (authorProfiles ?? []).map((p: any) => [p.user_id, p.display_name]),
+  );
+  const authorUsernamesMap = new Map(
+    (authorProfiles ?? []).map((p: any) => [p.user_id, p.username]),
+  );
+  const authorPhotosMap = new Map(
+    (authorProfiles ?? []).map((p: any) => [p.user_id, p.photo_url]),
   );
 
   const sponsorMap = new Map(
@@ -593,10 +599,13 @@ async function expandRows({
       event_location: location,
       author_id: post.author_user_id ?? null,
       author_name: authorNamesMap.get(post.author_user_id) ?? null,
-      author_badge: null, // Badge computed on frontend based on ticket ownership
+      author_username: authorUsernamesMap.get(post.author_user_id) ?? null,
+      author_photo: authorPhotosMap.get(post.author_user_id) ?? null,
+      author_badge: null, // TODO: Add badge after verifying ticket_tiers schema
       author_social_links: authorLinksMap.get(post.author_user_id) ?? null,
       media_urls: mediaUrls,
       content: post.text ?? "",
+      created_at: post.created_at ?? null,
       metrics: {
         likes: post.like_count ?? 0,
         comments: post.comment_count ?? 0,

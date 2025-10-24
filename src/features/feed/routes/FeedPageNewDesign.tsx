@@ -7,6 +7,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useShare } from '@/hooks/useShare';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { FeedFilter } from '@/components/FeedFilter';
 import CommentModal from '@/components/CommentModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
@@ -67,6 +68,7 @@ export default function FeedPageNewDesign() {
   const [ticketModalEvent, setTicketModalEvent] = useState<any>(null);
   const [soundToastVisible, setSoundToastVisible] = useState(false);
   const [lastGlobalSoundState, setLastGlobalSoundState] = useState(globalSoundEnabled);
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
 
   const {
     data,
@@ -84,8 +86,36 @@ export default function FeedPageNewDesign() {
 
   const { data: boosts } = useCampaignBoosts({ placement: 'feed', enabled: true, userId: user?.id });
   const { share } = useShare();
-  const { applyOptimisticLike, applyEngagementDelta } = useOptimisticReactions();
+  const { toggleLike: toggleLikeOptimistic, getOptimisticData, getOptimisticCommentData } = useOptimisticReactions();
   const soundToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load saved posts for the current user
+  useEffect(() => {
+    const loadSavedPosts = async () => {
+      if (!user) {
+        setSavedPostIds(new Set());
+        return;
+      }
+
+      try {
+        // Use user_saved_posts table with schema prefix
+        const { data } = await supabase
+          .schema('events')
+          .from('user_saved_posts')
+          .select('post_id')
+          .eq('user_id', user.id);
+
+        if (data) {
+          setSavedPostIds(new Set(data.map(item => item.post_id)));
+        }
+      } catch (error) {
+        console.error('Error loading saved posts:', error);
+        // Silently fail if table doesn't exist
+      }
+    };
+
+    loadSavedPosts();
+  }, [user]);
 
   const allFeedItems = useMemo(() => {
     const items = data?.pages.flatMap((p) => p.items) ?? [];
@@ -93,6 +123,12 @@ export default function FeedPageNewDesign() {
       total: items.length,
       events: items.filter(i => i.item_type === 'event').length,
       posts: items.filter(i => i.item_type === 'post').length,
+      postsWithCounts: items.filter(i => i.item_type === 'post').map(i => ({
+        id: i.item_id,
+        likes: i.metrics?.likes || 0,
+        comments: i.metrics?.comments || 0,
+        viewer_has_liked: i.metrics?.viewer_has_liked || false
+      })),
       sample: items.slice(0, 3).map(i => ({ type: i.item_type, id: i.item_id }))
     });
     return items;
@@ -135,11 +171,22 @@ export default function FeedPageNewDesign() {
     };
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const handleLike = useCallback((item: FeedItem) => {
+  const handleLike = useCallback(async (item: FeedItem) => {
     if (item.item_type !== 'post') return;
-    applyOptimisticLike(item.item_id);
+    if (!requireAuth()) return;
+    
+    const currentLiked = item.metrics?.viewer_has_liked || false;
+    const currentCount = item.metrics?.likes || 0;
+    
+    const result = await toggleLikeOptimistic(item.item_id, currentLiked, currentCount);
+    
+    // Refetch feed to get updated counts from server
+    if (result.ok) {
+      refetch();
+    }
+    
     registerInteraction();
-  }, [applyOptimisticLike, registerInteraction]);
+  }, [toggleLikeOptimistic, requireAuth, registerInteraction, refetch]);
 
   const handleComment = useCallback((item: FeedItem) => {
     if (item.item_type !== 'post') return;
@@ -157,11 +204,62 @@ export default function FeedPageNewDesign() {
       ? `${window.location.origin}/e/${item.event_id}`
       : `${window.location.origin}/post/${item.item_id}`;
     share(
-      { url, title: item.item_type === 'event' ? item.event_title : item.content_text, text: item.content_text },
+      { url, title: item.item_type === 'event' ? item.event_title : item.content || '', text: item.content || '' },
       () => toast({ title: 'Link copied!', description: 'Share link copied to clipboard.' })
     );
     registerInteraction();
   }, [share, toast, registerInteraction]);
+
+  const handleSave = useCallback(async (item: FeedItem) => {
+    if (item.item_type !== 'post') return;
+    if (!requireAuth()) return;
+
+    try {
+      // Check if already saved - use events schema
+      const { data: existing } = await supabase
+        .schema('events')
+        .from('user_saved_posts')
+        .select('id')
+        .eq('user_id', user?.id)
+        .eq('post_id', item.item_id)
+        .maybeSingle();
+
+      if (existing) {
+        // Unsave
+        await supabase
+          .schema('events')
+          .from('user_saved_posts')
+          .delete()
+          .eq('id', existing.id);
+        
+        setSavedPostIds(prev => {
+          const next = new Set(prev);
+          next.delete(item.item_id);
+          return next;
+        });
+        
+        toast({ title: 'Removed from saved', description: 'Post removed from your saved collection' });
+      } else {
+        // Save
+        await supabase
+          .schema('events')
+          .from('user_saved_posts')
+          .insert({
+            user_id: user?.id,
+            post_id: item.item_id,
+            event_id: item.event_id
+          });
+        
+        setSavedPostIds(prev => new Set([...prev, item.item_id]));
+        
+        toast({ title: 'Saved!', description: 'Post saved to your collection' });
+      }
+    } catch (error) {
+      console.error('Error saving post:', error);
+      toast({ title: 'Save feature coming soon', description: 'This feature will be available soon', variant: 'default' });
+    }
+    registerInteraction();
+  }, [user, requireAuth, toast, registerInteraction]);
 
   const handleEventClick = useCallback((eventId: string) => {
     navigate(`/e/${eventId}`);
@@ -253,19 +351,41 @@ export default function FeedPageNewDesign() {
       <TopFilters
         location={activeLocation}
         dateFilter={activeDate}
-        onLocationClick={() => setFiltersOpen(true)}
-        onDateClick={() => setFiltersOpen(true)}
-        onFiltersClick={() => setFiltersOpen(true)}
+        onLocationClick={() => {
+          setFiltersOpen(true);
+          registerInteraction();
+        }}
+        onDateClick={() => {
+          setFiltersOpen(true);
+          registerInteraction();
+        }}
+        onFiltersClick={() => {
+          setFiltersOpen(true);
+          registerInteraction();
+        }}
         hasActiveFilters={hasActiveFilters}
-        onClearFilters={hasActiveFilters ? handleClearFilters : undefined}
+        onClearFilters={handleClearFilters}
       />
 
       {/* Floating Actions */}
       <FloatingActions
+        postId={allFeedItems[activeIndex]?.item_type === 'post' ? allFeedItems[activeIndex].item_id : undefined}
+        eventId={allFeedItems[activeIndex]?.item_type === 'post' ? allFeedItems[activeIndex].event_id : undefined}
         isMuted={!globalSoundEnabled}
         onMuteToggle={handleToggleGlobalSound}
         onCreatePost={handleCreatePost}
-        onOpenMessages={() => navigate('/messages-new')}
+        onCommentModalOpen={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
+          const item = allFeedItems[activeIndex];
+          handleComment(item);
+        } : undefined}
+        onSave={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
+          const item = allFeedItems[activeIndex];
+          handleSave(item);
+        } : undefined}
+        initialLiked={allFeedItems[activeIndex]?.item_type === 'post' ? allFeedItems[activeIndex].metrics?.viewer_has_liked || false : false}
+        initialLikeCount={allFeedItems[activeIndex]?.item_type === 'post' ? allFeedItems[activeIndex].metrics?.likes || 0 : 0}
+        initialCommentCount={allFeedItems[activeIndex]?.item_type === 'post' ? allFeedItems[activeIndex].metrics?.comments || 0 : 0}
+        isSaved={allFeedItems[activeIndex]?.item_type === 'post' ? savedPostIds.has(allFeedItems[activeIndex].item_id) : false}
       />
 
       {soundToastVisible && (
@@ -311,7 +431,11 @@ export default function FeedPageNewDesign() {
                   onLike={() => handleLike(item)}
                   onComment={() => handleComment(item)}
                   onShare={() => handleSharePost(item)}
-                  onAuthorClick={() => item.author_id && navigate(`/u/${item.author_id}`)}
+                  onAuthorClick={() => {
+                    // Prefer username over user_id for cleaner URLs
+                    const identifier = item.author_username || item.author_id;
+                    if (identifier) navigate(`/profile/${identifier}`);
+                  }}
                   onReport={handleReport}
                   soundEnabled={globalSoundEnabled}
                   isVideoPlaying={isVideoActive}
@@ -329,20 +453,9 @@ export default function FeedPageNewDesign() {
           </div>
         )}
 
-        {allFeedItems.length === 0 && (
+        {allFeedItems.length === 0 && status !== 'loading' && !isFetchingNextPage && (
           <div className="flex h-[60vh] items-center justify-center px-4">
-            <div className="max-w-md text-center">
-              <h3 className="mb-3 text-xl font-bold text-white">Your feed is empty</h3>
-              <p className="mb-6 text-sm text-white/60">
-                Follow organizers and explore events to see content here
-              </p>
-              <button 
-                onClick={() => navigate('/search')}
-                className="rounded-full bg-[#FF8C00] px-6 py-3 text-sm font-semibold text-white"
-              >
-                Explore Events
-              </button>
-            </div>
+            <BrandedSpinner size="lg" text="Loading your feed" />
           </div>
         )}
         
@@ -359,12 +472,18 @@ export default function FeedPageNewDesign() {
       {commentContext && (
         <CommentModal
           isOpen={showCommentModal}
-          onClose={() => setShowCommentModal(false)}
+          onClose={() => {
+            setShowCommentModal(false);
+            // Refetch feed to get updated comment counts
+            refetch();
+          }}
           eventId={commentContext.eventId}
           eventTitle={commentContext.eventTitle}
           postId={commentContext.postId}
           onCommentCountChange={(postId, newCount) => {
-            applyEngagementDelta(postId, { mode: 'absolute', comment_count: newCount });
+            // Comment count will be updated via refetch
+            console.log('Comment count updated:', postId, newCount);
+            refetch();
           }}
         />
       )}

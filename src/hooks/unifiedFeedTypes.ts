@@ -53,10 +53,13 @@ export type FeedItem =
       event_location: string;
       author_id: string | null;
       author_name: string | null;
+      author_username: string | null;
+      author_photo: string | null;
       author_badge: string | null;
       author_social_links: any[] | null;
       media_urls: string[] | null;
       content: string | null;
+      created_at: string | null;
       metrics: {
         likes: number;
         comments: number;
