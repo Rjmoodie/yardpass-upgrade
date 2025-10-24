@@ -432,7 +432,7 @@ async function expandRows({
 
   // Phase 1: kick off everything that only depends on IDs
   const eventsQ = supabase
-    .from("events")
+    .from("events.events")
     .select(`
       id, title, description, cover_image_url, start_at, end_at, venue, city, created_at,
       created_by, owner_context_type, owner_context_id,
@@ -441,13 +441,14 @@ async function expandRows({
     `)
     .in("id", eventIds.length ? eventIds : ["00000000-0000-0000-0000-000000000000"]);
 
-  // Query event_posts (temporarily without ticket_tier join until we verify schema)
+  // Query event_posts with ticket_tier badge info
   const postsQ = postIds.length
     ? supabase
-        .from("event_posts")
+        .from("events.event_posts")
         .select(`
           id, event_id, text, media_urls, like_count, comment_count, author_user_id, created_at,
-          ticket_tier_id
+          ticket_tier_id,
+          ticket_tiers!event_posts_ticket_tier_id_fkey (badge_label, name)
         `)
         .in("id", postIds)
         .is("deleted_at", null)
@@ -459,7 +460,7 @@ async function expandRows({
 
   const likesQ = viewerId && postIds.length
     ? supabase
-        .from("event_reactions")
+        .from("events.event_reactions")
         .select("post_id")
         .eq("user_id", viewerId)
         .eq("kind", "like")
@@ -489,7 +490,7 @@ async function expandRows({
   // Phase 2: author profiles (fetch display_name, username, avatar_url, and social_links)
   const authorIds = dedupe(posts.map((p: any) => p.author_user_id).filter(Boolean));
   const { data: authorProfiles } = authorIds.length
-    ? await supabase.from("user_profiles").select("user_id, display_name, username, photo_url, social_links").in("user_id", authorIds)
+    ? await supabase.from("users.user_profiles").select("user_id, display_name, username, photo_url, social_links").in("user_id", authorIds)
     : { data: [] as any[] };
 
   // Performance: Phase 2 queries completed
@@ -584,6 +585,9 @@ async function expandRows({
     // Frontend components expect string URLs, not metadata objects
     const mediaUrls = post.media_urls || [];
 
+    // ✅ Extract badge from ticket_tiers join
+    const badgeLabel = post.ticket_tiers?.badge_label ?? null;
+
     return {
       item_type: "post",
       sort_ts: sortTs,
@@ -601,7 +605,7 @@ async function expandRows({
       author_name: authorNamesMap.get(post.author_user_id) ?? null,
       author_username: authorUsernamesMap.get(post.author_user_id) ?? null,
       author_photo: authorPhotosMap.get(post.author_user_id) ?? null,
-      author_badge: null, // TODO: Add badge after verifying ticket_tiers schema
+      author_badge: badgeLabel,
       author_social_links: authorLinksMap.get(post.author_user_id) ?? null,
       media_urls: mediaUrls,
       content: post.text ?? "",
@@ -632,7 +636,7 @@ async function fetchFallbackRows({
   cursor: { ts?: string | undefined } | null;
 }) {
   const query = supabase
-    .from("events")
+    .from("events.events")
     .select("id, start_at")
     .eq("visibility", "public")
     .gte("start_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())

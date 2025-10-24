@@ -1348,6 +1348,60 @@ events.event_reactions → reactions-toggle      →  ActionRail (like button)
 
 ---
 
+### Update #2: Fixed Main Feed Interactions (home-feed)
+
+**Problem Reported:**
+- Interaction buttons (like, comment, share) were not clickable in `FeedPageNewDesign`
+- Like/comment counts were showing as 0
+- Badge/tier labels were not appearing on posts
+
+**Root Cause:**
+The `home-feed` edge function (used by `useUnifiedFeedInfinite` → `FeedPageNewDesign`) had:
+1. **Badge hardcoded to null** with TODO comment
+2. **Missing ticket_tiers JOIN** - Query had `ticket_tier_id` but no join to get `badge_label`
+3. **Schema prefixes missing** on tables after migration
+
+**Solution Applied:**
+
+1. **Added ticket_tiers JOIN to posts query:**
+```typescript
+.from("events.event_posts")
+.select(`
+  id, event_id, text, media_urls, like_count, comment_count, author_user_id, created_at,
+  ticket_tier_id,
+  ticket_tiers!event_posts_ticket_tier_id_fkey (badge_label, name)
+`)
+```
+
+2. **Extract and map badge:**
+```typescript
+const badgeLabel = post.ticket_tiers?.badge_label ?? null;
+// ...
+author_badge: badgeLabel  // Was: null
+```
+
+3. **Fixed all schema prefixes:**
+- `events.events` (was `events`)
+- `events.event_posts` (was `event_posts`)
+- `events.event_reactions` (was `event_reactions`)
+- `users.user_profiles` (was `user_profiles`)
+
+**Files Changed:**
+- `supabase/functions/home-feed/index.ts`
+
+**Result:**
+- ✅ FloatingActions buttons now clickable (hasEngagement = true)
+- ✅ Like/comment counts display correctly
+- ✅ Badges show on posts
+- ✅ Metrics properly populated from database
+
+**Deploy:**
+```bash
+supabase functions deploy home-feed
+```
+
+---
+
 **Last Updated:** October 24, 2025  
 **Maintained By:** Development Team  
 **Questions?** Check the codebase or reach out to the team.
