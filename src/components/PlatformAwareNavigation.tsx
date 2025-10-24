@@ -58,7 +58,7 @@ export const PlatformAwareNavigation: React.FC<PlatformAwareNavigationProps> = (
         },
         {
           id: 'search',
-          path: '/search-new',
+          path: '/search',
           label: 'Search',
           icon: Search,
           show: true,
@@ -128,7 +128,7 @@ export const PlatformAwareNavigation: React.FC<PlatformAwareNavigationProps> = (
       },
       {
         id: 'search',
-        path: '/search-new',
+        path: '/search',
         label: 'Search',
         icon: Search,
         show: true,
@@ -136,7 +136,7 @@ export const PlatformAwareNavigation: React.FC<PlatformAwareNavigationProps> = (
       },
       {
         id: 'tickets',
-        path: '/tickets-new',
+        path: '/tickets',
         label: 'Tickets',
         icon: Ticket,
         show: true,
@@ -152,7 +152,7 @@ export const PlatformAwareNavigation: React.FC<PlatformAwareNavigationProps> = (
       },
       {
         id: 'profile',
-        path: '/profile-new',
+        path: '/profile',
         label: 'Profile',
         icon: User,
         show: true,

@@ -321,6 +321,15 @@ const handler = withCORS(async (req: Request) => {
     // Performance: All data processed
     monitor.mark('data_processed');
 
+    // Debug logging
+    console.log('Feed stats:', {
+      total_items: items.length,
+      events: items.filter(i => i.item_type === 'event').length,
+      posts: items.filter(i => i.item_type === 'post').length,
+      posts_with_media: items.filter(i => i.item_type === 'post' && i.media_urls && i.media_urls.length > 0).length,
+      posts_without_media: items.filter(i => i.item_type === 'post' && (!i.media_urls || i.media_urls.length === 0)).length
+    });
+
     // Log performance metrics for monitoring
     const metrics = monitor.getMetrics();
     console.log('Home feed performance:', {
@@ -411,6 +420,16 @@ async function expandRows({
   const eventIds = dedupe(rows.map((r) => r.event_id));
   const postIds = rows.filter((r) => r.item_type === "post").map((r) => r.item_id);
 
+  // Debug: Check what types of items we received
+  console.log('Expanding rows:', {
+    totalRows: rows.length,
+    events: rows.filter((r) => r.item_type === "event").length,
+    posts: rows.filter((r) => r.item_type === "post").length,
+    eventIds: eventIds.length,
+    postIds: postIds.length,
+    sampleRows: rows.slice(0, 3).map(r => ({ type: r.item_type, id: r.item_id }))
+  });
+
   // Phase 1: kick off everything that only depends on IDs
   const eventsQ = supabase
     .from("events")
@@ -422,13 +441,16 @@ async function expandRows({
     `)
     .in("id", eventIds.length ? eventIds : ["00000000-0000-0000-0000-000000000000"]);
 
+  // ✅ FIX: Query event_posts without join (schema mismatch issue)
+  // We fetch author profiles separately in Phase 2 anyway
   const postsQ = postIds.length
     ? supabase
-        .from("event_posts_with_meta")
-        .select(
-          "id, event_id, text, media_urls, like_count, comment_count, author_user_id, author_name, author_badge_label, created_at",
-        )
+        .from("event_posts")
+        .select(`
+          id, event_id, text, media_urls, like_count, comment_count, author_user_id, created_at
+        `)
         .in("id", postIds)
+        .is("deleted_at", null)
     : Promise.resolve({ data: [], error: null });
 
   const sponsorsQ = eventIds.length
@@ -455,17 +477,30 @@ async function expandRows({
   const posts = postsRes?.data ?? [];
   const likedPostIds = new Set((likesRes?.data ?? []).map((l: any) => l.post_id));
 
-  // Phase 2: author profiles
+  // Debug: Check what posts were fetched
+  console.log('Posts query result:', {
+    postIds: postIds.length,
+    postsFetched: posts.length,
+    postsError: postsRes?.error?.message,
+    samplePostIds: postIds.slice(0, 3),
+    samplePosts: posts.slice(0, 2).map((p: any) => ({ id: p.id, has_media: !!p.media_urls }))
+  });
+
+  // Phase 2: author profiles (fetch display_name and social_links)
   const authorIds = dedupe(posts.map((p: any) => p.author_user_id).filter(Boolean));
   const { data: authorProfiles } = authorIds.length
-    ? await supabase.from("user_profiles").select("user_id, social_links").in("user_id", authorIds)
+    ? await supabase.from("user_profiles").select("user_id, display_name, social_links").in("user_id", authorIds)
     : { data: [] as any[] };
 
   // Performance: Phase 2 queries completed
   monitor.mark('phase2_queries_completed');
 
+  // Create maps for author data
   const authorLinksMap = new Map(
     (authorProfiles ?? []).map((p: any) => [p.user_id, normalizeSocialLinks(p.social_links)]),
+  );
+  const authorNamesMap = new Map(
+    (authorProfiles ?? []).map((p: any) => [p.user_id, p.display_name]),
   );
 
   const sponsorMap = new Map(
@@ -536,49 +571,41 @@ async function expandRows({
         };
       }
 
-      const post = pMap.get(row.item_id);
-      if (!post) return null;
+    const post = pMap.get(row.item_id);
+    if (!post) return null;
 
-      // Enhanced media URLs with video optimization
-      const enhancedMediaUrls = extractVideoMetadata(post.media_urls || []);
-      
-      // Add connection speed hints for video preloading
-      const mediaOptimization = {
-        connection_speed: connectionSpeed,
-        preload_strategy: connectionSpeed === 'slow' ? 'none' : 'metadata',
-        quality_hints: connectionSpeed === 'slow' ? 'low' : connectionSpeed === 'fast' ? 'high' : 'medium'
-      };
+    // ✅ FIX: Return simple media URLs array (not enhanced objects)
+    // Frontend components expect string URLs, not metadata objects
+    const mediaUrls = post.media_urls || [];
 
-      return {
-        item_type: "post",
-        sort_ts: sortTs,
-        item_id: row.item_id,
-        event_id: row.event_id,
-        event_title: ev?.title ?? "Event",
-        event_description: ev?.description ?? "",
-        event_starts_at: ev?.start_at ?? null,
-        event_cover_image: ev?.cover_image_url ?? "",
-        event_organizer: organizerName,
-        event_organizer_id: organizerId,
-        event_owner_context_type: ev?.owner_context_type ?? "individual",
-        event_location: location,
-        author_id: post.author_user_id ?? null,
-        author_name: post.author_name ?? null,
-        author_badge: post.author_badge_label ?? null,
-        author_social_links: authorLinksMap.get(post.author_user_id) ?? null,
-        media_urls: enhancedMediaUrls,
-        content: post.text ?? "",
-        metrics: {
-          likes: post.like_count ?? 0,
-          comments: post.comment_count ?? 0,
-          viewer_has_liked: includeViewerFields ? likedPostIds.has(row.item_id) : false,
-          score: row.score ?? null,
-        },
-        sponsor: null,
-        sponsors: null,
-        // Enhanced video optimization data
-        video_optimization: mediaOptimization,
-      };
+    return {
+      item_type: "post",
+      sort_ts: sortTs,
+      item_id: row.item_id,
+      event_id: row.event_id,
+      event_title: ev?.title ?? "Event",
+      event_description: ev?.description ?? "",
+      event_starts_at: ev?.start_at ?? null,
+      event_cover_image: ev?.cover_image_url ?? "",
+      event_organizer: organizerName,
+      event_organizer_id: organizerId,
+      event_owner_context_type: ev?.owner_context_type ?? "individual",
+      event_location: location,
+      author_id: post.author_user_id ?? null,
+      author_name: authorNamesMap.get(post.author_user_id) ?? null,
+      author_badge: null, // Badge computed on frontend based on ticket ownership
+      author_social_links: authorLinksMap.get(post.author_user_id) ?? null,
+      media_urls: mediaUrls,
+      content: post.text ?? "",
+      metrics: {
+        likes: post.like_count ?? 0,
+        comments: post.comment_count ?? 0,
+        viewer_has_liked: includeViewerFields ? likedPostIds.has(row.item_id) : false,
+        score: row.score ?? null,
+      },
+      sponsor: null,
+      sponsors: null,
+    };
     })
     .filter(Boolean);
 }

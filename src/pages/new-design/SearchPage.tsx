@@ -4,6 +4,7 @@ import { Search, MapPin, Calendar, DollarSign, Filter, X } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { supabase } from "@/integrations/supabase/client";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useToast } from "@/hooks/use-toast";
 
 interface SearchResult {
   id: string;
@@ -21,6 +22,7 @@ const categories = ["All", "Music", "Sports", "Comedy", "Food", "Conference", "A
 
 export default function SearchPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
@@ -89,7 +91,12 @@ export default function SearchPage() {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('[SearchPage] Database error:', error);
+        throw error;
+      }
+
+      console.log('[SearchPage] Found', data?.length || 0, 'events');
 
       // Transform to SearchResult format
       const transformedResults: SearchResult[] = (data || []).map((event: any) => {
@@ -124,12 +131,17 @@ export default function SearchPage() {
 
       setResults(transformedResults);
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('[SearchPage] Search error:', error);
       setResults([]);
+      toast({
+        title: "Search Error",
+        description: "Failed to load events. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, selectedCategory, dateFilter, priceRange]);
+  }, [debouncedSearch, selectedCategory, dateFilter, priceRange, toast]);
 
   // Trigger search on filter changes
   useEffect(() => {
@@ -258,11 +270,14 @@ export default function SearchPage() {
               {results.map((result) => (
                 <button
                   key={result.id}
-                  onClick={() => navigate(`/e/${result.id}`)}
+                  onClick={() => {
+                    console.log('[SearchPage] Navigating to event:', result.id);
+                    navigate(`/e/${result.id}`);
+                  }}
                   className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl transition-all hover:scale-[1.02] hover:border-white/20 hover:shadow-xl sm:rounded-3xl text-left"
                 >
                   {/* Image */}
-                  <div className="relative aspect-[4/3] overflow-hidden">
+                  <div className="relative aspect-[21/9] overflow-hidden">
                     <ImageWithFallback
                       src={result.image}
                       alt={result.title}
@@ -279,34 +294,34 @@ export default function SearchPage() {
                   </div>
 
                   {/* Content */}
-                  <div className="p-3 sm:p-4">
-                    <h3 className="mb-1 text-base font-bold text-white line-clamp-2 sm:text-lg">{result.title}</h3>
-                    <p className="mb-3 text-xs text-white/60 sm:text-sm">{result.subtitle}</p>
+                  <div className="p-2.5 sm:p-3">
+                    <h3 className="mb-0.5 text-sm font-bold text-white line-clamp-1 sm:text-base">{result.title}</h3>
+                    <p className="mb-2 text-[11px] text-white/60 line-clamp-1 sm:text-xs">{result.subtitle}</p>
 
                     {/* Details */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       {result.date && (
-                        <div className="flex items-center gap-2 text-xs text-white/70 sm:text-sm">
-                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <div className="flex items-center gap-1.5 text-[11px] text-white/70 sm:text-xs">
+                          <Calendar className="h-3 w-3" />
                           <span>{result.date}</span>
                         </div>
                       )}
                       {result.location && (
-                        <div className="flex items-center gap-2 text-xs text-white/70 sm:text-sm">
-                          <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <div className="flex items-center gap-1.5 text-[11px] text-white/70 sm:text-xs">
+                          <MapPin className="h-3 w-3" />
                           <span className="line-clamp-1">{result.location}</span>
                         </div>
                       )}
                       {result.price && (
-                        <div className="flex items-center gap-2 text-xs font-semibold text-white/70 sm:text-sm">
-                          <DollarSign className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-white/70 sm:text-xs">
+                          <DollarSign className="h-3 w-3" />
                           <span>{result.price}</span>
                         </div>
                       )}
                     </div>
 
                     {/* CTA Button */}
-                    <div className="mt-3 w-full rounded-full bg-[#FF8C00] py-2 text-center text-xs font-semibold text-white transition-all group-hover:bg-[#FF9D1A] sm:py-2.5 sm:text-sm">
+                    <div className="mt-2 w-full rounded-full bg-[#FF8C00] py-1.5 text-center text-xs font-semibold text-white transition-all group-hover:bg-[#FF9D1A] sm:py-2 sm:text-sm">
                       View Details
                     </div>
                   </div>

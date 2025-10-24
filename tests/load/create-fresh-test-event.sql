@@ -91,3 +91,4 @@ WHERE e.title = '[K6 LOAD TEST] Fresh Event'
 ORDER BY e.created_at DESC
 LIMIT 1;
 
+

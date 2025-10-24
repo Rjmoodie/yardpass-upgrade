@@ -49,7 +49,9 @@ export const updateCheckoutSession = async (
     return;
   }
 
+  // ✅ FIX: Update ticketing.checkout_sessions (schema-prefixed)
   const { error } = await client
+    .schema('ticketing')
     .from("checkout_sessions")
     .update(updateRecord)
     .eq("id", id);
@@ -106,7 +108,9 @@ serve(async (req) => {
       }
     }
 
+    // ✅ FIX: Query from ticketing.checkout_sessions (schema-prefixed)
     const { data: sessionRecord, error: sessionError } = await supabaseService
+      .schema('ticketing')
       .from("checkout_sessions")
       .select(
         `id, status, user_id, event_id, order_id, expires_at, pricing_snapshot, contact_snapshot, verification_state, express_methods`

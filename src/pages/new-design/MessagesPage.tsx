@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Search, MoreVertical, Send, Smile, Image as ImageIcon, ArrowLeft, X } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { useAuth } from "@/contexts/AuthContext";
-import { useMessaging } from "@/hooks/useMessaging";
 import { transformConversations, transformMessages, getTimeAgo } from "@/lib/dataTransformers";
 
 interface Conversation {
@@ -34,8 +33,6 @@ export function MessagesPageIntegrated() {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const { loadConversations, sendMessage, markAsRead } = useMessaging();
-
   // Load conversations
   useEffect(() => {
     const fetchConversations = async () => {
@@ -43,9 +40,9 @@ export function MessagesPageIntegrated() {
 
       try {
         setLoading(true);
-        await loadConversations();
-        // Transform loaded conversations
-        // This would integrate with useMessaging hook
+        // TODO: Implement real conversation loading from messaging schema
+        // For now, show empty state
+        setConversations([]);
         setLoading(false);
       } catch (error) {
         console.error('Error loading conversations:', error);

@@ -72,11 +72,20 @@ export default function FeedPageNewDesign() {
     searchRadius: filters.searchRadius,
   });
 
-  const { data: boosts } = useCampaignBoosts();
+  const { data: boosts } = useCampaignBoosts({ placement: 'feed', enabled: true, userId: user?.id });
   const { share } = useShare();
   const { applyOptimisticLike, applyEngagementDelta } = useOptimisticReactions();
 
-  const allFeedItems = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data]);
+  const allFeedItems = useMemo(() => {
+    const items = data?.pages.flatMap((p) => p.items) ?? [];
+    console.log('🎯 Feed items loaded:', {
+      total: items.length,
+      events: items.filter(i => i.item_type === 'event').length,
+      posts: items.filter(i => i.item_type === 'post').length,
+      sample: items.slice(0, 3).map(i => ({ type: i.item_type, id: i.item_id }))
+    });
+    return items;
+  }, [data]);
   const activeLocation = filters.locations[0] || 'Near Me';
   const activeDate = filters.dates[0] || 'Anytime';
 
@@ -131,7 +140,7 @@ export default function FeedPageNewDesign() {
   }, [share, toast, registerInteraction]);
 
   const handleEventClick = useCallback((eventId: string) => {
-    navigate(`/event-new/${eventId}`);
+    navigate(`/e/${eventId}`);
     registerInteraction();
   }, [navigate, registerInteraction]);
 
@@ -156,6 +165,13 @@ export default function FeedPageNewDesign() {
     }, 'Sign in to create posts');
     registerInteraction();
   }, [requireAuth, registerInteraction]);
+
+  const handleReport = useCallback(() => {
+    toast({
+      title: 'Reported',
+      description: 'Thank you for your report. Our team will review this content.',
+    });
+  }, [toast]);
 
   if (status === 'loading') {
     return (
@@ -199,14 +215,12 @@ export default function FeedPageNewDesign() {
         onOpenMessages={() => navigate('/messages-new')}
       />
 
-      {/* Feed Content */}
+      {/* Feed Content - Full Screen TikTok Style */}
       <div 
         ref={scrollRef}
         className="hide-scrollbar relative h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
         style={{ WebkitOverflowScrolling: 'touch', scrollSnapStop: 'always' }}
       >
-        <div className="h-20" />
-
         {allFeedItems.map((item, idx) => {
           const isPost = item.item_type === 'post';
           const paused = pausedVideos[item.item_id];
@@ -216,29 +230,27 @@ export default function FeedPageNewDesign() {
           return (
             <section
               key={item.item_id}
-              className="snap-start snap-always flex items-center justify-center px-3 py-4 sm:px-4 md:px-6"
-              style={{ minHeight: '60vh' }}
+              className="snap-start snap-always relative h-screen w-full"
             >
-              <div className="w-full max-w-2xl">
-                {item.item_type === 'event' ? (
-                  <EventCardNewDesign
-                    item={item}
-                    onOpenTickets={(eventId) => handleOpenTickets(eventId, item)}
-                    onEventClick={handleEventClick}
-                    onCreatePost={handleCreatePost}
-                  />
-                ) : (
-                  <UserPostCardNewDesign
-                    item={item}
-                    onLike={() => handleLike(item)}
-                    onComment={() => handleComment(item)}
-                    onShare={() => handleSharePost(item)}
-                    onAuthorClick={() => item.author_id && navigate(`/profile-new/${item.author_id}`)}
-                    soundEnabled={globalSoundEnabled}
-                    isVideoPlaying={isVideoActive}
-                  />
-                )}
-              </div>
+              {item.item_type === 'event' ? (
+                <EventCardNewDesign
+                  item={item}
+                  onOpenTickets={(eventId) => handleOpenTickets(eventId, item)}
+                  onEventClick={handleEventClick}
+                  onCreatePost={handleCreatePost}
+                />
+              ) : (
+                <UserPostCardNewDesign
+                  item={item}
+                  onLike={() => handleLike(item)}
+                  onComment={() => handleComment(item)}
+                  onShare={() => handleSharePost(item)}
+                  onAuthorClick={() => item.author_id && navigate(`/u/${item.author_id}`)}
+                  onReport={handleReport}
+                  soundEnabled={globalSoundEnabled}
+                  isVideoPlaying={isVideoActive}
+                />
+              )}
             </section>
           );
         })}
@@ -259,7 +271,7 @@ export default function FeedPageNewDesign() {
                 Follow organizers and explore events to see content here
               </p>
               <button 
-                onClick={() => navigate('/search-new')}
+                onClick={() => navigate('/search')}
                 className="rounded-full bg-[#FF8C00] px-6 py-3 text-sm font-semibold text-white"
               >
                 Explore Events

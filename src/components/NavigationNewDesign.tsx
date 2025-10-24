@@ -10,10 +10,10 @@ export function NavigationNewDesign() {
   
   const navItems = [
     { id: 'feed', icon: Home, label: 'Feed', path: '/' },
-    { id: 'search', icon: Search, label: 'Search', path: '/search-new' },
-    { id: 'tickets', icon: Ticket, label: 'Tickets', path: '/tickets-new', authRequired: true },
-    { id: 'messages', icon: MessageCircle, label: 'Messages', path: '/messages-new', authRequired: true },
-    { id: 'profile', icon: User, label: 'Profile', path: '/profile-new', authRequired: true },
+    { id: 'search', icon: Search, label: 'Search', path: '/search' },
+    { id: 'tickets', icon: Ticket, label: 'Tickets', path: '/tickets', authRequired: true },
+    { id: 'messages', icon: MessageCircle, label: 'Messages', path: '/messages', authRequired: true },
+    { id: 'profile', icon: User, label: 'Profile', path: '/profile', authRequired: true },
   ];
 
   const handleNavigate = (path: string, authRequired: boolean) => {
@@ -71,7 +71,7 @@ export function NavigationNewDesign() {
       {/* Notification Badge */}
       {user && (
         <button
-          onClick={() => navigate('/notifications-new')}
+          onClick={() => navigate('/notifications')}
           className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all hover:bg-white/10 sm:right-4 sm:h-10 sm:w-10"
         >
           <Bell className={`h-4 w-4 sm:h-5 sm:w-5 ${

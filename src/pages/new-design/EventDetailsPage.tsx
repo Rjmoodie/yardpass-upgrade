@@ -1,28 +1,36 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Share2, Heart, Calendar, Clock, MapPin, Users, DollarSign, Info, Check } from "lucide-react";
+import { ArrowLeft, Share2, Heart, Calendar, Clock, MapPin, Users, DollarSign, Info, Check, MessageCircle } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { EventFeed } from "@/components/EventFeed";
+import MapboxEventMap from "@/components/MapboxEventMap";
+import { EventTicketModal } from "@/components/EventTicketModal";
 
 interface EventDetails {
   id: string;
   title: string;
   coverImage: string;
+  ownerContextType: 'user' | 'organization';
+  ownerContextId: string;
   organizer: {
     id: string;
     name: string;
     avatar: string;
-    verified: boolean;
   };
   date: string;
   time: string;
   location: string;
   venue: string;
+  city?: string;
+  country?: string;
   description: string;
   categories: string[];
   attendees: number;
+  lat?: number;
+  lng?: number;
   ticketTiers: {
     id: string;
     name: string;
@@ -35,16 +43,16 @@ interface EventDetails {
 }
 
 export function EventDetailsPageIntegrated() {
-  const { eventId } = useParams();
+  const { identifier: eventId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   
   const [event, setEvent] = useState<EventDetails | null>(null);
-  const [selectedTier, setSelectedTier] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'about' | 'tickets' | 'attendees'>('about');
+  const [activeTab, setActiveTab] = useState<'details' | 'posts' | 'tagged'>('details');
   const [loading, setLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
 
   // Load event details
   useEffect(() => {
@@ -54,7 +62,12 @@ export function EventDetailsPageIntegrated() {
       try {
         setLoading(true);
 
-        const { data, error } = await supabase
+        // If identifier looks like a UUID, query by ID, otherwise by slug
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
+        
+        console.log('[EventDetailsPage] Searching for:', eventId, 'isUUID:', isUUID);
+
+        let query = supabase
           .from('events')
           .select(`
             id,
@@ -65,27 +78,38 @@ export function EventDetailsPageIntegrated() {
             venue,
             address,
             city,
+            country,
+            lat,
+            lng,
             cover_image_url,
             category,
             created_by,
+            owner_context_type,
+            owner_context_id,
             user_profiles!events_created_by_fkey (
               user_id,
               display_name,
-              photo_url,
-              verified
+              photo_url
+            ),
+            organizations!events_owner_context_id_fkey (
+              name,
+              logo_url
             ),
             ticket_tiers!fk_ticket_tiers_event_id (
               id,
               name,
               price_cents,
-              quantity,
-              sold_count,
-              description,
-              benefits
+              quantity
             )
-          `)
-          .eq('id', eventId)
-          .single();
+          `);
+
+        if (isUUID) {
+          query = query.eq('id', eventId);
+        } else {
+          query = query.eq('slug', eventId);
+        }
+
+        const { data, error } = await query.single();
 
         if (error) throw error;
 
@@ -93,7 +117,7 @@ export function EventDetailsPageIntegrated() {
         const { count: attendeeCount } = await supabase
           .from('tickets')
           .select('id', { count: 'exact', head: true })
-          .eq('event_id', eventId)
+          .eq('event_id', data.id)
           .eq('status', 'active');
 
         // Check if user has saved this event
@@ -102,21 +126,34 @@ export function EventDetailsPageIntegrated() {
             .from('saved_events')
             .select('id')
             .eq('user_id', user.id)
-            .eq('event_id', eventId)
+            .eq('event_id', data.id)
             .maybeSingle();
           
           setIsSaved(!!savedData);
         }
 
+        // Determine organizer info based on owner_context_type
+        const isOrganization = data.owner_context_type === 'organization';
+        const organizerName = isOrganization
+          ? (data as any).organizations?.name || 'Organization'
+          : data.user_profiles?.display_name || 'Organizer';
+        const organizerAvatar = isOrganization
+          ? (data as any).organizations?.logo_url || ''
+          : data.user_profiles?.photo_url || '';
+        const organizerId = isOrganization
+          ? data.owner_context_id
+          : data.created_by;
+
         const transformed: EventDetails = {
           id: data.id,
           title: data.title,
           coverImage: data.cover_image_url || '',
+          ownerContextType: data.owner_context_type as 'user' | 'organization',
+          ownerContextId: data.owner_context_id,
           organizer: {
-            id: data.created_by,
-            name: data.user_profiles?.display_name || 'Organizer',
-            avatar: data.user_profiles?.photo_url || '',
-            verified: data.user_profiles?.verified || false
+            id: organizerId,
+            name: organizerName,
+            avatar: organizerAvatar
           },
           date: new Date(data.start_at).toLocaleDateString('en-US', {
             weekday: 'long',
@@ -127,6 +164,10 @@ export function EventDetailsPageIntegrated() {
           time: `${new Date(data.start_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - ${new Date(data.end_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
           location: `${data.venue}, ${data.address}`,
           venue: data.venue,
+          city: data.city,
+          country: data.country,
+          lat: data.lat,
+          lng: data.lng,
           description: data.description || '',
           categories: data.category ? [data.category] : [],
           attendees: attendeeCount || 0,
@@ -134,21 +175,24 @@ export function EventDetailsPageIntegrated() {
             id: tier.id,
             name: tier.name,
             price: tier.price_cents / 100,
-            available: tier.quantity - (tier.sold_count || 0),
-            total: tier.quantity,
-            benefits: tier.benefits || tier.description?.split('\n') || []
+            available: tier.quantity || 0,  // TODO: Calculate actual available from sold tickets
+            total: tier.quantity || 0,
+            benefits: []  // TODO: Add benefits field to ticket_tiers table if needed
           })),
           isSaved
         };
 
         setEvent(transformed);
+        console.log('[EventDetailsPage] Event loaded successfully:', transformed.title);
       } catch (error) {
-        console.error('Error loading event:', error);
+        console.error('[EventDetailsPage] Error loading event:', error);
         toast({
           title: 'Error',
-          description: 'Failed to load event details',
+          description: 'Failed to load event details. Please try again.',
           variant: 'destructive'
         });
+        // Navigate back to search after error
+        setTimeout(() => navigate('/search'), 2000);
       } finally {
         setLoading(false);
       }
@@ -194,7 +238,7 @@ export function EventDetailsPageIntegrated() {
     }
   };
 
-  const handlePurchaseTicket = async (tierId: string) => {
+  const handleGetTickets = () => {
     if (!user) {
       toast({
         title: 'Sign in required',
@@ -203,9 +247,7 @@ export function EventDetailsPageIntegrated() {
       navigate('/auth');
       return;
     }
-
-    // Navigate to checkout or open ticket modal
-    navigate(`/checkout/${eventId}/${tierId}`);
+    setTicketModalOpen(true);
   };
 
   // Loading state
@@ -219,14 +261,14 @@ export function EventDetailsPageIntegrated() {
 
   return (
     <div className="min-h-screen bg-black pb-20">
-      {/* Hero Image */}
+      {/* Hero Image with Title Overlay (Like Original) */}
       <div className="relative h-64 overflow-hidden sm:h-80 md:h-96">
         <ImageWithFallback
           src={event.coverImage}
           alt={event.title}
           className="h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
         
         {/* Header Actions */}
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-3 sm:p-4">
@@ -258,70 +300,55 @@ export function EventDetailsPageIntegrated() {
             </button>
           </div>
         </div>
+
+        {/* Title and Organizer Overlay (Like Original) */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+          {/* Category and Attendee Badges */}
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {event.categories.map((category) => (
+              <span
+                key={category}
+                className="rounded-full bg-[#FF8C00] px-3 py-1 text-xs font-semibold text-white sm:text-sm"
+              >
+                {category}
+              </span>
+            ))}
+            <span className="rounded-full border border-white/30 bg-black/40 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm sm:text-sm">
+              {event.attendees} attending
+            </span>
+          </div>
+
+          {/* Event Title */}
+          <h1 className="mb-2 text-2xl font-bold text-white drop-shadow-lg sm:text-3xl md:text-4xl">
+            {event.title}
+          </h1>
+
+          {/* Organizer */}
+          <button 
+            onClick={() => {
+              if (event.ownerContextType === 'organization') {
+                navigate(`/org/${event.ownerContextId}`);
+              } else {
+                navigate(`/u/${event.organizer.id}`);
+              }
+            }}
+            className="flex items-center gap-2 text-sm text-white transition-opacity hover:opacity-80"
+          >
+            <ImageWithFallback
+              src={event.organizer.avatar}
+              alt={event.organizer.name}
+              className="h-6 w-6 rounded-full object-cover border border-white/30"
+            />
+            <span>by {event.organizer.name}</span>
+          </button>
+        </div>
       </div>
 
-      {/* Event Header */}
+      {/* Content */}
       <div className="px-3 sm:px-4 md:px-6">
-        <h1 className="mb-3 text-2xl font-bold text-white sm:text-3xl md:text-4xl">{event.title}</h1>
-        
-        {/* Organizer */}
-        <button 
-          onClick={() => navigate(`/u/${event.organizer.id}`)}
-          className="mb-4 flex items-center gap-3 text-left transition-opacity hover:opacity-80"
-        >
-          <ImageWithFallback
-            src={event.organizer.avatar}
-            alt={event.organizer.name}
-            className="h-10 w-10 rounded-full object-cover sm:h-12 sm:w-12"
-          />
-          <div>
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-white sm:text-base">
-              {event.organizer.name}
-              {event.organizer.verified && (
-                <Check className="h-4 w-4 rounded-full bg-blue-500 p-0.5 text-white" />
-              )}
-            </p>
-            <p className="text-xs text-white/60">Event Organizer</p>
-          </div>
-        </button>
-
-        {/* Event Info Cards */}
-        <div className="mb-6 space-y-2">
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-xl sm:p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF8C00]/20">
-              <Calendar className="h-5 w-5 text-[#FF8C00]" />
-            </div>
-            <div>
-              <p className="text-xs text-white/50 sm:text-sm">Date & Time</p>
-              <p className="text-sm font-medium text-white sm:text-base">{event.date} • {event.time}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-xl sm:p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF8C00]/20">
-              <MapPin className="h-5 w-5 text-[#FF8C00]" />
-            </div>
-            <div>
-              <p className="text-xs text-white/50 sm:text-sm">Location</p>
-              <p className="text-sm font-medium text-white sm:text-base">{event.venue}</p>
-              <p className="text-xs text-white/60">{event.location}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-xl sm:p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF8C00]/20">
-              <Users className="h-5 w-5 text-[#FF8C00]" />
-            </div>
-            <div>
-              <p className="text-xs text-white/50 sm:text-sm">Attendees</p>
-              <p className="text-sm font-medium text-white sm:text-base">{event.attendees.toLocaleString()} going</p>
-            </div>
-          </div>
-        </div>
-
         {/* Tabs */}
         <div className="mb-6 flex gap-2 border-b border-white/10">
-          {(['about', 'tickets', 'attendees'] as const).map((tab) => (
+          {(['details', 'posts', 'tagged'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -337,21 +364,34 @@ export function EventDetailsPageIntegrated() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'about' && (
+        {activeTab === 'details' && (
           <div className="space-y-4">
-            {/* Categories */}
-            {event.categories.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {event.categories.map((category) => (
-                  <span
-                    key={category}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/80"
-                  >
-                    {category}
-                  </span>
-                ))}
+            {/* Date & Location Info Grid (Like Original) */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-5 w-5 text-[#FF8C00] mt-0.5" />
+                  <div>
+                    <p className="text-xs text-white/60 mb-1">Date & Time</p>
+                    <p className="text-sm font-medium text-white">{event.date}</p>
+                    <p className="text-xs text-white/70 mt-0.5">{event.time}</p>
+                  </div>
+                </div>
               </div>
-            )}
+
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 text-[#FF8C00] mt-0.5" />
+                  <div>
+                    <p className="text-xs text-white/60 mb-1">Location</p>
+                    <p className="text-sm font-medium text-white">{event.venue || 'TBA'}</p>
+                    {event.city && (
+                      <p className="text-xs text-white/70 mt-0.5">{event.city}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Description */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl sm:p-5">
@@ -363,94 +403,66 @@ export function EventDetailsPageIntegrated() {
                 {event.description}
               </p>
             </div>
-          </div>
-        )}
 
-        {activeTab === 'tickets' && (
-          <div className="space-y-3">
-            {event.ticketTiers.map((tier) => {
-              const isSelected = selectedTier === tier.id;
-              const isSoldOut = tier.available === 0;
-
-              return (
-                <button
-                  key={tier.id}
-                  onClick={() => !isSoldOut && setSelectedTier(isSelected ? null : tier.id)}
-                  disabled={isSoldOut}
-                  className={`w-full overflow-hidden rounded-2xl border text-left transition-all sm:rounded-3xl ${
-                    isSelected
-                      ? 'border-[#FF8C00] bg-white/10'
-                      : isSoldOut
-                      ? 'border-white/5 bg-white/5 opacity-50'
-                      : 'border-white/10 bg-white/5 hover:border-white/20'
-                  }`}
-                >
-                  <div className="p-4 sm:p-5">
-                    <div className="mb-3 flex items-start justify-between">
-                      <div>
-                        <h4 className="mb-1 text-base font-bold text-white sm:text-lg">{tier.name}</h4>
-                        <p className="text-sm text-white/60">
-                          {isSoldOut ? 'Sold Out' : `${tier.available} of ${tier.total} available`}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-[#FF8C00] sm:text-2xl">
-                          ${tier.price.toFixed(2)}
-                        </p>
-                        <p className="text-xs text-white/50">per ticket</p>
-                      </div>
-                    </div>
-
-                    {/* Benefits */}
-                    {tier.benefits.length > 0 && (
-                      <div className="space-y-1.5">
-                        {tier.benefits.map((benefit, idx) => (
-                          <div key={idx} className="flex items-start gap-2 text-xs text-white/70 sm:text-sm">
-                            <Check className="mt-0.5 h-3.5 w-3.5 text-green-400 sm:h-4 sm:w-4" />
-                            <span>{benefit}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Select Button */}
-                    {isSelected && !isSoldOut && (
-                      <div className="mt-4 pt-4 border-t border-white/10">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePurchaseTicket(tier.id);
-                          }}
-                          className="w-full rounded-full bg-[#FF8C00] py-3 text-sm font-semibold text-white transition-all hover:bg-[#FF9D1A] active:scale-95"
-                        >
-                          Get Tickets
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-
-            {event.ticketTiers.length === 0 && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-xl">
-                <p className="text-sm text-white/60">No tickets available for this event</p>
+            {/* Location Map */}
+            {event.lat && event.lng && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl sm:p-5">
+                <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-white sm:text-lg">
+                  <MapPin className="h-5 w-5 text-[#FF8C00]" />
+                  Location
+                </h3>
+                <div className="overflow-hidden rounded-xl">
+                  <MapboxEventMap 
+                    lat={event.lat}
+                    lng={event.lng}
+                    venue={event.venue}
+                    address={event.location}
+                    city={event.city as any}
+                    country={event.country as any}
+                    className="w-full h-56"
+                  />
+                </div>
               </div>
             )}
           </div>
         )}
 
-        {activeTab === 'attendees' && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-xl">
-            <Users className="mx-auto mb-3 h-12 w-12 text-white/30" />
-            <p className="text-base font-semibold text-white">{event.attendees.toLocaleString()} attendees</p>
-            <p className="mt-1 text-sm text-white/60">Attendee list available soon</p>
+        {activeTab === 'tagged' && (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-xl">
+            <Users className="mx-auto mb-4 h-16 w-16 text-white/20" />
+            <h3 className="mb-2 text-lg font-semibold text-white">Tagged Posts</h3>
+            <p className="text-sm text-white/60">
+              Posts where this event is tagged will appear here
+            </p>
+          </div>
+        )}
+
+        {activeTab === 'posts' && (
+          <div className="space-y-4">
+            {/* Posts/Moments Feed */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <MessageCircle className="h-5 w-5 text-[#FF8C00]" />
+                <h3 className="text-lg font-semibold text-white">Event Moments</h3>
+              </div>
+              <p className="text-sm text-white/60 mb-4">
+                See what attendees are sharing about this event
+              </p>
+            </div>
+            
+            {event?.id && (
+              <EventFeed 
+                eventId={event.id}
+                userId={user?.id}
+                onEventClick={(id) => navigate(`/e/${id}`)}
+              />
+            )}
           </div>
         )}
       </div>
 
       {/* Sticky Footer - Get Tickets CTA */}
-      {activeTab !== 'tickets' && event.ticketTiers.length > 0 && (
+      {event.ticketTiers.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-black/80 p-3 backdrop-blur-xl sm:p-4">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex-1">
@@ -460,13 +472,36 @@ export function EventDetailsPageIntegrated() {
               </p>
             </div>
             <button 
-              onClick={() => setActiveTab('tickets')}
+              onClick={handleGetTickets}
               className="rounded-full bg-[#FF8C00] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#FF9D1A] active:scale-95 sm:px-8 sm:py-3.5 sm:text-base"
             >
               Get Tickets
             </button>
           </div>
         </div>
+      )}
+
+      {/* Ticket Purchase Modal */}
+      {event && (
+        <EventTicketModal
+          event={{
+            id: event.id,
+            title: event.title,
+            start_at: event.date,
+            venue: event.venue,
+            address: event.location,
+            description: event.description
+          } as any}
+          isOpen={ticketModalOpen}
+          onClose={() => setTicketModalOpen(false)}
+          onSuccess={() => {
+            setTicketModalOpen(false);
+            toast({
+              title: 'Success!',
+              description: 'Redirecting to checkout...'
+            });
+          }}
+        />
       )}
     </div>
   );

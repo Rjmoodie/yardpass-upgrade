@@ -197,6 +197,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress }: VideoMedi
         muted={muted}
         loop
         playsInline
+        nocast
         preload="metadata"
         crossOrigin="anonymous"
         poster={poster}
@@ -257,53 +258,78 @@ export function VideoMedia({ url, post, visible, trackVideoProgress }: VideoMedi
       )}
 
       {muted && showTapHint && (
-        <div className="absolute bottom-24 left-4 z-30">
-          <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+        <div className="absolute bottom-24 left-4 z-30 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500/90 to-orange-600/90 px-4 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-xl">
+            <Volume2 className="h-3.5 w-3.5" />
             Tap for sound
           </span>
         </div>
       )}
 
       {post?.user_profiles?.display_name && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-4">
-          <p className="text-sm font-semibold text-white">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/60 to-transparent px-5 pb-5 pt-20">
+          <p className="text-base font-bold text-white drop-shadow-lg">
             {post.user_profiles.display_name}
           </p>
           {post?.text && (
-            <p className="mt-1 line-clamp-2 text-xs text-white/80">{post.text}</p>
+            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-white/90 drop-shadow-md">{post.text}</p>
           )}
         </div>
       )}
 
-      <div className="absolute bottom-4 right-4 z-30 flex flex-col gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleTogglePlayback}
-          className="pointer-events-auto h-9 w-9 rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70"
-          aria-label={isPlaying ? "Pause video" : "Play video"}
-        >
-          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-        </Button>
+      <div className="absolute bottom-20 right-4 z-30 flex flex-col gap-3">
+        {/* Play/Pause Button */}
+        <div className="group relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleTogglePlayback}
+            className="pointer-events-auto h-14 w-14 rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-white/40 hover:bg-white/20 active:scale-95"
+            aria-label={isPlaying ? "Pause video" : "Play video"}
+          >
+            {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-0.5" />}
+          </Button>
+          <div className="pointer-events-none absolute right-16 top-1/2 -translate-y-1/2 opacity-0 transition-all group-hover:opacity-100">
+            <span className="whitespace-nowrap rounded-lg bg-black/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
+              {isPlaying ? "Pause" : "Play"}
+            </span>
+          </div>
+        </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleToggleMute}
-          className="pointer-events-auto h-9 w-9 rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70"
-          aria-label={muted ? "Unmute video" : "Mute video"}
-        >
-          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-        </Button>
+        {/* Sound Toggle Button */}
+        <div className="group relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleToggleMute}
+            className="pointer-events-auto h-14 w-14 rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-white/40 hover:bg-white/20 active:scale-95"
+            aria-label={muted ? "Unmute video" : "Mute video"}
+          >
+            {muted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
+          </Button>
+          <div className="pointer-events-none absolute right-16 top-1/2 -translate-y-1/2 opacity-0 transition-all group-hover:opacity-100">
+            <span className="whitespace-nowrap rounded-lg bg-black/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
+              {muted ? "Unmute" : "Mute"}
+            </span>
+          </div>
+        </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="pointer-events-auto h-9 w-9 rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70"
-          aria-label="Bookmark post"
-        >
-          <Bookmark className="h-4 w-4" />
-        </Button>
+        {/* Save Button */}
+        <div className="group relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="pointer-events-auto h-14 w-14 rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-orange-500/60 hover:bg-orange-500/20 active:scale-95"
+            aria-label="Save post"
+          >
+            <Bookmark className="h-6 w-6" />
+          </Button>
+          <div className="pointer-events-none absolute right-16 top-1/2 -translate-y-1/2 opacity-0 transition-all group-hover:opacity-100">
+            <span className="whitespace-nowrap rounded-lg bg-black/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
+              Save
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

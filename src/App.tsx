@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { initIOSCapacitor, setupKeyboardListeners } from '@/lib/ios-capacitor';
 import Index from '@/pages/Index';
-import PlatformAwareNavigation from '@/components/PlatformAwareNavigation';
+import NavigationNewDesign from '@/components/NavigationNewDesign';
 import { GlobalErrorHandler } from '@/components/GlobalErrorHandler';
 import { ShareModal } from '@/components/ShareModal';
 import { SharePayload } from '@/lib/share';
@@ -319,9 +319,9 @@ function AppContent() {
               <Route
                 path="/search"
                 element={
-                  <ErrorBoundary>
-                    <SearchPage onBack={() => navigate('/')} onEventSelect={handleEventSelect} />
-                  </ErrorBoundary>
+                  <Suspense fallback={<PageLoadingSpinner />}>
+                    <SearchPageNew />
+                  </Suspense>
                 }
               />
               {/* Redirect legacy event routes to primary /e/:identifier format */}
@@ -335,7 +335,11 @@ function AppContent() {
               <Route path="/org/:id" element={<OrganizationProfilePage />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/invite/org" element={<OrgInvitePage />} />
-              <Route path="/e/:identifier" element={<EventSlugPage />} />
+              <Route path="/e/:identifier" element={
+                <Suspense fallback={<PageLoadingSpinner />}>
+                  <EventDetailsPageNew />
+                </Suspense>
+              } />
               <Route path="/e/:identifier/tickets" element={<TicketsRoute />} />
               <Route path="/e/:identifier/attendees" element={<EventAttendeesPage />} />
               {/* (duplicate tickets route removed above) */}
@@ -394,16 +398,18 @@ function AppContent() {
                 path="/profile"
                 element={
                   <AuthGuard>
-                    <UserProfilePage />
+                    <Suspense fallback={<PageLoadingSpinner />}>
+                      <ProfilePageNew />
+                    </Suspense>
                   </AuthGuard>
                 }
               />
               <Route
                 path="/user/:userId"
                 element={
-                  <AuthGuard>
-                    <UserProfilePage />
-                  </AuthGuard>
+                  <Suspense fallback={<PageLoadingSpinner />}>
+                    <ProfilePageNew />
+                  </Suspense>
                 }
               />
               <Route
@@ -416,69 +422,6 @@ function AppContent() {
               />
               <Route
                 path="/messages"
-                element={<UserDependentRoute>{() => <MessagesPage />}</UserDependentRoute>}
-              />
-              <Route
-                path="/notifications"
-                element={<UserDependentRoute>{() => <NotificationsPage />}</UserDependentRoute>}
-              />
-              <Route
-                path="/social"
-                element={
-                  <AuthGuard>
-                    <SocialPage />
-                  </AuthGuard>
-                }
-              />
-              <Route path="/tickets" element={<TicketsRoute />} />
-              
-              {/* New Design Routes - Integrated with Real Data */}
-              <Route
-                path="/profile-new"
-                element={
-                  <AuthGuard>
-                    <Suspense fallback={<PageLoadingSpinner />}>
-                      <ProfilePageNew />
-                    </Suspense>
-                  </AuthGuard>
-                }
-              />
-              <Route
-                path="/profile-new/:userId"
-                element={
-                  <Suspense fallback={<PageLoadingSpinner />}>
-                    <ProfilePageNew />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/tickets-new"
-                element={
-                  <AuthGuard>
-                    <Suspense fallback={<PageLoadingSpinner />}>
-                      <TicketsPageNew />
-                    </Suspense>
-                  </AuthGuard>
-                }
-              />
-              <Route
-                path="/search-new"
-                element={
-                  <Suspense fallback={<PageLoadingSpinner />}>
-                    <SearchPageNew />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/event-new/:eventId"
-                element={
-                  <Suspense fallback={<PageLoadingSpinner />}>
-                    <EventDetailsPageNew />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/messages-new"
                 element={
                   <AuthGuard>
                     <Suspense fallback={<PageLoadingSpinner />}>
@@ -488,7 +431,7 @@ function AppContent() {
                 }
               />
               <Route
-                path="/notifications-new"
+                path="/notifications"
                 element={
                   <AuthGuard>
                     <Suspense fallback={<PageLoadingSpinner />}>
@@ -497,7 +440,24 @@ function AppContent() {
                   </AuthGuard>
                 }
               />
-              
+              <Route
+                path="/social"
+                element={
+                  <AuthGuard>
+                    <SocialPage />
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/tickets"
+                element={
+                  <AuthGuard>
+                    <Suspense fallback={<PageLoadingSpinner />}>
+                      <TicketsPageNew />
+                    </Suspense>
+                  </AuthGuard>
+                }
+              />
               <Route
                 path="/purchase-success"
                 element={
@@ -691,11 +651,7 @@ function AppContent() {
           !location.pathname.startsWith('/event-management/') &&
           location.pathname !== '/ticket-success' &&
           location.pathname !== '/auth' && (
-            <PlatformAwareNavigation
-              currentScreen={location.pathname}
-              userRole={navigationRole}
-              onNavigate={() => {}}
-            />
+            <NavigationNewDesign />
           )}
 
         {/* Toast notifications */}

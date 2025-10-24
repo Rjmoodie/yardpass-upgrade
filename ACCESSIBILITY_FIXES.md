@@ -228,3 +228,4 @@ This is better than `display: none` or `visibility: hidden` because those hide c
 **Compliance Level**: WCAG 2.1 Level AA  
 **Testing Status**: ✅ Manual + Automated  
 
+

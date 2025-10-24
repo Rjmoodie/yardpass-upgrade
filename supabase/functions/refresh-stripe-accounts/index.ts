@@ -25,8 +25,9 @@ serve(async (req) => {
       apiVersion: "2023-10-16",
     });
 
-    // Get all payout accounts with Stripe Connect IDs
+    // ✅ FIX: Get all payout accounts with Stripe Connect IDs from organizations schema
     const { data: accounts, error } = await supabaseService
+      .schema('organizations')
       .from('payout_accounts')
       .select('*')
       .not('stripe_connect_id', 'is', null);
@@ -40,8 +41,9 @@ serve(async (req) => {
         // Fetch latest account info from Stripe
         const stripeAccount = await stripe.accounts.retrieve(account.stripe_connect_id);
         
-        // Update database with latest status
+        // ✅ FIX: Update database with latest status in organizations schema
         const { error: updateError } = await supabaseService
+          .schema('organizations')
           .from('payout_accounts')
           .update({
             charges_enabled: stripeAccount.charges_enabled,
