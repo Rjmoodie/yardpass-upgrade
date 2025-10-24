@@ -1,18 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useTickets, type UserTicket } from '@/hooks/useTickets';
-import { useTicketAnalytics } from '@/hooks/useTicketAnalytics';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { TicketList } from '@/components/tickets/TicketList';
-import { TicketDetail } from '@/components/tickets/TicketDetail';
-import { GuestSessionManager } from '@/components/GuestSessionManager';
-import { ArrowLeft, LogOut, ShieldCheck } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { GuestSession } from '@/hooks/useGuestTicketSession';
+import { useMemo, useState } from 'react';
+import {
+  Calendar,
+  Download,
+  MapPin,
+  QrCode,
+  Share2,
+  Ticket,
+} from 'lucide-react';
+import type { GuestSession } from '@/hooks/useGuestTicketSession';
+import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+
+interface TicketItem {
+  id: string;
+  status: 'active' | 'used';
+  title: string;
+  date: string;
+  location: string;
+  ticketType: string;
+  price: string;
+  image: string;
+  qrCode: string;
+  organizer: string;
+}
 
 interface TicketsPageProps {
   guestToken?: string;
@@ -22,470 +31,225 @@ interface TicketsPageProps {
   onGuestSignOut?: () => void;
   onGuestSessionExpired?: () => void;
   onExtendGuestSession?: () => void;
-  onBack: () => void;
+  onBack?: () => void;
 }
 
-interface GuestTicketRaw {
-  id: string;
-  event_id: string;
-  tier_id: string;
-  order_id: string;
-  status: string;
-  qr_code: string;
-  created_at: string;
-  owner_email: string;
-  owner_name: string;
-  owner_phone: string;
-  // Event fields (flat structure)
-  event_title: string;
-  event_date: string;
-  event_time: string;
-  event_location: string;
-  organizer_name: string;
-  cover_image: string;
-  // Tier fields (flat structure)
-  ticket_type: string;
-  badge: string;
-  price: number;
-  // Order fields (flat structure)
-  order_date: string;
-}
+const MOCK_TICKETS: TicketItem[] = [
+  {
+    id: '1',
+    status: 'active',
+    title: 'Summer Music Festival 2025',
+    date: 'Sat, Aug 15 • 6:00 PM',
+    location: 'Central Park, NYC',
+    ticketType: 'VIP Pass',
+    price: '$150.00',
+    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=YardPass-1',
+    image: 'https://images.unsplash.com/photo-1656283384093-1e227e621fad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
+    organizer: 'Live Nation Events',
+  },
+  {
+    id: '2',
+    status: 'active',
+    title: 'Tech Innovation Summit',
+    date: 'Tue, Sep 20 • 9:00 AM',
+    location: 'SF Convention Center',
+    ticketType: 'General Admission',
+    price: '$120.00',
+    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=YardPass-2',
+    image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
+    organizer: 'Future Labs',
+  },
+  {
+    id: '3',
+    status: 'used',
+    title: 'Rooftop Comedy Night',
+    date: 'Fri, Jul 28 • 8:00 PM',
+    location: 'Brooklyn Rooftop',
+    ticketType: 'General Admission',
+    price: '$25.00',
+    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=YardPass-3',
+    image: 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
+    organizer: 'Comedy Collective',
+  },
+];
 
-interface GuestTicketsResponse {
-  tickets: GuestTicketRaw[];
-}
+export default function TicketsPage({ onBack }: TicketsPageProps) {
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
 
-const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
-const toICSUTC = (iso: string) => {
-  const d = new Date(iso);
-  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(
-    d.getUTCMinutes(),
-  )}${pad(d.getUTCSeconds())}Z`;
-};
-const escapeICS = (str: string) =>
-  (str || '')
-    .replace(/\\/g, '\\\\')
-    .replace(/;/g, '\\;')
-    .replace(/,/g, '\\,')
-    .replace(/\n/g, '\\n');
+  const tickets = useMemo(() => {
+    return MOCK_TICKETS.filter((ticket) =>
+      activeTab === 'upcoming' ? ticket.status === 'active' : ticket.status === 'used',
+    );
+  }, [activeTab]);
 
-export default function TicketsPage({
-  guestToken,
-  guestScope,
-  guestSession,
-  focusEventId,
-  onGuestSignOut,
-  onGuestSessionExpired,
-  onExtendGuestSession,
-  onBack,
-}: TicketsPageProps) {
-  const { user } = useAuth();
-  const { tickets: userTickets, loading: userLoading, error: userError, refreshTickets } = useTickets();
-  const { trackTicketView, trackQRCodeView, trackTicketShare } = useTicketAnalytics();
-  const { toast } = useToast();
-
-  const [guestTickets, setGuestTickets] = useState<UserTicket[]>([]);
-  const [guestLoading, setGuestLoading] = useState(false);
-  const [guestError, setGuestError] = useState<string | null>(null);
-  const [selectedTicket, setSelectedTicket] = useState<UserTicket | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const isGuestMode = Boolean(guestToken);
-
-  useEffect(() => {
-    if (!guestToken) return;
-
-    let cancelled = false;
-    setGuestLoading(true);
-    setGuestError(null);
-
-    (async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('tickets-list-guest', {
-          body: { token: guestToken, scope: guestScope },
-        });
-        if (error) throw error;
-        if (!cancelled) {
-          const payload = (data as GuestTicketsResponse | null)?.tickets ?? [];
-          console.log('🔍 Guest tickets raw data:', payload);
-          // Transform guest tickets to match UserTicket interface
-          const transformedTickets = payload.map(ticket => {
-            // Use the flat structure from tickets-list-guest function
-            const startISO = ticket.event_date || new Date().toISOString();
-            const endISO = new Date(new Date(startISO).getTime() + 2 * 60 * 60 * 1000).toISOString();
-            
-            const start = new Date(startISO);
-            const end = new Date(endISO);
-            const now = new Date();
-            
-            return {
-              id: ticket.id,
-              eventId: ticket.event_id || '',
-              eventTitle: ticket.event_title || 'Event',
-              eventDate: start.toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              }),
-              eventTime: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-              venue: ticket.event_location || 'TBA',
-              city: '', // Not available in current structure
-              eventLocation: ticket.event_location || 'TBA',
-              coverImage: ticket.cover_image || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30',
-              ticketType: ticket.ticket_type || 'General',
-              badge: ticket.badge || 'GA',
-              qrCode: ticket.qr_code || '',
-              status: ticket.status || 'issued',
-              price: ticket.price || 0,
-              orderDate: ticket.order_date || ticket.created_at || new Date().toISOString(),
-              isUpcoming: end > now,
-              organizerName: ticket.organizer_name || 'Event Organizer',
-              startAtISO: startISO,
-              endAtISO: endISO,
-            } as UserTicket;
-          });
-          console.log('✅ Guest tickets transformed:', transformedTickets);
-          setGuestTickets(transformedTickets as unknown as UserTicket[]);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('Guest ticket fetch failed', err);
-          setGuestError(err instanceof Error ? err.message : 'Unable to load guest tickets');
-        }
-      } finally {
-        if (!cancelled) setGuestLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [guestToken, guestScope]);
-
-  const allTickets = useMemo(() => (isGuestMode ? guestTickets : userTickets), [isGuestMode, guestTickets, userTickets]);
-  const loading = isGuestMode ? guestLoading : userLoading;
-  const error = isGuestMode ? guestError : userError;
-
-  const [showAllTickets, setShowAllTickets] = useState(() => !focusEventId);
-
-  useEffect(() => {
-    setShowAllTickets(!focusEventId);
-  }, [focusEventId]);
-
-  const eventScopedTickets = useMemo(() => {
-    if (!focusEventId) return allTickets;
-    return allTickets.filter((ticket) => ticket.eventId === focusEventId);
-  }, [allTickets, focusEventId]);
-
-  const showingScoped = Boolean(focusEventId) && !showAllTickets;
-  const visibleTickets = showingScoped ? eventScopedTickets : allTickets;
-
-  useEffect(() => {
-    if (selectedTicket && !visibleTickets.some((ticket) => ticket.id === selectedTicket.id)) {
-      setSelectedTicket(null);
-    }
-  }, [visibleTickets, selectedTicket]);
-
-  useEffect(() => {
-    if (showingScoped && eventScopedTickets.length === 1) {
-      setSelectedTicket(eventScopedTickets[0]);
-    }
-  }, [showingScoped, eventScopedTickets]);
-
-  const handleRefresh = () => {
-    if (isGuestMode && guestToken) {
-      setGuestLoading(true);
-      supabase.functions
-        .invoke('tickets-list-guest', { body: { token: guestToken, scope: guestScope } })
-        .then(({ data, error }) => {
-          if (error) throw error;
-          const rawTickets = (data as GuestTicketsResponse | null)?.tickets ?? [];
-          // Transform raw tickets to UserTicket format using flat structure
-          const transformed = rawTickets.map(ticket => {
-            const startISO = ticket.event_date || new Date().toISOString();
-            const endISO = new Date(new Date(startISO).getTime() + 2 * 60 * 60 * 1000).toISOString();
-            const start = new Date(startISO);
-            const end = new Date(endISO);
-            
-            return {
-              id: ticket.id,
-              eventId: ticket.event_id || '',
-              eventTitle: ticket.event_title || 'Event',
-              eventDate: start.toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              }),
-              eventTime: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-              venue: ticket.event_location || 'TBA',
-              city: '',
-              eventLocation: ticket.event_location || 'TBA',
-              coverImage: ticket.cover_image || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30',
-              ticketType: ticket.ticket_type || 'General',
-              badge: ticket.badge || 'GA',
-              qrCode: ticket.qr_code,
-              status: ticket.status,
-              price: ticket.price || 0,
-              orderDate: ticket.order_date || ticket.created_at,
-              isUpcoming: end > new Date(),
-              organizerName: ticket.organizer_name || 'Event Organizer',
-              startAtISO: startISO,
-              endAtISO: endISO,
-            };
-          });
-          setGuestTickets(transformed as unknown as UserTicket[]);
-        })
-        .catch((err) => setGuestError(err instanceof Error ? err.message : 'Unable to refresh tickets'))
-        .finally(() => setGuestLoading(false));
-    } else {
-      setIsRefreshing(true);
-      refreshTickets();
-      setTimeout(() => setIsRefreshing(false), 600);
-    }
+  const toggleExpand = (ticketId: string) => {
+    setExpandedTicket((current) => (current === ticketId ? null : ticketId));
   };
-
-  const maskGuestContact = (contact?: string | null) => {
-    if (!contact) return 'Guest access';
-    if (contact.includes('@')) {
-      const [userPart, domain] = contact.split('@');
-      if (!domain) return `Guest • ${contact}`;
-      const maskedUser = userPart.length <= 2
-        ? `${userPart[0] ?? ''}*`
-        : `${userPart[0]}${'*'.repeat(Math.max(userPart.length - 2, 1))}${userPart.slice(-1)}`;
-      return `Guest • ${maskedUser}@${domain}`;
-    }
-    const digits = contact.replace(/\D/g, '');
-    if (digits.length < 4) return `Guest • ${contact}`;
-    return `Guest • ••${digits.slice(-4)}`;
-  };
-
-  const guestSubtitle = useMemo(() => {
-    if (!guestSession) return `${allTickets.length} ticket${allTickets.length === 1 ? '' : 's'}`;
-    return `${allTickets.length} ticket${allTickets.length === 1 ? '' : 's'}`;
-  }, [guestSession, allTickets.length]);
-
-  const totalTicketCount = allTickets.length;
-  const visibleTicketCount = visibleTickets.length;
-
-  const handleGuestSignOut = () => {
-    onGuestSignOut?.();
-  };
-
-  const ticketsOutsideScope = Math.max(totalTicketCount - eventScopedTickets.length, 0);
-
-  const buildICS = (ticket: UserTicket) => {
-    const dtstart = toICSUTC(ticket.startAtISO);
-    const dtend = ticket.endAtISO ? toICSUTC(ticket.endAtISO) : '';
-    const summary = escapeICS(ticket.eventTitle);
-    const description = escapeICS(`Ticket: ${ticket.ticketType}\nEvent: ${ticket.eventTitle}`);
-    const location = escapeICS(ticket.eventLocation);
-    const uid = `ticket-${ticket.id}@yardpass.app`;
-
-    return [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//YardPass//EN',
-      'BEGIN:VEVENT',
-      `UID:${uid}`,
-      `DTSTART:${dtstart}`,
-      dtend ? `DTEND:${dtend}` : '',
-      `SUMMARY:${summary}`,
-      `DESCRIPTION:${description}`,
-      location ? `LOCATION:${location}` : '',
-      'STATUS:CONFIRMED',
-      'END:VEVENT',
-      'END:VCALENDAR',
-    ]
-      .filter(Boolean)
-      .join('\r\n');
-  };
-
-  const downloadICS = (ticket: UserTicket, download = true) => {
-    const icsContent = buildICS(ticket);
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    if (download) {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${(ticket.eventTitle || 'event').replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } else {
-      window.open(url, '_blank', 'noopener');
-    }
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-  };
-
-  const handleShareTicket = async (ticket: UserTicket) => {
-    try {
-      const shareData = {
-        title: `My ticket to ${ticket.eventTitle}`,
-        text: `Join me at ${ticket.eventTitle}`,
-        url: window.location.origin,
-      };
-      if ((navigator as any).share && (navigator as any).canShare?.(shareData)) {
-        await (navigator as any).share(shareData);
-      } else {
-        await navigator.clipboard.writeText(`${shareData.title}\n${shareData.url}`);
-        toast({ title: 'Ticket link copied', description: 'Share it with your friends!' });
-      }
-      if (user) {
-        trackTicketShare(ticket.id, ticket.eventId, user.id, 'share');
-      }
-    } catch (err) {
-      console.error('Ticket share failed', err);
-      toast({ title: 'Unable to share', description: 'Please try again later.', variant: 'destructive' });
-    }
-  };
-
-  useEffect(() => {
-    if (!selectedTicket || !user) return;
-    trackTicketView(selectedTicket.id, selectedTicket.eventId, user.id);
-    trackQRCodeView(selectedTicket.id, selectedTicket.eventId, user.id);
-  }, [selectedTicket, trackTicketView, trackQRCodeView, user]);
-
-  const headerSubtitle = isGuestMode
-    ? guestSubtitle
-    : showingScoped
-      ? `${visibleTicketCount} ticket${visibleTicketCount === 1 ? '' : 's'} for this event`
-      : `${totalTicketCount} ticket${totalTicketCount === 1 ? '' : 's'}`;
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-background via-background to-background/80">
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-2" aria-label="Go back">
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-            Back
-          </Button>
-          <div className="text-center">
-            <h1 className="text-lg font-semibold">My Tickets</h1>
-            <p className="text-xs text-muted-foreground">{headerSubtitle}</p>
+    <div className="min-h-screen bg-black pb-20">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-black/80 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-3 py-4 sm:px-4 sm:py-5">
+          <div className="flex items-center gap-3">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition-all hover:bg-white/10"
+                aria-label="Go back"
+              >
+                <ArrowLeftIcon />
+              </button>
+            )}
+            <div>
+              <h1 className="text-white">My Tickets</h1>
+              <p className="text-xs text-white/60 sm:text-sm">All your events in one place</p>
+            </div>
           </div>
-          {!isGuestMode && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <ShieldCheck className="h-4 w-4" aria-hidden />
-              Secure & Verified
-            </span>
-          )}
+
+          <div className="flex gap-2">
+            <button className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white transition hover:bg-white/10 sm:text-sm">
+              Download All
+            </button>
+            <button className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white transition hover:bg-white/10 sm:text-sm">
+              Share Wallet
+            </button>
+          </div>
         </div>
-        <Separator />
+
+        <div className="mx-auto flex w-full max-w-5xl gap-2 px-3 pb-4 sm:px-4">
+          <button
+            onClick={() => setActiveTab('upcoming')}
+            className={`flex-1 rounded-full px-4 py-2 text-sm transition-all sm:text-base ${
+              activeTab === 'upcoming' ? 'bg-[#FF8C00] text-white shadow-lg' : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+            }`}
+          >
+            Upcoming
+          </button>
+          <button
+            onClick={() => setActiveTab('past')}
+            className={`flex-1 rounded-full px-4 py-2 text-sm transition-all sm:text-base ${
+              activeTab === 'past' ? 'bg-[#FF8C00] text-white shadow-lg' : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+            }`}
+          >
+            Past
+          </button>
+        </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
-        {isGuestMode && guestSession && (
-          <GuestSessionManager
-            session={guestSession}
-            onExtend={onExtendGuestSession}
-            onSignOut={handleGuestSignOut}
-            onExpired={onGuestSessionExpired}
-          />
-        )}
+      <main className="mx-auto w-full max-w-5xl px-3 pt-4 sm:px-4">
+        {tickets.length === 0 ? (
+          <div className="mt-12 rounded-3xl border border-dashed border-white/20 bg-white/5 p-8 text-center text-white/70">
+            <Ticket className="mx-auto mb-4 h-12 w-12 text-white/40" />
+            <h2 className="mb-2 text-lg text-white">No tickets yet</h2>
+            <p className="mb-4 text-sm text-white/60">Buy your first ticket to see it here.</p>
+            <button className="rounded-full bg-[#FF8C00] px-6 py-2 text-sm font-medium text-white transition hover:bg-[#FF9D1A]">
+              Discover Events
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4 pb-16">
+            {tickets.map((ticket) => (
+              <div
+                key={ticket.id}
+                className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl transition hover:border-white/20 hover:shadow-xl"
+              >
+                <button
+                  onClick={() => toggleExpand(ticket.id)}
+                  className="flex w-full flex-col text-left sm:flex-row"
+                >
+                  <div className="relative h-48 w-full overflow-hidden sm:h-auto sm:w-56">
+                    <ImageWithFallback src={ticket.image} alt={ticket.title} className="h-full w-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80" />
+                    <span className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs uppercase text-white">
+                      {ticket.status === 'active' ? 'Active' : 'Used'}
+                    </span>
+                  </div>
 
-        {focusEventId && (
-          <Card className="border-primary/40 bg-primary/5">
-            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1 text-left">
-                <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                  <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary">
-                    Event focus
-                  </Badge>
-                  <span>{eventScopedTickets[0]?.eventTitle ?? 'This event'}</span>
+                  <div className="flex flex-1 flex-col justify-between gap-4 p-5 sm:p-6">
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-base text-white sm:text-lg">{ticket.title}</h3>
+                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white">{ticket.ticketType}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-white/60 sm:text-sm">{ticket.organizer}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-white/70 sm:text-sm">
+                        <Calendar className="h-4 w-4 text-white/60" />
+                        <span>{ticket.date}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-white/70 sm:text-sm">
+                        <MapPin className="h-4 w-4 text-white/60" />
+                        <span>{ticket.location}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-white">{ticket.price}</span>
+                      <div className="flex gap-2">
+                        <button className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10">
+                          <Download className="h-4 w-4" />
+                        </button>
+                        <button className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10">
+                          <Share2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                <div
+                  className={`grid transition-all ${
+                    expandedTicket === ticket.id
+                      ? 'grid-rows-[1fr] border-t border-white/10'
+                      : 'grid-rows-[0fr] border-transparent'
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="grid gap-4 bg-black/60 p-5 backdrop-blur-xl sm:grid-cols-2">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
+                        <p className="mb-2 text-xs text-white/60">Your QR code</p>
+                        <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-2xl bg-black/70 p-4">
+                          <img src={ticket.qrCode} alt={`${ticket.title} QR`} className="h-full w-full object-contain" />
+                        </div>
+                        <div className="mt-3 flex items-center justify-center gap-2 text-xs text-white/60">
+                          <QrCode className="h-4 w-4" />
+                          <span>Show this at entry</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                          <p className="mb-2 text-xs text-white/60">Ticket benefits</p>
+                          <ul className="space-y-2 text-xs text-white/80 sm:text-sm">
+                            <li>• Priority entry line</li>
+                            <li>• Access to VIP lounge</li>
+                            <li>• Complimentary welcome drink</li>
+                          </ul>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                          <p className="mb-2 text-xs text-white/60">Need help?</p>
+                          <p className="text-xs text-white/70 sm:text-sm">
+                            Contact support@yardpass.com for ticket transfers, refunds, or account assistance.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {showingScoped
-                    ? 'Showing tickets just for this event.'
-                    : 'Viewing every ticket saved to your wallet.'}
-                </p>
               </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row">
-                {showingScoped && ticketsOutsideScope > 0 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAllTickets(true)}
-                  >
-                    View all tickets
-                  </Button>
-                )}
-                {!showingScoped && focusEventId && eventScopedTickets.length > 0 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowAllTickets(false)}
-                  >
-                    Back to event tickets
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
         )}
-
-        <Card className="border-border/60 bg-background/80 p-6 shadow-sm">
-          <TicketList
-            tickets={visibleTickets}
-            loading={loading}
-            error={error}
-            onRefresh={handleRefresh}
-            isRefreshing={isRefreshing || guestLoading}
-            onSelectTicket={setSelectedTicket}
-            emptyState={
-              showingScoped ? (
-                <div className="space-y-3 text-sm text-muted-foreground">
-                  <p>We couldn&apos;t find tickets for this event yet.</p>
-                  {onExtendGuestSession && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={onExtendGuestSession}
-                    >
-                      Try a different email or phone
-                    </Button>
-                  )}
-                  {ticketsOutsideScope > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowAllTickets(true)}
-                    >
-                      View all of my tickets
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>Purchase a ticket from the explore tab and it will appear here instantly.</p>
-                  <p>No extra steps needed — just show your QR and you&apos;re in.</p>
-                </div>
-              )
-            }
-          />
-        </Card>
       </main>
-
-      {selectedTicket && (
-        <TicketDetail
-          ticket={selectedTicket}
-          isOpen={Boolean(selectedTicket)}
-          onClose={() => {
-            console.log('🎫 Closing ticket modal');
-            setSelectedTicket(null);
-          }}
-          onShare={handleShareTicket}
-          onAddToCalendar={(ticket) => downloadICS(ticket, false)}
-          onDownloadCalendar={(ticket) => downloadICS(ticket, true)}
-        />
-      )}
     </div>
   );
 }
 
+function ArrowLeftIcon() {
+  return <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+    <path d="M15.75 19.5 8.25 12l7.5-7.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>;
+}
