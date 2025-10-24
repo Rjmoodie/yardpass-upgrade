@@ -242,17 +242,17 @@ export function Navigation({ userRole, onNavigate, platform = 'mobile', items }:
   );
 
   const containerClass = cn(
-    'z-50 pointer-events-auto',
+    'z-50 pointer-events-auto backdrop-blur',
     isWebPlatform
-      ? 'sticky top-0 border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70'
-      : 'fixed inset-x-0 bottom-0 border-t border-border/60 bg-black/90 backdrop-blur'
+      ? 'sticky top-0 border-b border-border/70 bg-background/90 shadow-subtle supports-[backdrop-filter]:bg-background/80'
+      : 'fixed inset-x-0 bottom-0 border-t border-border/70 bg-background/95 supports-[backdrop-filter]:bg-background/85 shadow-[0_-18px_40px_rgba(15,23,42,0.12)]'
   );
 
   const navBarClass = cn(
     'relative flex items-center',
     isWebPlatform
       ? 'mx-auto w-full max-w-5xl justify-between gap-1 px-4 py-3 sm:px-6'
-      : 'justify-evenly px-0 py-2.5 sm:py-3'
+      : 'mx-auto w-full max-w-xl justify-between gap-1 px-3 py-2.5 sm:px-4'
   );
 
   const navStyle: CSSProperties | undefined = isWebPlatform
@@ -340,7 +340,7 @@ export function Navigation({ userRole, onNavigate, platform = 'mobile', items }:
       {/* Lightweight feedback when checking post eligibility */}
       {checkingEligibility && (
         <div className="absolute bottom-[72px] inset-x-0 flex justify-center pointer-events-none">
-          <div className="px-3 py-1.5 rounded-full bg-black/70 text-xs text-white border border-white/10">Checking posting eligibility…</div>
+          <div className="px-3 py-1.5 rounded-full bg-foreground/90 text-xs font-medium text-background border border-border/60 shadow-subtle">Checking posting eligibility…</div>
         </div>
       )}
     </div>
@@ -382,38 +382,39 @@ function NavButton({
       role="tab"
       tabIndex={0}
       className={cn(
-        'group relative flex items-center transition-all duration-300 ease-out touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+        'group relative flex items-center transition-colors duration-200 ease-out touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         isWeb
-          ? 'min-h-[48px] gap-3 rounded-xl px-3 py-2'
-          : 'flex-1 flex-col gap-1 rounded-2xl px-3 py-2 min-h-[60px] sm:min-h-[64px]',
-        active ? 'text-primary' : 'text-muted-foreground hover:text-primary/90'
+          ? 'min-h-[48px] gap-2 rounded-xl px-3 py-2'
+          : 'flex-1 flex-col gap-1 rounded-2xl px-3 py-2.5 min-h-[60px] sm:min-h-[64px]',
+        active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          'pointer-events-none absolute inset-0 rounded-2xl border transition-all duration-300',
-          isWeb ? 'rounded-xl' : 'rounded-2xl',
+          'pointer-events-none absolute inset-0 rounded-[inherit] border transition-all duration-200',
           active
-            ? 'border-primary/30 bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5 opacity-100'
-            : 'border-transparent bg-transparent opacity-0 group-hover:opacity-100 group-hover:border-border/40 group-hover:bg-muted/30'
+            ? 'border-primary/40 bg-primary/10 opacity-100 shadow-[0_12px_32px_rgba(37,99,235,0.14)]'
+            : 'border-transparent bg-transparent opacity-0 group-hover:opacity-100 group-hover:border-border/70 group-hover:bg-muted/40'
         )}
       />
       <span
         className={cn(
-          'relative z-10 flex items-center justify-center rounded-xl transition-all duration-300',
-          isWeb ? 'h-9 w-9' : 'h-9 w-9',
-          active ? 'bg-primary/15' : 'bg-muted/20 group-hover:bg-muted/40'
+          'relative z-10 flex items-center justify-center transition-all duration-200',
+          isWeb ? 'h-9 w-9 rounded-xl' : 'h-10 w-10 rounded-2xl',
+          active
+            ? 'bg-primary text-primary-foreground shadow-subtle'
+            : 'bg-muted/40 text-muted-foreground group-hover:bg-muted/60 group-hover:text-foreground'
         )}
       >
-        <span className={cn('transition-transform duration-300', active ? 'scale-110' : 'group-hover:scale-105')}>{children}</span>
+        <span className={cn('transition-transform duration-200', active ? 'scale-105' : 'group-hover:scale-105')}>{children}</span>
       </span>
 
       <span
         className={cn(
-          'relative z-10 font-medium leading-none transition-all duration-300',
-          isWeb ? 'text-sm' : dense ? 'text-[10px]' : 'text-xs',
-          active ? 'font-semibold text-primary' : 'text-muted-foreground group-hover:text-primary'
+          'relative z-10 leading-none transition-colors duration-200',
+          isWeb ? 'text-sm' : dense ? 'text-[11px]' : 'text-xs',
+          active ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground group-hover:text-foreground'
         )}
       >
         {label}

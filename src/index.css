@@ -95,59 +95,59 @@ body {
 /* iOS-Native Design System Tokens (REVAMPED) */
 :root {
   /* Surfaces */
-  --bg: 0 0% 100%;
-  --bg-elev: 240 5% 98%;
-  --bg-subtle: 240 4.8% 95.9%;
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
-  --fg: 240 10% 3.9%;
-  
+  --bg: 210 20% 98%;
+  --bg-elev: 210 20% 96%;
+  --bg-subtle: 214 32% 94%;
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
+  --fg: 222 47% 11%;
+
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-foreground: 222 47% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  
-  /* Brand Colors - YardPass Yellow/Orange */
-  --primary: 42 96% 52%;             /* YardPass brand yellow/orange */
+  --popover-foreground: 222 47% 11%;
+
+  /* Brand Colors - Modern blue accent */
+  --primary: 222 83% 58%;
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 42 96% 62%;
-  
-  /* Accent - Blue for CTAs and highlights */
-  --accent: 221 83% 53%;
-  --accent-foreground: 0 0% 100%;
-  
+  --primary-glow: 222 88% 66%;
+
+  /* Accent - Misty tint for surface emphasis */
+  --accent: 217 100% 97%;
+  --accent-foreground: 222 47% 20%;
+
   /* Secondary and Muted */
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 10% 3.9%;
-  --muted: 240 4% 46%;
-  --muted-foreground: 240 3.8% 46.1%;
-  
+  --secondary: 214 32% 96%;
+  --secondary-foreground: 222 47% 18%;
+  --muted: 215 24% 90%;
+  --muted-foreground: 215 17% 35%;
+
   /* Semantic Colors */
-  --success: 142 72% 29%;
+  --success: 142 65% 36%;
   --success-foreground: 0 0% 100%;
-  --warning: 38 92% 50%;
+  --warning: 38 92% 54%;
   --warning-foreground: 0 0% 100%;
-  --danger: 0 84% 57%;
-  --destructive: 0 84% 57%;
+  --danger: 0 74% 55%;
+  --destructive: 0 74% 55%;
   --destructive-foreground: 0 0% 100%;
-  
-  /* Surfaces (optional warm variant) */
-  --surface-warm: 38 44% 96%;        /* Tokenized beige instead of #FDF8F2 */
-  
+
+  /* Surfaces (optional neutral variant) */
+  --surface-warm: 213 32% 97%;
+
   /* Borders & Focus */
-  --border: 240 5% 90%;
-  --input: 240 5% 90%;
-  --ring: 221 83% 70%;
-  
+  --border: 215 32% 86%;
+  --input: 215 32% 86%;
+  --ring: 222 83% 70%;
+
   /* Elevation shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-  
+  --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.04);
+  --shadow-md: 0 4px 8px -2px hsl(222 47% 11% / 0.08), 0 2px 4px -2px hsl(222 47% 11% / 0.04);
+  --shadow-lg: 0 10px 24px -4px hsl(222 47% 11% / 0.12), 0 6px 12px -6px hsl(222 47% 11% / 0.08);
+
   /* Typography */
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  
+
   /* Motion & Duration */
   --duration-fast: 120ms;
   --duration-normal: 200ms;
@@ -155,7 +155,7 @@ body {
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  
+
   /* Spacing & Density */
   --spacing-comfortable: 1rem;
   --spacing-compact: 0.5rem;
@@ -183,17 +183,17 @@ body {
   --spacing-12: 3rem;     /* 48px */
   
   /* iOS-Style Shadows */
-  --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.05);
-  --shadow-md: 0 4px 8px -2px hsl(0 0% 0% / 0.08), 0 2px 4px -2px hsl(0 0% 0% / 0.04);
-  --shadow-lg: 0 8px 16px -4px hsl(0 0% 0% / 0.1), 0 4px 8px -4px hsl(0 0% 0% / 0.06);
-  --shadow-xl: 0 16px 32px -8px hsl(0 0% 0% / 0.12), 0 8px 16px -8px hsl(0 0% 0% / 0.08);
-  --shadow-glow: 0 0 24px hsl(var(--primary) / 0.3);
-  --shadow-elevated: 0 2px 16px hsl(0 0% 0% / 0.08);
+  --shadow-sm: 0 1px 3px 0 hsl(222 47% 11% / 0.05);
+  --shadow-md: 0 4px 8px -2px hsl(222 47% 11% / 0.08), 0 2px 4px -2px hsl(222 47% 11% / 0.05);
+  --shadow-lg: 0 8px 20px -4px hsl(222 47% 11% / 0.12), 0 4px 10px -4px hsl(222 47% 11% / 0.08);
+  --shadow-xl: 0 16px 32px -8px hsl(222 47% 11% / 0.16), 0 8px 20px -8px hsl(222 47% 11% / 0.1);
+  --shadow-glow: 0 0 24px hsl(var(--primary) / 0.25);
+  --shadow-elevated: 0 2px 16px hsl(222 47% 11% / 0.1);
   
   /* Toast/Notification Colors */
   --toast-bg: 0 0% 100%;
-  --toast-text: 215 25% 8%;
-  --toast-border: 210 17% 89%;
+  --toast-text: 222 47% 11%;
+  --toast-border: 215 32% 86%;
   
   /* iOS-Style Border Radius */
   --radius-xs: 0.25rem;    /* 4px */
@@ -214,30 +214,30 @@ body {
   --transition-spring: 400ms var(--ease-spring);
   
   /* Glassmorphism */
-  --glass-bg: hsl(0 0% 100% / 0.8);
-  --glass-border: hsl(0 0% 100% / 0.2);
-  --glass-backdrop: blur(20px) saturate(180%);
-  
-  /* Orange gradients */
-  --gradient-orange: linear-gradient(135deg, hsl(32 95% 55%), hsl(35 100% 70%));
-  --gradient-orange-hover: linear-gradient(135deg, hsl(32 95% 50%), hsl(35 100% 65%));
-  --gradient-orange-glow: linear-gradient(135deg, hsl(32 95% 60%), hsl(35 100% 75%));
+  --glass-bg: hsl(0 0% 100% / 0.82);
+  --glass-border: hsl(0 0% 100% / 0.18);
+  --glass-backdrop: blur(24px) saturate(170%);
+
+  /* Brand gradients */
+  --gradient-orange: linear-gradient(135deg, hsl(222 83% 58%), hsl(221 85% 66%));
+  --gradient-orange-hover: linear-gradient(135deg, hsl(222 85% 55%), hsl(221 88% 60%));
+  --gradient-orange-glow: linear-gradient(135deg, hsl(222 83% 62%), hsl(221 90% 72%));
 
   /* ======== DESIGN TOKENS: fill any missing variables you reference elsewhere ======== */
   /* Frequently referenced but not previously defined tokens */
   --radius: 1rem; /* base radius used by calc()s in mapbox blocks etc. */
-  --overlay: hsla(0, 0%, 0%, 0.45);
+  --overlay: hsla(222, 47%, 11%, 0.45);
   --modal-bg: hsl(var(--card) / 0.98);
   --modal-border: hsl(var(--border));
-  --shadow-modal: 0 16px 48px hsl(0 0% 0% / 0.28), 0 4px 16px hsl(0 0% 0% / 0.12);
-  --shadow-card: 0 10px 24px hsl(0 0% 0% / 0.10);
+  --shadow-modal: 0 16px 48px hsl(222 47% 11% / 0.18), 0 4px 16px hsl(222 47% 11% / 0.08);
+  --shadow-card: 0 10px 24px hsl(222 47% 11% / 0.12);
 
-  --text-accent: 32 95% 55%; /* aligns with primary */
-  --text-accent-muted: 215 16% 47%;
-  --border-accent: 210 17% 89%;
-  --border-strong: 210 17% 80%;
-  --tab-active-bg: 210 17% 96%;
-  --tab-active-border: 210 17% 84%;
+  --text-accent: 222 83% 55%;
+  --text-accent-muted: 215 17% 45%;
+  --border-accent: 215 32% 86%;
+  --border-strong: 215 25% 80%;
+  --tab-active-bg: 217 100% 97%;
+  --tab-active-border: 215 32% 88%;
   --input-background: 0 0% 100%;
 }
 
@@ -245,73 +245,73 @@ body {
 /* Dark mode variables - using .dark class selector for next-themes */
 .dark {
   /* Surfaces */
-  --bg: 240 10% 4%;
-  --bg-elev: 240 8% 8%;
-  --bg-subtle: 240 7% 12%;
-  --background: 240 10% 4%;
-  --foreground: 0 0% 100%;
-  --fg: 0 0% 100%;
-  
-  --card: 240 8% 8%;
-  --card-foreground: 0 0% 100%;
-  --popover: 240 8% 8%;
-  --popover-foreground: 0 0% 100%;
-  
-  /* Brand Colors - YardPass Yellow/Orange (brighter for dark) */
-  --primary: 42 96% 62%;
+  --bg: 222 47% 8%;
+  --bg-elev: 222 44% 12%;
+  --bg-subtle: 222 44% 16%;
+  --background: 222 47% 8%;
+  --foreground: 210 20% 96%;
+  --fg: 210 20% 96%;
+
+  --card: 222 40% 10%;
+  --card-foreground: 210 20% 96%;
+  --popover: 222 40% 10%;
+  --popover-foreground: 210 20% 96%;
+
+  /* Brand Colors - luminous blue for dark mode */
+  --primary: 222 88% 72%;
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 42 96% 72%;
-  
-  /* Accent - Blue */
-  --accent: 221 83% 63%;
-  --accent-foreground: 0 0% 100%;
-  
+  --primary-glow: 222 90% 78%;
+
+  /* Accent - muted slate */
+  --accent: 222 33% 24%;
+  --accent-foreground: 210 20% 96%;
+
   /* Secondary and Muted */
-  --secondary: 240 7% 12%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 240 4% 56%;
-  --muted-foreground: 240 5% 64.9%;
-  
+  --secondary: 222 28% 14%;
+  --secondary-foreground: 210 20% 96%;
+  --muted: 222 23% 24%;
+  --muted-foreground: 222 12% 72%;
+
   /* Semantic Colors */
-  --success: 142 72% 39%;
+  --success: 142 70% 40%;
   --success-foreground: 0 0% 100%;
   --warning: 38 92% 60%;
   --warning-foreground: 0 0% 100%;
   --danger: 0 84% 67%;
   --destructive: 0 84% 67%;
   --destructive-foreground: 0 0% 100%;
-  
-  /* Surfaces (optional warm variant) */
-  --surface-warm: 240 8% 10%;
-  
+
+  /* Surfaces (optional neutral variant) */
+  --surface-warm: 222 26% 12%;
+
   /* Borders & Focus */
-  --border: 240 10% 18%;
-  --input: 240 10% 15%;
-  --ring: 221 83% 70%;
-  
+  --border: 222 32% 22%;
+  --input: 222 32% 18%;
+  --ring: 222 88% 70%;
+
   /* Dark mode glassmorphism */
-  --glass-bg: hsl(210 22% 11% / 0.8);
-  --glass-border: hsl(210 17% 95% / 0.1);
+  --glass-bg: hsl(222 33% 18% / 0.75);
+  --glass-border: hsl(222 33% 60% / 0.1);
 
     /* Dark mode counterparts */
-    --overlay: hsla(0, 0%, 0%, 0.60);
-    --modal-bg: hsl(210 22% 11% / 0.98);
-    --modal-border: hsl(210 22% 18%);
+    --overlay: hsla(222, 30%, 6%, 0.70);
+    --modal-bg: hsl(222 33% 16% / 0.98);
+    --modal-border: hsl(222 30% 24%);
     --shadow-modal: 0 24px 64px hsl(0 0% 0% / 0.45), 0 6px 24px hsl(0 0% 0% / 0.25);
     --shadow-card: 0 10px 24px hsl(0 0% 0% / 0.25);
 
-    --text-accent: 35 100% 65%;
-    --text-accent-muted: 210 17% 60%;
-    --border-accent: 210 22% 18%;
-    --border-strong: 210 22% 26%;
-    --tab-active-bg: 210 22% 15%;
-    --tab-active-border: 210 22% 22%;
-    --input-background: 210 22% 11%;
-    
+    --text-accent: 222 88% 76%;
+    --text-accent-muted: 222 20% 68%;
+    --border-accent: 222 32% 28%;
+    --border-strong: 222 32% 34%;
+    --tab-active-bg: 222 32% 20%;
+    --tab-active-border: 222 32% 26%;
+    --input-background: 222 32% 18%;
+
     /* Toast/Notification Colors for dark mode */
-    --toast-bg: 210 22% 11%;
-    --toast-text: 210 17% 95%;
-    --toast-border: 210 22% 18%;
+    --toast-bg: 222 30% 14%;
+    --toast-text: 213 24% 94%;
+    --toast-border: 222 30% 22%;
 }
 
 /* iOS-Native Base Styles */
@@ -1379,24 +1379,35 @@ input, select, textarea {
     border-color: hsl(var(--primary) / 0.3);
     box-shadow: var(--shadow-glow);
   }
-  .action-button-primary {
-    background: linear-gradient(135deg, hsl(45 100% 50%), hsl(42 100% 60%));
-    border: 1px solid hsl(45 100% 50% / 0.4);
-    box-shadow: var(--shadow-glow);
-  }
+    .action-button-primary {
+      background: linear-gradient(135deg, hsl(222 83% 58%), hsl(221 85% 66%));
+      border: 1px solid hsl(222 83% 58% / 0.4);
+      box-shadow: var(--shadow-glow);
+    }
 
-  /* Buttons */
-  .premium-button {
-    @apply rounded-full px-6 py-3 font-semibold transition-all duration-300;
-    background: linear-gradient(135deg, hsl(45 100% 50%), hsl(42 100% 60%));
-    color: hsl(30 15% 15%);
-    border: none;
-    box-shadow: var(--shadow-elevated);
-  }
+    /* Buttons */
+    .premium-button {
+      @apply rounded-full px-6 py-3 font-semibold transition-all duration-300;
+      background: linear-gradient(135deg, hsl(222 83% 58%), hsl(221 85% 66%));
+      color: hsl(0 0% 100%);
+      border: none;
+      box-shadow: var(--shadow-elevated);
+    }
   .premium-button:hover { transform: translateY(-2px); box-shadow: var(--shadow-glow), var(--shadow-elevated); }
 
-  .pill-button { @apply rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 border; border-color: hsl(0 0% 100% / 0.2); backdrop-filter: blur(6px); }
-  .pill-button-active { background: linear-gradient(135deg, hsl(45 100% 50%), hsl(42 100% 60%)); border-color: hsl(45 100% 50% / 0.4); color: hsl(30 15% 15%); box-shadow: var(--shadow-glow); }
+  .pill-button {
+    @apply rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 border;
+    border-color: hsl(var(--border) / 0.6);
+    background: hsl(var(--background) / 0.9);
+    color: hsl(var(--foreground));
+    backdrop-filter: blur(8px);
+  }
+  .pill-button-active {
+    background: linear-gradient(135deg, hsl(222 83% 58%), hsl(221 85% 66%));
+    border-color: hsl(222 83% 58% / 0.4);
+    color: hsl(0 0% 100%);
+    box-shadow: 0 12px 30px hsl(var(--primary) / 0.25);
+  }
 
   /* Elevation utilities */
   .enhanced-card {
@@ -1414,18 +1425,18 @@ input, select, textarea {
   }
 
   /* Subtle app glow */
-  .golden-glow { box-shadow: 0 0 20px hsl(45 100% 50% / 0.4); }
-  .app-glow { box-shadow: 0 0 60px hsl(45 100% 50% / 0.15); }
-  .app-glow-hover:hover { box-shadow: 0 0 80px hsl(45 100% 50% / 0.25); }
+  .golden-glow { box-shadow: 0 0 20px hsl(222 83% 58% / 0.35); }
+  .app-glow { box-shadow: 0 0 60px hsl(222 83% 58% / 0.16); }
+  .app-glow-hover:hover { box-shadow: 0 0 80px hsl(222 83% 58% / 0.22); }
 
   /* Patterns & gradients */
   .subtle-pattern {
     background-image:
-      radial-gradient(circle at 25% 25%, hsl(45 100% 50% / 0.03) 0%, transparent 50%),
-      radial-gradient(circle at 75% 75%, hsl(42 100% 60% / 0.03) 0%, transparent 50%);
+      radial-gradient(circle at 25% 25%, hsl(222 83% 58% / 0.04) 0%, transparent 55%),
+      radial-gradient(circle at 75% 75%, hsl(215 72% 65% / 0.04) 0%, transparent 55%);
   }
-  .brand-gradient { background: linear-gradient(135deg, hsl(45 100% 50%), hsl(42 100% 60%)); }
-  .charcoal-gradient { background: linear-gradient(135deg, hsl(0 0% 10%), hsl(0 0% 20%)); }
+  .brand-gradient { background: linear-gradient(135deg, hsl(222 83% 58%), hsl(221 85% 66%)); }
+  .charcoal-gradient { background: linear-gradient(135deg, hsl(222 47% 10%), hsl(222 47% 16%)); }
   .feed-gradient { background: linear-gradient(180deg, transparent 0%, hsl(0 0% 0% / 0.8) 100%); }
 
   /* Text shadows */

@@ -48,15 +48,15 @@ export default {
           50: "#F8FAFC",    // Soft background
           0: "#FFFFFF",     // Pure white
         },
-        // Refined brand orange for subtle accents
+        // Updated brand system with cool professional tones
         brand: {
-          600: "#FF8C00",   // Primary brand orange
-          500: "#FF9B0F",    // Lighter brand
-          400: "#FFB547",    // Light brand
-          300: "#FFD9A3",    // Very light brand
-          200: "#FFE9C7",    // Lightest brand
-          100: "#FFF3E1",    // Brand tint
-          50: "#FFF8EE",     // Subtle brand background
+          600: "#1D4ED8",   // Deep brand accent
+          500: "#2563EB",   // Primary brand blue
+          400: "#3B82F6",   // Hover state
+          300: "#60A5FA",   // Light accent wash
+          200: "#93C5FD",   // Soft accent background
+          100: "#DBEAFE",   // Ultra light accent
+          50: "#EEF2FF",    // Delicate brand tint
         },
         // Semantic colors
         success: "#16A34A",
@@ -173,8 +173,8 @@ export default {
         subtle: "0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)",
         card: "0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)",
         elevated: "0 4px 12px rgba(0,0,0,0.08), 0 16px 32px rgba(0,0,0,0.12)",
-        focus: "0 0 0 3px rgba(255,140,0,0.22)",
-        brand: "0 0 0 3px rgba(255,140,0,0.22)",
+        focus: "0 0 0 3px rgba(37,99,235,0.18)",
+        brand: "0 0 0 3px rgba(37,99,235,0.18)",
         // Keep existing variables for compatibility
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",

@@ -4,53 +4,43 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  // Base: tap-friendly target, subtle transform, crisp focus
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-semibold ring-offset-background " +
-    "transition-all duration-300 ease-[var(--ease-out)] " +
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
+  // Base: generous hit target, smooth transitions, refined focus ring
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium rounded-lg ring-offset-background " +
+    "transition-colors duration-200 ease-[var(--ease-out)] " +
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 " +
     "disabled:pointer-events-none disabled:opacity-50 " +
-    "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 " +
-    "active:scale-[0.97] will-change-transform select-none",
+    "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 select-none",
   {
     variants: {
       variant: {
         default:
-          "rounded-full bg-primary text-primary-foreground hover:bg-primary/90 " +
-          "shadow-lg hover:shadow-xl border border-primary/20 " +
-          "hover:-translate-y-0.5 hover:scale-[1.02]",
+          "bg-primary text-primary-foreground shadow-subtle border border-transparent hover:bg-primary/90 hover:shadow-md",
         premium:
-          "rounded-full brand-gradient text-white shadow-lg hover:shadow-xl border border-primary/30 " +
-          "golden-glow hover:-translate-y-0.5 hover:scale-[1.02]",
+          "brand-gradient text-white shadow-lg hover:shadow-xl border border-transparent focus-visible:ring-primary/40",
         destructive:
-          "rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 " +
-          "shadow-lg hover:shadow-xl border border-destructive/20 hover:-translate-y-0.5",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-subtle border border-transparent",
         outline:
-          "rounded-full border-2 border-accent bg-transparent text-accent hover:bg-accent/10 " +
-          "backdrop-blur-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 hover:border-strong",
+          "border border-border bg-background text-foreground shadow-none hover:bg-muted/60",
         secondary:
-          "rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 " +
-          "shadow-lg hover:shadow-xl border border-secondary/20 hover:-translate-y-0.5",
+          "bg-secondary text-secondary-foreground shadow-subtle border border-transparent hover:bg-secondary/80",
         ghost:
-          "rounded-full hover:bg-accent/50 hover:text-accent-foreground backdrop-blur-sm " +
-          "border border-transparent hover:border-accent",
+          "text-foreground hover:text-foreground hover:bg-muted/60 border border-transparent shadow-none",
         link: "text-primary underline-offset-4 hover:underline px-0 h-auto",
         glass:
-          "rounded-full glass-effect text-white hover:bg-white/20 shadow-lg backdrop-blur-lg border border-white/20",
-        pill: "pill-button hover:pill-button-active",
+          "bg-white/10 text-white border border-white/25 backdrop-blur-xl shadow-subtle hover:bg-white/15",
+        pill: "rounded-full bg-primary/10 text-primary hover:bg-primary/15 border border-transparent",
         tiktok:
-          "rounded-full bg-gradient-to-r from-primary to-accent text-white font-bold shadow-xl " +
-          "hover:shadow-2xl hover:-translate-y-1 hover:scale-[1.03] border border-primary/30",
+          "rounded-full bg-gradient-to-r from-brand-600 to-brand-400 text-white font-semibold shadow-lg hover:shadow-xl border border-transparent",
         tiktokSecondary:
-          "rounded-full bg-white/15 text-white border border-white/30 backdrop-blur-md shadow-lg " +
-          "hover:bg-white/25 hover:border-white/40 hover:-translate-y-0.5 hover:scale-[1.02]",
+          "rounded-full bg-white/12 text-white border border-white/25 backdrop-blur-md shadow-subtle hover:bg-white/18",
       },
       size: {
-        default: "min-h-[44px] h-12 px-6 py-3 text-sm",
-        sm: "min-h-[44px] h-10 px-4 py-2 text-sm",
-        lg: "min-h-[48px] h-14 px-8 py-4 text-base",
-        icon: "min-h-[44px] h-12 w-12",
-        pill: "min-h-[40px] h-10 px-5 py-2 text-sm",
-        tiktok: "min-h-[48px] h-14 px-8 py-4 text-base",
+        default: "min-h-[44px] h-11 px-5 text-sm",
+        sm: "min-h-[40px] h-10 px-4 text-sm",
+        lg: "min-h-[48px] h-12 px-6 text-base",
+        icon: "min-h-[44px] h-11 w-11",
+        pill: "min-h-[40px] h-10 px-5 text-sm",
+        tiktok: "min-h-[48px] h-12 px-7 text-base",
       },
     },
     defaultVariants: {
@@ -69,7 +59,8 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, onFocus, onBlur, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
-  return (
+
+    return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
@@ -81,7 +72,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           event.currentTarget.classList.remove('focus-visible')
           onBlur?.(event)
         }}
-      {...props}
+        {...props}
       />
     )
   }
