@@ -29,7 +29,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#FFE9C7"
+          stroke="hsl(var(--primary) / 0.15)"
           strokeWidth={stroke}
           fill="none"
         />
@@ -38,7 +38,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#FF8C00"
+          stroke="hsl(var(--primary))"
           strokeWidth={stroke}
           fill="none"
           strokeLinecap="round"
