@@ -2547,6 +2547,33 @@ input, select, textarea {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   YardPass Feed Custom Styles - New Design
+   ═══════════════════════════════════════════════════════════ */
+
+/* Hide scrollbar for clean feed experience */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom heading sizes for YardPass branding */
+.feed-title-primary {
+  font-size: 1.5rem !important; /* 24px for LAUNDACH */
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+}
+
+.feed-title-secondary {
+  font-size: 2.25rem !important; /* 36px for YARD-PASS */
+  font-weight: 700 !important;
+  letter-spacing: 0.01em !important;
+}
+
 @media (min-width: 1600px) {
   .viewport-debug::before {
     content: "2XL: " attr(data-width) "×" attr(data-height);
