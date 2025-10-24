@@ -67,6 +67,7 @@ export function UserPostCardNewDesign({
             url={mediaUrl}
             post={item as any}
             visible={isVideoPlaying}
+            globalSoundEnabled={soundEnabled}
           />
         ) : mediaUrl ? (
           <ImageWithFallback
@@ -82,10 +83,73 @@ export function UserPostCardNewDesign({
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90" />
       </div>
 
+      {/* Quick action rail when collapsed */}
+      {!isExpanded && (
+        <div className="absolute bottom-32 left-4 right-4 z-30 flex justify-center sm:bottom-36">
+          <div className="flex items-center gap-4 rounded-full border border-white/10 bg-black/60 px-4 py-2 text-xs font-semibold text-white shadow-2xl backdrop-blur-md sm:gap-6 sm:px-6 sm:py-2.5">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLike();
+              }}
+              className="group flex items-center gap-2 rounded-full px-2 py-1 transition-all hover:bg-white/10 active:scale-95"
+              aria-label={liked ? "Unlike" : "Like"}
+            >
+              <Heart
+                className={`h-4 w-4 transition-colors ${
+                  liked ? "fill-red-500 text-red-500" : "text-white/80 group-hover:text-white"
+                }`}
+              />
+              <span>{likeCount}</span>
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onComment();
+              }}
+              className="group flex items-center gap-2 rounded-full px-2 py-1 transition-all hover:bg-white/10 active:scale-95"
+              aria-label="Open comments"
+            >
+              <MessageCircle className="h-4 w-4 text-white/80 transition-colors group-hover:text-white" />
+              <span>{item.metrics?.comments || 0}</span>
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onShare();
+              }}
+              className="group flex items-center gap-2 rounded-full px-2 py-1 transition-all hover:bg-white/10 active:scale-95"
+              aria-label="Share post"
+            >
+              <Share2 className="h-4 w-4 text-white/80 transition-colors group-hover:text-white" />
+              <span>Share</span>
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSaved(!saved);
+                toast({
+                  title: saved ? 'Removed from saved' : 'Saved!',
+                  description: saved ? 'Post removed from saved items' : 'Post saved to your collection',
+                });
+              }}
+              className="group flex items-center gap-2 rounded-full px-2 py-1 transition-all hover:bg-white/10 active:scale-95"
+              aria-label={saved ? "Unsave post" : "Save post"}
+            >
+              <Bookmark className={`h-4 w-4 transition-colors ${saved ? 'text-orange-400' : 'text-white/80 group-hover:text-white'}`} />
+              <span>{saved ? 'Saved' : 'Save'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Info Card - Glassmorphic - Expandable */}
-      <div 
+      <div
         className={`absolute left-3 right-3 z-30 transition-all duration-500 ease-out sm:left-4 sm:right-4 md:left-auto md:right-6 md:max-w-md lg:max-w-lg ${
-          isExpanded 
+          isExpanded
             ? 'bottom-20 top-1/2 sm:bottom-24 md:bottom-28' 
             : 'bottom-3 sm:bottom-4'
         }`}
