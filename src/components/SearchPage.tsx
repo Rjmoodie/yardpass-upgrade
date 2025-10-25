@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+import { EVENT_CATEGORIES } from '@/constants/categories';
 
 interface SearchResult {
   id: string;
@@ -26,7 +27,7 @@ interface SearchPageProps {
   onEventSelect?: (eventId: string) => void;
 }
 
-const CATEGORIES = ['All', 'Music', 'Sports', 'Comedy', 'Food', 'Conference', 'Art', 'Nightlife'];
+const CATEGORIES = ['All', ...EVENT_CATEGORIES.map(c => c.label)];
 
 export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const [searchQuery, setSearchQuery] = useState('');

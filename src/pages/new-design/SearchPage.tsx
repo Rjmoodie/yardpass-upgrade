@@ -5,6 +5,7 @@ import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { supabase } from "@/integrations/supabase/client";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
+import { EVENT_CATEGORIES } from "@/constants/categories";
 
 interface SearchResult {
   id: string;
@@ -18,7 +19,7 @@ interface SearchResult {
   category?: string;
 }
 
-const categories = ["All", "Music", "Sports", "Comedy", "Food", "Conference", "Art", "Nightlife"];
+const categories = ["All", ...EVENT_CATEGORIES.map(c => c.label)];
 
 export default function SearchPage() {
   const navigate = useNavigate();

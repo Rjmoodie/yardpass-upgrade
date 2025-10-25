@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from './ui/button';
-import { Search, MapPin, Calendar, Check } from 'lucide-react';
+import { Search, MapPin, Calendar, Check, Tag } from 'lucide-react';
+import { EVENT_CATEGORIES } from '@/constants/categories';
 
 interface FilterOptions {
   dates: string[];
@@ -38,12 +39,14 @@ const dateOptions = [
 export function FeedFilter({ onFilterChange, isOpen, onToggle, value }: FeedFilterProps) {
   const [selectedDates, setSelectedDates] = useState<string[]>(value?.dates?.length ? value.dates : ['This Month']);
   const [selectedLocations, setSelectedLocations] = useState<string[]>(value?.locations?.length ? value.locations : ['Near Me']);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(value?.categories ?? []);
   const [searchRadius, setSearchRadius] = useState(value?.searchRadius ?? 25);
 
   const resetToValue = (next?: FilterOptions) => {
     const source = next ?? value;
     setSelectedDates(source?.dates?.length ? source.dates : ['This Month']);
     setSelectedLocations(source?.locations?.length ? source.locations : ['Near Me']);
+    setSelectedCategories(source?.categories ?? []);
     setSearchRadius(source?.searchRadius ?? 25);
   };
 
@@ -52,9 +55,10 @@ export function FeedFilter({ onFilterChange, isOpen, onToggle, value }: FeedFilt
       JSON.stringify({
         dates: value?.dates ?? ['This Month'],
         locations: value?.locations ?? ['Near Me'],
+        categories: value?.categories ?? [],
         searchRadius: value?.searchRadius ?? 25,
       }),
-    [value?.dates, value?.locations, value?.searchRadius]
+    [value?.dates, value?.locations, value?.categories, value?.searchRadius]
   );
 
   useEffect(() => {
@@ -78,11 +82,19 @@ export function FeedFilter({ onFilterChange, isOpen, onToggle, value }: FeedFilt
     );
   };
 
+  const handleCategoryToggle = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
   const handleApply = () => {
     onFilterChange({
       dates: selectedDates,
       locations: selectedLocations,
-      categories: [],
+      categories: selectedCategories,
       searchRadius
     });
     onToggle();
@@ -139,6 +151,30 @@ export function FeedFilter({ onFilterChange, isOpen, onToggle, value }: FeedFilt
                   }`}
                 >
                   {date}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Categories Section */}
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center gap-2 mb-4">
+              <Tag className="w-5 h-5 text-text" />
+              <h3 className="text-base font-semibold text-text">Categories</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {EVENT_CATEGORIES.map((category) => (
+                <button
+                  key={category.value}
+                  onClick={() => handleCategoryToggle(category.value)}
+                  className={`px-4 py-2 rounded-xl border transition-all flex items-center gap-2 ${
+                    selectedCategories.includes(category.value)
+                      ? 'bg-accent text-white border-accent'
+                      : 'bg-surface-2 text-text-2 border-border hover:border-accent/50'
+                  }`}
+                >
+                  <span>{category.icon}</span>
+                  <span>{category.label}</span>
                 </button>
               ))}
             </div>
