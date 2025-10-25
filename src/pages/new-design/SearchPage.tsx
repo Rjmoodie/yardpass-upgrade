@@ -33,90 +33,71 @@ export default function SearchPage() {
   
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Search function
+  // Search function using full-text search with intelligent ranking
   const performSearch = useCallback(async () => {
     setLoading(true);
 
     try {
-      let query = supabase
-        .from('events')
-        .select(`
-          id,
-          title,
-          description,
-          start_at,
-          venue,
-          address,
-          cover_image_url,
-          category,
-          ticket_tiers!fk_ticket_tiers_event_id (
-            price_cents
-          ),
-          user_profiles!events_created_by_fkey (
-            display_name
-          )
-        `)
-        .eq('visibility', 'public');
+      // Build filters object
+      const filters: {
+        categories?: string[];
+        dateFilters?: string[];
+        priceRange?: string;
+        searchRadius?: number;
+      } = {};
 
-      // Text search
-      if (debouncedSearch) {
-        query = query.or(`title.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
-      }
-
-      // Category filter
       if (selectedCategory && selectedCategory !== 'All') {
-        query = query.eq('category', selectedCategory);
+        filters.categories = [selectedCategory];
       }
 
-      // Date filter
-      const now = new Date();
-      if (dateFilter === 'today') {
-        const endOfDay = new Date(now);
-        endOfDay.setHours(23, 59, 59);
-        query = query.gte('start_at', now.toISOString()).lte('start_at', endOfDay.toISOString());
-      } else if (dateFilter === 'week') {
-        const endOfWeek = new Date(now);
-        endOfWeek.setDate(now.getDate() + 7);
-        query = query.gte('start_at', now.toISOString()).lte('start_at', endOfWeek.toISOString());
-      } else if (dateFilter === 'month') {
-        const endOfMonth = new Date(now);
-        endOfMonth.setMonth(now.getMonth() + 1);
-        query = query.gte('start_at', now.toISOString()).lte('start_at', endOfMonth.toISOString());
-      } else {
-        // Show only future events by default
-        query = query.gte('start_at', now.toISOString());
+      if (dateFilter && dateFilter !== 'all') {
+        filters.dateFilters = [dateFilter];
       }
 
-      query = query.order('start_at', { ascending: true }).limit(50);
+      if (priceRange && priceRange !== 'all') {
+        filters.priceRange = priceRange;
+      }
 
-      const { data, error } = await query;
+      // Prepare request body
+      const requestBody: any = {
+        searchText: debouncedSearch || '',
+        filters,
+        limit: 50,
+      };
+
+      console.log('[SearchPage] Calling search-events with:', requestBody);
+
+      // Get session for auth
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // Call the search edge function
+      const { data, error } = await supabase.functions.invoke('search-events', {
+        body: requestBody,
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
 
       if (error) {
-        console.error('[SearchPage] Database error:', error);
+        console.error('[SearchPage] Search function error:', error);
         throw error;
       }
 
-      console.log('[SearchPage] Found', data?.length || 0, 'events');
+      if (!data?.success) {
+        throw new Error(data?.error || 'Search failed');
+      }
+
+      console.log('[SearchPage] Search returned', data.results?.length || 0, 'events');
 
       // Transform to SearchResult format
-      const transformedResults: SearchResult[] = (data || []).map((event: any) => {
-        const minPrice = event.ticket_tiers?.reduce((min: number, tier: any) => 
-          Math.min(min, tier.price_cents || Infinity), Infinity);
-        
-        const price = minPrice && minPrice !== Infinity 
-          ? `From $${(minPrice / 100).toFixed(0)}`
+      const transformedResults: SearchResult[] = (data.results || []).map((event: any) => {
+        const price = event.min_price_cents 
+          ? `From $${(event.min_price_cents / 100).toFixed(0)}`
           : 'Free';
 
-        // Apply price filter
-        if (priceRange === 'free' && minPrice > 0) return null;
-        if (priceRange === 'under-50' && minPrice >= 5000) return null;
-        if (priceRange === 'over-50' && minPrice < 5000) return null;
-
         return {
-          id: event.id,
+          id: event.event_id,
           type: 'event' as const,
           title: event.title,
-          subtitle: event.user_profiles?.display_name || 'Organizer',
+          subtitle: event.organizer_name || 'Organizer',
           image: event.cover_image_url || '',
           date: new Date(event.start_at).toLocaleDateString('en-US', {
             month: 'short',
@@ -127,7 +108,7 @@ export default function SearchPage() {
           price,
           category: event.category || undefined
         };
-      }).filter(Boolean) as SearchResult[];
+      });
 
       setResults(transformedResults);
     } catch (error) {
