@@ -735,35 +735,49 @@ export default function OrganizerDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
-        <div className="w-full overflow-x-auto scrollbar-hide">
-          <TabsList className="inline-flex w-auto min-w-full justify-start gap-2 p-1.5">
-            <TabsTrigger value="events" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <CalendarDays className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Events</span>
+        <div className="w-full overflow-x-auto pb-1 scrollbar-hide">
+          <TabsList className="flex w-max gap-2 rounded-2xl border border-border/60 bg-muted/40 p-1">
+            <TabsTrigger value="events" className="flex h-full min-w-[110px] flex-col items-center justify-center gap-2 rounded-xl px-3 py-3 text-[11px] font-medium uppercase tracking-wide">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/10 text-sky-500">
+                <CalendarDays className="h-4 w-4" />
+              </span>
+              Events
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <BarChart3 className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Analytics</span>
+            <TabsTrigger value="analytics" className="flex h-full min-w-[110px] flex-col items-center justify-center gap-2 rounded-xl px-3 py-3 text-[11px] font-medium uppercase tracking-wide">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500/10 text-purple-500">
+                <BarChart3 className="h-4 w-4" />
+              </span>
+              Analytics
             </TabsTrigger>
-            <TabsTrigger value="campaigns" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <Megaphone className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Campaigns</span>
+            <TabsTrigger value="campaigns" className="flex h-full min-w-[110px] flex-col items-center justify-center gap-2 rounded-xl px-3 py-3 text-[11px] font-medium uppercase tracking-wide">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <Megaphone className="h-4 w-4" />
+              </span>
+              Campaigns
             </TabsTrigger>
-            <TabsTrigger value="messaging" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <Mail className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Messaging</span>
+            <TabsTrigger value="messaging" className="flex h-full min-w-[110px] flex-col items-center justify-center gap-2 rounded-xl px-3 py-3 text-[11px] font-medium uppercase tracking-wide">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <Mail className="h-4 w-4" />
+              </span>
+              Messaging
             </TabsTrigger>
-            <TabsTrigger value="teams" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <Users className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Teams</span>
+            <TabsTrigger value="teams" className="flex h-full min-w-[110px] flex-col items-center justify-center gap-2 rounded-xl px-3 py-3 text-[11px] font-medium uppercase tracking-wide">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500/10 text-rose-500">
+                <Users className="h-4 w-4" />
+              </span>
+              Teams
             </TabsTrigger>
-            <TabsTrigger value="wallet" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <Wallet className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Wallet</span>
+            <TabsTrigger value="wallet" className="flex h-full min-w-[110px] flex-col items-center justify-center gap-2 rounded-xl px-3 py-3 text-[11px] font-medium uppercase tracking-wide">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-500">
+                <Wallet className="h-4 w-4" />
+              </span>
+              Wallet
             </TabsTrigger>
-            <TabsTrigger value="payouts" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <DollarSign className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Payouts</span>
+            <TabsTrigger value="payouts" className="flex h-full min-w-[110px] flex-col items-center justify-center gap-2 rounded-xl px-3 py-3 text-[11px] font-medium uppercase tracking-wide">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-500/10 text-slate-500 dark:text-slate-300">
+                <DollarSign className="h-4 w-4" />
+              </span>
+              Payouts
             </TabsTrigger>
             <button
               onClick={() => (window.location.href = `/organization-dashboard/${selectedOrgId}?tab=settings`)}
@@ -782,14 +796,21 @@ export default function OrganizerDashboard() {
               <LoadingSpinner />
             </div>
           ) : events.length === 0 ? (
-              <div className="text-center py-16 border rounded-lg">
-                <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-                <h3 className="text-lg font-semibold mb-1">No events yet</h3>
-                <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
-              <div className="flex gap-3 justify-center">
-                <Button onClick={goCreateEvent}><Plus className="mr-2 h-4 w-4" />Create Event</Button>
-                <Button 
-                  variant="outline" 
+            <div className="mx-auto flex max-w-xl flex-col items-center gap-4 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-8 py-16 text-center shadow-sm">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <CalendarDays className="h-6 w-6" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold">No events yet</h3>
+                <p className="text-sm text-muted-foreground">Spin up your first event to unlock reporting, communications, and payouts.</p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button onClick={goCreateEvent} type="button" className="rounded-full px-6">
+                  <Plus className="mr-2 h-4 w-4" />Create event
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-full border-border/60 px-6"
                   onClick={() => {
                     // Test EventManagement with mock data
                     const mockEvent = {
