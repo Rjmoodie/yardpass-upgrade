@@ -50,7 +50,7 @@ const isVideoPost = (item: FeedItem) =>
 export default function FeedPageNewDesign() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { requireAuth } = useAuthGuard();
+  const { requireAuth, isAuthenticated } = useAuthGuard();
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -203,11 +203,14 @@ export default function FeedPageNewDesign() {
 
   const handleLike = useCallback(async (item: FeedItem) => {
     if (item.item_type !== 'post') return;
-    if (!requireAuth()) return;
-    
+    if (!isAuthenticated) {
+      requireAuth(() => {}, 'Sign in to like posts');
+      return;
+    }
+
     const currentLiked = item.metrics?.viewer_has_liked || false;
     const currentCount = item.metrics?.likes || 0;
-    
+
     const result = await toggleLikeOptimistic(item.item_id, currentLiked, currentCount);
     
     // Refetch feed to get updated counts from server
@@ -216,7 +219,7 @@ export default function FeedPageNewDesign() {
     }
     
     registerInteraction();
-  }, [toggleLikeOptimistic, requireAuth, registerInteraction, refetch]);
+  }, [toggleLikeOptimistic, requireAuth, registerInteraction, refetch, isAuthenticated]);
 
   const handleComment = useCallback((item: FeedItem) => {
     if (item.item_type !== 'post') return;
@@ -242,7 +245,10 @@ export default function FeedPageNewDesign() {
 
   const handleSave = useCallback(async (item: FeedItem) => {
     if (item.item_type !== 'post') return;
-    if (!requireAuth()) return;
+    if (!isAuthenticated) {
+      requireAuth(() => {}, 'Sign in to save posts');
+      return;
+    }
 
     try {
       // Check if already saved - use events schema
@@ -289,7 +295,7 @@ export default function FeedPageNewDesign() {
       toast({ title: 'Save feature coming soon', description: 'This feature will be available soon', variant: 'default' });
     }
     registerInteraction();
-  }, [user, requireAuth, toast, registerInteraction]);
+  }, [user, requireAuth, toast, registerInteraction, isAuthenticated]);
 
   const handleEventClick = useCallback((eventId: string) => {
     navigate(`/e/${eventId}`);
