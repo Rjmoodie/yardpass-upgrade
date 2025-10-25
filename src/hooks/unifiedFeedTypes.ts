@@ -36,6 +36,7 @@ export type FeedItem =
         tier: string;
         amount_cents: number;
       }> | null;
+      isPromoted?: boolean;
       promotion?: FeedPromotion | null;
     }
   | {
@@ -68,6 +69,7 @@ export type FeedItem =
       };
       sponsor?: null;
       sponsors?: null;
+      isPromoted?: boolean;
       promotion?: FeedPromotion | null;
     };
 

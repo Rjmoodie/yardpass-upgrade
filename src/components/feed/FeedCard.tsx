@@ -11,6 +11,7 @@ interface FeedCardProps {
     date: string;
     location: string;
     description: string;
+    isPromoted?: boolean;
   };
 }
 
@@ -48,15 +49,22 @@ export function FeedCard({ event }: FeedCardProps) {
             {/* Event title and Get Tickets button */}
             <div className="mb-3 flex items-start justify-between gap-3 sm:gap-4">
               <div className="flex-1">
-                <h3 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/e/${event.id}`);
-                  }}
-                  className="mb-1 text-white cursor-pointer hover:text-orange-500 transition-colors"
-                >
-                  {event.title}
-                </h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/e/${event.id}`);
+                    }}
+                    className="text-white cursor-pointer hover:text-orange-500 transition-colors"
+                  >
+                    {event.title}
+                  </h3>
+                  {event.isPromoted && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/30 to-amber-600/30 border border-amber-400/40 px-2 py-0.5 text-[10px] font-bold text-amber-300 whitespace-nowrap">
+                      ✨ Promoted
+                    </span>
+                  )}
+                </div>
                 <p className={`text-xs text-white/70 transition-all duration-300 sm:text-sm ${
                   isExpanded ? 'line-clamp-none' : 'line-clamp-2'
                 }`}>

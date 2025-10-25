@@ -158,6 +158,11 @@ export function UserPostCardNewDesign({
                         {item.author_badge}
                       </div>
                     )}
+                    {item.isPromoted && (
+                      <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/30 to-amber-600/30 border border-amber-400/40 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                        ✨ Promoted
+                      </div>
+                    )}
                     {item.event_id && (
                       <button
                         onClick={(e) => {

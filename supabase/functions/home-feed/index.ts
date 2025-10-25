@@ -188,6 +188,124 @@ const isTrustedOrigin = (o: string) =>
   o === "http://localhost:5173";
 
 /** ---------------------------
+ *   AD INJECTION
+ * ---------------------------- */
+async function injectAds({
+  supabase,
+  organicItems,
+  viewerId,
+  sessionId,
+  placement = 'feed',
+  category = null,
+  location = null,
+  monitor
+}: {
+  supabase: any;
+  organicItems: any[];
+  viewerId: string | null;
+  sessionId: string | null;
+  placement: string;
+  category: string | null;
+  location: string | null;
+  monitor: any;
+}) {
+  try {
+    // Calculate how many ads to inject (1 ad per 5-7 organic items)
+    const adFrequency = 6; // Show ad every 6 items
+    const maxAds = Math.max(1, Math.floor(organicItems.length / adFrequency));
+    
+    if (maxAds === 0 || organicItems.length < 3) {
+      // Not enough content to inject ads
+      return organicItems;
+    }
+
+    monitor?.mark('ad_selection_start');
+
+    // Fetch eligible ads from database
+    const { data: eligibleAds, error } = await supabase
+      .rpc('get_eligible_ads', {
+        p_user_id: viewerId,
+        p_session_id: sessionId,
+        p_placement: placement,
+        p_category: category,
+        p_location: location,
+        p_limit: maxAds
+      });
+
+    if (error) {
+      console.error('Failed to fetch eligible ads:', error);
+      return organicItems; // Fail gracefully, return organic feed
+    }
+
+    if (!eligibleAds || eligibleAds.length === 0) {
+      console.log('No eligible ads available');
+      return organicItems;
+    }
+
+    monitor?.mark('ad_selection_complete');
+
+    // Transform ads into feed item format
+    const adItems = eligibleAds.map((ad: any) => ({
+      item_type: 'event',
+      item_id: ad.event_id,
+      event_id: ad.event_id,
+      event_title: ad.event_title,
+      event_description: ad.event_description,
+      event_cover_image: ad.event_cover_image,
+      event_start_at: ad.event_start_at,
+      event_venue: ad.event_venue,
+      event_category: ad.event_category,
+      event_address: null,
+      organizer_name: ad.org_name,
+      organizer_handle: null,
+      organizer_verified: false,
+      likes_count: 0,
+      comments_count: 0,
+      is_liked: false,
+      is_attending: false,
+      is_bookmarked: false,
+      // Mark as promoted content
+      isPromoted: true,
+      promotion: {
+        campaignId: ad.campaign_id,
+        creativeId: ad.creative_id,
+        placement: placement,
+        pricingModel: ad.pricing_model,
+        estimatedRate: ad.estimated_rate
+      }
+    }));
+
+    // Inject ads into feed at regular intervals
+    const result: any[] = [];
+    let adIndex = 0;
+    
+    for (let i = 0; i < organicItems.length; i++) {
+      result.push(organicItems[i]);
+      
+      // Inject ad every N items (skip first few items)
+      if (i > 2 && (i + 1) % adFrequency === 0 && adIndex < adItems.length) {
+        result.push(adItems[adIndex]);
+        adIndex++;
+      }
+    }
+
+    monitor?.mark('ad_injection_complete');
+
+    console.log('Ad injection stats:', {
+      organic_count: organicItems.length,
+      ads_eligible: eligibleAds.length,
+      ads_injected: adIndex,
+      total_items: result.length
+    });
+
+    return result;
+  } catch (err) {
+    console.error('Ad injection error:', err);
+    return organicItems; // Fail gracefully
+  }
+}
+
+/** ---------------------------
  *   PERFORMANCE MONITORING
  * ---------------------------- */
 class PerformanceMonitor {
@@ -345,7 +463,7 @@ const handler = withCORS(async (req: Request) => {
     }
 
     // Expand rows (parallelized I/O inside)
-    const items = await expandRows({ 
+    const organicItems = await expandRows({ 
       supabase, 
       rows: ranked, 
       viewerId, 
@@ -353,7 +471,22 @@ const handler = withCORS(async (req: Request) => {
       monitor 
     });
 
-    // Performance: All data processed
+    // Performance: Organic data processed
+    monitor.mark('organic_data_processed');
+
+    // Inject ads into feed
+    const items = await injectAds({
+      supabase,
+      organicItems,
+      viewerId,
+      sessionId: str(payload.sessionId) || null,
+      placement: 'feed',
+      category: categoryFilters.length === 1 ? categoryFilters[0] : null,
+      location: locations.length === 1 ? locations[0] : null,
+      monitor
+    });
+
+    // Performance: All data processed (including ads)
     monitor.mark('data_processed');
 
     // Debug logging
