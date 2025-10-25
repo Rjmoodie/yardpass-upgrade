@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { ProfileViewProvider, useProfileView } from '@/contexts/ProfileViewContext';
 import { ThemeProvider } from "next-themes";
 import { Toaster } from '@/components/ui/toaster';
@@ -24,12 +24,11 @@ import { useAccessibility } from '@/hooks/useAccessibility';
 import { usePlatform } from '@/hooks/usePlatform';
 
 // Lazy load heavy components
-const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
 const EventAttendeesPage = lazy(() => import('@/pages/EventAttendeesPageEnhanced'));
 const ModernFeedPage = lazy(() => import('@/pages/ModernFeedPage'));
 
 // New Design Components (Integrated with Real Data)
-const ProfilePageNew = lazy(() => import('@/pages/new-design/ProfilePage'));
+const ProfilePage = lazy(() => import('@/features/profile/routes/ProfilePage'));
 const TicketsPageNew = lazy(() => import('@/pages/new-design/TicketsPage'));
 const SearchPageNew = lazy(() => import('@/pages/new-design/SearchPage'));
 const EventDetailsPageNew = lazy(() => import('@/pages/new-design/EventDetailsPage'));
@@ -65,7 +64,6 @@ const AnalyticsWrapper = lazy(() =>
 );
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const EventsPage = lazy(() => import('@/pages/EventsPage'));
-const UserProfilePage = lazy(() => import('@/pages/UserProfilePage'));
 const OrganizationProfilePage = lazy(() => import('@/pages/OrganizationProfilePage'));
 const EditProfilePage = lazy(() => import('@/pages/EditProfilePage'));
 const AuthPage = lazy(() => import('@/pages/AuthPage'));
@@ -400,7 +398,7 @@ function AppContent() {
                 element={
                   <AuthGuard>
                     <Suspense fallback={<PageLoadingSpinner />}>
-                      <ProfilePageNew />
+                      <ProfilePage />
                     </Suspense>
                   </AuthGuard>
                 }
@@ -409,7 +407,7 @@ function AppContent() {
                 path="/profile/:username"
                 element={
                   <Suspense fallback={<PageLoadingSpinner />}>
-                    <ProfilePageNew />
+                    <ProfilePage />
                   </Suspense>
                 }
               />
@@ -417,7 +415,7 @@ function AppContent() {
                 path="/user/:userId"
                 element={
                   <Suspense fallback={<PageLoadingSpinner />}>
-                    <ProfilePageNew />
+                    <ProfilePage />
                   </Suspense>
                 }
               />
@@ -677,11 +675,9 @@ function AppContent() {
 export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <AuthProvider>
-        <ProfileViewProvider>
-          <AppContent />
-        </ProfileViewProvider>
-      </AuthProvider>
+      <ProfileViewProvider>
+        <AppContent />
+      </ProfileViewProvider>
     </ThemeProvider>
   );
 }
