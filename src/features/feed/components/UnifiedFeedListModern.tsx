@@ -364,16 +364,18 @@ export default function UnifiedFeedListModern() {
         onFiltersClick={() => setFiltersOpen(true)}
       />
 
-      {/* Floating Actions */}
-      <FloatingActions
-        isMuted={!globalSoundEnabled}
-        onMuteToggle={() => {
-          registerInteraction();
-          setGlobalSoundEnabled((prev) => !prev);
-        }}
-        onCreatePost={() => handleCreatePost()}
-        onOpenMessages={() => navigate('/messages')}
-      />
+      {/* Floating Actions - Hidden when filters are open */}
+      {!filtersOpen && (
+        <FloatingActions
+          isMuted={!globalSoundEnabled}
+          onMuteToggle={() => {
+            registerInteraction();
+            setGlobalSoundEnabled((prev) => !prev);
+          }}
+          onCreatePost={() => handleCreatePost()}
+          onOpenMessages={() => navigate('/messages')}
+        />
+      )}
 
       {/* Feed Content - Snap Scroll */}
       <div 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useContext, useRef, useCallback, lazy, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -51,6 +52,7 @@ export function TicketPurchaseModal({
   onSuccess 
 }: TicketPurchaseModalProps) {
   const { trackEvent } = useAnalyticsIntegration();
+  const navigate = useNavigate();
   const [selections, setSelections] = useState<TicketSelection>({});
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -432,6 +434,20 @@ export function TicketPurchaseModal({
         throw error;
       }
 
+      // Check if response indicates sold out
+      if (data?.error_code === 'SOLD_OUT' || data?.error?.includes('sold out')) {
+        const soldOutError: any = new Error(data.error || 'These tickets are currently sold out.');
+        soldOutError.isSoldOut = true;
+        throw soldOutError;
+      }
+
+      // Check if event has ended
+      if (data?.error_code === 'EVENT_ENDED' || data?.error?.includes('already ended')) {
+        const eventEndedError: any = new Error(data.error || 'This event has already ended.');
+        eventEndedError.isEventEnded = true;
+        throw eventEndedError;
+      }
+
       if (!data?.session_url) {
         throw new Error('No checkout URL returned');
       }
@@ -450,6 +466,56 @@ export function TicketPurchaseModal({
       window.location.href = data.session_url;
     } catch (error: any) {
       console.error('❌ Purchase error:', error);
+      
+      // Check if event has ended
+      if (error.isEventEnded) {
+        toast({
+          title: "Event Ended",
+          description: error.message || "This event has already ended. Tickets are no longer available for purchase.",
+          variant: "destructive"
+        });
+        onClose(); // Close the modal since they can't purchase
+        return;
+      }
+      
+      // Check if tickets are sold out
+      if (error.isSoldOut) {
+        toast({
+          title: "Tickets Sold Out",
+          description: error.message || "These tickets are currently sold out. Please check back later or select different tickets.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Check if user should sign in instead
+      if (error.shouldSignIn) {
+        // Close modal first
+        onClose();
+        
+        // Show toast after modal closes (slight delay for better UX)
+        setTimeout(() => {
+          toast({
+            title: "Account Already Exists",
+            description: error.message || "Please sign in to continue with your purchase.",
+            variant: "default"
+          });
+          
+          // Redirect to sign-in page after showing toast
+          setTimeout(() => {
+            navigate('/auth', { 
+              state: { 
+                fromCheckout: true,
+                eventId: event.id,
+                eventTitle: event.title 
+              } 
+            });
+          }, 500);
+        }, 100);
+        
+        return;
+      }
+      
       toast({
         title: "Purchase Failed",
         description: error.message || "Something went wrong. Please try again.",

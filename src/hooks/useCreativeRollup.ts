@@ -54,9 +54,11 @@ export function useCreativeRollup(opts: {
         p_limit: limit,
         p_offset: offset,
       });
+      
+      // Gracefully handle RPC function or table not existing
       if (error) {
-        console.error("[useCreativeRollup] Error fetching creatives:", error);
-        throw error;
+        console.log("[useCreativeRollup] Creative analytics not available:", error.message);
+        return [];
       }
       return data as CreativeRollup[];
     },

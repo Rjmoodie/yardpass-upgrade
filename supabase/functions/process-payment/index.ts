@@ -169,7 +169,11 @@ serve(async (req) => {
     
     const ticketIds = (tickets || []).map(t => t.id);
 
-    logStep("Tickets ensured", { count: ticketCount });
+    logStep("Tickets ensured", { 
+      count: ticketCount,
+      ticketIds: ticketIds,
+      ticketIdsLength: ticketIds.length
+    });
 
     // Send purchase confirmation email
     try {
@@ -223,31 +227,50 @@ serve(async (req) => {
           .filter(Boolean)
           .join(', ') || 'TBA';
 
+        // Prepare email payload
+        const emailPayload = {
+          customerName: userProfile?.display_name || order.contact_name || 'Customer',
+          customerEmail: userEmail,
+          eventTitle: order.events?.title || 'Event',
+          eventDate,
+          eventLocation,
+          ticketType,
+          quantity: ticketCount,
+          totalAmount: order.total_cents,
+          orderId: order.id,
+          ticketIds,
+          eventId: order.event_id, // This will trigger auto-fetch of org/event context
+          isGuest: !order.user_id || (userProfile?.display_name === 'User'),
+          userId: order.user_id,
+        };
+
+        logStep("📧 Calling send-purchase-confirmation with payload:", {
+          orderId: emailPayload.orderId,
+          ticketIds: emailPayload.ticketIds,
+          ticketIdsCount: emailPayload.ticketIds?.length || 0,
+          customerEmail: emailPayload.customerEmail,
+          eventTitle: emailPayload.eventTitle,
+          quantity: emailPayload.quantity
+        });
+
         // Call send-purchase-confirmation edge function
         const emailResponse = await supabaseService.functions.invoke('send-purchase-confirmation', {
-          body: {
-            customerName: userProfile?.display_name || order.contact_name || 'Customer',
-            customerEmail: userEmail,
-            eventTitle: order.events?.title || 'Event',
-            eventDate,
-            eventLocation,
-            ticketType,
-            quantity: ticketCount,
-            totalAmount: order.total_cents,
-            orderId: order.id,
-            ticketIds,
-            eventId: order.event_id, // This will trigger auto-fetch of org/event context
-            isGuest: !order.user_id || (userProfile?.display_name === 'User'),
-            userId: order.user_id,
-          }
+          body: emailPayload
         });
 
         if (emailResponse.error) {
-          logStep("Email sending failed (non-critical)", { error: emailResponse.error });
+          logStep("❌ Email sending failed (non-critical)", { 
+            error: emailResponse.error,
+            orderId: order.id,
+            ticketIds: ticketIds
+          });
         } else {
-          logStep("Purchase confirmation email sent successfully", { 
+          logStep("✅ Purchase confirmation email sent successfully", { 
             emailId: emailResponse.data?.id,
-            to: userEmail 
+            to: userEmail,
+            orderId: order.id,
+            ticketIds: ticketIds,
+            ticketCount: ticketIds.length
           });
         }
       } else {

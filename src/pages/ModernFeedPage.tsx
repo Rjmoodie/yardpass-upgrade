@@ -4,33 +4,6 @@ import { FloatingActions } from '@/components/feed/FloatingActions';
 import { TopFilters } from '@/components/feed/TopFilters';
 import { useNavigate } from 'react-router-dom';
 
-// Demo data - replace with actual feed data
-const DEMO_EVENTS = [
-  {
-    id: '1',
-    title: 'Summer Music Festival 2025',
-    image: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=1200',
-    date: 'Saturday, June 15 • 7:00 PM - 11:00 PM',
-    location: 'Central Park, New York',
-    description: 'Join us for an unforgettable evening of live music featuring top artists from around the world. Food trucks, craft beer, and amazing vibes!',
-  },
-  {
-    id: '2',
-    title: 'Tech Innovation Summit',
-    image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200',
-    date: 'Monday, June 20 • 9:00 AM - 5:00 PM',
-    location: 'Convention Center, San Francisco',
-    description: 'Connect with industry leaders, explore cutting-edge technology, and network with fellow innovators at the premier tech event of the year.',
-  },
-  {
-    id: '3',
-    title: 'Food & Wine Tasting Experience',
-    image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200',
-    date: 'Friday, June 25 • 6:00 PM - 10:00 PM',
-    location: 'Downtown Wine Bar, Brooklyn',
-    description: 'Indulge in curated wine pairings and gourmet dishes from award-winning chefs. Limited seating available.',
-  },
-];
 
 export function ModernFeedPage() {
   const navigate = useNavigate();
@@ -74,13 +47,15 @@ export function ModernFeedPage() {
         onFiltersClick={() => setShowFilters(true)}
       />
 
-      {/* Floating Actions */}
-      <FloatingActions
-        isMuted={isMuted}
-        onMuteToggle={() => setIsMuted(!isMuted)}
-        onCreatePost={handleCreatePost}
-        onOpenMessages={handleOpenMessages}
-      />
+      {/* Floating Actions - Hidden when filters are open */}
+      {!showFilters && (
+        <FloatingActions
+          isMuted={isMuted}
+          onMuteToggle={() => setIsMuted(!isMuted)}
+          onCreatePost={handleCreatePost}
+          onOpenMessages={handleOpenMessages}
+        />
+      )}
 
       {/* Feed Content - Snap Scroll */}
       <div 
@@ -90,17 +65,10 @@ export function ModernFeedPage() {
         {/* Add top padding to account for title */}
         <div className="h-32" aria-hidden />
         
-        {DEMO_EVENTS.map((event, idx) => (
-          <section
-            key={event.id}
-            className="snap-start snap-always h-dvh flex items-center px-3 sm:px-6"
-            style={{ scrollSnapAlign: 'start' }}
-          >
-            <div className="mx-auto flex h-[calc(100dvh-8rem)] w-full max-w-5xl items-stretch">
-              <FeedCard event={event} />
-            </div>
-          </section>
-        ))}
+        {/* TODO: Replace with real feed data from useUnifiedFeedInfinite or similar hook */}
+        <div className="flex h-full items-center justify-center text-white/60">
+          <p>No events to display</p>
+        </div>
 
         {/* Add bottom padding to account for nav */}
         <div className="h-24" aria-hidden />

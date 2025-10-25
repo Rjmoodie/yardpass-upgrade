@@ -2764,11 +2764,67 @@ $$;
 ALTER FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer, "p_offset" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer DEFAULT 80, "p_cursor_item_id" "uuid" DEFAULT NULL::"uuid") RETURNS TABLE("item_type" "text", "item_id" "uuid", "event_id" "uuid", "score" numeric, "sort_ts" timestamp with time zone)
+CREATE OR REPLACE FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer DEFAULT 80, "p_cursor_item_id" "uuid" DEFAULT NULL::"uuid", "p_categories" "text"[] DEFAULT NULL::"text"[], "p_user_lat" double precision DEFAULT NULL::double precision, "p_user_lng" double precision DEFAULT NULL::double precision, "p_max_distance_miles" double precision DEFAULT NULL::double precision, "p_date_filters" "text"[] DEFAULT NULL::"text"[]) RETURNS TABLE("item_type" "text", "item_id" "uuid", "event_id" "uuid", "score" numeric, "sort_ts" timestamp with time zone)
     LANGUAGE "sql" STABLE
     SET "search_path" TO 'public'
     AS $$
 WITH
+-- Calculate distance for all events if user location provided
+distance_calc AS (
+  SELECT
+    e.id AS event_id,
+    CASE 
+      WHEN e.lat IS NULL OR e.lng IS NULL OR p_user_lat IS NULL OR p_user_lng IS NULL THEN NULL
+      ELSE (
+        3959 * acos(
+          least(1.0, greatest(-1.0,
+            cos(radians(p_user_lat)) 
+            * cos(radians(e.lat)) 
+            * cos(radians(e.lng) - radians(p_user_lng)) 
+            + sin(radians(p_user_lat)) 
+            * sin(radians(e.lat))
+          ))
+        )
+      )
+    END AS distance_miles
+  FROM events e
+  WHERE p_user_lat IS NOT NULL AND p_user_lng IS NOT NULL
+),
+-- Check date filters
+date_filter_check AS (
+  SELECT 
+    e.id AS event_id,
+    e.start_at,
+    CASE
+      WHEN p_date_filters IS NULL OR array_length(p_date_filters, 1) IS NULL THEN true
+      WHEN 'Tonight' = ANY(p_date_filters) AND (
+        e.start_at >= date_trunc('day', now()) 
+        AND e.start_at < date_trunc('day', now() + interval '1 day')
+      ) THEN true
+      WHEN 'This Weekend' = ANY(p_date_filters) AND (
+        e.start_at >= date_trunc('week', now()) + interval '4 days' + interval '18 hours'
+        AND e.start_at < date_trunc('week', now()) + interval '7 days'
+      ) THEN true
+      WHEN 'This Week' = ANY(p_date_filters) AND (
+        e.start_at >= date_trunc('week', now())
+        AND e.start_at < date_trunc('week', now()) + interval '7 days'
+      ) THEN true
+      WHEN 'Next Week' = ANY(p_date_filters) AND (
+        e.start_at >= date_trunc('week', now()) + interval '7 days'
+        AND e.start_at < date_trunc('week', now()) + interval '14 days'
+      ) THEN true
+      WHEN 'This Month' = ANY(p_date_filters) AND (
+        e.start_at >= date_trunc('month', now())
+        AND e.start_at < date_trunc('month', now()) + interval '1 month'
+      ) THEN true
+      WHEN 'Next Month' = ANY(p_date_filters) AND (
+        e.start_at >= date_trunc('month', now()) + interval '1 month'
+        AND e.start_at < date_trunc('month', now()) + interval '2 months'
+      ) THEN true
+      ELSE false
+    END AS passes_date_filter
+  FROM events e
+),
 candidate_events AS (
   SELECT
     e.id AS event_id,
@@ -2776,8 +2832,11 @@ candidate_events AS (
     GREATEST(
       0,
       1.0 - ABS(EXTRACT(EPOCH FROM (now() - COALESCE(e.start_at, e.created_at, now()))) / 86400.0) / 180.0
-    ) AS freshness
+    ) AS freshness,
+    dc.distance_miles
   FROM events e
+  LEFT JOIN distance_calc dc ON dc.event_id = e.id
+  LEFT JOIN date_filter_check dfc ON dfc.event_id = e.id
   WHERE e.visibility = 'public'
     AND (
       COALESCE(e.start_at, e.created_at, now()) > now() - INTERVAL '365 days'
@@ -2787,6 +2846,24 @@ candidate_events AS (
         WHERE ep.event_id = e.id
           AND ep.deleted_at IS NULL
       )
+    )
+    -- Apply category filter
+    AND (
+      p_categories IS NULL 
+      OR array_length(p_categories, 1) IS NULL 
+      OR e.category = ANY(p_categories)
+    )
+    -- Apply distance filter
+    AND (
+      p_max_distance_miles IS NULL
+      OR dc.distance_miles IS NULL
+      OR dc.distance_miles <= p_max_distance_miles
+    )
+    -- Apply date filter
+    AND (
+      p_date_filters IS NULL
+      OR array_length(p_date_filters, 1) IS NULL
+      OR dfc.passes_date_filter = true
     )
 ),
 engagement AS (
@@ -2802,7 +2879,8 @@ affinity AS (
   SELECT e.id AS event_id,
          COALESCE(follow_evt.weight, 0)
        + COALESCE(follow_org.weight, 0)
-       + COALESCE(ticket_affinity.weight, 0) AS affinity
+       + COALESCE(ticket_affinity.weight, 0)
+       + COALESCE(location_boost.weight, 0) AS affinity
   FROM events e
   LEFT JOIN LATERAL (
     SELECT 1.0 AS weight
@@ -2828,6 +2906,17 @@ affinity AS (
       AND t.status IN ('issued', 'transferred', 'redeemed')
     LIMIT 1
   ) ticket_affinity ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT 
+      CASE 
+        WHEN dc.distance_miles IS NOT NULL AND dc.distance_miles <= 10 THEN 0.5
+        WHEN dc.distance_miles IS NOT NULL AND dc.distance_miles <= 25 THEN 0.3
+        ELSE 0
+      END AS weight
+    FROM distance_calc dc
+    WHERE dc.event_id = e.id
+    LIMIT 1
+  ) location_boost ON TRUE
 ),
 z AS (
   SELECT
@@ -2946,7 +3035,7 @@ LIMIT p_limit;
 $$;
 
 
-ALTER FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid") OWNER TO "postgres";
+ALTER FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid", "p_categories" "text"[], "p_user_lat" double precision, "p_user_lng" double precision, "p_max_distance_miles" double precision, "p_date_filters" "text"[]) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."get_home_feed_ids_v2"("in_user_id" "uuid", "in_limit" integer DEFAULT 30, "in_cursor_ts" timestamp with time zone DEFAULT NULL::timestamp with time zone, "in_cursor_id" "uuid" DEFAULT NULL::"uuid") RETURNS TABLE("kind" "text", "id" "uuid", "created_at" timestamp with time zone)
@@ -2983,16 +3072,16 @@ END$$;
 ALTER FUNCTION "public"."get_home_feed_ids_v2"("in_user_id" "uuid", "in_limit" integer, "in_cursor_ts" timestamp with time zone, "in_cursor_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_home_feed_ranked"("p_user_id" "uuid", "p_limit" integer DEFAULT 80, "p_cursor_item_id" "uuid" DEFAULT NULL::"uuid") RETURNS TABLE("item_type" "text", "item_id" "uuid", "event_id" "uuid", "score" numeric, "sort_ts" timestamp with time zone)
+CREATE OR REPLACE FUNCTION "public"."get_home_feed_ranked"("p_user_id" "uuid", "p_limit" integer DEFAULT 80, "p_cursor_item_id" "uuid" DEFAULT NULL::"uuid", "p_categories" "text"[] DEFAULT NULL::"text"[], "p_user_lat" double precision DEFAULT NULL::double precision, "p_user_lng" double precision DEFAULT NULL::double precision, "p_max_distance_miles" double precision DEFAULT NULL::double precision, "p_date_filters" "text"[] DEFAULT NULL::"text"[]) RETURNS TABLE("item_type" "text", "item_id" "uuid", "event_id" "uuid", "score" numeric, "sort_ts" timestamp with time zone)
     LANGUAGE "sql" STABLE
     SET "search_path" TO 'public'
     AS $$
   SELECT *
-  FROM public.get_home_feed_ids(p_user_id, p_limit, p_cursor_item_id);
+  FROM public.get_home_feed_ids(p_user_id, p_limit, p_cursor_item_id, p_categories, p_user_lat, p_user_lng, p_max_distance_miles, p_date_filters);
 $$;
 
 
-ALTER FUNCTION "public"."get_home_feed_ranked"("p_user_id" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid") OWNER TO "postgres";
+ALTER FUNCTION "public"."get_home_feed_ranked"("p_user_id" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid", "p_categories" "text"[], "p_user_lat" double precision, "p_user_lng" double precision, "p_max_distance_miles" double precision, "p_date_filters" "text"[]) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."get_home_feed_v2"("p_user" "uuid" DEFAULT NULL::"uuid", "p_limit" integer DEFAULT 20, "p_cursor_ts" timestamp with time zone DEFAULT NULL::timestamp with time zone, "p_cursor_id" "text" DEFAULT NULL::"text") RETURNS TABLE("item_type" "text", "sort_ts" timestamp with time zone, "item_id" "text", "event_id" "uuid", "event_title" "text", "event_description" "text", "event_starts_at" timestamp with time zone, "event_cover_image" "text", "event_organizer" "text", "event_organizer_id" "uuid", "event_owner_context_type" "text", "event_location" "text", "author_id" "uuid", "author_name" "text", "author_badge" "text", "author_social_links" "jsonb", "media_urls" "text"[], "content" "text", "metrics" "jsonb")
@@ -17921,9 +18010,9 @@ GRANT ALL ON FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" in
 
 
 
-GRANT ALL ON FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid") TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid", "p_categories" "text"[], "p_user_lat" double precision, "p_user_lng" double precision, "p_max_distance_miles" double precision, "p_date_filters" "text"[]) TO "anon";
+GRANT ALL ON FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid", "p_categories" "text"[], "p_user_lat" double precision, "p_user_lng" double precision, "p_max_distance_miles" double precision, "p_date_filters" "text"[]) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_home_feed_ids"("p_user" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid", "p_categories" "text"[], "p_user_lat" double precision, "p_user_lng" double precision, "p_max_distance_miles" double precision, "p_date_filters" "text"[]) TO "service_role";
 
 
 
@@ -17933,9 +18022,9 @@ GRANT ALL ON FUNCTION "public"."get_home_feed_ids_v2"("in_user_id" "uuid", "in_l
 
 
 
-GRANT ALL ON FUNCTION "public"."get_home_feed_ranked"("p_user_id" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."get_home_feed_ranked"("p_user_id" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_home_feed_ranked"("p_user_id" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid") TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_home_feed_ranked"("p_user_id" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid", "p_categories" "text"[], "p_user_lat" double precision, "p_user_lng" double precision, "p_max_distance_miles" double precision, "p_date_filters" "text"[]) TO "anon";
+GRANT ALL ON FUNCTION "public"."get_home_feed_ranked"("p_user_id" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid", "p_categories" "text"[], "p_user_lat" double precision, "p_user_lng" double precision, "p_max_distance_miles" double precision, "p_date_filters" "text"[]) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_home_feed_ranked"("p_user_id" "uuid", "p_limit" integer, "p_cursor_item_id" "uuid", "p_categories" "text"[], "p_user_lat" double precision, "p_user_lng" double precision, "p_max_distance_miles" double precision, "p_date_filters" "text"[]) TO "service_role";
 
 
 

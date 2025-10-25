@@ -82,43 +82,10 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
   const loadNotifications = async () => {
     try {
       setLoading(true);
-      // This would be implemented with a proper notifications API
-      // For now, we'll use mock data
-      const mockNotifications: SponsorshipNotification[] = [
-        {
-          id: '1',
-          user_id: userId,
-          type: 'match_suggested',
-          title: 'New Match Found',
-          message: 'We found a potential sponsor match for your event "Tech Conference 2024"',
-          data: { event_id: 'event-1', sponsor_id: 'sponsor-1' },
-          read_at: null,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          user_id: userId,
-          type: 'proposal_received',
-          title: 'New Proposal Received',
-          message: 'Acme Corp has sent you a sponsorship proposal',
-          data: { proposal_id: 'proposal-1' },
-          read_at: new Date(Date.now() - 3600000).toISOString(),
-          created_at: new Date(Date.now() - 3600000).toISOString()
-        },
-        {
-          id: '3',
-          user_id: userId,
-          type: 'deliverable_due',
-          title: 'Deliverable Due Soon',
-          message: 'Your logo placement deliverable is due in 2 days',
-          data: { deliverable_id: 'deliverable-1' },
-          read_at: null,
-          created_at: new Date(Date.now() - 7200000).toISOString()
-        }
-      ];
-      
-      setNotifications(mockNotifications);
-      setUnreadCount(mockNotifications.filter(n => !n.read_at).length);
+      // TODO: Implement proper notifications API
+      // For now, return empty array
+      setNotifications([]);
+      setUnreadCount(0);
     } catch (err) {
       setError('Failed to load notifications');
       console.error('Error loading notifications:', err);

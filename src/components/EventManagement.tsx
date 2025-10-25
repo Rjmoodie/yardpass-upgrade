@@ -60,48 +60,6 @@ interface Attendee {
 
 type SortKey = 'name' | 'purchaseDate' | 'ticketTier' | 'badge' | 'price';
 
-const mockAttendees: Attendee[] = [
-  {
-    id: '1',
-    name: 'Sarah Chen',
-    email: 'sarah@example.com',
-    phone: '+1 555-0101',
-    badge: 'VIP',
-    ticketTier: 'VIP Access',
-    purchaseDate: '2024-01-15',
-    checkedIn: true,
-  },
-  {
-    id: '2',
-    name: 'Mike Rodriguez',
-    email: 'mike@example.com',
-    phone: '+1 555-0102',
-    badge: 'GA',
-    ticketTier: 'General Admission',
-    purchaseDate: '2024-01-14',
-    checkedIn: false,
-  },
-  {
-    id: '3',
-    name: 'Emma Wilson',
-    email: 'emma@example.com',
-    phone: '+1 555-0103',
-    badge: 'VIP',
-    ticketTier: 'VIP Access',
-    purchaseDate: '2024-01-13',
-    checkedIn: true,
-  },
-  {
-    id: '4',
-    name: 'James Park',
-    email: 'james@example.com',
-    phone: '+1 555-0104',
-    badge: 'GA',
-    ticketTier: 'General Admission',
-    purchaseDate: '2024-01-12',
-    checkedIn: false,
-  },
-];
 
 const MANAGEMENT_TABS = [
   { value: 'overview', label: 'Overview', icon: BarChart3 },
@@ -195,7 +153,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
   const [sortBy, setSortBy] = useState<SortKey>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedAttendees, setSelectedAttendees] = useState<Set<string>>(new Set());
-  const [attendees, setAttendees] = useState<Attendee[]>(mockAttendees);
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [realTimeStats, setRealTimeStats] = useState({
     totalScans: 0,
     validScans: 0,
@@ -307,10 +265,10 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
         checkedIn: checkedInTickets.has(attendee.id),
       }));
 
-      setAttendees(attendeesWithStatus.length > 0 ? attendeesWithStatus : mockAttendees);
+      setAttendees(attendeesWithStatus);
     } catch (error) {
       console.error('Error fetching attendees:', error);
-      setAttendees(mockAttendees);
+      setAttendees([]);
     }
   }, [eventId]);
 

@@ -657,7 +657,12 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         .select('id,name,org_contact_import_entries(count)')
         .eq('org_id', eventDetails.orgId)
         .order('imported_at', { ascending: false });
-      if (!error) {
+      
+      // Gracefully handle table not existing (404) or other errors
+      if (error) {
+        console.log('[OrganizerCommsPanel] Contact imports table not available:', error.message);
+        setContactLists([]);
+      } else if (!error) {
         const mapped = (data ?? []).map((row: any) => ({
           id: row.id,
           name: row.name,
@@ -681,7 +686,14 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       .eq('event_id', eventId)
       .order('created_at', { ascending: false })
       .limit(recentLimit);
-    if (!error) setRecentJobs(data || []);
+    
+    // Gracefully handle table not existing (404) or other errors
+    if (error) {
+      console.log('[OrganizerCommsPanel] Message jobs table not available:', error.message);
+      setRecentJobs([]);
+    } else {
+      setRecentJobs(data || []);
+    }
   }, [eventId, recentLimit]);
   useEffect(() => { refreshRecent(); }, [refreshRecent]);
 

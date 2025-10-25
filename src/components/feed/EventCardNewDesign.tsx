@@ -86,7 +86,15 @@ export function EventCardNewDesign({
             {/* Event Title & Get Tickets */}
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="flex-1">
-                <h3 className="mb-1.5 text-lg font-bold text-white drop-shadow-lg sm:text-xl">{item.event_title}</h3>
+                <h3 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/e/${item.event_id}`);
+                  }}
+                  className="mb-1.5 text-lg font-bold text-white drop-shadow-lg sm:text-xl cursor-pointer hover:text-orange-500 transition-colors"
+                >
+                  {item.event_title}
+                </h3>
                 <p className={`text-sm leading-relaxed text-white/80 transition-all duration-300 ${
                   isExpanded ? '' : 'line-clamp-2'
                 }`}>

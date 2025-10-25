@@ -16,8 +16,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   try {
-    const { post_id, kind, action } = await safeJson(req);
+    const body = await safeJson(req);
+    console.log('🔵 reactions-toggle received:', body);
+    const { post_id, kind, action } = body;
     if (!post_id || kind !== "like") {
+      console.error('❌ Invalid request:', { post_id, kind });
       return json(400, { error: "post_id and kind='like' required" });
     }
 
@@ -31,20 +34,27 @@ serve(async (req) => {
     const user_id = userRes.user.id;
 
     // do we already have a like?
-    const { data: existing } = await supabase
-      .from("events.event_reactions")
+    console.log('🔍 Checking for existing like:', { post_id, user_id });
+    const { data: existing, error: existErr } = await supabase
+      .from("event_reactions")
       .select("*")
       .eq("post_id", post_id)
       .eq("user_id", user_id)
       .eq("kind", "like")
       .maybeSingle();
+    
+    if (existErr) {
+      console.error('❌ Error checking existing like:', existErr);
+      return json(400, { error: "check_failed", detail: existErr.message });
+    }
+    console.log('✅ Existing like check result:', { exists: !!existing });
 
     let isLiked: boolean;
 
     if (existing) {
       // UNLIKE - delete using composite key
       const { error: delErr } = await supabase
-        .from("events.event_reactions")
+        .from("event_reactions")
         .delete()
         .eq("post_id", post_id)
         .eq("user_id", user_id)
@@ -53,24 +63,28 @@ serve(async (req) => {
       isLiked = false;
     } else {
       // LIKE (ignore duplicate under race)
+      console.log('➕ Inserting new like');
       const { error: insErr } = await supabase
-        .from("events.event_reactions")
+        .from("event_reactions")
         .insert({ post_id, user_id, kind: "like" });
       // If conflict (race), proceed — unique index protects us
       if (insErr && (insErr as any).code !== "23505") {
+        console.error('❌ Error inserting like:', insErr);
         return json(400, { error: "insert_failed", detail: insErr.message });
       }
+      console.log('✅ Like inserted successfully');
       isLiked = true;
     }
 
     // Get exact count in a single query
     const { count, error: cntErr } = await supabase
-      .from("events.event_reactions")
+      .from("event_reactions")
       .select("*", { count: "exact", head: true })
       .eq("post_id", post_id)
       .eq("kind", "like");
     if (cntErr) return json(400, { error: "count_failed", detail: cntErr.message });
 
+    console.log('✅ Returning success:', { isLiked, count });
     return json(200, { 
       post_id,
       liked: isLiked, 
@@ -78,7 +92,7 @@ serve(async (req) => {
       like_count: count ?? 0 
     });
   } catch (e: any) {
-    console.error(e);
+    console.error('❌ Unhandled error:', e);
     return json(500, { error: e?.message ?? "error" });
   }
 });

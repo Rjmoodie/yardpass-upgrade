@@ -175,11 +175,30 @@ serve(async (req) => {
     let userId: string | null = null;
     let isNewUser = false;
 
+    // Try to get existing user by email using getUsersByEmail which is more reliable
     try {
       const { data: existingUserRes, error: existingUserErr } = await supabaseService.auth.admin.listUsers();
       if (!existingUserErr && existingUserRes?.users) {
         const existingUser = existingUserRes.users.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
-        userId = existingUser?.id ?? null;
+        
+        if (existingUser) {
+          // Check if this user was created via guest checkout
+          const createdVia = existingUser.user_metadata?.created_via;
+          
+          if (createdVia === "guest_checkout") {
+            // This is a previous guest - allow them to continue
+            console.log("[guest-checkout] Found existing guest user, allowing to continue");
+            userId = existingUser.id;
+          } else {
+            // This is a registered user - they should sign in
+            console.log("[guest-checkout] Found registered user, prompting to sign in");
+            return response({ 
+              error: "An account with this email already exists. Please sign in to continue.",
+              error_code: "user_exists",
+              should_sign_in: true
+            }, 409);
+          }
+        }
       }
     } catch (adminErr) {
       console.warn("[guest-checkout] auth.admin listUsers failed", adminErr);
@@ -201,32 +220,97 @@ serve(async (req) => {
           },
         });
 
-        if (createErr || !created?.user) {
+        if (createErr) {
           console.error("[guest-checkout] createUser failed", createErr);
+          
+          // If user already exists (race condition or listUsers failed), check if they're a guest
+          if (createErr.message?.includes("already been registered") || createErr.code === "email_exists") {
+            // Try one more time to get the user and check if they're a guest
+            try {
+              const { data: recheckRes } = await supabaseService.auth.admin.listUsers();
+              const recheckUser = recheckRes?.users?.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
+              
+              if (recheckUser?.user_metadata?.created_via === "guest_checkout") {
+                console.log("[guest-checkout] User exists as guest (race condition), allowing to continue");
+                userId = recheckUser.id;
+                // Continue with this existing guest user (skip profile creation since they exist)
+              } else {
+                console.log("[guest-checkout] User exists as registered user, prompting to sign in");
+                return response({ 
+                  error: "An account with this email already exists. Please sign in to continue.",
+                  error_code: "user_exists",
+                  should_sign_in: true
+                }, 409);
+              }
+            } catch (recheckErr) {
+              // If recheck fails, prompt sign in to be safe
+              return response({ 
+                error: "An account with this email already exists. Please sign in to continue.",
+                error_code: "user_exists",
+                should_sign_in: true
+              }, 409);
+            }
+          } else {
+            return response({ error: "Failed to provision guest account" }, 500);
+          }
+        }
+
+        // Only process new user creation if we didn't recover from race condition
+        if (!userId && created?.user) {
+          userId = created.user.id;
+          isNewUser = true;
+
+          const { error: profileErr } = await supabaseService
+            .from("user_profiles")
+            .upsert(
+              {
+                user_id: userId,
+                display_name: displayName || "Guest",
+                role: "attendee",
+                phone: requestedPhone || null,
+              },
+              { onConflict: "user_id" }
+            );
+
+          if (profileErr) {
+            console.warn("[guest-checkout] failed to upsert user profile", profileErr.message);
+          }
+        }
+        
+        if (!userId) {
           return response({ error: "Failed to provision guest account" }, 500);
         }
-
-        userId = created.user.id;
-        isNewUser = true;
-
-        const { error: profileErr } = await supabaseService
-          .from("user_profiles")
-          .upsert(
-            {
-              user_id: userId,
-              display_name: displayName || "Guest",
-              role: "attendee",
-              phone: requestedPhone || null,
-            },
-            { onConflict: "user_id" }
-          );
-
-        if (profileErr) {
-          console.warn("[guest-checkout] failed to upsert user profile", profileErr.message);
-        }
-      } catch (createError) {
+      } catch (createError: any) {
         console.error("[guest-checkout] Failed to create user", createError);
-        return response({ error: "Unable to create guest account. Please try signing up first." }, 500);
+        
+        // Check if this is a duplicate email error
+        if (createError.message?.includes("already been registered") || createError.code === "email_exists") {
+          // Try to check if they're a guest user
+          try {
+            const { data: recheckRes } = await supabaseService.auth.admin.listUsers();
+            const recheckUser = recheckRes?.users?.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
+            
+            if (recheckUser?.user_metadata?.created_via === "guest_checkout") {
+              console.log("[guest-checkout] User exists as guest (caught in catch), allowing to continue");
+              userId = recheckUser.id;
+              // Don't return, continue with checkout
+            } else {
+              return response({ 
+                error: "An account with this email already exists. Please sign in to continue.",
+                error_code: "user_exists",
+                should_sign_in: true
+              }, 409);
+            }
+          } catch (recheckErr) {
+            return response({ 
+              error: "An account with this email already exists. Please sign in to continue.",
+              error_code: "user_exists",
+              should_sign_in: true
+            }, 409);
+          }
+        } else {
+          return response({ error: "Unable to create guest account. Please try signing up first." }, 500);
+        }
       }
     }
 
@@ -247,6 +331,19 @@ serve(async (req) => {
 
     if (!event) {
       return response({ error: "Event not found" }, 404);
+    }
+
+    // Check if event has already passed
+    if (event.start_at) {
+      const eventDate = new Date(event.start_at);
+      const now = new Date();
+      if (eventDate < now) {
+        console.log("[guest-checkout] Event has passed:", { eventDate, now });
+        return response({
+          error: "This event has already ended. Tickets are no longer available for purchase.",
+          error_code: "EVENT_ENDED"
+        }, 410);
+      }
     }
 
     const tierIds = items.map((i) => i.tier_id);

@@ -21,14 +21,14 @@ export function TopFilters({
 }: TopFiltersProps) {
   return (
     <>
-      {/* Right side filter button - ONLY show this */}
-      <div className="fixed right-3 top-4 z-40 sm:right-4 sm:top-6 md:right-6">
+      {/* Right side filter button - matches engagement button style but more visible at top */}
+      <div className="fixed right-3 top-4 z-50 sm:right-4 sm:top-6 md:right-6">
         <button
           onClick={onFiltersClick}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/60 shadow-xl backdrop-blur-md transition-all hover:scale-110 hover:bg-black/70 active:scale-95 sm:h-12 sm:w-12"
+          className="flex flex-col items-center justify-center gap-1 p-3 rounded-2xl min-h-[48px] min-w-[48px] text-white bg-black/40 backdrop-blur-sm border border-white/30 hover:bg-white/20 active:scale-95 transition-all duration-200 shadow-lg"
           aria-label="Open filters"
         >
-          <SlidersHorizontal className="h-4 w-4 text-white sm:h-5 sm:w-5" />
+          <SlidersHorizontal className="w-6 h-6 text-white" />
         </button>
       </div>
 

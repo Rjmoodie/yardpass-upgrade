@@ -23,6 +23,7 @@ interface UserPostCardNewDesignProps {
   onReport?: () => void;
   soundEnabled?: boolean;
   isVideoPlaying?: boolean;
+  onGetTickets?: (eventId: string) => void;
 }
 
 export function UserPostCardNewDesign({
@@ -33,7 +34,8 @@ export function UserPostCardNewDesign({
   onAuthorClick,
   onReport,
   soundEnabled = false,
-  isVideoPlaying = false
+  isVideoPlaying = false,
+  onGetTickets
 }: UserPostCardNewDesignProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -149,12 +151,27 @@ export function UserPostCardNewDesign({
                   className="cursor-pointer group"
                 >
                   <div className="text-base font-bold text-white group-hover:text-orange-500 transition-colors">{item.author_name || 'User'}</div>
-                  {item.author_badge && (
-                    <div className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
-                      <Ticket className="h-3 w-3" />
-                      {item.author_badge}
-                    </div>
-                  )}
+                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                    {item.author_badge && (
+                      <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
+                        <Ticket className="h-3 w-3" />
+                        {item.author_badge}
+                      </div>
+                    )}
+                    {item.event_id && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onGetTickets?.(item.event_id!);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 border border-orange-500 px-2.5 py-1 text-[10px] font-bold text-white hover:from-orange-600 hover:to-orange-700 hover:shadow-lg hover:shadow-orange-500/30 transition-all active:scale-95 cursor-pointer"
+                        title="Purchase tickets for this event"
+                      >
+                        <Ticket className="h-3 w-3" />
+                        Get Tickets
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {item.event_title && (
                   <div 

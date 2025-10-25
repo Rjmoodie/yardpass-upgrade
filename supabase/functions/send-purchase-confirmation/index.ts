@@ -7,6 +7,8 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import React from "https://esm.sh/react@18.3.1";
 import { renderToStaticMarkup } from "https://esm.sh/react-dom@18.3.1/server";
 import { z } from "https://esm.sh/zod@3.23.8";
+import QRCode from "npm:qrcode@1.5.3";
+import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 /**
  * ---------------------------
@@ -58,6 +60,7 @@ const EventInfoSchema = z.object({
   venue: z.string().optional(),
   coverImageUrl: z.string().url().optional(),
   description: z.string().optional(),
+  slug: z.string().optional(),
 });
 
 const RequestSchema = z.object({
@@ -93,8 +96,14 @@ const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROL
 });
 
 function baseUrl(): string {
-  // Strip potential /rest/v1 on some setups
-  return SUPABASE_URL!.replace("/rest/v1", "");
+  // Return the actual app URL, not Supabase URL
+  const appUrl = Deno.env.get("APP_URL") || Deno.env.get("VITE_APP_URL");
+  if (appUrl) {
+    return appUrl;
+  }
+  
+  // Fallback to production domain
+  return "https://yardpass.tech";
 }
 
 function formatDate(value?: string) {
@@ -148,7 +157,7 @@ async function fetchEmailContext(eventId: string): Promise<{ orgInfo?: OrgInfo; 
   const { data: event, error: eventErr } = await supabase
     .from("events")
     .select(
-      `title, start_at, venue, city, cover_image_url, description, owner_context_type, owner_context_id`
+      `title, start_at, venue, city, cover_image_url, description, slug, owner_context_type, owner_context_id`
     )
     .eq("id", eventId)
     .single();
@@ -162,6 +171,7 @@ async function fetchEmailContext(eventId: string): Promise<{ orgInfo?: OrgInfo; 
     venue: event.venue || undefined,
     coverImageUrl: event.cover_image_url || undefined,
     description: event.description || undefined,
+    slug: event.slug || undefined,
   };
 
   let orgInfo: OrgInfo | undefined;
@@ -211,7 +221,7 @@ function HiddenPreheader({ text }: { text?: string }) {
   );
 }
 
-function BaseEmailLayout({ children, orgInfo, preheaderText }: { children: any; orgInfo?: OrgInfo; preheaderText?: string }) {
+function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { children: any; orgInfo?: OrgInfo; eventInfo?: EventInfo; preheaderText?: string }) {
   const logoUrl = orgInfo?.logoUrl || `${baseUrl()}/yardpass-logo.png`;
   const supportEmail = orgInfo?.supportEmail || "support@yardpass.tech";
   const currentYear = new Date().getFullYear();
@@ -320,11 +330,11 @@ function BaseEmailLayout({ children, orgInfo, preheaderText }: { children: any; 
                       { style: { fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "4px" } },
                       orgInfo.name,
                     ),
-                    orgInfo.websiteUrl
+                    eventInfo?.slug
                       ? React.createElement(
                           "a",
-                          { href: orgInfo.websiteUrl, style: { fontSize: "13px", color: "#6366f1", textDecoration: "none" } },
-                          "Visit website →",
+                          { href: `${baseUrl()}/event/${eventInfo.slug}`, style: { fontSize: "13px", color: "#6366f1", textDecoration: "none" } },
+                          "View Event Details →",
                         )
                       : null,
                   ),
@@ -375,7 +385,7 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
 
   return React.createElement(
     BaseEmailLayout,
-    { orgInfo, preheaderText },
+    { orgInfo, eventInfo, preheaderText },
     React.createElement(
       "div",
       { style: { background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", color: "#ffffff", padding: "24px", borderRadius: "14px", marginBottom: "28px", textAlign: "center" } },
@@ -470,24 +480,62 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
       ),
       React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#0369a1", lineHeight: 1.6 } }, "Need to transfer tickets to a guest? Forward this email or share access from your YardPass account."),
     ),
-    data.qrCodeUrl
+    data.qrCodes && data.qrCodes.length > 0
       ? React.createElement(
           "div",
-          { style: { backgroundColor: "#ffffff", border: "2px dashed #cbd5e1", borderRadius: "14px", padding: "24px", marginBottom: "28px", textAlign: "center" } },
-          React.createElement("div", { style: { fontSize: "15px", color: "#0f172a", fontWeight: 600, marginBottom: "16px" } }, "Your Entry Pass"),
-          React.createElement("img", { src: data.qrCodeUrl, alt: "Entry QR Code", style: { maxWidth: "200px", height: "auto", display: "block", margin: "0 auto", border: "3px solid #0f172a", borderRadius: "12px", padding: "10px", backgroundColor: "#ffffff" } }),
-          React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#64748b" } }, "Present this QR code at check-in. Each ticket will also be available in the YardPass app."),
+          { style: { backgroundColor: "#ffffff", border: "2px dashed #cbd5e1", borderRadius: "14px", padding: "24px", marginBottom: "28px" } },
+          React.createElement("div", { style: { fontSize: "15px", color: "#0f172a", fontWeight: 600, marginBottom: "16px", textAlign: "center" } }, data.qrCodes.length === 1 ? "Your Entry Pass" : `Your Entry Passes (${data.qrCodes.length})`),
+          React.createElement(
+            "div",
+            { style: { display: "grid", gridTemplateColumns: data.qrCodes.length === 1 ? "1fr" : data.qrCodes.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr", gap: "16px", justifyItems: "center" } },
+            ...data.qrCodes.map((qr: any, idx: number) =>
+              React.createElement(
+                "div",
+                { key: idx, style: { textAlign: "center" } },
+                React.createElement("div", { style: { fontSize: "12px", color: "#64748b", marginBottom: "8px", fontWeight: 600 } }, qr.ticketType),
+                React.createElement("img", { src: qr.qrCodeUrl, alt: `QR Code ${idx + 1}`, style: { maxWidth: "180px", width: "100%", height: "auto", display: "block", margin: "0 auto", border: "3px solid #10b981", borderRadius: "12px", padding: "10px", backgroundColor: "#ffffff" } }),
+                React.createElement("div", { style: { fontFamily: "'Courier New', monospace", fontSize: "14px", color: "#0f172a", fontWeight: 700, marginTop: "8px", letterSpacing: "2px" } }, qr.qrText),
+              )
+            )
+          ),
+          React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#64748b", textAlign: "center" } }, data.qrCodes.length === 1 ? "Present this QR code at check-in" : "Present these QR codes at check-in (one per person)"),
+          React.createElement("p", { style: { margin: "8px 0 0 0", fontSize: "12px", color: "#94a3af", textAlign: "center" } }, "💾 Download the attached PDF for offline access"),
         )
       : null,
     React.createElement(
       "div",
-      { style: { textAlign: "center", marginBottom: "28px" } },
-      React.createElement(
-        "a",
-        { href: `${baseUrl()}/tickets`, style: { display: "inline-block", background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)", color: "#ffffff", padding: "14px 36px", textDecoration: "none", borderRadius: "12px", fontSize: "16px", fontWeight: 600, boxShadow: "0 12px 24px rgba(79, 70, 229, 0.25)" } },
-        "View My Tickets →",
-      ),
+      { style: { backgroundColor: "#eff6ff", border: "1px solid #93c5fd", borderRadius: "14px", padding: "20px", marginBottom: "28px", textAlign: "center" } },
+      React.createElement("div", { style: { fontSize: "24px", marginBottom: "8px" } }, "📎"),
+      React.createElement("h3", { style: { margin: "0 0 8px 0", color: "#1e40af", fontSize: "16px", fontWeight: 600 } }, "Your Ticket PDF is Attached"),
+      React.createElement("p", { style: { margin: "0", color: "#1e3a8a", fontSize: "14px", lineHeight: 1.6 } }, "Download and save the attached PDF file. Present the QR code from the PDF at check-in for quick entry."),
     ),
+    // Add to Wallet buttons
+    data.walletLinks && data.walletLinks.length > 0 && (data.walletLinks[0].appleWallet || data.walletLinks[0].googleWallet)
+      ? React.createElement(
+          "div",
+          { style: { textAlign: "center", marginBottom: "20px" } },
+          React.createElement("div", { style: { fontSize: "13px", color: "#64748b", marginBottom: "12px" } }, "📲 Add to your mobile wallet for quick access"),
+      React.createElement(
+            "div",
+            { style: { display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" } },
+            data.walletLinks[0].appleWallet
+              ? React.createElement(
+                  "a",
+                  { href: data.walletLinks[0].appleWallet, style: { display: "inline-block", backgroundColor: "#000000", color: "#ffffff", padding: "10px 20px", textDecoration: "none", borderRadius: "8px", fontSize: "14px", fontWeight: 600 } },
+                  " Add to Apple Wallet",
+                )
+              : null,
+            data.walletLinks[0].googleWallet
+              ? React.createElement(
+                  "a",
+                  { href: data.walletLinks[0].googleWallet, style: { display: "inline-block", backgroundColor: "#4285f4", color: "#ffffff", padding: "10px 20px", textDecoration: "none", borderRadius: "8px", fontSize: "14px", fontWeight: 600 } },
+                  "🔷 Add to Google Wallet",
+                )
+              : null,
+          ),
+          React.createElement("div", { style: { fontSize: "11px", color: "#94a3af", marginTop: "8px" } }, "Wallet passes will be activated once configured"),
+        )
+      : null,
     React.createElement(
       "div",
       { style: { backgroundColor: "#fefce8", border: "1px solid #fde047", borderRadius: "14px", padding: "20px" } },
@@ -504,29 +552,358 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
 }
 
 /**
+ * Generate QR code as base64 data URL
+ */
+async function generateQRCodeDataURL(qrCodeText: string): Promise<string> {
+  try {
+    console.log('Generating QR code for text:', qrCodeText);
+    
+    // Generate QR code as data URL (base64 encoded PNG)
+    const qrDataURL = await QRCode.toDataURL(qrCodeText, {
+      errorCorrectionLevel: 'H',
+      type: 'image/png',
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+    
+    console.log('QR code generated successfully:', {
+      textLength: qrCodeText.length,
+      dataURLLength: qrDataURL.length,
+      isValidDataURL: qrDataURL.startsWith('data:image/png;base64,')
+    });
+    
+    return qrDataURL;
+  } catch (error) {
+    console.error('Error generating QR code:', error, { qrCodeText });
+    // Return a fallback empty image data URL
+    return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  }
+}
+
+/**
+ * Generate PDF ticket attachment with QR codes
+ */
+async function generateTicketPDF(ticketIds: string[], eventTitle: string, customerName: string, orgInfo?: OrgInfo) {
+  const { data: tickets, error } = await supabase
+    .from("tickets")
+    .select(`id, qr_code, serial_no, ticket_tiers!tickets_tier_id_fkey(name, price_cents), events!tickets_event_id_fkey(title, start_at, venue, city, address)`)
+    .in("id", ticketIds);
+
+  if (error) {
+    console.error("Supabase error in generateTicketPDF", { error, ticketIds });
+    throw error;
+  }
+  if (!tickets || tickets.length === 0) {
+    console.error("No tickets found for ids", { ticketIds, attemptedQuery: "tickets.in('id', ticketIds)" });
+    throw new Error("No tickets found");
+  }
+
+  // Generate QR codes for all tickets
+  const ticketsWithQR = await Promise.all(
+    tickets.map(async (ticket: any) => ({
+      ...ticket,
+      qrDataURL: await generateQRCodeDataURL(ticket.qr_code)
+    }))
+  );
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // YardPass Brand Colors
+  const primaryAmber = [223, 157, 7];    // #DF9D07 - Primary amber
+  const lightAmber = [241, 204, 119];    // #F1CC77 - Light amber (highlights)
+  const deepIndigo = [83, 78, 133];      // #534E85 - Deep indigo/purple
+  const mutedGray = [151, 148, 165];     // #9794A5 - Muted indigo-gray
+  const lightNeutral = [230, 225, 216];  // #E6E1D8 - Light neutral background
+  const textColor = [15, 23, 42];        // Dark text
+
+  ticketsWithQR.forEach((ticket: any, index: number) => {
+    if (index > 0) doc.addPage();
+
+    const eventDate = new Date(ticket.events?.start_at || Date.now());
+    const tierName = ticket.ticket_tiers?.name || "General Admission";
+    const venue = ticket.events?.venue || "TBA";
+    const address = ticket.events?.address || "";
+
+    // Header with gradient effect (amber)
+    doc.setFillColor(...primaryAmber);
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    // Indigo accent stripe
+    doc.setFillColor(...deepIndigo);
+    doc.rect(0, 40, 210, 3, 'F');
+    
+    // Organization/Platform name
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(28);
+    doc.setFont('helvetica', 'bold');
+    doc.text(orgInfo?.name || 'YardPass', 105, 15, { align: 'center' });
+    
+    // Event title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'normal');
+    doc.text(eventTitle, 105, 25, { align: 'center' });
+    
+    doc.setFontSize(11);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Ticket ${index + 1} of ${ticketsWithQR.length}`, 105, 33, { align: 'center' });
+
+    // Ticket info box with neutral background - taller to include location
+    doc.setFillColor(...lightNeutral);
+    doc.roundedRect(15, 50, 180, 58, 3, 3, 'F');
+    
+    doc.setTextColor(...textColor);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    
+    // Left column
+    doc.text('Ticket Holder:', 20, 60);
+    doc.setFont('helvetica', 'bold');
+    doc.text(customerName, 20, 66);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text('Ticket Type:', 20, 76);
+    doc.setFont('helvetica', 'bold');
+    doc.text(tierName, 20, 82);
+
+    // Right column
+    doc.setFont('helvetica', 'normal');
+    doc.text('Event Date:', 110, 60);
+    doc.setFont('helvetica', 'bold');
+    doc.text(eventDate.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    }), 110, 66);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text('Event Time:', 110, 76);
+    doc.setFont('helvetica', 'bold');
+    doc.text(eventDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    }), 110, 82);
+
+    // Venue info (inside the box)
+    if (venue) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(...textColor);
+      doc.text('Location:', 20, 92);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      const venueLines = doc.splitTextToSize(venue + (address ? `, ${address}` : ''), 170);
+      doc.text(venueLines, 20, 98);
+    }
+
+    // QR Code section with amber border (adjusted position)
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(40, 115, 130, 100, 3, 3, 'F');
+    doc.setDrawColor(...primaryAmber);
+    doc.setLineWidth(2.5);
+    doc.roundedRect(40, 115, 130, 100, 3, 3, 'S');
+    
+    // Add QR code image
+    try {
+      if (!ticket.qrDataURL || !ticket.qrDataURL.startsWith('data:image')) {
+        console.error('Invalid QR code data URL:', { 
+          hasDataURL: !!ticket.qrDataURL, 
+          urlPrefix: ticket.qrDataURL?.substring(0, 30),
+          qrCode: ticket.qr_code 
+        });
+        throw new Error('Invalid QR code data URL');
+      }
+      
+      console.log('Adding QR code to PDF:', { 
+        qrCode: ticket.qr_code,
+        dataURLLength: ticket.qrDataURL.length,
+        dataURLPrefix: ticket.qrDataURL.substring(0, 50)
+      });
+      
+      // Use 'NONE' compression for better QR code rendering (not 'FAST')
+      doc.addImage(ticket.qrDataURL, 'PNG', 65, 125, 80, 80, undefined, 'NONE');
+    } catch (err) {
+      console.error('Failed to add QR code to PDF:', err);
+      // Draw a fallback placeholder
+      doc.setFillColor(220, 220, 220);
+      doc.rect(65, 125, 80, 80, 'F');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text('QR Code Error', 105, 165, { align: 'center' });
+      doc.text('Use code below:', 105, 175, { align: 'center' });
+    }
+
+    // QR code text below
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...deepIndigo);
+    doc.text('Scan at Entry', 105, 220, { align: 'center' });
+    
+    // Backup code in amber
+    doc.setFontSize(16);
+    doc.setFont('courier', 'bold');
+    doc.setTextColor(...primaryAmber);
+    doc.text(ticket.qr_code, 105, 230, { align: 'center' });
+
+    // Instructions with muted color
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...mutedGray);
+    doc.text('Present this QR code at check-in', 105, 240, { align: 'center' });
+    doc.text('Keep this ticket safe - do not share screenshots', 105, 245, { align: 'center' });
+
+    // Footer with ticket ID
+    doc.setFontSize(8);
+    doc.setTextColor(...mutedGray);
+    doc.text(`Ticket ID: ${ticket.id.slice(0, 13)}...`, 105, 275, { align: 'center' });
+    doc.text(`Serial: #${ticket.serial_no || 'N/A'}`, 105, 280, { align: 'center' });
+    
+    // Bottom border with amber accent
+    doc.setDrawColor(...primaryAmber);
+    doc.setLineWidth(1);
+    doc.line(15, 285, 195, 285);
+    
+    doc.setFontSize(7);
+    doc.setTextColor(...mutedGray);
+    const footerText = orgInfo?.name 
+      ? `${orgInfo.name} - ${orgInfo.supportEmail || 'support@yardpass.tech'} - yardpass.tech`
+      : 'YardPass - support@yardpass.tech - yardpass.tech';
+    doc.text(footerText, 105, 290, { align: 'center' });
+  });
+
+  // Convert to base64
+  const pdfBase64 = doc.output('datauristring').split(',')[1];
+
+  return {
+    content: pdfBase64,
+    filename: `${eventTitle.replace(/[^a-zA-Z0-9]/g, "_")}_Tickets.pdf`,
+    type: "application/pdf",
+    disposition: "attachment",
+  } as const;
+}
+
+/**
+ * Generate Apple Wallet Pass (PKPass) URL
+ * NOTE: Requires Apple Developer certificates and configuration
+ * For now, returns a deep link to add to wallet feature (requires backend setup)
+ */
+async function generateAppleWalletPassURL(ticketId: string, ticketData: any): Promise<string | null> {
+  // Check if wallet pass generation is enabled
+  const WALLET_PASS_ENABLED = Deno.env.get("APPLE_WALLET_ENABLED") === "true";
+  if (!WALLET_PASS_ENABLED) {
+    console.log("Apple Wallet pass generation not enabled");
+    return null;
+  }
+
+  try {
+    // This would call a dedicated wallet-pass generation service
+    // For now, return a URL that will trigger pass generation
+    const passUrl = `${baseUrl()}/api/wallet/apple/${ticketId}`;
+    return passUrl;
+  } catch (error) {
+    console.error("Apple Wallet pass generation failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Generate Google Wallet Pass URL
+ * NOTE: Requires Google Cloud credentials and configuration
+ */
+async function generateGoogleWalletPassURL(ticketId: string, ticketData: any): Promise<string | null> {
+  // Check if wallet pass generation is enabled
+  const WALLET_PASS_ENABLED = Deno.env.get("GOOGLE_WALLET_ENABLED") === "true";
+  if (!WALLET_PASS_ENABLED) {
+    console.log("Google Wallet pass generation not enabled");
+    return null;
+  }
+
+  try {
+    // This would call Google Wallet API
+    // For now, return a URL that will trigger pass generation
+    const passUrl = `${baseUrl()}/api/wallet/google/${ticketId}`;
+    return passUrl;
+  } catch (error) {
+    console.error("Google Wallet pass generation failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Generate wallet pass links for tickets
+ */
+async function generateWalletPassLinks(ticketIds: string[]) {
+  const walletLinks: Array<{ ticketId: string; appleWallet?: string; googleWallet?: string }> = [];
+  
+  for (const ticketId of ticketIds) {
+    const { data: ticket } = await supabase
+      .from("tickets")
+      .select("id, qr_code, ticket_tiers(name), events(title, start_at, venue)")
+      .eq("id", ticketId)
+      .single();
+
+    if (ticket) {
+      const appleWallet = await generateAppleWalletPassURL(ticketId, ticket);
+      const googleWallet = await generateGoogleWalletPassURL(ticketId, ticket);
+      
+      if (appleWallet || googleWallet) {
+        walletLinks.push({
+          ticketId,
+          appleWallet: appleWallet || undefined,
+          googleWallet: googleWallet || undefined
+        });
+      }
+    }
+  }
+
+  return walletLinks;
+}
+
+/**
  * Optional HTML Ticket attachment generator preserved from original version.
  * Consider moving this to a background job / webhook for very large orders.
  */
 async function generateTicketHTML(ticketIds: string[], eventTitle: string, customerName: string) {
-  const { data: tickets } = await supabase
+  const { data: tickets, error } = await supabase
     .from("tickets")
-    .select(`id, qr_code, ticket_tiers(name, price_cents), events(title, start_at, venue, city, address)`) // deno-fmt-ignore
+    .select(`id, qr_code, ticket_tiers!tickets_tier_id_fkey(name, price_cents), events!tickets_event_id_fkey(title, start_at, venue, city, address)`) // deno-fmt-ignore
     .in("id", ticketIds);
 
+  if (error) {
+    console.error("Supabase error in generateTicketHTML", { error, ticketIds });
+    throw error;
+  }
   if (!tickets || tickets.length === 0) {
+    console.error("No tickets found for ids in HTML generator", { ticketIds, attemptedQuery: "tickets.in('id', ticketIds)" });
     throw new Error("No tickets found");
   }
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>${eventTitle} - Your Tickets</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f3f4f6;padding:20px;line-height:1.6}.container{max-width:800px;margin:0 auto}.header{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:30px;text-align:center;border-radius:16px 16px 0 0}.header h1{font-size:28px;margin-bottom:8px}.header p{opacity:.9;font-size:16px}.ticket{background:#fff;border:3px solid #10b981;border-radius:16px;margin:20px 0;overflow:hidden;page-break-inside:avoid;box-shadow:0 4px 6px rgba(0,0,0,.1)}.ticket-header{background:#10b981;color:#fff;padding:20px;text-align:center}.ticket-header h2{font-size:22px;margin-bottom:5px}.ticket-body{padding:25px}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin:20px 0}.info-item{padding:12px;background:#f9fafb;border-radius:8px}.info-label{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.info-value{font-size:16px;font-weight:600;color:#111827}.qr-section{text-align:center;padding:30px;background:#f9fafb;border-radius:12px;margin:20px 0}.qr-code{display:inline-block;background:#fff;padding:25px;border:4px solid #10b981;border-radius:12px;font-family:'Courier New',monospace;font-size:32px;font-weight:700;letter-spacing:4px;color:#111827;margin:15px 0}.qr-instructions{font-size:14px;color:#6b7280;margin-top:15px}.footer{text-align:center;padding:20px;color:#6b7280;font-size:13px;border-top:2px dashed #e5e7eb;margin-top:20px}@media print{body{background:#fff;padding:0}.ticket{page-break-inside:avoid;margin:0 0 40px 0}}</style></head><body><div class="container"><div class="header"><h1>🎟️ ${eventTitle}</h1><p>Tickets for ${customerName}</p></div>${tickets
+  // Generate QR code images for all tickets
+  const ticketsWithQR = await Promise.all(
+    tickets.map(async (ticket: any) => ({
+      ...ticket,
+      qrDataURL: await generateQRCodeDataURL(ticket.qr_code)
+    }))
+  );
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>${eventTitle} - Your Tickets</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f3f4f6;padding:20px;line-height:1.6}.container{max-width:800px;margin:0 auto}.header{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:30px;text-align:center;border-radius:16px 16px 0 0}.header h1{font-size:28px;margin-bottom:8px}.header p{opacity:.9;font-size:16px}.ticket{background:#fff;border:3px solid #10b981;border-radius:16px;margin:20px 0;overflow:hidden;page-break-inside:avoid;box-shadow:0 4px 6px rgba(0,0,0,.1)}.ticket-header{background:#10b981;color:#fff;padding:20px;text-align:center}.ticket-header h2{font-size:22px;margin-bottom:5px}.ticket-body{padding:25px}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin:20px 0}.info-item{padding:12px;background:#f9fafb;border-radius:8px}.info-label{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.info-value{font-size:16px;font-weight:600;color:#111827}.qr-section{text-align:center;padding:30px;background:#f9fafb;border-radius:12px;margin:20px 0}.qr-image{max-width:250px;width:100%;height:auto;border:4px solid #10b981;border-radius:12px;background:#fff;padding:15px;margin:15px 0}.qr-code-text{display:inline-block;background:#fff;padding:12px 20px;border:2px solid #e5e7eb;border-radius:8px;font-family:'Courier New',monospace;font-size:20px;font-weight:700;letter-spacing:3px;color:#111827;margin:10px 0}.qr-instructions{font-size:14px;color:#6b7280;margin-top:15px}.footer{text-align:center;padding:20px;color:#6b7280;font-size:13px;border-top:2px dashed #e5e7eb;margin-top:20px}@media print{body{background:#fff;padding:0}.ticket{page-break-inside:avoid;margin:0 0 40px 0}}</style></head><body><div class="container"><div class="header"><h1>🎟️ ${eventTitle}</h1><p>Tickets for ${customerName}</p></div>${ticketsWithQR
     .map((ticket: any, index: number) => {
       const eventDate = new Date(ticket.events?.start_at || Date.now());
-      return `<div class="ticket"><div class="ticket-header"><h2>Ticket #${index + 1} of ${tickets.length}</h2><p>${ticket.ticket_tiers?.name || "General Admission"}</p></div><div class="ticket-body"><div class="info-grid"><div class="info-item"><div class="info-label">Ticket Holder</div><div class="info-value">${customerName}</div></div><div class="info-item"><div class="info-label">Ticket Type</div><div class="info-value">${ticket.ticket_tiers?.name || "General Admission"}</div></div><div class="info-item"><div class="info-label">Event Date</div><div class="info-value">${eventDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</div></div><div class="info-item"><div class="info-label">Event Time</div><div class="info-value">${eventDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</div></div></div>${
+      return `<div class="ticket"><div class="ticket-header"><h2>Ticket #${index + 1} of ${ticketsWithQR.length}</h2><p>${ticket.ticket_tiers?.name || "General Admission"}</p></div><div class="ticket-body"><div class="info-grid"><div class="info-item"><div class="info-label">Ticket Holder</div><div class="info-value">${customerName}</div></div><div class="info-item"><div class="info-label">Ticket Type</div><div class="info-value">${ticket.ticket_tiers?.name || "General Admission"}</div></div><div class="info-item"><div class="info-label">Event Date</div><div class="info-value">${eventDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</div></div><div class="info-item"><div class="info-label">Event Time</div><div class="info-value">${eventDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</div></div></div>${
         ticket.events?.venue || ticket.events?.address
           ? `<div class="info-item" style="margin:15px 0"><div class="info-label">Location</div><div class="info-value">${
               ticket.events?.venue || ""
             }</div>${ticket.events?.address ? `<div style="font-size:14px;color:#6b7280;margin-top:4px">${ticket.events.address}</div>` : ""}</div>`
           : ""
-      }<div class="qr-section"><div style="font-size:18px;font-weight:600;color:#111827;margin-bottom:10px">📱 Entry Code</div><div class="qr-code">${ticket.qr_code}</div><div class="qr-instructions"><strong>Present this code at check-in</strong><br/>Keep this ticket safe and do not share screenshots</div></div><div style="font-size:11px;color:#9ca3af;text-align:center;margin-top:15px;font-family:monospace">Ticket ID: ${
+      }<div class="qr-section"><div style="font-size:18px;font-weight:600;color:#111827;margin-bottom:10px">📱 Scan at Entry</div><img src="${ticket.qrDataURL}" alt="QR Code" class="qr-image"/><div class="qr-code-text">${ticket.qr_code}</div><div class="qr-instructions"><strong>Present this QR code at check-in</strong><br/>Save this ticket to your device for easy access<br/>Keep this ticket safe and do not share screenshots</div></div><div style="font-size:11px;color:#9ca3af;text-align:center;margin-top:15px;font-family:monospace">Ticket ID: ${
         (ticket.id as string).slice(0, 8)
       }</div></div></div>`;
     })
@@ -578,22 +955,119 @@ const handler = async (req: Request): Promise<Response> => {
       eventInfo = eventInfo || context.eventInfo;
     }
 
-    // Prepare optional attachment for guest checkouts
-    let ticketAttachment: { filename: string; content: string; content_type: string; disposition: string } | undefined;
-    if (isGuest && data.ticketIds?.length) {
+    // Generate QR codes for inline display
+    // Show all QR codes inline if 3 or fewer tickets, otherwise just first one
+    let qrCodes: Array<{ qrCodeUrl: string; qrText: string; ticketType: string }> = [];
+    if (data.ticketIds?.length) {
       try {
-        const a = await generateTicketHTML(data.ticketIds, eventInfo?.title || data.eventTitle, data.customerName);
-        ticketAttachment = { filename: a.filename, content: a.content, content_type: a.type, disposition: a.disposition } as const;
+        const limit = data.ticketIds.length <= 3 ? data.ticketIds.length : 1;
+        const { data: tickets } = await supabase
+          .from("tickets")
+          .select("qr_code, ticket_tiers(name)")
+          .in("id", data.ticketIds)
+          .limit(limit);
+        
+        if (tickets && tickets.length > 0) {
+          qrCodes = await Promise.all(
+            tickets.map(async (ticket: any) => ({
+              qrCodeUrl: await generateQRCodeDataURL(ticket.qr_code),
+              qrText: ticket.qr_code,
+              ticketType: ticket.ticket_tiers?.name || "General Admission"
+            }))
+          );
+        }
       } catch (err) {
-        console.error("Attachment generation failed", { requestId, err });
+        console.error("QR code generation failed", { requestId, err });
       }
+    }
+
+    // Generate wallet pass links (Apple/Google Wallet)
+    let walletLinks: Array<{ ticketId: string; appleWallet?: string; googleWallet?: string }> = [];
+    if (data.ticketIds?.length) {
+      try {
+        walletLinks = await generateWalletPassLinks(data.ticketIds);
+      } catch (err) {
+        console.error("Wallet pass generation failed", { requestId, err });
+      }
+    }
+
+    // Prepare PDF attachment with ALL tickets (replaces HTML)
+    let ticketAttachment: { filename: string; content: string; contentType: string; disposition: string } | undefined;
+    if (data.ticketIds?.length || data.orderId) {
+      try {
+        // Probe: verify tickets exist or try to resolve by orderId
+        if (data.ticketIds?.length) {
+          console.log(`[${requestId}] Received ticketIds:`, { ticketIds: data.ticketIds, orderId: data.orderId });
+          
+          const { data: ticketsProbe, error: probeErr } = await supabase
+            .from("tickets")
+            .select("id")
+            .in("id", data.ticketIds);
+
+          if (probeErr) {
+            console.error(`[${requestId}] Ticket probe query error:`, probeErr);
+          }
+          
+          if (!ticketsProbe || ticketsProbe.length === 0) {
+            console.warn(`[${requestId}] ticketIds not found in database. Attempting orderId fallback...`, { 
+              ticketIds: data.ticketIds, 
+              orderId: data.orderId 
+            });
+
+            // Fallback: Try to find tickets by order_id
+            if (data.orderId) {
+              const { data: byOrder, error: orderErr } = await supabase
+                .from("tickets")
+                .select("id")
+                .eq("order_id", data.orderId);
+
+              if (orderErr) {
+                console.error(`[${requestId}] Order lookup error:`, orderErr);
+              } else if (byOrder && byOrder.length > 0) {
+                data.ticketIds = byOrder.map((t: any) => t.id);
+                console.log(`[${requestId}] ✅ Resolved ${data.ticketIds.length} tickets from orderId`, { 
+                  orderId: data.orderId,
+                  ticketIds: data.ticketIds 
+                });
+              } else {
+                console.error(`[${requestId}] ❌ No tickets found by orderId either`, { orderId: data.orderId });
+              }
+            }
+          } else {
+            console.log(`[${requestId}] ✅ Found ${ticketsProbe.length} tickets in database`);
+          }
+        }
+
+        // Now try to generate PDF
+        if (data.ticketIds?.length) {
+          console.log(`[${requestId}] Generating PDF for ${data.ticketIds.length} tickets`);
+          const pdf = await generateTicketPDF(data.ticketIds, eventInfo?.title || data.eventTitle, data.customerName, orgInfo);
+          ticketAttachment = { filename: pdf.filename, content: pdf.content, contentType: pdf.type, disposition: pdf.disposition } as const;
+          console.log(`[${requestId}] PDF generated successfully: ${pdf.filename}, size: ${pdf.content.length} bytes`);
+        }
+      } catch (err) {
+        console.error(`[${requestId}] PDF attachment generation failed`, err);
+        // Fallback to HTML if PDF fails
+        if (data.ticketIds?.length) {
+          try {
+            console.log(`[${requestId}] Falling back to HTML attachment`);
+            const html = await generateTicketHTML(data.ticketIds, eventInfo?.title || data.eventTitle, data.customerName);
+            ticketAttachment = { filename: html.filename, content: html.content, contentType: html.type, disposition: html.disposition } as const;
+            console.log(`[${requestId}] HTML generated successfully: ${html.filename}`);
+          } catch (htmlErr) {
+            console.error(`[${requestId}] HTML fallback also failed`, htmlErr);
+          }
+        }
+      }
+    } else {
+      console.warn(`[${requestId}] No ticketIds or orderId provided to generate attachment`);
     }
 
     // Render HTML and a small text fallback for spam filters/clients
     const html = "<!DOCTYPE html>" + renderToStaticMarkup(
-      React.createElement(PurchaseConfirmationTemplate, { data: { ...data, isGuest }, orgInfo, eventInfo }),
+      React.createElement(PurchaseConfirmationTemplate, { data: { ...data, isGuest, qrCodes, walletLinks }, orgInfo, eventInfo }),
     );
-    const text = `Purchase Confirmed\n\nEvent: ${eventInfo?.title || data.eventTitle}\nWhen: ${formatDate(eventInfo?.date || data.eventDate) || "TBA"}\nWhere: ${eventInfo?.venue || eventInfo?.location || data.eventLocation}\nTicket Type: ${data.ticketType}\nQuantity: ${data.quantity}\nOrder ID: ${data.orderId}\n\nView your tickets: ${baseUrl()}/tickets`;
+    const text = `Purchase Confirmed\n\nEvent: ${eventInfo?.title || data.eventTitle}\nWhen: ${formatDate(eventInfo?.date || data.eventDate) || "TBA"}\nWhere: ${eventInfo?.venue || eventInfo?.location || data.eventLocation}\nTicket Type: ${data.ticketType}\nQuantity: ${data.quantity}\nOrder ID: ${data.orderId}\n\nYour ticket PDF is attached to this email. Download and save it for check-in.`;
 
     // Support idempotency — callers can pass Idempotency-Key header
     const idemKey = req.headers.get("Idempotency-Key") ?? requestId;
@@ -618,7 +1092,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (ticketAttachment) {
       (emailPayload as any).attachments = [ticketAttachment];
+      console.log(`[${requestId}] Adding attachment: ${ticketAttachment.filename}, type: ${ticketAttachment.contentType}`);
+    } else {
+      console.warn(`[${requestId}] No ticket attachment generated!`);
     }
+
+    console.log(`[${requestId}] Sending email to ${data.customerEmail} with ${ticketAttachment ? 'attachment' : 'no attachment'}`);
 
     const res = await fetchWithRetry("https://api.resend.com/emails", {
       method: "POST",

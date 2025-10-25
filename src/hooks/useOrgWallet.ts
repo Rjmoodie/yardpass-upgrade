@@ -68,7 +68,12 @@ export const useOrgWallet = (orgId?: string | null) => {
         .select("*")
         .eq("is_active", true)
         .order("sort_order");
-      if (error) throw error;
+      
+      // Gracefully handle errors
+      if (error) {
+        console.log('[useOrgWallet] Credit packages error:', error.message);
+        return [];
+      }
       return data || [];
     },
   });

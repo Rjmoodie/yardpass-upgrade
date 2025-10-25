@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS events.user_saved_posts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   post_id UUID NOT NULL REFERENCES events.event_posts(id) ON DELETE CASCADE,
+  event_id UUID REFERENCES events.events(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
   UNIQUE(user_id, post_id)
 );

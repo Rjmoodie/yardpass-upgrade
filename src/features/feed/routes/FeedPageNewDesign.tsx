@@ -50,7 +50,7 @@ const isVideoPost = (item: FeedItem) =>
 export default function FeedPageNewDesign() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { requireAuth } = useAuthGuard();
+  const { requireAuth, isAuthenticated } = useAuthGuard();
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -99,9 +99,8 @@ export default function FeedPageNewDesign() {
       }
 
       try {
-        // Use user_saved_posts table with schema prefix
+        // Use user_saved_posts table
         const { data } = await supabase
-          .schema('events')
           .from('user_saved_posts')
           .select('post_id')
           .eq('user_id', user.id);
@@ -203,20 +202,27 @@ export default function FeedPageNewDesign() {
 
   const handleLike = useCallback(async (item: FeedItem) => {
     if (item.item_type !== 'post') return;
-    if (!requireAuth()) return;
+    if (!isAuthenticated) {
+      requireAuth(() => {}, 'Please sign in to like posts');
+      return;
+    }
     
-    const currentLiked = item.metrics?.viewer_has_liked || false;
-    const currentCount = item.metrics?.likes || 0;
+    // Get the current optimistic state or fallback to server data
+    const optimisticData = getOptimisticData(
+      item.item_id,
+      { isLiked: item.metrics?.viewer_has_liked || false, likeCount: item.metrics?.likes || 0 }
+    );
     
-    const result = await toggleLikeOptimistic(item.item_id, currentLiked, currentCount);
+    const result = await toggleLikeOptimistic(item.item_id, optimisticData.isLiked, optimisticData.likeCount);
     
-    // Refetch feed to get updated counts from server
-    if (result.ok) {
+    // Don't refetch immediately - optimistic update handles the UI
+    // Only refetch on error to correct the state
+    if (!result.ok) {
       refetch();
     }
     
     registerInteraction();
-  }, [toggleLikeOptimistic, requireAuth, registerInteraction, refetch]);
+  }, [toggleLikeOptimistic, isAuthenticated, requireAuth, registerInteraction, refetch, getOptimisticData]);
 
   const handleComment = useCallback((item: FeedItem) => {
     if (item.item_type !== 'post') return;
@@ -242,12 +248,14 @@ export default function FeedPageNewDesign() {
 
   const handleSave = useCallback(async (item: FeedItem) => {
     if (item.item_type !== 'post') return;
-    if (!requireAuth()) return;
+    if (!isAuthenticated) {
+      requireAuth(() => {}, 'Please sign in to save posts');
+      return;
+    }
 
     try {
-      // Check if already saved - use events schema
+      // Check if already saved
       const { data: existing } = await supabase
-        .schema('events')
         .from('user_saved_posts')
         .select('id')
         .eq('user_id', user?.id)
@@ -257,7 +265,6 @@ export default function FeedPageNewDesign() {
       if (existing) {
         // Unsave
         await supabase
-          .schema('events')
           .from('user_saved_posts')
           .delete()
           .eq('id', existing.id);
@@ -272,7 +279,6 @@ export default function FeedPageNewDesign() {
       } else {
         // Save
         await supabase
-          .schema('events')
           .from('user_saved_posts')
           .insert({
             user_id: user?.id,
@@ -289,7 +295,7 @@ export default function FeedPageNewDesign() {
       toast({ title: 'Save feature coming soon', description: 'This feature will be available soon', variant: 'default' });
     }
     registerInteraction();
-  }, [user, requireAuth, toast, registerInteraction]);
+  }, [user, isAuthenticated, requireAuth, toast, registerInteraction]);
 
   const handleEventClick = useCallback((eventId: string) => {
     navigate(`/e/${eventId}`);
@@ -297,14 +303,38 @@ export default function FeedPageNewDesign() {
   }, [navigate, registerInteraction]);
 
   const handleOpenTickets = useCallback((eventId: string, item?: any) => {
-    if (item && item.item_type === 'event') {
+    if (item) {
+      if (item.item_type === 'event') {
+        setTicketModalEvent({
+          id: item.event_id,
+          title: item.event_title || 'Event',
+          start_at: item.event_start_at || '',
+          venue: item.event_venue || undefined,
+          address: item.event_address || undefined,
+          description: item.event_description || undefined,
+        });
+        setTicketModalOpen(true);
+      } else if (item.item_type === 'post' && item.event_id) {
+        // For posts associated with an event
+        setTicketModalEvent({
+          id: item.event_id,
+          title: item.event_title || 'Event',
+          start_at: item.event_starts_at || '',
+          venue: item.event_location || undefined,
+          address: undefined,
+          description: undefined,
+        });
+        setTicketModalOpen(true);
+      }
+    } else if (eventId) {
+      // Fallback: just use eventId if no item provided
       setTicketModalEvent({
-        id: item.event_id,
-        title: item.event_title || 'Event',
-        start_at: item.event_start_at || '',
-        venue: item.event_venue || undefined,
-        address: item.event_address || undefined,
-        description: item.event_description || undefined,
+        id: eventId,
+        title: 'Event',
+        start_at: '',
+        venue: undefined,
+        address: undefined,
+        description: undefined,
       });
       setTicketModalOpen(true);
     }
@@ -397,38 +427,40 @@ export default function FeedPageNewDesign() {
         onClearFilters={handleClearFilters}
       />
 
-      {/* Floating Actions */}
-      {(() => {
-        const currentItem = allFeedItems[activeIndex];
-        const isPost = currentItem?.item_type === 'post';
-        const rawLikes = currentItem?.metrics?.likes;
-        const rawComments = currentItem?.metrics?.comments;
-        
-        const optimisticLikes = isPost ? getOptimisticData(
-          currentItem.item_id, 
-          { isLiked: currentItem.metrics?.viewer_has_liked || false, likeCount: rawLikes || 0 }
-        ).likeCount : 0;
-        
-        const optimisticComments = isPost ? getOptimisticCommentData(
-          currentItem.item_id,
-          { commentCount: rawComments || 0 }
-        ).commentCount : 0;
-        
-        console.log('🔍 FloatingActions DETAILED Debug:', {
-          activeIndex,
-          itemType: currentItem?.item_type,
-          isPost,
-          rawMetrics: currentItem?.metrics,
-          rawLikes,
-          rawComments,
-          optimisticLikes,
-          optimisticComments,
-          fullItem: currentItem
-        });
-        
-        return null;
-      })()}
-      <FloatingActions
+      {/* Floating Actions - Hidden when filters are open */}
+      {!filtersOpen && (
+        <>
+          {(() => {
+            const currentItem = allFeedItems[activeIndex];
+            const isPost = currentItem?.item_type === 'post';
+            const rawLikes = currentItem?.metrics?.likes;
+            const rawComments = currentItem?.metrics?.comments;
+            
+            const optimisticLikes = isPost ? getOptimisticData(
+              currentItem.item_id, 
+              { isLiked: currentItem.metrics?.viewer_has_liked || false, likeCount: rawLikes || 0 }
+            ).likeCount : 0;
+            
+            const optimisticComments = isPost ? getOptimisticCommentData(
+              currentItem.item_id,
+              { commentCount: rawComments || 0 }
+            ).commentCount : 0;
+            
+            console.log('🔍 FloatingActions DETAILED Debug:', {
+              activeIndex,
+              itemType: currentItem?.item_type,
+              isPost,
+              rawMetrics: currentItem?.metrics,
+              rawLikes,
+              rawComments,
+              optimisticLikes,
+              optimisticComments,
+              fullItem: currentItem
+            });
+            
+            return null;
+          })()}
+          <FloatingActions
         isMuted={!globalSoundEnabled}
         onMuteToggle={handleToggleGlobalSound}
         onCreatePost={handleCreatePost}
@@ -472,6 +504,8 @@ export default function FeedPageNewDesign() {
         }
         isSaved={allFeedItems[activeIndex]?.item_type === 'post' ? savedPostIds.has(allFeedItems[activeIndex].item_id) : false}
       />
+        </>
+      )}
 
       {soundToastVisible && (
         <div className="fixed left-1/2 top-32 z-40 -translate-x-1/2 sm:top-36">
@@ -528,6 +562,7 @@ export default function FeedPageNewDesign() {
                   onReport={handleReport}
                   soundEnabled={globalSoundEnabled}
                   isVideoPlaying={isVideoActive}
+                  onGetTickets={(eventId) => handleOpenTickets(eventId, item)}
                 />
               )}
             </section>

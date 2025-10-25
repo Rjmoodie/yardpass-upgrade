@@ -171,13 +171,15 @@ export default function FeedPageComplete() {
         onFiltersClick={() => setFiltersOpen(true)}
       />
 
-      {/* Floating Actions */}
-      <FloatingActions
-        isMuted={!globalSoundEnabled}
-        onMuteToggle={() => setGlobalSoundEnabled(!globalSoundEnabled)}
-        onCreatePost={handleCreatePost}
-        onOpenMessages={() => navigate('/messages-new')}
-      />
+      {/* Floating Actions - Hidden when filters are open */}
+      {!filtersOpen && (
+        <FloatingActions
+          isMuted={!globalSoundEnabled}
+          onMuteToggle={() => setGlobalSoundEnabled(!globalSoundEnabled)}
+          onCreatePost={handleCreatePost}
+          onOpenMessages={() => navigate('/messages-new')}
+        />
+      )}
 
       {/* Feed Content */}
       <div 

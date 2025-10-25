@@ -8,6 +8,7 @@ interface EventPostsGridProps {
   userId?: string;
   onPostClick?: (post: any) => void;
   showTaggedOnly?: boolean; // If true, only show posts where userId is tagged
+  filterType?: 'organizer_only' | 'attendee_only'; // Filter by organizer or attendee posts
 }
 
 interface GridPost {
@@ -19,7 +20,7 @@ interface GridPost {
   created_at: string;
 }
 
-export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = false }: EventPostsGridProps) {
+export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = false, filterType }: EventPostsGridProps) {
   const [posts, setPosts] = useState<GridPost[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -37,26 +38,47 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
         if (showTaggedOnly && userId) {
           url.searchParams.append('mentioned_user_id', userId);
         }
+        
+        // Add filter_type if specified
+        if (filterType) {
+          url.searchParams.append('filter_type', filterType);
+        }
+        
+        // CACHE BUSTER: Force fresh data
+        url.searchParams.append('_t', Date.now().toString());
 
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setPosts([]);
-          return;
-        }
 
+        console.log('🔍 EventPostsGrid fetching:', url.toString());
+        
+        // Build headers - include auth token if user is signed in, but allow guest access
+        const headers: Record<string, string> = {};
+        
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
         const res = await fetch(url.toString(), {
           method: 'GET',
-          headers: { Authorization: `Bearer ${session.access_token}` }
+          headers,
+          cache: 'no-store'  // Use fetch API cache option instead of headers
         });
 
         if (!res.ok) {
-          console.error('Failed to fetch posts:', res.status);
+          console.error('❌ Failed to fetch posts:', res.status);
+          const errorText = await res.text();
+          console.error('Error response:', errorText);
           setPosts([]);
           return;
         }
 
         const payload = await res.json();
         const rows: any[] = payload.data ?? [];
+        
+        console.log(`✅ EventPostsGrid received ${rows.length} posts with filterType=${filterType}`);
+        if (rows.length > 0) {
+          console.log('First post:', rows[0]);
+        }
 
         setPosts(rows.map((r: any) => ({
           id: r.id,
@@ -75,7 +97,7 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
     };
 
     fetchPosts();
-  }, [eventId, userId, showTaggedOnly]);
+  }, [eventId, userId, showTaggedOnly, filterType]);
 
   const isVideoUrl = (url: string): boolean => {
     if (!url) return false;

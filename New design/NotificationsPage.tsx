@@ -16,81 +16,6 @@ interface Notification {
   action?: string;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "like",
-    user: {
-      name: "Sarah Martinez",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200"
-    },
-    message: "liked your post",
-    timestamp: "2m ago",
-    read: false,
-    image: "https://images.unsplash.com/photo-1656283384093-1e227e621fad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200"
-  },
-  {
-    id: "2",
-    type: "comment",
-    user: {
-      name: "Mike Chen",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200"
-    },
-    message: "commented: \"This looks amazing! Can't wait!\"",
-    timestamp: "15m ago",
-    read: false,
-    image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200"
-  },
-  {
-    id: "3",
-    type: "follow",
-    user: {
-      name: "Emily Johnson",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200"
-    },
-    message: "started following you",
-    timestamp: "1h ago",
-    read: true
-  },
-  {
-    id: "4",
-    type: "ticket",
-    message: "Your ticket for Summer Music Festival is confirmed",
-    timestamp: "2h ago",
-    read: true,
-    image: "https://images.unsplash.com/photo-1656283384093-1e227e621fad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200",
-    action: "View Ticket"
-  },
-  {
-    id: "5",
-    type: "event",
-    message: "Tech Conference 2025 is happening in 3 days",
-    timestamp: "5h ago",
-    read: true,
-    image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200",
-    action: "View Event"
-  },
-  {
-    id: "6",
-    type: "trending",
-    message: "Jazz Night Live is trending in your area",
-    timestamp: "1d ago",
-    read: true,
-    image: "https://images.unsplash.com/photo-1511192336575-5a79af67a629?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200"
-  },
-  {
-    id: "7",
-    type: "like",
-    user: {
-      name: "David Park",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200"
-    },
-    message: "and 12 others liked your post",
-    timestamp: "2d ago",
-    read: true,
-    image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200"
-  }
-];
 
 const getNotificationIcon = (type: Notification['type']) => {
   switch (type) {
@@ -111,7 +36,7 @@ const getNotificationIcon = (type: Notification['type']) => {
 
 export function NotificationsPage() {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const filteredNotifications = filter === 'unread' 
     ? notifications.filter(n => !n.read)

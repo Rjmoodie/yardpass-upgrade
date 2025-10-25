@@ -30,84 +30,38 @@ interface ProfilePost {
   category: string;
 }
 
-const DEFAULT_PROFILE = {
-  name: 'Jordan Rivers',
-  username: '@yardpassjordan',
-  location: 'Brooklyn, New York',
-  bio: 'Discovering the best experiences in the city. Concerts, pop-ups, rooftop sessions, and more.',
-  stats: {
-    posts: 128,
-    followers: 9421,
-    following: 312,
-  } satisfies ProfileStats,
-  coverImage: 'https://images.unsplash.com/photo-1522770179533-24471fcdba45?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1200',
-  avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-  socials: [
-    { platform: 'Instagram', handle: '@yardpassjordan' },
-    { platform: 'Twitter', handle: '@yardpassjordan' },
-  ],
-};
-
 const PROFILE_TABS: ProfileTab[] = [
   { id: 'posts', label: 'Posts' },
   { id: 'events', label: 'Events' },
   { id: 'saved', label: 'Saved' },
 ];
 
-const POSTS: ProfilePost[] = [
-  {
-    id: '1',
-    image: 'https://images.unsplash.com/photo-1656283384093-1e227e621fad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
-    likes: 1824,
-    category: 'Festival',
-  },
-  {
-    id: '2',
-    image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
-    likes: 942,
-    category: 'Conference',
-  },
-  {
-    id: '3',
-    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
-    likes: 1518,
-    category: 'Food',
-  },
-  {
-    id: '4',
-    image: 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
-    likes: 728,
-    category: 'Comedy',
-  },
-  {
-    id: '5',
-    image: 'https://images.unsplash.com/photo-1534604973900-c43ab4c2ae68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
-    likes: 832,
-    category: 'Nightlife',
-  },
-  {
-    id: '6',
-    image: 'https://images.unsplash.com/photo-1533157801976-43fdc86c01d8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
-    likes: 612,
-    category: 'Art',
-  },
-];
-
 export default function UserProfilePage() {
   const navigate = useNavigate();
   const { username } = useParams<{ username: string }>();
   const [activeTab, setActiveTab] = useState<ProfileTab['id']>('posts');
+  const [profile, setProfile] = useState<any>(null);
+  const [posts, setPosts] = useState<ProfilePost[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const profile = useMemo(() => {
-    if (!username) {
-      return DEFAULT_PROFILE;
-    }
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        <p>Loading profile...</p>
+      </div>
+    );
+  }
 
-    return {
-      ...DEFAULT_PROFILE,
-      username: `@${username}`,
-    };
-  }, [username]);
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        <div className="text-center">
+          <p className="mb-4">Profile not found</p>
+          <button onClick={() => navigate(-1)} className="text-[#FF8C00] hover:underline">Go back</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black pb-16 text-white">
@@ -203,7 +157,7 @@ export default function UserProfilePage() {
           </div>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {POSTS.map((post) => (
+            {posts.map((post) => (
               <div
                 key={post.id}
                 className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl transition hover:border-white/20 hover:shadow-xl"

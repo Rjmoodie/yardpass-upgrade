@@ -31,14 +31,55 @@ export async function createGuestCheckoutSession(params: {
   guest_code?: string | null;
 }) {
   try {
-    const { data, error } = await supabase.functions.invoke('guest-checkout', { body: params });
-    if (error) {
-      console.error('[createGuestCheckoutSession] Edge function error:', error);
-      throw new Error(error.message ?? 'Failed to create guest checkout session');
+    // Use raw fetch to properly handle error responses with body
+    const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+    
+    const response = await fetch(`${baseUrl}/functions/v1/guest-checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${anonKey}`
+      },
+      body: JSON.stringify(params)
+    });
+    
+    const responseData = await response.json();
+    console.log('[createGuestCheckoutSession] Response:', { status: response.status, data: responseData });
+    
+            // Check if this is a "user exists" error (409 Conflict)
+            if (response.status === 409 || responseData?.error_code === 'user_exists' || responseData?.should_sign_in) {
+              const err: any = new Error(responseData.error || 'An account with this email already exists. Please sign in to continue.');
+              err.shouldSignIn = true;
+              throw err;
+            }
+            
+            // Check if event has ended (410 Gone)
+            if (response.status === 410 || responseData?.error_code === 'EVENT_ENDED') {
+              const err: any = new Error(responseData.error || 'This event has already ended.');
+              err.isEventEnded = true;
+              throw err;
+            }
+            
+            // Check for other errors
+            if (!response.ok) {
+              throw new Error(responseData.error || 'Failed to create guest checkout session');
+            }
+    
+    // Validate we have a session URL
+    if (!responseData?.url && !responseData?.session_url) {
+      throw new Error('No checkout URL received from server');
     }
-    return data as { url: string };
+    
+    return responseData as { url: string };
   } catch (err: any) {
     console.error('[createGuestCheckoutSession] Unexpected error:', err);
+    
+    // Re-throw if it's a "should sign in" error
+    if (err.shouldSignIn) {
+      throw err;
+    }
+    
     // Fallback: redirect to regular checkout with a message
     throw new Error('Guest checkout is temporarily unavailable. Please create an account to purchase tickets.');
   }

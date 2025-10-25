@@ -9,10 +9,19 @@ type EngagementDelta = {
   mode?: 'delta' | 'absolute';
 };
 
+export interface FeedFilters {
+  locations?: string[];
+  categories?: string[];
+  dates?: string[];
+  searchRadius?: number;
+}
+
 async function fetchPage(
   cursor: FeedCursor | undefined,
   limit: number,
-  accessToken: string | null
+  accessToken: string | null,
+  filters?: FeedFilters,
+  userLocation?: { lat: number; lng: number } | null
 ): Promise<FeedPage> {
   const invokeOptions: {
     body: Record<string, unknown>;
@@ -27,6 +36,13 @@ async function fetchPage(
             score: cursor.cursorScore ?? null,
           }
         : null,
+      // Pass filters to backend for server-side filtering
+      filters: filters || {},
+      // Pass user location for "Near Me" filtering
+      ...(userLocation && {
+        user_lat: userLocation.lat,
+        user_lng: userLocation.lng,
+      }),
     },
   };
 
@@ -47,16 +63,53 @@ async function fetchPage(
   return data as FeedPage;
 }
 
-export function useUnifiedFeedInfinite(limit = 30) {
+export function useUnifiedFeedInfinite(options: FeedFilters & { limit?: number } = {}) {
+  const { limit = 30, locations = [], categories = [], dates = [], searchRadius } = options;
   const qc = useQueryClient();
 
+  // Include filters in query key for proper caching
+  const filters: FeedFilters = { locations, categories, dates, searchRadius };
+
+  // Get user location if "Near Me" filter is active or searchRadius is set
+  const needsLocation = locations.includes('Near Me') || (searchRadius && searchRadius < 100);
+
   const query = useInfiniteQuery<FeedPage, Error>({
-    queryKey: ['unifiedFeed', { limit }],
+    queryKey: ['unifiedFeed', { limit, locations, categories, dates, searchRadius }],
     initialPageParam: undefined,
     queryFn: async ({ pageParam }) => {
       const { data: { session } } = await supabase.auth.getSession();
       const cursor = pageParam as FeedCursor | undefined;
-      return fetchPage(cursor, limit, session?.access_token ?? null);
+      
+      // Get user's geolocation if needed for "Near Me" filtering
+      let userLocation: { lat: number; lng: number } | null = null;
+      if (needsLocation) {
+        try {
+          userLocation = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
+            if ('geolocation' in navigator) {
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  resolve({
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                  });
+                },
+                (error) => {
+                  console.warn('Failed to get user location:', error.message);
+                  resolve(null);
+                },
+                { timeout: 5000, maximumAge: 300000 } // 5min cache
+              );
+            } else {
+              resolve(null);
+            }
+          });
+        } catch (error) {
+          console.warn('Geolocation error:', error);
+          userLocation = null;
+        }
+      }
+      
+      return fetchPage(cursor, limit, session?.access_token ?? null, filters, userLocation);
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 15_000,
@@ -65,7 +118,7 @@ export function useUnifiedFeedInfinite(limit = 30) {
   const items = query.data?.pages.flatMap((p) => p.items) ?? [];
 
   function applyEngagementDelta(postId: string, delta: EngagementDelta) {
-    qc.setQueryData(['unifiedFeed', { limit }], (oldData: any) => {
+    qc.setQueryData(['unifiedFeed', { limit, locations, categories, dates, searchRadius }], (oldData: any) => {
       if (!oldData) return oldData;
 
       const pages = oldData.pages.map((page: FeedPage) => {

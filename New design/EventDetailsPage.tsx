@@ -29,59 +29,36 @@ interface EventDetails {
   isSaved: boolean;
 }
 
-const mockEvent: EventDetails = {
-  id: "1",
-  title: "Summer Music Festival 2025",
-  coverImage: "https://images.unsplash.com/photo-1656283384093-1e227e621fad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1200",
-  organizer: {
-    name: "Live Nation Events",
-    avatar: "https://images.unsplash.com/photo-1511192336575-5a79af67a629?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200",
-    verified: true
-  },
-  date: "August 15, 2025",
-  time: "6:00 PM - 11:00 PM",
-  location: "Central Park, New York, NY",
-  venue: "Great Lawn",
-  description: "Join us for the ultimate summer music experience featuring top artists from around the world. This year's lineup includes amazing performances, food trucks, art installations, and more. Don't miss out on the event of the summer!",
-  categories: ["Music", "Festival", "Outdoor"],
-  attendees: 2847,
-  ticketTiers: [
-    {
-      id: "1",
-      name: "General Admission",
-      price: 45,
-      available: 234,
-      total: 1000,
-      benefits: ["Entry to event", "Access to main stage", "Food & beverage available"]
-    },
-    {
-      id: "2",
-      name: "VIP Pass",
-      price: 150,
-      available: 12,
-      total: 100,
-      benefits: ["All GA benefits", "VIP viewing area", "Complimentary drinks", "Exclusive merch"]
-    },
-    {
-      id: "3",
-      name: "Premium Package",
-      price: 300,
-      available: 3,
-      total: 50,
-      benefits: ["All VIP benefits", "Meet & greet", "Backstage tour", "Premium gift bag"]
-    }
-  ],
-  isSaved: false
-};
 
 export function EventDetailsPage() {
-  const [event, setEvent] = useState(mockEvent);
+  const [event, setEvent] = useState<EventDetails | null>(null);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'about' | 'tickets' | 'attendees'>('about');
+  const [loading, setLoading] = useState(true);
 
   const toggleSave = () => {
-    setEvent(prev => ({ ...prev, isSaved: !prev.isSaved }));
+    if (event) {
+      setEvent(prev => prev ? { ...prev, isSaved: !prev.isSaved } : null);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        <p>Loading event...</p>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        <div className="text-center">
+          <p className="mb-4">Event not found</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black pb-20">

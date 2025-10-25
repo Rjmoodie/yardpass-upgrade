@@ -28,62 +28,16 @@ interface SearchPageProps {
 
 const CATEGORIES = ['All', 'Music', 'Sports', 'Comedy', 'Food', 'Conference', 'Art', 'Nightlife'];
 
-const MOCK_RESULTS: SearchResult[] = [
-  {
-    id: '1',
-    type: 'event',
-    title: 'Summer Music Festival 2025',
-    subtitle: 'Electronic & Dance',
-    image: 'https://images.unsplash.com/photo-1656283384093-1e227e621fad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    date: 'Aug 15, 2025',
-    location: 'Central Park, NYC',
-    price: '$45',
-    category: 'Music',
-  },
-  {
-    id: '2',
-    type: 'event',
-    title: 'Tech Conference 2025',
-    subtitle: 'Innovation & Startups',
-    image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    date: 'Sep 20, 2025',
-    location: 'Convention Center',
-    price: '$120',
-    category: 'Conference',
-  },
-  {
-    id: '3',
-    type: 'event',
-    title: 'Rooftop Comedy Night',
-    subtitle: 'Stand-up Comedy',
-    image: 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    date: 'Jul 28, 2025',
-    location: 'Brooklyn Rooftop',
-    price: '$25',
-    category: 'Comedy',
-  },
-  {
-    id: '4',
-    type: 'event',
-    title: 'Food & Wine Festival',
-    subtitle: 'Culinary Experience',
-    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    date: 'Oct 5, 2025',
-    location: 'Pier 17, Manhattan',
-    price: '$75',
-    category: 'Food',
-  },
-];
-
 export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
   const [priceRange, setPriceRange] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [results, setResults] = useState<SearchResult[]>([]);
 
   const filteredResults = useMemo(() => {
-    return MOCK_RESULTS.filter((result) => {
+    return results.filter((result) => {
       const matchesCategory = selectedCategory === 'All' || result.category === selectedCategory;
       const matchesQuery =
         !searchQuery.trim() ||
@@ -91,7 +45,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
         result.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesQuery;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, results]);
 
   const handleResultClick = (result: SearchResult) => {
     if (result.type === 'event') {

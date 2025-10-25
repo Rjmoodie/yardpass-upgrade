@@ -271,7 +271,16 @@ const handler = withCORS(async (req: Request) => {
     // Optional guest/session identifier for light personalization (NOT a user id)
     const sessionId = str((payload as any).session_id) ?? undefined;
 
-    // Build RPC args (pass all cursor parts for stable pagination)
+    // Extract filters from payload
+    const filters = (payload as any).filters || {};
+    const locationFilters: string[] = Array.isArray(filters.locations) ? filters.locations : [];
+    const categoryFilters: string[] = Array.isArray(filters.categories) ? filters.categories : [];
+    const dateFilters: string[] = Array.isArray(filters.dates) ? filters.dates : [];
+    const searchRadius: number | undefined = typeof filters.searchRadius === 'number' ? filters.searchRadius : undefined;
+
+    console.log('🔍 Feed filters received:', { locationFilters, categoryFilters, dateFilters, searchRadius, viewerId });
+
+    // Build RPC args (pass all cursor parts for stable pagination + filters)
     const rpcArgs: Record<string, unknown> = {
       p_user_id: viewerId,        // null for guests
       p_session_id: sessionId,    // optional: use in SQL for guest-affinity if you like
@@ -280,6 +289,21 @@ const handler = withCORS(async (req: Request) => {
     if (cursor?.id) rpcArgs.p_cursor_item_id = cursor.id;
     if (cursor?.ts) rpcArgs.p_cursor_ts = cursor.ts;
     if (cursor?.score !== undefined) rpcArgs.p_cursor_score = cursor.score;
+    
+    // Add filter parameters
+    if (categoryFilters.length > 0) rpcArgs.p_categories = categoryFilters;
+    if (searchRadius && searchRadius < 100) {
+      // For "Near Me" functionality, we need user's location
+      // This should come from the frontend via geolocation API
+      const userLat = typeof (payload as any).user_lat === 'number' ? (payload as any).user_lat : null;
+      const userLng = typeof (payload as any).user_lng === 'number' ? (payload as any).user_lng : null;
+      if (userLat !== null && userLng !== null) {
+        rpcArgs.p_user_lat = userLat;
+        rpcArgs.p_user_lng = userLng;
+        rpcArgs.p_max_distance_miles = searchRadius;
+      }
+    }
+    if (dateFilters.length > 0) rpcArgs.p_date_filters = dateFilters;
 
     // Try ranked feed; fallback to time-ordered events if RPC fails or returns none
     let ranked: any[] = [];
@@ -297,6 +321,17 @@ const handler = withCORS(async (req: Request) => {
 
     // Performance: Feed data retrieved
     monitor.mark('feed_data_retrieved');
+
+    // Filters are now applied server-side in the SQL function
+    const hasFilters = categoryFilters.length > 0 || dateFilters.length > 0 || (searchRadius && searchRadius < 100);
+    if (hasFilters) {
+      console.log('✅ Server-side filters applied:', {
+        resultCount: ranked.length,
+        categoryFilters,
+        dateFilters,
+        searchRadius
+      });
+    }
 
     // Paging cursor
     let nextCursor: any = null;

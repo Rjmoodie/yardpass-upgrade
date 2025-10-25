@@ -788,45 +788,6 @@ export default function OrganizerDashboard() {
                 <p className="text-muted-foreground mb-4">Create your first event to get started.</p>
               <div className="flex gap-3 justify-center">
                 <Button onClick={goCreateEvent}><Plus className="mr-2 h-4 w-4" />Create Event</Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    // Test EventManagement with mock data
-                    const mockEvent = {
-                      id: 'test-event',
-                      title: 'Test Event',
-                      status: 'upcoming',
-                      date: new Date().toISOString(),
-                      attendees: 50,
-                      revenue: 2500,
-                      views: 100,
-                      likes: 25,
-                      shares: 10,
-                      tickets_sold: 50,
-                      capacity: 100,
-                      start_at: new Date().toISOString(),
-                      end_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-                      venue: 'Test Venue',
-                      description: 'This is a test event to verify EventManagement works',
-                      cover_image_url: '',
-                      city: 'Test City',
-                      visibility: 'public',
-                      created_at: new Date().toISOString(),
-                      organizer: 'Test Organizer',
-                      organizerId: selectedOrgId || 'test-org',
-                      startAtISO: new Date().toISOString(),
-                      dateLabel: new Date().toLocaleDateString(),
-                      location: 'Test Location',
-                      coverImage: '',
-                      ticketTiers: [],
-                      attendeeCount: 50,
-                      posts: []
-                    };
-                    setSelectedEvent(mockEvent);
-                  }}
-                >
-                  Test Event Management
-                </Button>
               </div>
               </div>
             ) : (

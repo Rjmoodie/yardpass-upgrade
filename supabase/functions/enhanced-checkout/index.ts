@@ -131,6 +131,7 @@ serve(async (req) => {
     }
 
     const payload = await req.json();
+    console.log("[enhanced-checkout] Received payload:", JSON.stringify(payload, null, 2));
     const supabaseService = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
     // Get authenticated user from Supabase context (when verify_jwt = true)
@@ -197,14 +198,34 @@ serve(async (req) => {
       throw new Error("At least one ticket selection is required");
     }
 
+    console.log("[enhanced-checkout] Fetching event:", orderData.event_id);
     const { data: event, error: eventError } = await supabaseService
       .from("events")
-      .select("id, title, owner_context_type, owner_context_id")
+      .select("id, title, owner_context_type, owner_context_id, start_at")
       .eq("id", orderData.event_id)
       .single();
 
     if (eventError || !event) {
+      console.error("[enhanced-checkout] Event lookup failed:", eventError);
       throw new Error("Event not found");
+    }
+    console.log("[enhanced-checkout] Event found:", event.id);
+
+    // Check if event has already passed
+    if (event.start_at) {
+      const eventDate = new Date(event.start_at);
+      const now = new Date();
+      if (eventDate < now) {
+        console.log("[enhanced-checkout] Event has passed:", { eventDate, now });
+        return new Response(JSON.stringify({
+          success: false,
+          error: "This event has already ended. Tickets are no longer available for purchase.",
+          error_code: "EVENT_ENDED"
+        }), {
+          status: 410,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
     }
 
     const { data: payoutDestination } = await supabaseService
@@ -227,6 +248,7 @@ serve(async (req) => {
       quantity: item.quantity,
     }));
 
+    console.log("[enhanced-checkout] Reserving tickets:", JSON.stringify(reservationItems));
     const { data: reservationResult, error: reservationError } = await supabaseService
       .rpc("reserve_tickets_batch", {
         p_reservations: reservationItems,
@@ -236,8 +258,28 @@ serve(async (req) => {
       });
 
     if (reservationError || !reservationResult?.success) {
-      throw new Error(reservationResult?.error || "Failed to reserve tickets");
+      console.error("[enhanced-checkout] Reservation failed:", reservationError || reservationResult);
+      
+      const errorMessage = reservationResult?.error || reservationError?.message || "Failed to reserve tickets";
+      
+      // Check if tickets are sold out
+      if (errorMessage.includes("Only 0 tickets available") || 
+          errorMessage.includes("not enough tickets") ||
+          errorMessage.toLowerCase().includes("sold out")) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "These tickets are currently sold out. Please check back later or select different tickets.",
+          error_code: "SOLD_OUT",
+          error_details: errorMessage
+        }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      
+      throw new Error(errorMessage);
     }
+    console.log("[enhanced-checkout] Tickets reserved successfully");
 
     const expiresAtIso = reservationResult?.expires_at
       ? new Date(reservationResult.expires_at).toISOString()
@@ -426,11 +468,14 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("[enhanced-checkout] error", error);
+    console.error("[enhanced-checkout] error stack", (error as Error)?.stack);
+    console.error("[enhanced-checkout] error details", JSON.stringify(error, null, 2));
     return new Response(
       JSON.stringify({
         success: false,
         error: (error as Error)?.message ?? "Unknown error",
         error_code: "CHECKOUT_FAILED",
+        error_details: (error as any)?.details || (error as any)?.hint || null,
       }),
       {
         status: 500,

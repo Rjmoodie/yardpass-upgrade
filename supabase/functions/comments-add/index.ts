@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
 
     // Insert comment
     const { data: comment, error: insertErr } = await supabase
-      .from('events.event_comments')
+      .from('event_comments')
       .insert({
         post_id,
         author_user_id: user.id,

@@ -20,90 +20,16 @@ interface Message {
   read: boolean;
 }
 
-const mockConversations: Conversation[] = [
-  {
-    id: "1",
-    name: "Sarah Martinez",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200",
-    lastMessage: "See you at the festival! 🎉",
-    timestamp: "2m ago",
-    unread: 2,
-    online: true
-  },
-  {
-    id: "2",
-    name: "Mike Chen",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200",
-    lastMessage: "Thanks for the ticket info",
-    timestamp: "1h ago",
-    unread: 0,
-    online: true
-  },
-  {
-    id: "3",
-    name: "Emily Johnson",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200",
-    lastMessage: "Got my VIP pass!",
-    timestamp: "3h ago",
-    unread: 0,
-    online: false
-  },
-  {
-    id: "4",
-    name: "Tech Conference Group",
-    avatar: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200",
-    lastMessage: "Meeting at hall B at 9am",
-    timestamp: "1d ago",
-    unread: 5,
-    online: false
-  }
-];
-
-const mockMessages: Message[] = [
-  {
-    id: "1",
-    text: "Hey! Are you going to the Summer Music Festival?",
-    sender: "them",
-    timestamp: "10:30 AM",
-    read: true
-  },
-  {
-    id: "2",
-    text: "Yes! I got VIP tickets 🎉",
-    sender: "me",
-    timestamp: "10:32 AM",
-    read: true
-  },
-  {
-    id: "3",
-    text: "That's awesome! Want to meet up before the show?",
-    sender: "them",
-    timestamp: "10:35 AM",
-    read: true
-  },
-  {
-    id: "4",
-    text: "Definitely! Let's meet at the main entrance at 5:30 PM",
-    sender: "me",
-    timestamp: "10:36 AM",
-    read: true
-  },
-  {
-    id: "5",
-    text: "See you at the festival! 🎉",
-    sender: "them",
-    timestamp: "10:40 AM",
-    read: true
-  }
-];
 
 export function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const selectedConv = selectedConversation 
-    ? mockConversations.find(c => c.id === selectedConversation)
+    ? conversations.find(c => c.id === selectedConversation)
     : null;
 
   const handleSend = () => {
@@ -142,7 +68,7 @@ export function MessagesPage() {
 
         {/* Conversations */}
         <div className="flex-1 overflow-y-auto">
-          {mockConversations.map((conv) => (
+          {conversations.map((conv) => (
             <button
               key={conv.id}
               onClick={() => setSelectedConversation(conv.id)}
@@ -221,7 +147,7 @@ export function MessagesPage() {
 
           {/* Messages */}
           <div className="flex-1 space-y-4 overflow-y-auto p-4">
-            {mockMessages.map((message) => (
+            {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.sender === 'me' ? 'justify-end' : 'justify-start'}`}

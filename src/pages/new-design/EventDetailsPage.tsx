@@ -121,53 +121,76 @@ export function EventDetailsPageIntegrated() {
 
         if (error) throw error;
 
-        // Get attendee count
+        // Get attendee count (count issued and transferred tickets)
         const { count: attendeeCount } = await supabase
           .from('tickets')
           .select('id', { count: 'exact', head: true })
           .eq('event_id', data.id)
-          .eq('status', 'active');
+          .in('status', ['issued', 'transferred', 'redeemed']);
 
-        // Get posts count
-        const { count: eventPostsCount } = await supabase
-          .from('event_posts')
-          .select('id', { count: 'exact', head: true })
-          .eq('event_id', data.id)
-          .is('deleted_at', null);
-        
-        setPostsCount(eventPostsCount || 0);
-
-        // Get tagged posts count (where current user is mentioned)
-        if (user) {
-          const { data: taggedMentions } = await supabase
-            .from('post_mentions')
-            .select('post_id')
-            .eq('mentioned_user_id', user.id);
+        // Get posts count - Fetch counts by calling edge function with filters
+        try {
+          const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+          const { data: { session } } = await supabase.auth.getSession();
           
-          if (taggedMentions && taggedMentions.length > 0) {
-            const taggedPostIds = taggedMentions.map(m => m.post_id);
-            const { count: eventTaggedCount } = await supabase
-              .from('event_posts')
-              .select('id', { count: 'exact', head: true })
-              .in('id', taggedPostIds)
-              .eq('event_id', data.id)
-              .is('deleted_at', null);
-            
-            setTaggedCount(eventTaggedCount || 0);
+          // Build headers - include auth if available, but allow guest access
+          const headers: Record<string, string> = {};
+          if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
           }
+          
+          // Fetch organizer posts count
+          const organizerUrl = new URL(`${baseUrl}/functions/v1/posts-list`);
+          organizerUrl.searchParams.append('event_id', data.id);
+          organizerUrl.searchParams.append('filter_type', 'organizer_only');
+          organizerUrl.searchParams.append('limit', '1000'); // Get all to count
+          
+          const organizerRes = await fetch(organizerUrl.toString(), {
+            method: 'GET',
+            headers,
+            cache: 'no-store'
+          });
+          
+          if (organizerRes.ok) {
+            const organizerData = await organizerRes.json();
+            setPostsCount(organizerData.data?.length || 0);
+          }
+          
+          // Fetch attendee posts count
+          const attendeeUrl = new URL(`${baseUrl}/functions/v1/posts-list`);
+          attendeeUrl.searchParams.append('event_id', data.id);
+          attendeeUrl.searchParams.append('filter_type', 'attendee_only');
+          attendeeUrl.searchParams.append('limit', '1000'); // Get all to count
+          
+          const attendeeRes = await fetch(attendeeUrl.toString(), {
+            method: 'GET',
+            headers,
+            cache: 'no-store'
+          });
+          
+          if (attendeeRes.ok) {
+            const attendeeData = await attendeeRes.json();
+            setTaggedCount(attendeeData.data?.length || 0);
+          }
+        } catch (error) {
+          console.error('[EventDetailsPage] Error fetching post counts:', error);
+          setPostsCount(0);
+          setTaggedCount(0);
         }
 
         // Check if user has saved this event
-        if (user) {
-          const { data: savedData } = await supabase
-            .from('saved_events')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('event_id', data.id)
-            .maybeSingle();
+        // TODO: Implement saved_events table
+        // if (user) {
+        //   const { data: savedData } = await supabase
+        //     .from('saved_events')
+        //     .select('id')
+        //     .eq('user_id', user.id)
+        //     .eq('event_id', data.id)
+        //     .maybeSingle();
           
-          setIsSaved(!!savedData);
-        }
+        //   setIsSaved(!!savedData);
+        // }
+        setIsSaved(false);
 
         // Determine organizer info based on owner_context_type
         const isOrganization = data.owner_context_type === 'organization';
@@ -248,42 +271,40 @@ export function EventDetailsPageIntegrated() {
     }
 
     try {
-      if (isSaved) {
-        // Remove from saved
-        await supabase
-          .from('saved_events')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('event_id', event.id);
+      // TODO: Implement saved_events table
+      toast({ title: 'Save feature coming soon!', variant: 'default' });
+      return;
+      
+      // if (isSaved) {
+      //   // Remove from saved
+      //   await supabase
+      //     .from('saved_events')
+      //     .delete()
+      //     .eq('user_id', user.id)
+      //     .eq('event_id', event.id);
         
-        setIsSaved(false);
-        toast({ title: 'Removed from saved events' });
-      } else {
-        // Add to saved
-        await supabase
-          .from('saved_events')
-          .insert({
-            user_id: user.id,
-            event_id: event.id
-          });
+      //   setIsSaved(false);
+      //   toast({ title: 'Removed from saved events' });
+      // } else {
+      //   // Add to saved
+      //   await supabase
+      //     .from('saved_events')
+      //     .insert({
+      //       user_id: user.id,
+      //       event_id: event.id
+      //     });
         
-        setIsSaved(true);
-        toast({ title: 'Event saved!' });
-      }
+      //   setIsSaved(true);
+      //   toast({ title: 'Event saved!' });
+      // }
     } catch (error) {
       console.error('Error toggling save:', error);
     }
   };
 
   const handleGetTickets = () => {
-    if (!user) {
-      toast({
-        title: 'Sign in required',
-        description: 'Please sign in to purchase tickets',
-      });
-      navigate('/auth');
-      return;
-    }
+    // Allow both guests and signed-in users to purchase tickets
+    // Guest checkout is handled in the TicketPurchaseModal
     setTicketModalOpen(true);
   };
 
@@ -340,7 +361,7 @@ export function EventDetailsPageIntegrated() {
 
         {/* Title and Organizer Overlay (Like Original) */}
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
-          {/* Category and Attendee Badges */}
+          {/* Category Badges */}
           <div className="mb-2 flex flex-wrap items-center gap-2">
             {event.categories.map((category) => (
               <span
@@ -350,9 +371,6 @@ export function EventDetailsPageIntegrated() {
                 {category}
               </span>
             ))}
-            <span className="rounded-full border border-white/30 bg-black/40 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm sm:text-sm">
-              {event.attendees}
-            </span>
           </div>
 
           {/* Event Title */}
@@ -470,47 +488,16 @@ export function EventDetailsPageIntegrated() {
           </div>
         )}
 
-        {activeTab === 'tagged' && (
-          <div className="space-y-4">
-            {/* Tagged Posts Grid */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="h-5 w-5 text-[#FF8C00]" />
-                <h3 className="text-lg font-semibold text-white">Tagged Moments</h3>
-              </div>
-              <p className="text-sm text-white/60 mb-4">
-                Posts where you've been tagged at this event
-              </p>
-            </div>
-            
-            {event?.id && user?.id ? (
-              <EventPostsGrid 
-                eventId={event.id}
-                userId={user.id}
-                showTaggedOnly={true}
-                onPostClick={(post) => {
-                  setSelectedPostId(post.id);
-                  setShowCommentModal(true);
-                }}
-              />
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-sm text-white/60">Sign in to see posts where you're tagged</p>
-              </div>
-            )}
-          </div>
-        )}
-
         {activeTab === 'posts' && (
           <div className="space-y-4">
-            {/* Posts/Moments Grid */}
+            {/* Posts/Moments Grid - Organizer Posts */}
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-3">
                 <MessageCircle className="h-5 w-5 text-[#FF8C00]" />
-                <h3 className="text-lg font-semibold text-white">Event Moments</h3>
+                <h3 className="text-lg font-semibold text-white">Official Posts</h3>
               </div>
               <p className="text-sm text-white/60 mb-4">
-                See what attendees are sharing about this event
+                Updates and content from the event organizers
               </p>
             </div>
             
@@ -518,12 +505,40 @@ export function EventDetailsPageIntegrated() {
               <EventPostsGrid 
                 eventId={event.id}
                 userId={user?.id}
+                filterType="organizer_only"
                 onPostClick={(post) => {
                   setSelectedPostId(post.id);
                   setShowCommentModal(true);
                 }}
               />
             )}
+          </div>
+        )}
+
+        {activeTab === 'tagged' && (
+          <div className="space-y-4">
+            {/* Tagged Posts Grid - Attendee Posts */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="h-5 w-5 text-[#FF8C00]" />
+                <h3 className="text-lg font-semibold text-white">Attendee Moments</h3>
+              </div>
+              <p className="text-sm text-white/60 mb-4">
+                See what attendees are sharing about this event
+              </p>
+            </div>
+            
+            {event?.id ? (
+              <EventPostsGrid 
+                eventId={event.id}
+                userId={user?.id}
+                filterType="attendee_only"
+                onPostClick={(post) => {
+                  setSelectedPostId(post.id);
+                  setShowCommentModal(true);
+                }}
+              />
+            ) : null}
           </div>
         )}
       </div>

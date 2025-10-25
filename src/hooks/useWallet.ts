@@ -64,7 +64,12 @@ export const useWallet = () => {
         .select("*")
         .eq("is_active", true)
         .order("sort_order");
-      if (error) throw error;
+      
+      // Gracefully handle errors
+      if (error) {
+        console.log('[useWallet] Credit packages error:', error.message);
+        return [];
+      }
       return data || [];
     },
   });

@@ -22,43 +22,13 @@ interface EventDetailProps {
   onBack: () => void;
 }
 
-// Mock posts data
-const mockPosts = [
-  {
-    id: '1',
-    author: 'Sarah Chen',
-    badge: 'VIP',
-    content: "Can't wait for this! The lineup is absolutely incredible 🎵",
-    timestamp: '2h ago',
-    likes: 12,
-    avatar: 'SC',
-  },
-  {
-    id: '2',
-    author: 'Mike Johnson',
-    badge: 'GA',
-    content: 'First time at this venue - any tips for parking?',
-    timestamp: '4h ago',
-    likes: 8,
-    avatar: 'MJ',
-  },
-  {
-    id: '3',
-    author: 'LiveNation Events',
-    badge: 'ORG',
-    content: "Weather forecast looking great! Don't forget to bring sunscreen ☀️",
-    timestamp: '6h ago',
-    likes: 24,
-    isOrganizer: true,
-    avatar: 'LN',
-  },
-];
 
 export function EventDetail({ event, user, onBack }: EventDetailProps) {
   const [selectedTier, setSelectedTier] = useState<TicketTier | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isLiked, setIsLiked] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [posts, setPosts] = useState<any[]>([]);
 
   const isPast = (() => {
     const iso = event.startAtISO;
@@ -171,7 +141,7 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
           <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10 bg-background border-b">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="tickets">Tickets</TabsTrigger>
-            <TabsTrigger value="posts">Posts ({mockPosts.length})</TabsTrigger>
+            <TabsTrigger value="posts">Posts ({posts.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="p-4 space-y-4">
@@ -375,7 +345,7 @@ export function EventDetail({ event, user, onBack }: EventDetailProps) {
           </TabsContent>
 
           <TabsContent value="posts" className="p-4 space-y-4">
-            {mockPosts.map((post) => (
+            {posts.map((post) => (
               <Card key={post.id}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">

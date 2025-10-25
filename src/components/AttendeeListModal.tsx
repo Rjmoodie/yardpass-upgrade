@@ -19,24 +19,13 @@ interface AttendeeListModalProps {
   attendees: Attendee[];
 }
 
-// Mock attendee data
-const mockAttendees: Attendee[] = [
-  { id: '1', name: 'Sarah Chen', badge: 'VIP' },
-  { id: '2', name: 'LiveNation Events', badge: 'ORGANIZER', isOrganizer: true },
-  { id: '3', name: 'Mike Rodriguez', badge: 'GA' },
-  { id: '4', name: 'Emma Wilson', badge: 'VIP' },
-  { id: '5', name: 'James Park', badge: 'GA' },
-  { id: '6', name: 'Lisa Zhang', badge: 'VIP' },
-  { id: '7', name: 'David Kim', badge: 'GA' },
-  { id: '8', name: 'Anna Johnson', badge: 'VIP' },
-];
 
 export const AttendeeListModal = ({ 
   isOpen, 
   onClose, 
   eventTitle, 
   attendeeCount,
-  attendees = mockAttendees 
+  attendees = [] 
 }: AttendeeListModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

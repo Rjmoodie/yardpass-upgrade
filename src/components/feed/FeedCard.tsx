@@ -1,6 +1,7 @@
 import { Calendar, MapPin, Ticket, ChevronUp, ChevronDown } from "lucide-react";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface FeedCardProps {
   event: {
@@ -14,6 +15,7 @@ interface FeedCardProps {
 }
 
 export function FeedCard({ event }: FeedCardProps) {
+  const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -46,7 +48,15 @@ export function FeedCard({ event }: FeedCardProps) {
             {/* Event title and Get Tickets button */}
             <div className="mb-3 flex items-start justify-between gap-3 sm:gap-4">
               <div className="flex-1">
-                <h3 className="mb-1 text-white">{event.title}</h3>
+                <h3 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/e/${event.id}`);
+                  }}
+                  className="mb-1 text-white cursor-pointer hover:text-orange-500 transition-colors"
+                >
+                  {event.title}
+                </h3>
                 <p className={`text-xs text-white/70 transition-all duration-300 sm:text-sm ${
                   isExpanded ? 'line-clamp-none' : 'line-clamp-2'
                 }`}>

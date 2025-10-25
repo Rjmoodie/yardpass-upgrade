@@ -34,54 +34,17 @@ interface TicketsPageProps {
   onBack?: () => void;
 }
 
-const MOCK_TICKETS: TicketItem[] = [
-  {
-    id: '1',
-    status: 'active',
-    title: 'Summer Music Festival 2025',
-    date: 'Sat, Aug 15 • 6:00 PM',
-    location: 'Central Park, NYC',
-    ticketType: 'VIP Pass',
-    price: '$150.00',
-    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=YardPass-1',
-    image: 'https://images.unsplash.com/photo-1656283384093-1e227e621fad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
-    organizer: 'Live Nation Events',
-  },
-  {
-    id: '2',
-    status: 'active',
-    title: 'Tech Innovation Summit',
-    date: 'Tue, Sep 20 • 9:00 AM',
-    location: 'SF Convention Center',
-    ticketType: 'General Admission',
-    price: '$120.00',
-    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=YardPass-2',
-    image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
-    organizer: 'Future Labs',
-  },
-  {
-    id: '3',
-    status: 'used',
-    title: 'Rooftop Comedy Night',
-    date: 'Fri, Jul 28 • 8:00 PM',
-    location: 'Brooklyn Rooftop',
-    ticketType: 'General Admission',
-    price: '$25.00',
-    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=YardPass-3',
-    image: 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600',
-    organizer: 'Comedy Collective',
-  },
-];
 
 export default function TicketsPage({ onBack }: TicketsPageProps) {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
+  const [allTickets, setAllTickets] = useState<TicketItem[]>([]);
 
   const tickets = useMemo(() => {
-    return MOCK_TICKETS.filter((ticket) =>
+    return allTickets.filter((ticket) =>
       activeTab === 'upcoming' ? ticket.status === 'active' : ticket.status === 'used',
     );
-  }, [activeTab]);
+  }, [activeTab, allTickets]);
 
   const toggleExpand = (ticketId: string) => {
     setExpandedTicket((current) => (current === ticketId ? null : ticketId));

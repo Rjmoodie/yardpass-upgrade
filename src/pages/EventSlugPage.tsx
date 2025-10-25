@@ -43,65 +43,37 @@ interface EventDetails {
   isSaved: boolean;
 }
 
-const MOCK_EVENT: EventDetails = {
-  id: 'demo',
-  title: 'Summer Music Festival 2025',
-  coverImage: 'https://images.unsplash.com/photo-1656283384093-1e227e621fad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1200',
-  organizer: {
-    name: 'Live Nation Events',
-    avatar: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    verified: true,
-  },
-  date: 'August 15, 2025',
-  time: '6:00 PM - 11:00 PM',
-  location: 'Central Park, New York, NY',
-  venue: 'Great Lawn',
-  description:
-    "Join us for the ultimate summer music experience featuring top artists from around the world. This year's lineup includes immersive art installations, curated food vendors, and exclusive VIP activations.",
-  categories: ['Music', 'Festival', 'Outdoor'],
-  attendees: 2847,
-  ticketTiers: [
-    {
-      id: 'ga',
-      name: 'General Admission',
-      price: 45,
-      available: 234,
-      total: 1000,
-      benefits: ['Entry to event', 'Access to main stage', 'Food & beverage available'],
-    },
-    {
-      id: 'vip',
-      name: 'VIP Pass',
-      price: 150,
-      available: 12,
-      total: 100,
-      benefits: ['All GA benefits', 'VIP viewing area', 'Complimentary drinks', 'Exclusive merch'],
-    },
-    {
-      id: 'premium',
-      name: 'Premium Package',
-      price: 300,
-      available: 3,
-      total: 50,
-      benefits: ['All VIP benefits', 'Meet & greet', 'Backstage tour', 'Premium gift bag'],
-    },
-  ],
-  isSaved: false,
-};
 
 export default function EventSlugPage() {
   const navigate = useNavigate();
   const { identifier } = useParams<{ identifier: string }>();
-  const [event, setEvent] = useState<EventDetails>(() => ({
-    ...MOCK_EVENT,
-    id: identifier ?? MOCK_EVENT.id,
-  }));
+  const [event, setEvent] = useState<EventDetails | null>(null);
   const [selectedTier, setSelectedTier] = useState<EventTicketTier['id'] | null>(null);
   const [activeTab, setActiveTab] = useState<'about' | 'tickets' | 'attendees'>('about');
+  const [loading, setLoading] = useState(true);
 
   const attendeesLabel = useMemo(() => {
-    return new Intl.NumberFormat().format(event.attendees);
-  }, [event.attendees]);
+    return event ? new Intl.NumberFormat().format(event.attendees) : '0';
+  }, [event]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        <p>Loading event...</p>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        <div className="text-center">
+          <p className="mb-4">Event not found</p>
+          <button onClick={() => navigate(-1)} className="text-[#FF8C00] hover:underline">Go back</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black pb-24 text-white">

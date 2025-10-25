@@ -24,48 +24,6 @@ interface IndexProps {
   onCreatePost: () => void;
 }
 
-// Mock fallback
-const mockEvents: Event[] = [
-  {
-    id: '1',
-    title: 'Summer Music Festival 2025',
-    description: 'Three days of incredible music with top artists. Food, art, and unforgettable experiences!',
-    organizer: 'LiveNation Events',
-    organizerId: '101',
-    category: 'Music',
-    startAtISO: '2025-07-15T18:00:00Z',
-    dateLabel: 'July 15-17, 2025',
-    location: 'Central Park, NYC',
-    coverImage: DEFAULT_EVENT_COVER,
-    ticketTiers: [
-      { id: '1', name: 'GA', price: 89, badge: 'GA', available: 45, total: 1000 },
-      { id: '2', name: 'VIP', price: 199, badge: 'VIP', available: 12, total: 100 }
-    ],
-    attendeeCount: 1243,
-    likes: 892,
-    shares: 156,
-    isLiked: false,
-    posts: []
-  },
-  {
-    id: '2',
-    title: 'Street Food Fiesta',
-    description: 'Taste authentic flavors from around the world. Over 50 vendors, live demos, and family fun.',
-    organizer: 'Foodie Adventures',
-    organizerId: '102',
-    category: 'Food & Drink',
-    startAtISO: '2025-08-08T18:00:00Z',
-    dateLabel: 'August 8, 2025',
-    location: 'Brooklyn Bridge Park',
-    coverImage: DEFAULT_EVENT_COVER,
-    ticketTiers: [],
-    attendeeCount: 567,
-    likes: 445,
-    shares: 89,
-    isLiked: true,
-    posts: []
-  }
-];
 
 const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -113,11 +71,11 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
             }))
           );
         } else {
-          setEvents(mockEvents);
+          setEvents([]);
         }
       } catch (e) {
         console.error('load error', e);
-        setEvents(mockEvents);
+        setEvents([]);
       } finally {
         setLoading(false);
       }

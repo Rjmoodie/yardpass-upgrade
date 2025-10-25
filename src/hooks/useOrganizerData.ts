@@ -28,32 +28,6 @@ interface Event {
   visibility?: string;
 }
 
-const mockEvents: Event[] = [
-  {
-    id: '1',
-    title: 'Summer Music Festival',
-    status: 'published',
-    date: '2024-07-15',
-    attendees: 1250,
-    revenue: 125000,
-    views: 45000,
-    likes: 2300,
-    shares: 450,
-    tickets_sold: 1250,
-    capacity: 1500,
-    conversion_rate: 83.3,
-    engagement_rate: 5.1,
-    created_at: '2024-01-15T10:00:00Z',
-    start_at: '2024-07-15T18:00:00Z',
-    end_at: '2024-07-15T23:00:00Z',
-    venue: 'Central Park',
-    category: 'Music',
-    cover_image_url: '',
-    description: 'Annual summer music festival',
-    city: 'New York',
-    visibility: 'public'
-  }
-];
 
 export function useOrganizerData(user: any) {
   const [userEvents, setUserEvents] = useState<Event[]>([]);
@@ -98,7 +72,7 @@ export function useOrganizerData(user: any) {
 
       if (eventsError) {
         console.error('Error loading user events:', eventsError);
-        setUserEvents(mockEvents);
+        setUserEvents([]);
         return;
       }
 
@@ -171,11 +145,11 @@ export function useOrganizerData(user: any) {
         };
       }));
       
-      setUserEvents(transformedEvents.length ? transformedEvents : mockEvents);
+      setUserEvents(transformedEvents);
       
     } catch (error) {
       console.error('Error in fetchUserEvents:', error);
-      setUserEvents(mockEvents);
+      setUserEvents([]);
     } finally {
       setLoading(false);
     }

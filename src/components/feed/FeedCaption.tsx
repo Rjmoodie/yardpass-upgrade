@@ -81,9 +81,7 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
           <div className="flex items-center gap-2 shrink-0">
             {hasTickets && (
               <button
-                onClick={() =>
-                  requireAuth(onOpenTickets, "Sign in to buy tickets")
-                }
+                onClick={onOpenTickets}
                 className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 text-black text-xs font-bold px-3 py-1.5 shadow"
               >
                 🎟️ {topTier?.badge ? `${topTier.badge} • ` : ""}{topTier?.name ?? "Tickets"}
@@ -140,7 +138,7 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
               <Button
                 size="lg"
                 className="flex-1 min-h-[44px] rounded-full bg-amber-500 text-black hover:bg-amber-600 font-bold shadow-lg"
-                onClick={() => requireAuth(onOpenTickets, "Sign in to buy tickets")}
+                onClick={onOpenTickets}
               >
                 Get Tickets
               </Button>
