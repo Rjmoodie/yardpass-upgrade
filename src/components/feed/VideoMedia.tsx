@@ -22,7 +22,8 @@ interface VideoMediaProps {
 }
 
 export function VideoMedia({ url, post, visible, trackVideoProgress, globalSoundEnabled }: VideoMediaProps) {
-  const [muted, setMuted] = useState(() => !(globalSoundEnabled ?? false));
+  // ALWAYS start muted for reliable autoplay on iOS/mobile
+  const [muted, setMuted] = useState(true);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -208,12 +209,12 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
         ref={playerRef}
         playbackId={playbackId}
         streamType="on-demand"
-        autoPlay={visible ? "muted" : false}
+        autoPlay="muted"
         muted={muted}
         loop
         playsInline
         nocast
-        preload="metadata"
+        preload="auto"
         crossOrigin="anonymous"
         poster={poster}
         preferCmcd

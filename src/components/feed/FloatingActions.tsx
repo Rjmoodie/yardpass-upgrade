@@ -1,59 +1,35 @@
 import { Plus, Volume2, VolumeX, Heart, MessageCircle, Share2, Bookmark } from "lucide-react";
 import { useState } from "react";
-import { useEngagementActions } from "@/hooks/useEngagementActions";
 
 interface FloatingActionsProps {
-  postId?: string;
-  eventId?: string;
   isMuted?: boolean;
   onMuteToggle?: () => void;
   onCreatePost?: () => void;
-  onCommentModalOpen?: () => void;
+  onLike?: () => void;
+  onComment?: () => void;
+  onShare?: () => void;
   onSave?: () => void;
-  initialLiked?: boolean;
-  initialLikeCount?: number;
-  initialCommentCount?: number;
+  likeCount?: number;
+  commentCount?: number;
+  isLiked?: boolean;
   isSaved?: boolean;
 }
 
 export function FloatingActions({ 
-  postId,
-  eventId,
   isMuted: controlledMuted, 
   onMuteToggle,
   onCreatePost,
-  onCommentModalOpen,
+  onLike,
+  onComment,
+  onShare,
   onSave,
-  initialLiked = false,
-  initialLikeCount = 0,
-  initialCommentCount = 0,
+  likeCount = 0,
+  commentCount = 0,
+  isLiked = false,
   isSaved = false,
 }: FloatingActionsProps) {
   const [internalMuted, setInternalMuted] = useState(true);
   const isMuted = controlledMuted !== undefined ? controlledMuted : internalMuted;
-
-  // Use engagement hook for like/comment/share - same as ActionRail
-  const engagement = postId && eventId ? useEngagementActions(postId, eventId, {
-    isLiked: initialLiked,
-    likeCount: initialLikeCount,
-    commentCount: initialCommentCount
-  }) : null;
-
-  // Get optimistic counts from engagement hook
-  const likeCount = engagement?.likeCount ?? initialLikeCount;
-  const commentCount = engagement?.commentCount ?? initialCommentCount;
-  const isLiked = engagement?.isLiked ?? initialLiked;
-
-  // Debug logging
-  console.log('🎯 FloatingActions rendered:', {
-    postId,
-    eventId,
-    hasEngagement: !!engagement,
-    likeCount,
-    commentCount,
-    isLiked,
-    isSaved
-  });
 
   const handleMuteToggle = () => {
     if (onMuteToggle) {
@@ -66,28 +42,22 @@ export function FloatingActions({
   const handleLikeClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    console.log('❤️ Like button clicked!', { postId, eventId, hasEngagement: !!engagement });
-    if (engagement) {
-      engagement.handleLike();
-    }
+    console.log('❤️ Like button clicked!', { hasHandler: !!onLike, likeCount });
+    if (onLike) onLike();
   };
 
   const handleCommentClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    console.log('💬 Comment button clicked!', { postId, eventId });
-    if (engagement) {
-      engagement.handleComment({ openCommentModal: onCommentModalOpen });
-    }
+    console.log('💬 Comment button clicked!', { hasHandler: !!onComment, commentCount });
+    if (onComment) onComment();
   };
 
   const handleShareClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    console.log('🔗 Share button clicked!', { postId, eventId });
-    if (engagement) {
-      engagement.handleShare();
-    }
+    console.log('🔗 Share button clicked!', { hasHandler: !!onShare });
+    if (onShare) onShare();
   };
 
   const handleSaveClick = (e: React.MouseEvent) => {
@@ -96,8 +66,6 @@ export function FloatingActions({
     console.log('🔖 Save button clicked!', { hasHandler: !!onSave });
     if (onSave) onSave();
   };
-
-  const hasEngagement = !!postId && !!eventId;
 
   return (
     <div 
@@ -128,9 +96,9 @@ export function FloatingActions({
       {/* Like Button */}
       <button 
         onClick={handleLikeClick}
-        disabled={!hasEngagement}
+        disabled={!onLike}
         style={{ pointerEvents: 'auto' }}
-        className={`flex flex-col items-center gap-0.5 transition-all ${hasEngagement ? 'hover:scale-110 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
+        className={`flex flex-col items-center gap-0.5 transition-all ${onLike ? 'hover:scale-110 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
         aria-label="Like"
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-xl backdrop-blur-xl transition-all hover:border-red-500/60 hover:bg-red-500/20">
@@ -144,13 +112,13 @@ export function FloatingActions({
       {/* Comment Button */}
       <button 
         onClick={handleCommentClick}
-        disabled={!hasEngagement}
+        disabled={!onComment}
         style={{ 
           pointerEvents: 'auto',
           position: 'relative',
           zIndex: 1
         }}
-        className={`flex flex-col items-center gap-0.5 transition-all ${hasEngagement ? 'hover:scale-110 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
+        className={`flex flex-col items-center gap-0.5 transition-all ${onComment ? 'hover:scale-110 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
         aria-label="Comment"
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-xl backdrop-blur-xl transition-all hover:border-blue-500/60 hover:bg-blue-500/20">
@@ -164,9 +132,9 @@ export function FloatingActions({
       {/* Share Button */}
       <button 
         onClick={handleShareClick}
-        disabled={!hasEngagement}
+        disabled={!onShare}
         style={{ pointerEvents: 'auto' }}
-        className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all ${hasEngagement ? 'hover:scale-110 hover:border-green-500/60 hover:bg-green-500/20 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
+        className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all ${onShare ? 'hover:scale-110 hover:border-green-500/60 hover:bg-green-500/20 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
         aria-label="Share"
       >
         <Share2 className="h-5 w-5" />

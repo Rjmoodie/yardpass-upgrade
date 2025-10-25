@@ -54,6 +54,7 @@ export default function FeedPageNewDesign() {
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<(HTMLElement | null)[]>([]);
 
   const [filters, setFilters] = useState<FeedFilters>(() => createDefaultFilters());
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -170,6 +171,35 @@ export default function FeedPageNewDesign() {
       if (sentinel) observer.disconnect();
     };
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Track which item is currently in view to control video playback
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = Number(entry.target.getAttribute('data-index'));
+            if (!isNaN(index)) {
+              setActiveIndex(index);
+            }
+          }
+        });
+      },
+      { 
+        root: scrollRef.current,
+        threshold: 0.5, // Item is considered "active" when 50% visible
+      }
+    );
+
+    const items = itemRefs.current;
+    items.forEach((item) => {
+      if (item) observer.observe(item);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [allFeedItems.length]); // Re-run when feed items change
 
   const handleLike = useCallback(async (item: FeedItem) => {
     if (item.item_type !== 'post') return;
@@ -368,23 +398,78 @@ export default function FeedPageNewDesign() {
       />
 
       {/* Floating Actions */}
+      {(() => {
+        const currentItem = allFeedItems[activeIndex];
+        const isPost = currentItem?.item_type === 'post';
+        const rawLikes = currentItem?.metrics?.likes;
+        const rawComments = currentItem?.metrics?.comments;
+        
+        const optimisticLikes = isPost ? getOptimisticData(
+          currentItem.item_id, 
+          { isLiked: currentItem.metrics?.viewer_has_liked || false, likeCount: rawLikes || 0 }
+        ).likeCount : 0;
+        
+        const optimisticComments = isPost ? getOptimisticCommentData(
+          currentItem.item_id,
+          { commentCount: rawComments || 0 }
+        ).commentCount : 0;
+        
+        console.log('🔍 FloatingActions DETAILED Debug:', {
+          activeIndex,
+          itemType: currentItem?.item_type,
+          isPost,
+          rawMetrics: currentItem?.metrics,
+          rawLikes,
+          rawComments,
+          optimisticLikes,
+          optimisticComments,
+          fullItem: currentItem
+        });
+        
+        return null;
+      })()}
       <FloatingActions
-        postId={allFeedItems[activeIndex]?.item_type === 'post' ? allFeedItems[activeIndex].item_id : undefined}
-        eventId={allFeedItems[activeIndex]?.item_type === 'post' ? allFeedItems[activeIndex].event_id : undefined}
         isMuted={!globalSoundEnabled}
         onMuteToggle={handleToggleGlobalSound}
         onCreatePost={handleCreatePost}
-        onCommentModalOpen={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
+        onLike={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
           const item = allFeedItems[activeIndex];
+          console.log('🎯 FloatingActions Like clicked for post:', item.item_id, 'Current likes:', item.metrics?.likes);
+          handleLike(item);
+        } : undefined}
+        onComment={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
+          const item = allFeedItems[activeIndex];
+          console.log('💬 FloatingActions Comment clicked for post:', item.item_id, 'Current comments:', item.metrics?.comments);
           handleComment(item);
+        } : undefined}
+        onShare={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
+          const item = allFeedItems[activeIndex];
+          console.log('🔗 FloatingActions Share clicked for post:', item.item_id);
+          handleSharePost(item);
         } : undefined}
         onSave={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
           const item = allFeedItems[activeIndex];
+          console.log('🔖 FloatingActions Save clicked for post:', item.item_id);
           handleSave(item);
         } : undefined}
-        initialLiked={allFeedItems[activeIndex]?.item_type === 'post' ? allFeedItems[activeIndex].metrics?.viewer_has_liked || false : false}
-        initialLikeCount={allFeedItems[activeIndex]?.item_type === 'post' ? allFeedItems[activeIndex].metrics?.likes || 0 : 0}
-        initialCommentCount={allFeedItems[activeIndex]?.item_type === 'post' ? allFeedItems[activeIndex].metrics?.comments || 0 : 0}
+        likeCount={allFeedItems[activeIndex]?.item_type === 'post' ? 
+          getOptimisticData(
+            allFeedItems[activeIndex].item_id, 
+            { isLiked: allFeedItems[activeIndex].metrics?.viewer_has_liked || false, likeCount: allFeedItems[activeIndex].metrics?.likes || 0 }
+          ).likeCount : 0
+        }
+        commentCount={allFeedItems[activeIndex]?.item_type === 'post' ? 
+          getOptimisticCommentData(
+            allFeedItems[activeIndex].item_id,
+            { commentCount: allFeedItems[activeIndex].metrics?.comments || 0 }
+          ).commentCount : 0
+        }
+        isLiked={allFeedItems[activeIndex]?.item_type === 'post' ? 
+          getOptimisticData(
+            allFeedItems[activeIndex].item_id,
+            { isLiked: allFeedItems[activeIndex].metrics?.viewer_has_liked || false, likeCount: allFeedItems[activeIndex].metrics?.likes || 0 }
+          ).isLiked : false
+        }
         isSaved={allFeedItems[activeIndex]?.item_type === 'post' ? savedPostIds.has(allFeedItems[activeIndex].item_id) : false}
       />
 
@@ -416,6 +501,10 @@ export default function FeedPageNewDesign() {
           return (
             <section
               key={item.item_id}
+              ref={(el) => {
+                itemRefs.current[idx] = el;
+              }}
+              data-index={idx}
               className="snap-start snap-always relative h-screen w-full"
             >
               {item.item_type === 'event' ? (

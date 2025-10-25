@@ -432,19 +432,17 @@ async function expandRows({
 
   // Phase 1: kick off everything that only depends on IDs
   const eventsQ = supabase
-    .from("events.events")
+    .from("events")
     .select(`
       id, title, description, cover_image_url, start_at, end_at, venue, city, created_at,
-      created_by, owner_context_type, owner_context_id,
-      user_profiles!events_created_by_fkey(display_name, social_links),
-      organizations!events_owner_context_id_fkey(name)
+      created_by, owner_context_type, owner_context_id
     `)
     .in("id", eventIds.length ? eventIds : ["00000000-0000-0000-0000-000000000000"]);
 
   // Query event_posts with ticket_tier badge info
   const postsQ = postIds.length
     ? supabase
-        .from("events.event_posts")
+        .from("event_posts")
         .select(`
           id, event_id, text, media_urls, like_count, comment_count, author_user_id, created_at,
           ticket_tier_id,
@@ -460,7 +458,7 @@ async function expandRows({
 
   const likesQ = viewerId && postIds.length
     ? supabase
-        .from("events.event_reactions")
+        .from("event_reactions")
         .select("post_id")
         .eq("user_id", viewerId)
         .eq("kind", "like")
@@ -484,14 +482,26 @@ async function expandRows({
     postsFetched: posts.length,
     postsError: postsRes?.error?.message,
     samplePostIds: postIds.slice(0, 3),
-    samplePosts: posts.slice(0, 2).map((p: any) => ({ id: p.id, has_media: !!p.media_urls }))
+    samplePosts: posts.slice(0, 2).map((p: any) => ({ 
+      id: p.id, 
+      has_media: !!p.media_urls,
+      like_count: p.like_count,
+      comment_count: p.comment_count
+    }))
   });
 
   // Phase 2: author profiles (fetch display_name, username, avatar_url, and social_links)
   const authorIds = dedupe(posts.map((p: any) => p.author_user_id).filter(Boolean));
   const { data: authorProfiles } = authorIds.length
-    ? await supabase.from("users.user_profiles").select("user_id, display_name, username, photo_url, social_links").in("user_id", authorIds)
+    ? await supabase.from("user_profiles").select("user_id, display_name, username, photo_url, social_links").in("user_id", authorIds)
     : { data: [] as any[] };
+
+  // Fetch organizer names for events (created_by users)
+  const organizerUserIds = dedupe((events ?? []).filter((e: any) => e.owner_context_type === 'individual').map((e: any) => e.created_by).filter(Boolean));
+  const { data: organizerProfiles } = organizerUserIds.length
+    ? await supabase.from("user_profiles").select("user_id, display_name").in("user_id", organizerUserIds)
+    : { data: [] as any[] };
+  const organizerNamesMap = new Map((organizerProfiles ?? []).map((p: any) => [p.user_id, p.display_name]));
 
   // Performance: Phase 2 queries completed
   monitor.mark('phase2_queries_completed');
@@ -539,8 +549,8 @@ async function expandRows({
 
       const organizerName =
         ev?.owner_context_type === "organization"
-          ? ev?.organizations?.name ?? "Organizer"
-          : ev?.user_profiles?.display_name ?? "Organizer";
+          ? "Organizer" // TODO: Fetch organization names
+          : organizerNamesMap.get(ev?.created_by) ?? "Organizer";
       const organizerId =
         ev?.owner_context_type === "organization" ? ev?.owner_context_id ?? null : ev?.created_by ?? null;
 
@@ -621,6 +631,20 @@ async function expandRows({
     };
     })
     .filter(Boolean);
+
+  // 🔍 Debug: Log what metrics are being mapped
+  const postItemsDebug = expandedRows.filter(item => item && item.item_type === 'post');
+  console.log('🔍 Final post metrics being returned:', {
+    totalPosts: postItemsDebug.length,
+    sampleMetrics: postItemsDebug.slice(0, 3).map(p => ({
+      id: p.item_id,
+      likes: p.metrics?.likes,
+      comments: p.metrics?.comments,
+      hasMetrics: !!p.metrics
+    }))
+  });
+
+  return expandedRows;
 }
 
 /** ---------------------------
@@ -636,7 +660,7 @@ async function fetchFallbackRows({
   cursor: { ts?: string | undefined } | null;
 }) {
   const query = supabase
-    .from("events.events")
+    .from("events")
     .select("id, start_at")
     .eq("visibility", "public")
     .gte("start_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())

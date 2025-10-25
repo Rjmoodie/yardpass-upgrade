@@ -38,6 +38,7 @@ import { NotificationSystem } from '@/components/NotificationSystem';
 import { FollowStats } from '@/components/follow/FollowStats';
 import { FollowButton } from '@/components/follow/FollowButton';
 import { MessageButton } from '@/components/messaging/MessageButton';
+import EventPostsGrid from '@/components/EventPostsGrid';
 
 interface SocialLink {
   platform: string;
@@ -200,6 +201,7 @@ export default function UserProfilePage() {
   const [tickets, setTickets] = useState<UserTicket[]>([]);
   const [events, setEvents] = useState<UserEvent[]>([]);
   const [posts, setPosts] = useState<ProfilePostWithEvent[]>([]);
+  const [taggedPosts, setTaggedPosts] = useState<ProfilePostWithEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [initialViewSet, setInitialViewSet] = useState(false);
   const [commentContext, setCommentContext] = useState<{ postId: string; eventId: string; eventTitle: string } | null>(null);
@@ -207,6 +209,7 @@ export default function UserProfilePage() {
   const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
   const [pausedVideos, setPausedVideos] = useState<Record<string, boolean>>({});
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [showTaggedTab, setShowTaggedTab] = useState(false);
 
   const isViewingOwnProfile = useMemo(() => {
     if (!profile || !currentUser) return false;
@@ -233,7 +236,7 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     const loadUserData = async (userId: string) => {
-      const [ticketsResult, eventsResult, postsResult]: [any, any, any] = await Promise.all([
+      const [ticketsResult, eventsResult, postsResult, taggedPostsResult]: [any, any, any, any] = await Promise.all([
         supabase
           .from('tickets')
           .select(
@@ -277,6 +280,40 @@ export default function UserProfilePage() {
           )
           .eq('author_user_id', userId)
           .order('created_at', { ascending: false }),
+        // Fetch posts where user is tagged/mentioned
+        (async () => {
+          const { data: mentions } = await supabase
+            .from('post_mentions')
+            .select('post_id')
+            .eq('mentioned_user_id', userId);
+          
+          if (!mentions || mentions.length === 0) {
+            return { data: [], error: null };
+          }
+          
+          const postIds = mentions.map(m => m.post_id);
+          
+          return supabase
+            .from('event_posts')
+            .select(
+              `
+                id,
+                text,
+                media_urls,
+                created_at,
+                like_count,
+                comment_count,
+                events:events!event_posts_event_id_fkey (
+                  id,
+                  title,
+                  cover_image_url,
+                  start_at
+                )
+              `
+            )
+            .in('id', postIds)
+            .order('created_at', { ascending: false });
+        })(),
       ]);
 
       if (ticketsResult.error) {
@@ -290,10 +327,14 @@ export default function UserProfilePage() {
       if (postsResult.error) {
         console.error('Error loading posts:', postsResult.error);
       }
+      if (taggedPostsResult.error) {
+        console.error('Error loading tagged posts:', taggedPostsResult.error);
+      }
 
       setTickets((ticketsResult.data as UserTicket[] | null) ?? []);
       setEvents((eventsResult.data as any) ?? []);
       setPosts((postsResult.data as ProfilePostWithEvent[] | null) ?? []);
+      setTaggedPosts((taggedPostsResult.data as ProfilePostWithEvent[] | null) ?? []);
     };
 
     const loadProfile = async () => {
@@ -796,6 +837,91 @@ export default function UserProfilePage() {
               )}
             </div>
           </div>
+
+          {/* Tagged Posts Section */}
+          {taggedPosts.length > 0 && (
+            <div className="section-shell">
+              <div className="section-head">
+                <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                  <Users className="h-4 w-4" aria-hidden />
+                  Tagged {taggedPosts.length}
+                </div>
+                <div className="text-xs text-muted-foreground">Posts where you're mentioned</div>
+              </div>
+
+              <div className="section-body">
+                <div className={`media-grid ${density === 'compact' ? 'compact' : ''}`}>
+                  {taggedPosts.map((post) => {
+                    const mediaUrl = post.media_urls?.[0] ?? null;
+                    const isVideo = Boolean(mediaUrl && isVideoUrl(mediaUrl));
+                    const posterUrl = isVideo ? muxToPoster(mediaUrl) : null;
+                    const preview = posterUrl || mediaUrl || post.events?.cover_image_url || DEFAULT_EVENT_COVER;
+
+                    return (
+                      <button
+                        key={post.id}
+                        type="button"
+                        onClick={() => {
+                          // Convert to FeedItem format for modal
+                          const feedItem: FeedItem = {
+                            item_type: 'post',
+                            item_id: post.id,
+                            event_id: post.events?.id || '',
+                            event_title: post.events?.title || '',
+                            event_description: '',
+                            event_starts_at: post.events?.start_at || null,
+                            event_cover_image: post.events?.cover_image_url || '',
+                            event_organizer: '',
+                            event_organizer_id: null,
+                            event_owner_context_type: 'individual',
+                            event_location: '',
+                            author_id: profile?.user_id || null,
+                            author_name: profile?.display_name || null,
+                            author_badge: null,
+                            author_social_links: null,
+                            media_urls: post.media_urls || null,
+                            content: post.text || null,
+                            metrics: {
+                              likes: post.like_count || 0,
+                              comments: post.comment_count || 0,
+                              viewer_has_liked: false,
+                            },
+                            sponsor: null,
+                            sponsors: null,
+                            promotion: null,
+                            sort_ts: post.created_at || '',
+                          };
+                          handleSelectPost(feedItem);
+                        }}
+                        className="media-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                        aria-label="View tagged post"
+                      >
+                        {preview ? (
+                          <ImageWithFallback
+                            src={preview}
+                            alt="Tagged post"
+                            fallback={post.events?.cover_image_url || DEFAULT_EVENT_COVER}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                          />
+                        ) : (
+                          <div className="grid h-full w-full place-items-center px-3 text-center text-xs text-muted-foreground">
+                            {post.text ? post.text.slice(0, 90) : 'Post'}
+                          </div>
+                        )}
+                        {isVideo && (
+                          <div className="play-dot">
+                            <Play className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="relative">
             {activeView === 'attendee' ? (

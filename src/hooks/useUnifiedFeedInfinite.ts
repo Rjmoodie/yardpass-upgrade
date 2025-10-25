@@ -44,6 +44,21 @@ async function fetchPage(
     throw new Error('home-feed returned an unexpected payload');
   }
 
+  // 🔍 Debug: Log what home-feed is returning
+  const feedData = data as FeedPage;
+  const posts = feedData.items.filter(i => i.item_type === 'post');
+  console.log('🔍 home-feed Edge Function returned:', {
+    totalItems: feedData.items.length,
+    totalPosts: posts.length,
+    postSamples: posts.slice(0, 3).map(p => ({
+      id: p.item_id,
+      rawMetrics: p.metrics,
+      likes: p.metrics?.likes,
+      comments: p.metrics?.comments,
+      hasMetrics: !!p.metrics
+    }))
+  });
+
   return data as FeedPage;
 }
 

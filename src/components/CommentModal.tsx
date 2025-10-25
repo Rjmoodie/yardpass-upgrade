@@ -568,6 +568,72 @@ export default function CommentModal({
     );
   };
 
+  const renderFullMedia = (urls: string[]) => {
+    if (!urls?.length) return null;
+    
+    return (
+      <div className="mt-3 -mx-1 rounded-xl overflow-hidden bg-black">
+        {urls.map((raw, idx) => {
+          // Check if it's a Mux HLS URL (already converted from mux:playbackId)
+          const isMuxHls = raw.includes('stream.mux.com') && raw.includes('.m3u8');
+          const isVideoFile = /\.(mp4|mov|webm)$/i.test(raw);
+          const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(raw);
+          
+          if (isMuxHls) {
+            // Extract playback ID from URL like https://stream.mux.com/ABC123.m3u8
+            const playbackId = raw.split('/').pop()?.replace('.m3u8', '') || '';
+            const posterUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?time=1&width=800&fit_mode=smartcrop`;
+            
+            return (
+              <div key={idx} className="relative w-full aspect-[9/16] max-h-[60vh]">
+                <video
+                  className="w-full h-full object-contain"
+                  controls
+                  playsInline
+                  preload="metadata"
+                  poster={posterUrl}
+                >
+                  <source src={raw} type="application/x-mpegURL" />
+                  <source src={`https://stream.mux.com/${playbackId}/medium.mp4`} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            );
+          }
+          
+          if (isVideoFile) {
+            return (
+              <div key={idx} className="relative w-full aspect-[9/16] max-h-[60vh]">
+                <video
+                  className="w-full h-full object-contain"
+                  controls
+                  playsInline
+                  preload="metadata"
+                  src={raw}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            );
+          }
+          
+          if (isImage) {
+            return (
+              <img 
+                key={idx} 
+                src={raw} 
+                alt="Post media" 
+                className="w-full max-h-[60vh] object-contain"
+              />
+            );
+          }
+          
+          return null;
+        })}
+      </div>
+    );
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       {/* NOTE: parent container uses flex/column with min-h-0; body gets the scroll */}
@@ -689,9 +755,10 @@ export default function CommentModal({
                       </p>
                     )}
                   </div>
-
-                  {mediaThumb(activePost.media_urls)}
                 </div>
+
+                {/* Full media display (video player or images) */}
+                {renderFullMedia(activePost.media_urls)}
               </div>
 
               {/* Comments list */}

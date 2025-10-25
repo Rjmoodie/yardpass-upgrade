@@ -6,8 +6,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { EventFeed } from "@/components/EventFeed";
+import { EventPostsGrid } from "@/components/EventPostsGrid";
 import MapboxEventMap from "@/components/MapboxEventMap";
 import { EventTicketModal } from "@/components/EventTicketModal";
+import CommentModal from "@/components/CommentModal";
 
 interface EventDetails {
   id: string;
@@ -53,6 +55,12 @@ export function EventDetailsPageIntegrated() {
   const [loading, setLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [postsCount, setPostsCount] = useState<number>(0);
+  const [taggedCount, setTaggedCount] = useState<number>(0);
+  
+  // Comment modal state
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
   // Load event details
   useEffect(() => {
@@ -119,6 +127,35 @@ export function EventDetailsPageIntegrated() {
           .select('id', { count: 'exact', head: true })
           .eq('event_id', data.id)
           .eq('status', 'active');
+
+        // Get posts count
+        const { count: eventPostsCount } = await supabase
+          .from('event_posts')
+          .select('id', { count: 'exact', head: true })
+          .eq('event_id', data.id)
+          .is('deleted_at', null);
+        
+        setPostsCount(eventPostsCount || 0);
+
+        // Get tagged posts count (where current user is mentioned)
+        if (user) {
+          const { data: taggedMentions } = await supabase
+            .from('post_mentions')
+            .select('post_id')
+            .eq('mentioned_user_id', user.id);
+          
+          if (taggedMentions && taggedMentions.length > 0) {
+            const taggedPostIds = taggedMentions.map(m => m.post_id);
+            const { count: eventTaggedCount } = await supabase
+              .from('event_posts')
+              .select('id', { count: 'exact', head: true })
+              .in('id', taggedPostIds)
+              .eq('event_id', data.id)
+              .is('deleted_at', null);
+            
+            setTaggedCount(eventTaggedCount || 0);
+          }
+        }
 
         // Check if user has saved this event
         if (user) {
@@ -359,6 +396,12 @@ export function EventDetailsPageIntegrated() {
               }`}
             >
               {tab}
+              {tab === 'posts' && postsCount > 0 && (
+                <span className="ml-1.5 text-xs text-white/60">({postsCount})</span>
+              )}
+              {tab === 'tagged' && taggedCount > 0 && (
+                <span className="ml-1.5 text-xs text-white/60">({taggedCount})</span>
+              )}
             </button>
           ))}
         </div>
@@ -428,18 +471,39 @@ export function EventDetailsPageIntegrated() {
         )}
 
         {activeTab === 'tagged' && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-xl">
-            <Users className="mx-auto mb-4 h-16 w-16 text-white/20" />
-            <h3 className="mb-2 text-lg font-semibold text-white">Tagged Posts</h3>
-            <p className="text-sm text-white/60">
-              Posts where this event is tagged will appear here
-            </p>
+          <div className="space-y-4">
+            {/* Tagged Posts Grid */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="h-5 w-5 text-[#FF8C00]" />
+                <h3 className="text-lg font-semibold text-white">Tagged Moments</h3>
+              </div>
+              <p className="text-sm text-white/60 mb-4">
+                Posts where you've been tagged at this event
+              </p>
+            </div>
+            
+            {event?.id && user?.id ? (
+              <EventPostsGrid 
+                eventId={event.id}
+                userId={user.id}
+                showTaggedOnly={true}
+                onPostClick={(post) => {
+                  setSelectedPostId(post.id);
+                  setShowCommentModal(true);
+                }}
+              />
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-sm text-white/60">Sign in to see posts where you're tagged</p>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'posts' && (
           <div className="space-y-4">
-            {/* Posts/Moments Feed */}
+            {/* Posts/Moments Grid */}
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-3">
                 <MessageCircle className="h-5 w-5 text-[#FF8C00]" />
@@ -451,10 +515,13 @@ export function EventDetailsPageIntegrated() {
             </div>
             
             {event?.id && (
-              <EventFeed 
+              <EventPostsGrid 
                 eventId={event.id}
                 userId={user?.id}
-                onEventClick={(id) => navigate(`/e/${id}`)}
+                onPostClick={(post) => {
+                  setSelectedPostId(post.id);
+                  setShowCommentModal(true);
+                }}
               />
             )}
           </div>
@@ -500,6 +567,23 @@ export function EventDetailsPageIntegrated() {
               title: 'Success!',
               description: 'Redirecting to checkout...'
             });
+          }}
+        />
+      )}
+
+      {/* Comment Modal */}
+      {showCommentModal && selectedPostId && event && (
+        <CommentModal
+          isOpen={showCommentModal}
+          onClose={() => {
+            setShowCommentModal(false);
+            setSelectedPostId(null);
+          }}
+          eventId={event.id}
+          eventTitle={event.title}
+          postId={selectedPostId}
+          onCommentCountChange={() => {
+            // Optional: refresh counts
           }}
         />
       )}

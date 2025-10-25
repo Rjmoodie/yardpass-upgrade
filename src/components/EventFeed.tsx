@@ -203,6 +203,17 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
 
       const payload = await res.json();
       const rows: any[] = payload.data ?? [];
+      
+      console.log('🔍 EventFeed - Raw data from Edge Function:', rows.length, 'posts');
+      if (rows.length > 0) {
+        console.log('🔍 First post sample:', {
+          id: rows[0].id,
+          author_name: rows[0].author_name,
+          author_display_name: rows[0].author_display_name,
+          author_user_id: rows[0].author_user_id,
+          user_profiles: rows[0].user_profiles,
+        });
+      }
 
       // Defensive: backfill missing event titles
       const uniqueEventIds = [...new Set(rows.map((r) => r.event_id))].filter(Boolean);
@@ -247,7 +258,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
       // Comments preview (first few) — keep lightweight
       if (mapped.length) {
         const { data: commentsData } = await supabase
-          .from('events.event_comments')
+          .from('event_comments')
           .select(`
             id, text, created_at, author_user_id, post_id,
             user_profiles!event_comments_author_user_id_fkey (

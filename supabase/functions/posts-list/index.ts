@@ -17,7 +17,7 @@ async function enrichPosts(posts: any[], currentUserId: string | undefined, supa
   let likedPostIds = new Set<string>();
   if (currentUserId) {
     const { data: reactions } = await supabase
-      .from('events.event_reactions')
+      .from('event_reactions')
       .select('post_id')
       .in('post_id', postIds)
       .eq('user_id', currentUserId)
@@ -89,12 +89,13 @@ serve(async (req) => {
     const url = new URL(req.url);
     const eventId = url.searchParams.get("event_id");
     const authorId = url.searchParams.get("user_id");
+    const mentionedUserId = url.searchParams.get("mentioned_user_id");
     // 🔄 Backward-compatible pagination: support either page/limit OR cursor.
     const page = url.searchParams.get("page");
     const limit = parseInt(url.searchParams.get("limit") || "30", 10);
     const cursor = url.searchParams.get("cursor");
 
-    console.log('Query params:', { eventId, authorId, limit, cursor, page });
+    console.log('Query params:', { eventId, authorId, mentionedUserId, limit, cursor, page });
 
     // Create Supabase client
     const supabaseClient = createClient(
@@ -110,9 +111,9 @@ serve(async (req) => {
     const { data: { user } } = await supabaseClient.auth.getUser();
     const currentUserId = user?.id;
 
-    // ✅ COMPLETE FIX: Query event_posts with all required joins
-    let query = supabaseClient
-      .from('events.event_posts')
+    // ✅ Query event_posts - fetch separately and join manually to avoid schema cache issues
+    let postsQuery = supabaseClient
+      .from('event_posts')
       .select(`
         id, 
         created_at, 
@@ -122,40 +123,38 @@ serve(async (req) => {
         like_count, 
         comment_count, 
         event_id,
-        ticket_tier_id,
-        user_profiles!event_posts_author_user_id_fkey (
-          display_name,
-          photo_url,
-          username,
-          instagram_handle,
-          twitter_handle,
-          website_url
-        ),
-        events!event_posts_event_id_fkey (
-          title,
-          organizer_name,
-          organizer_instagram,
-          organizer_twitter,
-          organizer_website,
-          owner_context_type,
-          owner_context_id,
-          created_by
-        ),
-        ticket_tiers!event_posts_ticket_tier_id_fkey (
-          badge_label,
-          name
-        )
+        ticket_tier_id
       `)
       .is('deleted_at', null);
 
     // Filter by event_id if provided
     if (eventId) {
-      query = query.eq('event_id', eventId);
+      postsQuery = postsQuery.eq('event_id', eventId);
     }
 
     // Filter by author_user_id if provided
     if (authorId) {
-      query = query.eq('author_user_id', authorId);
+      postsQuery = postsQuery.eq('author_user_id', authorId);
+    }
+
+    // Filter by mentioned_user_id if provided - fetch posts where user is tagged
+    if (mentionedUserId) {
+      // First get post IDs where user is mentioned
+      const { data: mentions } = await supabaseClient
+        .from('post_mentions')
+        .select('post_id')
+        .eq('mentioned_user_id', mentionedUserId);
+      
+      const mentionedPostIds = mentions?.map(m => m.post_id) || [];
+      
+      if (mentionedPostIds.length === 0) {
+        // No posts where user is mentioned, return empty result early
+        const response = createResponse({ data: [] });
+        response.headers.set('Cache-Control', 'private, max-age=10');
+        return response;
+      }
+      
+      postsQuery = postsQuery.in('id', mentionedPostIds);
     }
 
     if (cursor) {
@@ -165,7 +164,7 @@ serve(async (req) => {
       const ts = new Date(Number(tsMsStr));
       const lastId = idStr;
 
-      const { data: posts, error: postsError } = await query
+      const { data: posts, error: postsError } = await postsQuery
         .or(`created_at.lt.${ts.toISOString()},and(created_at.eq.${ts.toISOString()},id.lt.${lastId})`)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
@@ -179,8 +178,44 @@ serve(async (req) => {
       const hasMore = posts && posts.length > Number(limit);
       const items = hasMore ? posts.slice(0, Number(limit)) : (posts || []);
       
+      if (!items || items.length === 0) {
+        return createResponse({ data: [], nextCursor: undefined });
+      }
+
+      // Manually fetch related data
+      const authorIds = [...new Set(items.map((p: any) => p.author_user_id).filter(Boolean))];
+      const eventIds = [...new Set(items.map((p: any) => p.event_id).filter(Boolean))];
+      const tierIds = [...new Set(items.map((p: any) => p.ticket_tier_id).filter(Boolean))];
+
+      const [authorsRes, eventsRes, tiersRes] = await Promise.all([
+        authorIds.length ? supabaseClient.from('user_profiles').select('user_id, display_name, photo_url, username, instagram_handle, twitter_handle, website_url').in('user_id', authorIds) : { data: [] },
+        eventIds.length ? supabaseClient.from('events').select('id, title, organizer_name, organizer_instagram, organizer_twitter, organizer_website, owner_context_type, owner_context_id, created_by').in('id', eventIds) : { data: [] },
+        tierIds.length ? supabaseClient.from('ticket_tiers').select('id, badge_label, name').in('id', tierIds) : { data: [] }
+      ]);
+
+      // Create lookup maps
+      const authorsMap = new Map((authorsRes.data || []).map((a: any) => [a.user_id, a]));
+      const eventsMap = new Map((eventsRes.data || []).map((e: any) => [e.id, e]));
+      const tiersMap = new Map((tiersRes.data || []).map((t: any) => [t.id, t]));
+
+      console.log('📊 Authors fetched:', authorsRes.data?.length || 0);
+      console.log('📊 Events fetched:', eventsRes.data?.length || 0);
+      console.log('📊 Tiers fetched:', tiersRes.data?.length || 0);
+
+      // Enrich posts
+      const enrichedWithRelations = items.map((post: any) => {
+        const author = authorsMap.get(post.author_user_id);
+        console.log(`👤 Post ${post.id} - author_user_id: ${post.author_user_id}, found:`, author ? author.display_name : 'NOT FOUND');
+        return {
+          ...post,
+          user_profiles: author || null,
+          events: eventsMap.get(post.event_id) || null,
+          ticket_tiers: post.ticket_tier_id ? tiersMap.get(post.ticket_tier_id) || null : null
+        };
+      });
+      
       // ✅ Enrich posts with liked_by_me and is_organizer
-      const enrichedItems = await enrichPosts(items, currentUserId, supabaseClient);
+      const enrichedItems = await enrichPosts(enrichedWithRelations, currentUserId, supabaseClient);
       
       const tail = enrichedItems[enrichedItems.length - 1];
       const nextCursor = tail
@@ -197,7 +232,7 @@ serve(async (req) => {
       const safePage = Math.max(Number(page ?? 1), 1);
       const offset = (safePage - 1) * safeLimit;
 
-      const { data: posts, error: postsError } = await query
+      const { data: posts, error: postsError } = await postsQuery
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
         .range(offset, offset + safeLimit - 1);
@@ -207,8 +242,44 @@ serve(async (req) => {
         return createErrorResponse(postsError.message, 500);
       }
 
+      if (!posts || posts.length === 0) {
+        return createResponse({ data: [] });
+      }
+
+      // Manually fetch related data
+      const authorIds = [...new Set(posts.map((p: any) => p.author_user_id).filter(Boolean))];
+      const eventIds = [...new Set(posts.map((p: any) => p.event_id).filter(Boolean))];
+      const tierIds = [...new Set(posts.map((p: any) => p.ticket_tier_id).filter(Boolean))];
+
+      const [authorsRes, eventsRes, tiersRes] = await Promise.all([
+        authorIds.length ? supabaseClient.from('user_profiles').select('user_id, display_name, photo_url, username, instagram_handle, twitter_handle, website_url').in('user_id', authorIds) : { data: [] },
+        eventIds.length ? supabaseClient.from('events').select('id, title, organizer_name, organizer_instagram, organizer_twitter, organizer_website, owner_context_type, owner_context_id, created_by').in('id', eventIds) : { data: [] },
+        tierIds.length ? supabaseClient.from('ticket_tiers').select('id, badge_label, name').in('id', tierIds) : { data: [] }
+      ]);
+
+      // Create lookup maps
+      const authorsMap = new Map((authorsRes.data || []).map((a: any) => [a.user_id, a]));
+      const eventsMap = new Map((eventsRes.data || []).map((e: any) => [e.id, e]));
+      const tiersMap = new Map((tiersRes.data || []).map((t: any) => [t.id, t]));
+
+      console.log('📊 [Offset] Authors fetched:', authorsRes.data?.length || 0);
+      console.log('📊 [Offset] Events fetched:', eventsRes.data?.length || 0);
+      console.log('📊 [Offset] Tiers fetched:', tiersRes.data?.length || 0);
+
+      // Enrich posts
+      const enrichedWithRelations = posts.map((post: any) => {
+        const author = authorsMap.get(post.author_user_id);
+        console.log(`👤 [Offset] Post ${post.id} - author_user_id: ${post.author_user_id}, found:`, author ? author.display_name : 'NOT FOUND');
+        return {
+          ...post,
+          user_profiles: author || null,
+          events: eventsMap.get(post.event_id) || null,
+          ticket_tiers: post.ticket_tier_id ? tiersMap.get(post.ticket_tier_id) || null : null
+        };
+      });
+
       // ✅ Enrich posts with liked_by_me and is_organizer
-      const enrichedItems = await enrichPosts(posts || [], currentUserId, supabaseClient);
+      const enrichedItems = await enrichPosts(enrichedWithRelations, currentUserId, supabaseClient);
 
       const response = createResponse({ data: enrichedItems });
       response.headers.set('Cache-Control', 'private, max-age=10');
