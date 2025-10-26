@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MoreVertical, Flag, UserX, Bookmark, ChevronUp, MapPin, Calendar, Ticket } from "lucide-react";
+import { Heart, MoreVertical, Flag, UserX, Bookmark, ChevronUp, MapPin, Calendar, Ticket, Info, ExternalLink } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { VideoMedia } from "@/components/feed/VideoMedia";
 import { useAuth } from "@/contexts/AuthContext";
@@ -136,8 +136,17 @@ export function UserPostCardNewDesign({
                 className="group relative h-12 w-12 overflow-hidden rounded-full border-2 border-white/30 ring-2 ring-orange-500/20 cursor-pointer transition-all hover:border-orange-500/60 hover:ring-orange-500/40"
               >
                 <ImageWithFallback
-                  src={item.author_photo || ''}
-                  alt={item.author_name || 'User'}
+                  src={
+                    // For promoted content, show organization logo instead of user photo
+                    item.isPromoted && (item as any).organizer_logo_url
+                      ? (item as any).organizer_logo_url
+                      : item.author_photo || ''
+                  }
+                  alt={
+                    item.isPromoted && item.event_organizer
+                      ? item.event_organizer
+                      : item.author_name || 'User'
+                  }
                   className="h-full w-full object-cover transition-transform group-hover:scale-110"
                 />
               </div>
@@ -150,31 +159,52 @@ export function UserPostCardNewDesign({
                   }}
                   className="cursor-pointer group"
                 >
-                  <div className="text-base font-bold text-white group-hover:text-orange-500 transition-colors">{item.author_name || 'User'}</div>
+                  <div className="text-base font-bold text-white group-hover:text-orange-500 transition-colors">
+                    {/* For promoted content, show organization name instead of user name */}
+                    {item.isPromoted && item.event_organizer
+                      ? item.event_organizer
+                      : item.author_name || 'User'}
+                  </div>
                   <div className="mt-1 flex items-center gap-2 flex-wrap">
-                    {item.author_badge && (
+                    {/* Show "Promotion" badge for promoted content instead of ticket tier */}
+                    {item.isPromoted ? (
+                      <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/30 to-amber-600/30 border border-amber-400/40 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                        ✨ Promotion
+                      </div>
+                    ) : item.author_badge && (
                       <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
                         <Ticket className="h-3 w-3" />
                         {item.author_badge}
                       </div>
                     )}
-                    {item.isPromoted && (
-                      <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/30 to-amber-600/30 border border-amber-400/40 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-                        ✨ Promoted
-                      </div>
-                    )}
                     {item.event_id && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onGetTickets?.(item.event_id!);
-                        }}
-                        className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 border border-orange-500 px-2.5 py-1 text-[10px] font-bold text-white hover:from-orange-600 hover:to-orange-700 hover:shadow-lg hover:shadow-orange-500/30 transition-all active:scale-95 cursor-pointer"
-                        title="Purchase tickets for this event"
-                      >
-                        <Ticket className="h-3 w-3" />
-                        Get Tickets
-                      </button>
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onGetTickets?.(item.event_id!);
+                          }}
+                          className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 border border-orange-500 px-2.5 py-1 text-[10px] font-bold text-white hover:from-orange-600 hover:to-orange-700 hover:shadow-lg hover:shadow-orange-500/30 transition-all active:scale-95 cursor-pointer"
+                          title="Purchase tickets for this event"
+                        >
+                          <Ticket className="h-3 w-3" />
+                          Get Tickets
+                        </button>
+                        {/* Custom CTA for promoted content */}
+                        {item.isPromoted && item.promotion?.cta_label && item.promotion?.cta_url && (
+                          <a
+                            href={item.promotion.cta_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 border border-blue-500 px-2.5 py-1 text-[10px] font-bold text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95 cursor-pointer"
+                            title={item.promotion.cta_label}
+                          >
+                            <Info className="h-3 w-3" />
+                            {item.promotion.cta_label}
+                          </a>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

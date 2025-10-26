@@ -54,6 +54,21 @@ serve(async (req) => {
       const session = event.data.object as Stripe.Checkout.Session;
       logStep("Processing checkout.session.completed", { sessionId: session.id });
 
+      // Skip wallet/credit purchases - those are handled by wallet-stripe-webhook
+      const metadata = session.metadata || {};
+      if (metadata.org_wallet_id || metadata.wallet_id || metadata.invoice_id) {
+        logStep("Skipping wallet purchase (handled by wallet-stripe-webhook)", { 
+          sessionId: session.id,
+          hasOrgWallet: !!metadata.org_wallet_id,
+          hasWallet: !!metadata.wallet_id,
+          hasInvoice: !!metadata.invoice_id
+        });
+        return new Response(JSON.stringify({ received: true, skipped: "wallet_purchase" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       // Find the order by session ID
       const { data: order, error: orderError } = await supabaseService
         .from("orders")

@@ -11,6 +11,8 @@ import { toast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { UsernameEditor } from "@/components/profile/UsernameEditor";
+import CommentModal from "@/components/CommentModal";
+import { muxToPoster } from "@/lib/video/muxClient";
 
 interface UserProfile {
   user_id: string;
@@ -48,12 +50,16 @@ export function ProfilePage() {
   const navigate = useNavigate();
   const targetUserId = username || currentUser?.id;
   
-  const [activeTab, setActiveTab] = useState<'posts' | 'events' | 'saved'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [events, setEvents] = useState<UserEvent[]>([]);
   const [savedEvents, setSavedEvents] = useState<UserEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Modal state for viewing posts
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   
   const { following, followers } = useUserConnections(targetUserId);
   const { tickets } = useTickets();
@@ -95,7 +101,7 @@ export function ProfilePage() {
         }
 
         if (profileError) throw profileError;
-        setProfile(profileData);
+        setProfile(profileData as unknown as UserProfile);
 
       } catch (error) {
         console.error('Error loading profile:', error);
@@ -122,7 +128,7 @@ export function ProfilePage() {
           .from('event_posts')
           .select(`
             id,
-            content_text,
+            text,
             media_urls,
             created_at,
             event_id,
@@ -144,7 +150,7 @@ export function ProfilePage() {
             media_urls: post.media_urls || [],
             likes: likeCount,
             comments: commentCount,
-            type: post.event_id ? 'event' : 'post',
+            type: (post.event_id ? 'event' : 'post') as 'post' | 'event',
             event_id: post.event_id || undefined
           };
         }).filter(post => post.media_urls.length > 0); // Only show posts with media
@@ -158,60 +164,16 @@ export function ProfilePage() {
     loadPosts();
   }, [targetUserId]);
 
-  // Fetch user events
-  useEffect(() => {
-    const loadEvents = async () => {
-      if (!targetUserId) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('events')
-          .select('id, title, cover_image_url, start_at')
-          .eq('created_by', targetUserId)
-          .order('created_at', { ascending: false })
-          .limit(50);
-
-        if (error) throw error;
-        setEvents(data || []);
-      } catch (error) {
-        console.error('Error loading events:', error);
-      }
-    };
-
-    loadEvents();
-  }, [targetUserId]);
-
   // Fetch saved events (if own profile)
   useEffect(() => {
     const loadSavedEvents = async () => {
       if (!isOwnProfile || !targetUserId) return;
 
       try {
-        const { data, error } = await supabase
-          .from('saved_events')
-          .select(`
-            event_id,
-            events (
-              id,
-              title,
-              cover_image_url,
-              start_at
-            )
-          `)
-          .eq('user_id', targetUserId)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          // Table might not exist yet
-          console.log('Saved events table not available');
-          return;
-        }
-
-        const transformed = (data || [])
-          .filter(item => item.events)
-          .map(item => item.events as UserEvent);
-        
-        setSavedEvents(transformed);
+        // Note: saved_events table doesn't exist yet, so we'll skip this for now
+        // This feature can be implemented when the table is created
+        console.log('Saved events feature not yet implemented');
+        setSavedEvents([]);
       } catch (error) {
         console.error('Error loading saved events:', error);
       }
@@ -223,22 +185,23 @@ export function ProfilePage() {
   // Determine content to show based on active tab
   const displayContent = useMemo(() => {
     if (activeTab === 'posts') {
-      return posts.map(p => ({
-        id: p.id,
-        image: p.media_urls[0],
-        likes: p.likes,
-        type: p.type,
-        event_id: p.event_id
-      }));
-    } else if (activeTab === 'events') {
-      return events.map(e => ({
-        id: e.id,
-        image: e.cover_image_url || '',
-        likes: 0,
-        type: 'event' as const,
-        event_id: e.id
-      }));
+      return posts.map(p => {
+        // Convert Mux URLs to poster images
+        const rawUrl = p.media_urls[0];
+        const imageUrl = rawUrl?.startsWith('mux:') 
+          ? muxToPoster(rawUrl) 
+          : rawUrl;
+        
+        return {
+          id: p.id,
+          image: imageUrl,
+          likes: p.likes,
+          type: p.type,
+          event_id: p.event_id
+        };
+      });
     } else {
+      // Saved tab - show saved events
       return savedEvents.map(e => ({
         id: e.id,
         image: e.cover_image_url || '',
@@ -247,7 +210,7 @@ export function ProfilePage() {
         event_id: e.id
       }));
     }
-  }, [activeTab, posts, events, savedEvents]);
+  }, [activeTab, posts, savedEvents]);
 
   const handleShare = () => {
     if (navigator.share) {
@@ -576,17 +539,6 @@ export function ProfilePage() {
             <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
             Posts
           </button>
-          <button
-            onClick={() => setActiveTab('events')}
-            className={`flex flex-1 items-center justify-center gap-2 pb-3 text-sm transition-all sm:text-base ${
-              activeTab === 'events'
-                ? 'border-b-2 border-[#FF8C00] text-white font-semibold'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-            Events
-          </button>
           {isOwnProfile && (
             <button
               onClick={() => setActiveTab('saved')}
@@ -609,10 +561,17 @@ export function ProfilePage() {
               <button
                 key={post.id}
                 onClick={() => {
-                  if (post.type === 'event' || post.event_id) {
-                    navigate(`/e/${post.event_id || post.id}`);
+                  if (post.type === 'event' && !post.event_id) {
+                    // If it's an event card (not a post), navigate to event page
+                    navigate(`/e/${post.id}`);
+                  } else if (activeTab === 'posts' && post.event_id) {
+                    // If it's a post, open modal
+                    setSelectedPostId(post.id);
+                    setSelectedEventId(post.event_id);
+                    setShowPostModal(true);
                   } else {
-                    navigate(`/post/${post.id}`);
+                    // Fallback navigation
+                    navigate(`/e/${post.event_id || post.id}`);
                   }
                 }}
                 className="group relative aspect-square overflow-hidden rounded-lg bg-white/5 sm:rounded-xl"
@@ -645,31 +604,34 @@ export function ProfilePage() {
           <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-xl sm:rounded-3xl">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
               {activeTab === 'posts' && <Grid3x3 className="h-8 w-8 text-white/30" />}
-              {activeTab === 'events' && <Calendar className="h-8 w-8 text-white/30" />}
               {activeTab === 'saved' && <Heart className="h-8 w-8 text-white/30" />}
             </div>
             <h3 className="mb-2 text-lg font-bold text-white">
               {activeTab === 'posts' && 'No posts yet'}
-              {activeTab === 'events' && 'No events yet'}
               {activeTab === 'saved' && 'No saved items yet'}
             </h3>
             <p className="text-sm text-white/60">
               {activeTab === 'posts' && 'Share your event experiences to see them here'}
-              {activeTab === 'events' && isOwnProfile && 'Create your first event to get started'}
-              {activeTab === 'events' && !isOwnProfile && 'No events created yet'}
               {activeTab === 'saved' && 'Save posts and events you love'}
             </p>
-            {isOwnProfile && activeTab === 'events' && (
-              <button 
-                onClick={() => navigate('/create-event')}
-                className="mt-6 rounded-full bg-[#FF8C00] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#FF9D1A] active:scale-95"
-              >
-                Create Event
-              </button>
-            )}
           </div>
         )}
       </div>
+
+      {/* Post Detail Modal */}
+      {showPostModal && selectedPostId && selectedEventId && (
+        <CommentModal
+          isOpen={showPostModal}
+          onClose={() => {
+            setShowPostModal(false);
+            setSelectedPostId(null);
+            setSelectedEventId(null);
+          }}
+          eventId={selectedEventId}
+          eventTitle="Event"
+          postId={selectedPostId}
+        />
+      )}
     </div>
   );
 }

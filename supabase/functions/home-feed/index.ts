@@ -19,8 +19,6 @@ const ALLOWED_ORIGINS = [
   "http://localhost:8081",
   "http://localhost:8084",
   "http://localhost:8085",
-  "https://*.lovable.app",
-  "https://*.lovableproject.com",
 ];
 
 // Optional internal test override (only if both origin + header match)
@@ -259,6 +257,7 @@ async function injectAds({
       organizer_name: ad.org_name,
       organizer_handle: null,
       organizer_verified: false,
+      organizer_logo_url: ad.org_logo_url || null,
       likes_count: 0,
       comments_count: 0,
       is_liked: false,
@@ -271,7 +270,10 @@ async function injectAds({
         creativeId: ad.creative_id,
         placement: placement,
         pricingModel: ad.pricing_model,
-        estimatedRate: ad.estimated_rate
+        estimatedRate: ad.estimated_rate,
+        // Include CTA data for custom action buttons
+        cta_label: ad.cta_label || null,
+        cta_url: ad.cta_url || null,
       }
     }));
 
@@ -482,7 +484,7 @@ const handler = withCORS(async (req: Request) => {
       sessionId: str(payload.sessionId) || null,
       placement: 'feed',
       category: categoryFilters.length === 1 ? categoryFilters[0] : null,
-      location: locations.length === 1 ? locations[0] : null,
+      location: locationFilters.length === 1 ? locationFilters[0] : null,
       monitor
     });
 
@@ -706,7 +708,7 @@ async function expandRows({
   const includeViewerFields = !!viewerId;
   const connectionSpeed = detectConnectionSpeed(req);
 
-  return rows
+  const expandedRows = rows
     .map((row) => {
       const ev = eMap.get(row.event_id);
       if (!ev) return null;
@@ -804,7 +806,7 @@ async function expandRows({
   const postItemsDebug = expandedRows.filter(item => item && item.item_type === 'post');
   console.log('🔍 Final post metrics being returned:', {
     totalPosts: postItemsDebug.length,
-    sampleMetrics: postItemsDebug.slice(0, 3).map(p => ({
+    sampleMetrics: postItemsDebug.slice(0, 3).map((p: any) => ({
       id: p.item_id,
       likes: p.metrics?.likes,
       comments: p.metrics?.comments,

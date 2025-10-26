@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Image, Video, FileText, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CreativeUploaderModal } from "./CreativeUploaderModal";
 
 type Creative = {
   id: string;
@@ -23,6 +24,8 @@ type Creative = {
 export const CreativeManager = ({
   creatives = [],
   loading = false,
+  campaignId,
+  organizationId,
   onCreate,
   onEdit,
   onToggleActive,
@@ -30,11 +33,17 @@ export const CreativeManager = ({
 }: {
   creatives?: Creative[];
   loading?: boolean;
+  campaignId?: string;
+  organizationId?: string;
   onCreate?: () => void;
   onEdit?: (id: string) => void;
   onToggleActive?: (id: string, next: boolean) => void;
   onDelete?: (id: string) => void;
 }) => {
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [uploaderOpen, setUploaderOpen] = useState(false);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -47,8 +56,6 @@ export const CreativeManager = ({
       </div>
     );
   }
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const filtered = useMemo(() => {
     return creatives.filter((c) => {
@@ -85,7 +92,13 @@ export const CreativeManager = ({
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={onCreate}>
+          <Button onClick={() => {
+            if (organizationId) {
+              setUploaderOpen(true);
+            } else {
+              onCreate?.();
+            }
+          }}>
             <Plus className="h-4 w-4 mr-2" />
             New Creative
           </Button>
@@ -191,7 +204,13 @@ export const CreativeManager = ({
             }
           </p>
           <div className="space-y-2">
-            <Button onClick={onCreate} size="lg">
+            <Button onClick={() => {
+              if (organizationId) {
+                setUploaderOpen(true);
+              } else {
+                onCreate?.();
+              }
+            }} size="lg">
               <Plus className="h-4 w-4 mr-2" />
               Create Your First Creative
             </Button>
@@ -200,6 +219,20 @@ export const CreativeManager = ({
             </p>
           </div>
         </Card>
+      )}
+
+      {/* Creative Uploader Modal */}
+      {organizationId && (
+        <CreativeUploaderModal
+          isOpen={uploaderOpen}
+          onClose={() => setUploaderOpen(false)}
+          onSuccess={() => {
+            setUploaderOpen(false);
+            onCreate?.();
+          }}
+          campaignId={campaignId || null}
+          organizationId={organizationId}
+        />
       )}
     </div>
   );

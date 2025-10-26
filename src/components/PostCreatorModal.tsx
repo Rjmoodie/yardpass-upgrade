@@ -113,9 +113,11 @@ const bytesToMB = (b: number) => +(b / (1024 * 1024)).toFixed(2);
 const isImageFile = (f: File) => f.type.startsWith('image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(f.name);
 const isVideoFile = (f: File) => f.type.startsWith('video') || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
 
-async function uploadImageToSupabase(file: File): Promise<string> {
+async function uploadImageToSupabase(file: File, userId: string): Promise<string> {
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-  const path = `posts/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).slice(2);
+  const path = `${userId}/post-${timestamp}-${random}.${ext}`;
   const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
     contentType: file.type,
     upsert: false,
@@ -696,7 +698,7 @@ export function PostCreatorModal({
         updateByIndex(i, { status: 'uploading', controller, errorMsg: undefined, progress: 0 });
 
         if (item.kind === 'image') {
-          const publicUrl = await backoff(() => uploadImageToSupabase(item.file));
+          const publicUrl = await backoff(() => uploadImageToSupabase(item.file, user.id));
           updateByIndex(i, { status: 'done', remoteUrl: publicUrl, controller: undefined, progress: 100 });
           results.push(publicUrl);
         } else {

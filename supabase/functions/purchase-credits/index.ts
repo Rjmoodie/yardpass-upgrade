@@ -159,8 +159,8 @@ Deno.serve(async (req) => {
         },
       ],
       mode: "payment",
-      success_url: `${Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || "http://localhost:3000"}/wallet/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || "http://localhost:3000"}/wallet`,
+      success_url: `${Deno.env.get("PUBLIC_APP_URL") || "http://localhost:8080"}/wallet/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${Deno.env.get("PUBLIC_APP_URL") || "http://localhost:8080"}/wallet`,
       billing_address_collection: 'required',
       
       // Fraud prevention: Enable 3D Secure

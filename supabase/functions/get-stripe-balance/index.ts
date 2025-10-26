@@ -43,24 +43,31 @@ serve(async (req) => {
     );
 
     // Verify user has permission to view balance for this context
+    console.log(`[get-stripe-balance] Checking permissions for user ${userData.user.id}, context_type: ${context_type}, context_id: ${context_id}`);
+    
     let hasPermission = false;
     if (context_type === 'individual' && context_id === userData.user.id) {
       hasPermission = true;
+      console.log('[get-stripe-balance] Permission granted: individual context matches user');
     } else if (context_type === 'organization') {
       // Check if user is member of the organization
-      const { data: membership } = await supabaseService
-        .from('org_memberships')
+      const { data: membership, error: membershipError } = await supabaseService
+        .from('org_members')
         .select('role')
         .eq('org_id', context_id)
         .eq('user_id', userData.user.id)
         .single();
       
+      console.log(`[get-stripe-balance] Membership query result:`, { membership, membershipError });
+      
       if (membership && ['owner', 'admin', 'editor'].includes(membership.role)) {
         hasPermission = true;
+        console.log(`[get-stripe-balance] Permission granted: user has role ${membership.role}`);
       }
     }
 
     if (!hasPermission) {
+      console.error(`[get-stripe-balance] Permission denied for user ${userData.user.id}, context: ${context_type}/${context_id}`);
       throw new Error("Unauthorized to view balance for this context");
     }
 

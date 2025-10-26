@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export interface WalletData {
   id: string;
+  org_id: string;
   balance_credits: number;
   usd_equiv: number;
   low_balance_threshold: number;
@@ -76,12 +77,18 @@ export const useWallet = () => {
 
   const purchaseMutation = useMutation({
     mutationFn: async (args: PurchaseArgs) => {
+      // Get the org_id from the wallet query data
+      const walletData = queryClient.getQueryData<WalletData>(["wallet"]);
+      if (!walletData?.org_id) {
+        throw new Error("Organization ID not found. Please ensure you have an active organization.");
+      }
+
       const body = 'package_id' in args 
-        ? { package_id: args.package_id, promo_code: args.promo_code }
-        : { custom_credits: args.custom_credits, promo_code: args.promo_code };
+        ? { org_id: walletData.org_id, package_id: args.package_id, promo_code: args.promo_code }
+        : { org_id: walletData.org_id, custom_credits: args.custom_credits, promo_code: args.promo_code };
       
       const idempotencyKey = crypto.randomUUID();
-      const { data, error } = await supabase.functions.invoke("purchase-credits", {
+      const { data, error } = await supabase.functions.invoke("purchase-org-credits", {
         body,
         headers: {
           "Idempotency-Key": idempotencyKey,

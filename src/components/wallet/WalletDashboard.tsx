@@ -71,9 +71,6 @@ export const WalletDashboard = () => {
               Buy Credits
             </Button>
           </div>
-          <CardDescription>
-            Manage your ad credits and view transaction history
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4" aria-live="polite">
@@ -84,9 +81,6 @@ export const WalletDashboard = () => {
                 </span>
                 <span className="text-muted-foreground">credits</span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                = {new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(wallet.usd_equiv)}
-              </p>
             </div>
 
             <div className="flex items-center gap-2">
@@ -118,16 +112,15 @@ export const WalletDashboard = () => {
       <Card>
         <CardHeader>
           <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Your latest wallet transactions</CardDescription>
         </CardHeader>
         <CardContent>
           {wallet.recent_transactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No transactions yet</p>
-              <p className="text-sm mt-1">Purchase credits to get started</p>
+              <p className="text-sm mt-1">Purchase credits to get started with your campaigns</p>
             </div>
           ) : (
-            <WalletTransactionsTable orgId={wallet.id} />
+            <WalletTransactionsTable orgId={wallet.org_id} />
           )}
         </CardContent>
       </Card>

@@ -1,7 +1,7 @@
 // Legacy exports for existing functions
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, idempotency-key',
 };
 
 export function handleCors(req: Request) {
@@ -39,7 +39,7 @@ export function withCORS(
     if (opts.allowOrigins?.length) {
       const isAllowed = opts.allowOrigins.some(allowed => {
         if (allowed === origin) return true;
-        // Support wildcard patterns like *.lovable.app
+        // Support wildcard patterns like *.yardpass.com
         if (allowed.includes("*")) {
           const pattern = allowed.replace(/\./g, "\\.").replace(/\*/g, ".*");
           return new RegExp(`^${pattern}$`).test(origin);
@@ -57,7 +57,7 @@ export function withCORS(
         headers: {
           "Access-Control-Allow-Origin": allowOrigin,
           "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-          "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+          "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, idempotency-key",
           "Access-Control-Max-Age": "86400",
         },
       });

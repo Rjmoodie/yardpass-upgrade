@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, DollarSign, Eye, MousePointerClick, Play, Pause, Archive, Target } from "lucide-react";
 import { useMemo } from "react";
+import { getPacingVariant } from "@/lib/campaignInsights";
 
 type CampaignRow = {
   id: string;
@@ -18,6 +19,12 @@ type CampaignRow = {
   revenue?: number;
   startDate: string;
   endDate?: string;
+  pacingHealth?: "on-track" | "slow" | "stalled" | "accelerating" | "complete";
+  deliveryStatus?: string;
+  credits7d?: number;
+  impressions7d?: number;
+  clicks7d?: number;
+  activeCreatives?: number;
 };
 export const CampaignList = ({
   loading = false,
@@ -44,7 +51,6 @@ export const CampaignList = ({
   );
 
   if (loading) {
-    console.log("[CampaignList] Showing loading state");
     return (
       <div className="space-y-4">
         <Skeleton className="h-48 w-full" />
@@ -53,10 +59,7 @@ export const CampaignList = ({
     );
   }
 
-  console.log("[CampaignList] Sorted campaigns:", sorted.length);
-
   if (sorted.length === 0) {
-    console.log("[CampaignList] Showing empty state");
     return (
       <Card className="p-12 text-center">
         <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
@@ -86,6 +89,7 @@ export const CampaignList = ({
         const ctr = c.impressions ? c.clicks / c.impressions : 0;
         const pct = Math.min(100, Math.round((c.spent / Math.max(1, c.budget)) * 100));
         const resumeDisabledReason = resumeDisabledReasons?.[c.id];
+        const pacingVariant = getPacingVariant(c.pacingHealth);
         return (
           <Card key={c.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
@@ -96,14 +100,31 @@ export const CampaignList = ({
                     <Calendar className="h-4 w-4" />
                     {c.startDate} {c.endDate ? `→ ${c.endDate}` : ""}
                   </CardDescription>
+                  {c.deliveryStatus && c.deliveryStatus !== c.status && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Delivery state: <span className="capitalize">{c.deliveryStatus.replace("-", " ")}</span>
+                    </p>
+                  )}
+                  {typeof c.activeCreatives === "number" && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Active creatives: {c.activeCreatives}
+                    </p>
+                  )}
                 </div>
-                <Badge variant={c.status === "active" ? "default" : "secondary"} className="capitalize">
-                  {c.status}
-                </Badge>
+                <div className="flex flex-col items-end gap-2">
+                  <Badge variant={c.status === "active" ? "default" : "secondary"} className="capitalize">
+                    {c.status}
+                  </Badge>
+                  {c.pacingHealth && (
+                    <Badge variant={pacingVariant} className="capitalize">
+                      {c.pacingHealth.replace("-", " ")}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </CardHeader>
               <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-4">
                 <Stat label="Budget" value={`${c.budget.toLocaleString()} credits`} icon={<DollarSign className="h-3 w-3" />} />
                 <Stat label="Spent" value={`${c.spent.toLocaleString()} credits`} />
                 <Stat
@@ -115,6 +136,15 @@ export const CampaignList = ({
                 <Stat label="CTR" value={new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 }).format(ctr)} />
                 {c.conversions !== undefined && <Stat label="Conversions" value={c.conversions.toLocaleString()} />}
                 {c.revenue !== undefined && <Stat label="Revenue" value={`$${(c.revenue / 100).toFixed(2)}`} />}
+                {typeof c.impressions7d === "number" && (
+                  <Stat label="7d Impressions" value={c.impressions7d.toLocaleString()} />
+                )}
+                {typeof c.clicks7d === "number" && (
+                  <Stat label="7d Clicks" value={c.clicks7d.toLocaleString()} />
+                )}
+                {typeof c.credits7d === "number" && (
+                  <Stat label="7d Spend" value={`${Math.round(c.credits7d).toLocaleString()} credits`} />
+                )}
               </div>
 
               {/* Spend progress */}
@@ -123,11 +153,16 @@ export const CampaignList = ({
               </div>
               <p className="text-xs text-muted-foreground mt-1">{pct}% of budget spent</p>
 
-              <div className="flex gap-2 mt-4">
+              <div className="flex flex-wrap gap-2 mt-4">
                 {c.status === "active" ? (
-                  <Button variant="outline" size="sm" onClick={() => onPause?.(c.id)}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => onPause?.(c.id)}
+                    className="touch-manipulation min-h-[36px] sm:min-h-[32px]"
+                  >
                     <Pause className="h-4 w-4 mr-1" />
-                    Pause
+                    <span className="hidden xs:inline">Pause</span>
                   </Button>
                 ) : (
                   <Button
@@ -136,15 +171,28 @@ export const CampaignList = ({
                     onClick={() => onResume?.(c.id)}
                     disabled={!!resumeDisabledReason}
                     title={resumeDisabledReason ?? undefined}
+                    className="touch-manipulation min-h-[36px] sm:min-h-[32px]"
                   >
                     <Play className="h-4 w-4 mr-1" />
-                    Resume
+                    <span className="hidden xs:inline">Resume</span>
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={() => onEdit?.(c.id)}>Edit</Button>
-                <Button variant="ghost" size="sm" onClick={() => onArchive?.(c.id)}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => onEdit?.(c.id)}
+                  className="touch-manipulation min-h-[36px] sm:min-h-[32px]"
+                >
+                  Edit
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => onArchive?.(c.id)}
+                  className="touch-manipulation min-h-[36px] sm:min-h-[32px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
                   <Archive className="h-4 w-4 mr-1" />
-                  Archive
+                  <span className="hidden xs:inline">Archive</span>
                 </Button>
               </div>
             </CardContent>

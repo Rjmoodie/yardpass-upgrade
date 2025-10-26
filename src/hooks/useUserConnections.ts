@@ -37,7 +37,7 @@ export function useUserConnections(userId?: string) {
     try {
       // Load following
       const { data: followingData, error: followingError } = await supabase
-        .from('follow_profiles')
+        .from('follows')
         .select('*')
         .eq('follower_user_id', targetUserId)
         .eq('target_type', 'user')
@@ -48,7 +48,7 @@ export function useUserConnections(userId?: string) {
 
       // Load followers
       const { data: followersData, error: followersError } = await supabase
-        .from('follow_profiles')
+        .from('follows')
         .select('*')
         .eq('target_id', targetUserId)
         .eq('target_type', 'user')
@@ -61,7 +61,7 @@ export function useUserConnections(userId?: string) {
       let requestsData: UserConnection[] = [];
       if (targetUserId === user?.id) {
         const { data, error: requestsError } = await supabase
-          .from('follow_profiles')
+          .from('follows')
           .select('*')
           .eq('target_id', targetUserId)
           .eq('target_type', 'user')

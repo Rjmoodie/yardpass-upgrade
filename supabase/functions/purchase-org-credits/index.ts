@@ -152,8 +152,8 @@ Deno.serve(async (req) => {
           },
         },
         
-        success_url: `https://lovable.app/orgs/${org_id}/wallet?success=1`,
-        cancel_url: `https://lovable.app/orgs/${org_id}/wallet?canceled=1`,
+        success_url: `${Deno.env.get("PUBLIC_APP_URL") || "http://localhost:8080"}/campaigns?success=1&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${Deno.env.get("PUBLIC_APP_URL") || "http://localhost:8080"}/campaigns?canceled=1`,
         
         metadata: {
           org_wallet_id: orgWalletId,
@@ -180,6 +180,17 @@ Deno.serve(async (req) => {
         idempotencyKey: `org-session:${org_id}:${invoice.id}:${requestKey}`
       }
     );
+
+    // Update invoice with Stripe checkout session ID
+    const { error: updateErr } = await admin
+      .from("invoices")
+      .update({ stripe_checkout_session_id: session.id })
+      .eq("id", invoice.id);
+
+    if (updateErr) {
+      console.error(`⚠️ [${requestId}] failed to update invoice with session id:`, updateErr?.message);
+      // Continue anyway - webhook can still work via payment_intent
+    }
 
     console.log(`✅ [${requestId}] session ${session.id} for invoice ${invoice.id}`);
 

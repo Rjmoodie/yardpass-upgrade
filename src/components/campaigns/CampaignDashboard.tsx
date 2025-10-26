@@ -8,49 +8,32 @@ import { CreativeManager } from "./CreativeManager";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, FileText, Target, TrendingUp, Wallet, ShieldAlert } from "lucide-react";
+import { BarChart3, FileText, Lightbulb, ShieldAlert, Target, TrendingUp, Wallet } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
 import { useCreativeRollup } from "@/hooks/useCreativeRollup";
 import { useOrgWallet } from "@/hooks/useOrgWallet";
 import { useToast } from "@/hooks/use-toast";
 import { addDays, format } from "date-fns";
+import { generateCampaignInsights, PACING_THRESHOLDS, type Insight } from "@/lib/campaignInsights";
+import { CampaignCreatorWizard } from "./CampaignCreatorWizard";
 
 export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
   const [selectedTab, setSelectedTab] = useState<string>(() => {
     const hash = window.location.hash.replace("#", "");
-    return ["campaigns", "creatives", "analytics", "create"].includes(hash) ? hash : "campaigns";
+    return ["create", "creatives", "campaigns"].includes(hash) ? hash : "create";
   });
 
   const { toast } = useToast();
-
-  // Require org context for campaigns
-  if (!orgId) {
-    return (
-      <Card className="p-12 text-center">
-        <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
-          <Target className="h-12 w-12 text-muted-foreground" />
-        </div>
-        <h2 className="text-2xl font-bold mb-2">Organization Required</h2>
-        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-          Campaigns are organization-scoped. Please select or create an organization to manage advertising campaigns.
-        </p>
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            You need to be part of an organization to create and manage campaigns
-          </p>
-        </div>
-      </Card>
-    );
-  }
   
+  // Call all hooks unconditionally (even if orgId is undefined)
   const { campaigns, isLoading: loadingCampaigns, pause, resume, archive } = useCampaigns(orgId);
   const { wallet, isLoading: walletLoading, isLowBalance, isFrozen } = useOrgWallet(orgId);
 
-  const dateRange = {
+  const dateRange = useMemo(() => ({
     from: addDays(new Date(), -13),
     to: new Date(),
-  };
+  }), []); // Empty deps = only create once on mount
   
   const { totals, series, isLoading: loadingAnalytics, error: analyticsError, totalsByCampaign } = useCampaignAnalytics({
     orgId,
@@ -68,6 +51,7 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
     limit: 100,
   });
 
+  // All hooks must be called BEFORE any early returns
   const availableCreditsNumber = wallet?.balance_credits ?? 0;
   const creditUsdRate = useMemo(() => {
     if (!wallet) return 1;
@@ -97,6 +81,12 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         startDate: c.start_date.slice(0, 10),
         endDate: c.end_date?.slice(0, 10) ?? undefined,
         remainingCredits,
+        deliveryStatus: c.delivery_status,
+        pacingHealth: c.pacing_health,
+        credits7d: c.credits_last_7d ?? 0,
+        impressions7d: c.impressions_last_7d ?? 0,
+        clicks7d: c.clicks_last_7d ?? 0,
+        activeCreatives: c.active_creatives,
       };
     });
   }, [campaigns, totalsByCampaign]);
@@ -106,6 +96,9 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
       if (campaign.status !== "active" && campaign.remainingCredits > availableCreditsNumber) {
         acc[campaign.id] = `Reserve ${campaign.remainingCredits.toLocaleString()} credits but only ${availableCreditsNumber.toLocaleString()} are available.`;
       }
+      if (!acc[campaign.id] && campaign.status !== "active" && (campaign.activeCreatives ?? 0) === 0) {
+        acc[campaign.id] = "Add an active creative before resuming delivery.";
+      }
       if (isFrozen) {
         acc[campaign.id] = "Wallet is frozen. Resolve billing to resume.";
       }
@@ -113,22 +106,19 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
     }, {});
   }, [campaignsWithStats, availableCreditsNumber, isFrozen]);
 
-  const handleResume = (id: string) => {
-    const campaign = campaignsWithStats.find((c) => c.id === id);
-    if (!campaign) return;
-
-    const reason = resumeDisabledReasons[id];
-    if (reason) {
-      toast({
-        title: "Cannot resume campaign",
-        description: reason,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    resume(id);
-  };
+  const insights = useMemo<Insight[]>(
+    () =>
+      generateCampaignInsights(
+        campaignsWithStats,
+        {
+          availableCredits: availableCreditsNumber,
+          isFrozen,
+          isLowBalance,
+        },
+        orgId ?? ""
+      ),
+    [availableCreditsNumber, campaignsWithStats, isFrozen, isLowBalance, orgId]
+  );
 
   useEffect(() => {
     const onHash = () => {
@@ -148,6 +138,64 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
     }
   }, [selectedTab]);
 
+  // NOW check if org is required and return early (AFTER all hooks)
+  if (!orgId) {
+    return (
+      <Card className="p-12 text-center">
+        <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
+          <Target className="h-12 w-12 text-muted-foreground" />
+        </div>
+        <h2 className="text-2xl font-bold mb-2">Organization Required</h2>
+        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+          Campaigns are organization-scoped. Please select or create an organization to manage advertising campaigns.
+        </p>
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            You need to be part of an organization to create and manage campaigns
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  const handleResume = (id: string) => {
+    const campaign = campaignsWithStats.find((c) => c.id === id);
+    if (!campaign) return;
+
+    const reason = resumeDisabledReasons[id];
+    if (reason) {
+      toast({
+        title: "Cannot resume campaign",
+        description: reason,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    resume(id);
+  };
+
+  const handleEdit = (id: string) => {
+    // TODO: Implement edit modal or redirect to edit form
+    toast({
+      title: "Edit Campaign",
+      description: "Campaign editing will be available in the next update.",
+    });
+  };
+
+  const handleArchive = (id: string) => {
+    const campaign = campaignsWithStats.find((c) => c.id === id);
+    if (!campaign) return;
+
+    if (window.confirm(`Are you sure you want to archive "${campaign.name}"? This will stop delivery and hide it from the active campaigns list.`)) {
+      archive(id);
+      toast({
+        title: "Campaign Archived",
+        description: `"${campaign.name}" has been archived successfully.`,
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
@@ -158,24 +206,21 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
                 <Wallet className="h-5 w-5" />
                 Ad Credits
               </CardTitle>
-              <CardDescription>Credits power delivery similar to TikTok's credit pacing.</CardDescription>
             </div>
-            <Badge variant="secondary">1 credit ≈ ${creditUsdRate.toFixed(2)} USD</Badge>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="text-3xl font-semibold">
               {walletLoading ? "—" : availableCreditsNumber.toLocaleString()} credits
             </div>
-            <p className="text-sm text-muted-foreground">
-              Estimated reach: ~{Math.max(0, Math.round((availableCreditsNumber / CREDIT_BASELINE_CPM) * 1000)).toLocaleString()} impressions remaining at {CREDIT_BASELINE_CPM} credits/1k.
-            </p>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <Button asChild size="sm" variant="outline">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button 
+                asChild 
+                size="sm" 
+                variant="outline"
+                className="touch-manipulation min-h-[36px]"
+              >
                 <a href={`/wallet?org=${orgId ?? ""}`}>Manage credits</a>
               </Button>
-              <span>
-                Benchmark pacing: {CREDIT_BASELINE_CPM} credits ≈ 1k impressions (mirrors TikTok credit systems).
-              </span>
             </div>
           </CardContent>
         </Card>
@@ -198,20 +243,44 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
               </AlertDescription>
             </Alert>
           )}
+          {insights.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4" />
+                  Actionable insights
+                </CardTitle>
+                <CardDescription>Recommendations informed by 7-day delivery performance.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {insights.map((insight, idx) => (
+                  <div key={`${insight.title}-${idx}`} className="flex flex-col sm:flex-row items-start gap-3">
+                    <div className="mt-1">{insight.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium leading-tight">{insight.title}</p>
+                      <p className="text-sm text-muted-foreground">{insight.detail}</p>
+                    </div>
+                    {insight.cta && (
+                      <Button 
+                        asChild 
+                        size="sm" 
+                        variant="outline"
+                        className="touch-manipulation min-h-[36px] whitespace-nowrap shrink-0 w-full sm:w-auto"
+                      >
+                        <a href={insight.cta.href}>{insight.cta.label}</a>
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2">Campaign Manager</h1>
         <p className="text-muted-foreground">Create and manage your ad campaigns across YardPass</p>
-
-        {/* TODO: Campaign Manager UI - Still under review and development */}
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p className="text-sm text-blue-700 dark:text-blue-300">
-            <strong>🚧 Campaign Manager UI - Still Under Review</strong><br/>
-            This interface is currently in development. Features may be limited and data may not reflect production values.
-          </p>
-        </div>
       </div>
 
       {/* Error Banner */}
@@ -227,34 +296,35 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
       )}
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="campaigns" className="gap-2">
-            <Target className="h-4 w-4" />
-            Campaigns
+        <TabsList className="grid w-full grid-cols-3 lg:w-[480px]">
+          <TabsTrigger value="create" className="gap-1 sm:gap-2 text-xs sm:text-sm touch-manipulation">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Create New</span>
+            <span className="sm:hidden">New</span>
           </TabsTrigger>
-          <TabsTrigger value="creatives" className="gap-2">
-            <FileText className="h-4 w-4" />
-            Creatives
+          <TabsTrigger value="creatives" className="gap-1 sm:gap-2 text-xs sm:text-sm touch-manipulation">
+            <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">Creatives</span>
+            <span className="xs:hidden">Create</span>
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Analytics
-          </TabsTrigger>
-          <TabsTrigger value="create" className="gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Create New
+          <TabsTrigger value="campaigns" className="gap-1 sm:gap-2 text-xs sm:text-sm touch-manipulation">
+            <Target className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">Campaigns</span>
+            <span className="xs:hidden">Camp.</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="campaigns">
-          <CampaignList
-            campaigns={campaignsWithStats}
-            loading={loadingCampaigns || loadingAnalytics}
-            onPause={pause}
-            onResume={handleResume}
-            onArchive={archive}
+        <TabsContent value="create">
+          <CampaignCreatorWizard
             orgId={orgId}
-            resumeDisabledReasons={resumeDisabledReasons}
+            availableCredits={wallet?.balance_credits}
+            creditUsdRate={creditUsdRate}
+            baselineCpm={CREDIT_BASELINE_CPM}
+            walletFrozen={isFrozen}
+            onSuccess={() => {
+              setSelectedTab("campaigns");
+              window.location.hash = "campaigns";
+            }}
           />
         </TabsContent>
 
@@ -274,23 +344,47 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
               media_url: cr.media_url,
             }))}
             loading={loadingCreatives}
+            organizationId={orgId}
           />
         </TabsContent>
 
-        <TabsContent value="analytics">
-          <div className="p-4 text-center text-muted-foreground">
-            Select a campaign from the Campaigns tab to view analytics
-          </div>
-        </TabsContent>
+        <TabsContent value="campaigns">
+          <Tabs defaultValue="overview" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="overview">
+                <Target className="h-4 w-4 mr-2" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="analytics">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Analytics
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="create">
-          <CampaignCreator
-            orgId={orgId}
-            availableCredits={wallet?.balance_credits}
-            creditUsdRate={creditUsdRate}
-            baselineCpm={CREDIT_BASELINE_CPM}
-            walletFrozen={isFrozen}
-          />
+            <TabsContent value="overview">
+              <CampaignList
+                campaigns={campaignsWithStats}
+                loading={loadingCampaigns || loadingAnalytics}
+                onPause={pause}
+                onResume={handleResume}
+                onEdit={handleEdit}
+                onArchive={handleArchive}
+                orgId={orgId}
+                resumeDisabledReasons={resumeDisabledReasons}
+              />
+            </TabsContent>
+
+            <TabsContent value="analytics">
+              <CampaignAnalytics
+                campaigns={campaigns}
+                totals={totals}
+                series={series}
+                isLoading={loadingAnalytics}
+                error={analyticsError}
+                dateRange={dateRange}
+              />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>

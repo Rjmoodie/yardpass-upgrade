@@ -48,15 +48,15 @@ export default {
           50: "#F8FAFC",    // Soft background
           0: "#FFFFFF",     // Pure white
         },
-        // Updated brand system with cool professional tones
+        // YardPass brand system - amber/gold tones
         brand: {
-          600: "#1D4ED8",   // Deep brand accent
-          500: "#2563EB",   // Primary brand blue
-          400: "#3B82F6",   // Hover state
-          300: "#60A5FA",   // Light accent wash
-          200: "#93C5FD",   // Soft accent background
-          100: "#DBEAFE",   // Ultra light accent
-          50: "#EEF2FF",    // Delicate brand tint
+          600: "#B87D05",   // Deep amber
+          500: "#DF9D07",   // Primary YardPass amber
+          400: "#F1B52F",   // Hover state
+          300: "#F1CC77",   // Light amber accent
+          200: "#F5DDA8",   // Soft amber background
+          100: "#FBF0D6",   // Ultra light amber
+          50: "#FEF9ED",    // Delicate amber tint
         },
         // Semantic colors
         success: "#16A34A",
@@ -173,8 +173,8 @@ export default {
         subtle: "0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)",
         card: "0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)",
         elevated: "0 4px 12px rgba(0,0,0,0.08), 0 16px 32px rgba(0,0,0,0.12)",
-        focus: "0 0 0 3px rgba(37,99,235,0.18)",
-        brand: "0 0 0 3px rgba(37,99,235,0.18)",
+        focus: "0 0 0 3px rgba(223,157,7,0.18)",
+        brand: "0 0 0 3px rgba(223,157,7,0.18)",
         // Keep existing variables for compatibility
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",

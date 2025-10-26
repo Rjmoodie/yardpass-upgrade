@@ -45,16 +45,22 @@ export const useOrgWallet = (orgId?: string | null) => {
   const { data: wallet, isLoading, error } = useQuery<OrgWalletData | null>({
     queryKey: ["org-wallet", orgId ?? ""],
     queryFn: async () => {
+      console.log('[useOrgWallet] Fetching wallet for org:', orgId);
       const response = await api.getOrgWallet(orgId);
 
+      console.log('[useOrgWallet] Response:', response);
+
       if (response.error) {
+        console.error('[useOrgWallet] Error:', response.error);
         throw new Error(response.error);
       }
 
       if (!response.data) {
+        console.warn('[useOrgWallet] No wallet data returned');
         return null;
       }
 
+      console.log('[useOrgWallet] Wallet balance:', response.data.balance_credits);
       return response.data as OrgWalletData;
     },
     enabled: !!orgId,

@@ -3,9 +3,15 @@ import { CampaignDashboard } from "@/components/campaigns/CampaignDashboard";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { OrganizationCreator } from "@/components/OrganizationCreator";
+import { Plus } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CampaignDashboardPage = () => {
-  const { organizations, loading } = useOrganizations();
+  const { user } = useAuth();
+  const { organizations, loading, refresh } = useOrganizations(user?.id);
+  const [showCreateOrg, setShowCreateOrg] = useState(false);
   
   // Get orgId from URL query parameter first, then fall back to first org
   const params = new URLSearchParams(location.search);
@@ -40,13 +46,32 @@ const CampaignDashboardPage = () => {
   }
 
   if (organizations.length === 0) {
+    if (showCreateOrg) {
+      return (
+        <div className="container mx-auto py-8">
+          <OrganizationCreator
+            onBack={() => setShowCreateOrg(false)}
+            onSuccess={(orgId) => {
+              setSelectedOrgId(orgId);
+              setShowCreateOrg(false);
+              refresh();
+            }}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="container mx-auto py-8">
         <Card className="p-12 text-center">
           <h2 className="text-2xl font-bold mb-2">No Organizations</h2>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-6">
             You need to be a member of an organization to manage campaigns.
           </p>
+          <Button onClick={() => setShowCreateOrg(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Organization
+          </Button>
         </Card>
       </div>
     );

@@ -29,28 +29,62 @@ Deno.serve(async (req) => {
 
     console.log(`[get-wallet] Fetching wallet for user ${user.id}`);
 
-    // Ensure wallet exists (using authenticated user's RPC)
-    const { data: walletId, error: walletError } = await supabase.rpc("ensure_wallet_exists_for_auth_user");
-
-    if (walletError) {
-      console.error(`[get-wallet] Failed to ensure wallet:`, walletError);
-      throw new Error("Failed to initialize wallet");
-    }
-
-    console.log(`[get-wallet] Wallet ID: ${walletId}`);
-
-    // Fetch wallet
-    const { data: wallet, error: fetchError } = await supabase
-      .from("wallets")
-      .select("*")
+    // First, get the user's organization membership
+    const { data: membership, error: membershipError } = await supabase
+      .from("org_members")
+      .select("org_id")
       .eq("user_id", user.id)
+      .limit(1)
       .single();
 
-    if (fetchError) throw fetchError;
+    if (membershipError || !membership) {
+      console.error(`[get-wallet] No active organization membership found for user ${user.id}`, membershipError);
+      throw new Error("No active organization membership found");
+    }
+
+    const orgId = membership.org_id;
+    console.log(`[get-wallet] Found organization ${orgId} for user ${user.id}`);
+
+    // Fetch or create wallet for the organization
+    let { data: wallet, error: fetchError } = await supabase
+      .from("org_wallets")
+      .select("*")
+      .eq("org_id", orgId)
+      .single();
+
+    // If wallet doesn't exist, create it
+    if (fetchError?.code === 'PGRST116') {
+      console.log(`[get-wallet] Wallet not found, creating new wallet for org ${orgId}`);
+      
+      const { data: newWallet, error: createError } = await supabase
+        .from("org_wallets")
+        .insert({
+          org_id: orgId,
+          balance_credits: 0,
+          low_balance_threshold: 1000,
+          auto_reload_enabled: false,
+          auto_reload_topup_credits: 5000,
+          status: 'active'
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error(`[get-wallet] Failed to create wallet:`, createError);
+        throw new Error("Failed to create wallet");
+      }
+
+      wallet = newWallet;
+    } else if (fetchError) {
+      console.error(`[get-wallet] Failed to fetch wallet:`, fetchError);
+      throw fetchError;
+    }
+
+    console.log(`[get-wallet] Wallet ID: ${wallet.id}`);
 
     // Fetch recent transactions (last 10)
     const { data: transactions, error: txError } = await supabase
-      .from("wallet_transactions")
+      .from("org_wallet_transactions")
       .select("*")
       .eq("wallet_id", wallet.id)
       .order("created_at", { ascending: false })
@@ -60,6 +94,8 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
+        id: wallet.id,
+        org_id: membership.org_id,
         balance_credits: wallet.balance_credits,
         usd_equiv: wallet.balance_credits / 100,
         low_balance_threshold: wallet.low_balance_threshold,

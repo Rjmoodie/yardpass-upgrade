@@ -129,7 +129,12 @@ export const api = {
   getUserTickets: () => apiClient.get('get-user-tickets'),
   getOrderStatus: (sessionId: string) =>
     apiClient.get(`get-order-status?session_id=${encodeURIComponent(sessionId)}`),
-  getOrgWallet: (orgId: string) => apiClient.get(`get-org-wallet?org_id=${orgId}`),
+  getOrgWallet: (orgId?: string | null) => {
+    if (!orgId) {
+      return Promise.resolve({ data: null, error: "No organization ID provided", loading: false });
+    }
+    return apiClient.get(`get-org-wallet?org_id=${orgId}`);
+  },
   
   // Posts
   getPosts: (eventId?: string) => {

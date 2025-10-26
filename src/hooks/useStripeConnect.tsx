@@ -115,17 +115,23 @@ export function useStripeConnect(
 
         // Fetch balance only if we have a connected account
         if (data?.stripe_connect_id) {
-          const balRes = await supabase.functions.invoke('get-stripe-balance', {
-            body: { context_type: contextType, context_id: id }
-          });
-
-          if (!balRes.error) {
-            const d = balRes.data ?? {};
-            safeSetState(setBalance, {
-              available: Number(d.available || 0),
-              pending: Number(d.pending || 0),
-              currency: (d.currency || 'usd').toLowerCase()
+          try {
+            const balRes = await supabase.functions.invoke('get-stripe-balance', {
+              body: { context_type: contextType, context_id: id }
             });
+
+            if (!balRes.error) {
+              const d = balRes.data ?? {};
+              safeSetState(setBalance, {
+                available: Number(d.available || 0),
+                pending: Number(d.pending || 0),
+                currency: (d.currency || 'usd').toLowerCase()
+              });
+            }
+          } catch (e) {
+            // Gracefully handle Stripe Connect not being configured
+            console.warn('Stripe Connect balance fetch failed (Stripe Connect may not be configured):', e);
+            safeSetState(setBalance, null);
           }
         } else {
           safeSetState(setBalance, null);
@@ -186,6 +192,10 @@ export function useStripeConnect(
             return_url: returnUrl,
             refresh_url: refreshUrl
           }
+        }).catch(e => {
+          // Gracefully handle Stripe Connect not being configured
+          console.warn('Stripe Connect account creation failed (Stripe Connect may not be configured):', e);
+          return { data: null, error: 'Stripe Connect is not configured. Please contact support.' };
         });
         if (error) throw error;
 
