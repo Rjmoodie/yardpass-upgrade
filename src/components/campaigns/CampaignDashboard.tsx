@@ -5,6 +5,7 @@ import { CampaignList } from "./CampaignList";
 import { CampaignCreator } from "./CampaignCreator";
 import CampaignAnalytics from "./CampaignAnalytics";
 import { CreativeManager } from "./CreativeManager";
+import { CreativeEditDialog } from "./CreativeEditDialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ import { BarChart3, FileText, Lightbulb, ShieldAlert, Target, TrendingUp, Wallet
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
 import { useCreativeRollup } from "@/hooks/useCreativeRollup";
+import { useCreatives } from "@/hooks/useCreatives";
 import { useOrgWallet } from "@/hooks/useOrgWallet";
 import { useToast } from "@/hooks/use-toast";
 import { addDays, format } from "date-fns";
@@ -29,6 +31,10 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
   // Call all hooks unconditionally (even if orgId is undefined)
   const { campaigns, isLoading: loadingCampaigns, pause, resume, archive } = useCampaigns(orgId);
   const { wallet, isLoading: walletLoading, isLowBalance, isFrozen } = useOrgWallet(orgId);
+  const { creatives, toggleActive, updateCreative, deleteCreative } = useCreatives(orgId);
+  
+  // State for editing creatives
+  const [editingCreativeId, setEditingCreativeId] = useState<string | null>(null);
 
   const dateRange = useMemo(() => ({
     from: addDays(new Date(), -13),
@@ -345,6 +351,39 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
             }))}
             loading={loadingCreatives}
             organizationId={orgId}
+            onEdit={(id) => {
+              setEditingCreativeId(id);
+            }}
+            onToggleActive={async (id, next) => {
+              try {
+                await toggleActive({ id, next });
+                toast({ 
+                  title: next ? "Creative activated" : "Creative deactivated",
+                  description: `Successfully ${next ? "activated" : "deactivated"} the creative.`
+                });
+              } catch (error: any) {
+                toast({ 
+                  title: "Error",
+                  description: error.message || "Failed to update creative status",
+                  variant: "destructive"
+                });
+              }
+            }}
+            onDelete={async (id) => {
+              try {
+                await deleteCreative(id);
+                toast({ 
+                  title: "Creative deleted",
+                  description: "Successfully deleted the creative."
+                });
+              } catch (error: any) {
+                toast({ 
+                  title: "Error",
+                  description: error.message || "Failed to delete creative",
+                  variant: "destructive"
+                });
+              }
+            }}
           />
         </TabsContent>
 
@@ -387,6 +426,29 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
           </Tabs>
         </TabsContent>
       </Tabs>
+
+      {/* Creative Edit Dialog */}
+      <CreativeEditDialog
+        isOpen={editingCreativeId !== null}
+        onClose={() => setEditingCreativeId(null)}
+        creative={editingCreativeId ? creatives.find(c => c.id === editingCreativeId) : null}
+        onSave={async (id, updates) => {
+          try {
+            await updateCreative({ id, updates });
+            toast({
+              title: "Creative updated",
+              description: "Successfully updated the creative."
+            });
+          } catch (error: any) {
+            toast({
+              title: "Error",
+              description: error.message || "Failed to update creative",
+              variant: "destructive"
+            });
+            throw error;
+          }
+        }}
+      />
     </div>
   );
 };

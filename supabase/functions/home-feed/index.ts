@@ -1,6 +1,54 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { withCORS } from "../_shared/cors.ts";
+
+/** ---------------------------
+ *   CORS HELPER (inlined to avoid import issues)
+ * ---------------------------- */
+type WithCORSOpts = { allowOrigins?: string[] };
+
+function withCORS(
+  handler: (req: Request) => Promise<Response>,
+  opts: WithCORSOpts = {},
+) {
+  return async (req: Request) => {
+    const origin = req.headers.get("Origin") || "";
+    
+    // Determine which origin to allow
+    let allowOrigin = "*";
+    if (opts.allowOrigins?.length) {
+      const isAllowed = opts.allowOrigins.some(allowed => {
+        if (allowed === origin) return true;
+        // Support wildcard patterns like *.yardpass.com
+        if (allowed.includes("*")) {
+          const pattern = allowed.replace(/\./g, "\\.").replace(/\*/g, ".*");
+          return new RegExp(`^${pattern}$`).test(origin);
+        }
+        return false;
+      });
+      
+      allowOrigin = isAllowed ? origin : "*";
+    }
+
+    // Preflight
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": allowOrigin,
+          "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+          "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, idempotency-key",
+          "Access-Control-Max-Age": "86400",
+        },
+      });
+    }
+
+    const res = await handler(req);
+    const headers = new Headers(res.headers);
+    headers.set("Access-Control-Allow-Origin", allowOrigin);
+    headers.set("Vary", "Origin");
+    return new Response(res.body, { status: res.status, headers });
+  };
+}
 
 /** ---------------------------
  *   CONFIG & CONSTANTS
@@ -192,7 +240,6 @@ async function injectAds({
   supabase,
   organicItems,
   viewerId,
-  sessionId,
   placement = 'feed',
   category = null,
   location = null,
@@ -201,7 +248,6 @@ async function injectAds({
   supabase: any;
   organicItems: any[];
   viewerId: string | null;
-  sessionId: string | null;
   placement: string;
   category: string | null;
   location: string | null;
@@ -223,10 +269,10 @@ async function injectAds({
     const { data: eligibleAds, error } = await supabase
       .rpc('get_eligible_ads', {
         p_user_id: viewerId,
-        p_session_id: sessionId,
-        p_placement: placement,
         p_category: category,
         p_location: location,
+        p_keywords: null, // Not using keyword filtering yet
+        p_placement: placement,
         p_limit: maxAds
       });
 
@@ -268,12 +314,15 @@ async function injectAds({
       promotion: {
         campaignId: ad.campaign_id,
         creativeId: ad.creative_id,
-        placement: placement,
+        placement: placement as any,
         pricingModel: ad.pricing_model,
         estimatedRate: ad.estimated_rate,
         // Include CTA data for custom action buttons
-        cta_label: ad.cta_label || null,
-        cta_url: ad.cta_url || null,
+        ctaLabel: ad.cta_label || 'Learn More',
+        ctaUrl: ad.cta_url || null,
+        // Add frequency cap info for client-side tracking
+        frequencyCapPerUser: null,
+        frequencyCapPeriod: null,
       }
     }));
 
@@ -481,7 +530,6 @@ const handler = withCORS(async (req: Request) => {
       supabase,
       organicItems,
       viewerId,
-      sessionId: str(payload.sessionId) || null,
       placement: 'feed',
       category: categoryFilters.length === 1 ? categoryFilters[0] : null,
       location: locationFilters.length === 1 ? locationFilters[0] : null,

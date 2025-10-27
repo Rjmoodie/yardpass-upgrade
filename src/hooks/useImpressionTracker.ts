@@ -16,6 +16,8 @@ type PromotionMeta = {
   campaignId: string;
   creativeId: string | null;
   placement: 'feed' | 'search_results';
+  pricingModel?: string | null;
+  estimatedRate?: number | null;
   frequencyCapPerUser?: number | null;
   frequencyCapPeriod?: 'session' | 'day' | 'week' | null;
 };
@@ -151,6 +153,15 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
     }
 
     if (cur.promotion && cur.dwell_ms >= MIN_AD_DWELL_MS) {
+      console.log('[AD TRACKING] Logging impression:', {
+        campaignId: cur.promotion.campaignId,
+        creativeId: cur.promotion.creativeId,
+        dwellMs: cur.dwell_ms,
+        placement: cur.promotion.placement,
+        pricingModel: cur.promotion.pricingModel,
+        estimatedRate: cur.promotion.estimatedRate,
+      });
+      
       void logAdImpression(
         {
           campaignId: cur.promotion.campaignId,
@@ -158,6 +169,9 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
           eventId: cur.event_id,
           postId: cur.kind === 'post' ? cur.post_id : null,
           placement: cur.promotion.placement,
+          rateModel: cur.promotion.pricingModel || null,
+          cpmRateCredits: cur.promotion.pricingModel === 'cpm' ? cur.promotion.estimatedRate : null,
+          cpcRateCredits: cur.promotion.pricingModel === 'cpc' ? cur.promotion.estimatedRate : null,
         },
         {
           userId,
@@ -167,7 +181,14 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
             period: cur.promotion.frequencyCapPeriod,
           },
         },
-      ).catch(() => undefined);
+      ).catch((err) => {
+        console.error('[AD TRACKING] Failed to log impression:', err);
+      });
+    } else if (cur.promotion) {
+      console.log('[AD TRACKING] Skipped impression - dwell time too short:', {
+        dwellMs: cur.dwell_ms,
+        minRequired: MIN_AD_DWELL_MS,
+      });
     }
     currentRef.current = null;
   }, [enqueueFlush, userId]);
@@ -181,16 +202,42 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
     const item = items[currentIndex];
     if (!item) return;
 
+    console.log('[AD TRACKING] Switched to item:', {
+      index: currentIndex,
+      type: item.item_type,
+      id: item.item_id,
+      isPromoted: item.isPromoted,
+      hasPromotion: !!item.promotion,
+      promotionData: item.promotion ? {
+        campaignId: item.promotion.campaignId,
+        creativeId: item.promotion.creativeId,
+        placement: item.promotion.placement,
+      } : null,
+    });
+
     if (item.item_type === 'event') {
       const promotion = item.promotion
         ? {
             campaignId: item.promotion.campaignId,
             creativeId: item.promotion.creativeId ?? null,
             placement: item.promotion.placement,
+            pricingModel: item.promotion.pricingModel ?? null,
+            estimatedRate: item.promotion.estimatedRate ?? null,
             frequencyCapPerUser: item.promotion.frequencyCapPerUser ?? null,
             frequencyCapPeriod: item.promotion.frequencyCapPeriod ?? null,
           }
         : undefined;
+      
+      if (promotion) {
+        console.log('[AD TRACKING] ✅ Started tracking PROMOTED event:', {
+          campaignId: promotion.campaignId,
+          creativeId: promotion.creativeId,
+          eventId: item.event_id,
+          pricingModel: promotion.pricingModel,
+          estimatedRate: promotion.estimatedRate,
+        });
+      }
+      
       currentRef.current = {
         kind: 'event',
         event_id: item.event_id,
@@ -205,6 +252,8 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
             campaignId: item.promotion.campaignId,
             creativeId: item.promotion.creativeId ?? null,
             placement: item.promotion.placement,
+            pricingModel: item.promotion.pricingModel ?? null,
+            estimatedRate: item.promotion.estimatedRate ?? null,
             frequencyCapPerUser: item.promotion.frequencyCapPerUser ?? null,
             frequencyCapPeriod: item.promotion.frequencyCapPeriod ?? null,
           }

@@ -4,6 +4,7 @@ import { Heart, MessageCircle, Ticket, MapPin, Calendar, ChevronUp } from "lucid
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import type { FeedItem } from "@/hooks/unifiedFeedTypes";
 import { DEFAULT_EVENT_COVER } from "@/lib/constants";
+import { logAdClickBeacon } from "@/lib/adTracking";
 
 interface EventCardNewDesignProps {
   item: Extract<FeedItem, { item_type: 'event' }>;
@@ -86,6 +87,13 @@ export function EventCardNewDesign({
             {/* Event Title & Get Tickets */}
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="flex-1">
+                {item.promotion && (
+                  <div className="mb-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/30 to-amber-600/30 border border-amber-400/40 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                      ✨ Promoted
+                    </span>
+                  </div>
+                )}
                 <h3 
                   onClick={(e) => {
                     e.stopPropagation();
@@ -102,16 +110,45 @@ export function EventCardNewDesign({
                 </p>
               </div>
               
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenTickets(item.event_id);
-                }}
-                className="group flex-shrink-0 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-5 py-2.5 font-bold shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-95"
-              >
-                <Ticket className="h-4 w-4 text-white transition-transform group-hover:rotate-12" />
-                <span className="text-sm text-white">Tickets</span>
-              </button>
+              {/* Show custom CTA for promoted ads, or default Tickets button */}
+              {item.promotion?.ctaUrl ? (
+                <a
+                  href={item.promotion.ctaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Track ad click with sendBeacon (survives navigation)
+                    if (item.promotion) {
+                      logAdClickBeacon({
+                        campaignId: item.promotion.campaignId,
+                        creativeId: item.promotion.creativeId ?? null,
+                        eventId: item.event_id,
+                        postId: null,
+                        placement: 'feed',
+                        rateModel: item.promotion.pricingModel ?? null,
+                        cpcRateCredits: item.promotion.estimatedRate ?? null,
+                        impressionId: item.promotion.impressionId ?? null,
+                      });
+                    }
+                  }}
+                  className="group flex-shrink-0 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 px-5 py-2.5 font-bold shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-95"
+                >
+                  <Ticket className="h-4 w-4 text-white transition-transform group-hover:rotate-12" />
+                  <span className="text-sm text-white">{item.promotion.ctaLabel || 'Learn More'}</span>
+                </a>
+              ) : (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenTickets(item.event_id);
+                  }}
+                  className="group flex-shrink-0 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-5 py-2.5 font-bold shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-95"
+                >
+                  <Ticket className="h-4 w-4 text-white transition-transform group-hover:rotate-12" />
+                  <span className="text-sm text-white">Tickets</span>
+                </button>
+              )}
             </div>
             
             {/* Date & Location - Always Visible */}

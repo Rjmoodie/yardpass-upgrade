@@ -137,3 +137,5 @@ CREATE INDEX IF NOT EXISTS idx_ad_creatives_campaign_active
 -- ================================================================
 
 
+
+

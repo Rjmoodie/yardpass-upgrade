@@ -1,11 +1,59 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { withCORS } from "../_shared/cors.ts";
 
 const ALLOWED_ORIGINS = [
   "https://app.yardpass.com",
   "https://staging.yardpass.com",
   "http://localhost:5173",
 ];
+
+// Inline CORS helper (no external dependencies)
+interface WithCORSOpts {
+  allowOrigins?: string[];
+}
+
+function withCORS(
+  handler: (req: Request) => Promise<Response>,
+  opts: WithCORSOpts = {},
+) {
+  return async (req: Request) => {
+    const origin = req.headers.get("Origin") || "";
+
+    // Determine which origin to allow
+    let allowOrigin = "*";
+    if (opts.allowOrigins?.length) {
+      const isAllowed = opts.allowOrigins.some(allowed => {
+        if (allowed === origin) return true;
+        // Support wildcard patterns like *.yardpass.com
+        if (allowed.includes("*")) {
+          const pattern = allowed.replace(/\./g, "\\.").replace(/\*/g, ".*");
+          return new RegExp(`^${pattern}$`).test(origin);
+        }
+        return false;
+      });
+
+      allowOrigin = isAllowed ? origin : "*";
+    }
+
+    // Preflight
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": allowOrigin,
+          "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+          "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, idempotency-key",
+          "Access-Control-Max-Age": "86400",
+        },
+      });
+    }
+
+    const res = await handler(req);
+    const headers = new Headers(res.headers);
+    headers.set("Access-Control-Allow-Origin", allowOrigin);
+    headers.set("Vary", "Origin");
+    return new Response(res.body, { status: res.status, headers });
+  };
+}
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -44,15 +92,20 @@ function firstIp(req) {
 function classifyError(message) {
   if (!message) return 500;
   const lower = message.toLowerCase();
+  
+  // Budget/wallet issues (client should not retry)
   if (lower.includes("budget") || lower.includes("insufficient") || lower.includes("frozen") || lower.includes("wallet")) {
     return 409;
   }
-  if (lower.includes("frequency") || lower.includes("session")) {
-    return 429;
-  }
+  
+  // Campaign/placement not found (client should not retry)
   if (lower.includes("campaign not") || lower.includes("placement")) {
     return 404;
   }
+  
+  // Note: Frequency caps and duplicates are now handled gracefully by the RPC
+  // (they return chargedCredits=0 instead of throwing), so we don't 429 them
+  
   return 500;
 }
 
@@ -90,30 +143,56 @@ const handler = withCORS(async (req) => {
         return json(400, { error: "campaignId and placement are required" });
       }
 
+      const requestId = body?.requestId ?? crypto.randomUUID();
+      const pricingModel = body.pricingModel ?? meta.pricing_model ?? meta.pricingModel ?? 'cpm';
+      const rateCredits = body.rateCredits ?? meta.rate_credits ?? meta.rateCredits ?? 0;
+      const bidCredits = body.bidCredits ?? meta.bid_credits ?? meta.bidCredits ?? rateCredits; // fallback to rateCredits
+      const pctVisible = body.pctVisible ?? meta.pct_visible ?? meta.pctVisible ?? null;
+      const dwellMs = body.dwellMs ?? meta.dwell_ms ?? meta.dwellMs ?? null;
+      const viewable = body.viewable ?? meta.viewable ?? false;
+      const freqCap = body.freqCap ?? meta.freq_cap ?? meta.freqCap ?? null;
+
+      console.log("[ad-events] Calling log_impression_and_charge with:", {
+        p_campaign_id: meta.campaignId,
+        p_creative_id: meta.creativeId,
+        p_event_id: meta.eventId,
+        p_placement: meta.placement,
+        p_session_id: sessionId,
+        p_pricing_model: pricingModel,
+        p_rate_credits: rateCredits,
+        p_bid_credits: bidCredits,
+      });
+
       const { data, error } = await admin.rpc("log_impression_and_charge", {
         p_campaign_id: meta.campaignId,
         p_creative_id: meta.creativeId ?? null,
-        p_event_id: meta.eventId ?? null,
-        p_post_id: meta.postId ?? null,
         p_user_id: viewerId,
         p_session_id: sessionId,
+        p_event_id: meta.eventId ?? null,
         p_placement: meta.placement,
-        p_user_agent: userAgent,
-        p_ip_address: ipAddress,
-        p_now: timestampIso,
+        p_request_id: requestId,
+        p_pricing_model: pricingModel,
+        p_rate_credits: rateCredits,
+        p_bid_credits: bidCredits,
+        p_viewable: viewable,
+        p_pct_visible: pctVisible,
+        p_dwell_ms: dwellMs,
+        p_freq_cap: freqCap,
       });
 
       if (error) {
+        console.error("[ad-events] log_impression_and_charge error:", error);
         const status = classifyError(error.message);
         return json(status, { error: error.message ?? "Failed to log impression" });
       }
+
+      console.log("[ad-events] Impression logged successfully:", { impressionId: data?.[0]?.impression_id });
 
       const row = Array.isArray(data) && data.length ? data[0] : null;
       return json(200, {
         success: true,
         impressionId: row?.impression_id ?? null,
         chargedCredits: row?.charged_credits ?? null,
-        remainingBudget: row?.remaining_budget ?? null,
       });
     }
 
@@ -122,21 +201,44 @@ const handler = withCORS(async (req) => {
         return json(400, { error: "campaignId is required" });
       }
 
-      const { data, error } = await admin.rpc("log_ad_click_event", {
+      const requestId = body?.requestId ?? crypto.randomUUID();
+      const pricingModel = meta.pricing_model ?? meta.pricingModel ?? 'cpc';
+      const bidCredits = meta.bid_credits ?? meta.bidCredits ?? 0;
+
+      console.log("[ad-events] Calling log_click_and_charge with:", {
+        p_campaign_id: meta.campaignId,
+        p_impression_id: meta.impressionId,
+        p_request_id: requestId,
+        p_session_id: sessionId,
+      });
+
+      const { data, error } = await admin.rpc("log_click_and_charge", {
+        p_impression_id: meta.impressionId ?? null,
         p_campaign_id: meta.campaignId,
         p_creative_id: meta.creativeId ?? null,
-        p_impression_id: meta.impressionId ?? null,
         p_user_id: viewerId,
         p_session_id: sessionId,
-        p_now: timestampIso,
+        p_pricing_model: pricingModel,
+        p_bid_credits: bidCredits,
+        p_request_id: requestId,
+        p_ip_address: ipAddress,
+        p_user_agent: userAgent,
       });
 
       if (error) {
+        console.error("[ad-events] log_click_and_charge error:", error);
         const status = classifyError(error.message);
         return json(status, { error: error.message ?? "Failed to log click" });
       }
 
-      return json(200, { success: true, clickId: data ?? null });
+      console.log("[ad-events] Click logged successfully:", { clickId: data?.[0]?.click_id });
+
+      const row = Array.isArray(data) && data.length ? data[0] : null;
+      return json(200, {
+        success: true,
+        clickId: row?.click_id ?? null,
+        chargedCredits: row?.charged_credits ?? 0,
+      });
     }
 
     return json(400, { error: "Invalid event type" });

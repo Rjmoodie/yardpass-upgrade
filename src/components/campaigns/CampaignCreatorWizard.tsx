@@ -313,10 +313,10 @@ export const CampaignCreatorWizard = ({
                         <SelectValue placeholder="Select objective" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="awareness">Awareness</SelectItem>
-                        <SelectItem value="engagement">Engagement</SelectItem>
                         <SelectItem value="ticket_sales">Ticket Sales</SelectItem>
-                        <SelectItem value="conversions">Conversions</SelectItem>
+                        <SelectItem value="brand_awareness">Brand Awareness</SelectItem>
+                        <SelectItem value="engagement">Engagement</SelectItem>
+                        <SelectItem value="event_promotion">Event Promotion</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

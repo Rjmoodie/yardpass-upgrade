@@ -7,6 +7,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useShare } from '@/hooks/useShare';
 import { useToast } from '@/hooks/use-toast';
+import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 import { supabase } from '@/integrations/supabase/client';
 import { FeedFilter } from '@/components/FeedFilter';
 import CommentModal from '@/components/CommentModal';
@@ -123,6 +124,17 @@ export default function FeedPageNewDesign() {
       total: items.length,
       events: items.filter(i => i.item_type === 'event').length,
       posts: items.filter(i => i.item_type === 'post').length,
+      promoted: items.filter(i => i.isPromoted || i.promotion).length,
+      promotedAds: items.filter(i => i.isPromoted || i.promotion).map((ad, idx) => ({
+        feedIndex: items.indexOf(ad),
+        eventId: ad.event_id,
+        isPromoted: ad.isPromoted,
+        hasPromotion: !!ad.promotion,
+        campaignId: ad.promotion?.campaignId,
+        creativeId: ad.promotion?.creativeId,
+        placement: ad.promotion?.placement,
+        ctaLabel: ad.promotion?.ctaLabel,
+      })),
       postsWithCounts: items.filter(i => i.item_type === 'post').map(i => ({
         id: i.item_id,
         likes: i.metrics?.likes || 0,
@@ -133,6 +145,15 @@ export default function FeedPageNewDesign() {
     });
     return items;
   }, [data]);
+
+  // Ad impression tracking
+  useImpressionTracker({
+    items: allFeedItems,
+    currentIndex: activeIndex,
+    userId: user?.id ?? null,
+    isSuspended: false, // Can add logic here to suspend tracking when modals are open
+  });
+
   const activeLocation = filters.locations[0] || 'Near Me';
   const activeDate = filters.dates[0] || 'Anytime';
 

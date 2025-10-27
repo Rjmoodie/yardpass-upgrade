@@ -71,12 +71,16 @@ export type FeedItem =
 export type FeedPromotion = {
   campaignId: string;
   creativeId?: string | null;
+  impressionId?: string | null;
+  placement?: 'feed' | 'search_results' | 'story' | 'event_banner';
   objective?: string | null;
   headline?: string | null;
   body?: string | null;
   ctaLabel?: string | null;
   ctaUrl?: string | null;
   priority?: number | null;
+  pricingModel?: string | null;
+  estimatedRate?: number | null;
   rateModel?: string | null;
   cpmRateCredits?: number | null;
   cpcRateCredits?: number | null;

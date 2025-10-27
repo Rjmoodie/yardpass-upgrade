@@ -14,6 +14,20 @@ export interface AdMeta {
   rateModel?: RateModel | null;
   cpmRateCredits?: number | null;
   cpcRateCredits?: number | null;
+  impressionId?: string | null;
+}
+
+export interface ImpressionPayload {
+  campaignId: string;
+  creativeId: string;
+  placement: AdPlacement;
+  requestId: string;
+  pctVisible: number;
+  dwellMs: number;
+  viewable: boolean;
+  rateCredits?: number;
+  pricingModel?: string;
+  freqCap?: number;
 }
 
 export type FrequencyPeriod = 'session' | 'day' | 'week' | null | undefined;
@@ -21,7 +35,9 @@ export type FrequencyPeriod = 'session' | 'day' | 'week' | null | undefined;
 const FREQUENCY_STORAGE_KEY = 'yp_ad_frequency_v1';
 const IMPRESSION_CACHE_KEY = 'yp_ad_impressions';
 const IMPRESSION_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour keeps memory in check
+const IMPRESSION_ATTRIBUTION_WINDOW_MS = 30 * 60 * 1000; // 30 minutes for click attribution
 
+// In-memory cache for recent impressions (for click attribution)
 const impressionCache = new Map<string, { id: string; ts: number }>();
 
 function cacheKey(meta: AdMeta): string {
@@ -33,6 +49,43 @@ function cacheKey(meta: AdMeta): string {
     meta.placement,
   ];
   return parts.join('|');
+}
+
+// Cache impressionId by campaignId for click attribution
+function cacheImpressionForClick(campaignId: string, impressionId: string): void {
+  try {
+    const key = `lastImpr:${campaignId}`;
+    const data = {
+      impressionId,
+      ts: Date.now(),
+    };
+    sessionStorage.setItem(key, JSON.stringify(data));
+    console.log('[AD TRACKING] Cached impression for click attribution:', { campaignId, impressionId });
+  } catch (err) {
+    console.warn('[AD TRACKING] Failed to cache impression:', err);
+  }
+}
+
+// Retrieve cached impressionId for click (within 30min window)
+function getCachedImpressionForClick(campaignId: string): string | null {
+  try {
+    const key = `lastImpr:${campaignId}`;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    
+    const data = JSON.parse(raw);
+    const age = Date.now() - data.ts;
+    
+    if (age > IMPRESSION_ATTRIBUTION_WINDOW_MS) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
+    
+    return data.impressionId;
+  } catch (err) {
+    console.warn('[AD TRACKING] Failed to retrieve cached impression:', err);
+    return null;
+  }
 }
 
 function pruneImpressionCache() {
@@ -134,8 +187,14 @@ export async function logAdImpression(
 ): Promise<string | null> {
   const sessionId = options.sessionId ?? getOrCreateSessionId();
   const userAgent = options.userAgent ?? (typeof navigator !== 'undefined' ? navigator.userAgent : null);
+  const requestId = typeof crypto !== 'undefined' ? crypto.randomUUID() : Date.now().toString();
 
   pruneImpressionCache();
+
+  // Determine pricing model and rate (round to integer for RPC)
+  const pricingModel = meta.rateModel || 'cpm';
+  const rawRate = meta.cpmRateCredits || meta.cpcRateCredits || null;
+  const rateCredits = rawRate !== null ? Math.round(rawRate) : null;
 
   const payload = await invokeAdFunction({
     type: 'impression',
@@ -148,6 +207,13 @@ export async function logAdImpression(
     },
     sessionId,
     userAgent,
+    requestId,
+    pricingModel,
+    rateCredits,
+    pctVisible: 100, // Assume 100% visible when impression is logged
+    dwellMs: 0, // Will be updated by server
+    viewable: true,
+    freqCap: options.frequencyCap?.cap ?? null,
     now: new Date().toISOString(),
   });
 
@@ -162,6 +228,9 @@ export async function logAdImpression(
         console.warn('[adTracking] failed to memoize impression', err);
       }
     }
+    
+    // Cache by campaignId for easier click attribution lookup
+    cacheImpressionForClick(meta.campaignId, impressionId);
   }
 
   if (options.frequencyCap) {
@@ -182,7 +251,7 @@ export async function logAdClick(
   pruneImpressionCache();
   const key = cacheKey(meta);
   const cached = impressionCache.get(key);
-  const impressionId = cached?.id ?? null;
+  const impressionId = cached?.id ?? meta.impressionId ?? null;
 
   const payload = await invokeAdFunction({
     type: 'click',
@@ -209,5 +278,81 @@ export async function logAdClick(
     }
   }
 
-  return impressionId;
+  // Store click info for conversion attribution
+  if (payload?.clickId && typeof window !== 'undefined') {
+    try {
+      window.sessionStorage?.setItem('yp_last_ad_click', JSON.stringify({
+        clickId: payload.clickId,
+        campaignId: meta.campaignId,
+        creativeId: meta.creativeId,
+        timestamp: Date.now(),
+      }));
+    } catch (err) {
+      console.warn('[adTracking] failed to store click for attribution', err);
+    }
+  }
+
+  return payload?.clickId ?? impressionId;
+}
+
+/**
+ * Log ad click using sendBeacon (non-blocking, survives page unload)
+ * Use this for CTA clicks that navigate away from the page
+ */
+export function logAdClickBeacon(meta: AdMeta): void {
+  if (typeof window === 'undefined') return;
+
+  const sessionId = getOrCreateSessionId();
+  const requestId = crypto.randomUUID();
+  
+  // Try to get impressionId from cache (within 30min window)
+  let impressionId = meta.impressionId ?? null;
+  if (!impressionId) {
+    impressionId = getCachedImpressionForClick(meta.campaignId);
+  }
+
+  // Determine pricing model and bid for CPC (round to integer for RPC)
+  const pricingModel = meta.rateModel || 'cpc';
+  const rawBid = meta.cpcRateCredits || null;
+  const bidCredits = rawBid !== null ? Math.round(rawBid) : null;
+
+  const body = JSON.stringify({
+    type: 'click',
+    meta: {
+      campaignId: meta.campaignId,
+      creativeId: meta.creativeId ?? null,
+      eventId: meta.eventId ?? null,
+      postId: meta.postId ?? null,
+      placement: meta.placement,
+      impressionId,
+      pricingModel,
+      bidCredits,
+    },
+    sessionId,
+    requestId, // Always send requestId for idempotency
+    now: new Date().toISOString(),
+  });
+
+  console.log('[AD TRACKING] Logging click via beacon:', {
+    campaignId: meta.campaignId,
+    impressionId,
+    requestId,
+  });
+
+  // Use Edge Function directly (sendBeacon causes CORS issues with credentials)
+  const edgeFunctionUrl = `${supabase.supabaseUrl}/functions/v1/ad-events`;
+
+  // Use fetch with keepalive for non-blocking request
+  fetch(edgeFunctionUrl, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'apikey': supabase.supabaseKey,
+      'Authorization': `Bearer ${supabase.supabaseKey}`,
+    },
+    body,
+    keepalive: true,
+  })
+    .then(() => console.log('[AD TRACKING] ✅ Click logged successfully'))
+    .catch((err) => console.error('[AD TRACKING] ❌ Click failed:', err));
 }

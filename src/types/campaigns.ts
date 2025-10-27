@@ -4,9 +4,42 @@
 
 export type CampaignStatus = "draft" | "scheduled" | "active" | "paused" | "completed" | "archived";
 
-export type CampaignObjective = "awareness" | "engagement" | "conversions" | "sales" | "app-installs";
+export type CampaignObjective = "ticket_sales" | "brand_awareness" | "engagement" | "event_promotion";
+
+export type BiddingModel = "CPM" | "CPC";
 
 export type PacingStrategy = "standard" | "accelerated" | "even";
+
+export type CampaignTargetingSettings = {
+  categories?: string[];
+  cities?: string[];
+  regions?: string[];
+  devices?: Array<"ios" | "android" | "web">;
+  interests?: string[];
+  keywords?: string[];
+  metadata?: Record<string, unknown> | null;
+};
+
+export type CampaignBiddingSettings = {
+  model: BiddingModel;
+  bid_cents: number;
+  floor_cents?: number;
+  max_cents?: number | null;
+  quality_score?: number;
+  strategy?: "manual" | "auto";
+};
+
+export type CampaignPacingSettings = {
+  strategy: PacingStrategy;
+  daily_target_impressions?: number | null;
+  lifetime_target_impressions?: number | null;
+  daily_spend_cap_cents?: number | null;
+};
+
+export type CampaignFrequencyCapSettings = {
+  impressions?: number | null;
+  period_hours?: number | null;
+};
 
 // Base campaign row from campaigns.campaigns
 export type CampaignRow = {
@@ -29,6 +62,10 @@ export type CampaignRow = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  targeting?: CampaignTargetingSettings | null;
+  bidding?: CampaignBiddingSettings | null;
+  pacing?: CampaignPacingSettings | null;
+  freq_cap?: CampaignFrequencyCapSettings | null;
 };
 
 // Targeting criteria for campaigns
@@ -101,9 +138,28 @@ export type CampaignOverview = CampaignRow & {
   credits_last_30d?: number | null;
   impressions_last_7d?: number | null;
   clicks_last_7d?: number | null;
+  conversions_last_7d?: number | null;
+  spend_last_7d_cents?: number | null;
+  cpa_last_7d_cents?: number | null;
+  ctr_last_7d?: number | null;
   last_activity_at?: string | null;
   last_impression_at?: string | null;
   last_click_at?: string | null;
   delivery_status: CampaignDeliveryStatus;
   pacing_health: CampaignPacingHealth;
+};
+
+export type CampaignDailyMetric = {
+  summary_date: string; // YYYY-MM-DD
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  spend_cents: number;
+  cpa_cents: number | null;
+  ctr: number;
+};
+
+export type CampaignAnalyticsSeries = {
+  campaign_id: string;
+  rows: CampaignDailyMetric[];
 };
