@@ -93,11 +93,24 @@ export type AdCreative = {
 
 // Analytics aggregation by campaign
 export type AnalyticsTotals = {
-  campaign_id: string;
+  impressions: number;
+  clicks: number;
+  conversions?: number;
+  ctr?: number;
+  credits_spent?: number;
+  spend_credits?: number;  // Alternative name used in some contexts
+  revenue_cents?: number;
+};
+
+// Time series data point for analytics
+export type AnalyticsPoint = {
+  date: string;
   impressions: number;
   clicks: number;
   conversions: number;
   revenue_cents: number;
+  credits_spent: number;
+  spend_credits?: number;  // Alternative name
 };
 
 export type CreativeRollup = {

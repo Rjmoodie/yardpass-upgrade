@@ -1,59 +1,92 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// Supabase Edge Function: refresh-analytics
+// Purpose: Refresh analytics materialized views via cron job
+// Trigger: Every 5 minutes via Supabase Cron
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+Deno.serve(async (req) => {
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed. Use POST.' }),
+      { 
+        status: 405,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   }
 
+  // Verify cron secret (optional security layer)
+  const authHeader = req.headers.get('Authorization');
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  }
+
+  const startTime = Date.now();
+
   try {
-    // Use service role key for admin operations
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    // Create admin client
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log('Starting impression analytics refresh...');
+    // Call refresh function
+    const { data, error } = await supabase.rpc('refresh_analytics');
 
-    // Call the refresh function
-    const { error } = await supabaseClient.rpc('refresh_impression_rollups', {}, {
-      schema: 'analytics'
-    });
-    
     if (error) {
-      console.error('Analytics refresh error:', error);
-      return new Response(JSON.stringify({ 
-        error: 'Failed to refresh impression analytics',
-        details: error.message 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      });
+      console.error('[ANALYTICS] Refresh failed:', error);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: error.message,
+          duration_ms: Date.now() - startTime
+        }),
+        { 
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    console.log('Impression analytics refresh completed successfully');
+    const duration = Date.now() - startTime;
+    console.log(`[ANALYTICS] ✅ Refresh completed in ${duration}ms`);
 
-    return new Response(JSON.stringify({ 
-      success: true,
-      message: 'Impression analytics refreshed successfully',
-      timestamp: new Date().toISOString()
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        duration_ms: duration,
+        refreshed_at: new Date().toISOString()
+      }),
+      { 
+        status: 200,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      }
+    );
 
-  } catch (error) {
-    console.error('Refresh impression analytics error:', error);
-    return new Response(JSON.stringify({ 
-      error: 'Internal server error',
-      details: (error as any)?.message || 'Unknown error'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+  } catch (err) {
+    console.error('[ANALYTICS] Unexpected error:', err);
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: String(err),
+        duration_ms: Date.now() - startTime
+      }),
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   }
 });

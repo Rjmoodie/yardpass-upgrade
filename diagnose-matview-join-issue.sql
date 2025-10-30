@@ -88,3 +88,4 @@ WHERE c.id = '3a51d5c9-b817-4c11-859f-5cd0b4c5b1ec'
   AND d.day <= CURRENT_DATE + 1
 ORDER BY d.day DESC;
 
+

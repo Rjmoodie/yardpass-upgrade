@@ -69,9 +69,17 @@ export function useCampaignAnalytics({
     const pts = q.data?.series ?? [];
     const impressions = pts.reduce((s, p) => s + p.impressions, 0);
     const clicks = pts.reduce((s, p) => s + p.clicks, 0);
+    const conversions = pts.reduce((s, p) => s + p.conversions, 0);
     const credits_spent = pts.reduce((s, p) => s + p.credits_spent, 0);
     const ctr = impressions ? clicks / impressions : 0;
-    return { impressions, clicks, ctr, credits_spent };
+    return { 
+      impressions, 
+      clicks, 
+      conversions,
+      ctr, 
+      spend_credits: credits_spent,  // Use spend_credits to match component expectation
+      credits_spent  // Keep both for compatibility
+    };
   }, [q.data]);
 
   // Aggregate by campaign
@@ -86,6 +94,7 @@ export function useCampaignAnalytics({
         conversions: 0,
         revenue_cents: 0,
         credits_spent: 0,
+        spend_credits: 0,
         ctr: 0,
       };
       prev.impressions += row.impressions ?? 0;
@@ -93,6 +102,7 @@ export function useCampaignAnalytics({
       prev.conversions += row.conversions ?? 0;
       prev.revenue_cents += row.revenue_cents ?? 0;
       prev.credits_spent += row.credits_spent ?? 0;
+      prev.spend_credits = prev.credits_spent;  // Mirror for compatibility
       map.set(key, prev);
     }
     // Compute CTR

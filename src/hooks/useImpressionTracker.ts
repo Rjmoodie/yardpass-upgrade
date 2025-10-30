@@ -176,6 +176,8 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
         {
           userId,
           sessionId: session_id,
+          dwellMs: Math.round(cur.dwell_ms), // Pass actual dwell time!
+          pctVisible: 100, // Assume 100% visible (could be enhanced with IntersectionObserver)
           frequencyCap: {
             cap: cur.promotion.frequencyCapPerUser,
             period: cur.promotion.frequencyCapPeriod,

@@ -19,6 +19,9 @@ import {
   Search,
   Filter,
   TrendingUp,
+  HandshakeIcon,
+  LayoutDashboard,
+  Smartphone,
 } from 'lucide-react';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
@@ -84,9 +87,19 @@ interface EnhancedEvent extends Event {
 }
 
 // ─────────────────────────────────────────
-const TAB_KEYS = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'payouts'] as const;
+// Navigation Configuration
+const TAB_KEYS = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'wallet', 'payouts', 'sponsorship'] as const;
 type TabKey = typeof TAB_KEYS[number];
 const DEFAULT_TAB: TabKey = 'events';
+
+// App View tabs (lightweight mobile-friendly view)
+const APP_VIEW_TABS: TabKey[] = ['events', 'messaging', 'teams'];
+
+// Full Dashboard tabs (desktop/complete view with all heavy utilities)
+const FULL_DASHBOARD_TABS: TabKey[] = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'wallet', 'payouts', 'sponsorship'];
+
+type ViewMode = 'app' | 'full';
+const VIEW_MODE_KEY = 'organizer.viewMode';
 const lastTabKeyFor = (orgId: string) => `organizer.lastTab.${orgId}`;
 const LAST_ORG_KEY = 'organizer.lastOrgId';
 // ─────────────────────────────────────────
@@ -96,6 +109,18 @@ export default function OrganizerDashboard() {
   const { trackEvent } = useAnalyticsIntegration();
   const isBrowser = typeof window !== 'undefined';
   const [now, setNow] = useState(() => new Date());
+
+  // View Mode (app vs full dashboard)
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (!isBrowser) return 'full';
+    const saved = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+    // Default to 'full' for desktop, 'app' for mobile
+    if (saved && (saved === 'app' || saved === 'full')) return saved;
+    return window.innerWidth < 768 ? 'app' : 'full';
+  });
+
+  // Get available tabs based on view mode
+  const availableTabs = viewMode === 'app' ? APP_VIEW_TABS : FULL_DASHBOARD_TABS;
 
   // Auth (we still need user for create-event param, but dashboard is strictly org-scoped)
   const [user, setUser] = useState<any>(null);
@@ -149,6 +174,19 @@ export default function OrganizerDashboard() {
     }
   }, [orgsLoading, organizations, urlOrg, searchParams, setSearchParams, isBrowser]);
 
+  // Persist view mode changes
+  useEffect(() => {
+    if (isBrowser) {
+      localStorage.setItem(VIEW_MODE_KEY, viewMode);
+    }
+  }, [viewMode, isBrowser]);
+
+  // Toggle view mode function
+  const toggleViewMode = useCallback(() => {
+    setViewMode(prev => prev === 'app' ? 'full' : 'app');
+    trackEvent('view_mode_toggled', { new_mode: viewMode === 'app' ? 'full' : 'app' });
+  }, [viewMode, trackEvent]);
+
   // Tabs (per-org memory)
   const scope = selectedOrgId ?? 'none';
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
@@ -189,6 +227,13 @@ export default function OrganizerDashboard() {
     trackEvent('organizer_tab_view', { tab: tabToActivate, org_id: selectedOrgId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrgId]); // Only run when selectedOrgId changes
+
+  // Handle view mode changes - switch to default tab if current tab not available
+  useEffect(() => {
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab(DEFAULT_TAB);
+    }
+  }, [viewMode, availableTabs, activeTab]);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000);
@@ -717,7 +762,26 @@ export default function OrganizerDashboard() {
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={toggleViewMode}
+            className="hidden sm:flex items-center gap-2"
+            title={viewMode === 'app' ? 'Switch to Full Dashboard' : 'Switch to App View'}
+          >
+            {viewMode === 'app' ? (
+              <>
+                <LayoutDashboard className="h-4 w-4" />
+                <span className="text-xs">Full Dashboard</span>
+              </>
+            ) : (
+              <>
+                <Smartphone className="h-4 w-4" />
+                <span className="text-xs">App View</span>
+              </>
+            )}
+          </Button>
           <Button className="w-full sm:w-auto" onClick={goCreateEvent}>
             <Plus className="mr-2 h-4 w-4" />
             Create Event
@@ -737,34 +801,54 @@ export default function OrganizerDashboard() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
         <div className="w-full overflow-x-auto scrollbar-hide">
           <TabsList className="inline-flex w-auto min-w-full justify-start gap-2 p-1.5">
-            <TabsTrigger value="events" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <CalendarDays className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Events</span>
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <BarChart3 className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Analytics</span>
-            </TabsTrigger>
-            <TabsTrigger value="campaigns" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <Megaphone className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Campaigns</span>
-            </TabsTrigger>
-            <TabsTrigger value="messaging" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <Mail className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Messaging</span>
-            </TabsTrigger>
-            <TabsTrigger value="teams" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <Users className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Teams</span>
-            </TabsTrigger>
-            <TabsTrigger value="wallet" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <Wallet className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Wallet</span>
-            </TabsTrigger>
-            <TabsTrigger value="payouts" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
-              <DollarSign className="h-5 w-5" />
-              <span className="text-xs whitespace-nowrap">Payouts</span>
-            </TabsTrigger>
+            {availableTabs.includes('events') && (
+              <TabsTrigger value="events" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+                <CalendarDays className="h-5 w-5" />
+                <span className="text-xs whitespace-nowrap">Events</span>
+              </TabsTrigger>
+            )}
+            {availableTabs.includes('analytics') && (
+              <TabsTrigger value="analytics" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+                <BarChart3 className="h-5 w-5" />
+                <span className="text-xs whitespace-nowrap">Analytics</span>
+              </TabsTrigger>
+            )}
+            {availableTabs.includes('campaigns') && (
+              <TabsTrigger value="campaigns" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+                <Megaphone className="h-5 w-5" />
+                <span className="text-xs whitespace-nowrap">Campaigns</span>
+              </TabsTrigger>
+            )}
+            {availableTabs.includes('messaging') && (
+              <TabsTrigger value="messaging" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+                <Mail className="h-5 w-5" />
+                <span className="text-xs whitespace-nowrap">Messaging</span>
+              </TabsTrigger>
+            )}
+            {availableTabs.includes('teams') && (
+              <TabsTrigger value="teams" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+                <Users className="h-5 w-5" />
+                <span className="text-xs whitespace-nowrap">Teams</span>
+              </TabsTrigger>
+            )}
+            {availableTabs.includes('wallet') && (
+              <TabsTrigger value="wallet" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+                <Wallet className="h-5 w-5" />
+                <span className="text-xs whitespace-nowrap">Wallet</span>
+              </TabsTrigger>
+            )}
+            {availableTabs.includes('payouts') && (
+              <TabsTrigger value="payouts" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+                <DollarSign className="h-5 w-5" />
+                <span className="text-xs whitespace-nowrap">Payouts</span>
+              </TabsTrigger>
+            )}
+            {availableTabs.includes('sponsorship') && (
+              <TabsTrigger value="sponsorship" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
+                <HandshakeIcon className="h-5 w-5" />
+                <span className="text-xs whitespace-nowrap">Sponsorship</span>
+              </TabsTrigger>
+            )}
             <button
               onClick={() => (window.location.href = `/organization-dashboard/${selectedOrgId}?tab=settings`)}
               className="flex-col gap-1.5 min-w-[90px] flex-shrink-0 inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted hover:text-accent-foreground"
@@ -1122,6 +1206,77 @@ export default function OrganizerDashboard() {
               contextId={selectedOrgId}
             />
           </Suspense>
+        </TabsContent>
+
+        <TabsContent value="sponsorship" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/10">
+                  <HandshakeIcon className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl">Sponsorship Management</CardTitle>
+                  <CardDescription>
+                    Connect with sponsors, manage packages, and track sponsorship revenue
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Active Sponsors</CardTitle>
+                    <HandshakeIcon className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">0</div>
+                    <p className="text-xs text-muted-foreground">Across all events</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Sponsorship Revenue</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">$0</div>
+                    <p className="text-xs text-muted-foreground">Total committed</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Packages</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">0</div>
+                    <p className="text-xs text-muted-foreground">Sponsorship tiers</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="rounded-xl border border-dashed bg-muted/30 p-8 text-center">
+                <HandshakeIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Sponsorship Tools Coming Soon</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+                  Create sponsorship packages, manage sponsor relationships, and track ROI for your events. 
+                  This feature is currently in development.
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <Button variant="outline" disabled>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Package
+                  </Button>
+                  <Button variant="outline" disabled>
+                    <Users className="mr-2 h-4 w-4" />
+                    Manage Sponsors
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

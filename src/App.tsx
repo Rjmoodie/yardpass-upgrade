@@ -76,6 +76,7 @@ const SponsorshipPage = lazy(() => import('@/pages/SponsorshipPage'));
 const SponsorshipTestPage = lazy(() => import('@/pages/SponsorshipTestPage'));
 const OrgWalletPage = lazy(() => import('@/pages/OrgWalletPage'));
 const CampaignDashboardPage = lazy(() => import('@/pages/CampaignDashboardPage'));
+const CampaignAnalyticsPage = lazy(() => import('@/pages/CampaignAnalyticsPageEnhanced'));
 const MessagesPage = lazy(() => import('@/pages/MessagesPage'));
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
 const SocialPage = lazy(() => import('@/components/SocialPage').then((m) => ({ default: m.SocialPage })));
@@ -631,6 +632,16 @@ function AppContent() {
                 element={
                   <AuthGuard>
                     <CampaignDashboardPage />
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/campaign-analytics"
+                element={
+                  <AuthGuard>
+                    <Suspense fallback={<PageLoadingSpinner />}>
+                      <CampaignAnalyticsPage />
+                    </Suspense>
                   </AuthGuard>
                 }
               />

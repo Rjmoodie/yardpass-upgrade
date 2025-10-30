@@ -2,8 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, DollarSign, Eye, MousePointerClick, Play, Pause, Archive, Target } from "lucide-react";
+import { Calendar, DollarSign, Eye, MousePointerClick, Play, Pause, Archive, Target, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { getPacingVariant } from "@/lib/campaignInsights";
 
 type CampaignRow = {
@@ -45,6 +46,8 @@ export const CampaignList = ({
   onArchive?: (id: string) => void;
   resumeDisabledReasons?: Record<string, string>;
 }) => {
+  const navigate = useNavigate();
+  
   const sorted = useMemo(
     () => [...campaigns].sort((a, b) => (a.status === "active" ? -1 : 1)),
     [campaigns]
@@ -177,6 +180,15 @@ export const CampaignList = ({
                     <span className="hidden xs:inline">Resume</span>
                   </Button>
                 )}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => navigate(`/campaign-analytics?id=${c.id}`)}
+                  className="touch-manipulation min-h-[36px] sm:min-h-[32px]"
+                >
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  <span className="hidden xs:inline">Analytics</span>
+                </Button>
                 <Button 
                   variant="outline" 
                   size="sm" 

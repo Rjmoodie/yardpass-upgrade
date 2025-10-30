@@ -407,3 +407,4 @@ WHERE created_at > NOW() - INTERVAL '1 hour';
 
 **Questions?** Check the `CONVERSION_TRACKING_TESTING_GUIDE.md` for detailed test scenarios.
 
+

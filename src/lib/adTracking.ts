@@ -183,6 +183,8 @@ export async function logAdImpression(
     sessionId?: string | null;
     userAgent?: string | null;
     frequencyCap?: { cap?: number | null; period?: FrequencyPeriod };
+    dwellMs?: number;  // Add dwell time parameter
+    pctVisible?: number;  // Add visibility percentage parameter
   } = {},
 ): Promise<string | null> {
   const sessionId = options.sessionId ?? getOrCreateSessionId();
@@ -210,9 +212,9 @@ export async function logAdImpression(
     requestId,
     pricingModel,
     rateCredits,
-    pctVisible: 100, // Assume 100% visible when impression is logged
-    dwellMs: 0, // Will be updated by server
-    viewable: true,
+    pctVisible: options.pctVisible ?? 100, // Use actual visibility or assume 100%
+    dwellMs: options.dwellMs ?? 0, // Use actual dwell time from tracker
+    viewable: (options.dwellMs ?? 0) >= 1000 && (options.pctVisible ?? 100) >= 50, // IAB viewability standard
     freqCap: options.frequencyCap?.cap ?? null,
     now: new Date().toISOString(),
   });
