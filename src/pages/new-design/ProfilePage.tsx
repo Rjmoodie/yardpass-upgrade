@@ -170,12 +170,35 @@ export function ProfilePage() {
       if (!isOwnProfile || !targetUserId) return;
 
       try {
-        // Note: saved_events table doesn't exist yet, so we'll skip this for now
-        // This feature can be implemented when the table is created
-        console.log('Saved events feature not yet implemented');
-        setSavedEvents([]);
+        const { data, error } = await supabase
+          .from('saved_events')
+          .select(`
+            id,
+            event_id,
+            events (
+              id,
+              title,
+              cover_image_url,
+              start_at
+            )
+          `)
+          .eq('user_id', targetUserId)
+          .order('saved_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Transform the data
+        const events: UserEvent[] = (data || []).map((item: any) => ({
+          id: item.events.id,
+          title: item.events.title,
+          cover_image_url: item.events.cover_image_url,
+          start_at: item.events.start_at,
+        }));
+
+        setSavedEvents(events);
       } catch (error) {
         console.error('Error loading saved events:', error);
+        setSavedEvents([]);
       }
     };
 
@@ -242,10 +265,11 @@ export function ProfilePage() {
           alt="Cover"
           className="h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
+        {/* Enhanced gradient overlay for better icon visibility */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
         
         {/* Header Actions */}
-        <div className="absolute right-3 top-3 flex gap-2 sm:right-4 sm:top-4">
+        <div className="absolute right-3 top-3 flex gap-2 sm:right-4 sm:top-4 [&>*]:shadow-2xl [&>*]:shadow-black/50">
           {/* Organizer Mode Toggle (Own Profile Only) */}
           {isOwnProfile && (
             <button
@@ -279,7 +303,8 @@ export function ProfilePage() {
                   ? 'border-[#FF8C00]/50 bg-[#FF8C00]/20 hover:bg-[#FF8C00]/30'
                   : 'border-white/20 bg-black/40 hover:bg-black/60'
               }`}
-              title={profile?.role === 'organizer' ? 'Switch to Attendee' : 'Become Organizer'}
+              title={profile?.role === 'organizer' ? 'Currently: Organizer Mode - Click to switch to Attendee' : 'Currently: Attendee Mode - Click to switch to Organizer'}
+              aria-label={profile?.role === 'organizer' ? 'Switch to Attendee Mode' : 'Switch to Organizer Mode'}
             >
               <Shield className={`h-4 w-4 sm:h-5 sm:w-5 ${profile?.role === 'organizer' ? 'text-[#FF8C00]' : 'text-white'}`} />
             </button>
@@ -366,6 +391,14 @@ export function ProfilePage() {
                   }
                 }}
               />
+              
+              {/* Current Mode Indicator */}
+              <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1.5 backdrop-blur-sm">
+                <Shield className={`h-3.5 w-3.5 ${profile?.role === 'organizer' ? 'text-[#FF8C00]' : 'text-white/60'}`} />
+                <span className="text-xs font-medium text-white/80">
+                  {profile?.role === 'organizer' ? 'Organizer Mode' : 'Attendee Mode'}
+                </span>
+              </div>
             </div>
           ) : (
             <p className="mb-3 text-sm text-white/60 sm:text-base">
@@ -433,29 +466,47 @@ export function ProfilePage() {
           )}
 
           {/* Stats */}
-          <div className="mb-6 grid grid-cols-3 gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl sm:gap-4 sm:p-5">
-            <div className="text-center">
-              <p className="mb-1 text-lg font-bold text-white sm:text-xl">
-                {isOwnProfile ? tickets.length : posts.length}
-              </p>
-              <p className="text-xs text-white/60 sm:text-sm">
-                {isOwnProfile ? 'Events' : 'Posts'}
-              </p>
+          <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl sm:p-5">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-3 pb-3 border-b border-white/10">
+              <button 
+                onClick={() => navigate(`/profile/${targetUserId}/followers`)}
+                className="text-center transition-opacity hover:opacity-80"
+              >
+                <p className="mb-1 text-lg font-bold text-white sm:text-xl">{followers.length.toLocaleString()}</p>
+                <p className="text-xs text-white/60 sm:text-sm">Followers</p>
+              </button>
+              <button 
+                onClick={() => navigate(`/profile/${targetUserId}/following`)}
+                className="text-center transition-opacity hover:opacity-80"
+              >
+                <p className="mb-1 text-lg font-bold text-white sm:text-xl">{following.length}</p>
+                <p className="text-xs text-white/60 sm:text-sm">Following</p>
+              </button>
+              <div className="text-center">
+                <p className="mb-1 text-lg font-bold text-white sm:text-xl">
+                  {posts.length}
+                </p>
+                <p className="text-xs text-white/60 sm:text-sm">Posts</p>
+              </div>
             </div>
-            <button 
-              onClick={() => navigate(`/profile/${targetUserId}/followers`)}
-              className="text-center transition-opacity hover:opacity-80"
-            >
-              <p className="mb-1 text-lg font-bold text-white sm:text-xl">{followers.length.toLocaleString()}</p>
-              <p className="text-xs text-white/60 sm:text-sm">Followers</p>
-            </button>
-            <button 
-              onClick={() => navigate(`/profile/${targetUserId}/following`)}
-              className="text-center transition-opacity hover:opacity-80"
-            >
-              <p className="mb-1 text-lg font-bold text-white sm:text-xl">{following.length}</p>
-              <p className="text-xs text-white/60 sm:text-sm">Following</p>
-            </button>
+            
+            {/* Event Breakdown: Hosted vs Attended */}
+            {isOwnProfile && (
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="text-center">
+                  <p className="mb-1 text-base font-bold text-[#FF8C00] sm:text-lg">
+                    {profile?.role === 'organizer' ? tickets.filter(t => t.organizer_id === currentUser?.id).length : 0}
+                  </p>
+                  <p className="text-xs text-white/60 sm:text-sm">Events Hosted</p>
+                </div>
+                <div className="text-center">
+                  <p className="mb-1 text-base font-bold text-[#FF8C00] sm:text-lg">
+                    {tickets.length}
+                  </p>
+                  <p className="text-xs text-white/60 sm:text-sm">Events Attended</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}

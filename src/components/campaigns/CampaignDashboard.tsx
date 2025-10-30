@@ -74,6 +74,7 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
     return campaigns.map((c) => {
       const stats = totalsByCampaign?.find((t) => t.campaign_id === c.id);
       const remainingCredits = Math.max(0, (c.total_budget_credits ?? 0) - (c.spent_credits ?? 0));
+      const conversions = stats?.conversions ?? 0;
       return {
         id: c.id,
         name: c.name,
@@ -82,8 +83,9 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         spent: c.spent_credits,
         impressions: stats?.impressions ?? 0,
         clicks: stats?.clicks ?? 0,
-        conversions: stats?.conversions ?? 0,
-        revenue: stats?.revenue_cents ?? 0,
+        conversions,
+        // ✅ FIX: Revenue should be 0 if there are no conversions
+        revenue: conversions > 0 ? (stats?.revenue_cents ?? 0) : 0,
         startDate: c.start_date.slice(0, 10),
         endDate: c.end_date?.slice(0, 10) ?? undefined,
         remainingCredits,

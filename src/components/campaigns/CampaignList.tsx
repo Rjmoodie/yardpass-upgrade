@@ -138,7 +138,7 @@ export const CampaignList = ({
                 <Stat label="Clicks" value={c.clicks.toLocaleString()} icon={<MousePointerClick className="h-3 w-3" />} />
                 <Stat label="CTR" value={new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 }).format(ctr)} />
                 {c.conversions !== undefined && <Stat label="Conversions" value={c.conversions.toLocaleString()} />}
-                {c.revenue !== undefined && <Stat label="Revenue" value={`$${(c.revenue / 100).toFixed(2)}`} />}
+                {c.revenue !== undefined && c.conversions !== 0 && <Stat label="Revenue" value={`$${(c.revenue / 100).toFixed(2)}`} />}
                 {typeof c.impressions7d === "number" && (
                   <Stat label="7d Impressions" value={c.impressions7d.toLocaleString()} />
                 )}

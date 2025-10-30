@@ -1,19 +1,51 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Search, Ticket, User, MessageCircle } from "lucide-react";
+import { Home, Search, Ticket, User, MessageCircle, LayoutDashboard } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 export function NavigationNewDesign() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const [userRole, setUserRole] = useState<'attendee' | 'organizer'>('attendee');
   
+  // Fetch user role from profile
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user?.id) return;
+      
+      // Check if profile is already available from context
+      if (profile?.role) {
+        setUserRole(profile.role as 'attendee' | 'organizer');
+        return;
+      }
+      
+      // Otherwise fetch from database
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (data?.role) {
+        setUserRole(data.role as 'attendee' | 'organizer');
+      }
+    };
+    
+    fetchUserRole();
+  }, [user?.id, profile?.role]);
+  
+  // Dynamic nav items based on user role
   const navItems = [
     { id: 'feed', icon: Home, label: 'Feed', path: '/' },
     { id: 'search', icon: Search, label: 'Search', path: '/search' },
     { id: 'tickets', icon: Ticket, label: 'Tickets', path: '/tickets', authRequired: true },
     { id: 'messages', icon: MessageCircle, label: 'Messages', path: '/messages', authRequired: true },
-    { id: 'profile', icon: User, label: 'Profile', path: '/profile', authRequired: true },
+    // Show Dashboard for organizers, Profile for attendees
+    userRole === 'organizer'
+      ? { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', authRequired: true }
+      : { id: 'profile', icon: User, label: 'Profile', path: '/profile', authRequired: true },
   ];
 
   const handleNavigate = (path: string, authRequired: boolean) => {
@@ -31,6 +63,7 @@ export function NavigationNewDesign() {
     if (path.includes('/search')) return 'search';
     if (path.includes('/tickets')) return 'tickets';
     if (path.includes('/messages')) return 'messages';
+    if (path.includes('/dashboard')) return 'dashboard';
     if (path.includes('/profile')) return 'profile';
     if (path.includes('/notifications')) return 'notifications';
     return '';

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, MoreVertical, Send, Smile, Image as ImageIcon, ArrowLeft, X } from "lucide-react";
+import { Search, MoreVertical, Send, Smile, Image as ImageIcon, ArrowLeft, X, UserPlus, Users } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { useAuth } from "@/contexts/AuthContext";
 import { transformConversations, transformMessages, getTimeAgo } from "@/lib/dataTransformers";
+import { UserSearchModal } from "@/components/follow/UserSearchModal";
 
 interface Conversation {
   id: string;
@@ -32,6 +33,7 @@ export function MessagesPageIntegrated() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showUserSearch, setShowUserSearch] = useState(false);
 
   // Load conversations
   useEffect(() => {
@@ -96,7 +98,16 @@ export function MessagesPageIntegrated() {
       <div className={`${selectedConversation ? 'hidden sm:flex' : 'flex'} flex-col border-r border-white/10 bg-black w-full sm:w-80 md:w-96`}>
         {/* Header */}
         <div className="border-b border-white/10 p-3 sm:p-4">
-          <h2 className="mb-3 text-xl font-bold text-white sm:text-2xl">Messages</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-bold text-white sm:text-2xl">Messages</h2>
+            <button
+              onClick={() => setShowUserSearch(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FF8C00] text-white transition-all hover:bg-[#FF9D1A] active:scale-95"
+              title="New Message"
+            >
+              <UserPlus className="h-4 w-4" />
+            </button>
+          </div>
           
           {/* Search */}
           <div className="relative">
@@ -278,6 +289,17 @@ export function MessagesPageIntegrated() {
           </div>
         </div>
       )}
+      
+      {/* User Search Modal for New Message */}
+      <UserSearchModal
+        open={showUserSearch}
+        onOpenChange={setShowUserSearch}
+        onSelectUser={(userId) => {
+          // Navigate to messages with the selected user
+          navigate(`/messages?to=${userId}`);
+          setShowUserSearch(false);
+        }}
+      />
     </div>
   );
 }

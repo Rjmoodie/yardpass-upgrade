@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Users, UserPlus, UserCheck, UserX, MessageCircle, Eye, MoreHorizontal } from 'lucide-react';
+import { Search, Users, UserPlus, UserCheck, UserX, MessageCircle, Eye, MoreHorizontal, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -28,9 +28,10 @@ interface UserSearchModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   eventId?: string; // Optional: filter users by event attendance
+  onSelectUser?: (userId: string) => void; // Optional: callback when user is selected (for messaging)
 }
 
-export function UserSearchModal({ open, onOpenChange, eventId }: UserSearchModalProps) {
+export function UserSearchModal({ open, onOpenChange, eventId, onSelectUser }: UserSearchModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -78,6 +79,23 @@ export function UserSearchModal({ open, onOpenChange, eventId }: UserSearchModal
     }
   }, [user, eventId, toast]);
 
+  // Predictive search with debouncing
+  useEffect(() => {
+    // Clear results if query is too short
+    if (searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    // Debounce: wait 300ms after user stops typing
+    const timeoutId = setTimeout(() => {
+      searchUsers(searchQuery);
+    }, 300);
+
+    // Cleanup timeout on query change
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, searchUsers]);
+
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -103,6 +121,14 @@ export function UserSearchModal({ open, onOpenChange, eventId }: UserSearchModal
   }, [navigate, onOpenChange]);
 
   const handleStartMessage = useCallback(async (userId: string) => {
+    // If onSelectUser callback is provided, use it (for messaging integration)
+    if (onSelectUser) {
+      onSelectUser(userId);
+      onOpenChange(false);
+      return;
+    }
+
+    // Otherwise, create a conversation (original behavior)
     try {
       // Create a conversation with the user
       const { data: conversation, error } = await supabase
@@ -157,7 +183,7 @@ export function UserSearchModal({ open, onOpenChange, eventId }: UserSearchModal
         variant: 'destructive'
       });
     }
-  }, [user?.id, navigate, onOpenChange, toast]);
+  }, [user?.id, navigate, onOpenChange, toast, onSelectUser]);
 
   const filteredResults = useMemo(() => {
     return searchResults.filter(user => 
@@ -178,37 +204,60 @@ export function UserSearchModal({ open, onOpenChange, eventId }: UserSearchModal
         </DialogHeader>
 
         <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-          {/* Search Input */}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
+          {/* Search Input with Live Search */}
+          <div className="space-y-2">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, bio, or location..."
+                placeholder="Start typing to search (min 2 characters)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="pl-10"
+                className="pl-10 pr-10"
+                autoFocus
               />
+              {searching && (
+                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-primary animate-spin" />
+              )}
             </div>
-            <Button 
-              onClick={handleSearch} 
-              disabled={searching || !searchQuery.trim()}
-              variant="outline"
-            >
-              {searching ? 'Searching...' : 'Search'}
-            </Button>
+            <p className="text-xs text-muted-foreground px-1">
+              {searchQuery.length === 0 && '💡 Type at least 2 characters to see results'}
+              {searchQuery.length === 1 && '✍️ Keep typing... (1 more character needed)'}
+              {searchQuery.length >= 2 && searching && '🔍 Searching...'}
+              {searchQuery.length >= 2 && !searching && filteredResults.length > 0 && `✅ Found ${filteredResults.length} user${filteredResults.length === 1 ? '' : 's'}`}
+              {searchQuery.length >= 2 && !searching && filteredResults.length === 0 && '❌ No users found'}
+            </p>
           </div>
 
           {/* Search Results */}
           <div className="flex-1 overflow-y-auto space-y-2">
-            {filteredResults.length === 0 && searchQuery && !searching && (
+            {/* Loading State */}
+            {searching && (
               <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No users found matching "{searchQuery}"</p>
+                <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-primary" />
+                <p className="font-medium">Searching for users...</p>
               </div>
             )}
 
-            {filteredResults.map((user) => (
+            {/* Empty State - No Query */}
+            {!searchQuery && !searching && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="font-medium mb-2">Start searching</p>
+                <p className="text-sm">Type a name, bio keyword, or location to find people</p>
+              </div>
+            )}
+
+            {/* Empty State - No Results */}
+            {filteredResults.length === 0 && searchQuery.length >= 2 && !searching && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="font-medium mb-2">No users found</p>
+                <p className="text-sm">Try a different search term</p>
+              </div>
+            )}
+
+            {/* User Results */}
+            {!searching && filteredResults.map((user) => (
               <Card key={user.user_id} className="p-4 hover:shadow-md transition-all duration-200 cursor-pointer group">
                 <CardContent className="p-0">
                   <div className="flex items-center justify-between">
