@@ -40,3 +40,4 @@ SELECT
 FROM public.analytics_campaign_daily_mv;
 
 
+

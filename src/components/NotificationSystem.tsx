@@ -492,15 +492,11 @@ export function NotificationSystem() {
 
         {/* Notification Panel */}
         {isOpen && (
-          <Card 
+          <div 
             ref={panelRef}
-            className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] sm:w-96 max-h-96 overflow-hidden z-50 shadow-lg border-2 sm:right-0 sm:left-auto"
-            style={{
-              right: 'max(0px, calc(100vw - 20rem - 1rem))', // Ensure it doesn't go off-screen on mobile
-              left: 'auto'
-            }}
+            className="fixed sm:absolute top-16 sm:top-full right-2 sm:right-0 mt-2 w-[calc(100vw-1rem)] sm:w-96 max-h-[80vh] sm:max-h-96 overflow-hidden z-50 shadow-2xl border-2 border-border/50 bg-background rounded-xl"
           >
-            <div className="flex items-center justify-between p-3 border-b">
+            <div className="flex items-center justify-between p-3 border-b border-border/20">
               <h3 className="font-semibold">Notifications</h3>
               <div className="flex items-center gap-2">
                 {unreadCount > 0 && (
@@ -538,7 +534,7 @@ export function NotificationSystem() {
                   <div
                     key={notification.id}
                     className={cn(
-                      "p-3 border-b hover:bg-muted/50 cursor-pointer transition-colors group",
+                      "p-3 border-b border-border/10 hover:bg-muted/50 cursor-pointer transition-colors group",
                       !notification.read && "bg-primary/5 border-l-2 border-l-primary"
                     )}
                     onClick={async () => {
@@ -632,7 +628,7 @@ export function NotificationSystem() {
                 </Button>
               </div>
             )}
-          </Card>
+          </div>
         )}
       </div>
     </>

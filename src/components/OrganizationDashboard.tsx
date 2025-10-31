@@ -547,50 +547,50 @@ export function OrganizationDashboard({
           </div>
 
           {/* OVERVIEW */}
-          <TabsContent value="overview" className="space-y-6">
+          <TabsContent value="overview" className="space-y-4">
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Card className="border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">Total Events</CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Events</CardTitle>
+                  <Calendar className="h-4 w-4 text-primary/60" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl">{analytics.totalEvents}</div>
-                  <p className="text-xs text-muted-foreground">{analytics.completedEvents} completed</p>
+                  <div className="text-3xl font-bold tracking-tight">{analytics.totalEvents.toLocaleString()}</div>
+                  <p className="text-xs text-foreground/70 mt-1 font-medium">{analytics.completedEvents.toLocaleString()} completed</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">Total Revenue</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Revenue</CardTitle>
+                  <DollarSign className="h-4 w-4 text-green-500/60" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl">{fmtUSD(analytics.totalRevenue)}</div>
-                  <p className="text-xs text-muted-foreground">All-time earnings</p>
+                  <div className="text-3xl font-bold tracking-tight">{fmtUSD(analytics.totalRevenue)}</div>
+                  <p className="text-xs text-foreground/70 mt-1 font-medium">All-time earnings</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">Total Attendees</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Attendees</CardTitle>
+                  <Users className="h-4 w-4 text-blue-500/60" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl">{analytics.totalAttendees.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">Across all events</p>
+                  <div className="text-3xl font-bold tracking-tight">{analytics.totalAttendees.toLocaleString()}</div>
+                  <p className="text-xs text-foreground/70 mt-1 font-medium">Across all events</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">Team Members</CardTitle>
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Team Members</CardTitle>
+                  <Building2 className="h-4 w-4 text-primary/60" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl">{teamMembers.length}</div>
-                  <p className="text-xs text-muted-foreground">Active members</p>
+                  <div className="text-3xl font-bold tracking-tight">{teamMembers.length.toLocaleString()}</div>
+                  <p className="text-xs text-foreground/70 mt-1 font-medium">Active members</p>
                 </CardContent>
               </Card>
             </div>

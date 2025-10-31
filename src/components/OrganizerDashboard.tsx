@@ -22,6 +22,8 @@ import {
   HandshakeIcon,
   LayoutDashboard,
   Smartphone,
+  ArrowLeft,
+  Shield,
 } from 'lucide-react';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
@@ -186,6 +188,35 @@ export default function OrganizerDashboard() {
     setViewMode(prev => prev === 'app' ? 'full' : 'app');
     trackEvent('view_mode_toggled', { new_mode: viewMode === 'app' ? 'full' : 'app' });
   }, [viewMode, trackEvent]);
+
+  // Exit organizer mode function
+  const exitOrganizerMode = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ role: 'attendee' })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Switched to Attendee Mode',
+        description: 'You can access the organizer dashboard anytime from your profile.',
+      });
+
+      // Reload to update navigation
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Failed to switch mode:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to switch mode. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [user?.id]);
 
   // Tabs (per-org memory)
   const scope = selectedOrgId ?? 'none';
@@ -724,12 +755,12 @@ export default function OrganizerDashboard() {
   */
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 space-y-6 min-h-full">
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 min-h-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex-1">
-          <div className="flex items-center gap-4 mb-2">
-            <h1 className="text-2xl sm:text-3xl font-bold">Organizer Dashboard</h1>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Organizer Dashboard</h1>
 
             <OrgSwitcher
               organizations={organizations}
@@ -747,22 +778,41 @@ export default function OrganizerDashboard() {
               }}
               className="w-[200px]"
             />
+            
+            {/* Mode Indicator Badge */}
+            <div className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
+              <Shield className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-medium text-primary">Organizer</span>
+            </div>
           </div>
 
-          <p className="text-muted-foreground flex items-center gap-2 flex-wrap">
-            <span className="font-medium">{activeOrg?.name || 'Organization'}</span>
+          <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-foreground">{activeOrg?.name || 'Organization'}</span>
             {activeOrg?.is_verified && (
               <span className="inline-flex items-center gap-1 text-blue-600">
                 <CheckCircle2 className="h-4 w-4" /> Verified
               </span>
             )}
-            <span>• {dashboardTotals.events} event{dashboardTotals.events === 1 ? '' : 's'}</span>
-            <span>• {dashboardTotals.attendees} attendees</span>
-            <span>• ${dashboardTotals.revenue.toLocaleString()} revenue</span>
+            <span>• {dashboardTotals.events.toLocaleString()} event{dashboardTotals.events === 1 ? '' : 's'}</span>
+            <span>• {dashboardTotals.attendees.toLocaleString()} attendees</span>
+            <span>• ${dashboardTotals.revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} revenue</span>
           </p>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          {/* Exit Organizer Mode Button */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={exitOrganizerMode}
+            className="items-center gap-2 border-muted-foreground/30"
+            title="Switch back to Attendee Mode"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span className="text-xs">Exit Organizer</span>
+          </Button>
+          
+          {/* View Mode Toggle */}
           <Button 
             variant="ghost" 
             size="sm"
@@ -782,6 +832,8 @@ export default function OrganizerDashboard() {
               </>
             )}
           </Button>
+          
+          {/* Primary Actions */}
           <Button className="w-full sm:w-auto" onClick={goCreateEvent}>
             <Plus className="mr-2 h-4 w-4" />
             Create Event
@@ -798,9 +850,9 @@ export default function OrganizerDashboard() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-4">
         <div className="w-full overflow-x-auto scrollbar-hide">
-          <TabsList className="inline-flex w-auto min-w-full justify-start gap-2 p-1.5">
+          <TabsList className="inline-flex w-auto min-w-full justify-start gap-1.5 p-1">
             {availableTabs.includes('events') && (
               <TabsTrigger value="events" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
                 <CalendarDays className="h-5 w-5" />
@@ -875,62 +927,62 @@ export default function OrganizerDashboard() {
               </div>
               </div>
             ) : (
-            <div className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <Card>
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <Card className="border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Upcoming events</CardTitle>
-                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Upcoming Events</CardTitle>
+                    <CalendarDays className="h-4 w-4 text-primary/60" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{statusCounts.upcoming}</div>
-                    <p className="text-xs text-muted-foreground">Scheduled for the future</p>
+                    <div className="text-3xl font-bold tracking-tight">{statusCounts.upcoming.toLocaleString()}</div>
+                    <p className="text-xs text-foreground/70 mt-1 font-medium">Scheduled for the future</p>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Live right now</CardTitle>
-                    <Activity className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Live Right Now</CardTitle>
+                    <Activity className="h-4 w-4 text-green-500/60" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{statusCounts.live}</div>
-                    <p className="text-xs text-muted-foreground">Events currently in progress</p>
+                    <div className="text-3xl font-bold tracking-tight">{statusCounts.live.toLocaleString()}</div>
+                    <p className="text-xs text-foreground/70 mt-1 font-medium">Currently in progress</p>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Completed</CardTitle>
-                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Completed</CardTitle>
+                    <CheckCircle2 className="h-4 w-4 text-blue-500/60" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{statusCounts.completed}</div>
-                    <p className="text-xs text-muted-foreground">Past events with results</p>
+                    <div className="text-3xl font-bold tracking-tight">{statusCounts.completed.toLocaleString()}</div>
+                    <p className="text-xs text-foreground/70 mt-1 font-medium">Past events</p>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Tickets issued</CardTitle>
-                    <Ticket className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tickets Issued</CardTitle>
+                    <Ticket className="h-4 w-4 text-primary/60" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{totalTicketsIssued.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Across all active events</p>
+                    <div className="text-3xl font-bold tracking-tight">{totalTicketsIssued.toLocaleString()}</div>
+                    <p className="text-xs text-foreground/70 mt-1 font-medium">All active events</p>
                   </CardContent>
                 </Card>
               </div>
 
-              <Card>
-                <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <Card className="border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
+                <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-4">
                   <div>
-                    <CardTitle className="text-xl">Event pipeline</CardTitle>
-                    <CardDescription>Search, prioritize, and drill into the events that matter most.</CardDescription>
+                    <CardTitle className="text-xl font-bold tracking-tight">Event pipeline</CardTitle>
+                    <CardDescription className="text-foreground/60">Search, prioritize, and drill into the events that matter most.</CardDescription>
                   </div>
                   <Button size="sm" onClick={goCreateEvent}>
                     <Plus className="mr-2 h-4 w-4" />
                     New Event
                   </Button>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
                       <div className="relative w-full md:max-w-xs">
@@ -1034,33 +1086,33 @@ export default function OrganizerDashboard() {
                               onClick={() => handleEventSelect(event)}
                             >
                               <TableCell>
-                                <div className="font-medium text-sm sm:text-base">{event.title}</div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="font-semibold text-sm sm:text-base">{event.title}</div>
+                                <div className="text-xs text-foreground/60 font-medium">
                                   {[event.city, event.venue].filter(Boolean).join(' • ') || 'Location TBD'}
                                 </div>
                               </TableCell>
                               <TableCell>
                                 <div className="font-medium text-sm">{startLabel}</div>
-                                <div className="text-xs text-muted-foreground">{scheduleHint || 'Awaiting updates'}</div>
+                                <div className="text-xs text-foreground/60">{scheduleHint || 'Awaiting updates'}</div>
                               </TableCell>
                               <TableCell>
-                                <Badge variant={statusBadgeVariant as any} className="capitalize">
+                                <Badge variant={statusBadgeVariant as any} className="capitalize font-medium">
                                   {event.derivedStatus}
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <div className="text-sm font-medium">
+                                <div className="text-sm font-semibold">
                                   {event.tickets_sold.toLocaleString()} {event.capacity > 0 ? `of ${event.capacity.toLocaleString()}` : ''}
                                 </div>
                                 {typeof event.occupancyRate === 'number' && (
                                   <div className="mt-1 flex items-center gap-2">
-                                    <Progress value={event.occupancyRate} className="h-2 w-24" />
-                                    <span className="text-xs text-muted-foreground">{Math.round(event.occupancyRate)}%</span>
+                                    <Progress value={event.occupancyRate} className="h-1.5 w-24" />
+                                    <span className="text-xs text-foreground/60 font-medium">{Math.round(event.occupancyRate)}%</span>
               </div>
             )}
                               </TableCell>
-                              <TableCell className="text-right text-sm font-semibold">
-                                ${event.revenue.toLocaleString()}
+                              <TableCell className="text-right text-sm font-bold tracking-tight">
+                                ${event.revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </TableCell>
                             </TableRow>
                           );
@@ -1071,64 +1123,64 @@ export default function OrganizerDashboard() {
                 </CardContent>
               </Card>
 
-              <div className="grid gap-6 lg:grid-cols-3">
-                <Card className="lg:col-span-2">
-                  <CardHeader className="flex flex-row items-center justify-between">
+              <div className="grid gap-3 lg:grid-cols-3">
+                <Card className="lg:col-span-2 border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
+                  <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div>
-                      <CardTitle className="text-xl">Operational insights</CardTitle>
-                      <CardDescription>Track fulfillment and highlight where to focus next.</CardDescription>
+                      <CardTitle className="text-lg font-bold tracking-tight">Operational insights</CardTitle>
+                      <CardDescription className="text-foreground/60">Track fulfillment and highlight where to focus next.</CardDescription>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Average capacity filled</p>
-                      <p className="text-2xl font-bold">{averageOccupancy !== null ? `${averageOccupancy}%` : '—'}</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Avg Capacity</p>
+                      <p className="text-2xl font-bold tracking-tight">{averageOccupancy !== null ? `${averageOccupancy}%` : '—'}</p>
                     </div>
                   </CardHeader>
                   <CardContent>
                     {averageOccupancy !== null ? (
-                      <div className="space-y-4">
-                        <Progress value={averageOccupancy} className="h-3" />
-                        <p className="text-sm text-muted-foreground">
-                          On average, organizers are filling {averageOccupancy}% of available capacity. Monitor upcoming events to keep momentum high.
+                      <div className="space-y-3">
+                        <Progress value={averageOccupancy} className="h-2.5" />
+                        <p className="text-sm text-foreground/70 leading-relaxed">
+                          On average, you're filling <span className="font-semibold text-foreground">{averageOccupancy}%</span> of available capacity. Monitor upcoming events to keep momentum high.
                         </p>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-foreground/70">
                         Provide capacity on your events to track utilization in real time.
                       </p>
                     )}
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
+                <Card className="border-border/40 bg-gradient-to-br from-card/80 to-card/60 backdrop-blur-sm">
+                  <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div>
-                      <CardTitle className="text-xl">Performance alerts</CardTitle>
-                      <CardDescription>Celebrate wins and spot gaps before they widen.</CardDescription>
+                      <CardTitle className="text-lg font-bold tracking-tight">Performance alerts</CardTitle>
+                      <CardDescription className="text-foreground/60">Wins and gaps</CardDescription>
                     </div>
-                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                    <TrendingUp className="h-5 w-5 text-primary/60" />
                   </CardHeader>
-                  <CardContent className="space-y-4 text-sm">
+                  <CardContent className="space-y-3 text-sm">
                     {topGrossingEvent ? (
-                      <div className="rounded-lg border p-3">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Top grossing</p>
-                        <p className="font-semibold">{topGrossingEvent.title}</p>
-                        <p className="text-xs text-muted-foreground">${topGrossingEvent.revenue.toLocaleString()} collected</p>
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                        <p className="text-xs uppercase tracking-wide text-primary/80 font-medium mb-1">Top Grossing</p>
+                        <p className="font-semibold text-foreground">{topGrossingEvent.title}</p>
+                        <p className="text-xs text-foreground/70 font-medium">${topGrossingEvent.revenue.toLocaleString()} collected</p>
                       </div>
                     ) : (
-                      <p className="text-muted-foreground">Ticketed events will surface here once revenue starts flowing.</p>
+                      <p className="text-foreground/70">Ticketed events will surface here once revenue starts flowing.</p>
                     )}
 
                     {needsAttentionEvent ? (
-                      <div className="rounded-lg border border-dashed p-3">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Needs promotion</p>
-                        <p className="font-semibold">{needsAttentionEvent.title}</p>
-                        <p className="text-xs text-muted-foreground">
+                      <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
+                        <p className="text-xs uppercase tracking-wide text-warning font-medium mb-1">Needs Promotion</p>
+                        <p className="font-semibold text-foreground">{needsAttentionEvent.title}</p>
+                        <p className="text-xs text-foreground/70">
                           {needsAttentionEvent.occupancyRate ? `${Math.round(needsAttentionEvent.occupancyRate)}%` : 'Limited'} of tickets claimed.
-                          Launch a campaign or send a message to boost conversions.
+                          Launch a campaign to boost conversions.
                         </p>
                       </div>
                     ) : (
-                      <p className="text-muted-foreground">
+                      <p className="text-foreground/70">
                         All upcoming events are pacing well. Keep momentum going with targeted campaigns when needed.
                       </p>
                     )}

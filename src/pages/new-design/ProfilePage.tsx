@@ -250,14 +250,14 @@ export function ProfilePage() {
   // Loading state
   if (loading || !profile) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/10 border-t-[#FF8C00]" />
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-border/20 border-t-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black pb-20">
+    <div className="min-h-screen bg-background pb-20">
       {/* Cover Image */}
       <div className="relative h-32 overflow-hidden sm:h-48 md:h-64">
         <ImageWithFallback
@@ -283,13 +283,20 @@ export function ProfilePage() {
 
                   if (error) throw error;
 
+                  // Update local state immediately (no reload needed!)
+                  setProfile(prev => prev ? { ...prev, role: newRole } : prev);
+
                   toast({
                     title: 'Role Updated',
                     description: `Switched to ${newRole === 'organizer' ? 'Organizer' : 'Attendee'} mode`,
                   });
 
-                  // Refresh profile
-                  window.location.reload();
+                  // Navigate to appropriate home
+                  if (newRole === 'organizer') {
+                    navigate('/dashboard');
+                  } else {
+                    navigate('/');
+                  }
                 } catch (error) {
                   toast({
                     title: 'Error',
@@ -300,13 +307,13 @@ export function ProfilePage() {
               }}
               className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition-all sm:h-10 sm:w-10 ${
                 profile?.role === 'organizer'
-                  ? 'border-[#FF8C00]/50 bg-[#FF8C00]/20 hover:bg-[#FF8C00]/30'
-                  : 'border-white/20 bg-black/40 hover:bg-black/60'
+                  ? 'border-primary/50 bg-primary/20 hover:bg-primary/30'
+                  : 'border-border/20 bg-background/40 hover:bg-background/60'
               }`}
               title={profile?.role === 'organizer' ? 'Currently: Organizer Mode - Click to switch to Attendee' : 'Currently: Attendee Mode - Click to switch to Organizer'}
               aria-label={profile?.role === 'organizer' ? 'Switch to Attendee Mode' : 'Switch to Organizer Mode'}
             >
-              <Shield className={`h-4 w-4 sm:h-5 sm:w-5 ${profile?.role === 'organizer' ? 'text-[#FF8C00]' : 'text-white'}`} />
+              <Shield className={`h-4 w-4 sm:h-5 sm:w-5 ${profile?.role === 'organizer' ? 'text-primary' : 'text-foreground'}`} />
             </button>
           )}
           
@@ -316,16 +323,16 @@ export function ProfilePage() {
           )}
           
           {/* Theme Toggle */}
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md sm:h-10 sm:w-10">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-border/50 bg-background/90 backdrop-blur-md shadow-lg sm:h-10 sm:w-10">
             <ThemeToggle />
           </div>
           
           {/* Share Button */}
           <button 
             onClick={handleShare}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md transition-all hover:bg-black/60 sm:h-10 sm:w-10"
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-border/50 bg-background/90 backdrop-blur-md shadow-lg transition-all hover:bg-background hover:scale-105 sm:h-10 sm:w-10"
           >
-            <Share2 className="h-4 w-4 text-white sm:h-5 sm:w-5" />
+            <Share2 className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
           </button>
           
           {isOwnProfile && (
@@ -333,9 +340,9 @@ export function ProfilePage() {
               {/* Settings */}
               <button 
                 onClick={() => navigate('/edit-profile')}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md transition-all hover:bg-black/60 sm:h-10 sm:w-10"
+                className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-border/50 bg-background/90 backdrop-blur-md shadow-lg transition-all hover:bg-background hover:scale-105 sm:h-10 sm:w-10"
               >
-                <Settings className="h-4 w-4 text-white sm:h-5 sm:w-5" />
+                <Settings className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
               </button>
               
               {/* Sign Out */}
@@ -353,9 +360,9 @@ export function ProfilePage() {
                     });
                   }
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10 backdrop-blur-md transition-all hover:bg-red-500/20 sm:h-10 sm:w-10"
+                className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-red-500/50 bg-red-500/90 backdrop-blur-md shadow-lg transition-all hover:bg-red-500 hover:scale-105 sm:h-10 sm:w-10"
               >
-                <LogOut className="h-4 w-4 text-red-400 sm:h-5 sm:w-5" />
+                <LogOut className="h-4 w-4 text-white sm:h-5 sm:w-5" />
               </button>
             </>
           )}
@@ -365,8 +372,8 @@ export function ProfilePage() {
       {/* Profile Header */}
       <div className="relative px-3 sm:px-4 md:px-6">
         {/* Avatar */}
-        <div className="relative -mt-12 mb-4 sm:-mt-16">
-          <div className="inline-block rounded-full border-4 border-black bg-black">
+        <div className="relative -mt-12 mb-2 sm:-mt-16">
+          <div className="inline-block rounded-full border-4 border-black bg-background">
             <ImageWithFallback
               src={profile.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.display_name)}&size=200`}
               alt={profile.display_name}
@@ -376,10 +383,31 @@ export function ProfilePage() {
         </div>
 
         {/* Profile Info */}
-        <div className="mb-4">
-          <h1 className="mb-1 text-2xl font-bold text-white sm:text-3xl">{profile.display_name}</h1>
+        <div className="mb-2">
+          {/* Name and Followers/Following */}
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{profile.display_name}</h1>
+            
+            {/* Followers & Following */}
+            <div className="flex items-center gap-3 text-sm">
+              <button 
+                onClick={() => navigate(`/profile/${targetUserId}/followers`)}
+                className="flex items-center gap-1 transition-opacity hover:opacity-70"
+              >
+                <span className="font-bold text-foreground">{followers.length.toLocaleString()}</span>
+                <span className="text-foreground/60">Followers</span>
+              </button>
+              <button 
+                onClick={() => navigate(`/profile/${targetUserId}/following`)}
+                className="flex items-center gap-1 transition-opacity hover:opacity-70"
+              >
+                <span className="font-bold text-foreground">{following.length}</span>
+                <span className="text-foreground/60">Following</span>
+              </button>
+            </div>
+          </div>
           {isOwnProfile ? (
-            <div className="mb-3">
+            <div className="mb-1.5">
               <UsernameEditor
                 currentUsername={profile.username}
                 userId={profile.user_id}
@@ -393,29 +421,29 @@ export function ProfilePage() {
               />
               
               {/* Current Mode Indicator */}
-              <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1.5 backdrop-blur-sm">
-                <Shield className={`h-3.5 w-3.5 ${profile?.role === 'organizer' ? 'text-[#FF8C00]' : 'text-white/60'}`} />
-                <span className="text-xs font-medium text-white/80">
+              <div className="mt-1 inline-flex items-center gap-2 rounded-full border border-border/20 bg-white/5 px-3 py-1.5 backdrop-blur-sm">
+                <Shield className={`h-3.5 w-3.5 ${profile?.role === 'organizer' ? 'text-primary' : 'text-foreground/60'}`} />
+                <span className="text-xs font-medium text-foreground/80">
                   {profile?.role === 'organizer' ? 'Organizer Mode' : 'Attendee Mode'}
                 </span>
               </div>
             </div>
           ) : (
-            <p className="mb-3 text-sm text-white/60 sm:text-base">
+            <p className="mb-1.5 text-sm text-foreground/60 sm:text-base">
               @{profile.username || profile.user_id.slice(0, 8)}
             </p>
           )}
           
           {/* Bio */}
           {profile.bio && (
-            <p className="mb-3 text-sm leading-relaxed text-white/80 sm:text-base">
+            <p className="mb-2 text-sm leading-relaxed text-foreground/80 sm:text-base">
               {profile.bio}
             </p>
           )}
 
           {/* Location & Website */}
           {(profile.location || profile.website) && (
-            <div className="mb-4 flex flex-wrap gap-3 text-sm text-white/60">
+            <div className="mb-2 flex flex-wrap gap-3 text-sm text-foreground/60">
               {profile.location && (
                 <div className="flex items-center gap-1.5">
                   <MapPin className="h-4 w-4" />
@@ -429,7 +457,7 @@ export function ProfilePage() {
                     href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-[#FF8C00] transition-colors flex items-center gap-1"
+                    className="hover:text-primary transition-colors flex items-center gap-1"
                   >
                     {profile.website.replace(/^https?:\/\//, '')}
                     <ExternalLink className="h-3 w-3" />
@@ -441,15 +469,15 @@ export function ProfilePage() {
 
           {/* Social Links */}
           {(profile.instagram_handle || profile.twitter_handle) && (
-            <div className="mb-4 flex gap-3">
+            <div className="mb-2 flex gap-3">
               {profile.instagram_handle && (
                 <a
                   href={`https://instagram.com/${profile.instagram_handle}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all hover:bg-white/10 sm:h-10 sm:w-10"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border/10 bg-white/5 transition-all hover:bg-white/10 sm:h-10 sm:w-10"
                 >
-                  <Instagram className="h-4 w-4 text-white sm:h-5 sm:w-5" />
+                  <Instagram className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
                 </a>
               )}
               {profile.twitter_handle && (
@@ -457,61 +485,37 @@ export function ProfilePage() {
                   href={`https://twitter.com/${profile.twitter_handle}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all hover:bg-white/10 sm:h-10 sm:w-10"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border/10 bg-white/5 transition-all hover:bg-white/10 sm:h-10 sm:w-10"
                 >
-                  <Twitter className="h-4 w-4 text-white sm:h-5 sm:w-5" />
+                  <Twitter className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
                 </a>
               )}
             </div>
           )}
 
-          {/* Stats */}
-          <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl sm:p-5">
-            <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-3 pb-3 border-b border-white/10">
-              <button 
-                onClick={() => navigate(`/profile/${targetUserId}/followers`)}
-                className="text-center transition-opacity hover:opacity-80"
-              >
-                <p className="mb-1 text-lg font-bold text-white sm:text-xl">{followers.length.toLocaleString()}</p>
-                <p className="text-xs text-white/60 sm:text-sm">Followers</p>
-              </button>
-              <button 
-                onClick={() => navigate(`/profile/${targetUserId}/following`)}
-                className="text-center transition-opacity hover:opacity-80"
-              >
-                <p className="mb-1 text-lg font-bold text-white sm:text-xl">{following.length}</p>
-                <p className="text-xs text-white/60 sm:text-sm">Following</p>
-              </button>
-              <div className="text-center">
-                <p className="mb-1 text-lg font-bold text-white sm:text-xl">
-                  {posts.length}
-                </p>
-                <p className="text-xs text-white/60 sm:text-sm">Posts</p>
-              </div>
-            </div>
-            
-            {/* Event Breakdown: Hosted vs Attended */}
-            {isOwnProfile && (
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          {/* Event Stats: Hosted vs Attended */}
+          {isOwnProfile && (
+            <div className="mb-3 rounded-2xl border border-border/10 bg-white/5 p-3 backdrop-blur-xl">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="text-center">
-                  <p className="mb-1 text-base font-bold text-[#FF8C00] sm:text-lg">
+                  <p className="mb-0.5 text-lg font-bold text-primary sm:text-xl">
                     {profile?.role === 'organizer' ? tickets.filter(t => t.organizer_id === currentUser?.id).length : 0}
                   </p>
-                  <p className="text-xs text-white/60 sm:text-sm">Events Hosted</p>
+                  <p className="text-xs text-foreground/60 sm:text-sm">Events Hosted</p>
                 </div>
                 <div className="text-center">
-                  <p className="mb-1 text-base font-bold text-[#FF8C00] sm:text-lg">
+                  <p className="mb-0.5 text-lg font-bold text-primary sm:text-xl">
                     {tickets.length}
                   </p>
-                  <p className="text-xs text-white/60 sm:text-sm">Events Attended</p>
+                  <p className="text-xs text-foreground/60 sm:text-sm">Events Attended</p>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           {!isOwnProfile && (
-            <div className="flex gap-2 mb-6">
+            <div className="flex gap-2 mb-3">
               <button 
                 onClick={async () => {
                   if (!currentUser) {
@@ -537,12 +541,12 @@ export function ProfilePage() {
                 disabled={followLoading}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold transition-all active:scale-95 sm:text-base ${
                   followState === 'accepted'
-                    ? 'border border-white/20 bg-white/5 text-white hover:bg-white/10'
-                    : 'bg-[#FF8C00] text-white hover:bg-[#FF9D1A]'
+                    ? 'border border-border/20 bg-white/5 text-foreground hover:bg-white/10'
+                    : 'bg-primary text-foreground hover:bg-primary/90'
                 }`}
               >
                 {followLoading ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-border/20 border-t-white" />
                 ) : followState === 'accepted' ? (
                   <>
                     <UserMinus className="h-4 w-4" />
@@ -568,7 +572,7 @@ export function ProfilePage() {
                   }
                   navigate(`/messages?to=${targetUserId}`);
                 }}
-                className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10 active:scale-95 sm:text-base"
+                className="flex items-center justify-center gap-2 rounded-full border border-border/20 bg-white/5 px-6 py-3 text-sm font-semibold text-foreground transition-all hover:bg-white/10 active:scale-95 sm:text-base"
               >
                 Message
               </button>
@@ -578,29 +582,39 @@ export function ProfilePage() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-2 border-b border-white/10">
+        <div className="mb-3 flex gap-2 border-b border-border/10">
           <button
             onClick={() => setActiveTab('posts')}
-            className={`flex flex-1 items-center justify-center gap-2 pb-3 text-sm transition-all sm:text-base ${
+            className={`flex flex-1 items-center justify-center gap-1.5 pb-2 text-sm transition-all sm:text-base ${
               activeTab === 'posts'
-                ? 'border-b-2 border-[#FF8C00] text-white font-semibold'
-                : 'text-white/60 hover:text-white'
+                ? 'border-b-2 border-primary text-foreground font-semibold'
+                : 'text-foreground/60 hover:text-foreground'
             }`}
           >
             <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
-            Posts
+            <span>Posts</span>
+            <span className={`text-xs sm:text-sm ${
+              activeTab === 'posts' ? 'text-foreground' : 'text-foreground/50'
+            }`}>
+              {posts.length}
+            </span>
           </button>
           {isOwnProfile && (
             <button
               onClick={() => setActiveTab('saved')}
-              className={`flex flex-1 items-center justify-center gap-2 pb-3 text-sm transition-all sm:text-base ${
+              className={`flex flex-1 items-center justify-center gap-1.5 pb-2 text-sm transition-all sm:text-base ${
                 activeTab === 'saved'
-                  ? 'border-b-2 border-[#FF8C00] text-white font-semibold'
-                  : 'text-white/60 hover:text-white'
+                  ? 'border-b-2 border-primary text-foreground font-semibold'
+                  : 'text-foreground/60 hover:text-foreground'
               }`}
             >
               <Heart className="h-4 w-4 sm:h-5 sm:w-5" />
-              Saved
+              <span>Saved</span>
+              <span className={`text-xs sm:text-sm ${
+                activeTab === 'saved' ? 'text-foreground' : 'text-foreground/50'
+              }`}>
+                {savedEvents.length}
+              </span>
             </button>
           )}
         </div>
@@ -634,8 +648,8 @@ export function ProfilePage() {
                 />
                 
                 {/* Overlay on hover */}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                  <div className="flex items-center gap-1 text-white">
+                <div className="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  <div className="flex items-center gap-1 text-foreground">
                     <Heart className="h-4 w-4 fill-white sm:h-5 sm:w-5" />
                     <span className="text-xs font-semibold sm:text-sm">{post.likes}</span>
                   </div>
@@ -643,7 +657,7 @@ export function ProfilePage() {
 
                 {/* Event Badge */}
                 {post.type === 'event' && (
-                  <div className="absolute right-1 top-1 rounded-full bg-[#FF8C00] px-2 py-0.5 text-[10px] font-semibold text-white sm:text-xs">
+                  <div className="absolute right-1 top-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-foreground sm:text-xs">
                     Event
                   </div>
                 )}
@@ -652,16 +666,16 @@ export function ProfilePage() {
           </div>
         ) : (
           /* Empty State */
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-xl sm:rounded-3xl">
+          <div className="rounded-2xl border border-border/10 bg-white/5 p-12 text-center backdrop-blur-xl sm:rounded-3xl">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-              {activeTab === 'posts' && <Grid3x3 className="h-8 w-8 text-white/30" />}
-              {activeTab === 'saved' && <Heart className="h-8 w-8 text-white/30" />}
+              {activeTab === 'posts' && <Grid3x3 className="h-8 w-8 text-foreground/30" />}
+              {activeTab === 'saved' && <Heart className="h-8 w-8 text-foreground/30" />}
             </div>
-            <h3 className="mb-2 text-lg font-bold text-white">
+            <h3 className="mb-2 text-lg font-bold text-foreground">
               {activeTab === 'posts' && 'No posts yet'}
               {activeTab === 'saved' && 'No saved items yet'}
             </h3>
-            <p className="text-sm text-white/60">
+            <p className="text-sm text-foreground/60">
               {activeTab === 'posts' && 'Share your event experiences to see them here'}
               {activeTab === 'saved' && 'Save posts and events you love'}
             </p>

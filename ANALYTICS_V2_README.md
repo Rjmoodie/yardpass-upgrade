@@ -352,3 +352,4 @@ The system is designed to scale, with materialized views handling 10,000+ campai
 **Questions?** Check the [Upgrade Plan](ANALYTICS_V2_UPGRADE_PLAN.md) for detailed implementation steps.
 
 
+

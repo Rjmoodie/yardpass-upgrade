@@ -49,6 +49,13 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
   // Fetch ticket tiers when event changes
   useEffect(() => {
     if (event?.id && isOpen) {
+      console.log('🎫 [EventTicketModal] Event data:', {
+        id: event.id,
+        title: event.title,
+        start_at: event.start_at,
+        startAtISO: event.startAtISO,
+        fullEvent: event
+      });
       fetchTicketTiers();
     }
   }, [event?.id, isOpen]);
@@ -59,16 +66,38 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
     console.log('🎫 Fetching ticket tiers for event:', event.id);
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch ticket tiers with reserved and issued quantities
+      const { data: tiers, error: tiersError } = await supabase
         .from('ticket_tiers')
-        .select('id, name, price_cents, badge_label, quantity, max_per_order')
+        .select('id, name, price_cents, badge_label, quantity, max_per_order, reserved_quantity, issued_quantity')
         .eq('event_id', event.id)
         .order('price_cents', { ascending: true });
 
-      console.log('🎫 Ticket tiers result:', { data, error, count: data?.length });
-      
-      if (error) throw error;
-      setTicketTiers(data || []);
+      if (tiersError) throw tiersError;
+      if (!tiers || tiers.length === 0) {
+        setTicketTiers([]);
+        return;
+      }
+
+      // Calculate truly available tickets (capacity - reserved - issued)
+      const tiersWithAvailability = tiers.map((tier: any) => {
+        const totalCapacity = tier.quantity || 0;
+        const reserved = tier.reserved_quantity || 0;
+        const issued = tier.issued_quantity || 0;
+        const available = totalCapacity - reserved - issued;
+
+        console.log(`🎫 Tier "${tier.name}": total=${totalCapacity}, reserved=${reserved}, issued=${issued}, available=${available}`);
+
+        return {
+          ...tier,
+          quantity: Math.max(0, available), // Show truly available tickets
+          totalCapacity,
+          reserved,
+          issued,
+        };
+      });
+
+      setTicketTiers(tiersWithAvailability);
     } catch (error) {
       console.error('❌ Error fetching ticket tiers:', error);
       setTicketTiers([]);
@@ -113,8 +142,26 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
               <CardContent className="p-4">
                 <h3 className="font-semibold mb-2">{event.title}</h3>
                 <div className="text-sm text-muted-foreground space-y-1">
-                  <p>{new Date(event.start_at).toLocaleDateString()} at {new Date(event.start_at).toLocaleTimeString()}</p>
-                  {event.venue && <p>{event.venue}</p>}
+                  {(() => {
+                    const dateString = event.startAtISO ?? event.start_at;
+                    if (!dateString) {
+                      return <p>Date TBA</p>;
+                    }
+                    try {
+                      const date = new Date(dateString);
+                      if (isNaN(date.getTime())) {
+                        return <p>Date TBA</p>;
+                      }
+                      return (
+                        <p>
+                          {date.toLocaleDateString()} at {date.toLocaleTimeString()}
+                        </p>
+                      );
+                    } catch {
+                      return <p>Date TBA</p>;
+                    }
+                  })()}
+                  {event.venue && !event.address && <p>{event.venue}</p>}
                   {event.address && <p>{event.address}</p>}
                 </div>
                 {event.description && (
@@ -142,32 +189,65 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
                   <p className="text-muted-foreground">No tickets available for this event.</p>
                 </div>
               ) : (
-                ticketTiers.map((tier) => (
-                  <Card
-                    key={tier.id}
-                    className={`border transition-colors ${
-                      isPast ? 'opacity-60' : 'hover:border-primary/50'
-                    }`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-medium">{tier.name}</h4>
-                            {tier.badge_label && <Badge variant="outline">{tier.badge_label}</Badge>}
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span className="font-semibold text-foreground text-lg">
-                              ${(tier.price_cents / 100).toFixed(2)}
-                            </span>
-                            <span>{tier.quantity} available</span>
-                            <span>Max {tier.max_per_order} per order</span>
-                          </div>
-                        </div>
+                <>
+                  {/* All sold out warning */}
+                  {ticketTiers.every(tier => tier.quantity === 0) && !isPast && (
+                    <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-semibold text-destructive mb-1">All Tickets Sold Out</h4>
+                        <p className="text-sm text-muted-foreground">
+                          All tickets for this event are currently sold out. Check back later as more tickets may become available.
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
+                    </div>
+                  )}
+                  
+                  {ticketTiers.map((tier) => {
+                    const isSoldOut = tier.quantity === 0;
+                    return (
+                      <Card
+                        key={tier.id}
+                        className={`border transition-colors ${
+                          isPast || isSoldOut 
+                            ? 'opacity-60 bg-muted/30' 
+                            : 'hover:border-primary/50'
+                        }`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className={`font-medium ${isSoldOut ? 'text-muted-foreground' : ''}`}>
+                                  {tier.name}
+                                </h4>
+                                {isSoldOut && (
+                                  <Badge variant="destructive" className="bg-destructive/90">
+                                    SOLD OUT
+                                  </Badge>
+                                )}
+                                {tier.badge_label && !isSoldOut && (
+                                  <Badge variant="outline">{tier.badge_label}</Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span className={`font-semibold text-lg ${
+                                  isSoldOut ? 'text-muted-foreground line-through' : 'text-foreground'
+                                }`}>
+                                  ${(tier.price_cents / 100).toFixed(2)}
+                                </span>
+                                <span className={isSoldOut ? 'text-destructive font-medium' : ''}>
+                                  {isSoldOut ? 'None available' : `${tier.quantity} available`}
+                                </span>
+                                {!isSoldOut && <span>Max {tier.max_per_order} per order</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </>
               )}
             </div>
 
@@ -179,11 +259,20 @@ export function EventTicketModal({ event, isOpen, onClose, onSuccess }: EventTic
               <Button
                 onClick={handlePurchaseClick}
                 className="flex-1"
-                disabled={loading || ticketTiers.length === 0 || isPast}
-                variant={isPast ? 'outline' : 'default'}
+                disabled={
+                  loading || 
+                  ticketTiers.length === 0 || 
+                  isPast || 
+                  ticketTiers.every(tier => tier.quantity === 0)
+                }
+                variant={isPast || ticketTiers.every(tier => tier.quantity === 0) ? 'outline' : 'default'}
               >
                 <CreditCard className="w-4 h-4 mr-2" />
-                {isPast ? 'Sales ended' : 'Purchase Tickets'}
+                {isPast 
+                  ? 'Sales ended' 
+                  : ticketTiers.every(tier => tier.quantity === 0)
+                  ? 'Sold Out'
+                  : 'Purchase Tickets'}
               </Button>
             </div>
           </div>

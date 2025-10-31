@@ -21,7 +21,7 @@ export default function AuthPage() {
       title="YardPass"
       description="Your gateway to events and culture"
       defaultTab="signin"
-      allowGuestTicketAccess={false}
+      allowGuestTicketAccess={true}
     />
   );
 }

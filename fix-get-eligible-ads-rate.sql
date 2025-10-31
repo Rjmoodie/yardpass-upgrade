@@ -123,3 +123,4 @@ COMMENT ON FUNCTION campaigns.get_eligible_ads IS
 SELECT 'Fixed! get_eligible_ads now returns bid in credits instead of USD' AS status;
 
 
+

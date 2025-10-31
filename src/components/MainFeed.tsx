@@ -4,7 +4,7 @@ import { updateMetaTags, defaultMeta } from '@/utils/meta';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
-import { EventTicketModal } from '@/components/EventTicketModal';
+import EventCheckoutSheet from '@/components/EventCheckoutSheet';
 import { AttendeeListModal } from '@/components/AttendeeListModal';
 import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users, Plus } from 'lucide-react';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -60,6 +60,7 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
               category: e.category || 'Event',
               startAtISO: e.start_at,
               dateLabel: format(new Date(e.start_at), 'MMM dd, yyyy'),
+              venue: e.venue || '',
               location: `${e.venue || ''}, ${e.city || ''}`.replace(/^,\s*/, ''),
               coverImage: e.cover_image_url || DEFAULT_EVENT_COVER,
               ticketTiers: [],
@@ -158,17 +159,27 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
         attendeeCount={current.attendeeCount}
         attendees={[]}
       />
-      <EventTicketModal
+      <EventCheckoutSheet
         event={
           current
-            ? {
-                id: current.id,
-                title: current.title,
-                start_at: current.startAtISO,
-                venue: current.location,
-                address: current.location,
-                description: current.description,
-              }
+            ? (() => {
+                const eventData = {
+                  id: current.id,
+                  title: current.title,
+                  start_at: current.startAtISO || current.start_at,
+                  startAtISO: current.startAtISO,
+                  venue: current.venue,
+                  address: current.location,
+                  description: current.description,
+                };
+                console.log('🎫 [MainFeed] Passing event to modal:', {
+                  currentEvent: current,
+                  eventData,
+                  start_at: current.start_at,
+                  startAtISO: current.startAtISO,
+                });
+                return eventData;
+              })()
             : null
         }
         isOpen={showTicketModal}

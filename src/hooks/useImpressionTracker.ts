@@ -118,10 +118,10 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
       const postRows  = toSend.filter(r => r.__t === 'post').map(({ __t, ...r }) => r);
 
       if (eventRows.length) {
-        await supabase.from('event_impressions').insert(eventRows, { count: 'exact' });
+        await supabase.rpc('insert_event_impressions', { impressions: eventRows });
       }
       if (postRows.length) {
-        await supabase.from('post_impressions').insert(postRows, { count: 'exact' });
+        await supabase.rpc('insert_post_impressions', { impressions: postRows });
       }
     } catch (e) {
       // On failure, re-queue to try again next cycle (keeps UX non-blocking)

@@ -7,7 +7,7 @@ export function DeferredImports() {
       import('@/components/CommentModal').catch(() => {});
       import('@/lib/analytics').catch(() => {});
       import('@/components/ShareModal').catch(() => {});
-      import('@/components/EventTicketModal').catch(() => {});
+      import('@/components/EventCheckoutSheet').catch(() => {});
     };
     const id = setTimeout(idle, 1200);
     return () => clearTimeout(id);

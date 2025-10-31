@@ -9,3 +9,4 @@ WHERE table_schema = 'campaigns'
 ORDER BY ordinal_position;
 
 
+

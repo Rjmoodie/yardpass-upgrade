@@ -95,22 +95,22 @@ body {
 /* iOS-Native Design System Tokens (REVAMPED) */
 :root {
   /* Surfaces */
-  --bg: 210 20% 98%;
-  --bg-elev: 210 20% 96%;
-  --bg-subtle: 214 32% 94%;
-  --background: 210 20% 98%;
+  --bg: 0 0% 96%;
+  --bg-elev: 0 0% 98%;
+  --bg-subtle: 0 0% 94%;
+  --background: 0 0% 100%;
   --foreground: 222 47% 11%;
   --fg: 222 47% 11%;
 
-  --card: 0 0% 100%;
+  --card: 0 0% 99%;
   --card-foreground: 222 47% 11%;
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
 
-  /* Brand Colors - YardPass amber/gold */
-  --primary: 42 93% 45%;
+  /* Brand Colors - YardPass Orange #FF8C00 */
+  --primary: 33 100% 50%;
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 42 90% 60%;
+  --primary-glow: 33 100% 60%;
 
   /* Accent - Misty tint for surface emphasis */
   --accent: 217 100% 97%;
@@ -135,9 +135,9 @@ body {
   --surface-warm: 213 32% 97%;
 
   /* Borders & Focus */
-  --border: 215 32% 86%;
-  --input: 215 32% 86%;
-  --ring: 42 93% 55%;
+  --border: 215 32% 78%;
+  --input: 215 32% 80%;
+  --ring: 33 100% 50%;
 
   /* Elevation shadows */
   --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.04);
@@ -193,7 +193,7 @@ body {
   /* Toast/Notification Colors */
   --toast-bg: 0 0% 100%;
   --toast-text: 222 47% 11%;
-  --toast-border: 215 32% 86%;
+  --toast-border: 215 32% 78%;
   
   /* iOS-Style Border Radius */
   --radius-xs: 0.25rem;    /* 4px */
@@ -212,16 +212,17 @@ body {
   --transition-quick: 200ms var(--ease-out);
   --transition-smooth: 300ms var(--ease-in-out);
   --transition-spring: 400ms var(--ease-spring);
+  --transition-theme: 100ms var(--ease-out);
   
   /* Glassmorphism */
   --glass-bg: hsl(0 0% 100% / 0.82);
   --glass-border: hsl(0 0% 100% / 0.18);
   --glass-backdrop: blur(24px) saturate(170%);
 
-  /* Brand gradients - YardPass amber */
-  --gradient-orange: linear-gradient(135deg, hsl(42 93% 45%), hsl(42 90% 60%));
-  --gradient-orange-hover: linear-gradient(135deg, hsl(42 95% 50%), hsl(42 92% 65%));
-  --gradient-orange-glow: linear-gradient(135deg, hsl(42 93% 55%), hsl(42 95% 70%));
+  /* Brand gradients - YardPass Orange #FF8C00 */
+  --gradient-orange: linear-gradient(135deg, hsl(33 100% 50%), hsl(33 100% 60%));
+  --gradient-orange-hover: linear-gradient(135deg, hsl(33 100% 55%), hsl(33 100% 65%));
+  --gradient-orange-glow: linear-gradient(135deg, hsl(33 100% 50%), hsl(33 100% 70%));
 
   /* ======== DESIGN TOKENS: fill any missing variables you reference elsewhere ======== */
   /* Frequently referenced but not previously defined tokens */
@@ -232,86 +233,86 @@ body {
   --shadow-modal: 0 16px 48px hsl(222 47% 11% / 0.18), 0 4px 16px hsl(222 47% 11% / 0.08);
   --shadow-card: 0 10px 24px hsl(222 47% 11% / 0.12);
 
-  --text-accent: 42 93% 45%;
+  --text-accent: 33 100% 50%;
   --text-accent-muted: 215 17% 45%;
-  --border-accent: 215 32% 86%;
-  --border-strong: 215 25% 80%;
+  --border-accent: 33 100% 50%;
+  --border-strong: 215 25% 70%;
   --tab-active-bg: 217 100% 97%;
-  --tab-active-border: 215 32% 88%;
+  --tab-active-border: 215 32% 75%;
   --input-background: 0 0% 100%;
 }
 
-/* Dark Theme - iOS-inspired dark colors */
+/* Dark Theme - Pure neutral grays (no blue tint) */
 /* Dark mode variables - using .dark class selector for next-themes */
 .dark {
-  /* Surfaces */
-  --bg: 222 47% 8%;
-  --bg-elev: 222 44% 12%;
-  --bg-subtle: 222 44% 16%;
-  --background: 222 47% 8%;
-  --foreground: 210 20% 96%;
-  --fg: 210 20% 96%;
+  /* Surfaces - Pure blacks and grays */
+  --bg: 0 0% 6%;
+  --bg-elev: 0 0% 10%;
+  --bg-subtle: 0 0% 14%;
+  --background: 0 0% 0%;
+  --foreground: 0 0% 96%;
+  --fg: 0 0% 96%;
 
-  --card: 222 40% 10%;
-  --card-foreground: 210 20% 96%;
-  --popover: 222 40% 10%;
-  --popover-foreground: 210 20% 96%;
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 96%;
+  --popover: 0 0% 8%;
+  --popover-foreground: 0 0% 96%;
 
-  /* Brand Colors - luminous amber for dark mode */
-  --primary: 42 90% 60%;
+  /* Brand Colors - YardPass Orange #FF8C00 */
+  --primary: 33 100% 50%;
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 42 95% 70%;
+  --primary-glow: 33 100% 60%;
 
-  /* Accent - muted slate */
-  --accent: 222 33% 24%;
-  --accent-foreground: 210 20% 96%;
+  /* Accent - Neutral charcoal tints */
+  --accent: 0 0% 18%;
+  --accent-foreground: 0 0% 92%;
 
   /* Secondary and Muted */
-  --secondary: 222 28% 14%;
-  --secondary-foreground: 210 20% 96%;
-  --muted: 222 23% 24%;
-  --muted-foreground: 222 12% 72%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 92%;
+  --muted: 0 0% 26%;
+  --muted-foreground: 0 0% 72%;
 
-  /* Semantic Colors */
-  --success: 142 70% 40%;
+  /* Semantic Colors - High contrast on dark backgrounds */
+  --success: 142 70% 42%;
   --success-foreground: 0 0% 100%;
-  --warning: 38 92% 60%;
+  --warning: 38 94% 58%;
   --warning-foreground: 0 0% 100%;
-  --danger: 0 84% 67%;
-  --destructive: 0 84% 67%;
+  --danger: 0 84% 64%;
+  --destructive: 0 84% 64%;
   --destructive-foreground: 0 0% 100%;
 
-  /* Surfaces (optional neutral variant) */
-  --surface-warm: 222 26% 12%;
+  /* Surfaces (optional warm variant) */
+  --surface-warm: 30 10% 12%;
 
   /* Borders & Focus */
-  --border: 222 32% 22%;
-  --input: 222 32% 18%;
-  --ring: 42 90% 60%;
+  --border: 0 0% 22%;
+  --input: 0 0% 16%;
+  --ring: 33 100% 50%;
 
   /* Dark mode glassmorphism */
-  --glass-bg: hsl(222 33% 18% / 0.75);
-  --glass-border: hsl(222 33% 60% / 0.1);
+  --glass-bg: hsl(0 0% 8% / 0.78);
+  --glass-border: hsl(0 0% 50% / 0.12);
 
-    /* Dark mode counterparts */
-    --overlay: hsla(222, 30%, 6%, 0.70);
-    --modal-bg: hsl(222 33% 16% / 0.98);
-    --modal-border: hsl(222 30% 24%);
-    --shadow-modal: 0 24px 64px hsl(0 0% 0% / 0.45), 0 6px 24px hsl(0 0% 0% / 0.25);
-    --shadow-card: 0 10px 24px hsl(0 0% 0% / 0.25);
+  /* Dark mode counterparts */
+  --overlay: hsla(0, 0%, 0%, 0.7);
+  --modal-bg: hsl(0 0% 10% / 0.96);
+  --modal-border: hsl(0 0% 26%);
+  --shadow-modal: 0 28px 72px hsl(0 0% 0% / 0.5), 0 10px 28px hsl(0 0% 0% / 0.28);
+  --shadow-card: 0 16px 40px hsl(0 0% 0% / 0.28);
 
-    --text-accent: 42 90% 60%;
-    --text-accent-muted: 222 20% 68%;
-    --border-accent: 222 32% 28%;
-    --border-strong: 222 32% 34%;
-    --tab-active-bg: 222 32% 20%;
-    --tab-active-border: 222 32% 26%;
-    --input-background: 222 32% 18%;
+  --text-accent: 33 100% 50%;
+  --text-accent-muted: 0 0% 70%;
+  --border-accent: 33 100% 50%;
+  --border-strong: 0 0% 32%;
+  --tab-active-bg: 0 0% 16%;
+  --tab-active-border: 0 0% 26%;
+  --input-background: 0 0% 12%;
 
-    /* Toast/Notification Colors for dark mode */
-    --toast-bg: 222 30% 14%;
-    --toast-text: 213 24% 94%;
-    --toast-border: 222 30% 22%;
+  /* Toast/Notification Colors for dark mode */
+  --toast-bg: 0 0% 12%;
+  --toast-text: 0 0% 94%;
+  --toast-border: 0 0% 22%;
 }
 
 /* iOS-Native Base Styles */
@@ -340,7 +341,7 @@ body {
   background-size: cover;
   background-repeat: no-repeat;
   color: hsl(var(--foreground));
-  transition: background-color var(--transition-smooth), color var(--transition-smooth);
+  transition: background-color var(--transition-theme), color var(--transition-theme);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -802,7 +803,7 @@ p {
   body {
     @apply bg-background text-foreground antialiased;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    transition: background-color 200ms ease, color 200ms ease;
+    transition: background-color 100ms ease, color 100ms ease;
   }
 
   /* Theme is now controlled by next-themes ThemeProvider */

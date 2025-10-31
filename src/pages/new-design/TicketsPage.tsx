@@ -167,18 +167,18 @@ export default function TicketsPage() {
   // Loading state
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/10 border-t-[#FF8C00]" />
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-border/10 border-t-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black pb-20 pt-4 sm:pt-6">
+    <div className="min-h-screen bg-background pb-20 pt-4 sm:pt-6">
       {/* Header */}
       <div className="mb-6 px-3 sm:px-4 md:px-6">
-        <h1 className="mb-2 text-3xl font-bold text-white sm:text-4xl">My Tickets</h1>
-        <p className="text-sm text-white/60 sm:text-base">
+        <h1 className="mb-2 text-3xl font-bold text-foreground sm:text-4xl">My Tickets</h1>
+        <p className="text-sm text-foreground/60 sm:text-base">
           {filteredTickets.length} {activeTab === 'upcoming' ? 'upcoming' : 'past'} ticket{filteredTickets.length !== 1 ? 's' : ''}
         </p>
       </div>
@@ -189,8 +189,8 @@ export default function TicketsPage() {
           onClick={() => setActiveTab('upcoming')}
           className={`flex-1 rounded-full py-2.5 text-sm font-semibold transition-all sm:py-3 sm:text-base ${
             activeTab === 'upcoming'
-              ? 'bg-[#FF8C00] text-white shadow-lg'
-              : 'border border-white/10 bg-white/5 text-white/60 hover:bg-white/10'
+              ? 'bg-primary text-foreground shadow-lg'
+              : 'border border-border/10 bg-white/5 text-foreground/60 hover:bg-white/10'
           }`}
         >
           Upcoming
@@ -199,8 +199,8 @@ export default function TicketsPage() {
           onClick={() => setActiveTab('past')}
           className={`flex-1 rounded-full py-2.5 text-sm font-semibold transition-all sm:py-3 sm:text-base ${
             activeTab === 'past'
-              ? 'bg-[#FF8C00] text-white shadow-lg'
-              : 'border border-white/10 bg-white/5 text-white/60 hover:bg-white/10'
+              ? 'bg-primary text-foreground shadow-lg'
+              : 'border border-border/10 bg-white/5 text-foreground/60 hover:bg-white/10'
           }`}
         >
           Past Events
@@ -212,7 +212,7 @@ export default function TicketsPage() {
         {filteredTickets.map((ticket) => (
           <div
             key={ticket.id}
-            className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl transition-all hover:border-white/20 hover:shadow-xl sm:rounded-3xl"
+            className="overflow-hidden rounded-2xl border border-border/10 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl transition-all hover:border-border/20 hover:shadow-xl sm:rounded-3xl"
           >
             {/* Card Header */}
             <div className="relative h-32 overflow-hidden sm:h-40 md:h-48">
@@ -226,15 +226,17 @@ export default function TicketsPage() {
               {/* Status Badge */}
               <div className={`absolute right-3 top-3 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-md sm:text-sm ${
                 ticket.status === 'upcoming' 
-                  ? 'bg-green-500/80 text-white' 
-                  : 'bg-white/20 text-white/80'
+                  ? 'bg-green-500/80 text-foreground' 
+                  : 'bg-white/20 text-foreground/80'
               }`}>
                 {ticket.status === 'upcoming' ? 'Active' : 'Used'}
               </div>
 
               {/* Event Name Overlay */}
               <div className="absolute bottom-3 left-3 right-3">
-                <h3 className="text-lg font-bold text-white drop-shadow-lg sm:text-xl">{ticket.eventName}</h3>
+                <div className="inline-block max-w-full rounded-lg bg-background/90 px-3 py-2 backdrop-blur-md">
+                  <h3 className="text-lg font-bold text-foreground sm:text-xl">{ticket.eventName}</h3>
+                </div>
               </div>
             </div>
 
@@ -243,39 +245,39 @@ export default function TicketsPage() {
               {/* Ticket Info */}
               <div className="mb-4 grid gap-3 sm:grid-cols-2">
                 <div className="flex items-start gap-2">
-                  <Calendar className="mt-0.5 h-4 w-4 text-white/50 sm:h-5 sm:w-5" />
+                  <Calendar className="mt-0.5 h-4 w-4 text-foreground/50 sm:h-5 sm:w-5" />
                   <div>
-                    <p className="text-xs text-white/50 sm:text-sm">Date</p>
-                    <p className="text-sm font-medium text-white sm:text-base">{ticket.date}</p>
+                    <p className="text-xs text-foreground/50 sm:text-sm">Date</p>
+                    <p className="text-sm font-medium text-foreground sm:text-base">{ticket.date}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-2">
-                  <Clock className="mt-0.5 h-4 w-4 text-white/50 sm:h-5 sm:w-5" />
+                  <Clock className="mt-0.5 h-4 w-4 text-foreground/50 sm:h-5 sm:w-5" />
                   <div>
-                    <p className="text-xs text-white/50 sm:text-sm">Time</p>
-                    <p className="text-sm font-medium text-white sm:text-base">{ticket.time}</p>
+                    <p className="text-xs text-foreground/50 sm:text-sm">Time</p>
+                    <p className="text-sm font-medium text-foreground sm:text-base">{ticket.time}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-2 sm:col-span-2">
-                  <MapPin className="mt-0.5 h-4 w-4 text-white/50 sm:h-5 sm:w-5" />
+                  <MapPin className="mt-0.5 h-4 w-4 text-foreground/50 sm:h-5 sm:w-5" />
                   <div>
-                    <p className="text-xs text-white/50 sm:text-sm">Location</p>
-                    <p className="text-sm font-medium text-white sm:text-base">{ticket.location}</p>
+                    <p className="text-xs text-foreground/50 sm:text-sm">Location</p>
+                    <p className="text-sm font-medium text-foreground sm:text-base">{ticket.location}</p>
                   </div>
                 </div>
               </div>
 
               {/* Ticket Type & Price */}
-              <div className="mb-4 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="mb-4 flex items-center justify-between rounded-xl border border-border/10 bg-white/5 p-3">
                 <div>
-                  <p className="text-xs text-white/50 sm:text-sm">Ticket Type</p>
-                  <p className="text-sm font-semibold text-white sm:text-base">{ticket.ticketType}</p>
+                  <p className="text-xs text-foreground/50 sm:text-sm">Ticket Type</p>
+                  <p className="text-sm font-semibold text-foreground sm:text-base">{ticket.ticketType}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-white/50 sm:text-sm">Price</p>
-                  <p className="text-base font-bold text-[#FF8C00] sm:text-lg">{ticket.price}</p>
+                  <p className="text-xs text-foreground/50 sm:text-sm">Price</p>
+                  <p className="text-base font-bold text-primary sm:text-lg">{ticket.price}</p>
                 </div>
               </div>
 
@@ -284,27 +286,27 @@ export default function TicketsPage() {
                 <div className="mb-4">
                   <button
                     onClick={() => setExpandedTicket(expandedTicket === ticket.id ? null : ticket.id)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 p-4 transition-all hover:bg-white/10"
+                    className="w-full rounded-xl border border-border/10 bg-white/5 p-4 transition-all hover:bg-white/10"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF8C00]/20">
-                          <QrCode className="h-5 w-5 text-[#FF8C00]" />
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20">
+                          <QrCode className="h-5 w-5 text-primary" />
                         </div>
                         <div className="text-left">
-                          <p className="text-sm font-semibold text-white sm:text-base">Show QR Code</p>
-                          <p className="text-xs text-white/50">Tap to expand</p>
+                          <p className="text-sm font-semibold text-foreground sm:text-base">Show QR Code</p>
+                          <p className="text-xs text-foreground/50">Tap to expand</p>
                         </div>
                       </div>
                       <div className={`transform transition-transform ${expandedTicket === ticket.id ? 'rotate-180' : ''}`}>
-                        <ChevronDown className="h-5 w-5 text-white/50" />
+                        <ChevronDown className="h-5 w-5 text-foreground/50" />
                       </div>
                     </div>
                   </button>
 
                   {/* Expanded QR Code */}
                   {expandedTicket === ticket.id && (
-                    <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-6 text-center">
+                    <div className="mt-4 rounded-xl border border-border/10 bg-white/5 p-6 text-center">
                       {qrCodeImages[ticket.id] ? (
                         <div className="mx-auto mb-4 flex h-48 w-48 items-center justify-center rounded-2xl bg-white p-4 sm:h-64 sm:w-64">
                           <img 
@@ -315,13 +317,13 @@ export default function TicketsPage() {
                         </div>
                       ) : (
                         <div className="mx-auto mb-4 flex h-48 w-48 items-center justify-center rounded-2xl bg-white sm:h-64 sm:w-64">
-                          <div className="h-12 w-12 animate-spin rounded-full border-4 border-black/10 border-t-[#FF8C00]" />
+                          <div className="h-12 w-12 animate-spin rounded-full border-4 border-black/10 border-t-primary" />
                         </div>
                       )}
-                      <p className="text-xs font-medium text-white/60 sm:text-sm">
+                      <p className="text-xs font-medium text-foreground/60 sm:text-sm">
                         Show this code at the venue entrance
                       </p>
-                      <p className="mt-2 text-xs text-white/40">
+                      <p className="mt-2 text-xs text-foreground/40">
                         {ticket.qrCode}
                       </p>
                     </div>
@@ -334,21 +336,21 @@ export default function TicketsPage() {
                 <button 
                   onClick={() => handleDownload(ticket)}
                   disabled={!qrCodeImages[ticket.id]}
-                  className="flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 py-2.5 text-xs font-medium text-white transition-all hover:bg-white/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed sm:text-sm"
+                  className="flex items-center justify-center gap-2 rounded-full border border-border/10 bg-white/5 py-2.5 text-xs font-medium text-foreground transition-all hover:bg-white/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed sm:text-sm"
                 >
                   <Download className="h-4 w-4" />
                   Download
                 </button>
                 <button 
                   onClick={() => handleShare(ticket)}
-                  className="flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 py-2.5 text-xs font-medium text-white transition-all hover:bg-white/10 active:scale-95 sm:text-sm"
+                  className="flex items-center justify-center gap-2 rounded-full border border-border/10 bg-white/5 py-2.5 text-xs font-medium text-foreground transition-all hover:bg-white/10 active:scale-95 sm:text-sm"
                 >
                   <Share2 className="h-4 w-4" />
                   Share
                 </button>
                 <button 
                   onClick={() => ticket.eventId && navigate(`/e/${ticket.eventId}`)}
-                  className="col-span-2 flex items-center justify-center gap-2 rounded-full bg-[#FF8C00] py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#FF9D1A] active:scale-95 sm:col-span-1 sm:text-sm"
+                  className="col-span-2 flex items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-xs font-semibold text-foreground transition-all hover:bg-[#FF9D1A] active:scale-95 sm:col-span-1 sm:text-sm"
                 >
                   View Event
                 </button>
@@ -359,12 +361,12 @@ export default function TicketsPage() {
 
         {/* Empty State */}
         {filteredTickets.length === 0 && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-xl sm:rounded-3xl">
+          <div className="rounded-2xl border border-border/10 bg-white/5 p-12 text-center backdrop-blur-xl sm:rounded-3xl">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-              <QrCode className="h-8 w-8 text-white/30" />
+              <QrCode className="h-8 w-8 text-foreground/30" />
             </div>
-            <h3 className="mb-2 text-lg font-bold text-white">No {activeTab} tickets</h3>
-            <p className="text-sm text-white/60">
+            <h3 className="mb-2 text-lg font-bold text-foreground">No {activeTab} tickets</h3>
+            <p className="text-sm text-foreground/60">
               {activeTab === 'upcoming' 
                 ? 'Get tickets to upcoming events to see them here'
                 : 'Your past event tickets will appear here'}
@@ -372,7 +374,7 @@ export default function TicketsPage() {
             {activeTab === 'upcoming' && (
               <button 
                 onClick={() => navigate('/search')}
-                className="mt-6 rounded-full bg-[#FF8C00] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#FF9D1A] active:scale-95"
+                className="mt-6 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-foreground transition-all hover:bg-[#FF9D1A] active:scale-95"
               >
                 Browse Events
               </button>

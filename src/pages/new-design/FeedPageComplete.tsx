@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { FeedFilter } from '@/components/FeedFilter';
 import CommentModal from '@/components/CommentModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
-import { EventTicketModal } from '@/components/EventTicketModal';
+import EventCheckoutSheet from '@/components/EventCheckoutSheet';
 import { isVideoUrl } from '@/utils/mux';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { FeedCard } from '../../../New design/FeedCard';
@@ -104,9 +104,10 @@ export default function FeedPageComplete() {
       setTicketModalEvent({
         id: item.event_id,
         title: item.event_title || 'Event',
-        start_at: item.event_start_at || '',
+        start_at: item.event_starts_at || '',  // Fixed: event_starts_at not event_start_at
+        startAtISO: item.event_starts_at,
         venue: item.event_venue || undefined,
-        address: item.event_address || undefined,
+        address: item.event_location || undefined,  // Also using event_location for address
         description: item.event_description || undefined,
       });
       setTicketModalOpen(true);
@@ -139,17 +140,17 @@ export default function FeedPageComplete() {
 
   if (status === 'loading') {
     return (
-      <div className="flex h-dvh items-center justify-center bg-black">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/10 border-t-[#FF8C00]" />
+      <div className="flex h-dvh items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-border/10 border-t-primary" />
       </div>
     );
   }
 
   if (status === 'error') {
     return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-neutral-950 text-white">
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-neutral-950 text-foreground">
         <p className="text-lg font-semibold">We couldn't load your feed.</p>
-        <button onClick={() => refetch()} className="rounded-full bg-[#FF8C00] px-6 py-3 text-white">
+        <button onClick={() => refetch()} className="rounded-full bg-primary px-6 py-3 text-foreground">
           Refresh feed
         </button>
       </div>
@@ -157,7 +158,7 @@ export default function FeedPageComplete() {
   }
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-black text-white">
+    <div className="relative h-dvh w-full overflow-hidden bg-background text-foreground">
       {/* Background gradient */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-950 via-black to-black" />
       <div className="pointer-events-none absolute left-1/2 top-[-30%] h-[520px] w-[125%] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(circle_at_center,_rgba(120,119,198,0.35)_0%,_rgba(32,31,60,0.05)_55%,_transparent_75%)] blur-3xl" />
@@ -239,7 +240,7 @@ export default function FeedPageComplete() {
         />
       )}
 
-      <EventTicketModal
+      <EventCheckoutSheet
         event={ticketModalEvent}
         isOpen={ticketModalOpen && !!ticketModalEvent}
         onClose={() => {

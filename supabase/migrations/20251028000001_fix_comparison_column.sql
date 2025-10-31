@@ -93,3 +93,4 @@ GRANT EXECUTE ON FUNCTION public.get_campaign_kpis_comparison(UUID, INT) TO anon
 SELECT * FROM public.get_campaign_kpis_comparison('3a51d5c9-b817-4c11-859f-5cd0b4c5b1ec', 7);
 
 
+

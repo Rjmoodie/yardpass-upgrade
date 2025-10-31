@@ -104,14 +104,14 @@ export function UsernameEditor({ currentUsername, userId, onUpdate }: UsernameEd
   if (!isEditing) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-sm text-white/70">
+        <span className="text-sm text-foreground/70 font-medium">
           {currentUsername ? `@${currentUsername}` : 'No username set'}
         </span>
         <Button
           size="sm"
           variant="ghost"
           onClick={() => setIsEditing(true)}
-          className="h-7 gap-1 px-2 text-xs text-white/60 hover:text-white hover:bg-white/10"
+          className="h-7 gap-1 px-2 text-xs text-foreground/60 hover:text-foreground hover:bg-muted"
         >
           <Edit2 className="h-3 w-3" />
           Edit
@@ -124,7 +124,7 @@ export function UsernameEditor({ currentUsername, userId, onUpdate }: UsernameEd
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/50">@</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground/50">@</span>
           <Input
             value={username}
             onChange={(e) => {
@@ -132,7 +132,7 @@ export function UsernameEditor({ currentUsername, userId, onUpdate }: UsernameEd
               setError(null);
             }}
             placeholder="username"
-            className="pl-7 bg-white/10 border-white/20 text-white placeholder:text-white/40"
+            className="pl-7 bg-muted/30 border-border/30 text-foreground placeholder:text-foreground/40"
             disabled={isSaving || isChecking}
             maxLength={30}
           />
@@ -141,7 +141,7 @@ export function UsernameEditor({ currentUsername, userId, onUpdate }: UsernameEd
           size="sm"
           onClick={handleSave}
           disabled={isSaving || isChecking || !username || username === currentUsername}
-          className="h-9 w-9 p-0 bg-green-600 hover:bg-green-700"
+          className="h-9 w-9 p-0 bg-green-600 hover:bg-green-700 text-white"
         >
           {isSaving || isChecking ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -154,15 +154,15 @@ export function UsernameEditor({ currentUsername, userId, onUpdate }: UsernameEd
           variant="ghost"
           onClick={handleCancel}
           disabled={isSaving || isChecking}
-          className="h-9 w-9 p-0 hover:bg-white/10"
+          className="h-9 w-9 p-0 hover:bg-muted text-foreground"
         >
           <X className="h-4 w-4" />
         </Button>
       </div>
       {error && (
-        <p className="text-xs text-red-400">{error}</p>
+        <p className="text-xs text-red-500">{error}</p>
       )}
-      <p className="text-xs text-white/50">
+      <p className="text-xs text-foreground/50">
         3-30 characters, letters, numbers, underscores, and hyphens only
       </p>
     </div>

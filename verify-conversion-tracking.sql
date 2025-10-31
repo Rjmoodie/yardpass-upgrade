@@ -60,3 +60,4 @@ WHERE schemaname = 'campaigns'
 \echo '✅ Verification complete! Check output above for any missing components.'
 
 
+

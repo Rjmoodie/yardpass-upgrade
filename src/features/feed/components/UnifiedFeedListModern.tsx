@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { isVideoUrl } from '@/utils/mux';
 import { YardpassSpinner } from '@/components/LoadingSpinner';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
-import { EventTicketModal } from '@/components/EventTicketModal';
+import EventCheckoutSheet from '@/components/EventCheckoutSheet';
 
 type FeedFilters = {
   dates: string[];
@@ -282,9 +282,10 @@ export default function UnifiedFeedListModern() {
         setTicketModalEvent({
           id: item.event_id,
           title: item.event_title || 'Event',
-          start_at: item.event_start_at || '',
+          start_at: item.event_starts_at || '',  // Fixed: event_starts_at
+          startAtISO: item.event_starts_at,
           venue: item.event_venue || undefined,
-          address: item.event_address || undefined,
+          address: item.event_location || item.event_address || undefined,
           description: item.event_description || undefined,
         });
         setTicketModalOpen(true);
@@ -292,9 +293,10 @@ export default function UnifiedFeedListModern() {
         setTicketModalEvent({
           id: item.event_id,
           title: item.event_title || 'Event',
-          start_at: item.event_start_at || '',
+          start_at: item.event_starts_at || '',  // Fixed: event_starts_at
+          startAtISO: item.event_starts_at,
           venue: item.event_venue || undefined,
-          address: undefined,
+          address: item.event_location || undefined,
           description: undefined,
         });
         setTicketModalOpen(true);
@@ -498,7 +500,7 @@ export default function UnifiedFeedListModern() {
         />
       )}
 
-      <EventTicketModal
+      <EventCheckoutSheet
         event={ticketModalEvent}
         isOpen={ticketModalOpen && !!ticketModalEvent}
         onClose={() => {

@@ -43,6 +43,7 @@ serve(async (req) => {
     // Store OTP with 5-minute expiry
     const expiry = new Date(Date.now() + 5 * 60 * 1000);
     await supabase
+      .schema('ticketing')
       .from('guest_otp_codes')
       .upsert({
         method,

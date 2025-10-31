@@ -60,3 +60,4 @@ FROM public.get_eligible_ads_fixed
 WHERE campaign_id = '3a51d5c9-b817-4c11-859f-5cd0b4c5b1ec';
 
 
+

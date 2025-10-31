@@ -13,17 +13,21 @@ serve(async (req) => {
 
   try {
     const { method, contact, otp, event_id } = await req.json();
+    console.log('[guest-tickets-verify] Request:', { method, contact, otp, event_id });
 
     if (!method || !contact || !otp) {
+      console.error('[guest-tickets-verify] Missing required fields');
       return createErrorResponse('Missing method, contact, or otp', 400);
     }
 
     // Hash the provided OTP
     const otpHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(otp + contact))
       .then(buffer => Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join(''));
+    console.log('[guest-tickets-verify] OTP hash generated');
 
     // Verify OTP
     const { data: otpRecord, error: otpError } = await supabase
+      .schema('ticketing')
       .from('guest_otp_codes')
       .select('*')
       .eq('method', method)
@@ -32,7 +36,14 @@ serve(async (req) => {
       .gt('expires_at', new Date().toISOString())
       .single();
 
+    console.log('[guest-tickets-verify] OTP lookup result:', { 
+      found: !!otpRecord, 
+      error: otpError?.message,
+      errorCode: otpError?.code 
+    });
+
     if (otpError || !otpRecord) {
+      console.error('[guest-tickets-verify] OTP verification failed:', otpError);
       return createErrorResponse('Invalid or expired OTP', 400);
     }
 
@@ -50,6 +61,7 @@ serve(async (req) => {
 
     // Store session
     await supabase
+      .schema('ticketing')
       .from('guest_ticket_sessions')
       .insert({
         token_hash: tokenHash,
@@ -62,6 +74,7 @@ serve(async (req) => {
 
     // Clean up OTP
     await supabase
+      .schema('ticketing')
       .from('guest_otp_codes')
       .delete()
       .eq('method', method)

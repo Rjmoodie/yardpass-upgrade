@@ -437,14 +437,15 @@ serve(async (req) => {
 
     const session = await stripe.checkout.sessions.create(
       {
+        ui_mode: "embedded", // Enable embedded checkout
         customer: customerId,
         customer_email: customerId ? undefined : normalizedEmail,
         line_items: lineItems,
         mode: "payment",
-        success_url: `${siteUrl}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${siteUrl}/?cancelled=true`,
+        return_url: `${siteUrl}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
         allow_promotion_codes: true,
         billing_address_collection: "required",
+        expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutes from now
         metadata: {
           event_id: eventId,
           user_id: userId,
@@ -544,7 +545,7 @@ serve(async (req) => {
     });
 
     return response({
-      url: session.url,
+      client_secret: session.client_secret, // For embedded checkout
       checkout_session_id: checkoutSessionId,
       order_id: order.id,
       expires_at: expiresAtIso,

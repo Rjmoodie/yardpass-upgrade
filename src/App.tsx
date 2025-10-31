@@ -57,6 +57,7 @@ const PurchaseSuccessHandler = lazy(() =>
   import('@/components/PurchaseSuccessHandler').then((m) => ({ default: m.PurchaseSuccessHandler })),
 );
 const ScannerPage = lazy(() => import('@/components/ScannerPage').then((m) => ({ default: m.ScannerPage })));
+const ScannerSelectEventPage = lazy(() => import('@/pages/new-design/ScannerSelectEventPage'));
 const AnalyticsHub = lazy(() => import('@/components/AnalyticsHub'));
 const EventAnalytics = lazy(() => import('@/components/EventAnalytics'));
 const EventAnalyticsPage = lazy(() => import('@/pages/EventAnalyticsPage'));
@@ -480,14 +481,9 @@ function AppContent() {
                 path="/scanner"
                 element={
                   <AuthGuard>
-                    <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
-                      <div className="text-center">
-                        <Scan className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                        <h2 className="text-xl font-semibold mb-2">No Event Selected</h2>
-                        <p className="text-muted-foreground mb-4">Access the scanner from an event management page</p>
-                        <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
-                      </div>
-                    </div>
+                    <Suspense fallback={<PageLoadingSpinner />}>
+                      <ScannerSelectEventPage />
+                    </Suspense>
                   </AuthGuard>
                 }
               />
@@ -669,8 +665,7 @@ function AppContent() {
         {/* Navigation - Show on most routes except specific ones */}
         {!location.pathname.startsWith('/event/') &&
           !location.pathname.startsWith('/event-management/') &&
-          location.pathname !== '/ticket-success' &&
-          location.pathname !== '/auth' && (
+          location.pathname !== '/ticket-success' && (
             <NavigationNewDesign />
           )}
 

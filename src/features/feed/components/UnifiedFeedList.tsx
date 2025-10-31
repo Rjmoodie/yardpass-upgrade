@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
-import { EventTicketModal } from '@/components/EventTicketModal';
+import EventCheckoutSheet from '@/components/EventCheckoutSheet';
 import { isVideoUrl } from '@/utils/mux';
 import { YardpassSpinner } from '@/components/LoadingSpinner';
 
@@ -831,7 +831,7 @@ export default function UnifiedFeedList() {
         />
       )}
 
-      <EventTicketModal
+      <EventCheckoutSheet
         event={ticketModalEvent}
         isOpen={ticketModalOpen && !!ticketModalEvent}
         onClose={() => {

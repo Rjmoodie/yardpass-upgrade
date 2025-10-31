@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { FeedFilter } from '@/components/FeedFilter';
 import CommentModal from '@/components/CommentModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
-import { EventTicketModal } from '@/components/EventTicketModal';
+import EventCheckoutSheet from '@/components/EventCheckoutSheet';
 import { EventCardNewDesign } from '@/components/feed/EventCardNewDesign';
 import { UserPostCardNewDesign } from '@/components/feed/UserPostCardNewDesign';
 import { TopFilters } from '@/components/feed/TopFilters';
@@ -329,9 +329,10 @@ export default function FeedPageNewDesign() {
         setTicketModalEvent({
           id: item.event_id,
           title: item.event_title || 'Event',
-          start_at: item.event_start_at || '',
+          start_at: item.event_starts_at || '',  // Fixed: event_starts_at
+          startAtISO: item.event_starts_at,
           venue: item.event_venue || undefined,
-          address: item.event_address || undefined,
+          address: item.event_location || item.event_address || undefined,
           description: item.event_description || undefined,
         });
         setTicketModalOpen(true);
@@ -633,7 +634,7 @@ export default function FeedPageNewDesign() {
         />
       )}
 
-      <EventTicketModal
+      <EventCheckoutSheet
         event={ticketModalEvent}
         isOpen={ticketModalOpen && !!ticketModalEvent}
         onClose={() => {

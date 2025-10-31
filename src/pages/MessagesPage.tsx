@@ -62,28 +62,28 @@ export default function MessagesPage() {
   const showList = !selectedConversationDetails;
 
   return (
-    <div className="flex h-screen bg-black text-white">
+    <div className="flex h-screen bg-background text-foreground">
       <div
-        className={`flex flex-col border-white/10 bg-black ${
+        className={`flex flex-col border-border/50 bg-[hsl(var(--background))] ${
           showList ? 'w-full' : 'hidden'
         } md:flex md:w-96 md:border-r`}
       >
-        <div className="border-b border-white/10 p-4">
+        <div className="border-b border-border/40 p-4">
           <div className="mb-4 flex items-center justify-between">
             <h1 className="text-lg">Messages</h1>
-            <button className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10">
+            <button className="flex h-8 w-8 items-center justify-center rounded-full border border-border/50 bg-[hsl(var(--bg-subtle))] transition-colors hover:bg-[hsl(var(--bg-elev))]">
               <MoreVertical className="h-4 w-4" />
             </button>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search messages..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              className="w-full rounded-full border border-white/10 bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/50 focus:border-[#FF8C00] focus:bg-white/10 focus:outline-none"
+              className="w-full rounded-full border border-border/50 bg-[hsl(var(--bg-subtle))] py-2 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-[hsl(var(--primary))] focus:bg-[hsl(var(--bg-elev))] focus:outline-none"
             />
           </div>
         </div>
@@ -93,8 +93,8 @@ export default function MessagesPage() {
             <button
               key={conversation.id}
               onClick={() => setSelectedConversation(conversation.id)}
-              className={`flex w-full items-center gap-3 border-b border-white/5 p-4 text-left transition hover:bg-white/5 ${
-                selectedConversation === conversation.id ? 'bg-white/10' : ''
+              className={`flex w-full items-center gap-3 border-b border-border/40 p-4 text-left transition-colors hover:bg-[hsl(var(--bg-subtle))] ${
+                selectedConversation === conversation.id ? 'bg-[hsl(var(--bg-elev))]' : ''
               }`}
             >
               <div className="relative flex-shrink-0">
@@ -104,20 +104,20 @@ export default function MessagesPage() {
                   className="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
                 />
                 {conversation.online && (
-                  <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-black bg-green-500" />
+                  <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[hsl(var(--background))] bg-green-500" />
                 )}
               </div>
 
               <div className="min-w-0 flex-1">
                 <div className="mb-1 flex items-center justify-between">
                   <h3 className="truncate text-sm sm:text-base">{conversation.name}</h3>
-                  <span className="ml-2 text-xs text-white/50">{conversation.timestamp}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">{conversation.timestamp}</span>
                 </div>
-                <p className="truncate text-xs text-white/60 sm:text-sm">{conversation.lastMessage}</p>
+                <p className="truncate text-xs text-muted-foreground sm:text-sm">{conversation.lastMessage}</p>
               </div>
 
               {conversation.unread > 0 && (
-                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#FF8C00] text-xs">
+                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-xs text-[hsl(var(--primary-foreground))]">
                   {conversation.unread}
                 </span>
               )}
@@ -128,11 +128,11 @@ export default function MessagesPage() {
 
       {selectedConversationDetails && (
         <div className={`flex flex-1 flex-col ${showList ? 'hidden' : 'flex'} md:flex`}>
-          <div className="flex items-center justify-between border-b border-white/10 p-4">
+          <div className="flex items-center justify-between border-b border-border/40 p-4">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSelectedConversation(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/10 md:hidden"
+                className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-[hsl(var(--bg-subtle))] md:hidden"
                 aria-label="Back to conversations"
               >
                 <ArrowLeftIcon />
@@ -144,26 +144,26 @@ export default function MessagesPage() {
                   className="h-12 w-12 rounded-full object-cover"
                 />
                 {selectedConversationDetails.online && (
-                  <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-black bg-green-500" />
+                  <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[hsl(var(--background))] bg-green-500" />
                 )}
               </div>
               <div>
                 <h2 className="text-base sm:text-lg">{selectedConversationDetails.name}</h2>
-                <p className="text-xs text-white/60">Active now</p>
+                <p className="text-xs text-muted-foreground">Active now</p>
               </div>
             </div>
 
             <div className="flex gap-2">
-              <button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10">
+              <button className="flex h-9 w-9 items-center justify-center rounded-full border border-border/50 bg-[hsl(var(--bg-subtle))] transition-colors hover:bg-[hsl(var(--bg-elev))]">
                 <ImageIcon className="h-4 w-4" />
               </button>
-              <button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10">
+              <button className="flex h-9 w-9 items-center justify-center rounded-full border border-border/50 bg-[hsl(var(--bg-subtle))] transition-colors hover:bg-[hsl(var(--bg-elev))]">
                 <MoreVertical className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <div className="flex-1 space-y-3 overflow-y-auto bg-black p-4">
+          <div className="flex-1 space-y-3 overflow-y-auto bg-[hsl(var(--background))] p-4">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -172,20 +172,20 @@ export default function MessagesPage() {
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
                     message.sender === 'me'
-                      ? 'rounded-br-sm bg-[#FF8C00] text-white'
-                      : 'rounded-bl-sm border border-white/10 bg-white/5 text-white'
+                      ? 'rounded-br-sm bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                      : 'rounded-bl-sm border border-border/50 bg-[hsl(var(--bg-elev))] text-foreground'
                   }`}
                 >
                   <p>{message.text}</p>
-                  <span className="mt-1 block text-[10px] text-white/60">{message.timestamp}</span>
+                  <span className="mt-1 block text-[10px] text-muted-foreground">{message.timestamp}</span>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="border-t border-white/10 bg-black/80 p-4 backdrop-blur-xl">
+          <div className="border-t border-border/40 bg-[hsl(var(--background) / 0.85)] p-4 backdrop-blur-xl">
             <div className="flex items-center gap-3">
-              <button className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10">
+              <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border/50 bg-[hsl(var(--bg-subtle))] transition-colors hover:bg-[hsl(var(--bg-elev))]">
                 <Smile className="h-5 w-5" />
               </button>
               <div className="relative flex-1">
@@ -194,17 +194,17 @@ export default function MessagesPage() {
                   placeholder="Type a message..."
                   value={messageText}
                   onChange={(event) => setMessageText(event.target.value)}
-                  className="w-full rounded-full border border-white/10 bg-white/5 py-2 pl-4 pr-12 text-sm text-white placeholder:text-white/50 focus:border-[#FF8C00] focus:bg-white/10 focus:outline-none"
+                  className="w-full rounded-full border border-border/50 bg-[hsl(var(--bg-subtle))] py-2 pl-4 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:border-[hsl(var(--primary))] focus:bg-[hsl(var(--bg-elev))] focus:outline-none"
                 />
                 <button
                   onClick={handleSend}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[#FF8C00] p-2 text-white hover:bg-[#FF9D1A]"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[hsl(var(--primary))] p-2 text-[hsl(var(--primary-foreground))] transition-colors hover:bg-[hsl(var(--primary-glow))]"
                   aria-label="Send message"
                 >
                   <Send className="h-4 w-4" />
                 </button>
               </div>
-              <button className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10">
+              <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border/50 bg-[hsl(var(--bg-subtle))] transition-colors hover:bg-[hsl(var(--bg-elev))]">
                 <ImageIcon className="h-5 w-5" />
               </button>
             </div>
@@ -213,11 +213,11 @@ export default function MessagesPage() {
       )}
 
       {!showList && !selectedConversationDetails && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-white/60">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
           <p>Select a conversation to start messaging.</p>
           <button
             onClick={() => navigate(-1)}
-            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
+            className="rounded-full border border-border/50 bg-[hsl(var(--bg-subtle))] px-4 py-2 text-sm text-foreground transition-colors hover:bg-[hsl(var(--bg-elev))]"
           >
             Go Back
           </button>
@@ -228,7 +228,7 @@ export default function MessagesPage() {
 }
 
 function ArrowLeftIcon() {
-  return <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+  return <svg className="h-5 w-5 text-foreground" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
     <path d="M15.75 19.5 8.25 12l7.5-7.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>;
 }

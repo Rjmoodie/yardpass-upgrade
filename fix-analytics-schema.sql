@@ -36,3 +36,4 @@ WHERE matviewname LIKE 'analytics_%';
 SELECT 'Views successfully moved to public schema!' AS status;
 
 
+

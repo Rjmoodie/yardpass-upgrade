@@ -68,6 +68,10 @@ export function PurchaseSuccessHandler() {
         
         inFlightRef.current = false;
         localStorage.setItem(triedKey, 'done');
+        
+        // Clear checkout session data
+        localStorage.removeItem('checkoutSessionId');
+        
         await forceRefreshTickets();
         
         toast({

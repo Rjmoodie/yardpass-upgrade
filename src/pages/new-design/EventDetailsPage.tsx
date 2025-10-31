@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { EventFeed } from "@/components/EventFeed";
 import { EventPostsGrid } from "@/components/EventPostsGrid";
 import MapboxEventMap from "@/components/MapboxEventMap";
-import { EventTicketModal } from "@/components/EventTicketModal";
+import EventCheckoutSheet from "@/components/EventCheckoutSheet";
 import CommentModal from "@/components/CommentModal";
 
 interface EventDetails {
@@ -22,6 +22,7 @@ interface EventDetails {
     name: string;
     avatar: string;
   };
+  start_at: string; // Raw ISO date
   date: string;
   time: string;
   location: string;
@@ -179,18 +180,18 @@ export function EventDetailsPageIntegrated() {
         }
 
         // Check if user has saved this event
-        // TODO: Implement saved_events table
-        // if (user) {
-        //   const { data: savedData } = await supabase
-        //     .from('saved_events')
-        //     .select('id')
-        //     .eq('user_id', user.id)
-        //     .eq('event_id', data.id)
-        //     .maybeSingle();
+        if (user) {
+          const { data: savedData } = await supabase
+            .from('saved_events')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('event_id', data.id)
+            .maybeSingle();
           
-        //   setIsSaved(!!savedData);
-        // }
-        setIsSaved(false);
+          setIsSaved(!!savedData);
+        } else {
+          setIsSaved(false);
+        }
 
         // Determine organizer info based on owner_context_type
         const isOrganization = data.owner_context_type === 'organization';
@@ -215,6 +216,7 @@ export function EventDetailsPageIntegrated() {
             name: organizerName,
             avatar: organizerAvatar
           },
+          start_at: data.start_at, // Raw ISO date for ticket modal
           date: new Date(data.start_at).toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'long',
@@ -271,34 +273,35 @@ export function EventDetailsPageIntegrated() {
     }
 
     try {
-      // TODO: Implement saved_events table
-      toast({ title: 'Save feature coming soon!', variant: 'default' });
-      return;
-      
-      // if (isSaved) {
-      //   // Remove from saved
-      //   await supabase
-      //     .from('saved_events')
-      //     .delete()
-      //     .eq('user_id', user.id)
-      //     .eq('event_id', event.id);
+      if (isSaved) {
+        // Remove from saved
+        await supabase
+          .from('saved_events')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('event_id', event.id);
         
-      //   setIsSaved(false);
-      //   toast({ title: 'Removed from saved events' });
-      // } else {
-      //   // Add to saved
-      //   await supabase
-      //     .from('saved_events')
-      //     .insert({
-      //       user_id: user.id,
-      //       event_id: event.id
-      //     });
+        setIsSaved(false);
+        toast({ title: 'Removed from saved events' });
+      } else {
+        // Add to saved
+        await supabase
+          .from('saved_events')
+          .insert({
+            user_id: user.id,
+            event_id: event.id
+          });
         
-      //   setIsSaved(true);
-      //   toast({ title: 'Event saved!' });
-      // }
+        setIsSaved(true);
+        toast({ title: 'Event saved!' });
+      }
     } catch (error) {
       console.error('Error toggling save:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save event',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -311,14 +314,14 @@ export function EventDetailsPageIntegrated() {
   // Loading state
   if (loading || !event) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/10 border-t-[#FF8C00]" />
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-border/10 border-t-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black pb-20">
+    <div className="min-h-screen bg-background pb-20">
       {/* Hero Image with Title Overlay (Like Original) */}
       <div className="relative h-64 overflow-hidden sm:h-80 md:h-96">
         <ImageWithFallback
@@ -332,16 +335,16 @@ export function EventDetailsPageIntegrated() {
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-3 sm:p-4">
           <button 
             onClick={() => navigate(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md transition-all hover:bg-black/60 sm:h-10 sm:w-10"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-background/40 backdrop-blur-md transition-all hover:bg-background/60 sm:h-10 sm:w-10"
           >
-            <ArrowLeft className="h-5 w-5 text-white" />
+            <ArrowLeft className="h-5 w-5 text-foreground" />
           </button>
           <div className="flex gap-2">
             <button 
               onClick={toggleSave}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md transition-all hover:bg-black/60 sm:h-10 sm:w-10"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-background/40 backdrop-blur-md transition-all hover:bg-background/60 sm:h-10 sm:w-10"
             >
-              <Heart className={`h-5 w-5 ${isSaved ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+              <Heart className={`h-5 w-5 ${isSaved ? 'fill-red-500 text-red-500' : 'text-foreground'}`} />
             </button>
             <button 
               onClick={() => {
@@ -352,9 +355,9 @@ export function EventDetailsPageIntegrated() {
                   });
                 }
               }}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md transition-all hover:bg-black/60 sm:h-10 sm:w-10"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-background/40 backdrop-blur-md transition-all hover:bg-background/60 sm:h-10 sm:w-10"
             >
-              <Share2 className="h-5 w-5 text-white" />
+              <Share2 className="h-5 w-5 text-foreground" />
             </button>
           </div>
         </div>
@@ -362,63 +365,66 @@ export function EventDetailsPageIntegrated() {
         {/* Title and Organizer Overlay (Like Original) */}
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
           {/* Category Badges */}
-          <div className="mb-2 flex flex-wrap items-center gap-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             {event.categories.map((category) => (
               <span
                 key={category}
-                className="rounded-full bg-[#FF8C00] px-3 py-1 text-xs font-semibold text-white sm:text-sm"
+                className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-foreground backdrop-blur-sm sm:text-sm"
               >
                 {category}
               </span>
             ))}
           </div>
 
-          {/* Event Title */}
-          <h1 className="mb-2 text-2xl font-bold text-white drop-shadow-lg sm:text-3xl md:text-4xl">
-            {event.title}
-          </h1>
+          {/* Title and Organizer Container */}
+          <div className="inline-flex flex-col gap-1.5 rounded-lg bg-background/95 px-3 py-2 backdrop-blur-md shadow-md max-w-full">
+            {/* Event Title */}
+            <h1 className="text-xl font-bold text-foreground leading-tight sm:text-2xl md:text-3xl">
+              {event.title}
+            </h1>
 
-          {/* Organizer */}
-          <button 
-            onClick={() => {
-              if (event.ownerContextType === 'organization') {
-                navigate(`/org/${event.ownerContextId}`);
-              } else {
-                navigate(`/profile/${event.organizer.id}`);
-              }
-            }}
-            className="flex items-center gap-2 text-sm text-white transition-opacity hover:opacity-80"
-          >
-            <ImageWithFallback
-              src={event.organizer.avatar}
-              alt={event.organizer.name}
-              className="h-6 w-6 rounded-full object-cover border border-white/30"
-            />
-            <span>by {event.organizer.name}</span>
-          </button>
+            {/* Organizer */}
+            <button 
+              onClick={() => {
+                if (event.ownerContextType === 'organization') {
+                  navigate(`/org/${event.ownerContextId}`);
+                } else {
+                  navigate(`/profile/${event.organizer.id}`);
+                }
+              }}
+              className="inline-flex items-center gap-1.5 text-xs transition-all hover:opacity-70 w-fit"
+            >
+              <ImageWithFallback
+                src={event.organizer.avatar}
+                alt={event.organizer.name}
+                className="h-4 w-4 rounded-full object-cover border border-border/30"
+              />
+              <span className="text-foreground/80 font-medium">by {event.organizer.name}</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="px-3 sm:px-4 md:px-6">
         {/* Tabs */}
-        <div className="mb-6 flex gap-2 border-b border-white/10">
+        <div className="mb-6 flex gap-2 border-b border-border/10">
           {(['details', 'posts', 'tagged'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 pb-3 text-sm font-medium capitalize transition-all sm:text-base ${
                 activeTab === tab
-                  ? 'border-b-2 border-[#FF8C00] text-white'
-                  : 'text-white/60 hover:text-white'
+                  ? 'border-b-2 border-[#FF8C00] text-foreground'
+                  : 'text-foreground/60 hover:text-foreground'
               }`}
             >
               {tab}
               {tab === 'posts' && postsCount > 0 && (
-                <span className="ml-1.5 text-xs text-white/60">({postsCount})</span>
+                <span className="ml-1.5 text-xs text-foreground/60">({postsCount})</span>
               )}
               {tab === 'tagged' && taggedCount > 0 && (
-                <span className="ml-1.5 text-xs text-white/60">({taggedCount})</span>
+                <span className="ml-1.5 text-xs text-foreground/60">({taggedCount})</span>
               )}
             </button>
           ))}
@@ -429,25 +435,25 @@ export function EventDetailsPageIntegrated() {
           <div className="space-y-4">
             {/* Date & Location Info Grid (Like Original) */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="rounded-xl border border-border/10 bg-white/5 p-4">
                 <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-[#FF8C00] mt-0.5" />
+                  <Calendar className="h-5 w-5 text-primary mt-0.5" />
                   <div>
-                    <p className="text-xs text-white/60 mb-1">Date & Time</p>
-                    <p className="text-sm font-medium text-white">{event.date}</p>
-                    <p className="text-xs text-white/70 mt-0.5">{event.time}</p>
+                    <p className="text-xs text-foreground/60 mb-1">Date & Time</p>
+                    <p className="text-sm font-medium text-foreground">{event.date}</p>
+                    <p className="text-xs text-foreground/70 mt-0.5">{event.time}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="rounded-xl border border-border/10 bg-white/5 p-4">
                 <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-[#FF8C00] mt-0.5" />
+                  <MapPin className="h-5 w-5 text-primary mt-0.5" />
                   <div>
-                    <p className="text-xs text-white/60 mb-1">Location</p>
-                    <p className="text-sm font-medium text-white">{event.venue || 'TBA'}</p>
+                    <p className="text-xs text-foreground/60 mb-1">Location</p>
+                    <p className="text-sm font-medium text-foreground">{event.venue || 'TBA'}</p>
                     {event.city && (
-                      <p className="text-xs text-white/70 mt-0.5">{event.city}</p>
+                      <p className="text-xs text-foreground/70 mt-0.5">{event.city}</p>
                     )}
                   </div>
                 </div>
@@ -455,21 +461,21 @@ export function EventDetailsPageIntegrated() {
             </div>
 
             {/* Description */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl sm:p-5">
-              <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-white sm:text-lg">
-                <Info className="h-5 w-5 text-[#FF8C00]" />
+            <div className="rounded-2xl border border-border/10 bg-white/5 p-4 backdrop-blur-xl sm:p-5">
+              <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-foreground sm:text-lg">
+                <Info className="h-5 w-5 text-primary" />
                 About This Event
               </h3>
-              <p className="whitespace-pre-line text-sm leading-relaxed text-white/80 sm:text-base">
+              <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/80 sm:text-base">
                 {event.description}
               </p>
             </div>
 
             {/* Location Map */}
             {event.lat && event.lng && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl sm:p-5">
-                <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-white sm:text-lg">
-                  <MapPin className="h-5 w-5 text-[#FF8C00]" />
+              <div className="rounded-2xl border border-border/10 bg-white/5 p-4 backdrop-blur-xl sm:p-5">
+                <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-foreground sm:text-lg">
+                  <MapPin className="h-5 w-5 text-primary" />
                   Location
                 </h3>
                 <div className="overflow-hidden rounded-xl">
@@ -493,10 +499,10 @@ export function EventDetailsPageIntegrated() {
             {/* Posts/Moments Grid - Organizer Posts */}
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-3">
-                <MessageCircle className="h-5 w-5 text-[#FF8C00]" />
-                <h3 className="text-lg font-semibold text-white">Official Posts</h3>
+                <MessageCircle className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold text-foreground">Official Posts</h3>
               </div>
-              <p className="text-sm text-white/60 mb-4">
+              <p className="text-sm text-foreground/60 mb-4">
                 Updates and content from the event organizers
               </p>
             </div>
@@ -520,10 +526,10 @@ export function EventDetailsPageIntegrated() {
             {/* Tagged Posts Grid - Attendee Posts */}
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-3">
-                <Users className="h-5 w-5 text-[#FF8C00]" />
-                <h3 className="text-lg font-semibold text-white">Attendee Moments</h3>
+                <Users className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold text-foreground">Attendee Moments</h3>
               </div>
-              <p className="text-sm text-white/60 mb-4">
+              <p className="text-sm text-foreground/60 mb-4">
                 See what attendees are sharing about this event
               </p>
             </div>
@@ -545,17 +551,17 @@ export function EventDetailsPageIntegrated() {
 
       {/* Sticky Footer - Get Tickets CTA */}
       {event.ticketTiers.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-black/80 p-3 backdrop-blur-xl sm:p-4">
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/10 bg-background/80 p-3 backdrop-blur-xl sm:p-4">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex-1">
-              <p className="text-xs text-white/60 sm:text-sm">Starting from</p>
-              <p className="text-lg font-bold text-white sm:text-xl">
+              <p className="text-xs text-foreground/60 sm:text-sm">Starting from</p>
+              <p className="text-lg font-bold text-foreground sm:text-xl">
                 ${Math.min(...event.ticketTiers.map(t => t.price)).toFixed(2)}
               </p>
             </div>
             <button 
               onClick={handleGetTickets}
-              className="rounded-full bg-[#FF8C00] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#FF9D1A] active:scale-95 sm:px-8 sm:py-3.5 sm:text-base"
+              className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-foreground transition-all hover:bg-primary/90 active:scale-95 sm:px-8 sm:py-3.5 sm:text-base"
             >
               Get Tickets
             </button>
@@ -565,11 +571,12 @@ export function EventDetailsPageIntegrated() {
 
       {/* Ticket Purchase Modal */}
       {event && (
-        <EventTicketModal
+        <EventCheckoutSheet
           event={{
             id: event.id,
             title: event.title,
-            start_at: event.date,
+            start_at: event.start_at || event.date,
+            startAtISO: event.start_at,
             venue: event.venue,
             address: event.location,
             description: event.description

@@ -215,3 +215,4 @@ WHERE campaign_id = '3a51d5c9-b817-4c11-859f-5cd0b4c5b1ec';
 SELECT 'Fixed! estimated_rate now returns bid_cents (500) instead of USD (5.00)' AS status;
 
 
+

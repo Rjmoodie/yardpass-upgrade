@@ -21,24 +21,23 @@ export function StatCard({ icon: Icon, label, value, helper, color = 'primary' }
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-muted/40 p-4 shadow-sm">
-      <DecorativeGradient color={color} />
-      <div className="relative flex items-start justify-between gap-4">
+    <div className="relative overflow-hidden rounded-xl border border-border/20 bg-gradient-to-br from-card/60 to-card/40 backdrop-blur-sm p-4 shadow-sm">
+      <div className="relative flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="block text-xs font-medium uppercase tracking-wide text-foreground/50">
             {label}
           </span>
-          <div className="mt-2 text-3xl font-semibold text-foreground tabular-nums">
+          <div className="mt-2 text-3xl font-bold text-foreground tabular-nums tracking-tight">
             {value}
           </div>
           {helper && (
-            <div className="mt-1 text-xs text-muted-foreground truncate" title={helper}>
+            <div className="mt-1 text-xs text-foreground/60 truncate font-medium" title={helper}>
               {helper}
             </div>
           )}
         </div>
-        <div className={`flex-shrink-0 rounded-full p-3 ${colorMap[color]}`}>
-          <Icon className="h-5 w-5" aria-hidden="true" />
+        <div className={`flex-shrink-0 rounded-full p-2.5 ${colorMap[color]}`}>
+          <Icon className="h-4 w-4" aria-hidden="true" />
         </div>
       </div>
     </div>

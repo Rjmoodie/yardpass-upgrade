@@ -162,23 +162,23 @@ export function NotificationsPageIntegrated() {
   // Loading state
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/10 border-t-[#FF8C00]" />
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-border/10 border-t-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black pb-20">
+    <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-40 border-b border-white/10 bg-black/80 px-3 py-4 backdrop-blur-xl sm:px-4 md:px-6">
+      <div className="sticky top-0 z-40 border-b border-border/10 bg-background/80 px-3 py-4 backdrop-blur-xl sm:px-4 md:px-6">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white sm:text-3xl">Notifications</h1>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Notifications</h1>
           <button 
             onClick={() => navigate('/notifications/settings')}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all hover:bg-white/10"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border/10 bg-white/5 transition-all hover:bg-white/10"
           >
-            <Settings className="h-5 w-5 text-white" />
+            <Settings className="h-5 w-5 text-foreground" />
           </button>
         </div>
 
@@ -188,8 +188,8 @@ export function NotificationsPageIntegrated() {
             onClick={() => setFilter('all')}
             className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all sm:text-base ${
               filter === 'all'
-                ? 'bg-[#FF8C00] text-white'
-                : 'border border-white/10 bg-white/5 text-white/60 hover:bg-white/10'
+                ? 'bg-primary text-foreground'
+                : 'border border-border/10 bg-white/5 text-foreground/60 hover:bg-white/10'
             }`}
           >
             All
@@ -198,8 +198,8 @@ export function NotificationsPageIntegrated() {
             onClick={() => setFilter('unread')}
             className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all sm:text-base ${
               filter === 'unread'
-                ? 'bg-[#FF8C00] text-white'
-                : 'border border-white/10 bg-white/5 text-white/60 hover:bg-white/10'
+                ? 'bg-primary text-foreground'
+                : 'border border-border/10 bg-white/5 text-foreground/60 hover:bg-white/10'
             }`}
           >
             Unread {notifications.filter(n => !n.isRead).length > 0 && `(${notifications.filter(n => !n.isRead).length})`}
@@ -210,7 +210,7 @@ export function NotificationsPageIntegrated() {
         {notifications.filter(n => !n.isRead).length > 0 && (
           <button
             onClick={markAllAsRead}
-            className="mt-3 text-xs text-[#FF8C00] hover:text-[#FF9D1A] sm:text-sm"
+            className="mt-3 text-xs text-primary hover:text-primary/90 sm:text-sm"
           >
             Mark all as read
           </button>
@@ -229,10 +229,10 @@ export function NotificationsPageIntegrated() {
                 <button
                   key={notif.id}
                   onClick={() => handleNotificationClick(notif)}
-                  className={`w-full rounded-2xl border p-3 text-left transition-all hover:border-white/20 hover:bg-white/10 sm:p-4 ${
+                  className={`w-full rounded-2xl border p-3 text-left transition-all hover:border-border/20 hover:bg-white/10 sm:p-4 ${
                     notif.isRead
-                      ? 'border-white/5 bg-white/5'
-                      : 'border-white/10 bg-white/10'
+                      ? 'border-border/5 bg-white/5'
+                      : 'border-border/10 bg-white/10'
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -247,14 +247,14 @@ export function NotificationsPageIntegrated() {
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white sm:text-base">
+                      <p className="text-sm text-foreground sm:text-base">
                         <span className="font-semibold">{notif.user.name}</span>{' '}
-                        <span className="text-white/70">{notif.message}</span>
+                        <span className="text-foreground/70">{notif.message}</span>
                       </p>
-                      <p className="mt-1 text-xs text-white/50">{notif.time}</p>
+                      <p className="mt-1 text-xs text-foreground/50">{notif.time}</p>
                     </div>
                     {!notif.isRead && (
-                      <div className="h-2 w-2 rounded-full bg-[#FF8C00]" />
+                      <div className="h-2 w-2 rounded-full bg-primary" />
                     )}
                   </div>
                 </button>
@@ -263,12 +263,12 @@ export function NotificationsPageIntegrated() {
           </div>
         ) : (
           /* Empty State */
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-xl sm:rounded-3xl">
+          <div className="rounded-2xl border border-border/10 bg-white/5 p-12 text-center backdrop-blur-xl sm:rounded-3xl">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-              <Heart className="h-8 w-8 text-white/30" />
+              <Heart className="h-8 w-8 text-foreground/30" />
             </div>
-            <h3 className="mb-2 text-lg font-bold text-white">No notifications</h3>
-            <p className="text-sm text-white/60">
+            <h3 className="mb-2 text-lg font-bold text-foreground">No notifications</h3>
+            <p className="text-sm text-foreground/60">
               {filter === 'unread' ? 'You\'re all caught up!' : 'New notifications will appear here'}
             </p>
           </div>

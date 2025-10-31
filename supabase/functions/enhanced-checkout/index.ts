@@ -254,7 +254,7 @@ serve(async (req) => {
         p_reservations: reservationItems,
         p_session_id: checkoutSessionId,
         p_user_id: orderData.user_id,
-        p_expires_minutes: 15,
+        p_expires_minutes: 30, // Minimum for Stripe checkout sessions
       });
 
     if (reservationError || !reservationResult?.success) {
@@ -330,10 +330,13 @@ serve(async (req) => {
       : `${event.title ?? "Event"} Tickets`;
 
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
+      ui_mode: "embedded", // CRITICAL: Required for client_secret
       mode: "payment",
       payment_method_types: ["card"],
       customer: stripeCustomerId,
       customer_email: stripeCustomerId ? undefined : normalizedEmail ?? undefined,
+      expires_at: Math.floor(new Date(expiresAtIso).getTime() / 1000), // Match ticket hold expiration (30min)
+      return_url: `${siteUrl}/purchase-success?session_id={CHECKOUT_SESSION_ID}`, // For embedded, use return_url instead of success_url
       line_items: [
         {
           price_data: {
@@ -347,9 +350,18 @@ serve(async (req) => {
           quantity: 1,
         },
       ],
-      success_url: `${siteUrl}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/events/${orderData.event_id}`,
       allow_promotion_codes: true,
+      submit_type: "pay", // Button text: "Pay"
+      billing_address_collection: "auto",
+      phone_number_collection: {
+        enabled: false, // We collect this ourselves
+      },
+      // Custom text for timer
+      custom_text: {
+        submit: {
+          message: `Your tickets are reserved for ${Math.floor((new Date(expiresAtIso).getTime() - Date.now()) / 60000)} minutes. Complete your purchase to secure them!`,
+        },
+      },
       metadata: {
         event_id: orderData.event_id,
         user_id: orderData.user_id,
@@ -378,6 +390,19 @@ serve(async (req) => {
     }
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
+    
+    console.log("[enhanced-checkout] Stripe session created:", {
+      id: session.id,
+      client_secret: session.client_secret ? 'present' : 'missing',
+      url: session.url ? 'present' : 'missing',
+      mode: session.mode,
+      ui_mode: (sessionConfig as any).ui_mode,
+    });
+    
+    // For embedded checkout, Stripe requires ui_mode = 'embedded'
+    if (!session.client_secret) {
+      console.warn("[enhanced-checkout] No client_secret - session might not be in embedded mode");
+    }
 
     const contactSnapshot = await buildContactSnapshot({
       email: normalizedEmail,
@@ -455,6 +480,7 @@ serve(async (req) => {
       JSON.stringify({
         session_id: session.id,
         session_url: session.url,
+        client_secret: session.client_secret, // For embedded checkout
         order_id: order.id,
         checkout_session_id: checkoutSessionId,
         expires_at: expiresAtIso,

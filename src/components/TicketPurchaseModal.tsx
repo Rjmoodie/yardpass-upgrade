@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { toast } from '@/hooks/use-toast';
 import { createGuestCheckoutSession } from '@/lib/ticketApi';
+import { StripeEmbeddedCheckout } from './StripeEmbeddedCheckout';
 const SkeletonList = lazy(() => import('@/components/common/SkeletonList'));
 
 interface TicketTier {
@@ -17,8 +18,11 @@ interface TicketTier {
   name: string;
   price_cents: number;
   badge_label: string;
-  quantity: number;
+  quantity: number; // Available quantity (capacity - reserved - issued)
   max_per_order: number;
+  totalCapacity?: number; // Total capacity
+  reserved?: number; // Currently on hold
+  issued?: number; // Sold tickets
 }
 
 interface Event {
@@ -82,6 +86,14 @@ export function TicketPurchaseModal({
     link: false
   });
   const [isRecoveringSession, setIsRecoveringSession] = useState(false);
+  
+  // Embedded checkout state
+  const [showEmbeddedCheckout, setShowEmbeddedCheckout] = useState(false);
+  const [embeddedCheckoutData, setEmbeddedCheckoutData] = useState<{
+    checkoutSessionId: string;
+    expiresAt: string;
+    clientSecret: string;
+  } | null>(null);
   
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -274,23 +286,33 @@ export function TicketPurchaseModal({
     const tier = ticketTiers.find(t => t.id === tierId);
     if (!tier) return;
 
-    const currentQty = selections[tierId] || 0;
-    const newQty = Math.max(0, Math.min(currentQty + change, tier.max_per_order, tier.quantity));
-    
-    // Track ticket selection changes
-    trackEvent('ticket_selection_change', {
-      event_id: event.id,
-      tier_id: tierId,
-      tier_name: tier.name,
-      previous_quantity: currentQty,
-      new_quantity: newQty,
-      price_cents: tier.price_cents
+    setSelections(prev => {
+      const currentQty = prev[tierId] || 0;
+      const newQty = Math.max(0, Math.min(currentQty + change, tier.max_per_order, tier.quantity));
+      
+      console.log(`🎫 Quantity update: ${tier.name} ${currentQty} → ${newQty} (change: ${change})`);
+      
+      // Only update if actually changing
+      if (newQty === currentQty) {
+        console.log('🎫 No change, skipping update');
+        return prev;
+      }
+      
+      // Track ticket selection changes
+      trackEvent('ticket_selection_change', {
+        event_id: event.id,
+        tier_id: tierId,
+        tier_name: tier.name,
+        previous_quantity: currentQty,
+        new_quantity: newQty,
+        price_cents: tier.price_cents
+      });
+      
+      return {
+        ...prev,
+        [tierId]: newQty
+      };
     });
-    
-    setSelections(prev => ({
-      ...prev,
-      [tierId]: newQty
-    }));
   };
 
   // Calculate totals with fees
@@ -422,32 +444,125 @@ export function TicketPurchaseModal({
         quantity
       }));
 
-      const { data, error } = await supabase.functions.invoke('enhanced-checkout', {
+      const response = await supabase.functions.invoke('enhanced-checkout', {
         body: {
           eventId: event.id,
           ticketSelections
         }
       });
 
-      if (error) {
-        console.error('❌ Enhanced checkout error:', error);
-        throw error;
+      console.log('🔍 Enhanced checkout full response:', {
+        error: response.error,
+        data: response.data,
+        errorContext: (response.error as any)?.context,
+        errorDetails: (response.error as any)?.details,
+        errorStatus: (response.error as any)?.status,
+      });
+
+      // Handle both error cases and non-2xx responses with error data
+      if (response.error || response.data?.error_code) {
+        const errorData = response.data;
+        const errorCode = errorData?.error_code;
+        const errorObj = response.error as any;
+        
+        // Try to get detailed error message
+        let errorMessage = errorData?.error || errorObj?.message || 'Checkout failed';
+        
+        // Check if there's more detail in the error context (Response object)
+        if (errorObj?.context && typeof errorObj.context === 'object' && errorObj.context instanceof Response) {
+          console.log('❌ Error context is Response object, attempting to parse...');
+          try {
+            // Clone the response so we can read it
+            const clonedResponse = errorObj.context.clone();
+            const responseText = await clonedResponse.text();
+            console.log('❌ Response body:', responseText);
+            
+            if (responseText) {
+              try {
+                const responseJson = JSON.parse(responseText);
+                // Extract clean error message, not the whole JSON
+                const cleanError = responseJson.error || responseJson.message || errorMessage;
+                console.log('✅ Parsed error from response:', { 
+                  rawJson: responseJson, 
+                  cleanError, 
+                  errorCode: responseJson.error_code 
+                });
+                
+                if (responseJson.error_code) {
+                  const parsedErrorCode = responseJson.error_code;
+                  
+                  // Handle sold out specifically with clean message
+                  if (parsedErrorCode === 'SOLD_OUT' || cleanError.includes('sold out') || cleanError.includes('0 tickets available')) {
+                    const soldOutError: any = new Error(cleanError);
+                    soldOutError.isSoldOut = true;
+                    throw soldOutError;
+                  }
+                  
+                  // Handle event ended with clean message
+                  if (parsedErrorCode === 'EVENT_ENDED' || cleanError.includes('already ended')) {
+                    const eventEndedError: any = new Error(cleanError);
+                    eventEndedError.isEventEnded = true;
+                    throw eventEndedError;
+                  }
+                }
+                
+                // Use the clean extracted error message
+                errorMessage = cleanError;
+              } catch (jsonError) {
+                // Not JSON, use the text as-is
+                console.log('❌ Response body is not JSON:', responseText);
+                errorMessage = responseText;
+              }
+            }
+          } catch (parseError) {
+            console.error('❌ Failed to parse error context:', parseError);
+          }
+        } else if (errorObj?.context && typeof errorObj.context === 'string') {
+          console.error('❌ Error context (string):', errorObj.context);
+          try {
+            const contextData = JSON.parse(errorObj.context);
+            errorMessage = contextData.error || contextData.message || errorMessage;
+          } catch {
+            // Context isn't JSON, use as-is
+            errorMessage = errorObj.context;
+          }
+        }
+        
+        console.error('❌ Enhanced checkout error:', { 
+          errorCode, 
+          errorMessage, 
+          errorData,
+          fullError: errorObj 
+        });
+
+        // Handle sold out
+        if (errorCode === 'SOLD_OUT' || errorMessage.includes('sold out') || errorMessage.includes('not enough tickets')) {
+          const soldOutError: any = new Error(errorMessage.includes('sold out') || errorMessage.includes('not enough tickets') 
+            ? errorMessage 
+            : 'These tickets are currently sold out.');
+          soldOutError.isSoldOut = true;
+          throw soldOutError;
+        }
+
+        // Handle event ended
+        if (errorCode === 'EVENT_ENDED' || errorMessage.includes('already ended')) {
+          const eventEndedError: any = new Error(errorMessage);
+          eventEndedError.isEventEnded = true;
+          throw eventEndedError;
+        }
+
+        // If it's a generic 409, it's likely a reservation conflict
+        if (errorObj?.status === 409 || errorMessage.includes('Conflict')) {
+          throw new Error('These tickets are currently being purchased by someone else. Please try again in a moment.');
+        }
+
+        // Generic error
+        throw new Error(errorMessage);
       }
 
-      // Check if response indicates sold out
-      if (data?.error_code === 'SOLD_OUT' || data?.error?.includes('sold out')) {
-        const soldOutError: any = new Error(data.error || 'These tickets are currently sold out.');
-        soldOutError.isSoldOut = true;
-        throw soldOutError;
-      }
+      const data = response.data;
 
-      // Check if event has ended
-      if (data?.error_code === 'EVENT_ENDED' || data?.error?.includes('already ended')) {
-        const eventEndedError: any = new Error(data.error || 'This event has already ended.');
-        eventEndedError.isEventEnded = true;
-        throw eventEndedError;
-      }
-
+      // Validate response has required data
       if (!data?.session_url) {
         throw new Error('No checkout URL returned');
       }
@@ -462,8 +577,26 @@ export function TicketPurchaseModal({
         await pollCheckoutSessionStatus(data.checkout_session_id);
       }
 
-      console.log('✅ Checkout session created, redirecting...');
-      window.location.href = data.session_url;
+      console.log('✅ Checkout session created');
+      
+      // Check if we should use embedded checkout
+      const useEmbedded = import.meta.env.VITE_USE_EMBEDDED_CHECKOUT === 'true';
+      
+      if (useEmbedded && data.client_secret) {
+        // Use embedded checkout (stay on YardPass)
+        console.log('🎨 Using embedded checkout');
+        setEmbeddedCheckoutData({
+          checkoutSessionId: data.checkout_session_id,
+          expiresAt: data.expires_at,
+          clientSecret: data.client_secret,
+        });
+        setShowEmbeddedCheckout(true);
+        onClose(); // Close purchase modal
+      } else {
+        // Use hosted checkout (redirect to Stripe)
+        console.log('🌐 Using hosted checkout, redirecting to Stripe...');
+        window.location.href = data.session_url;
+      }
     } catch (error: any) {
       console.error('❌ Purchase error:', error);
       
@@ -531,6 +664,7 @@ export function TicketPurchaseModal({
   if (!isOpen) return null;
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -546,8 +680,26 @@ export function TicketPurchaseModal({
             <CardContent className="p-4">
               <h3 className="font-semibold mb-2">{event.title}</h3>
               <div className="text-sm text-muted-foreground space-y-1">
-                <p>{new Date(event.start_at).toLocaleDateString()} at {new Date(event.start_at).toLocaleTimeString()}</p>
-                {event.venue && <p>{event.venue}</p>}
+                {(() => {
+                  const dateString = (event as any).startAtISO ?? event.start_at;
+                  if (!dateString) {
+                    return <p>Date TBA</p>;
+                  }
+                  try {
+                    const date = new Date(dateString);
+                    if (isNaN(date.getTime())) {
+                      return <p>Date TBA</p>;
+                    }
+                    return (
+                      <p>
+                        {date.toLocaleDateString()} at {date.toLocaleTimeString()}
+                      </p>
+                    );
+                  } catch {
+                    return <p>Date TBA</p>;
+                  }
+                  })()}
+                {event.venue && !event.location && <p>{event.venue}</p>}
                 {event.location && <p>{event.location}</p>}
               </div>
             </CardContent>
@@ -665,57 +817,87 @@ export function TicketPurchaseModal({
           {/* Ticket Tiers */}
           <div className="space-y-4">
             <h3 className="font-semibold">Select Tickets</h3>
-            {ticketTiers.map((tier) => (
-              <Card key={tier.id} className="border">
-                <CardContent className="p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <h4 className="font-medium truncate">{tier.name}</h4>
-                        <Badge variant="outline" className="flex-shrink-0">{tier.badge_label}</Badge>
+            {ticketTiers.map((tier) => {
+              const isSoldOut = tier.quantity === 0;
+              const selectedQty = selections[tier.id] || 0;
+              
+              return (
+                <Card 
+                  key={tier.id} 
+                  className={`border transition-colors ${
+                    isSoldOut 
+                      ? 'opacity-60 bg-muted/30 border-border/10' 
+                      : 'hover:border-primary/30'
+                  }`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h4 className={`font-medium truncate ${isSoldOut ? 'text-muted-foreground' : ''}`}>
+                            {tier.name}
+                          </h4>
+                          {isSoldOut && (
+                            <Badge variant="destructive" className="flex-shrink-0 bg-destructive/90">
+                              SOLD OUT
+                            </Badge>
+                          )}
+                          {tier.badge_label && !isSoldOut && (
+                            <Badge variant="outline" className="flex-shrink-0">{tier.badge_label}</Badge>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                          <span className={`font-semibold whitespace-nowrap ${
+                            isSoldOut ? 'text-muted-foreground line-through' : 'text-foreground'
+                          }`}>
+                            ${(tier.price_cents / 100).toFixed(2)}
+                          </span>
+                          <span>•</span>
+                          <span className={`whitespace-nowrap ${isSoldOut ? 'text-destructive font-medium' : ''}`}>
+                            {isSoldOut ? 'None available' : `${tier.quantity} available`}
+                          </span>
+                          {!isSoldOut && (
+                            <>
+                              <span>•</span>
+                              <span className="whitespace-nowrap">Max {tier.max_per_order}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                        <span className="font-semibold text-foreground whitespace-nowrap">
-                          ${(tier.price_cents / 100).toFixed(2)}
-                        </span>
-                        <span>•</span>
-                        <span className="whitespace-nowrap">{tier.quantity} available</span>
-                        <span>•</span>
-                        <span className="whitespace-nowrap">Max {tier.max_per_order}</span>
-                      </div>
-                    </div>
 
-                    {/* Quantity Selector */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateSelection(tier.id, -1)}
-                        disabled={!selections[tier.id]}
-                        className="h-9 w-9 p-0"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                      <span className="w-8 text-center font-medium">
-                        {selections[tier.id] || 0}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateSelection(tier.id, 1)}
-                        disabled={
-                          (selections[tier.id] || 0) >= tier.max_per_order ||
-                          (selections[tier.id] || 0) >= tier.quantity
-                        }
-                        className="h-9 w-9 p-0"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
+                      {/* Quantity Selector */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateSelection(tier.id, -1)}
+                          disabled={!selectedQty || isSoldOut}
+                          className="h-9 w-9 p-0"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                        <span className="w-8 text-center font-medium">
+                          {selectedQty}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateSelection(tier.id, 1)}
+                          disabled={
+                            isSoldOut ||
+                            selectedQty >= tier.max_per_order ||
+                            selectedQty >= tier.quantity
+                          }
+                          className="h-9 w-9 p-0"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {/* Order Summary */}
@@ -824,6 +1006,30 @@ export function TicketPurchaseModal({
         </div>
       </DialogContent>
     </Dialog>
+    
+    {/* Embedded Checkout (Full Screen) */}
+    {showEmbeddedCheckout && embeddedCheckoutData && (
+      <StripeEmbeddedCheckout
+        checkoutSessionId={embeddedCheckoutData.checkoutSessionId}
+        eventId={event.id}
+        eventTitle={event.title}
+        expiresAt={embeddedCheckoutData.expiresAt}
+        onSuccess={() => {
+          setShowEmbeddedCheckout(false);
+          setEmbeddedCheckoutData(null);
+          onSuccess();
+        }}
+        onCancel={() => {
+          setShowEmbeddedCheckout(false);
+          setEmbeddedCheckoutData(null);
+          toast({
+            title: 'Checkout Cancelled',
+            description: 'Your ticket hold has been released.',
+          });
+        }}
+      />
+    )}
+  </>
   );
 }
 
