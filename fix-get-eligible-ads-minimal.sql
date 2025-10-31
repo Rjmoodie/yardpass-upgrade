@@ -216,3 +216,4 @@ SELECT 'Fixed! estimated_rate now returns bid_cents (500) instead of USD (5.00)'
 
 
 
+

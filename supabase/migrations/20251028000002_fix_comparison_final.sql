@@ -84,3 +84,4 @@ SELECT * FROM public.get_campaign_kpis_comparison('3a51d5c9-b817-4c11-859f-5cd0b
 
 
 
+

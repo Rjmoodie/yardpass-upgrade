@@ -190,3 +190,4 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY public.analytics_campaign_daily_mv;
 
 
 
+

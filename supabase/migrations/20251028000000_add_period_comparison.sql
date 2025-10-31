@@ -90,3 +90,4 @@ GRANT EXECUTE ON FUNCTION public.get_campaign_kpis_comparison(UUID, INT) TO anon
 
 
 
+
