@@ -6,17 +6,18 @@ import { CampaignCreator } from "./CampaignCreator";
 import CampaignAnalytics from "./CampaignAnalytics";
 import { CreativeManager } from "./CreativeManager";
 import { CreativeEditDialog } from "./CreativeEditDialog";
+import { CampaignEditDialog } from "./CampaignEditDialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, FileText, Lightbulb, ShieldAlert, Target, TrendingUp, Wallet } from "lucide-react";
+import { BarChart3, FileText, Lightbulb, ShieldAlert, Target, TrendingUp, Wallet, Calendar, Clock } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
 import { useCreativeRollup } from "@/hooks/useCreativeRollup";
 import { useCreatives } from "@/hooks/useCreatives";
 import { useOrgWallet } from "@/hooks/useOrgWallet";
 import { useToast } from "@/hooks/use-toast";
-import { addDays, format } from "date-fns";
+import { addDays, format, differenceInDays } from "date-fns";
 import { generateCampaignInsights, PACING_THRESHOLDS, type Insight } from "@/lib/campaignInsights";
 import { CampaignCreatorWizard } from "./CampaignCreatorWizard";
 
@@ -29,12 +30,15 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
   const { toast } = useToast();
   
   // Call all hooks unconditionally (even if orgId is undefined)
-  const { campaigns, isLoading: loadingCampaigns, pause, resume, archive } = useCampaigns(orgId);
+  const { campaigns, isLoading: loadingCampaigns, pause, resume, archive, updateCampaign, isUpdating } = useCampaigns(orgId);
   const { wallet, isLoading: walletLoading, isLowBalance, isFrozen } = useOrgWallet(orgId);
   const { creatives, toggleActive, updateCreative, deleteCreative } = useCreatives(orgId);
   
   // State for editing creatives
   const [editingCreativeId, setEditingCreativeId] = useState<string | null>(null);
+  
+  // State for editing campaigns
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
 
   const dateRange = useMemo(() => ({
     from: addDays(new Date(), -13),
@@ -75,6 +79,14 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
       const stats = totalsByCampaign?.find((t) => t.campaign_id === c.id);
       const remainingCredits = Math.max(0, (c.total_budget_credits ?? 0) - (c.spent_credits ?? 0));
       const conversions = stats?.conversions ?? 0;
+      const endDate = c.end_date?.slice(0, 10) ?? undefined;
+      
+      // Check expiration status
+      const now = new Date();
+      const hasExpired = endDate && new Date(endDate) < now;
+      const daysUntilExpiry = endDate ? differenceInDays(new Date(endDate), now) : null;
+      const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry >= 0 && daysUntilExpiry <= 7;
+      
       return {
         id: c.id,
         name: c.name,
@@ -87,7 +99,7 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         // ✅ FIX: Revenue should be 0 if there are no conversions
         revenue: conversions > 0 ? (stats?.revenue_cents ?? 0) : 0,
         startDate: c.start_date.slice(0, 10),
-        endDate: c.end_date?.slice(0, 10) ?? undefined,
+        endDate,
         remainingCredits,
         deliveryStatus: c.delivery_status,
         pacingHealth: c.pacing_health,
@@ -95,6 +107,9 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         impressions7d: c.impressions_last_7d ?? 0,
         clicks7d: c.clicks_last_7d ?? 0,
         activeCreatives: c.active_creatives,
+        hasExpired,
+        isExpiringSoon,
+        daysUntilExpiry,
       };
     });
   }, [campaigns, totalsByCampaign]);
@@ -184,11 +199,23 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
   };
 
   const handleEdit = (id: string) => {
-    // TODO: Implement edit modal or redirect to edit form
-    toast({
-      title: "Edit Campaign",
-      description: "Campaign editing will be available in the next update.",
-    });
+    setEditingCampaignId(id);
+  };
+
+  const handleSaveCampaign = async (id: string, updates: any) => {
+    try {
+      await updateCampaign({ id, updates });
+      toast({
+        title: "Campaign Updated",
+        description: "Your campaign has been updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update campaign. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleArchive = (id: string) => {
@@ -251,6 +278,28 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
               </AlertDescription>
             </Alert>
           )}
+          
+          {/* Campaign Expiration Warnings */}
+          {campaignsWithStats.filter(c => c.hasExpired && c.status === 'active').length > 0 && (
+            <Alert variant="destructive">
+              <Calendar className="h-4 w-4" />
+              <AlertTitle>Campaigns Expired</AlertTitle>
+              <AlertDescription>
+                {campaignsWithStats.filter(c => c.hasExpired && c.status === 'active').length} active campaign(s) have expired and stopped serving ads. Edit them to extend the end date.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {campaignsWithStats.filter(c => c.isExpiringSoon && c.status === 'active').length > 0 && (
+            <Alert className="border-yellow-500 bg-yellow-500/10">
+              <Clock className="h-4 w-4 text-yellow-600" />
+              <AlertTitle className="text-yellow-600">Campaigns Expiring Soon</AlertTitle>
+              <AlertDescription className="text-muted-foreground">
+                {campaignsWithStats.filter(c => c.isExpiringSoon && c.status === 'active').length} active campaign(s) will expire within 7 days. Consider extending them to continue serving ads.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           {insights.length > 0 && (
             <Card>
               <CardHeader>
@@ -450,6 +499,15 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
             throw error;
           }
         }}
+      />
+
+      {/* Campaign Edit Dialog */}
+      <CampaignEditDialog
+        isOpen={editingCampaignId !== null}
+        onClose={() => setEditingCampaignId(null)}
+        campaign={editingCampaignId ? campaignsWithStats.find(c => c.id === editingCampaignId) : null}
+        onSave={handleSaveCampaign}
+        isSaving={isUpdating}
       />
     </div>
   );

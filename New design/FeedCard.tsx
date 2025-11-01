@@ -1,6 +1,7 @@
 import { Calendar, MapPin, Ticket, ChevronUp, ChevronDown } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useState } from "react";
+import { SponsorBadges } from "../src/components/sponsorship/SponsorBadges";
 
 interface FeedCardProps {
   event: {
@@ -102,6 +103,11 @@ export function FeedCard({ event }: FeedCardProps) {
                   <p className="text-[10px] text-white/60 sm:text-xs">Location</p>
                   <p className="text-sm text-white/90 sm:text-base">{event.location}</p>
                 </div>
+              </div>
+              
+              {/* Sponsor Badge */}
+              <div className="mb-4">
+                <SponsorBadges eventId={event.id} variant="auto" />
               </div>
 
               {/* Full Description */}

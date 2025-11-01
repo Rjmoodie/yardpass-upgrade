@@ -889,10 +889,10 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
               </Button>
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-lg font-bold text-accent truncate">{eventDetails.title}</h1>
+                  <h1 className="text-xl font-bold text-foreground truncate">{eventDetails.title}</h1>
                   <Badge className={`border ${eventStatusClass}`}>{eventTiming.badge}</Badge>
                 </div>
-                <p className="text-xs text-accent-muted">{eventTiming.description}</p>
+                <p className="text-sm text-muted-foreground">{eventTiming.description}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3.5 w-3.5" />

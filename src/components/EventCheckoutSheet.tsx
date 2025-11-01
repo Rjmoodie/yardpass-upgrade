@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { createGuestCheckoutSession } from "@/lib/ticketApi";
+import { useTicketDetailTracking } from "@/hooks/usePurchaseIntentTracking";
 
 /*****
  * Single-screen purchase flow that merges:
@@ -70,6 +71,7 @@ type Step = "select" | "pay";
 
 export default function EventCheckoutSheet({ event, isOpen, onClose, onSuccess }: Props) {
   const { user } = useAuth();
+  const { trackTicketView } = useTicketDetailTracking();
   const [step, setStep] = useState<Step>("select");
   const [tiers, setTiers] = useState<TicketTier[]>([]);
   const [loading, setLoading] = useState(false);
@@ -104,13 +106,18 @@ export default function EventCheckoutSheet({ event, isOpen, onClose, onSuccess }
   // Fetch tiers whenever dialog opens for an event
   useEffect(() => {
     if (!event?.id || !isOpen) return;
+    
+    // 🎯 Track ticket detail view (high purchase intent signal)
+    trackTicketView(event.id);
+    console.log('[Purchase Intent] 🎫 Tracked ticket view for:', event.id);
+    
     void fetchTiers();
     setStep("select");
     setSelections({});
     setClientSecret(null);
     setCheckoutSessionId(null);
     setExpiresAt(null);
-  }, [event?.id, isOpen]);
+  }, [event?.id, isOpen, trackTicketView]);
 
   const fetchTiers = async () => {
     if (!event?.id) return;

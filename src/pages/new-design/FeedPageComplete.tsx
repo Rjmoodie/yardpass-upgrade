@@ -70,7 +70,12 @@ export default function FeedPageComplete() {
     searchRadius: filters.searchRadius,
   });
 
-  const { data: boosts } = useCampaignBoosts();
+  const { data: boosts } = useCampaignBoosts({
+    placement: 'feed',
+    limit: 8,
+    enabled: true,
+    userId: user?.id ?? null,
+  });
   const { share } = useShare();
   const { applyOptimisticLike, applyEngagementDelta } = useOptimisticReactions();
 

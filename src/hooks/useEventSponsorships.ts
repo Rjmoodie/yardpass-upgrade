@@ -17,30 +17,45 @@ export function useEventSponsorships(eventId?: string) {
     setError(null);
 
     try {
+      // Query sponsorship_orders (actual purchased/active sponsorships)
       const { data, error: queryError } = await supabase
-        .from('event_sponsorships')
+        .from('sponsorship_orders')
         .select(`
           *,
-          sponsor_name:sponsors(name, logo_url)
+          sponsor:sponsors(name, logo_url),
+          package:sponsorship_packages(tier, price_cents, benefits)
         `)
         .eq('event_id', eventId)
+        .in('status', ['pending', 'accepted', 'live', 'completed'])
         .order('created_at', { ascending: false });
 
-      if (queryError) throw queryError;
+      if (queryError) {
+        console.warn('Error fetching sponsorships:', queryError.message);
+        setSponsorships([]);
+        return;
+      }
 
       // Flatten the joined data
-      const flattenedSponsorships = (data ?? []).map(sponsorship => ({
-        ...sponsorship,
-        sponsor_name: sponsorship.sponsor_name?.[0]?.name || 'Unknown Sponsor',
-        sponsor_logo_url: sponsorship.sponsor_name?.[0]?.logo_url || null,
-        benefits: sponsorship.benefits as Record<string, any>,
-        status: sponsorship.status as 'active' | 'expired' | 'revoked'
+      const flattenedSponsorships = (data ?? []).map(order => ({
+        id: order.id,
+        event_id: order.event_id,
+        sponsor_id: order.sponsor_id,
+        sponsor_name: order.sponsor?.name || 'Unknown Sponsor',
+        sponsor_logo_url: order.sponsor?.logo_url || null,
+        tier: order.package?.tier || 'standard',
+        amount_cents: order.amount_cents,
+        price_cents: order.package?.price_cents || order.amount_cents,
+        benefits: order.package?.benefits as Record<string, any> || {},
+        status: order.status as 'active' | 'expired' | 'revoked',
+        created_at: order.created_at,
+        notes: order.notes,
       }));
 
       setSponsorships(flattenedSponsorships);
     } catch (err) {
-      console.error('Error fetching event sponsorships:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch sponsorships');
+      console.warn('Error fetching event sponsorships:', err);
+      setSponsorships([]);
+      setError(null);
     } finally {
       setLoading(false);
     }

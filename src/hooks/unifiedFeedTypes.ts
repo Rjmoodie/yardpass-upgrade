@@ -10,6 +10,7 @@ export type FeedItem =
       event_cover_image: string;
       event_organizer: string;
       event_organizer_id: string | null;
+      event_created_by: string | null;
       event_owner_context_type: string;
       event_location: string;
       author_id: null;
@@ -50,6 +51,7 @@ export type FeedItem =
       event_cover_image: string;
       event_organizer: string;
       event_organizer_id: string | null;
+      event_created_by: string | null;
       event_owner_context_type: string;
       event_location: string;
       author_id: string | null;

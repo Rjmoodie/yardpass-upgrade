@@ -8,7 +8,8 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { AnalyticsWrapper } from '@/components/AnalyticsWrapper'
 import { CSRFProtection } from '@/lib/csrf'
 import App from './App.tsx'
-import './index.css'
+import './styles-new-design.css'  // Base theme tokens + enhanced utilities
+import './index.css'              // Performance optimizations + overrides
 
 // Create a client
 const queryClient = new QueryClient({

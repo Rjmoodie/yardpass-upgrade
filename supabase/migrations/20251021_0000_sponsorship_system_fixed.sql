@@ -8,12 +8,38 @@
 -- 1. FOUNDATION TABLES
 -- =====================================================
 
--- Enrich sponsors table
-ALTER TABLE public.sponsors 
-ADD COLUMN IF NOT EXISTS industry text,
-ADD COLUMN IF NOT EXISTS company_size text,
-ADD COLUMN IF NOT EXISTS brand_values jsonb DEFAULT '{}'::jsonb,
-ADD COLUMN IF NOT EXISTS preferred_visibility_options jsonb DEFAULT '{}'::jsonb;
+-- Drop the sponsors view if it exists, we need a real table for foreign keys
+DROP VIEW IF EXISTS public.sponsors CASCADE;
+
+-- Create sponsors table (now as a real table, not a view)
+CREATE TABLE IF NOT EXISTS public.sponsors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  logo_url text,
+  website_url text,
+  description text,
+  industry text,
+  company_size text,
+  brand_values jsonb DEFAULT '{}'::jsonb,
+  preferred_visibility_options jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Enable RLS on sponsors
+ALTER TABLE public.sponsors ENABLE ROW LEVEL SECURITY;
+
+-- RLS: Anyone can view sponsors
+CREATE POLICY "Anyone can view sponsors"
+  ON public.sponsors
+  FOR SELECT
+  USING (true);
+
+-- RLS: Authenticated users can create sponsors
+CREATE POLICY "Authenticated users can create sponsors"
+  ON public.sponsors
+  FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Create sponsor_profiles table
 CREATE TABLE IF NOT EXISTS public.sponsor_profiles (
@@ -47,7 +73,7 @@ CREATE TABLE IF NOT EXISTS public.event_audience_insights (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT event_audience_insights_pkey PRIMARY KEY (id),
-  CONSTRAINT event_audience_insights_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE
+  CONSTRAINT event_audience_insights_event_id_fkey FOREIGN KEY (event_id) REFERENCES events.events(id) ON DELETE CASCADE
 );
 
 -- Create event_stat_snapshots table
@@ -58,7 +84,7 @@ CREATE TABLE IF NOT EXISTS public.event_stat_snapshots (
   metric_value numeric NOT NULL,
   captured_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT event_stat_snapshots_pkey PRIMARY KEY (id),
-  CONSTRAINT event_stat_snapshots_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE
+  CONSTRAINT event_stat_snapshots_event_id_fkey FOREIGN KEY (event_id) REFERENCES events.events(id) ON DELETE CASCADE
 );
 
 -- Create sponsorship_matches table
@@ -72,7 +98,7 @@ CREATE TABLE IF NOT EXISTS public.sponsorship_matches (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT sponsorship_matches_pkey PRIMARY KEY (id),
-  CONSTRAINT sponsorship_matches_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE,
+  CONSTRAINT sponsorship_matches_event_id_fkey FOREIGN KEY (event_id) REFERENCES events.events(id) ON DELETE CASCADE,
   CONSTRAINT sponsorship_matches_sponsor_id_fkey FOREIGN KEY (sponsor_id) REFERENCES public.sponsors(id) ON DELETE CASCADE,
   CONSTRAINT sponsorship_matches_unique UNIQUE (event_id, sponsor_id)
 );
@@ -86,7 +112,7 @@ CREATE TABLE IF NOT EXISTS public.fit_recalc_queue (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   processed_at timestamp with time zone,
   CONSTRAINT fit_recalc_queue_pkey PRIMARY KEY (id),
-  CONSTRAINT fit_recalc_queue_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE,
+  CONSTRAINT fit_recalc_queue_event_id_fkey FOREIGN KEY (event_id) REFERENCES events.events(id) ON DELETE CASCADE,
   CONSTRAINT fit_recalc_queue_sponsor_id_fkey FOREIGN KEY (sponsor_id) REFERENCES public.sponsors(id) ON DELETE CASCADE
 );
 
@@ -94,26 +120,43 @@ CREATE TABLE IF NOT EXISTS public.fit_recalc_queue (
 -- 2. ENHANCE EXISTING TABLES
 -- =====================================================
 
--- Enhance sponsorship_packages
-ALTER TABLE public.sponsorship_packages 
-ADD COLUMN IF NOT EXISTS expected_reach integer DEFAULT 0 CHECK (expected_reach >= 0),
-ADD COLUMN IF NOT EXISTS avg_engagement_score numeric(5,2) DEFAULT 0.0 CHECK (avg_engagement_score >= 0 AND avg_engagement_score <= 100),
-ADD COLUMN IF NOT EXISTS package_type text DEFAULT 'digital' CHECK (package_type IN ('digital', 'onsite', 'hybrid')),
-ADD COLUMN IF NOT EXISTS stat_snapshot_id uuid;
+-- Note: sponsorship_packages, event_sponsorships, and sponsorship_orders are views
+-- that expose tables from the sponsorship schema. If you need to add columns,
+-- modify the underlying sponsorship schema tables directly.
 
--- Enhance event_sponsorships
-ALTER TABLE public.event_sponsorships 
-ADD COLUMN IF NOT EXISTS activation_status text DEFAULT 'draft' CHECK (activation_status IN ('draft', 'live', 'completed', 'evaluated')),
-ADD COLUMN IF NOT EXISTS deliverables jsonb DEFAULT '{}'::jsonb,
-ADD COLUMN IF NOT EXISTS roi_summary jsonb DEFAULT '{}'::jsonb,
-ADD COLUMN IF NOT EXISTS evaluation_notes text;
+-- Enhance sponsorship.sponsorship_packages (if it exists as a table in sponsorship schema)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'sponsorship' 
+    AND table_name = 'sponsorship_packages' 
+    AND table_type = 'BASE TABLE'
+  ) THEN
+    ALTER TABLE sponsorship.sponsorship_packages 
+    ADD COLUMN IF NOT EXISTS expected_reach integer DEFAULT 0 CHECK (expected_reach >= 0),
+    ADD COLUMN IF NOT EXISTS avg_engagement_score numeric(5,2) DEFAULT 0.0 CHECK (avg_engagement_score >= 0 AND avg_engagement_score <= 100),
+    ADD COLUMN IF NOT EXISTS package_type text DEFAULT 'digital' CHECK (package_type IN ('digital', 'onsite', 'hybrid')),
+    ADD COLUMN IF NOT EXISTS stat_snapshot_id uuid;
+  END IF;
+END $$;
 
--- Enhance sponsorship_orders
-ALTER TABLE public.sponsorship_orders 
-ADD COLUMN IF NOT EXISTS milestone jsonb DEFAULT '{}'::jsonb,
-ADD COLUMN IF NOT EXISTS proof_assets jsonb DEFAULT '{}'::jsonb,
-ADD COLUMN IF NOT EXISTS roi_report_id uuid,
-ADD COLUMN IF NOT EXISTS review_score numeric(3,2) CHECK (review_score >= 0 AND review_score <= 5);
+-- Enhance sponsorship.sponsorship_orders (if it exists as a table in sponsorship schema)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'sponsorship' 
+    AND table_name = 'sponsorship_orders' 
+    AND table_type = 'BASE TABLE'
+  ) THEN
+    ALTER TABLE sponsorship.sponsorship_orders 
+    ADD COLUMN IF NOT EXISTS milestone jsonb DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS proof_assets jsonb DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS roi_report_id uuid,
+    ADD COLUMN IF NOT EXISTS review_score numeric(3,2) CHECK (review_score >= 0 AND review_score <= 5);
+  END IF;
+END $$;
 
 -- =====================================================
 -- 3. INDEXES

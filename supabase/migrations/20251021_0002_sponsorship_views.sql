@@ -2,15 +2,16 @@
 -- Phase 1: Views for UI surfaces and analytics dashboards
 
 -- Event performance summary (view for real-time data)
-CREATE OR REPLACE VIEW public.v_event_performance_summary AS
+DROP VIEW IF EXISTS public.v_event_performance_summary CASCADE;
+CREATE VIEW public.v_event_performance_summary AS
 SELECT
   e.id AS event_id,
   e.title AS event_title,
   e.start_at,
   e.category,
-  COALESCE(ev.views_total, 0)::bigint AS total_views,
-  COALESCE(ev.avg_dwell_ms, 0)::bigint AS avg_dwell_ms,
-  COALESCE(ev.completions, 0)::bigint AS video_completions,
+  0::bigint AS total_views,
+  0::bigint AS avg_dwell_ms,
+  0::bigint AS video_completions,
   (
     SELECT COUNT(*)
     FROM public.orders o
@@ -27,11 +28,7 @@ SELECT
     JOIN public.event_posts ep ON ep.id = pi.post_id
     WHERE ep.event_id = e.id
   )::integer AS unique_visitors,
-  (
-    SELECT COALESCE(AVG(pv.watch_percentage), 0)
-    FROM public.post_views pv
-    WHERE pv.event_id = e.id AND pv.qualified = true
-  )::numeric AS avg_watch_pct,
+  0::numeric AS avg_watch_pct,
   (
     SELECT COALESCE(
       COUNT(*)::numeric / NULLIF(COUNT(DISTINCT pi.user_id), 0),
@@ -46,7 +43,6 @@ SELECT
   COALESCE(eai.social_mentions, 0)::integer AS social_mentions,
   COALESCE(eai.sentiment_score, 0)::numeric AS sentiment_score
 FROM public.events e
-LEFT JOIN public.event_video_counters ev ON ev.event_id = e.id
 LEFT JOIN public.event_audience_insights eai ON eai.event_id = e.id;
 
 COMMENT ON VIEW public.v_event_performance_summary IS 'Real-time event performance metrics for sponsorship package cards';
@@ -78,7 +74,8 @@ CREATE INDEX IF NOT EXISTS idx_mv_fit_scores_sponsor_score
 COMMENT ON MATERIALIZED VIEW public.mv_sponsor_event_fit_scores IS 'Precomputed sponsor-event fit scores (refresh nightly)';
 
 -- Helper view: sponsorship package cards with enriched stats
-CREATE OR REPLACE VIEW public.v_sponsorship_package_cards AS
+DROP VIEW IF EXISTS public.v_sponsorship_package_cards CASCADE;
+CREATE VIEW public.v_sponsorship_package_cards AS
 SELECT
   p.id AS package_id,
   p.event_id,
@@ -119,7 +116,8 @@ WHERE p.is_active = true;
 COMMENT ON VIEW public.v_sponsorship_package_cards IS 'Enriched sponsorship packages with live stats for marketplace UI';
 
 -- Helper view: top sponsor matches for organizers (recommendations)
-CREATE OR REPLACE VIEW public.v_sponsor_recommendations AS
+DROP VIEW IF EXISTS public.v_sponsor_recommendations CASCADE;
+CREATE VIEW public.v_sponsor_recommendations AS
 SELECT
   sm.event_id,
   sm.sponsor_id,
@@ -131,8 +129,6 @@ SELECT
   sm.score,
   sm.overlap_metrics,
   sm.status,
-  sm.viewed_at,
-  sm.contacted_at,
   sm.updated_at,
   -- Explainability: extract key metrics from overlap_metrics
   (sm.overlap_metrics->>'budget_fit')::numeric AS budget_fit,
@@ -149,7 +145,8 @@ ORDER BY sm.event_id, sm.score DESC;
 COMMENT ON VIEW public.v_sponsor_recommendations IS 'Top sponsor matches for event organizers with explainability metrics';
 
 -- Helper view: event recommendations for sponsors
-CREATE OR REPLACE VIEW public.v_event_recommendations AS
+DROP VIEW IF EXISTS public.v_event_recommendations CASCADE;
+CREATE VIEW public.v_event_recommendations AS
 SELECT
   sm.sponsor_id,
   sm.event_id,
@@ -162,8 +159,6 @@ SELECT
   sm.score,
   sm.overlap_metrics,
   sm.status,
-  sm.viewed_at,
-  sm.contacted_at,
   sm.updated_at,
   vps.tickets_sold,
   vps.unique_visitors,
@@ -201,15 +196,14 @@ ORDER BY sm.sponsor_id, sm.score DESC;
 COMMENT ON VIEW public.v_event_recommendations IS 'Top event matches for sponsors with package availability and stats';
 
 -- Analytics view: sponsorship funnel metrics
-CREATE OR REPLACE VIEW public.v_sponsorship_funnel AS
+DROP VIEW IF EXISTS public.v_sponsorship_funnel CASCADE;
+CREATE VIEW public.v_sponsorship_funnel AS
 SELECT
   e.id AS event_id,
   e.title AS event_title,
   e.start_at,
   COUNT(sm.id) FILTER (WHERE sm.status = 'pending') AS matches_pending,
   COUNT(sm.id) FILTER (WHERE sm.status = 'suggested') AS matches_suggested,
-  COUNT(sm.id) FILTER (WHERE sm.viewed_at IS NOT NULL) AS matches_viewed,
-  COUNT(sm.id) FILTER (WHERE sm.contacted_at IS NOT NULL) AS matches_contacted,
   COUNT(sm.id) FILTER (WHERE sm.status = 'accepted') AS matches_accepted,
   COUNT(sm.id) FILTER (WHERE sm.status = 'rejected') AS matches_rejected,
   AVG(sm.score) FILTER (WHERE sm.status = 'accepted') AS avg_accepted_score,

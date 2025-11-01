@@ -145,7 +145,12 @@ export default function UnifiedFeedListModern() {
     searchRadius: filters.searchRadius,
   });
 
-  const { data: boosts, isLoading: boostsLoading } = useCampaignBoosts();
+  const { data: boosts, isLoading: boostsLoading } = useCampaignBoosts({
+    placement: 'feed',
+    limit: 8,
+    enabled: true,
+    userId: user?.id ?? null,
+  });
   const { share } = useShare();
   const { applyOptimisticLike, applyEngagementDelta } = useOptimisticReactions();
 
@@ -167,23 +172,23 @@ export default function UnifiedFeedListModern() {
       if (promotedIndexes.has(i) && boostIndex < boosts.length) {
         const boost = boosts[boostIndex++];
         result.push({
-          item_id: `promoted-${boost.id}`,
+          item_id: `promoted-${boost.campaign_id}`,
           item_type: 'event',
           event_id: boost.event_id,
           event_title: boost.event_title || 'Promoted Event',
           event_category: boost.event_category || null,
-          event_start_at: boost.event_start_at || null,
-          event_venue: boost.event_venue || null,
-          event_address: boost.event_address || null,
+          event_start_at: boost.event_starts_at || null,
+          event_venue: boost.event_location || null,
+          event_address: boost.event_location || null,
           event_cover_image: boost.event_cover_image || null,
-          event_organizer_id: boost.organizer_user_id,
+          event_organizer_id: boost.organizer_id,
           event_organizer_name: boost.organizer_name,
           event_owner_context_type: boost.owner_context_type as 'user' | 'organization',
-          event_description: null,
+          event_description: boost.event_description,
           created_at: new Date().toISOString(),
           promotion: {
-            campaignId: boost.id,
-            rateModel: boost.rate_model,
+            campaignId: boost.campaign_id,
+            rateModel: boost.default_rate_model,
             cpmRateCredits: boost.cpm_rate_credits,
             cpcRateCredits: boost.cpc_rate_credits,
           },

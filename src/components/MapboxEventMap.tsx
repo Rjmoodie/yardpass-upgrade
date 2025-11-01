@@ -71,7 +71,7 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
     // Initialize map
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12', // Less branded style
+      style: 'mapbox://styles/mapbox/dark-v11', // Dark theme for better visibility
       center: [lng, lat],
       zoom: 15,
       pitch: 0, // Flat view reduces 3D ads

@@ -176,12 +176,41 @@ export function useCampaigns(orgId?: string) {
   const resume = (id: string) => setStatus.mutate({ id, status: "active" });
   const archive = (id: string) => setStatus.mutate({ id, status: "archived" });
 
+  /** Update campaign details */
+  const update = useMutation({
+    mutationFn: async ({ id, updates }: { 
+      id: string; 
+      updates: {
+        name?: string;
+        description?: string | null;
+        start_date?: string;
+        end_date?: string | null;
+        total_budget_credits?: number;
+        daily_budget_credits?: number | null;
+      };
+    }) => {
+      const { data, error } = await supabase
+        .from("campaigns")
+        .update(updates)
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error) throw error;
+      return data as CampaignRow;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns", orgId] });
+    },
+  });
+
   return {
     campaigns: (campaignsQ.data ?? []) as CampaignOverview[],
     isLoading: campaignsQ.isLoading,
     error: campaignsQ.error as any,
     createCampaign: create.mutateAsync,
     isCreating: create.isPending,
+    updateCampaign: update.mutateAsync,
+    isUpdating: update.isPending,
     pause,
     resume,
     archive,

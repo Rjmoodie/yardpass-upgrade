@@ -54,7 +54,9 @@ export const MatchAlgorithm: React.FC<MatchAlgorithmProps> = ({
   const [selectedMatch, setSelectedMatch] = useState<SponsorshipMatch | null>(null);
 
   useEffect(() => {
-    loadMatches();
+    // Don't auto-load if feature not deployed
+    // loadMatches();
+    setLoading(false);
   }, [eventId, sponsorId]);
 
   const loadMatches = async () => {

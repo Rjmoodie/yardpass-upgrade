@@ -13,6 +13,7 @@ import { NotificationSystem } from "@/components/NotificationSystem";
 import { UsernameEditor } from "@/components/profile/UsernameEditor";
 import CommentModal from "@/components/CommentModal";
 import { muxToPoster } from "@/lib/video/muxClient";
+import { useProfileVisitTracking } from "@/hooks/usePurchaseIntentTracking";
 
 interface UserProfile {
   user_id: string;
@@ -46,9 +47,10 @@ interface UserEvent {
 
 export function ProfilePage() {
   const { user: currentUser } = useAuth();
-  const { username } = useParams<{ username?: string }>();
+  const { username, userId } = useParams<{ username?: string; userId?: string }>();
   const navigate = useNavigate();
-  const targetUserId = username || currentUser?.id;
+  const { trackProfileVisit } = useProfileVisitTracking();
+  const targetUserId = userId || username || currentUser?.id;
   
   const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -61,14 +63,14 @@ export function ProfilePage() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   
-  const { following, followers } = useUserConnections(targetUserId);
+  const { following, followers } = useUserConnections(profile?.user_id);
   const { tickets } = useTickets();
   const { state: followState, follow, unfollow, loading: followLoading } = useFollow({
     type: 'user',
-    id: targetUserId || ''
+    id: profile?.user_id || '' // useFollow requires non-null string
   });
   
-  const isOwnProfile = !username || username === currentUser?.id;
+  const isOwnProfile = profile ? profile.user_id === currentUser?.id : (!username && !userId);
 
   // Fetch profile data
   useEffect(() => {
@@ -118,10 +120,21 @@ export function ProfilePage() {
     loadProfile();
   }, [targetUserId]);
 
+  // 🎯 Track profile page visit (moderate purchase intent signal)
+  useEffect(() => {
+    if (!profile?.user_id) return;
+    
+    // Don't track visits to own profile
+    if (profile.user_id === currentUser?.id) return;
+    
+    trackProfileVisit(profile.user_id);
+    console.log('[Purchase Intent] 👤 Tracked profile page visit for:', profile.user_id);
+  }, [profile?.user_id, currentUser?.id, trackProfileVisit]);
+
   // Fetch user posts
   useEffect(() => {
     const loadPosts = async () => {
-      if (!targetUserId) return;
+      if (!profile?.user_id) return;
 
       try {
         const { data, error } = await supabase
@@ -134,7 +147,7 @@ export function ProfilePage() {
             event_id,
             event_reactions!event_reactions_post_id_fkey (kind)
           `)
-          .eq('author_user_id', targetUserId)
+          .eq('author_user_id', profile.user_id)
           .order('created_at', { ascending: false })
           .limit(50);
 
@@ -162,12 +175,12 @@ export function ProfilePage() {
     };
 
     loadPosts();
-  }, [targetUserId]);
+  }, [profile?.user_id]);
 
   // Fetch saved events (if own profile)
   useEffect(() => {
     const loadSavedEvents = async () => {
-      if (!isOwnProfile || !targetUserId) return;
+      if (!isOwnProfile || !profile?.user_id) return;
 
       try {
         const { data, error } = await supabase
@@ -182,7 +195,7 @@ export function ProfilePage() {
               start_at
             )
           `)
-          .eq('user_id', targetUserId)
+          .eq('user_id', profile.user_id)
           .order('saved_at', { ascending: false });
 
         if (error) throw error;
@@ -203,7 +216,7 @@ export function ProfilePage() {
     };
 
     loadSavedEvents();
-  }, [targetUserId, isOwnProfile]);
+  }, [profile?.user_id, isOwnProfile]);
 
   // Determine content to show based on active tab
   const displayContent = useMemo(() => {

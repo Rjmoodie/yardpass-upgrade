@@ -20,7 +20,7 @@ interface MutualConnection {
   mutual_user_photo: string | null;
 }
 
-export function useUserConnections(userId?: string) {
+export function useUserConnections(userId?: string | null) {
   const { user } = useAuth();
   const [following, setFollowing] = useState<UserConnection[]>([]);
   const [followers, setFollowers] = useState<UserConnection[]>([]);
@@ -31,7 +31,14 @@ export function useUserConnections(userId?: string) {
   const targetUserId = userId || user?.id;
 
   const loadConnections = useCallback(async () => {
-    if (!targetUserId) return;
+    // Guard: Don't query if no valid user ID
+    if (!targetUserId) {
+      setFollowing([]);
+      setFollowers([]);
+      setRequests([]);
+      setMutualConnections([]);
+      return;
+    }
     
     setLoading(true);
     try {

@@ -118,10 +118,18 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
       const postRows  = toSend.filter(r => r.__t === 'post').map(({ __t, ...r }) => r);
 
       if (eventRows.length) {
-        await supabase.rpc('insert_event_impressions', { impressions: eventRows });
+        const { error } = await supabase.rpc('insert_event_impressions', { impressions: eventRows });
+        // 409 conflicts are expected (deduplication) - ignore them
+        if (error && !error.message?.includes('409') && error.code !== '23505') {
+          console.warn('[impressions] Event insert error:', error);
+        }
       }
       if (postRows.length) {
-        await supabase.rpc('insert_post_impressions', { impressions: postRows });
+        const { error } = await supabase.rpc('insert_post_impressions', { impressions: postRows });
+        // 409 conflicts are expected (deduplication) - ignore them
+        if (error && !error.message?.includes('409') && error.code !== '23505') {
+          console.warn('[impressions] Post insert error:', error);
+        }
       }
     } catch (e) {
       // On failure, re-queue to try again next cycle (keeps UX non-blocking)

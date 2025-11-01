@@ -163,3 +163,25 @@ verify_jwt = false
 
 [functions.validate-guest-code]
 verify_jwt = false
+
+# ===== SPONSORSHIP FUNCTIONS =====
+# Note: Cron jobs must be configured in Supabase Dashboard
+# Functions → sponsorship-recalc → Cron → "*/10 * * * *"
+
+[functions.sponsorship-recalc]
+verify_jwt = false
+
+[functions.sponsorship-score-onchange]
+verify_jwt = false
+
+[functions.sponsorship-checkout]
+verify_jwt = true
+
+[functions.sponsorship-payouts]
+verify_jwt = true
+
+[functions.sponsor-create-intent]
+verify_jwt = true
+
+[functions.sponsor-payout]
+verify_jwt = true

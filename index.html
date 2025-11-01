@@ -41,6 +41,13 @@
     <link rel="preconnect" href="https://stream.mux.com" crossorigin>
     <link rel="dns-prefetch" href="//yieslxnrfeqchbcmgavz.supabase.co">
     <link rel="preconnect" href="https://yieslxnrfeqchbcmgavz.supabase.co" crossorigin>
+    
+    <!-- Font Preloading (Inter - Latin subset only) -->
+    <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+    
+    <!-- Critical Resource Preloading -->
+    <link rel="modulepreload" href="/src/main.tsx">
+    <link rel="modulepreload" href="/src/App.tsx">
 
     <!-- Open Graph Meta Tags -->
     <meta property="og:title" content="YardPass - Discover Amazing Events" />

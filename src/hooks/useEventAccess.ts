@@ -2,6 +2,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+// Organization roles that can manage events
+const ORG_EDITOR_ROLES = new Set(['editor', 'admin', 'owner']);
+
 type AccessState =
   | { status: 'loading' }
   | { status: 'allowed' }
@@ -20,7 +23,7 @@ export async function canUserViewEventServerSide(params:{
   if (visibility === 'public') return { status: 'allowed' };
 
   if (visibility === 'unlisted') {
-    // Allow if token matches OR user is organizer
+    // Allow if token matches OR user is organizer OR has event role
     if (!userId && !linkTokenFromUrl) return { status: 'unlisted-key-required' };
 
     // Organizer check
@@ -34,15 +37,25 @@ export async function canUserViewEventServerSide(params:{
       // Individual owner check
       if (data?.created_by === userId) return { status: 'allowed' };
 
-      // Organization member check
+      // Event-specific role check (NEW!)
+      const { data: eventRole } = await supabase
+        .from('event_roles')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (eventRole) return { status: 'allowed' };
+
+      // Organization member check (restricted to editors+)
       if (data?.owner_context_type === 'organization' && data.owner_context_id) {
         const { data: m } = await supabase
           .from('org_memberships')
-          .select('user_id')
+          .select('user_id, role')
           .eq('org_id', data.owner_context_id)
           .eq('user_id', userId)
           .maybeSingle();
-        if (m) return { status: 'allowed' };
+        if (m?.role && ORG_EDITOR_ROLES.has(m.role)) return { status: 'allowed' };
       }
     }
 
@@ -62,8 +75,8 @@ export async function canUserViewEventServerSide(params:{
   // private
   if (!userId) return { status: 'needs-login' };
 
-  // Organizer OR Ticket-holder OR Invitee can view
-  const [{ data: ev }, { data: ticket }, { data: invite }] = await Promise.all([
+  // Organizer OR Event Role OR Ticket-holder OR Invitee can view
+  const [{ data: ev }, { data: ticket }, { data: invite }, { data: eventRole }] = await Promise.all([
     supabase
       .from('events')
       .select('owner_context_type, owner_context_id, created_by')
@@ -83,22 +96,34 @@ export async function canUserViewEventServerSide(params:{
       .eq('user_id', userId)
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('event_roles')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle(),
   ]);
 
   // Individual owner check
   if (ev?.created_by === userId) return { status: 'allowed' };
 
-  const isOrgMember =
-    ev?.owner_context_type === 'organization' && ev.owner_context_id
-      ? !!(await supabase
-          .from('org_memberships')
-          .select('user_id')
-          .eq('org_id', ev.owner_context_id)
-          .eq('user_id', userId)
-          .maybeSingle()).data
-      : false;
+  // Organization editor+ check (restricted from viewer)
+  let isOrgEditorOrAbove = false;
+  if (ev?.owner_context_type === 'organization' && ev.owner_context_id) {
+    const { data: membership } = await supabase
+      .from('org_memberships')
+      .select('role')
+      .eq('org_id', ev.owner_context_id)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (membership?.role && ORG_EDITOR_ROLES.has(membership.role)) {
+      isOrgEditorOrAbove = true;
+    }
+  }
 
-  if (isOrgMember || ticket || invite) return { status: 'allowed' };
+  // Allow if: org editor+, event role, ticket holder, or invitee
+  if (isOrgEditorOrAbove || eventRole || ticket || invite) return { status: 'allowed' };
   return { status: 'private-denied' };
 }
 

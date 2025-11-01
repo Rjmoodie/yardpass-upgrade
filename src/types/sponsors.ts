@@ -3,9 +3,13 @@ export type Sponsor = {
   name: string;
   logo_url?: string | null;
   website_url?: string | null;
-  contact_email?: string | null;
-  created_by: string;
+  description?: string | null;
+  industry?: string | null;
+  company_size?: string | null;
+  brand_values?: Record<string, unknown> | null;
+  preferred_visibility_options?: Record<string, unknown> | null;
   created_at: string;
+  updated_at: string;
 };
 
 export type SponsorMember = {

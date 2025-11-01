@@ -59,9 +59,11 @@ export const ProposalNegotiation: React.FC<ProposalNegotiationProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (threadId) {
-      loadThread();
-    }
+    // Don't auto-load if feature not deployed
+    // if (threadId) {
+    //   loadThread();
+    // }
+    setLoading(false);
   }, [threadId]);
 
   useEffect(() => {

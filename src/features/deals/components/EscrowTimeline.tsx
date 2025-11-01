@@ -60,7 +60,9 @@ export const PaymentEscrowManager: React.FC<PaymentEscrowManagerProps> = ({
   const [selectedOrder, setSelectedOrder] = useState<SponsorshipOrderComplete | null>(null);
 
   useEffect(() => {
-    loadData();
+    // Don't auto-load if feature not deployed
+    // loadData();
+    setLoading(false);
   }, [orderId]);
 
   const loadData = async () => {

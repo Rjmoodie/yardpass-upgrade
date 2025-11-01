@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, MapPin, Ticket, ChevronUp, ChevronDown, Users } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+import { SponsorBadges } from '@/components/sponsorship/SponsorBadges';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 
 interface EventCardModernProps {
@@ -159,6 +160,11 @@ export const EventCardModern = memo(function EventCardModern({
                   </div>
                 </div>
               )}
+              
+              {/* Sponsor Badge */}
+              <div className="mb-4">
+                <SponsorBadges eventId={item.event_id} variant="auto" />
+              </div>
 
               {/* Organizer */}
               {item.event_organizer_name && (

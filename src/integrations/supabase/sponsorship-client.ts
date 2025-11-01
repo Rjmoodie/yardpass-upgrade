@@ -1,8 +1,7 @@
 // Supabase client configuration for sponsorship system
 // Extends base client with sponsorship-specific functionality
 
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database.types';
+import { supabase } from './client';
 import type {
   SponsorComplete,
   SponsorshipPackage,
@@ -26,29 +25,10 @@ import type {
   SponsorshipWebhookPayload
 } from '../../types/sponsorship-complete';
 
-// Environment configuration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-// Create Supabase client
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
-});
+// Use existing Supabase client instead of creating duplicate
 
 // === Sponsorship System API Client ===
+// This client wraps the base Supabase client with sponsorship-specific functionality
 
 export class SponsorshipClient {
   private client = supabase;
@@ -233,7 +213,14 @@ export class SponsorshipClient {
 
       const { data: matches, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        // Gracefully handle 404 - table not yet deployed
+        if (error.message?.includes('not found') || error.code === 'PGRST204' || error.code === 'PGRST116') {
+          console.warn('[SponsorshipClient] sponsorship_matches table not deployed yet');
+          return { success: true, data: [] };
+        }
+        throw error;
+      }
 
       return { success: true, data: matches || [] };
     } catch (error) {
@@ -324,7 +311,14 @@ export class SponsorshipClient {
 
       const { data: threads, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        // Gracefully handle 404 - table not yet deployed
+        if (error.message?.includes('not found') || error.code === 'PGRST204' || error.code === 'PGRST116') {
+          console.warn('[SponsorshipClient] proposal_threads table not deployed yet');
+          return { success: true, data: [] };
+        }
+        throw error;
+      }
 
       return { success: true, data: threads || [] };
     } catch (error) {
@@ -397,7 +391,26 @@ export class SponsorshipClient {
           p_to_date: dateRange?.to
         });
 
-      if (error) throw error;
+      if (error) {
+        // Gracefully handle 404 - RPC not yet deployed
+        if (error.message?.includes('not found') || error.code === 'PGRST204' || error.code === 'PGRST116' || error.code === '42883') {
+          console.warn('[SponsorshipClient] get_sponsorship_analytics RPC not deployed yet');
+          return { 
+            success: true, 
+            data: {
+              total_revenue_cents: 0,
+              total_orders: 0,
+              active_sponsorships: 0,
+              avg_order_value_cents: 0,
+              conversion_rate: 0,
+              top_packages: [],
+              revenue_by_month: [],
+              engagement_metrics: {}
+            } as SponsorshipAnalytics 
+          };
+        }
+        throw error;
+      }
 
       return { success: true, data };
     } catch (error) {

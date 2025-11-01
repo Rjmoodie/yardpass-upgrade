@@ -37,36 +37,102 @@ export type CampaignBoostRow = {
   daily_remaining: number | null;
 };
 
+type EligibleAdRow = {
+  campaign_id: string;
+  creative_id: string;
+  event_id: string;
+  org_id: string;
+  org_name: string;
+  org_logo_url: string | null;
+  event_title: string;
+  event_description: string | null;
+  event_cover_image: string | null;
+  event_start_at: string;
+  event_venue: Record<string, any> | null;
+  event_category: string;
+  pricing_model: string;
+  estimated_rate: number;
+  priority_score: number;
+  cta_label: string;
+  cta_url: string | null;
+};
+
 export function useCampaignBoosts({
   placement,
   limit = 6,
   enabled = true,
   userId,
+  category,
+  location,
 }: {
   placement: 'feed' | 'search_results';
   limit?: number;
   enabled?: boolean;
   userId?: string | null;
+  category?: string | null;
+  location?: string | null;
 }) {
   return useQuery({
-    queryKey: ['campaign-boosts', placement, limit, userId ?? 'anon'],
-    enabled: false, // Disabled until RPC function is created
+    queryKey: ['campaign-boosts', placement, limit, userId ?? 'anon', category, location],
+    enabled: enabled,
     staleTime: 60_000,
     queryFn: async (): Promise<CampaignBoostRow[]> => {
       try {
-        const { data, error } = await supabase.rpc('get_active_campaign_creatives', {
+        const { data, error } = await supabase.rpc('get_eligible_ads', {
           p_placement: placement,
           p_limit: limit,
           p_user_id: userId ?? null,
-          p_now: new Date().toISOString(),
+          p_category: category ?? null,
+          p_location: location ?? null,
+          p_keywords: null,
         });
+
         if (error) {
           console.warn('[useCampaignBoosts] rpc failed, returning empty array', error.message);
           return [];
         }
-        return (data ?? []) as CampaignBoostRow[];
+
+        // Map the response from get_eligible_ads to CampaignBoostRow format
+        const mappedData: CampaignBoostRow[] = (data as EligibleAdRow[] ?? []).map((ad) => ({
+          campaign_id: ad.campaign_id,
+          creative_id: ad.creative_id,
+          org_id: ad.org_id,
+          event_id: ad.event_id,
+          post_id: null,
+          objective: 'awareness',
+          pacing_strategy: 'standard',
+          headline: ad.event_title,
+          body_text: ad.event_description,
+          cta_label: ad.cta_label,
+          cta_url: ad.cta_url,
+          media_type: 'image',
+          media_url: ad.event_cover_image,
+          poster_url: ad.org_logo_url,
+          event_title: ad.event_title,
+          event_description: ad.event_description,
+          event_cover_image: ad.event_cover_image,
+          event_starts_at: ad.event_start_at,
+          event_location: ad.event_venue?.name ?? null,
+          event_city: null,
+          event_category: ad.event_category,
+          organizer_name: ad.org_name,
+          organizer_id: ad.org_id,
+          owner_context_type: 'organization',
+          priority: ad.priority_score,
+          frequency_cap_per_user: null,
+          frequency_cap_period: null,
+          targeting: null,
+          default_rate_model: ad.pricing_model as 'cpm' | 'cpc',
+          cpm_rate_credits: ad.pricing_model === 'cpm' ? ad.estimated_rate : null,
+          cpc_rate_credits: ad.pricing_model === 'cpc' ? ad.estimated_rate : null,
+          remaining_credits: null,
+          daily_remaining: null,
+        }));
+
+        console.log(`[useCampaignBoosts] Successfully fetched ${mappedData.length} ads for placement: ${placement}`);
+        return mappedData;
       } catch (err) {
-        console.warn('[useCampaignBoosts] rpc not available, returning empty array', err);
+        console.warn('[useCampaignBoosts] rpc error, returning empty array', err);
         return [];
       }
     },

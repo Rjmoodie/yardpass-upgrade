@@ -771,6 +771,7 @@ async function expandRows({
           : organizerNamesMap.get(ev?.created_by) ?? "Organizer";
       const organizerId =
         ev?.owner_context_type === "organization" ? ev?.owner_context_id ?? null : ev?.created_by ?? null;
+      const eventCreatedBy = ev?.created_by ?? null; // Always pass the actual creator
 
       const location = [ev?.venue, ev?.city].filter(Boolean).join(", ") || "TBA";
       const sortTs = row.sort_ts ?? ev?.start_at ?? ev?.created_at ?? new Date().toISOString();
@@ -787,6 +788,7 @@ async function expandRows({
           event_cover_image: ev?.cover_image_url ?? "",
           event_organizer: organizerName,
           event_organizer_id: organizerId,
+          event_created_by: eventCreatedBy,
           event_owner_context_type: ev?.owner_context_type ?? "individual",
           event_location: location,
           author_id: null,
@@ -827,6 +829,7 @@ async function expandRows({
       event_cover_image: ev?.cover_image_url ?? "",
       event_organizer: organizerName,
       event_organizer_id: organizerId,
+      event_created_by: eventCreatedBy,
       event_owner_context_type: ev?.owner_context_type ?? "individual",
       event_location: location,
       author_id: post.author_user_id ?? null,

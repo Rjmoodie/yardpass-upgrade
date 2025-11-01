@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, DollarSign, Eye, MousePointerClick, Play, Pause, Archive, Target, TrendingUp } from "lucide-react";
+import { Calendar, DollarSign, Eye, MousePointerClick, Play, Pause, Archive, Target, TrendingUp, Clock, AlertTriangle } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getPacingVariant } from "@/lib/campaignInsights";
@@ -26,6 +26,9 @@ type CampaignRow = {
   impressions7d?: number;
   clicks7d?: number;
   activeCreatives?: number;
+  hasExpired?: boolean;
+  isExpiringSoon?: boolean;
+  daysUntilExpiry?: number | null;
 };
 export const CampaignList = ({
   loading = false,
@@ -121,6 +124,18 @@ export const CampaignList = ({
                   {c.pacingHealth && (
                     <Badge variant={pacingVariant} className="capitalize">
                       {c.pacingHealth.replace("-", " ")}
+                    </Badge>
+                  )}
+                  {c.hasExpired && (
+                    <Badge variant="destructive" className="flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Expired
+                    </Badge>
+                  )}
+                  {!c.hasExpired && c.isExpiringSoon && c.daysUntilExpiry !== null && (
+                    <Badge className="border-yellow-500 bg-yellow-500/10 text-yellow-600 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {c.daysUntilExpiry} day{c.daysUntilExpiry !== 1 ? 's' : ''} left
                     </Badge>
                   )}
                 </div>

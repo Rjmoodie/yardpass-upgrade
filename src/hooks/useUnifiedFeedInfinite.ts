@@ -16,6 +16,19 @@ export interface FeedFilters {
   searchRadius?: number;
 }
 
+// Get or create session ID for exploration bonus
+function getSessionId(): string {
+  const storageKey = 'yardpass_session_id';
+  let sessionId = localStorage.getItem(storageKey);
+  
+  if (!sessionId) {
+    sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem(storageKey, sessionId);
+  }
+  
+  return sessionId;
+}
+
 async function fetchPage(
   cursor: FeedCursor | undefined,
   limit: number,
@@ -43,6 +56,8 @@ async function fetchPage(
         user_lat: userLocation.lat,
         user_lng: userLocation.lng,
       }),
+      // 🎯 Pass session ID for exploration bonus in ranking
+      session_id: getSessionId(),
     },
   };
 

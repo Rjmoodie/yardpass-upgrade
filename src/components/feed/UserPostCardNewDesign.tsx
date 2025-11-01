@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MoreVertical, Flag, UserX, Bookmark, ChevronUp, MapPin, Calendar, Ticket, Info, ExternalLink } from "lucide-react";
+import { Heart, MoreVertical, Flag, UserX, Bookmark, ChevronUp, MapPin, Calendar, Ticket, Info, ExternalLink, Eye } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { VideoMedia } from "@/components/feed/VideoMedia";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import type { FeedItem } from "@/hooks/unifiedFeedTypes";
+import { usePostViewCount } from "@/hooks/usePostViewCount";
+import { useProfileVisitTracking } from "@/hooks/usePurchaseIntentTracking";
 import { isVideoUrl } from "@/utils/mux";
 import {
   DropdownMenu,
@@ -26,7 +28,7 @@ interface UserPostCardNewDesignProps {
   onGetTickets?: (eventId: string) => void;
 }
 
-export function UserPostCardNewDesign({
+const UserPostCardNewDesignComponent = ({
   item,
   onLike,
   onComment,
@@ -36,9 +38,10 @@ export function UserPostCardNewDesign({
   soundEnabled = false,
   isVideoPlaying = false,
   onGetTickets
-}: UserPostCardNewDesignProps) {
+}: UserPostCardNewDesignProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { trackProfileVisit } = useProfileVisitTracking();
   const [liked, setLiked] = useState(item.metrics?.hasLiked || false);
   const [likeCount, setLikeCount] = useState(item.metrics?.likes || 0);
   const [showFullCaption, setShowFullCaption] = useState(false);
@@ -46,6 +49,19 @@ export function UserPostCardNewDesign({
   const [isExpanded, setIsExpanded] = useState(false);
   
   const isOwnPost = user?.id === item.author_id;
+  const isOrganizer = item.author_id && item.event_created_by && item.author_id === item.event_created_by;
+  const { viewCount, loading: viewCountLoading } = usePostViewCount(item.item_id);
+  
+  // Debug logging
+  console.log('[UserPostCard] Badge Check:', {
+    eventTitle: item.event_title,
+    authorId: item.author_id,
+    createdBy: item.event_created_by,
+    organizerId: item.event_organizer_id,
+    isOrganizer,
+    authorBadge: item.author_badge,
+    shouldShowOrganizer: isOrganizer,
+  });
 
   const mediaUrl = useMemo(() => item.media_urls?.[0] || null, [item.media_urls]);
   const isVideo = useMemo(() => Boolean(mediaUrl && isVideoUrl(mediaUrl!)), [mediaUrl]);
@@ -131,6 +147,11 @@ export function UserPostCardNewDesign({
               <div 
                 onClick={(e) => {
                   e.stopPropagation();
+                  // 🎯 Track profile visit (moderate purchase intent signal)
+                  if (item.author_id) {
+                    trackProfileVisit(item.author_id);
+                    console.log('[Purchase Intent] 👤 Tracked profile visit for:', item.author_id);
+                  }
                   onAuthorClick();
                 }}
                 className="group relative h-12 w-12 overflow-hidden rounded-full border-2 border-white/30 ring-2 ring-orange-500/20 cursor-pointer transition-all hover:border-orange-500/60 hover:ring-orange-500/40"
@@ -155,6 +176,11 @@ export function UserPostCardNewDesign({
                 <div 
                   onClick={(e) => {
                     e.stopPropagation();
+                    // 🎯 Track profile visit (moderate purchase intent signal)
+                    if (item.author_id) {
+                      trackProfileVisit(item.author_id);
+                      console.log('[Purchase Intent] 👤 Tracked profile visit for:', item.author_id);
+                    }
                     onAuthorClick();
                   }}
                   className="cursor-pointer group"
@@ -166,10 +192,14 @@ export function UserPostCardNewDesign({
                       : item.author_name || 'User'}
                   </div>
                   <div className="mt-1 flex items-center gap-2 flex-wrap">
-                    {/* Show "Promotion" badge for promoted content instead of ticket tier */}
+                    {/* Badge Priority: Promotion > Organizer > Ticket Tier */}
                     {item.isPromoted ? (
                       <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/30 to-amber-600/30 border border-amber-400/40 px-2 py-0.5 text-[10px] font-bold text-amber-300">
                         ✨ Promotion
+                      </div>
+                    ) : isOrganizer ? (
+                      <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blue-500/30 to-indigo-600/30 border border-blue-400/40 px-2 py-0.5 text-[10px] font-bold text-blue-200">
+                        🎖️ ORGANIZER
                       </div>
                     ) : item.author_badge && (
                       <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
@@ -301,6 +331,16 @@ export function UserPostCardNewDesign({
                 </p>
               </div>
             )}
+            
+            {/* Engagement Stats */}
+            {!viewCountLoading && viewCount > 0 && (
+              <div className="mt-2 flex items-center gap-3 text-[11px] text-white/60">
+                <span className="flex items-center gap-1">
+                  <Eye className="h-3 w-3" />
+                  {viewCount.toLocaleString()} {viewCount === 1 ? 'view' : 'views'}
+                </span>
+              </div>
+            )}
 
             {/* Expand Indicator */}
             <div className="mt-4 flex justify-center">
@@ -337,5 +377,17 @@ export function UserPostCardNewDesign({
       </div>
     </div>
   );
-}
+};
 
+// Memoize to prevent unnecessary re-renders (performance optimization for iOS)
+export const UserPostCardNewDesign = React.memo(UserPostCardNewDesignComponent, (prev, next) => {
+  // Custom comparison: only re-render if item data actually changed
+  return (
+    prev.item.item_id === next.item.item_id &&
+    prev.item.content === next.item.content &&
+    prev.item.metrics?.likes === next.item.metrics?.likes &&
+    prev.item.metrics?.comments === next.item.metrics?.comments &&
+    prev.isVideoPlaying === next.isVideoPlaying &&
+    prev.soundEnabled === next.soundEnabled
+  );
+});

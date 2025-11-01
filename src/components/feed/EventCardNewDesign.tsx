@@ -5,6 +5,7 @@ import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import type { FeedItem } from "@/hooks/unifiedFeedTypes";
 import { DEFAULT_EVENT_COVER } from "@/lib/constants";
 import { logAdClickBeacon } from "@/lib/adTracking";
+import { SponsorBadges } from "@/components/sponsorship/SponsorBadges";
 
 interface EventCardNewDesignProps {
   item: Extract<FeedItem, { item_type: 'event' }>;
@@ -13,12 +14,12 @@ interface EventCardNewDesignProps {
   onCreatePost?: () => void;
 }
 
-export function EventCardNewDesign({
+const EventCardNewDesignComponent = ({
   item,
   onOpenTickets,
   onEventClick,
   onCreatePost
-}: EventCardNewDesignProps) {
+}: EventCardNewDesignProps) => {
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
@@ -87,6 +88,7 @@ export function EventCardNewDesign({
             {/* Event Title & Get Tickets */}
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="flex-1">
+                {/* Promoted Tag */}
                 {item.promotion && (
                   <div className="mb-2">
                     <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/30 to-amber-600/30 border border-amber-400/40 px-2 py-0.5 text-[10px] font-bold text-amber-300">
@@ -166,6 +168,11 @@ export function EventCardNewDesign({
                 </div>
                 <span className="text-sm font-medium">{item.event_location || 'Location TBA'}</span>
               </div>
+              
+              {/* Sponsor Badge */}
+              <div className="mt-3">
+                <SponsorBadges eventId={item.event_id} variant="auto" />
+              </div>
             </div>
 
             {/* Expand Indicator */}
@@ -206,5 +213,15 @@ export function EventCardNewDesign({
       </div>
     </div>
   );
-}
+};
 
+// Memoize to prevent unnecessary re-renders (performance optimization for iOS)
+export const EventCardNewDesign = React.memo(EventCardNewDesignComponent, (prev, next) => {
+  // Custom comparison: only re-render if item data actually changed
+  return (
+    prev.item.item_id === next.item.item_id &&
+    prev.item.event_title === next.item.event_title &&
+    prev.item.metrics?.likes === next.item.metrics?.likes &&
+    prev.item.metrics?.comments === next.item.metrics?.comments
+  );
+});

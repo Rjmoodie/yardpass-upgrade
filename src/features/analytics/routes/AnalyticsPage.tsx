@@ -60,7 +60,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   const [selectedMetric, setSelectedMetric] = useState('revenue');
 
   useEffect(() => {
-    loadAnalytics();
+    // Don't auto-load if feature not deployed
+    // loadAnalytics();
+    setLoading(false);
   }, [eventId, sponsorId, dateRange, timeRange]);
 
   const loadAnalytics = async () => {

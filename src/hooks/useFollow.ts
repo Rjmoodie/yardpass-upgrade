@@ -15,6 +15,15 @@ export function useFollow(target: Target) {
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
+      
+      // Guard: Don't query if target ID is invalid
+      if (!target.id || target.id.length === 0) {
+        setState('none');
+        setRowId(null);
+        setLoading(false);
+        return;
+      }
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setState('none');
