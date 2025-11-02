@@ -26,7 +26,6 @@ import { usePlatform } from '@/hooks/usePlatform';
 // Lazy load heavy components
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
 const EventAttendeesPage = lazy(() => import('@/pages/EventAttendeesPageEnhanced'));
-const ModernFeedPage = lazy(() => import('@/pages/ModernFeedPage'));
 
 // New Design Components (Integrated with Real Data)
 const ProfilePageNew = lazy(() => import('@/pages/new-design/ProfilePage'));
@@ -311,14 +310,6 @@ function AppContent() {
                     <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Index />} />
-              <Route 
-                path="/feed-modern" 
-                element={
-                  <Suspense fallback={<PageLoadingSpinner />}>
-                    <ModernFeedPage />
-                  </Suspense>
-                } 
-              />
               <Route
                 path="/search"
                 element={

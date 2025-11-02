@@ -1,6 +1,6 @@
 // Mobile layout - Bottom navigation with safe-area support
 import React from 'react';
-import Navigation from '@/components/Navigation';
+import Navigation from '@/components/NavigationNewDesign';
 
 interface MobileLayoutProps {
   children: React.ReactNode;

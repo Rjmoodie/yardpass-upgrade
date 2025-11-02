@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { UserPostCard } from '@/components/UserPostCard';
+import { UserPostCardNewDesign } from '@/components/feed/UserPostCardNewDesign';
 import { Dialog, DialogContent, BottomSheetContent } from '@/components/ui/dialog';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -1108,7 +1108,7 @@ export default function UserProfilePage() {
               contentClassName="h-full w-full"
               showHandle={false}
             >
-              <UserPostCard
+              <UserPostCardNewDesign
                 item={selectedPost as Extract<FeedItem, { item_type: 'post' }>}
                 onLike={(postId) => handleLike(postId)}
                 onComment={(postId) => handleComment(postId)}
@@ -1123,18 +1123,15 @@ export default function UserProfilePage() {
                   setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
                   navigate(`/profile/${authorId}`);
                 }}
-                onCreatePost={() => {}}
                 onReport={handleReport}
-                onSoundToggle={() => setSoundEnabled(prev => !prev)}
-                onVideoToggle={handleVideoToggle}
-                onOpenTickets={(eventId) => navigate(routes.event(eventId))}
                 soundEnabled={soundEnabled}
                 isVideoPlaying={!pausedVideos[selectedPost.item_id]}
+                onGetTickets={(eventId) => navigate(routes.event(eventId))}
               />
             </BottomSheetContent>
           ) : (
             <DialogContent className="h-[90vh] w-full max-w-4xl overflow-hidden bg-black border-border/50 p-0">
-              <UserPostCard 
+              <UserPostCardNewDesign 
                 item={selectedPost as Extract<FeedItem, { item_type: 'post' }>} 
                 onLike={(postId) => handleLike(postId)} 
                 onComment={(postId) => handleComment(postId)} 
@@ -1149,13 +1146,10 @@ export default function UserProfilePage() {
                   setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
                   navigate(`/profile/${authorId}`); 
                 }} 
-                onCreatePost={() => {}} 
                 onReport={handleReport} 
-                onSoundToggle={() => setSoundEnabled(prev => !prev)} 
-                onVideoToggle={handleVideoToggle} 
-                onOpenTickets={(eventId) => navigate(routes.event(eventId))} 
                 soundEnabled={soundEnabled} 
-                isVideoPlaying={!pausedVideos[selectedPost.item_id]} 
+                isVideoPlaying={!pausedVideos[selectedPost.item_id]}
+                onGetTickets={(eventId) => navigate(routes.event(eventId))} 
               />
             </DialogContent>
           )

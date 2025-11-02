@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { useSponsorMode } from '@/hooks/useSponsorMode';
 import { SponsorGuard } from '@/components/access/SponsorGuard';
-import Navigation from '@/components/Navigation';
+import Navigation from '@/components/NavigationNewDesign';
 import { useAuth } from '@/contexts/AuthContext';
 import '@testing-library/jest-dom';
 

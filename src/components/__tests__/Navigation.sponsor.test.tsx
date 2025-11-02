@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import Navigation from '@/components/Navigation';
+import Navigation from '@/components/NavigationNewDesign';
 import { BrowserRouter } from 'react-router-dom';
 import { useSponsorMode } from '@/hooks/useSponsorMode';
 import { useAuth } from '@/contexts/AuthContext';

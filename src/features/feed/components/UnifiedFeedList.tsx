@@ -12,8 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { FeedFilter } from '@/components/FeedFilter';
 import { FeedGestures } from '@/components/FeedGestures';
 import { FeedKeymap } from '@/components/FeedKeymap';
-import { EventCard } from '@/components/EventCard';
-import { UserPostCard } from '@/components/UserPostCard';
+import { EventCardNewDesign } from '@/components/feed/EventCardNewDesign';
+import { UserPostCardNewDesign } from '@/components/feed/UserPostCardNewDesign';
 import CommentModal from '@/components/CommentModal';
 import { PostCreatorModal } from '@/components/PostCreatorModal';
 import { Button } from '@/components/ui/button';
@@ -174,7 +174,7 @@ function renderLoadingState() {
         </div>
         <div className="grid gap-4">
           {[0, 1, 2].map((idx) => (
-            <div key={idx} className="h-[60vh] rounded-3xl border border-white/5 bg-white/5">
+            <div key={idx} className="h-[60vh] rounded-3xl border border-border bg-muted/10">
               <Skeleton className="h-full w-full rounded-3xl bg-white/5" />
             </div>
           ))}
@@ -604,10 +604,10 @@ export default function UnifiedFeedList() {
 
   if (status === 'error') {
     return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-neutral-950 text-white">
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-background text-foreground">
         <div className="space-y-1 text-center">
           <p className="text-lg font-semibold">We couldn't load your feed.</p>
-          <p className="text-sm text-white/60">Refresh to try again or explore featured events.</p>
+          <p className="text-sm text-foreground/60">Refresh to try again or explore featured events.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button onClick={() => refetch()} variant="secondary">
@@ -620,7 +620,7 @@ export default function UnifiedFeedList() {
   }
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-black text-white">
+    <div className="relative h-dvh w-full overflow-hidden bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-950 via-black to-black" aria-hidden />
       <div
         className="pointer-events-none absolute left-1/2 top-[-30%] h-[520px] w-[125%] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(circle_at_center,_rgba(120,119,198,0.35)_0%,_rgba(32,31,60,0.05)_55%,_transparent_75%)] blur-3xl"
@@ -636,35 +636,35 @@ export default function UnifiedFeedList() {
         {/* Title Section */}
         <div className="relative z-40 px-3 pt-4 pb-2 sm:px-4">
           <div className="mx-auto w-full max-w-5xl text-center">
-            <h1 className="text-2xl font-bold text-white mb-1">LAUNDACH</h1>
-            <h2 className="text-4xl font-bold text-white">YARD-PASS</h2>
+            <h1 className="text-2xl font-bold text-foreground mb-1">LAUNDACH</h1>
+            <h2 className="text-4xl font-bold text-foreground">YARD-PASS</h2>
           </div>
         </div>
         
         <header className="sticky top-0 z-30 bg-gradient-to-b from-black/95 via-black/70 to-transparent px-3 pt-2 pb-2 backdrop-blur-md sm:px-4">
           <div className="mx-auto w-full max-w-5xl">
-            <div className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 shadow-lg backdrop-blur-xl">
-              <h1 className="text-sm font-semibold leading-tight text-white sm:text-base">{locationHeading}</h1>
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-muted/10 px-3 py-2 shadow-lg backdrop-blur-xl">
+              <h1 className="text-sm font-semibold leading-tight text-foreground sm:text-base">{locationHeading}</h1>
               <Button
                 variant="secondary"
                 size="sm"
-                className="flex h-7 items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-[11px] font-medium text-white shadow-none transition hover:bg-white/20"
+                className="flex h-7 items-center gap-1.5 rounded-full border border-border bg-muted/20 px-3 text-[11px] font-medium text-foreground shadow-none transition hover:bg-muted/30"
                 onClick={() => setFiltersOpen(true)}
               >
                 <SlidersHorizontal className="h-3 w-3" /> Tune
               </Button>
             </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] text-white/70">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] text-foreground/70">
               <button
                 onClick={() => setFiltersOpen(true)}
-                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-0.5 transition-all hover:bg-black/40 hover:border-white/20 active:scale-95 touch-manipulation"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-background/30 px-2 py-0.5 transition-all hover:bg-background/40 hover:border-border active:scale-95 touch-manipulation"
                 aria-label="Change location filter"
               >
                 <MapPin className="h-2.5 w-2.5" /> {activeLocation}
               </button>
               <button
                 onClick={() => setFiltersOpen(true)}
-                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-0.5 transition-all hover:bg-black/40 hover:border-white/20 active:scale-95 touch-manipulation"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-background/30 px-2 py-0.5 transition-all hover:bg-background/40 hover:border-border active:scale-95 touch-manipulation"
                 aria-label="Change date filter"
               >
                 <Compass className="h-2.5 w-2.5" /> {activeDate}
@@ -700,7 +700,7 @@ export default function UnifiedFeedList() {
                     aria-hidden
                   />
                   {item.item_type === 'event' ? (
-                    <EventCard
+                    <EventCardNewDesign
                       item={item}
                       onOpenTickets={(eventId) => handleOpenTickets(eventId)}
                       onEventClick={(eventId) => handleEventClick(eventId)}
@@ -714,7 +714,7 @@ export default function UnifiedFeedList() {
                       isVideoPlaying={false}
                     />
                   ) : (
-                    <UserPostCard
+                    <UserPostCardNewDesign
                       item={item}
                       onLike={() => handleLike(item)}
                       onComment={() => handleComment(item)}
@@ -767,19 +767,19 @@ export default function UnifiedFeedList() {
         })}
         <div ref={sentinelRef} className="h-32" />
         {isFetchingNextPage && (
-          <div className="mx-auto flex max-w-5xl items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm text-white/70 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-5xl items-center justify-center gap-2 rounded-full border border-border bg-muted/10 px-5 py-3 text-sm text-foreground/70 backdrop-blur-xl">
             <BrandedSpinner size="sm" text="Loading more" />
           </div>
         )}
         {!filteredItems.length && blendedItems.length > 0 && (
-          <div className="mx-auto flex h-[60vh] w-full max-w-4xl flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-white/5 p-10 text-center text-white/75 backdrop-blur-xl">
-            <p className="text-lg font-semibold text-white sm:text-2xl">No matches for your filters yet.</p>
+          <div className="mx-auto flex h-[60vh] w-full max-w-4xl flex-col items-center justify-center gap-4 rounded-3xl border border-border bg-muted/10 p-10 text-center text-foreground/75 backdrop-blur-xl">
+            <p className="text-lg font-semibold text-foreground sm:text-2xl">No matches for your filters yet.</p>
             <p className="max-w-md text-sm sm:text-base">
               Soften your filters or widen the search radius to reveal more curated events near {activeLocation}. We&apos;ll keep refining the recommendations.
             </p>
             <Button
               variant="secondary"
-              className="rounded-full border border-white/20 bg-white/10 px-6 text-sm text-white hover:bg-white/20"
+              className="rounded-full border border-border bg-muted/20 px-6 text-sm text-foreground hover:bg-muted/30"
               onClick={() => setFilters({ ...DEFAULT_FILTERS })}
             >
               Reset filters
@@ -787,8 +787,8 @@ export default function UnifiedFeedList() {
           </div>
         )}
         {!filteredItems.length && !blendedItems.length && (
-          <div className="mx-auto flex h-[60vh] w-full max-w-4xl flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-white/5 p-10 text-center text-white/75 backdrop-blur-xl">
-            <p className="text-lg font-semibold text-white sm:text-2xl">Your feed is warming up.</p>
+          <div className="mx-auto flex h-[60vh] w-full max-w-4xl flex-col items-center justify-center gap-4 rounded-3xl border border-border bg-muted/10 p-10 text-center text-foreground/75 backdrop-blur-xl">
+            <p className="text-lg font-semibold text-foreground sm:text-2xl">Your feed is warming up.</p>
             <p className="max-w-md text-sm sm:text-base">
               Follow organizers you love, explore events near {activeLocation}, or share your first update to unlock a richer feed experience tailored to you.
             </p>

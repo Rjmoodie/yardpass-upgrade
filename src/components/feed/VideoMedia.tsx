@@ -199,7 +199,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
   return (
     <div
       className={cn(
-        "relative w-full overflow-hidden rounded-3xl bg-black aspect-[9/16] max-h-[82vh] shadow-xl",
+        "relative w-full overflow-hidden rounded-3xl bg-background aspect-[9/16] max-h-[82vh] shadow-xl",
         "group"
       )}
     >
@@ -263,23 +263,23 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
         onError={(e) => console.error("❌ Mux player error:", playbackId, e)}
       />
 
-      <div className="absolute inset-x-0 top-0 h-1 bg-white/20">
-        <div className="h-full bg-white transition-all duration-300" style={{ width: `${progress}%` }} />
+      <div className="absolute inset-x-0 top-0 h-1 bg-muted/30">
+        <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
       </div>
 
       {isBuffering && (
         <div className="absolute inset-0 z-30 flex items-center justify-center">
-          <BrandedSpinner size="lg" className="text-white" />
+          <BrandedSpinner size="lg" className="text-foreground" />
         </div>
       )}
 
       {post?.user_profiles?.display_name && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black via-black/60 to-transparent px-5 pb-5 pt-20">
-          <p className="text-base font-bold text-white drop-shadow-lg">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-background via-background/60 to-transparent px-5 pb-5 pt-20">
+          <p className="text-base font-bold text-foreground drop-shadow-lg">
             {post.user_profiles.display_name}
           </p>
           {post?.text && (
-            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-white/90 drop-shadow-md">{post.text}</p>
+            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-foreground/90 drop-shadow-md">{post.text}</p>
           )}
         </div>
       )}

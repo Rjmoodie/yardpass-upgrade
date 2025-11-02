@@ -54,25 +54,25 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
     <div className="absolute inset-x-0 bottom-[12px] px-3 sm:px-5 pointer-events-none">
       <div
         ref={captionRef}
-        className="pointer-events-auto caption-peek flex flex-col gap-2.5 sm:gap-3 rounded-2xl border border-white/15 px-3.5 py-3 sm:px-4 sm:py-3.5 text-white shadow-lg"
+        className="pointer-events-auto caption-peek flex flex-col gap-2.5 sm:gap-3 rounded-2xl border border-border px-3.5 py-3 sm:px-4 sm:py-3.5 text-foreground shadow-lg"
       >
         {/* Top row */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Avatar className="w-7 h-7 shrink-0">
-              <AvatarFallback className="text-xs bg-white/20 text-white">
+              <AvatarFallback className="text-xs bg-muted/30 text-foreground">
                 {event.organizer.charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-semibold truncate">{event.organizer}</span>
-                <Badge variant="secondary" className="text-[10px] bg-white/15 border-white/30">
+                <Badge variant="secondary" className="text-[10px] bg-muted/30 border-border">
                   <Crown className="w-3 h-3 mr-1" />
                   ORGANIZER
                 </Badge>
               </div>
-              <div className="text-[11px] text-white/80 truncate">
+              <div className="text-[11px] text-foreground/80 truncate">
                 @{event.organizer.replaceAll(" ", "").toLowerCase()}
               </div>
             </div>
@@ -87,9 +87,9 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
                 🎟️ {topTier?.badge ? `${topTier.badge} • ` : ""}{topTier?.name ?? "Tickets"}
               </button>
             )}
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="rounded-full bg-white/10 hover:bg-white/20 border border-white/20 w-8 h-8 grid place-items-center"
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="rounded-full bg-muted/20 hover:bg-muted/30 border border-border w-8 h-8 grid place-items-center"
               aria-label={expanded ? "Collapse" : "Expand"}
               title={expanded ? "Collapse" : "Expand"}
             >
@@ -111,13 +111,13 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
           </h2>
         </button>
         {event.description && (
-          <p className="text-[13px] text-white/90 leading-snug line-clamp-2">
+          <p className="text-[13px] text-foreground/90 leading-snug line-clamp-2">
             {event.description}
           </p>
         )}
 
         {/* Meta row */}
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/90">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-foreground/90">
           <span className="chip"><Calendar className="w-3.5 h-3.5" />{event.dateLabel}</span>
           {!!event.location && (
             <span className="chip">
@@ -126,14 +126,14 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
             </span>
           )}
           <span className="chip"><Users className="w-3.5 h-3.5" />{event.attendeeCount}</span>
-          <button onClick={onOpenAttendees} className="chip hover:bg-white/25 transition">
+          <button onClick={onOpenAttendees} className="chip hover:bg-muted/30 transition">
             {event.attendeeCount} attending
           </button>
         </div>
 
         {/* Expanded controls */}
         {expanded && (
-          <div className="mt-3 pt-3 border-t border-white/10">
+          <div className="mt-3 pt-3 border-t border-border">
             <div className="flex gap-2">
               <Button
                 size="lg"
@@ -145,7 +145,7 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
               <Button
                 size="lg"
                 variant="outline"
-                className="min-h-[44px] rounded-full border-white/30 text-white bg-white/10 hover:bg-white/20 font-semibold backdrop-blur-md"
+                className="min-h-[44px] rounded-full border-border text-foreground bg-muted/20 hover:bg-muted/30 font-semibold backdrop-blur-md"
                 onClick={() => navigate(routes.event(event.id))}
               >
                 Details

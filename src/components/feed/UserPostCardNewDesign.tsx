@@ -125,7 +125,7 @@ const UserPostCardNewDesignComponent = ({
         )}
         
         {/* Gradient overlay for readability */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/20 via-transparent to-background/90" />
       </div>
 
       {/* Bottom Info Card - Glassmorphic - Expandable */}
@@ -136,11 +136,11 @@ const UserPostCardNewDesignComponent = ({
             : 'bottom-3 sm:bottom-4'
         }`}
       >
-        <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-black/70 via-black/60 to-black/70 shadow-2xl backdrop-blur-3xl">
+        <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-background/70 via-background/60 to-background/70 shadow-2xl backdrop-blur-3xl">
           {/* Clickable header to expand/collapse */}
           <div
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full p-5 text-left transition-all hover:bg-white/5 sm:p-6 cursor-pointer"
+            className="w-full p-5 text-left transition-all hover:bg-muted/10 sm:p-6 cursor-pointer"
           >
             {/* Author Info */}
             <div className="mb-3 flex items-center gap-3">
@@ -154,7 +154,7 @@ const UserPostCardNewDesignComponent = ({
                   }
                   onAuthorClick();
                 }}
-                className="group relative h-12 w-12 overflow-hidden rounded-full border-2 border-white/30 ring-2 ring-orange-500/20 cursor-pointer transition-all hover:border-orange-500/60 hover:ring-orange-500/40"
+                className="group relative h-12 w-12 overflow-hidden rounded-full border-2 border-border ring-2 ring-primary/20 cursor-pointer transition-all hover:border-primary/60 hover:ring-primary/40"
               >
                 <ImageWithFallback
                   src={
@@ -185,7 +185,7 @@ const UserPostCardNewDesignComponent = ({
                   }}
                   className="cursor-pointer group"
                 >
-                  <div className="text-base font-bold text-white group-hover:text-orange-500 transition-colors">
+                  <div className="text-base font-bold text-foreground group-hover:text-primary transition-colors">
                     {/* For promoted content, show organization name instead of user name */}
                     {item.isPromoted && item.event_organizer
                       ? item.event_organizer
@@ -214,7 +214,7 @@ const UserPostCardNewDesignComponent = ({
                             e.stopPropagation();
                             onGetTickets?.(item.event_id!);
                           }}
-                          className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 border border-orange-500 px-2.5 py-1 text-[10px] font-bold text-white hover:from-orange-600 hover:to-orange-700 hover:shadow-lg hover:shadow-orange-500/30 transition-all active:scale-95 cursor-pointer"
+                          className="inline-flex items-center gap-1 rounded-full bg-primary border border-primary px-2.5 py-1 text-[10px] font-bold text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 cursor-pointer"
                           title="Purchase tickets for this event"
                         >
                           <Ticket className="h-3 w-3" />
@@ -227,7 +227,7 @@ const UserPostCardNewDesignComponent = ({
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 border border-blue-500 px-2.5 py-1 text-[10px] font-bold text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95 cursor-pointer"
+                            className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 border border-blue-500 px-2.5 py-1 text-[10px] font-bold text-primary-foreground hover:from-blue-600 hover:to-blue-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95 cursor-pointer"
                             title={item.promotion.cta_label}
                           >
                             <Info className="h-3 w-3" />
@@ -246,18 +246,18 @@ const UserPostCardNewDesignComponent = ({
                     }}
                     className="mt-1.5 cursor-pointer group/event"
                   >
-                    <div className="text-xs font-semibold text-white/90 group-hover/event:text-orange-500 transition-colors">
+                    <div className="text-xs font-semibold text-foreground/90 group-hover/event:text-primary transition-colors">
                       📍 {item.event_title}
                     </div>
                     <div className="mt-1 space-y-0.5">
                       {item.event_starts_at && (
-                        <div className="flex items-center gap-1 text-[10px] text-white/70">
+                        <div className="flex items-center gap-1 text-[10px] text-foreground/70">
                           <Calendar className="h-2.5 w-2.5" />
                           {formatEventDate(item.event_starts_at)} • {formatEventTime(item.event_starts_at)}
                         </div>
                       )}
                       {item.event_location && (
-                        <div className="flex items-center gap-1 text-[10px] text-white/60">
+                        <div className="flex items-center gap-1 text-[10px] text-foreground/60">
                           <MapPin className="h-2.5 w-2.5" />
                           {item.event_location}
                         </div>
@@ -269,11 +269,11 @@ const UserPostCardNewDesignComponent = ({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="rounded-full p-2.5 transition-all hover:bg-white/10 hover:scale-105 active:scale-95">
-                    <MoreVertical className="h-5 w-5 text-white/80 hover:text-white transition-colors" />
+                  <button className="rounded-full p-2.5 transition-all hover:bg-muted/20 hover:scale-105 active:scale-95">
+                    <MoreVertical className="h-5 w-5 text-foreground/80 hover:text-foreground transition-colors" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-neutral-900 border-white/10">
+                <DropdownMenuContent align="end" className="bg-background border-border">
                   {!isOwnPost && (
                     <>
                       <DropdownMenuItem 
@@ -281,7 +281,7 @@ const UserPostCardNewDesignComponent = ({
                           setSaved(!saved);
                           toast({ title: saved ? 'Removed from saved' : 'Saved!', description: saved ? 'Post removed from saved items' : 'Post saved to your collection' });
                         }}
-                        className="text-white hover:bg-white/10 cursor-pointer"
+                        className="text-foreground hover:bg-muted/20 cursor-pointer"
                       >
                         <Bookmark className="h-4 w-4 mr-2" />
                         {saved ? 'Unsave' : 'Save Post'}
@@ -291,7 +291,7 @@ const UserPostCardNewDesignComponent = ({
                           onReport?.();
                           toast({ title: 'Reported', description: 'Thank you for your report. We\'ll review this content.' });
                         }}
-                        className="text-red-400 hover:bg-white/10 cursor-pointer"
+                        className="text-destructive hover:bg-muted/20 cursor-pointer"
                       >
                         <Flag className="h-4 w-4 mr-2" />
                         Report
@@ -300,7 +300,7 @@ const UserPostCardNewDesignComponent = ({
                         onClick={() => {
                           toast({ title: 'Blocked', description: `You won't see posts from this user anymore.` });
                         }}
-                        className="text-red-400 hover:bg-white/10 cursor-pointer"
+                        className="text-destructive hover:bg-muted/20 cursor-pointer"
                       >
                         <UserX className="h-4 w-4 mr-2" />
                         Block User
@@ -325,8 +325,8 @@ const UserPostCardNewDesignComponent = ({
             {/* Caption */}
             {item.content && (
               <div className="mt-3">
-                <p className={`text-sm leading-relaxed text-white/90 ${isExpanded ? '' : 'line-clamp-2'}`}>
-                  <span className="font-bold text-white">{item.author_name}</span>{' '}
+                <p className={`text-sm leading-relaxed text-foreground/90 ${isExpanded ? '' : 'line-clamp-2'}`}>
+                  <span className="font-bold text-foreground">{item.author_name}</span>{' '}
                   <span className="font-normal">{item.content}</span>
                 </p>
               </div>
@@ -334,7 +334,7 @@ const UserPostCardNewDesignComponent = ({
             
             {/* Engagement Stats */}
             {!viewCountLoading && viewCount > 0 && (
-              <div className="mt-2 flex items-center gap-3 text-[11px] text-white/60">
+              <div className="mt-2 flex items-center gap-3 text-[11px] text-foreground/60">
                 <span className="flex items-center gap-1">
                   <Eye className="h-3 w-3" />
                   {viewCount.toLocaleString()} {viewCount === 1 ? 'view' : 'views'}
@@ -344,9 +344,9 @@ const UserPostCardNewDesignComponent = ({
 
             {/* Expand Indicator */}
             <div className="mt-4 flex justify-center">
-              <div className="rounded-full bg-white/10 p-1.5 transition-all hover:bg-white/20">
+              <div className="rounded-full bg-muted/20 p-1.5 transition-all hover:bg-muted/30">
                 <ChevronUp 
-                  className={`h-4 w-4 text-white/60 transition-all duration-300 ${
+                  className={`h-4 w-4 text-foreground/60 transition-all duration-300 ${
                     isExpanded ? 'rotate-180' : ''
                   }`}
                 />
@@ -356,7 +356,7 @@ const UserPostCardNewDesignComponent = ({
 
           {/* Expanded Content - Interactions (Hidden - using side buttons) */}
           {isExpanded && (
-            <div className="border-t border-white/10 bg-black/20 p-6 sm:p-7">
+            <div className="border-t border-border bg-background/20 p-6 sm:p-7">
               {/* Action buttons removed - now in side FloatingActions */}
 
               {/* Event link if post is from an event */}
@@ -366,7 +366,7 @@ const UserPostCardNewDesignComponent = ({
                     e.stopPropagation();
                     item.event_id && navigate(`/e/${item.event_id}`);
                   }}
-                  className="mt-4 w-full rounded-full border border-white/20 bg-white/10 py-2.5 text-sm font-semibold text-white transition-all hover:bg-white/20 active:scale-95"
+                  className="mt-4 w-full rounded-full border border-border bg-muted/20 py-2.5 text-sm font-semibold text-foreground transition-all hover:bg-muted/30 active:scale-95"
                 >
                   View Event: {item.event_title}
                 </button>

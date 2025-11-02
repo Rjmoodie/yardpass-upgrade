@@ -406,17 +406,17 @@ export default function FeedPageNewDesign() {
 
   if (status === 'loading') {
     return (
-      <div className="flex h-dvh items-center justify-center bg-black">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/10 border-t-[#FF8C00]" />
+      <div className="flex h-dvh items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-border border-t-primary" />
       </div>
     );
   }
 
   if (status === 'error') {
     return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-neutral-950 text-white">
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-background text-foreground">
         <p className="text-lg font-semibold">We couldn't load your feed.</p>
-        <button onClick={() => refetch()} className="rounded-full bg-[#FF8C00] px-6 py-3 text-white font-semibold">
+        <button onClick={() => refetch()} className="rounded-full bg-primary px-6 py-3 text-primary-foreground font-semibold">
           Refresh feed
         </button>
       </div>
@@ -424,7 +424,7 @@ export default function FeedPageNewDesign() {
   }
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-black text-white">
+    <div className="relative h-dvh w-full overflow-hidden bg-background text-foreground">
       {/* Background gradient */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-950 via-black to-black" />
       <div className="pointer-events-none absolute left-1/2 top-[-30%] h-[520px] w-[125%] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(circle_at_center,_rgba(120,119,198,0.35)_0%,_rgba(32,31,60,0.05)_55%,_transparent_75%)] blur-3xl" />
@@ -531,7 +531,7 @@ export default function FeedPageNewDesign() {
 
       {soundToastVisible && (
         <div className="fixed left-1/2 top-32 z-40 -translate-x-1/2 sm:top-36">
-          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-2 text-xs font-semibold text-white shadow-2xl backdrop-blur-md sm:px-5 sm:text-sm">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-background/80 px-4 py-2 text-xs font-semibold text-foreground shadow-2xl backdrop-blur-md sm:px-5 sm:text-sm">
             {lastGlobalSoundState ? (
               <Volume2 className="h-4 w-4" />
             ) : (

@@ -68,7 +68,7 @@ const EventCardNewDesignComponent = ({
         />
         
         {/* Gradient overlay for readability */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/20 via-transparent to-background/90" />
       </div>
 
       {/* Bottom Info Card - Glassmorphic - Expandable */}
@@ -79,11 +79,11 @@ const EventCardNewDesignComponent = ({
             : 'bottom-3 sm:bottom-4'
         }`}
       >
-        <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-black/70 via-black/60 to-black/70 shadow-2xl backdrop-blur-3xl">
+        <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-background/70 via-background/60 to-background/70 shadow-2xl backdrop-blur-3xl">
           {/* Clickable header to expand/collapse */}
           <div
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full cursor-pointer p-5 text-left transition-all hover:bg-white/5 sm:p-6"
+            className="w-full cursor-pointer p-5 text-left transition-all hover:bg-muted/10 sm:p-6"
           >
             {/* Event Title & Get Tickets */}
             <div className="mb-3 flex items-start justify-between gap-3">
@@ -101,11 +101,11 @@ const EventCardNewDesignComponent = ({
                     e.stopPropagation();
                     navigate(`/e/${item.event_id}`);
                   }}
-                  className="mb-1.5 text-lg font-bold text-white drop-shadow-lg sm:text-xl cursor-pointer hover:text-orange-500 transition-colors"
+                  className="mb-1.5 text-lg font-bold text-foreground drop-shadow-lg sm:text-xl cursor-pointer hover:text-primary transition-colors"
                 >
                   {item.event_title}
                 </h3>
-                <p className={`text-sm leading-relaxed text-white/80 transition-all duration-300 ${
+                <p className={`text-sm leading-relaxed text-foreground/80 transition-all duration-300 ${
                   isExpanded ? '' : 'line-clamp-2'
                 }`}>
                   {item.event_description || 'Join us for an amazing experience'}
@@ -136,8 +136,8 @@ const EventCardNewDesignComponent = ({
                   }}
                   className="group flex-shrink-0 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 px-5 py-2.5 font-bold shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-95"
                 >
-                  <Ticket className="h-4 w-4 text-white transition-transform group-hover:rotate-12" />
-                  <span className="text-sm text-white">{item.promotion.ctaLabel || 'Learn More'}</span>
+                  <Ticket className="h-4 w-4 text-primary-foreground transition-transform group-hover:rotate-12" />
+                  <span className="text-sm text-primary-foreground">{item.promotion.ctaLabel || 'Learn More'}</span>
                 </a>
               ) : (
                 <button 
@@ -145,25 +145,25 @@ const EventCardNewDesignComponent = ({
                     e.stopPropagation();
                     onOpenTickets(item.event_id);
                   }}
-                  className="group flex-shrink-0 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-5 py-2.5 font-bold shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-95"
+                  className="group flex-shrink-0 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-bold shadow-lg transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-xl active:scale-95"
                 >
-                  <Ticket className="h-4 w-4 text-white transition-transform group-hover:rotate-12" />
-                  <span className="text-sm text-white">Tickets</span>
+                  <Ticket className="h-4 w-4 text-primary-foreground transition-transform group-hover:rotate-12" />
+                  <span className="text-sm text-primary-foreground">Tickets</span>
                 </button>
               )}
             </div>
             
             {/* Date & Location - Always Visible */}
             <div className="space-y-2.5 mt-4">
-              <div className="flex items-center gap-2.5 text-white/80">
-                <div className="rounded-full bg-white/10 p-1.5">
+              <div className="flex items-center gap-2.5 text-foreground/80">
+                <div className="rounded-full bg-muted/20 p-1.5">
                   <Calendar className="h-4 w-4" />
                 </div>
                 <span className="text-sm font-medium">{formatDate(item.event_starts_at)} • {formatTime(item.event_starts_at)}</span>
               </div>
               
-              <div className="flex items-center gap-2.5 text-white/80">
-                <div className="rounded-full bg-white/10 p-1.5">
+              <div className="flex items-center gap-2.5 text-foreground/80">
+                <div className="rounded-full bg-muted/20 p-1.5">
                   <MapPin className="h-4 w-4" />
                 </div>
                 <span className="text-sm font-medium">{item.event_location || 'Location TBA'}</span>
@@ -177,9 +177,9 @@ const EventCardNewDesignComponent = ({
 
             {/* Expand Indicator */}
             <div className="mt-4 flex justify-center">
-              <div className="rounded-full bg-white/10 p-1.5 transition-all hover:bg-white/20">
+              <div className="rounded-full bg-muted/20 p-1.5 transition-all hover:bg-muted/30">
                 <ChevronUp 
-                  className={`h-4 w-4 text-white/60 transition-all duration-300 ${
+                  className={`h-4 w-4 text-foreground/60 transition-all duration-300 ${
                     isExpanded ? 'rotate-180' : ''
                   }`}
                 />
@@ -189,11 +189,11 @@ const EventCardNewDesignComponent = ({
 
           {/* Expanded Content */}
           {isExpanded && (
-            <div className="border-t border-white/10 bg-black/20 p-6 sm:p-7 space-y-4 overflow-y-auto">
+            <div className="border-t border-border bg-background/20 p-6 sm:p-7 space-y-4 overflow-y-auto">
               {/* Additional event details when expanded */}
               <div>
-                <h4 className="text-sm font-bold text-white mb-3">About this event</h4>
-                <p className="text-sm text-white/80 leading-relaxed">
+                <h4 className="text-sm font-bold text-foreground mb-3">About this event</h4>
+                <p className="text-sm text-foreground/80 leading-relaxed">
                   {item.event_description || 'Join us for an amazing experience'}
                 </p>
               </div>
@@ -203,7 +203,7 @@ const EventCardNewDesignComponent = ({
                   e.stopPropagation();
                   onEventClick(item.event_id);
                 }}
-                className="w-full rounded-full border border-white/20 bg-white/10 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:scale-105 hover:border-white/30 hover:bg-white/20 hover:shadow-xl active:scale-95"
+                className="w-full rounded-full border border-border bg-muted/20 py-3.5 text-sm font-bold text-foreground shadow-lg transition-all hover:scale-105 hover:border-border hover:bg-muted/30 hover:shadow-xl active:scale-95"
               >
                 View Full Event Details
               </button>

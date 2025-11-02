@@ -25,10 +25,10 @@ export function TopFilters({
       <div className="fixed right-3 top-4 z-50 sm:right-4 sm:top-6 md:right-6">
         <button
           onClick={onFiltersClick}
-          className="flex flex-col items-center justify-center gap-1 p-3 rounded-2xl min-h-[48px] min-w-[48px] text-white bg-black/40 backdrop-blur-sm border border-white/30 hover:bg-white/20 active:scale-95 transition-all duration-200 shadow-lg"
+          className="flex flex-col items-center justify-center gap-1 p-3 rounded-2xl min-h-[48px] min-w-[48px] text-foreground bg-background/40 backdrop-blur-sm border border-border hover:bg-muted/30 active:scale-95 transition-all duration-200 shadow-lg"
           aria-label="Open filters"
         >
-          <SlidersHorizontal className="w-6 h-6 text-white" />
+          <SlidersHorizontal className="w-6 h-6 text-foreground" />
         </button>
       </div>
 

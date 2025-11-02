@@ -84,14 +84,14 @@ export function FloatingActions({
           if (onCreatePost) onCreatePost();
         }}
         style={{ pointerEvents: 'auto' }}
-        className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-orange-500/60 hover:bg-orange-500/20 active:scale-95 cursor-pointer"
+        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted/20 text-foreground shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-primary/60 hover:bg-primary/20 active:scale-95 cursor-pointer"
         aria-label="Create post"
       >
         <Plus className="h-5 w-5" />
       </button>
       
       {/* Divider */}
-      <div className="mx-auto h-px w-6 bg-white/20" />
+      <div className="mx-auto h-px w-6 bg-border" />
       
       {/* Like Button */}
       <button 
@@ -101,10 +101,10 @@ export function FloatingActions({
         className={`flex flex-col items-center gap-0.5 transition-all ${onLike ? 'hover:scale-110 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
         aria-label="Like"
       >
-        <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-xl backdrop-blur-xl transition-all hover:border-red-500/60 hover:bg-red-500/20">
-          <Heart className={`h-5 w-5 transition-all ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+        <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted/20 shadow-xl backdrop-blur-xl transition-all hover:border-red-500/60 hover:bg-red-500/20">
+          <Heart className={`h-5 w-5 transition-all ${isLiked ? 'fill-red-500 text-red-500' : 'text-foreground'}`} />
         </div>
-        <span className="text-sm font-extrabold text-white drop-shadow-[0_2px_12px_rgba(0,0,0,1)] bg-black/40 px-2 py-0.5 rounded-full">
+        <span className="text-sm font-extrabold text-foreground drop-shadow-[0_2px_12px_rgba(0,0,0,1)] bg-background/40 px-2 py-0.5 rounded-full">
           {likeCount}
         </span>
       </button>
@@ -121,10 +121,10 @@ export function FloatingActions({
         className={`flex flex-col items-center gap-0.5 transition-all ${onComment ? 'hover:scale-110 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
         aria-label="Comment"
       >
-        <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-xl backdrop-blur-xl transition-all hover:border-blue-500/60 hover:bg-blue-500/20">
-          <MessageCircle className="h-5 w-5 text-white pointer-events-none" />
+        <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted/20 shadow-xl backdrop-blur-xl transition-all hover:border-blue-500/60 hover:bg-blue-500/20">
+          <MessageCircle className="h-5 w-5 text-foreground pointer-events-none" />
         </div>
-        <span className="text-sm font-extrabold text-white drop-shadow-[0_2px_12px_rgba(0,0,0,1)] bg-black/40 px-2 py-0.5 rounded-full pointer-events-none">
+        <span className="text-sm font-extrabold text-foreground drop-shadow-[0_2px_12px_rgba(0,0,0,1)] bg-background/40 px-2 py-0.5 rounded-full pointer-events-none">
           {commentCount}
         </span>
       </button>
@@ -134,7 +134,7 @@ export function FloatingActions({
         onClick={handleShareClick}
         disabled={!onShare}
         style={{ pointerEvents: 'auto' }}
-        className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all ${onShare ? 'hover:scale-110 hover:border-green-500/60 hover:bg-green-500/20 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
+        className={`flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted/20 text-foreground shadow-xl backdrop-blur-xl transition-all ${onShare ? 'hover:scale-110 hover:border-green-500/60 hover:bg-green-500/20 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
         aria-label="Share"
       >
         <Share2 className="h-5 w-5" />
@@ -145,20 +145,20 @@ export function FloatingActions({
         onClick={handleSaveClick}
         disabled={!onSave}
         style={{ pointerEvents: 'auto' }}
-        className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-xl backdrop-blur-xl transition-all ${onSave ? 'hover:scale-110 hover:border-orange-500/60 hover:bg-orange-500/20 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
+        className={`flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted/20 shadow-xl backdrop-blur-xl transition-all ${onSave ? 'hover:scale-110 hover:border-primary/60 hover:bg-primary/20 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
         aria-label="Save"
       >
-        <Bookmark className={`h-5 w-5 transition-all ${isSaved ? 'fill-orange-500 text-orange-500' : 'text-white'}`} />
+        <Bookmark className={`h-5 w-5 transition-all ${isSaved ? 'fill-primary text-primary' : 'text-foreground'}`} />
       </button>
       
       {/* Divider */}
-      <div className="mx-auto h-px w-6 bg-white/20" />
+      <div className="mx-auto h-px w-6 bg-border" />
       
       {/* Sound Toggle Button */}
       <button 
         onClick={handleMuteToggle}
         style={{ pointerEvents: 'auto' }}
-        className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-white/40 hover:bg-white/20 active:scale-95 cursor-pointer"
+        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted/20 text-foreground shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-border hover:bg-muted/30 active:scale-95 cursor-pointer"
         aria-label={isMuted ? "Unmute" : "Mute"}
       >
         {isMuted ? (

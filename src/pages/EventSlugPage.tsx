@@ -58,7 +58,7 @@ export default function EventSlugPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+      <div className="min-h-screen bg-background flex items-center justify-center text-foreground">
         <p>Loading event...</p>
       </div>
     );
@@ -66,17 +66,17 @@ export default function EventSlugPage() {
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+      <div className="min-h-screen bg-background flex items-center justify-center text-foreground">
         <div className="text-center">
           <p className="mb-4">Event not found</p>
-          <button onClick={() => navigate(-1)} className="text-[#FF8C00] hover:underline">Go back</button>
+          <button onClick={() => navigate(-1)} className="text-primary hover:underline">Go back</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black pb-24 text-white">
+    <div className="min-h-screen bg-background pb-24 text-foreground">
       <div className="relative h-64 overflow-hidden sm:h-80 md:h-96">
         <ImageWithFallback src={event.coverImage} alt={event.title} className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black" />
@@ -84,7 +84,7 @@ export default function EventSlugPage() {
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-3 sm:p-4">
           <button
             onClick={() => navigate(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md transition hover:bg-black/60 sm:h-10 sm:w-10"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/40 backdrop-blur-md transition hover:bg-background/60 sm:h-10 sm:w-10"
             aria-label="Go back"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -93,10 +93,10 @@ export default function EventSlugPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setEvent((prev) => ({ ...prev, isSaved: !prev.isSaved }))}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md transition hover:bg-black/60 sm:h-10 sm:w-10"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/40 backdrop-blur-md transition hover:bg-background/60 sm:h-10 sm:w-10"
               aria-label="Save event"
             >
-              <Heart className={`h-5 w-5 ${event.isSaved ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+              <Heart className={`h-5 w-5 ${event.isSaved ? 'fill-red-500 text-red-500' : 'text-foreground'}`} />
             </button>
             <button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md transition hover:bg-black/60 sm:h-10 sm:w-10">
               <Share2 className="h-5 w-5" />
@@ -107,7 +107,7 @@ export default function EventSlugPage() {
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
           <div className="mb-2 flex flex-wrap gap-2">
             {event.categories.map((category) => (
-              <span key={category} className="rounded-full bg-black/60 px-3 py-1 text-xs backdrop-blur-md sm:text-sm">
+              <span key={category} className="rounded-full bg-background/60 px-3 py-1 text-xs backdrop-blur-md sm:text-sm">
                 {category}
               </span>
             ))}
@@ -127,47 +127,47 @@ export default function EventSlugPage() {
             <div className="flex items-center gap-2">
               <h3 className="text-sm sm:text-base">{event.organizer.name}</h3>
               {event.organizer.verified && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-white">✔</span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-primary-foreground">✔</span>
               )}
             </div>
-            <p className="text-xs text-white/60 sm:text-sm">Event Organizer</p>
+            <p className="text-xs text-foreground/60 sm:text-sm">Event Organizer</p>
           </div>
-          <button className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white hover:bg-white/10 sm:text-sm">
+          <button className="rounded-full border border-border bg-muted/10 px-4 py-2 text-xs text-foreground hover:bg-muted/20 sm:text-sm">
             Follow
           </button>
         </div>
 
         <div className="mb-6 grid gap-3 sm:grid-cols-2">
-          <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
-            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#FF8C00]/20">
-              <Calendar className="h-5 w-5 text-[#FF8C00]" />
+          <div className="flex items-start gap-3 rounded-2xl border border-border bg-muted/10 p-4 backdrop-blur-xl">
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/20">
+              <Calendar className="h-5 w-5 text-primary" />
             </span>
             <div>
-              <p className="mb-1 text-xs text-white/60 sm:text-sm">Date & Time</p>
+              <p className="mb-1 text-xs text-foreground/60 sm:text-sm">Date & Time</p>
               <p className="text-sm sm:text-base">{event.date}</p>
-              <p className="text-xs text-white/70">{event.time}</p>
+              <p className="text-xs text-foreground/70">{event.time}</p>
             </div>
           </div>
 
-          <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
+          <div className="flex items-start gap-3 rounded-2xl border border-border bg-muted/10 p-4 backdrop-blur-xl">
             <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-purple-500/20">
               <MapPin className="h-5 w-5 text-purple-400" />
             </span>
             <div>
-              <p className="mb-1 text-xs text-white/60 sm:text-sm">Location</p>
+              <p className="mb-1 text-xs text-foreground/60 sm:text-sm">Location</p>
               <p className="text-sm sm:text-base">{event.venue}</p>
-              <p className="text-xs text-white/70">{event.location}</p>
+              <p className="text-xs text-foreground/70">{event.location}</p>
             </div>
           </div>
         </div>
 
-        <div className="mb-6 flex gap-2 border-b border-white/10">
+        <div className="mb-6 flex gap-2 border-b border-border">
           {(['about', 'tickets', 'attendees'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 pb-3 text-sm transition sm:text-base ${
-                activeTab === tab ? 'border-b-2 border-[#FF8C00] text-white' : 'text-white/60 hover:text-white'
+                activeTab === tab ? 'border-b-2 border-primary text-foreground' : 'text-foreground/60 hover:text-foreground'
               }`}
             >
               {tab === 'about' && 'About'}

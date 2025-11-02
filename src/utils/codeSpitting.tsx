@@ -82,8 +82,8 @@ export class OptimizedSuspense extends Component<OptimizedSuspenseProps, { hasEr
 export const AppSections = {
   // Core feed components
   Feed: lazyWithRetry(() => import('../pages/Index')),
-  EventCard: lazyWithRetry(() => import('../components/EventCard')),
-  UserPostCard: lazyWithRetry(() => import('../components/UserPostCard')),
+  EventCard: lazyWithRetry(() => import('../components/feed/EventCardNewDesign')),
+  UserPostCard: lazyWithRetry(() => import('../components/feed/UserPostCardNewDesign')),
   
   // Dashboard and management
   Dashboard: lazyWithRetry(() => import('../components/OrganizerDashboard')),

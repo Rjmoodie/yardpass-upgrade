@@ -390,7 +390,7 @@ export function EventDetailsPageIntegrated() {
                   navigate(`/profile/${event.organizer.id}`);
                 }
               }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md ring-1 ring-white/20 transition-all hover:bg-black/70 hover:ring-white/30 w-fit"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-background/60 backdrop-blur-md ring-1 ring-border transition-all hover:bg-background/70 hover:ring-border w-fit"
             >
               <ImageWithFallback
                 src={event.organizer.avatar}
