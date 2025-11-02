@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, memo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, Share2, ChevronUp, ChevronDown, Calendar, MapPin } from 'lucide-react';
+import { Heart, MessageCircle, Share2, ChevronUp, ChevronDown, Calendar, MapPin, Eye } from 'lucide-react';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { isVideoUrl } from '@/utils/mux';
 import { muxToPoster } from '@/lib/video/muxClient';
@@ -48,6 +48,7 @@ export const UserPostCardModern = memo(function UserPostCardModern({
 
   const likes = item.metrics?.likes ?? 0;
   const comments = item.metrics?.comments ?? 0;
+  const views = item.metrics?.views ?? 0;
   const isLiked = item.metrics?.hasLiked ?? false;
 
   const formatDate = useCallback((dateStr: string | null) => {
@@ -152,9 +153,17 @@ export const UserPostCardModern = memo(function UserPostCardModern({
         }`}
       >
         <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-white/20 bg-black/50 shadow-2xl backdrop-blur-2xl">
-          {/* Clickable header section */}
-          <button
+          {/* Clickable header section (div-as-button to avoid nested <button>) */}
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setIsExpanded(!isExpanded)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsExpanded((v) => !v);
+              }
+            }}
             className="w-full p-5 text-left transition-all hover:bg-white/5 sm:p-6"
           >
             {/* Author and content */}
@@ -214,18 +223,37 @@ export const UserPostCardModern = memo(function UserPostCardModern({
                     <Share2 className="h-5 w-5 text-white" />
                   </button>
                 </div>
-              </div>
 
-              {/* Expand/Collapse Indicator */}
-              <div className="flex flex-col items-center gap-2">
-                {isExpanded ? (
-                  <ChevronDown className="h-5 w-5 text-white/50" />
-                ) : (
-                  <ChevronUp className="h-5 w-5 text-white/50" />
-                )}
+                {/* Views + explicit expand/collapse chevron (always visible) */}
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[13px] text-white/75">
+                    <Eye className="h-4 w-4" />
+                    <span className="font-semibold">{views}</span>
+                    <span>views</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+                    aria-expanded={isExpanded}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsExpanded((v) => !v);
+                    }}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full
+               border border-white/20 bg-white/10 hover:bg-white/20
+               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                  >
+                    {isExpanded ? (
+                      <ChevronUp className="h-5 w-5 text-white/80" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-white/80" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
-          </button>
+          </div>
 
           {/* Expanded content - Event Details */}
           {isExpanded && item.event_id && (

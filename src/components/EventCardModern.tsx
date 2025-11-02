@@ -93,9 +93,17 @@ export const EventCardModern = memo(function EventCardModern({
         }`}
       >
         <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-white/20 bg-black/50 shadow-2xl backdrop-blur-2xl">
-          {/* Clickable header section */}
-          <button
+          {/* Clickable header section (div as button) */}
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setIsExpanded(!isExpanded)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsExpanded((v) => !v);
+              }
+            }}
             className="w-full p-5 text-left transition-all hover:bg-white/5 sm:p-6"
           >
             {/* Event title and Get Tickets button */}
@@ -110,6 +118,7 @@ export const EventCardModern = memo(function EventCardModern({
               </div>
               <div className="flex flex-col items-center gap-2">
                 <button 
+                  type="button"
                   onClick={handleTicketClick}
                   className="flex items-center gap-2 whitespace-nowrap rounded-full bg-[#FF8C00] px-4 py-2 shadow-lg transition-all hover:scale-105 hover:bg-[#FF9D1A] active:scale-95 sm:px-5 sm:py-2.5"
                 >
@@ -123,7 +132,7 @@ export const EventCardModern = memo(function EventCardModern({
                 )}
               </div>
             </div>
-          </button>
+          </div>
 
           {/* Expanded content */}
           <div 
