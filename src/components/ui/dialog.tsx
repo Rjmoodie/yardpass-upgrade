@@ -85,7 +85,7 @@ const BottomSheetContent = React.forwardRef<
     >
       {/* Grab handle */}
       {showHandle ? (
-        <div className="mx-auto mb-3 mt-2 h-1.5 w-12 rounded-full bg-muted/70" />
+        <div className="mx-auto mb-3 mt-2 h-1.5 w-12 rounded-full bg-foreground/30" />
       ) : null}
       <div className={cn(contentClassName)}>{children}</div>
       <DialogPrimitive.Close
@@ -128,7 +128,7 @@ const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  <DialogPrimitive.Description ref={ref} className={cn("text-sm text-foreground/85", className)} {...props} />
 ))
 DialogDescription.displayName = DialogPrimitive.Description.displayName
 

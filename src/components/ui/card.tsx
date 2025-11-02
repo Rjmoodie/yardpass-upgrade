@@ -47,7 +47,7 @@ export const CardTitle: React.FC<CardProps> = ({ children, className, ...props }
 );
 
 export const CardDescription: React.FC<CardProps> = ({ children, className, ...props }) => (
-  <p className={cn("text-sm text-foreground/60", className)} {...props}>
+  <p className={cn("text-sm text-foreground/85", className)} {...props}>
     {children}
   </p>
 );

@@ -65,7 +65,7 @@ export function FeedCard({ event }: FeedCardProps) {
                     </span>
                   )}
                 </div>
-                <p className={`text-xs text-white/70 transition-all duration-300 sm:text-sm ${
+                <p className={`text-xs text-white/90 transition-all duration-300 sm:text-sm ${
                   isExpanded ? 'line-clamp-none' : 'line-clamp-2'
                 }`}>
                   {event.description}
@@ -83,9 +83,9 @@ export function FeedCard({ event }: FeedCardProps) {
                   <span className="text-xs text-white sm:text-sm">Tickets</span>
                 </button>
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-white/50" />
+                  <ChevronDown className="h-4 w-4 text-white/80" />
                 ) : (
-                  <ChevronUp className="h-4 w-4 text-white/50" />
+                  <ChevronUp className="h-4 w-4 text-white/80" />
                 )}
               </div>
             </div>

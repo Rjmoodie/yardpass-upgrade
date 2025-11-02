@@ -13,9 +13,9 @@ import { PostCreatorModal } from '@/components/PostCreatorModal';
 import EventCheckoutSheet from '@/components/EventCheckoutSheet';
 import { isVideoUrl } from '@/utils/mux';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
-import { FeedCard } from '../../../New design/FeedCard';
-import { TopFilters } from '../../../New design/TopFilters';
-import { FloatingActions } from '../../../New design/FloatingActions';
+import { FeedCard } from '@/components/feed/FeedCard';
+import { TopFilters } from '@/components/feed/TopFilters';
+import { FloatingActions } from '@/components/feed/FloatingActions';
 import { BrandedSpinner } from '@/components/BrandedSpinner';
 
 type FeedFilters = {

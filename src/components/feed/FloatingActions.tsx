@@ -104,7 +104,7 @@ export function FloatingActions({
         <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-xl backdrop-blur-xl transition-all hover:border-red-500/60 hover:bg-red-500/20">
           <Heart className={`h-5 w-5 transition-all ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
         </div>
-        <span className="text-[11px] font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+        <span className="text-sm font-extrabold text-white drop-shadow-[0_2px_12px_rgba(0,0,0,1)] bg-black/40 px-2 py-0.5 rounded-full">
           {likeCount}
         </span>
       </button>
@@ -124,7 +124,7 @@ export function FloatingActions({
         <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-xl backdrop-blur-xl transition-all hover:border-blue-500/60 hover:bg-blue-500/20">
           <MessageCircle className="h-5 w-5 text-white pointer-events-none" />
         </div>
-        <span className="text-[11px] font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] pointer-events-none">
+        <span className="text-sm font-extrabold text-white drop-shadow-[0_2px_12px_rgba(0,0,0,1)] bg-black/40 px-2 py-0.5 rounded-full pointer-events-none">
           {commentCount}
         </span>
       </button>

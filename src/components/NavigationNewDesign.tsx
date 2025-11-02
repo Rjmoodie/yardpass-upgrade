@@ -97,10 +97,10 @@ export function NavigationNewDesign() {
               )}
               
               <Icon className={`relative h-5 w-5 sm:h-6 sm:w-6 transition-all ${
-                isActive ? 'text-primary-foreground drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'text-foreground/60'
+                isActive ? 'text-primary-foreground drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'text-foreground/90'
               }`} />
               <span className={`relative text-[10px] font-bold sm:text-xs transition-all ${
-                isActive ? 'text-primary-foreground drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]' : 'text-foreground/60'
+                isActive ? 'text-primary-foreground drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]' : 'text-foreground/90'
               }`}>
                 {item.label}
               </span>

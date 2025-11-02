@@ -494,7 +494,7 @@ export function NotificationSystem() {
         {isOpen && (
           <div 
             ref={panelRef}
-            className="fixed sm:absolute top-16 sm:top-full right-2 sm:right-0 mt-2 w-[calc(100vw-1rem)] sm:w-96 max-h-[80vh] sm:max-h-96 overflow-hidden z-50 shadow-2xl border-2 border-border/50 bg-background rounded-xl"
+            className="fixed sm:absolute top-16 sm:top-full right-2 sm:right-0 mt-2 w-[calc(100vw-1rem)] sm:w-96 max-h-[80vh] sm:max-h-96 overflow-hidden z-50 shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] border-2 border-border dark:border-white/20 bg-background rounded-xl ring-1 ring-black/10 dark:ring-white/10 backdrop-blur-xl"
           >
             <div className="flex items-center justify-between p-3 border-b border-border/20">
               <h3 className="font-semibold">Notifications</h3>
@@ -522,11 +522,11 @@ export function NotificationSystem() {
 
             <div className="max-h-80 overflow-y-auto">
               {isLoading ? (
-                <div className="p-4 text-center text-muted-foreground text-sm">
+                <div className="p-4 text-center text-foreground/75 text-sm">
                   Loading notifications...
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
+                <div className="p-4 text-center text-foreground/75">
                   No notifications yet
                 </div>
               ) : (

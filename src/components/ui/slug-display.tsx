@@ -11,23 +11,40 @@ interface SlugDisplayProps {
 
 const variantStyles = {
   default: {
-    container: 'inline-flex items-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-white/10 via-white/5 to-white/10 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm shadow-sm hover:border-white/30 transition-colors duration-200',
-    indicator: 'h-1.5 w-1.5 rounded-full bg-gradient-to-r from-orange-400 to-pink-400 shadow-sm',
-    text: 'tracking-wide font-medium'
+    container: [
+      'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold',
+      'bg-slate-950/80 text-slate-50 ring-1 ring-black/30 shadow-lg backdrop-blur-sm transition-colors duration-200',
+      'dark:bg-slate-900/80 dark:text-white dark:ring-white/30'
+    ].join(' '),
+    indicator: 'h-1.5 w-1.5 rounded-full bg-gradient-to-r from-brand-400 to-brand-600 shadow-sm',
+    text: 'tracking-wide font-semibold'
   },
   compact: {
-    container: 'inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/8 px-2 py-1 text-xs font-medium text-white/80 backdrop-blur-sm',
-    indicator: 'h-1 w-1 rounded-full bg-gradient-to-r from-blue-400 to-purple-400',
+    container: [
+      'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium',
+      'bg-slate-950/75 text-slate-100 ring-1 ring-black/30 backdrop-blur-sm shadow-md',
+      'dark:bg-slate-900/75 dark:text-white/90 dark:ring-white/25'
+    ].join(' '),
+    indicator: 'h-1 w-1 rounded-full bg-gradient-to-r from-brand-300 to-brand-500',
     text: 'tracking-tight'
   },
   elegant: {
-    container: 'inline-flex items-center gap-2.5 rounded-xl border border-white/25 bg-gradient-to-br from-white/15 via-white/8 to-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-md shadow-lg hover:shadow-xl hover:border-white/35 transition-all duration-300',
-    indicator: 'h-2 w-2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 shadow-sm animate-pulse',
+    container: [
+      'inline-flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-sm font-semibold',
+      'bg-slate-950/85 text-white ring-1 ring-black/40 shadow-xl backdrop-blur-md transition-all duration-300',
+      'hover:ring-black/50 hover:shadow-2xl',
+      'dark:bg-slate-900/85 dark:text-white dark:ring-white/35 dark:hover:ring-white/45'
+    ].join(' '),
+    indicator: 'h-2 w-2 rounded-full bg-gradient-to-r from-emerald-300 to-cyan-400 shadow-sm animate-pulse',
     text: 'tracking-wider font-semibold'
   },
   minimal: {
-    container: 'inline-flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1 text-xs font-normal text-white/70',
-    indicator: 'h-1 w-1 rounded-full bg-white/40',
+    container: [
+      'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium',
+      'bg-slate-900/70 text-slate-200 ring-1 ring-black/40 backdrop-blur-sm',
+      'dark:bg-slate-900/70 dark:text-white/90 dark:ring-white/25'
+    ].join(' '),
+    indicator: 'h-1 w-1 rounded-full bg-white/70 dark:bg-white/70',
     text: 'tracking-normal'
   }
 };

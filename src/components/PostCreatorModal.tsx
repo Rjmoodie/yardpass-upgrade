@@ -841,7 +841,7 @@ export function PostCreatorModal({
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none">
-          <div className="flex max-h-[90vh] flex-col rounded-3xl border border-border/60 bg-background/95 shadow-2xl">
+          <div className="flex max-h-[90vh] flex-col rounded-3xl border-2 border-border bg-background shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 dark:border-white/20">
             <div className="relative overflow-hidden">
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/20 via-background/60 to-background" />
               <DialogHeader className="relative px-6 pt-6 pb-5">
@@ -849,7 +849,7 @@ export function PostCreatorModal({
                   <Sparkles className="h-5 w-5 text-primary" />
                   Share a moment
                 </DialogTitle>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-foreground/80">
                   Capture what's happening and bring your network along.
                 </p>
               </DialogHeader>
@@ -858,7 +858,7 @@ export function PostCreatorModal({
             <div className="flex-1 overflow-y-auto px-6 pb-6" onPaste={onPaste}>
               <div className="space-y-6">
                 {/* User Profile */}
-                <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-11 w-11 ring-2 ring-primary/30">
                       <AvatarImage src={profile?.photo_url || ''} />
@@ -866,7 +866,7 @@ export function PostCreatorModal({
                     </Avatar>
                     <div>
                       <div className="text-sm font-semibold">{profile?.display_name || 'You'}</div>
-                      <div className="text-xs text-muted-foreground">{activeView === 'public' ? 'Posting publicly' : 'Network update'}</div>
+                      <div className="text-xs text-foreground/75">{activeView === 'public' ? 'Posting publicly' : 'Network update'}</div>
                     </div>
                   </div>
                   {selectedTicket && (
@@ -878,8 +878,8 @@ export function PostCreatorModal({
 
                 {/* Event Selection */}
                 {!preselectedEventId && (
-                  <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <div className="rounded-2xl border border-border bg-background/90 p-4">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-foreground/75">
                       Posting to
                     </label>
                     <Select value={selectedEventId} onValueChange={setSelectedEventId}>

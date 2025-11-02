@@ -666,7 +666,7 @@ export function TicketPurchaseModal({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-border dark:border-white/20 shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 bg-background">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CreditCard className="w-5 h-5" />
@@ -679,7 +679,7 @@ export function TicketPurchaseModal({
           <Card>
             <CardContent className="p-4">
               <h3 className="font-semibold mb-2">{event.title}</h3>
-              <div className="text-sm text-muted-foreground space-y-1">
+              <div className="text-sm text-foreground/80 space-y-1">
                 {(() => {
                   const dateString = (event as any).startAtISO ?? event.start_at;
                   if (!dateString) {
@@ -713,7 +713,7 @@ export function TicketPurchaseModal({
                   <Mail className="w-4 h-4" />
                   <h3 className="font-semibold">Email for ticket delivery</h3>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-foreground/80">
                   We'll send your receipt and ticket access link to this email. You can verify it later with a one-time code to view your tickets.
                 </p>
                 <div className="space-y-2">

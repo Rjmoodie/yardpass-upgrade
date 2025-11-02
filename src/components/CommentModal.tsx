@@ -637,14 +637,14 @@ export default function CommentModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       {/* NOTE: parent container uses flex/column with min-h-0; body gets the scroll */}
-      <DialogContent className="w-[min(100vw,880px)] max-h-[84vh] p-0 gap-0 overflow-hidden bg-background border shadow-xl rounded-2xl flex flex-col">
+      <DialogContent className="w-[min(100vw,880px)] max-h-[84vh] p-0 gap-0 overflow-hidden bg-background border-2 border-border dark:border-white/20 shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 rounded-2xl flex flex-col">
         {/* Header (sticky) */}
         <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
               <span className="truncate">{singleMode ? 'Comments' : 'Posts & Comments'}</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="truncate text-muted-foreground">{eventTitle}</span>
+              <span className="text-foreground/60">•</span>
+              <span className="truncate text-foreground/75">{eventTitle}</span>
             </DialogTitle>
 
             <div className="flex items-center gap-2">
@@ -662,7 +662,7 @@ export default function CommentModal({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                  <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/75" />
                 </div>
               )}
 
@@ -671,7 +671,7 @@ export default function CommentModal({
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                  className="h-8 px-2 text-foreground/75 hover:text-foreground"
                   onClick={() => {
                     navigator.clipboard
                       .writeText(`${window.location.origin}${routes.event(eventId)}?tab=posts&post=${activePost.id}`)

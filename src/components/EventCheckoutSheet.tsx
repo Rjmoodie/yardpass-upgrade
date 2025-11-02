@@ -326,7 +326,7 @@ export default function EventCheckoutSheet({ event, isOpen, onClose, onSuccess }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[98vw] sm:max-w-4xl max-h-[calc(100vh-80px)] overflow-y-auto p-0 rounded-2xl shadow-xl mb-20">
+      <DialogContent className="w-[98vw] sm:max-w-4xl max-h-[calc(100vh-80px)] overflow-y-auto p-0 rounded-2xl shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] border-2 border-border dark:border-white/20 ring-1 ring-black/10 dark:ring-white/10 mb-20 bg-background">
         <DialogTitle className="sr-only">
           Purchase tickets for {event.title}
         </DialogTitle>

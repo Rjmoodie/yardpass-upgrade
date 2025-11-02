@@ -390,14 +390,14 @@ export function EventDetailsPageIntegrated() {
                   navigate(`/profile/${event.organizer.id}`);
                 }
               }}
-              className="inline-flex items-center gap-1.5 text-xs transition-all hover:opacity-80 w-fit"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md ring-1 ring-white/20 transition-all hover:bg-black/70 hover:ring-white/30 w-fit"
             >
               <ImageWithFallback
                 src={event.organizer.avatar}
                 alt={event.organizer.name}
-                className="h-4 w-4 rounded-full object-cover ring-1 ring-white/30"
+                className="h-5 w-5 rounded-full object-cover ring-1 ring-white/40"
               />
-              <span className="text-white/85 font-medium">by {event.organizer.name}</span>
+              <span className="text-white text-sm font-bold drop-shadow-[0_2px_12px_rgba(0,0,0,1)]">by {event.organizer.name}</span>
             </button>
         </div>
       </div>
