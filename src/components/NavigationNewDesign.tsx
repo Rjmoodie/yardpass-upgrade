@@ -74,7 +74,7 @@ export function NavigationNewDesign() {
   const currentScreen = getCurrentScreen();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t border-border/20 bg-background/80 backdrop-blur-xl">
+    <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t border-border/60 bg-background/85 backdrop-blur-xl shadow-[var(--shadow-sm)]">
       <div className="mx-auto flex max-w-5xl items-center justify-around px-2 py-2 sm:px-4">
         {/* Main Navigation Items */}
         {navItems.map((item) => {
@@ -85,23 +85,26 @@ export function NavigationNewDesign() {
             <button
               key={item.id}
               onClick={() => handleNavigate(item.path, item.authRequired || false)}
-              className={`relative flex flex-col items-center gap-1 rounded-2xl px-3 py-2 transition-all active:scale-95 sm:px-4 ${
+              className={`group relative flex flex-col items-center gap-1 rounded-[var(--radius-md)] px-3 py-2 transition-all active:scale-95 sm:px-4 ${
                 isActive
-                  ? 'bg-gradient-to-br from-primary via-primary to-primary/90 shadow-lg shadow-primary/50'
-                  : 'hover:bg-muted/40'
+                  ? 'bg-primary/15 text-primary shadow-[var(--shadow-sm)]'
+                  : 'text-foreground/80 hover:bg-foreground/5'
               }`}
             >
-              {/* Glow effect for active state */}
-              {isActive && (
-                <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl" aria-hidden="true" />
-              )}
-              
-              <Icon className={`relative h-5 w-5 sm:h-6 sm:w-6 transition-all ${
-                isActive ? 'text-primary-foreground drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'text-foreground/90'
-              }`} />
-              <span className={`relative text-[10px] font-bold sm:text-xs transition-all ${
-                isActive ? 'text-primary-foreground drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]' : 'text-foreground/90'
-              }`}>
+              <Icon
+                className={`relative h-5 w-5 sm:h-6 sm:w-6 transition-colors ${
+                  isActive
+                    ? 'text-primary'
+                    : 'text-foreground/75 group-hover:text-foreground'
+                }`}
+              />
+              <span
+                className={`relative text-[10px] font-medium sm:text-xs transition-colors ${
+                  isActive
+                    ? 'text-primary'
+                    : 'text-foreground/75 group-hover:text-foreground'
+                }`}
+              >
                 {item.label}
               </span>
             </button>

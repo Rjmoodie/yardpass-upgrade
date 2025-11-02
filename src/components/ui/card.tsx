@@ -15,15 +15,15 @@ export const Card: React.FC<CardProps> = ({
   ...props 
 }) => {
   const variants = {
-    default: "bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm",
-    elevated: "bg-card/70 backdrop-blur-md border border-border/30 shadow-md",
-    outlined: "bg-card/30 backdrop-blur-sm border border-border/20",
+    default: "bg-card/95 border border-border/60 shadow-[var(--shadow-sm)]",
+    elevated: "bg-card border border-border/45 shadow-[var(--shadow-md)]",
+    outlined: "bg-card/75 border border-border/50 shadow-none",
   };
 
   return (
     <div
       className={cn(
-        "rounded-xl p-4 transition-all duration-200",
+        "rounded-[var(--radius-lg)] p-5 transition-all duration-200",
         variants[variant],
         className
       )}
