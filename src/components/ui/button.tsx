@@ -6,29 +6,34 @@ import { cn } from "@/lib/utils"
 const buttonVariants = cva(
   // Base: generous hit target, smooth transitions, refined focus ring
   "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium rounded-lg ring-offset-background " +
-    "transition-colors duration-200 ease-[var(--ease-out)] " +
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 " +
+    "transition-all duration-200 ease-[var(--ease-out)] " +
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 " +
     "disabled:pointer-events-none disabled:opacity-50 " +
     "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 select-none",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-subtle border border-transparent hover:bg-primary/90 hover:shadow-md",
+          "bg-primary text-primary-foreground shadow-[var(--shadow-sm)] border border-transparent " +
+          "hover:bg-primary/90 hover:shadow-[var(--shadow-md)]",
         premium:
-          "brand-gradient text-white shadow-lg hover:shadow-xl border border-transparent focus-visible:ring-primary/40",
+          "bg-gradient-to-tr from-primary via-[hsl(var(--primary)_/_0.92)] to-[hsl(var(--primary)_/_0.86)] " +
+          "text-primary-foreground shadow-[var(--shadow-lg)] hover:shadow-[var(--shadow-xl)] " +
+          "border border-transparent focus-visible:ring-primary/45",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-subtle border border-transparent",
+          "bg-destructive text-destructive-foreground shadow-[var(--shadow-sm)] border border-transparent " +
+          "hover:bg-destructive/90",
         outline:
-          "border border-border bg-background text-foreground shadow-none hover:bg-muted/60",
+          "border border-border/70 bg-background text-foreground shadow-none hover:bg-foreground/5",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-subtle border border-transparent hover:bg-secondary/80",
+          "bg-secondary text-secondary-foreground shadow-[var(--shadow-sm)] border border-transparent hover:bg-secondary/80",
         ghost:
-          "text-foreground hover:text-foreground hover:bg-muted/60 border border-transparent shadow-none",
+          "text-foreground hover:text-foreground hover:bg-foreground/5 border border-transparent shadow-none",
         link: "text-primary underline-offset-4 hover:underline px-0 h-auto",
         glass:
-          "bg-white/10 text-white border border-white/25 backdrop-blur-xl shadow-subtle hover:bg-white/15",
-        pill: "rounded-full bg-primary/10 text-primary hover:bg-primary/15 border border-transparent",
+          "bg-foreground/10 text-primary-foreground border border-foreground/15 backdrop-blur-lg " +
+          "shadow-[var(--shadow-sm)] hover:bg-foreground/15",
+        pill: "rounded-full bg-primary/12 text-primary hover:bg-primary/15 border border-transparent",
         tiktok:
           "rounded-full bg-gradient-to-r from-brand-600 to-brand-400 text-white font-semibold shadow-lg hover:shadow-xl border border-transparent",
         tiktokSecondary:
