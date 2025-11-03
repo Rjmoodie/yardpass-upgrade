@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Mail, Phone, RotateCcw, X, LogOut, Clock, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Mail, Phone, RotateCcw, X, LogOut, Clock, CheckCircle, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,6 +51,7 @@ export function AuthExperience({
   onDismiss,
   onAuthSuccess,
 }: AuthExperienceProps) {
+  const navigate = useNavigate();
   const { session: guestSession, isActive: hasGuestSession, clear: clearGuestSession } = useGuestTicketSession();
   const [activeTab, setActiveTab] = useState<AuthTab>(defaultTab);
   const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
@@ -239,11 +241,20 @@ export function AuthExperience({
 
       toast({
         title: 'Guest access granted',
-        description: 'You can now view tickets for this contact.',
+        description: 'Redirecting to your tickets...',
       });
 
       resetGuestState();
+      
+      // Call parent callback first
       onAuthSuccess?.();
+      
+      // Fallback navigation if used in page layout (not modal)
+      if (layout === 'page') {
+        setTimeout(() => {
+          navigate('/tickets');
+        }, 300);
+      }
     } catch (err: any) {
       console.error('guest verify error', err);
       toast({
@@ -302,41 +313,87 @@ export function AuthExperience({
 
           {/* Show guest session status if active */}
           {hasGuestSession && allowGuestTicketAccess ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <CardTitle className="text-2xl font-bold text-center">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <CardTitle className="text-xl font-bold text-center">
                   Guest Session Active
                 </CardTitle>
-                <CardDescription className="text-base text-center text-muted-foreground">
+                <CardDescription className="text-sm text-center text-muted-foreground">
                   You're currently signed in as a guest
                 </CardDescription>
               </div>
 
-              <div className="space-y-3 rounded-xl bg-green-50 dark:bg-green-950/20 p-4 border border-green-200 dark:border-green-900">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  <div className="flex-1">
-                    <p className="font-medium text-green-900 dark:text-green-100">
-                      {guestSession?.email ? 'Email' : guestSession?.phone ? 'Phone' : 'Contact'}: {guestSession?.email || guestSession?.phone}
-                    </p>
-                  </div>
+              <div className="space-y-2 rounded-lg bg-green-50 dark:bg-green-950/20 p-3 border border-green-200 dark:border-green-900">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                  <p className="text-sm font-medium text-green-900 dark:text-green-100 truncate">
+                    {guestSession?.email || guestSession?.phone}
+                  </p>
                 </div>
                 
-                <div className="flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  <div className="flex-1">
-                    <p className="text-sm text-green-700 dark:text-green-300">
-                      Session expires: {new Date(guestSession?.exp || 0).toLocaleTimeString()}
-                    </p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                  <p className="text-xs text-green-700 dark:text-green-300">
+                    Expires: {new Date(guestSession?.exp || 0).toLocaleTimeString()}
+                  </p>
                 </div>
+              </div>
+
+              {/* Quick Action: View Tickets */}
+              <Button
+                onClick={() => {
+                  navigate('/tickets');
+                  onDismiss?.();
+                }}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
+                size="default"
+              >
+                <Ticket className="mr-2 h-4 w-4" />
+                View Your Tickets
+              </Button>
+
+              {/* Upgrade to Full Account CTA */}
+              <div className="rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 p-3 border border-primary/20 space-y-2">
+                <h4 className="font-semibold text-foreground text-sm">Unlock Full Features</h4>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
+                    <span>Manage all tickets</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
+                    <span>Get notifications</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
+                    <span>Never lose access</span>
+                  </li>
+                </ul>
+                <Button
+                  onClick={() => {
+                    // Pre-fill the contact info when switching to signup
+                    if (guestSession?.email) {
+                      setEmail(guestSession.email);
+                    } else if (guestSession?.phone) {
+                      setPhoneNumber(guestSession.phone);
+                    }
+                    setActiveTab('signup');
+                  }}
+                  variant="outline"
+                  className="w-full border-primary/50 text-sm"
+                  size="sm"
+                >
+                  Create Free Account
+                </Button>
               </div>
 
               <Button
                 onClick={handleGuestSignOut}
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium shadow-lg"
+                variant="ghost"
+                className="w-full text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-sm"
+                size="sm"
               >
-                <LogOut className="mr-2 h-5 w-5" />
+                <LogOut className="mr-2 h-3.5 w-3.5" />
                 Sign Out
               </Button>
             </div>
@@ -352,7 +409,7 @@ export function AuthExperience({
           )}
 
           {!hasGuestSession && (
-            <div className="mx-auto flex rounded-full border border-border/60 bg-background/80 p-1 shadow-inner">
+            <div className="mx-auto flex rounded-full border border-border/50 bg-muted/30 p-1 shadow-inner backdrop-blur-sm">
               <Button
                 type="button"
                 variant={authMethod === 'phone' ? 'default' : 'ghost'}
@@ -361,10 +418,10 @@ export function AuthExperience({
                   setAuthMethod('phone');
                   resetOtpState();
                 }}
-                className="flex items-center gap-2 rounded-full"
+                className="flex items-center gap-2 rounded-full min-h-[36px] px-4 transition-all duration-200"
               >
                 <Phone className="h-4 w-4" />
-                Phone
+                <span className="font-medium">Phone</span>
               </Button>
               <Button
                 type="button"
@@ -374,10 +431,10 @@ export function AuthExperience({
                   setAuthMethod('email');
                   resetOtpState();
                 }}
-                className="flex items-center gap-2 rounded-full"
+                className="flex items-center gap-2 rounded-full min-h-[36px] px-4 transition-all duration-200"
               >
                 <Mail className="h-4 w-4" />
-                Email
+                <span className="font-medium">Email</span>
               </Button>
             </div>
           )}
@@ -390,10 +447,10 @@ export function AuthExperience({
               onValueChange={(value) => setActiveTab(value as AuthTab)}
               className="w-full"
             >
-              <TabsList className={cn('grid w-full gap-2', allowGuestTicketAccess ? 'grid-cols-3' : 'grid-cols-2')}>
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-                {allowGuestTicketAccess && <TabsTrigger value="guest">Guest Access</TabsTrigger>}
+              <TabsList className={cn('grid w-full gap-1.5', allowGuestTicketAccess ? 'grid-cols-3' : 'grid-cols-2')}>
+                <TabsTrigger value="signin" className="min-h-[44px]">Sign In</TabsTrigger>
+                <TabsTrigger value="signup" className="min-h-[44px]">Sign Up</TabsTrigger>
+                {allowGuestTicketAccess && <TabsTrigger value="guest" className="min-h-[44px]">Guest Access</TabsTrigger>}
               </TabsList>
 
             <TabsContent value="signin" className="space-y-4">
@@ -687,11 +744,41 @@ export function AuthExperience({
             </TabsContent>
 
             {allowGuestTicketAccess && (
-              <TabsContent value="guest" className="space-y-4">
+              <TabsContent value="guest" className="space-y-5">
                 {guestStep === 'collect' ? (
                   <form onSubmit={handleGuestSendCode} className="space-y-5 text-left">
-                    <div className="space-y-2">
-                      <Label htmlFor="guest-contact">Phone or email</Label>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="guest-contact" className="text-sm font-semibold text-foreground">
+                          {guestMethod === 'phone' ? 'Phone number' : 'Email address'}
+                        </Label>
+                        <div className="flex rounded-full border border-border/50 bg-muted/30 p-0.5 text-xs font-medium">
+                          <button
+                            type="button"
+                            className={cn(
+                              "rounded-full px-3 py-1.5 transition-all duration-200",
+                              guestMethod === 'phone'
+                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                : 'text-foreground/60 hover:text-foreground'
+                            )}
+                            onClick={() => setGuestMethod('phone')}
+                          >
+                            📱 Phone
+                          </button>
+                          <button
+                            type="button"
+                            className={cn(
+                              "rounded-full px-3 py-1.5 transition-all duration-200",
+                              guestMethod === 'email'
+                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                : 'text-foreground/60 hover:text-foreground'
+                            )}
+                            onClick={() => setGuestMethod('email')}
+                          >
+                            ✉️ Email
+                          </button>
+                        </div>
+                      </div>
                       <Input
                         id="guest-contact"
                         type={guestMethod === 'phone' ? 'tel' : 'email'}
@@ -700,66 +787,63 @@ export function AuthExperience({
                         value={guestContact}
                         onChange={(event) => setGuestContact(event.target.value)}
                         required
-                        className="h-12 rounded-xl border-2 border-border/40 bg-background/80"
+                        className="h-12 rounded-xl border-2 border-border/40 bg-background/80 text-base"
                       />
+                      <p className="text-xs text-foreground/70 leading-relaxed">
+                        Quick access to your tickets without creating an account
+                      </p>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex rounded-full border border-border/60 bg-background/80 p-1 text-sm font-medium">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={guestMethod === 'phone' ? 'default' : 'ghost'}
-                          className="rounded-full"
-                          onClick={() => setGuestMethod('phone')}
-                        >
-                          Phone
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={guestMethod === 'email' ? 'default' : 'ghost'}
-                          className="rounded-full"
-                          onClick={() => setGuestMethod('email')}
-                        >
-                          Email
-                        </Button>
+                    {resendSecs > 0 && (
+                      <div className="text-center text-sm text-foreground/60 bg-muted/30 rounded-lg py-2 px-3">
+                        Resend available in {resendSecs}s
                       </div>
-                      {resendSecs > 0 && (
-                        <span className="text-sm text-muted-foreground">Resend in {resendSecs}s</span>
-                      )}
-                    </div>
+                    )}
 
-                    <Button type="submit" size="lg" className="w-full" disabled={guestLoading}>
-                      {guestLoading ? 'Sending…' : 'Send access code'}
+                    <Button type="submit" size="lg" className="w-full min-h-[48px] text-base font-semibold shadow-md" disabled={guestLoading}>
+                      {guestLoading ? (
+                        <span className="flex items-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Sending…
+                        </span>
+                      ) : (
+                        'Send access code'
+                      )}
                     </Button>
                   </form>
                 ) : (
                   <form onSubmit={handleGuestVerify} className="space-y-5 text-left">
-                    <div className="space-y-2">
-                      <Label htmlFor="guest-otp">Verification code</Label>
+                    <div className="space-y-3">
+                      <Label htmlFor="guest-otp" className="text-sm font-semibold text-foreground">
+                        Verification code
+                      </Label>
                       <Input
                         id="guest-otp"
                         type="text"
                         inputMode="numeric"
                         maxLength={6}
-                        placeholder="Enter 6-digit code"
+                        placeholder="• • • • • •"
                         value={guestOtp}
                         onChange={(event) => setGuestOtp(event.target.value)}
                         required
-                        className="h-12 rounded-xl border-2 border-border/40 bg-background/80 tracking-[0.3em] text-center"
+                        className="h-14 rounded-xl border-2 border-border/40 bg-background/80 tracking-[0.5em] text-center text-2xl font-semibold"
                       />
-                      <p className="text-sm text-muted-foreground">Code sent to {maskedGuestContact}</p>
+                      <p className="text-sm text-foreground/70 text-center">
+                        Code sent to {maskedGuestContact}
+                      </p>
                     </div>
 
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <div className="flex items-center justify-between gap-3 text-sm">
                       {resendSecs > 0 ? (
-                        <span>Resend available in {resendSecs}s</span>
+                        <span className="text-foreground/60 bg-muted/30 rounded-lg py-2 px-3 flex-1 text-center">
+                          Resend in {resendSecs}s
+                        </span>
                       ) : (
                         <Button
                           type="button"
-                          variant="link"
-                          className="px-0 text-primary"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 rounded-xl"
                           onClick={(event) => {
                             event.preventDefault();
                             setGuestStep('collect');
@@ -771,18 +855,26 @@ export function AuthExperience({
                       )}
                       <Button
                         type="button"
-                        variant="link"
-                        className="px-0 text-muted-foreground"
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 rounded-xl text-foreground/70"
                         onClick={() => {
                           resetGuestState();
                         }}
                       >
-                        Use a different contact
+                        Change contact
                       </Button>
                     </div>
 
-                    <Button type="submit" size="lg" className="w-full" disabled={guestLoading}>
-                      {guestLoading ? 'Verifying…' : 'Verify & view tickets'}
+                    <Button type="submit" size="lg" className="w-full min-h-[48px] text-base font-semibold shadow-md" disabled={guestLoading}>
+                      {guestLoading ? (
+                        <span className="flex items-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Verifying…
+                        </span>
+                      ) : (
+                        'Verify & access tickets'
+                      )}
                     </Button>
                   </form>
                 )}

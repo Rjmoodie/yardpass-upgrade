@@ -14,6 +14,7 @@ import { UsernameEditor } from "@/components/profile/UsernameEditor";
 import CommentModal from "@/components/CommentModal";
 import { muxToPoster } from "@/lib/video/muxClient";
 import { useProfileVisitTracking } from "@/hooks/usePurchaseIntentTracking";
+import { FlashbackBadge } from "@/components/flashbacks/FlashbackBadge";
 
 interface UserProfile {
   user_id: string;
@@ -43,6 +44,7 @@ interface UserEvent {
   title: string;
   cover_image_url: string | null;
   start_at: string;
+  is_flashback?: boolean;
 }
 
 export function ProfilePage() {
@@ -192,11 +194,12 @@ export function ProfilePage() {
               id,
               title,
               cover_image_url,
-              start_at
+              start_at,
+              is_flashback
             )
           `)
           .eq('user_id', profile.user_id)
-          .order('saved_at', { ascending: false });
+          .order('saved_at', { ascending: false});
 
         if (error) throw error;
 
@@ -206,6 +209,7 @@ export function ProfilePage() {
           title: item.events.title,
           cover_image_url: item.events.cover_image_url,
           start_at: item.events.start_at,
+          is_flashback: item.events.is_flashback || false,
         }));
 
         setSavedEvents(events);
@@ -243,7 +247,8 @@ export function ProfilePage() {
         image: e.cover_image_url || '',
         likes: 0,
         type: 'event' as const,
-        event_id: e.id
+        event_id: e.id,
+        is_flashback: e.is_flashback || false
       }));
     }
   }, [activeTab, posts, savedEvents]);
@@ -660,6 +665,13 @@ export function ProfilePage() {
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                 />
                 
+                {/* Flashback Badge for Events */}
+                {post.type === 'event' && (post as any).is_flashback && (
+                  <div className="absolute top-2 left-2">
+                    <FlashbackBadge variant="minimal" className="text-[10px] px-2 py-0.5" />
+                  </div>
+                )}
+                
                 {/* Overlay on hover */}
                 <div className="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                   <div className="flex items-center gap-1 text-foreground">
@@ -699,6 +711,7 @@ export function ProfilePage() {
       {/* Post Detail Modal */}
       {showPostModal && selectedPostId && selectedEventId && (
         <CommentModal
+          key={`modal-${selectedPostId}-${selectedEventId}`}
           isOpen={showPostModal}
           onClose={() => {
             setShowPostModal(false);
@@ -708,6 +721,9 @@ export function ProfilePage() {
           eventId={selectedEventId}
           eventTitle="Event"
           postId={selectedPostId}
+          onCommentCountChange={(postId, newCount) => {
+            console.log('💬 [Profile] Comment count updated:', postId, newCount);
+          }}
         />
       )}
     </div>

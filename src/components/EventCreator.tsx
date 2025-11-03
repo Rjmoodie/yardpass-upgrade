@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
+import { Alert, AlertDescription } from './ui/alert';
 import {
   ArrowLeft, ArrowRight, Plus, X, Upload, Calendar,
   MapPin, Shield, Share2, Wand2, Image as ImageIcon, Lightbulb
@@ -120,8 +121,6 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
   // State
   const [step, setStep] = useState(draft?.step || 1);
-  const totalSteps = 4;
-  const progress = (step / totalSteps) * 100;
 
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -139,11 +138,9 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     venue: '',
     coverImageUrl: '',
     visibility: 'public' as 'public' | 'unlisted' | 'private',
-    culturalGuide: {
-      history: '',
-      themes: [] as string[],
-      network: [] as string[],
-    },
+    isFlashback: false,
+    flashbackExplainer: '',
+    linkedEventId: '',
   });
 
   const [location, setLocation] = useState<Location | null>(draft?.location || null);
@@ -152,6 +149,47 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100 },
     ]
   );
+
+  // Flashback: Fetch organization's events for linking + org created date
+  const [orgEvents, setOrgEvents] = useState<Array<{ id: string; title: string; start_at: string }>>([]);
+  const [orgCreatedAt, setOrgCreatedAt] = useState<Date | null>(null);
+  
+  useEffect(() => {
+    const fetchOrgData = async () => {
+      if (!organizationId) return;
+      try {
+        // Fetch organization details for flashback window calculation
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .select('created_at')
+          .eq('id', organizationId)
+          .single();
+        
+        if (!orgError && orgData) {
+          setOrgCreatedAt(new Date(orgData.created_at));
+        }
+
+        // Fetch organization's events for linking
+        const { data, error } = await supabase
+          .from('events')
+          .select('id, title, start_at')
+          .eq('owner_context_id', organizationId)
+          .eq('owner_context_type', 'organization')
+          .order('start_at', { ascending: false })
+          .limit(50);
+        if (!error && data) {
+          setOrgEvents(data);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch org data for flashback:', err);
+      }
+    };
+    fetchOrgData();
+  }, [organizationId]);
+
+  // Calculate totalSteps and progress based on isFlashback
+  const totalSteps = useMemo(() => formData.isFlashback ? 3 : 4, [formData.isFlashback]);
+  const progress = useMemo(() => (step / totalSteps) * 100, [step, totalSteps]);
 
   // Validation/errors + dirty + submit guard
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -272,12 +310,23 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       toast({ title: 'Fix required fields', description: 'Please review highlighted fields.', variant: 'destructive' });
       return;
     }
-    const newStep = Math.min(totalSteps, step + 1);
+    
+    // For Flashback events, skip Step 3 (Ticketing)
+    let newStep = step + 1;
+    if (formData.isFlashback && step === 2) {
+      newStep = 4; // Skip from Step 2 to Step 4 (Preview)
+    }
+    newStep = Math.min(totalSteps, newStep);
     trackEvent('event_creation_step', { from_step: step, to_step: newStep, organization_id: organizationId, direction: 'forward' });
     setStep(newStep);
   };
   const handlePrevious = () => {
-    const newStep = Math.max(1, step - 1);
+    // For Flashback events, skip Step 3 (Ticketing) when going back too
+    let newStep = step - 1;
+    if (formData.isFlashback && step === 4) {
+      newStep = 2; // Skip from Step 4 back to Step 2
+    }
+    newStep = Math.max(1, newStep);
     trackEvent('event_creation_step', { from_step: step, to_step: newStep, organization_id: organizationId, direction: 'backward' });
     setStep(newStep);
   };
@@ -363,6 +412,22 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     setLoading(true);
 
     try {
+      // Flashback window validation
+      if (formData.isFlashback && orgCreatedAt) {
+        const windowEnd = new Date(orgCreatedAt.getTime() + 90 * 24 * 60 * 60 * 1000);
+        const today = new Date();
+        if (today > windowEnd) {
+          toast({
+            title: 'Flashback Creation Window Closed',
+            description: `Your organization's 90-day window to create Flashback events closed on ${windowEnd.toLocaleDateString()}. You can only create regular events now.`,
+            variant: 'destructive',
+          });
+          submittingRef.current = false;
+          setLoading(false);
+          return;
+        }
+      }
+
       // Validate everything once more
       const e = {
         ...validateStep1(formData),
@@ -458,6 +523,9 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           visibility: formData.visibility,
           slug,
           link_token: linkToken,
+          is_flashback: formData.isFlashback || false,
+          flashback_explainer: formData.isFlashback && formData.flashbackExplainer ? formData.flashbackExplainer : null,
+          linked_event_id: formData.isFlashback && formData.linkedEventId ? formData.linkedEventId : null,
         })
         .select('id')
         .single();
@@ -476,20 +544,6 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         }));
         const { error: tiersErr } = await supabase.from('ticket_tiers').insert(tiersPayload);
         if (tiersErr) throw tiersErr;
-      }
-
-      if (
-        formData.culturalGuide.history ||
-        formData.culturalGuide.themes.length ||
-        formData.culturalGuide.network.length
-      ) {
-        const { error: cgErr } = await supabase.from('cultural_guides').insert({
-          event_id: event.id,
-          history_long: formData.culturalGuide.history,
-          themes: formData.culturalGuide.themes,
-          community: formData.culturalGuide.network,
-        });
-        if (cgErr) throw cgErr;
       }
 
       trackEvent('event_creation_success', {
@@ -538,33 +592,39 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
   // ===================== UI =====================
   return (
-    <div className="h-full bg-background flex flex-col">
+    <div className="min-h-[100dvh] bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="border-b bg-card p-4">
-        <div className="flex items-center gap-4 mb-4">
+      <div className="border-b bg-card p-3 sm:p-4">
+        <div className="flex items-center gap-2 sm:gap-4 mb-3 sm:mb-4">
           <button
             onClick={() => {
               if (!dirty) return onBack();
               if (confirm('Discard your draft? Changes not saved to the server will be lost.')) onBack();
             }}
-            className="p-2 rounded-full hover:bg-muted transition-colors"
+            className="p-2 rounded-full hover:bg-muted transition-colors flex-shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex-1">
-            <h1>Create Event</h1>
-            <p className="text-sm text-muted-foreground">Step {step} of {totalSteps}</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-base sm:text-lg">Create Event</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Step {step} of {totalSteps}</p>
           </div>
-          <div className="text-xs text-muted-foreground flex items-center gap-1">
+          <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            Auto-saving
+            <span className="hidden sm:inline">Auto-saving</span>
           </div>
         </div>
         <Progress value={progress} className="h-2" />
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div
+        className="flex-1 overflow-y-auto p-3 sm:p-4"
+        style={{
+          paddingBottom: 'calc(9rem + env(safe-area-inset-bottom))',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         {/* STEP 1: BASICS + AI */}
         {step === 1 && (
           <Card>
@@ -664,7 +724,103 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                     </SelectContent>
                   </Select>
                 </div>
+                </div>
 
+              {/* Flashback Toggle */}
+              <div className="space-y-4 rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
+                {(() => {
+                  const flashbackWindowClosed = orgCreatedAt 
+                    ? new Date() > new Date(orgCreatedAt.getTime() + 90 * 24 * 60 * 60 * 1000)
+                    : false;
+
+                  return (
+                    <>
+                      <label className={`flex items-center gap-2 ${flashbackWindowClosed ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                        <input
+                          type="checkbox"
+                          checked={formData.isFlashback}
+                          onChange={(e) => setFormData({ ...formData, isFlashback: e.target.checked })}
+                          disabled={flashbackWindowClosed}
+                          className="w-4 h-4 rounded border-purple-500/50 text-purple-500 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <span className="text-sm font-medium flex items-center gap-2">
+                          <Lightbulb className="w-4 h-4 text-purple-400" />
+                          This is a Flashback event
+                        </span>
+                      </label>
+                      
+                      {flashbackWindowClosed && (
+                        <Alert className="bg-amber-500/10 border-amber-500/30">
+                          <AlertDescription className="text-xs text-amber-400">
+                            Your organization's 90-day window to create Flashback events has closed. 
+                            {orgCreatedAt && (
+                              <span className="block mt-1">
+                                Onboarded: {orgCreatedAt.toLocaleDateString()} • Window ended: {new Date(orgCreatedAt.getTime() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                              </span>
+                            )}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {formData.isFlashback && (
+                  <div className="space-y-4 pl-6 border-l-2 border-purple-500/30">
+                    <Alert className="bg-purple-500/10 border-purple-500/30">
+                      <AlertDescription className="text-xs text-foreground/80">
+                        <strong>Flashback events</strong> let attendees share memories from past events.
+                        You can create Flashbacks for any past event within 90 days of your organization onboarding.
+                        User posting: media required, 300 character caption limit.
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        Custom Explainer Message <span className="text-foreground/60">(optional)</span>
+                      </label>
+                      <Textarea
+                        value={formData.flashbackExplainer}
+                        onChange={(e) => setFormData({ ...formData, flashbackExplainer: e.target.value })}
+                        placeholder="Share your favorite moments from this amazing event!"
+                        rows={3}
+                        maxLength={200}
+                        className="text-sm"
+                      />
+                      <p className="text-xs text-foreground/60">
+                        {(formData.flashbackExplainer || '').length}/200 characters
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        Link to New Event <span className="text-foreground/60">(optional)</span>
+                      </label>
+                      <Select 
+                        value={formData.linkedEventId || 'none'} 
+                        onValueChange={(v) => setFormData({ ...formData, linkedEventId: v === 'none' ? '' : v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an upcoming event to link" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {orgEvents.map((evt) => (
+                            <SelectItem key={evt.id} value={evt.id}>
+                              {evt.title} ({new Date(evt.start_at).toLocaleDateString()})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-foreground/60">
+                        Link to a new/upcoming event for attendees to discover
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="flex items-center gap-2">
                     <ImageIcon className="w-4 h-4" /> Cover Image
@@ -737,7 +893,72 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
+                <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium">Event Schedule</h3>
+                  {formData.isFlashback && (
+                    <Badge variant="neutral" className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-xs">
+                      Past Event Dates
+                    </Badge>
+                  )}
+                </div>
+                
+                {formData.isFlashback && (
+                  <Alert className="bg-purple-500/10 border-purple-500/30">
+                    <AlertDescription className="text-xs text-foreground/80">
+                      Enter the dates when this event <strong>originally happened</strong>. 
+                      You can create Flashback events for any past event within 90 days of your organization joining YardPass.
+                      {orgCreatedAt && (() => {
+                        const windowEnd = new Date(orgCreatedAt.getTime() + 90 * 24 * 60 * 60 * 1000);
+                        const today = new Date();
+                        const daysLeft = Math.max(0, Math.ceil((windowEnd.getTime() - today.getTime()) / (24 * 60 * 60 * 1000)));
+                        const windowClosed = daysLeft === 0;
+                        
+                        if (windowClosed) {
+                          return (
+                            <span className="block mt-1 text-amber-400 font-medium">
+                              ⚠️ Flashback creation window has closed. Your organization onboarded on {orgCreatedAt.toLocaleDateString()}, and the 90-day window closed on {windowEnd.toLocaleDateString()}.
+                            </span>
+                          );
+                        } else {
+                          return (
+                            <span className="block mt-1 font-medium text-green-400">
+                              ✓ You have <strong>{daysLeft} days</strong> left to create Flashback events (until {windowEnd.toLocaleDateString()}).
+                            </span>
+                          );
+                        }
+                      })()}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+{formData.isFlashback ? (
+                  /* Flashback: Only dates, no times */
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label>Start Date *</label>
+                      <Input
+                        type="date"
+                        value={formData.startDate}
+                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value, startTime: '00:00' })}
+                        max={new Date().toISOString().split('T')[0]}
+                      />
+                      {errors.start && <p className="text-xs text-destructive mt-1">{errors.start}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <label>End Date *</label>
+                      <Input
+                        type="date"
+                        value={formData.endDate}
+                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value, endTime: '23:59' })}
+                        min={formData.startDate}
+                        max={new Date().toISOString().split('T')[0]}
+                      />
+                      {errors.end && <p className="text-xs text-destructive mt-1">{errors.end}</p>}
+                    </div>
+                  </div>
+                ) : (
+                  /* Regular Event: Dates AND times */
+                  <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label>Start Date *</label>
@@ -779,6 +1000,8 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                     />
                   </div>
                 </div>
+                  </>
+                )}
 
                 <div className="space-y-2">
                   <label>Venue Name</label>
@@ -798,23 +1021,8 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 {errors.location && <p className="text-xs text-destructive mt-1">{errors.location}</p>}
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-sm font-medium">Cultural Guide (Optional)</h3>
-                <p className="text-xs text-muted-foreground">Share the story or meaning behind your event.</p>
-                <div className="space-y-2">
-                  <label>Why You Do What You Do</label>
-                  <Textarea
-                    placeholder="What drives this experience? What’s the deeper purpose?"
-                    value={formData.culturalGuide.history}
-                    onChange={(e) =>
-                      setFormData((f) => ({ ...f, culturalGuide: { ...f.culturalGuide, history: e.target.value } }))
-                    }
-                    className="min-h-20"
-                  />
-                </div>
-              </div>
-
-              {/* Series Configuration */}
+              {/* Series Configuration - Hidden for Flashback Events */}
+              {!formData.isFlashback && (
               <SeriesConfiguration
                 enabled={series.state.enabled}
                 onToggle={(v) => series.setState(s => ({ ...s, enabled: v }))}
@@ -836,6 +1044,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 onMaxEvents={(v) => series.setState(s => ({ ...s, maxEvents: v }))}
                 previewISO={series.preview}
               />
+              )}
               {(errors.series || series.error) && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                   <p className="text-sm text-destructive">{errors.series || series.error}</p>
@@ -845,8 +1054,8 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           </Card>
         )}
 
-        {/* STEP 3: TICKETS + AI */}
-        {step === 3 && (
+        {/* STEP 3: TICKETS + AI (Hidden for Flashback Events) */}
+        {step === 3 && !formData.isFlashback && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -927,7 +1136,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                     {tier.badge && (
                       <div className="mt-3">
                         <p className="text-xs text-muted-foreground mb-1">Badge Preview:</p>
-                        <Badge variant="outline">{tier.badge}</Badge>
+                        <Badge variant="neutral">{tier.badge}</Badge>
                       </div>
                     )}
                   </CardContent>
@@ -962,9 +1171,17 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
+                        <div className="flex flex-wrap gap-2 mb-2">
                         {formData.category ? (
-                          <Badge variant="secondary" className="mb-2">{formData.category}</Badge>
+                            <Badge variant="brand">{formData.category}</Badge>
                         ) : null}
+                          {formData.isFlashback && (
+                            <Badge variant="neutral" className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+                              <Lightbulb className="w-3 h-3 mr-1" />
+                              Flashback
+                            </Badge>
+                          )}
+                        </div>
                         <h1 className="text-xl md:text-2xl font-semibold leading-tight">{formData.title}</h1>
                         <div className="mt-2 text-sm text-muted-foreground space-y-1">
                           <div className="flex items-center gap-2">
@@ -1006,16 +1223,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 </Card>
               )}
 
-              {formData.culturalGuide.history && (
-                <Card className="mt-4">
-                  <CardContent className="p-5">
-                    <h3 className="font-semibold mb-3">Cultural Guide</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{formData.culturalGuide.history}</p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {ticketTiers.length > 0 && (
+              {ticketTiers.length > 0 && !formData.isFlashback && (
                 <Card className="mt-4">
                   <CardContent className="p-5">
                     <h3 className="font-semibold mb-3">Tickets</h3>
@@ -1023,7 +1231,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                       {ticketTiers.map((tier) => (
                         <div key={tier.id} className="flex justify-between items-center p-4 border rounded-lg">
                           <div className="flex items-center gap-3">
-                            <Badge variant="outline">{tier.badge}</Badge>
+                            <Badge variant="neutral">{tier.badge}</Badge>
                             <div>
                               <div className="text-sm font-medium">{tier.name}</div>
                               <div className="text-xs text-muted-foreground">{tier.quantity} available</div>
@@ -1045,23 +1253,43 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       </div>
 
       {/* Footer */}
-      <div className="border-t bg-card p-4 flex justify-between">
-        <Button variant="outline" onClick={step === 1 ? onBack : handlePrevious} disabled={loading}>
-          {step === 1 ? 'Cancel' : 'Previous'}
+      <div
+        className="sticky bottom-0 z-[110] border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 p-3 sm:p-4 flex justify-between gap-2 sm:gap-3"
+        style={{ paddingBottom: 'max(0.75rem, calc(0.75rem + env(safe-area-inset-bottom)))' }}
+      >
+        <Button 
+          variant="outline" 
+          onClick={step === 1 ? onBack : handlePrevious} 
+          disabled={loading}
+          className="min-w-[80px] sm:min-w-[100px]"
+        >
+          {step === 1 ? 'Cancel' : <><ArrowLeft className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Previous</span></>}
         </Button>
         {step < totalSteps ? (
-          <Button onClick={handleNext} disabled={!canProceed() || loading}>
-            Next <ArrowRight className="w-4 h-4 ml-1" />
+          <Button 
+            onClick={handleNext} 
+            disabled={!canProceed() || loading}
+            className="min-w-[80px] sm:min-w-[100px]"
+          >
+            <span className="hidden sm:inline">Next</span>
+            <ArrowRight className="w-4 h-4 sm:ml-1" />
           </Button>
         ) : (
-          <Button onClick={handleSubmit} disabled={!canProceed() || loading} className="min-w-32">
+          <Button 
+            onClick={handleSubmit} 
+            disabled={!canProceed() || loading} 
+            className="min-w-[100px] sm:min-w-[140px]"
+          >
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                Creating...
+                <span className="hidden sm:inline">Creating...</span>
               </>
             ) : (
-              'Create Event'
+              <>
+                <Plus className="w-4 h-4 sm:mr-1" />
+                <span className="hidden sm:inline">Create Event</span>
+              </>
             )}
           </Button>
         )}

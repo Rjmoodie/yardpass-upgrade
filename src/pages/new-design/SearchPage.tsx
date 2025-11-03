@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, MapPin, Calendar, DollarSign, Filter, X } from "lucide-react";
+import { Search, MapPin, Calendar, DollarSign, Filter, X, Building2 } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { supabase } from "@/integrations/supabase/client";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -88,8 +88,8 @@ export default function SearchPage() {
 
       console.log('[SearchPage] Search returned', data.results?.length || 0, 'events');
 
-      // Transform to SearchResult format
-      const transformedResults: SearchResult[] = (data.results || []).map((event: any) => {
+      // Transform event results
+      const eventResults: SearchResult[] = (data.results || []).map((event: any) => {
         const price = event.min_price_cents 
           ? `From $${(event.min_price_cents / 100).toFixed(0)}`
           : 'Free';
@@ -111,7 +111,35 @@ export default function SearchPage() {
         };
       });
 
-      setResults(transformedResults);
+      // Also search for organizers if there's a query
+      let organizerResults: SearchResult[] = [];
+      if (debouncedSearch.trim()) {
+        try {
+          const { data: orgs, error: orgError } = await supabase
+            .from('organizations')
+            .select('id, name, description, logo_url, location, verification_status')
+            .or(`name.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`)
+            .limit(10);
+
+          if (!orgError && orgs) {
+            organizerResults = orgs.map((org: any) => ({
+              id: org.id,
+              type: 'organizer' as const,
+              title: org.name,
+              subtitle: org.description || 'Event Organizer',
+              image: org.logo_url || '',
+              location: org.location || undefined,
+              category: org.verification_status === 'verified' ? 'Verified' : undefined
+            }));
+          }
+        } catch (err) {
+          console.error('[SearchPage] Error searching organizers:', err);
+        }
+      }
+
+      // Combine results (organizers first, then events)
+      const combinedResults = [...organizerResults, ...eventResults];
+      setResults(combinedResults);
     } catch (error) {
       console.error('[SearchPage] Search error:', error);
       setResults([]);
@@ -244,7 +272,12 @@ export default function SearchPage() {
         ) : (
           <>
             <p className="mb-4 text-sm text-foreground/60 sm:text-base">
-              {results.length} event{results.length !== 1 ? 's' : ''} found
+              {results.length} result{results.length !== 1 ? 's' : ''} found
+              {results.filter(r => r.type === 'organizer').length > 0 && (
+                <span className="ml-2 text-xs text-foreground/50">
+                  ({results.filter(r => r.type === 'organizer').length} organizer{results.filter(r => r.type === 'organizer').length !== 1 ? 's' : ''}, {results.filter(r => r.type === 'event').length} event{results.filter(r => r.type === 'event').length !== 1 ? 's' : ''})
+                </span>
+              )}
             </p>
 
             {/* Results Grid */}
@@ -253,8 +286,13 @@ export default function SearchPage() {
                 <button
                   key={result.id}
                   onClick={() => {
-                    console.log('[SearchPage] Navigating to event:', result.id);
-                    navigate(`/e/${result.id}`);
+                    if (result.type === 'organizer') {
+                      console.log('[SearchPage] Navigating to organizer:', result.id);
+                      navigate(`/org/${result.id}`);
+                    } else {
+                      console.log('[SearchPage] Navigating to event:', result.id);
+                      navigate(`/e/${result.id}`);
+                    }
                   }}
                   className="group overflow-hidden rounded-2xl border border-border/10 bg-white/5 backdrop-blur-xl transition-all hover:scale-[1.02] hover:border-border/20 hover:shadow-xl sm:rounded-3xl text-left"
                 >
@@ -282,29 +320,47 @@ export default function SearchPage() {
 
                     {/* Details */}
                     <div className="space-y-1">
-                      {result.date && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-foreground/70 sm:text-xs">
-                          <Calendar className="h-3 w-3" />
-                          <span>{result.date}</span>
-                        </div>
-                      )}
-                      {result.location && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-foreground/70 sm:text-xs">
-                          <MapPin className="h-3 w-3" />
-                          <span className="line-clamp-1">{result.location}</span>
-                        </div>
-                      )}
-                      {result.price && (
-                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground/70 sm:text-xs">
-                          <DollarSign className="h-3 w-3" />
-                          <span>{result.price}</span>
-                        </div>
+                      {result.type === 'event' ? (
+                        <>
+                          {result.date && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-foreground/70 sm:text-xs">
+                              <Calendar className="h-3 w-3" />
+                              <span>{result.date}</span>
+                            </div>
+                          )}
+                          {result.location && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-foreground/70 sm:text-xs">
+                              <MapPin className="h-3 w-3" />
+                              <span className="line-clamp-1">{result.location}</span>
+                            </div>
+                          )}
+                          {result.price && (
+                            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground/70 sm:text-xs">
+                              <DollarSign className="h-3 w-3" />
+                              <span>{result.price}</span>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {/* Organizer-specific info */}
+                          {result.location && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-foreground/70 sm:text-xs">
+                              <MapPin className="h-3 w-3" />
+                              <span className="line-clamp-1">{result.location}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5 text-[11px] text-primary/80 font-medium sm:text-xs">
+                            <Building2 className="h-3 w-3" />
+                            <span>Event Organizer</span>
+                          </div>
+                        </>
                       )}
                     </div>
 
                     {/* CTA Button */}
                     <div className="mt-2 w-full rounded-full bg-primary py-1.5 text-center text-xs font-semibold text-primary-foreground transition-all group-hover:bg-primary/90 sm:py-2 sm:text-sm">
-                      View Details
+                      {result.type === 'organizer' ? 'View Profile' : 'View Details'}
                     </div>
                   </div>
                 </button>

@@ -11,6 +11,52 @@ import MapboxEventMap from "@/components/MapboxEventMap";
 import EventCheckoutSheet from "@/components/EventCheckoutSheet";
 import CommentModal from "@/components/CommentModal";
 import { SponsorBadges } from "@/components/sponsorship/SponsorBadges";
+import { FlashbackBanner } from "@/components/flashbacks/FlashbackBanner";
+import { FlashbackEmptyState } from "@/components/flashbacks/FlashbackEmptyState";
+
+// Sponsor Section Component - Only renders if sponsors exist
+function SponsorSection({ eventId }: { eventId: string }) {
+  const [hasSponsors, setHasSponsors] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function checkSponsors() {
+      try {
+        const { data, error } = await supabase
+          .from("sponsorship_orders")
+          .select("id", { count: 'exact', head: true })
+          .eq("event_id", eventId)
+          .in("status", ["accepted", "live", "completed"]);
+
+        if (!error && data) {
+          setHasSponsors(true);
+        }
+      } catch (err) {
+        console.error("Error checking sponsors:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    checkSponsors();
+  }, [eventId]);
+
+  // Don't render anything if loading or no sponsors
+  if (loading || !hasSponsors) return null;
+
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+          Sponsored By
+        </h3>
+      </div>
+      <div className="elevated-card p-4">
+        <SponsorBadges eventId={eventId} variant="auto" />
+      </div>
+    </section>
+  );
+}
 
 interface EventDetails {
   id: string;
@@ -44,6 +90,11 @@ interface EventDetails {
     benefits: string[];
   }[];
   isSaved: boolean;
+  is_flashback?: boolean;
+  flashback_end_date?: string | null;
+  linked_event_id?: string | null;
+  flashback_explainer?: string | null;
+  organization_created_at?: string | null;
 }
 
 export function EventDetailsPageIntegrated() {
@@ -96,6 +147,10 @@ export function EventDetailsPageIntegrated() {
             created_by,
             owner_context_type,
             owner_context_id,
+            is_flashback,
+            flashback_end_date,
+            linked_event_id,
+            flashback_explainer,
             user_profiles!events_created_by_fkey (
               user_id,
               display_name,
@@ -103,7 +158,8 @@ export function EventDetailsPageIntegrated() {
             ),
             organizations!events_owner_context_id_fkey (
               name,
-              logo_url
+              logo_url,
+              created_at
             ),
             ticket_tiers!fk_ticket_tiers_event_id (
               id,
@@ -242,7 +298,12 @@ export function EventDetailsPageIntegrated() {
             total: tier.quantity || 0,
             benefits: []  // TODO: Add benefits field to ticket_tiers table if needed
           })),
-          isSaved
+          isSaved,
+          is_flashback: data.is_flashback || false,
+          flashback_end_date: data.flashback_end_date,
+          linked_event_id: data.linked_event_id,
+          flashback_explainer: data.flashback_explainer,
+          organization_created_at: data.organizations?.created_at || null
         };
 
         setEvent(transformed);
@@ -324,12 +385,15 @@ export function EventDetailsPageIntegrated() {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Hero Image with Title Overlay - MODERNIZED */}
-      <div className="relative h-64 overflow-hidden sm:h-80 md:h-96 overlay-strong">
+      <div className="relative h-64 overflow-hidden sm:h-80 md:h-96">
         <ImageWithFallback
           src={event.coverImage}
           alt={event.title}
           className="absolute inset-0 h-full w-full object-cover"
         />
+        
+        {/* Enhanced dark gradient overlay for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
         
         {/* Header Actions */}
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-3 sm:p-4">
@@ -363,13 +427,13 @@ export function EventDetailsPageIntegrated() {
         </div>
 
         {/* Title and Organizer Overlay - MODERNIZED */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 on-image">
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 z-10">
           {/* Category Badges */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
             {event.categories.map((category) => (
               <span
                 key={category}
-                className="chip-amber"
+                className="inline-flex items-center rounded-full bg-black/70 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 sm:text-sm shadow-lg"
               >
                 {category}
               </span>
@@ -377,7 +441,7 @@ export function EventDetailsPageIntegrated() {
           </div>
 
           {/* Title - Direct on image with strong shadow */}
-          <h1 className="text-white text-2xl font-extrabold leading-tight sm:text-3xl md:text-4xl on-image-strong mb-2">
+          <h1 className="text-white text-2xl font-extrabold leading-tight sm:text-3xl md:text-4xl on-image-strong mb-3">
             {event.title}
           </h1>
 
@@ -390,32 +454,46 @@ export function EventDetailsPageIntegrated() {
                   navigate(`/profile/${event.organizer.id}`);
                 }
               }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-background/60 backdrop-blur-md ring-1 ring-border transition-all hover:bg-background/70 hover:ring-border w-fit"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-black/70 backdrop-blur-md ring-1 ring-white/20 transition-all hover:bg-black/80 hover:ring-white/30 w-fit shadow-lg"
             >
               <ImageWithFallback
                 src={event.organizer.avatar}
                 alt={event.organizer.name}
-                className="h-5 w-5 rounded-full object-cover ring-1 ring-white/40"
+                className="h-6 w-6 rounded-full object-cover ring-1 ring-white/30"
               />
-              <span className="text-white text-sm font-bold drop-shadow-[0_2px_12px_rgba(0,0,0,1)]">by {event.organizer.name}</span>
+              <span className="text-white text-sm font-semibold">by {event.organizer.name}</span>
             </button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="px-3 sm:px-4 md:px-6">
-        {/* Tabs - MODERNIZED PILLS */}
-        <div className="mb-6 flex gap-2">
+      {/* Content - Add bottom padding for sticky footer + bottom nav */}
+      <div className="px-3 sm:px-4 md:px-6 pb-40">
+        {/* Flashback Banner - Show if this is a flashback event */}
+        {event.is_flashback && (
+          <div className="mt-6 mb-6">
+            <FlashbackBanner
+              eventId={event.id}
+              eventTitle={event.title}
+              flashbackExplainer={event.flashback_explainer}
+              organizationCreatedAt={event.organization_created_at}
+              linkedEventId={event.linked_event_id}
+            />
+          </div>
+        )}
+
+        {/* Tabs - MODERNIZED PILLS - Evenly Spaced & Responsive */}
+        <div className="mb-6 grid grid-cols-3 gap-2">
           {(['details', 'posts', 'tagged'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2.5 rounded-full text-sm font-semibold capitalize transition-all min-h-[44px] ${
+              className={`px-3 py-2.5 rounded-full text-sm font-semibold capitalize transition-all min-h-[44px] flex items-center justify-center ${
                 activeTab === tab
-                  ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-white'
-                  : 'text-foreground/60 hover:text-foreground hover:bg-neutral-100/10 dark:hover:bg-neutral-800/30'
+                  ? 'bg-muted text-foreground shadow-sm'
+                  : 'text-foreground/60 hover:text-foreground hover:bg-muted/30'
               }`}
             >
+              <span className="truncate">
               {tab}
               {tab === 'posts' && postsCount > 0 && (
                 <span className="ml-1.5 text-xs opacity-70">({postsCount})</span>
@@ -423,6 +501,7 @@ export function EventDetailsPageIntegrated() {
               {tab === 'tagged' && taggedCount > 0 && (
                 <span className="ml-1.5 text-xs opacity-70">({taggedCount})</span>
               )}
+              </span>
             </button>
           ))}
         </div>
@@ -432,59 +511,50 @@ export function EventDetailsPageIntegrated() {
           <div className="space-y-4">
             {/* Date & Location Info Grid - MODERNIZED */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="card-elevated p-4">
+              <div className="elevated-card p-4">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-lg bg-neutral-100 dark:bg-neutral-800 p-2">
-                    <Calendar className="h-5 w-5 text-neutral-700 dark:text-neutral-200" />
+                  <div className="rounded-lg bg-muted/50 p-2">
+                    <Calendar className="h-5 w-5 text-foreground/70" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Date & Time</p>
-                    <p className="text-sm font-semibold text-neutral-900 dark:text-white">{event.date}</p>
-                    <p className="text-xs text-neutral-500">{event.time}</p>
+                    <p className="text-xs uppercase tracking-wide text-foreground/70 font-semibold mb-1">Date & Time</p>
+                    <p className="text-sm font-semibold text-foreground">{event.date}</p>
+                    <p className="text-xs text-foreground/70">{event.time}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="card-elevated p-4">
+              <div className="elevated-card p-4">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-lg bg-neutral-100 dark:bg-neutral-800 p-2">
-                    <MapPin className="h-5 w-5 text-neutral-700 dark:text-neutral-200" />
+                  <div className="rounded-lg bg-muted/50 p-2">
+                    <MapPin className="h-5 w-5 text-foreground/70" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Location</p>
-                    <p className="text-sm font-semibold text-neutral-900 dark:text-white">{event.venue || 'TBA'}</p>
+                    <p className="text-xs uppercase tracking-wide text-foreground/70 font-semibold mb-1">Location</p>
+                    <p className="text-sm font-semibold text-foreground">{event.venue || 'TBA'}</p>
                     {event.city && (
-                      <p className="text-xs text-neutral-500">{event.city}</p>
+                      <p className="text-xs text-foreground/70">{event.city}</p>
                     )}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Sponsor Information - MODERNIZED */}
+            {/* Sponsor Information - MODERNIZED - Only show if sponsors exist */}
             {event.id && (
-              <section>
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-wide">
-                    Sponsored By
-                  </h3>
-                </div>
-                <div className="card-elevated p-4">
-                  <SponsorBadges eventId={event.id} variant="auto" />
-                </div>
-              </section>
+              <SponsorSection eventId={event.id} />
             )}
 
             {/* Description - MODERNIZED */}
             <section>
-              <div className="flex items-center gap-2 mb-2">
-                <Info className="h-4 w-4 text-neutral-500" />
-                <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-wide">
+              <div className="flex items-center gap-2 mb-3">
+                <Info className="h-4 w-4 text-foreground/70" />
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
                   About This Event
                 </h3>
               </div>
-              <div className="card-elevated p-4 sm:p-5">
-                <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-700 dark:text-neutral-200">
+              <div className="elevated-card p-4 sm:p-5">
+                <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/85">
                   {event.description}
                 </p>
               </div>
@@ -493,15 +563,15 @@ export function EventDetailsPageIntegrated() {
             {/* Location Map - MODERNIZED */}
             {event.lat && event.lng && (
               <section>
-                <div className="flex items-center gap-2 mb-2">
-                  <MapPin className="h-4 w-4 text-neutral-500" />
-                  <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-wide">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin className="h-4 w-4 text-foreground/70" />
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
                     Location
                   </h3>
                 </div>
-                <div className="card-elevated overflow-hidden">
+                <div className="elevated-card overflow-hidden">
                   <div className="p-3">
-                    <div className="chip mb-2">{event.venue}</div>
+                    <div className="inline-flex items-center rounded-full bg-muted/50 px-3 py-1.5 text-sm font-medium text-foreground mb-2">{event.venue}</div>
                     <div className="rounded-lg overflow-hidden ring-1 ring-black/5">
                       <MapboxEventMap 
                         lat={event.lat}
@@ -575,19 +645,19 @@ export function EventDetailsPageIntegrated() {
         )}
       </div>
 
-      {/* Sticky Footer - Get Tickets CTA */}
-      {event.ticketTiers.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/10 bg-background/80 p-3 backdrop-blur-xl sm:p-4">
-          <div className="flex items-center gap-3 sm:gap-4">
+      {/* Sticky Footer - Get Tickets CTA - Always visible above bottom nav */}
+      {event.ticketTiers && event.ticketTiers.length > 0 && (
+        <div className="fixed bottom-16 left-0 right-0 z-[110] border-t border-border shadow-lg bg-background/95 backdrop-blur-xl p-3 sm:p-4">
+          <div className="flex items-center gap-3 sm:gap-4 max-w-screen-xl mx-auto">
             <div className="flex-1">
-              <p className="text-xs text-foreground/60 sm:text-sm">Starting from</p>
+              <p className="text-xs text-foreground/70 font-medium sm:text-sm">Starting from</p>
               <p className="text-lg font-bold text-foreground sm:text-xl">
                 ${Math.min(...event.ticketTiers.map(t => t.price)).toFixed(2)}
               </p>
             </div>
             <button 
               onClick={handleGetTickets}
-              className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-foreground transition-all hover:bg-primary/90 active:scale-95 sm:px-8 sm:py-3.5 sm:text-base"
+              className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg active:scale-95 sm:px-8 sm:py-3.5 sm:text-base"
             >
               Get Tickets
             </button>
@@ -622,6 +692,7 @@ export function EventDetailsPageIntegrated() {
       {/* Comment Modal */}
       {showCommentModal && selectedPostId && event && (
         <CommentModal
+          key={`modal-${selectedPostId}-${event.id}`}
           isOpen={showCommentModal}
           onClose={() => {
             setShowCommentModal(false);
@@ -630,7 +701,8 @@ export function EventDetailsPageIntegrated() {
           eventId={event.id}
           eventTitle={event.title}
           postId={selectedPostId}
-          onCommentCountChange={() => {
+          onCommentCountChange={(postId, newCount) => {
+            console.log('💬 [EventDetails] Comment count updated:', postId, newCount);
             // Optional: refresh counts
           }}
         />

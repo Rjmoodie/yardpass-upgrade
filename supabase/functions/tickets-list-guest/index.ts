@@ -30,8 +30,14 @@ serve(async (req) => {
       .gt('expires_at', new Date().toISOString())
       .single();
 
+    console.log('[tickets-list-guest] Session lookup:', {
+      found: !!session,
+      error: sessionError?.message
+    });
+
     if (sessionError || !session) {
-      return createErrorResponse('Invalid or expired token', 401);
+      console.error('[tickets-list-guest] Invalid session:', sessionError);
+      return createErrorResponse('Invalid or expired guest session', 401);
     }
 
     // Build ticket query based on scope

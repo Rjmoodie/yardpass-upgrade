@@ -27,7 +27,6 @@ serve(async (req) => {
 
     // Verify OTP
     const { data: otpRecord, error: otpError } = await supabase
-      .schema('ticketing')
       .from('guest_otp_codes')
       .select('*')
       .eq('method', method)
@@ -39,12 +38,17 @@ serve(async (req) => {
     console.log('[guest-tickets-verify] OTP lookup result:', { 
       found: !!otpRecord, 
       error: otpError?.message,
-      errorCode: otpError?.code 
+      errorCode: otpError?.code,
+      method,
+      contact: contact.substring(0, 3) + '***'
     });
 
     if (otpError || !otpRecord) {
-      console.error('[guest-tickets-verify] OTP verification failed:', otpError);
-      return createErrorResponse('Invalid or expired OTP', 400);
+      console.error('[guest-tickets-verify] OTP verification failed:', { 
+        error: otpError,
+        hasRecord: !!otpRecord 
+      });
+      return createErrorResponse('Invalid or expired OTP code. Please request a new code.', 400);
     }
 
     // Generate session token
@@ -60,8 +64,7 @@ serve(async (req) => {
     const expiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
     // Store session
-    await supabase
-      .schema('ticketing')
+    const { error: sessionError } = await supabase
       .from('guest_ticket_sessions')
       .insert({
         token_hash: tokenHash,
@@ -72,13 +75,21 @@ serve(async (req) => {
         created_at: new Date().toISOString()
       });
 
+    if (sessionError) {
+      console.error('[guest-tickets-verify] Failed to create session:', sessionError);
+      return createErrorResponse('Failed to create guest session', 500);
+    }
+
+    console.log('[guest-tickets-verify] Session created successfully');
+
     // Clean up OTP
     await supabase
-      .schema('ticketing')
       .from('guest_otp_codes')
       .delete()
       .eq('method', method)
       .eq('contact', contact);
+
+    console.log('[guest-tickets-verify] OTP cleaned up');
 
     return createResponse({
       token,

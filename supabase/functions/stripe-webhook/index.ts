@@ -19,9 +19,17 @@ serve(async (req) => {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
     
-    if (!stripeKey || !webhookSecret) {
-      logStep("Missing Stripe configuration");
-      throw new Error("Missing Stripe configuration");
+    if (!stripeKey) {
+      logStep("Missing STRIPE_SECRET_KEY");
+      throw new Error("Missing STRIPE_SECRET_KEY");
+    }
+
+    if (!webhookSecret) {
+      logStep("⚠️ WARNING: STRIPE_WEBHOOK_SECRET not configured!", {
+        hint: "Get it from: Stripe Dashboard > Webhooks > Signing secret",
+        dashboardUrl: "https://dashboard.stripe.com/test/webhooks"
+      });
+      throw new Error("STRIPE_WEBHOOK_SECRET not configured. Please add it in Supabase Dashboard > Settings > Edge Functions > Secrets");
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
@@ -30,16 +38,20 @@ serve(async (req) => {
     const signature = req.headers.get("stripe-signature");
     
     if (!signature) {
-      logStep("No Stripe signature found");
+      logStep("No Stripe signature found in request headers");
       throw new Error("No Stripe signature found");
     }
 
     let event: Stripe.Event;
     try {
       event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
-      logStep("Event verified successfully", { type: event.type, id: event.id });
+      logStep("✅ Event verified successfully", { type: event.type, id: event.id });
     } catch (err: any) {
-      logStep("Webhook signature verification failed", { error: err.message });
+      logStep("❌ Webhook signature verification failed", { 
+        error: err.message,
+        hint: "The STRIPE_WEBHOOK_SECRET might be incorrect or from a different webhook endpoint",
+        currentSecretPrefix: webhookSecret.substring(0, 10) + "..."
+      });
       throw new Error(`Webhook signature verification failed: ${err.message}`);
     }
 
@@ -50,26 +62,46 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
-      logStep("Processing checkout.session.completed", { sessionId: session.id });
-
-      // Skip wallet/credit purchases - those are handled by wallet-stripe-webhook
-      const metadata = session.metadata || {};
-      if (metadata.org_wallet_id || metadata.wallet_id || metadata.invoice_id) {
-        logStep("Skipping wallet purchase (handled by wallet-stripe-webhook)", { 
-          sessionId: session.id,
-          hasOrgWallet: !!metadata.org_wallet_id,
-          hasWallet: !!metadata.wallet_id,
-          hasInvoice: !!metadata.invoice_id
+    if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
+      let stripeSessionId: string | null = null;
+      let checkoutSessionId: string | null = null;
+      let queryField: string = "stripe_session_id";
+      let queryValue: string | null = null;
+      
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object as Stripe.Checkout.Session;
+        stripeSessionId = session.id;
+        queryField = "stripe_session_id";
+        queryValue = stripeSessionId;
+        logStep("Processing checkout.session.completed", { stripeSessionId });
+      } else if (event.type === "payment_intent.succeeded") {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        
+        // For embedded checkout, metadata contains the internal checkout_session_id
+        checkoutSessionId = paymentIntent.metadata?.checkout_session_id || null;
+        
+        logStep("Processing payment_intent.succeeded", { 
+          paymentIntentId: paymentIntent.id,
+          checkoutSessionIdFromMetadata: checkoutSessionId,
+          allMetadata: paymentIntent.metadata
         });
-        return new Response(JSON.stringify({ received: true, skipped: "wallet_purchase" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        
+        if (checkoutSessionId) {
+          // Query by the internal checkout_session_id field
+          queryField = "checkout_session_id";
+          queryValue = checkoutSessionId;
+        } else {
+          logStep("No checkout_session_id in payment_intent metadata, skipping");
+          return new Response(JSON.stringify({ received: true, skipped: "no_session_id" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
       }
 
-      // Find the order by session ID
+      // Find the order by the appropriate session ID field
+      logStep("Querying order", { field: queryField, value: queryValue });
+      
       const { data: order, error: orderError } = await supabaseService
         .from("orders")
         .select(`
@@ -78,12 +110,13 @@ serve(async (req) => {
             title
           )
         `)
-        .eq("stripe_session_id", session.id)
+        .eq(queryField, queryValue)
         .maybeSingle();
 
       if (orderError) {
         logStep("Database error finding order", { 
-          sessionId: session.id,
+          queryField,
+          queryValue,
           error: orderError.message,
           code: orderError.code 
         });
@@ -91,8 +124,12 @@ serve(async (req) => {
       }
 
       if (!order) {
-        logStep("Order not found for session", { sessionId: session.id });
-        throw new Error(`Order not found for session: ${session.id}`);
+        logStep("Order not found", { 
+          queryField,
+          queryValue,
+          eventType: event.type
+        });
+        throw new Error(`Order not found for ${queryField}: ${queryValue}`);
       }
 
       logStep("Order found", { orderId: order.id, status: order.status });
@@ -107,10 +144,16 @@ serve(async (req) => {
       }
 
       // Call process-payment to handle ticket creation and email sending
-      logStep("Calling process-payment function", { sessionId: session.id });
+      // Pass the stripe_session_id (which process-payment expects)
+      const sessionIdForProcessing = stripeSessionId || order.stripe_session_id;
+      
+      logStep("Calling process-payment function", { 
+        sessionId: sessionIdForProcessing,
+        orderId: order.id 
+      });
       
       const processPaymentResponse = await supabaseService.functions.invoke('process-payment', {
-        body: { sessionId: session.id }
+        body: { sessionId: sessionIdForProcessing }
       });
 
       if (processPaymentResponse.error) {

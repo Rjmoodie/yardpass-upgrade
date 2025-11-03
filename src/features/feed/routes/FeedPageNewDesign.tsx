@@ -86,6 +86,16 @@ export default function FeedPageNewDesign() {
     searchRadius: filters.searchRadius,
   });
 
+  // Debug: Log active filters
+  useEffect(() => {
+    console.log('🔍 [FeedPage] Active filters:', {
+      locations: filters.locations,
+      categories: filters.categories,
+      dates: filters.dates,
+      searchRadius: filters.searchRadius
+    });
+  }, [filters]);
+
   const { data: boosts } = useCampaignBoosts({ placement: 'feed', enabled: true, userId: user?.id });
   const { share } = useShare();
   const { toggleLike: toggleLikeOptimistic, getOptimisticData, getOptimisticCommentData } = useOptimisticReactions();
@@ -247,12 +257,28 @@ export default function FeedPageNewDesign() {
 
   const handleComment = useCallback((item: FeedItem) => {
     if (item.item_type !== 'post') return;
-    setCommentContext({
+    
+    console.log('💬 [FeedPage] Comment clicked for post:', {
       postId: item.item_id,
-      eventId: item.event_id || '',
-      eventTitle: item.event_title || 'Event',
+      eventId: item.event_id,
+      eventTitle: item.event_title,
+      itemType: item.item_type
     });
-    setShowCommentModal(true);
+    
+    // Clear old context first to ensure clean state
+    setCommentContext(null);
+    setShowCommentModal(false);
+    
+    // Set new context after a brief delay to ensure cleanup
+    setTimeout(() => {
+      setCommentContext({
+        postId: item.item_id,
+        eventId: item.event_id || '',
+        eventTitle: item.event_title || 'Event',
+      });
+      setShowCommentModal(true);
+    }, 50);
+    
     registerInteraction();
   }, [registerInteraction]);
 
@@ -617,9 +643,11 @@ export default function FeedPageNewDesign() {
 
       {commentContext && (
         <CommentModal
+          key={`modal-${commentContext.postId}-${commentContext.eventId}`}
           isOpen={showCommentModal}
           onClose={() => {
             setShowCommentModal(false);
+            setCommentContext(null); // ✅ Clear context on close
             // Refetch feed to get updated comment counts
             refetch();
           }}
@@ -628,7 +656,7 @@ export default function FeedPageNewDesign() {
           postId={commentContext.postId}
           onCommentCountChange={(postId, newCount) => {
             // Comment count will be updated via refetch
-            console.log('Comment count updated:', postId, newCount);
+            console.log('💬 [FeedPage] Comment count updated:', postId, newCount);
             refetch();
           }}
         />

@@ -177,9 +177,9 @@ export function GuestManagement({ eventId, canManage = true }: GuestManagementPr
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold">Guest Management</h2>
-          <p className="text-sm text-muted-foreground">
+        <div className="space-y-1.5">
+          <h2 className="text-xl font-semibold tracking-tight">Guest Management</h2>
+          <p className="text-[15px] text-foreground/80 leading-relaxed">
             Manage attendees, complimentary tickets, invitations, and guest codes
           </p>
         </div>

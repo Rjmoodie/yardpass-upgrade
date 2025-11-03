@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Upload,
@@ -16,6 +17,7 @@ import {
   ChevronUp,
   ChevronDown,
   Sparkles,
+  History,
 } from 'lucide-react';
 import { VideoRecorder } from './VideoRecorder';
 import { useAuth } from '@/contexts/AuthContext';
@@ -229,6 +231,9 @@ export function PostCreatorModal({
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const [isFlashback, setIsFlashback] = useState(false);
+  const [flashbackEndDate, setFlashbackEndDate] = useState<string | null>(null);
+  const [orgCreatedAt, setOrgCreatedAt] = useState<string | null>(null);
 
   const dropRef = useRef<HTMLDivElement | null>(null);
   const unmountedRef = useRef(false);
@@ -327,7 +332,9 @@ export function PostCreatorModal({
             cover_image_url,
             created_by,
             owner_context_type,
-            owner_context_id
+            owner_context_id,
+            is_flashback,
+            flashback_end_date
           `)
           .eq('created_by', user.id);
 
@@ -412,6 +419,60 @@ export function PostCreatorModal({
       mounted = false;
     };
   }, [isOpen, user, preselectedEventId, selectedEventId]);
+
+  // Check if selected event is a flashback
+  useEffect(() => {
+    if (!selectedEventId || !isOpen) {
+      setIsFlashback(false);
+      setFlashbackEndDate(null);
+      return;
+    }
+
+    let mounted = true;
+
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select(`
+            is_flashback, 
+            flashback_end_date,
+            owner_context_id,
+            organizations!events_owner_context_id_fkey (
+              created_at
+            )
+          `)
+          .eq('id', selectedEventId)
+          .single();
+
+        if (error) throw error;
+        if (!mounted) return;
+
+        setIsFlashback(data?.is_flashback || false);
+        setFlashbackEndDate(data?.flashback_end_date || null);
+        setOrgCreatedAt(data?.organizations?.created_at || null);
+
+        if (data?.is_flashback) {
+          console.log('🎬 [PostCreator] Flashback event selected:', {
+            eventId: selectedEventId,
+            flashbackEndDate: data.flashback_end_date,
+            orgCreatedAt: data?.organizations?.created_at,
+          });
+        }
+      } catch (error) {
+        console.error('[PostCreator] Error checking flashback status:', error);
+        if (mounted) {
+          setIsFlashback(false);
+          setFlashbackEndDate(null);
+          setOrgCreatedAt(null);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedEventId, isOpen]);
 
   // Revoke object URLs on unmount + mark unmounted
   useEffect(() => {
@@ -764,10 +825,52 @@ export function PostCreatorModal({
       return;
     }
 
+    // FLASHBACK VALIDATION
+    if (isFlashback) {
+      // 1. Media required (queued files are valid - they'll upload on submit)
+      const hasMedia = queue.some(q => 
+        q.status === 'queued' || 
+        q.status === 'uploading' || 
+        q.status === 'processing' || 
+        q.status === 'done'
+      );
+      if (!hasMedia) {
+        toast({
+          title: 'Media Required',
+          description: 'Flashback posts must include at least one photo or video',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // 2. 300 character limit
+      if (content.trim().length > 300) {
+        toast({
+          title: 'Caption Too Long',
+          description: `Flashback captions are limited to 300 characters (currently ${content.trim().length})`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // 3. Check if posting window is still open (based on org onboarding + 90 days)
+      if (orgCreatedAt) {
+        const windowEnd = new Date(new Date(orgCreatedAt).getTime() + 90 * 24 * 60 * 60 * 1000);
+        if (new Date() > windowEnd) {
+          toast({
+            title: 'Posting Window Closed',
+            description: `The posting period for Flashback events ended on ${windowEnd.toLocaleDateString()} (90 days after organization onboarding)`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+    }
+
     submittingRef.current = true;
     setLoading(true);
     try {
-      // Remember user’s last used event
+      // Remember user's last used event
       try {
         localStorage.setItem(LAST_EVENT_KEY(user?.id), selectedEventId);
       } catch {}
@@ -902,6 +1005,35 @@ export function PostCreatorModal({
                   </div>
                 )}
 
+                {/* Flashback Notice */}
+                {isFlashback && (
+                  <Alert className="mb-4 border-purple-500/30 bg-purple-500/10">
+                    <History className="h-4 w-4 text-purple-400" />
+                    <AlertDescription className="text-sm text-foreground/80">
+                      <strong className="text-purple-300">Flashback Post:</strong> At least one photo or video required. Caption limited to 300 characters.
+                      {orgCreatedAt && (() => {
+                        const windowEnd = new Date(new Date(orgCreatedAt).getTime() + 90 * 24 * 60 * 60 * 1000);
+                        const today = new Date();
+                        const daysLeft = Math.max(0, Math.ceil((windowEnd.getTime() - today.getTime()) / (24 * 60 * 60 * 1000)));
+                        
+                        if (daysLeft === 0) {
+                          return (
+                            <span className="block mt-1 text-xs text-amber-400 font-medium">
+                              ⚠️ Posting window has closed ({windowEnd.toLocaleDateString()})
+                            </span>
+                          );
+                        } else {
+                          return (
+                            <span className="block mt-1 text-xs text-green-400 font-medium">
+                              ✓ {daysLeft} days left to post (until {windowEnd.toLocaleDateString()})
+                            </span>
+                          );
+                        }
+                      })()}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 {/* Composer */}
                 <div 
                   className={`rounded-3xl border border-border/60 bg-background/80 p-5 shadow-inner transition-all ${
@@ -912,14 +1044,25 @@ export function PostCreatorModal({
                   onDragLeave={onDragLeave}
                 >
                   <Textarea
-                    placeholder="What's the vibe? Share the story, shout out a set, or drop some highlights…"
+                    placeholder={isFlashback ? "Share your favorite moment from this event... 📸" : "What's the vibe? Share the story, shout out a set, or drop some highlights…"}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     className="min-h-[150px] resize-none border-none bg-transparent p-0 text-base leading-relaxed focus-visible:ring-0"
-                    maxLength={2000}
+                    maxLength={isFlashback ? 300 : 2000}
                     onKeyDown={onKeyDownComposer}
                     aria-label="Post content"
                   />
+
+                  {/* Character Counter for Flashbacks */}
+                  {isFlashback && (
+                    <div className={`mt-2 text-xs text-right ${
+                      content.trim().length > 300 ? 'text-destructive font-semibold' : 
+                      content.trim().length > 250 ? 'text-amber-500' : 
+                      'text-foreground/60'
+                    }`}>
+                      {content.trim().length} / 300 characters
+                    </div>
+                  )}
 
                   {/* Simple Media Controls */}
                   <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-4">
@@ -982,7 +1125,10 @@ export function PostCreatorModal({
                       </div>
                       {queue.length > 0 && (
                         <div className="text-xs font-medium text-primary">
-                          {queue.filter(q => q.status === 'done').length}/{queue.length} ready
+                          {queue.filter(q => q.status === 'done').length > 0 
+                            ? `${queue.filter(q => q.status === 'done').length}/${queue.length} uploaded` 
+                            : `${queue.length} ${queue.length === 1 ? 'file' : 'files'} attached`
+                          }
                         </div>
                       )}
                     </div>

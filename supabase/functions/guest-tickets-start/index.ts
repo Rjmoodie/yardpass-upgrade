@@ -42,8 +42,7 @@ serve(async (req) => {
 
     // Store OTP with 5-minute expiry
     const expiry = new Date(Date.now() + 5 * 60 * 1000);
-    await supabase
-      .schema('ticketing')
+    const { error: upsertError } = await supabase
       .from('guest_otp_codes')
       .upsert({
         method,
@@ -53,6 +52,13 @@ serve(async (req) => {
         expires_at: expiry.toISOString(),
         created_at: new Date().toISOString()
       });
+
+    if (upsertError) {
+      console.error('[guest-tickets-start] Failed to store OTP:', upsertError);
+      return createErrorResponse('Failed to store OTP code', 500);
+    }
+
+    console.log('[guest-tickets-start] OTP stored successfully');
 
     // Update rate limit
     await supabase

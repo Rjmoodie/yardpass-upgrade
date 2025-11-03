@@ -453,11 +453,9 @@ function AppContent() {
               <Route
                 path="/tickets"
                 element={
-                  <AuthGuard>
-                    <Suspense fallback={<PageLoadingSpinner />}>
-                      <TicketsPageNew />
-                    </Suspense>
-                  </AuthGuard>
+                  <Suspense fallback={<PageLoadingSpinner />}>
+                    <TicketsRoute />
+                  </Suspense>
                 }
               />
               <Route

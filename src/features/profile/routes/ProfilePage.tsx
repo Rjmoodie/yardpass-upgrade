@@ -923,61 +923,63 @@ export default function UserProfilePage() {
             </div>
           )}
 
-          <div className="relative">
-            {activeView === 'attendee' ? (
-              <div className="section-shell">
-                <div className="section-head">
-                  <div className="flex items-center gap-2">
-                    <Ticket className="h-5 w-5" /> <span>Recent tickets</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">Latest activity</span>
-                </div>
-                <div className="section-body space-y-2">
-                  {tickets.length > 0 ? (
-                    tickets.slice(0, 3).map((ticket) => {
-                      const event = ticket.events;
-                      if (!event) return null;
-
-                      return (
-                        <button
-                          type="button"
-                          key={ticket.id}
-                          onClick={() => navigate(routes.event(event.id))}
-                          className="w-full rounded-2xl border border-border/40 bg-background/60 p-4 text-left transition hover:border-primary/50 hover:shadow-sm"
-                        >
-                          <div className="flex gap-4">
-                            <div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-xl">
-                              <img
-                                src={event.cover_image_url ?? DEFAULT_EVENT_COVER}
-                                alt={event.title}
-                                className="h-full w-full object-cover"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <p className="font-semibold">{event.title}</p>
-                              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-4 w-4" />
-                                  {formatDate(event.start_at)}
-                                </span>
-                              </div>
-                              <Badge
-                                variant={ticket.status === 'redeemed' ? 'success' : 'neutral'}
-                                className="capitalize"
-                              >
-                                {ticket.status ?? 'pending'}
-                              </Badge>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No ticket history yet.</p>
-                  )}
-                </div>
+          {/* Recent Tickets - Always show regardless of role */}
+          <div className="section-shell">
+            <div className="section-head">
+              <div className="flex items-center gap-2">
+                <Ticket className="h-5 w-5" /> <span>Recent tickets</span>
               </div>
-            ) : (
+              <span className="text-xs text-muted-foreground">Latest activity</span>
+            </div>
+            <div className="section-body space-y-2">
+              {tickets.length > 0 ? (
+                tickets.slice(0, 3).map((ticket) => {
+                  const event = ticket.events;
+                  if (!event) return null;
+
+                  return (
+                    <button
+                      type="button"
+                      key={ticket.id}
+                      onClick={() => navigate(routes.event(event.id))}
+                      className="w-full rounded-2xl border border-border/40 bg-background/60 p-4 text-left transition hover:border-primary/50 hover:shadow-sm"
+                    >
+                      <div className="flex gap-4">
+                        <div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-xl">
+                          <img
+                            src={event.cover_image_url ?? DEFAULT_EVENT_COVER}
+                            alt={event.title}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="font-semibold">{event.title}</p>
+                          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              {formatDate(event.start_at)}
+                            </span>
+                          </div>
+                          <Badge
+                            variant={ticket.status === 'redeemed' ? 'success' : 'neutral'}
+                            className="capitalize"
+                          >
+                            {ticket.status ?? 'pending'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-muted-foreground">No ticket history yet.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Role-specific section */}
+          <div className="relative">
+            {activeView === 'organizer' && (
               <div className="section-shell">
                 <div className="section-head">
                   <div className="flex items-center gap-2">

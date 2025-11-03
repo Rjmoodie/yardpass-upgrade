@@ -521,12 +521,25 @@ export default function UnifiedFeedList() {
   const handleComment = useCallback(
     (item: Extract<FeedItem, { item_type: 'post' }>) => {
       requireAuth(() => {
-        setCommentContext({
+        console.log('💬 [UnifiedFeed] Comment clicked for post:', {
           postId: item.item_id,
           eventId: item.event_id,
-          eventTitle: item.event_title,
+          eventTitle: item.event_title
         });
-        setShowCommentModal(true);
+
+        // Clear old context first to ensure clean state
+        setCommentContext(null);
+        setShowCommentModal(false);
+
+        // Set new context after a brief delay to ensure cleanup
+        setTimeout(() => {
+          setCommentContext({
+            postId: item.item_id,
+            eventId: item.event_id,
+            eventTitle: item.event_title,
+          });
+          setShowCommentModal(true);
+        }, 50);
       }, 'Please sign in to comment');
     },
     [requireAuth]
@@ -820,12 +833,17 @@ export default function UnifiedFeedList() {
 
       {commentContext && (
         <CommentModal
+          key={`modal-${commentContext.postId}-${commentContext.eventId}`}
           isOpen={showCommentModal}
-          onClose={() => setShowCommentModal(false)}
+          onClose={() => {
+            setShowCommentModal(false);
+            setCommentContext(null); // ✅ Clear context on close
+          }}
           eventId={commentContext.eventId}
           eventTitle={commentContext.eventTitle}
           postId={commentContext.postId}
           onCommentCountChange={(postId, newCount) => {
+            console.log('💬 [UnifiedFeed] Comment count updated:', postId, newCount);
             applyEngagementDelta(postId, { mode: 'absolute', comment_count: newCount });
           }}
         />

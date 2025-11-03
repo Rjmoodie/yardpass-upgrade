@@ -9,6 +9,7 @@ import type { FeedItem } from "@/hooks/unifiedFeedTypes";
 import { usePostViewCount } from "@/hooks/usePostViewCount";
 import { useProfileVisitTracking } from "@/hooks/usePurchaseIntentTracking";
 import { isVideoUrl } from "@/utils/mux";
+import { FlashbackBadge } from "@/components/flashbacks/FlashbackBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -127,6 +128,13 @@ const UserPostCardNewDesignComponent = ({
         {/* Gradient overlay for readability */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/20 via-transparent to-background/90" />
       </div>
+
+      {/* Flashback Badge - Top Right */}
+      {item.event_is_flashback && (
+        <div className="absolute top-4 right-4 z-40">
+          <FlashbackBadge variant="default" className="text-sm px-4 py-2 shadow-2xl" />
+        </div>
+      )}
 
       {/* Bottom Info Card - Glassmorphic - Expandable */}
       <div

@@ -12,7 +12,7 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-auto items-center justify-start rounded-lg bg-muted/40 backdrop-blur-sm p-1 text-foreground/90 border border-border/30",
+      "inline-flex h-auto w-full items-stretch justify-between rounded-lg bg-muted/40 backdrop-blur-sm p-1.5 text-foreground/90 border border-border/30",
       className
     )}
     {...props}
@@ -27,7 +27,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:font-semibold [-webkit-font-smoothing:antialiased] [text-rendering:optimizeLegibility]",
+      "inline-flex items-center justify-center whitespace-nowrap rounded-lg px-5 py-2.5 text-[13px] font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:font-semibold flex-1 [-webkit-font-smoothing:antialiased] [text-rendering:optimizeLegibility]",
       className
     )}
     {...props}

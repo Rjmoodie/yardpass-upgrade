@@ -88,8 +88,64 @@ serve(async (req) => {
     if (!event_id || !text || typeof text !== "string") {
       return createErrorResponse("Missing event_id or text", 400);
     }
-    if (text.length > 2000) {
-      return createErrorResponse("Text too long", 400);
+
+    // Fetch event details to check if it's a flashback
+    const { data: event, error: eventError } = await supabaseClient
+      .from('events')
+      .select('is_flashback, flashback_end_date')
+      .eq('id', event_id)
+      .single();
+
+    if (eventError) {
+      console.error('Error fetching event:', eventError);
+      return createErrorResponse('Event not found', 404);
+    }
+
+    const isFlashback = event?.is_flashback || false;
+    let processedText = text.trim();
+
+    // FLASHBACK-SPECIFIC VALIDATION
+    if (isFlashback) {
+      // 1. Media required for flashbacks
+      if (!media_urls || media_urls.length === 0) {
+        return createErrorResponse(
+          "Flashback posts require at least one photo or video",
+          400
+        );
+      }
+
+      // 2. Check if flashback posting is still open (90-day window)
+      const { data: isOpen, error: openError } = await supabaseClient
+        .rpc('is_flashback_posting_open', { p_event_id: event_id });
+
+      if (openError || !isOpen) {
+        return createErrorResponse(
+          "Posting period for this Flashback event has ended",
+          403
+        );
+      }
+
+      // 3. Enforce 300 character limit for flashbacks
+      if (processedText.length > 300) {
+        return createErrorResponse(
+          "Flashback captions are limited to 300 characters",
+          400
+        );
+      }
+
+      // 4. Strip links from flashback posts
+      processedText = processedText.replace(/https?:\/\/[^\s]+/gi, '').trim();
+      
+      console.log('Flashback post validation passed', {
+        original_length: text.length,
+        processed_length: processedText.length,
+        media_count: media_urls.length
+      });
+    } else {
+      // Regular posts: 2000 character limit
+      if (processedText.length > 2000) {
+        return createErrorResponse("Text too long", 400);
+      }
     }
 
     // Permission check using the corrected function
@@ -98,12 +154,17 @@ serve(async (req) => {
         p_event_id: event_id
       });
 
-    console.log('Permission check result:', { canPost, permError });
+    console.log('Permission check result:', { canPost, permError, isFlashback });
 
     if (permError || !canPost) {
+      const errorMessage = isFlashback
+        ? "You must be signed in to post to this Flashback event"
+        : "You must have a ticket or be an event organizer to post to this event";
+      
       return new Response(JSON.stringify({ 
-        error: "You must have a ticket or be an event organizer to post to this event",
-        requiresTicket: true 
+        error: errorMessage,
+        requiresTicket: !isFlashback,
+        requiresAuth: isFlashback
       }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -133,7 +194,7 @@ serve(async (req) => {
       .insert({
         event_id,
         author_user_id: user.id,
-        text: text.trim(),
+        text: processedText,  // Use processed text (links stripped for flashbacks)
         media_urls: media_urls || [],
         ticket_tier_id: finalTicketTierId,
       })

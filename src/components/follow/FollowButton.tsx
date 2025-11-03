@@ -56,13 +56,18 @@ export function FollowButton({
     return currentFollowState ? 'Following' : 'Follow';
   })();
 
+  // Size classes that respect the size prop
+  const sizeClasses = size === 'default' 
+    ? 'min-h-[44px] px-5 text-sm font-medium min-w-[110px]' 
+    : 'h-8 px-3 text-xs min-w-[80px]';
+
   return (
     <Button
       variant={currentFollowState || state === 'pending' ? 'secondary' : 'default'}
       size={size}
       disabled={loading}
       onClick={() => requireAuth(() => handleToggle(), 'Please sign in to follow')}
-      className="h-6 px-2 text-xs"
+      className={sizeClasses}
     >
       {label}
     </Button>

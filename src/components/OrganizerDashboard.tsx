@@ -975,7 +975,7 @@ export default function OrganizerDashboard() {
                 <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-4">
                   <div>
                     <CardTitle className="text-xl font-bold tracking-tight">Event pipeline</CardTitle>
-                    <CardDescription className="text-foreground/60">Search, prioritize, and drill into the events that matter most.</CardDescription>
+                    <CardDescription>Search, prioritize, and drill into the events that matter most.</CardDescription>
                   </div>
                   <Button size="sm" onClick={goCreateEvent}>
                     <Plus className="mr-2 h-4 w-4" />
@@ -1087,13 +1087,13 @@ export default function OrganizerDashboard() {
                             >
                               <TableCell>
                                 <div className="font-semibold text-sm sm:text-base">{event.title}</div>
-                                <div className="text-xs text-foreground/60 font-medium">
+                                <div className="text-xs text-foreground/70 font-medium">
                                   {[event.city, event.venue].filter(Boolean).join(' • ') || 'Location TBD'}
                                 </div>
                               </TableCell>
                               <TableCell>
                                 <div className="font-medium text-sm">{startLabel}</div>
-                                <div className="text-xs text-foreground/60">{scheduleHint || 'Awaiting updates'}</div>
+                                <div className="text-xs text-foreground/70">{scheduleHint || 'Awaiting updates'}</div>
                               </TableCell>
                               <TableCell>
                                 <Badge variant={statusBadgeVariant as any} className="capitalize font-medium">
@@ -1107,7 +1107,7 @@ export default function OrganizerDashboard() {
                                 {typeof event.occupancyRate === 'number' && (
                                   <div className="mt-1 flex items-center gap-2">
                                     <Progress value={event.occupancyRate} className="h-1.5 w-24" />
-                                    <span className="text-xs text-foreground/60 font-medium">{Math.round(event.occupancyRate)}%</span>
+                                    <span className="text-xs text-foreground/75 font-medium">{Math.round(event.occupancyRate)}%</span>
               </div>
             )}
                               </TableCell>
@@ -1128,7 +1128,7 @@ export default function OrganizerDashboard() {
                   <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div>
                       <CardTitle className="text-lg font-bold tracking-tight">Operational insights</CardTitle>
-                      <CardDescription className="text-foreground/60">Track fulfillment and highlight where to focus next.</CardDescription>
+                      <CardDescription>Track fulfillment and highlight where to focus next.</CardDescription>
                     </div>
                     <div className="text-right">
                       <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Avg Capacity</p>
@@ -1155,7 +1155,7 @@ export default function OrganizerDashboard() {
                   <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div>
                       <CardTitle className="text-lg font-bold tracking-tight">Performance alerts</CardTitle>
-                      <CardDescription className="text-foreground/60">Wins and gaps</CardDescription>
+                      <CardDescription>Wins and gaps</CardDescription>
                     </div>
                     <TrendingUp className="h-5 w-5 text-primary/60" />
                   </CardHeader>

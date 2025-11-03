@@ -28,6 +28,7 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [resolved, setResolved] = useState<{ lat: number; lng: number } | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Fetch Mapbox token from Supabase edge function
   useEffect(() => {
@@ -62,55 +63,57 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
     console.debug('[MapboxEventMap] props', { lat, lng, venue, address, city, country });
   }, [lat, lng, venue, address, city, country]);
 
+  // Detect and respond to theme changes
+  useEffect(() => {
+    const checkTheme = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
+    };
+
+    // Initial check
+    checkTheme();
+
+    // Watch for theme changes
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!mapContainer.current || !mapboxToken) return;
 
     // Set Mapbox access token
     mapboxgl.accessToken = mapboxToken;
     
+    // Choose map style based on theme
+    const mapStyle = isDarkMode 
+      ? 'mapbox://styles/mapbox/dark-v11' 
+      : 'mapbox://styles/mapbox/light-v11';
+    
     // Initialize map
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12', // Standard streets style with better readability
+      style: mapStyle,
       center: [lng, lat],
       zoom: 15,
-      pitch: 0, // Flat view reduces 3D ads
+      pitch: 0,
       bearing: 0,
       interactive: true,
-      attributionControl: false, // We'll add custom minimal attribution
+      attributionControl: false,
       logoPosition: 'bottom-left',
     });
 
-    // Add marker
+    // Add marker (without popup since we have the overlay at the top)
     const marker = new mapboxgl.Marker({
       color: 'hsl(var(--primary))',
       scale: 1.2,
     })
       .setLngLat([lng, lat])
       .addTo(map.current);
-
-    // Add popup with venue/address info - show exactly what was saved
-    const lines: string[] = [];
-    if (venue) lines.push(`<div class="font-semibold">${venue}</div>`);
-    if (address) {
-      lines.push(`<div>${address}</div>`);
-    } else {
-      const locLine = [city, country].filter(Boolean).join(', ');
-      if (locLine) lines.push(`<div class="text-muted-foreground">${locLine}</div>`);
-    }
-
-    if (lines.length) {
-      const popup = new mapboxgl.Popup({
-        offset: 25,
-        closeButton: false,
-        closeOnClick: false,
-        className: 'mapbox-popup-custom',
-      })
-        .setLngLat([lng, lat])
-        .setHTML(`<div class="p-2 text-sm">${lines.join('')}</div>`);
-
-      marker.setPopup(popup).togglePopup();
-    }
 
     // Add ultra-compact attribution
     map.current.addControl(
@@ -148,7 +151,7 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
     return () => {
       map.current?.remove();
     };
-  }, [lat, lng, venue, address, mapboxToken]);
+  }, [lat, lng, venue, address, mapboxToken, isDarkMode]);
 
   // Open external map with precise coordinates
   const openExternalMap = () => {
@@ -212,46 +215,36 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
         </div>
       )}
       
-      {/* Address overlay - show exactly what was saved */}
+      {/* Address overlay - responsive and theme-aware */}
       {(address || city || country || venue) && (
-        <div className="absolute top-3 left-3 max-w-[75%]">
-          <div className="px-3 py-2 rounded-xl bg-card/90 border border-border/50 shadow-sm">
-            <div className="text-sm font-medium truncate">{venue || 'Location'}</div>
-            <div className="text-xs text-muted-foreground truncate">
+        <div className="absolute top-2 left-2 right-16 sm:top-3 sm:left-3 sm:right-auto sm:max-w-[75%]">
+          <div className="px-3 py-2 rounded-xl bg-card/95 backdrop-blur-md border border-border shadow-lg">
+            <div className="text-sm font-semibold truncate text-foreground">{venue || 'Location'}</div>
+            <div className="text-xs text-foreground/70 truncate">
               {address || [city, country].filter(Boolean).join(', ')}
             </div>
           </div>
         </div>
       )}
       
-      {/* Directions Button */}
+      {/* Directions Button - responsive */}
       {mapLoaded && (
-        <div className="absolute bottom-4 right-4">
+        <div className="absolute bottom-3 right-2 sm:bottom-4 sm:right-4">
           <Button
             variant="secondary"
             size="sm"
             onClick={openExternalMap}
-            className="shadow-lg backdrop-blur-sm bg-card/90 border border-border/50 hover:bg-card transition-all duration-200"
+            className="shadow-lg backdrop-blur-md bg-card/95 border border-border hover:bg-card/100 transition-all duration-200 text-foreground"
           >
-            <Navigation className="w-4 h-4 mr-2" />
-            Directions
+            <Navigation className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Directions</span>
           </Button>
         </div>
       )}
       
-      {/* Custom styles for Mapbox popup and minimal attribution */}
+      {/* Custom styles for minimal attribution */}
       <style dangerouslySetInnerHTML={{
         __html: `
-          .mapbox-popup-custom .mapbox-popup-content {
-            background: hsl(var(--background));
-            border: 1px solid hsl(var(--border));
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            color: hsl(var(--foreground));
-          }
-          .mapbox-popup-custom .mapbox-popup-tip {
-            border-top-color: hsl(var(--background));
-          }
           .mapboxgl-ctrl-attrib {
             opacity: 0.4;
             font-size: 9px !important;

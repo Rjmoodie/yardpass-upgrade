@@ -13,6 +13,10 @@ export type FeedItem =
       event_created_by: string | null;
       event_owner_context_type: string;
       event_location: string;
+      event_is_flashback?: boolean;
+      event_flashback_end_date?: string | null;
+      event_linked_event_id?: string | null;
+      event_flashback_explainer?: string | null;
       author_id: null;
       author_name: null;
       author_badge: null;
@@ -54,6 +58,10 @@ export type FeedItem =
       event_created_by: string | null;
       event_owner_context_type: string;
       event_location: string;
+      event_is_flashback?: boolean;
+      event_flashback_end_date?: string | null;
+      event_linked_event_id?: string | null;
+      event_flashback_explainer?: string | null;
       author_id: string | null;
       author_name: string | null;
       author_username: string | null;

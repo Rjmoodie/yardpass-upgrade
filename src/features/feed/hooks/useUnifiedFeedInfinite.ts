@@ -80,6 +80,14 @@ export function useUnifiedFeedInfinite(options: FeedFilters & { limit?: number }
       const { data: { session } } = await supabase.auth.getSession();
       const cursor = pageParam as FeedCursor | undefined;
       
+      console.log('🔍 [useUnifiedFeedInfinite] Fetching with filters:', {
+        locations,
+        categories,
+        dates,
+        searchRadius,
+        cursor: cursor ? `${cursor.cursorId?.substring(0, 8)}...` : 'first page'
+      });
+      
       // Get user's geolocation if needed for "Near Me" filtering
       let userLocation: { lat: number; lng: number } | null = null;
       if (needsLocation) {

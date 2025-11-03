@@ -257,18 +257,24 @@ export function TicketsRoute() {
         isOpen={authState.open}
         onClose={closeAuth}
         onSuccess={() => {
+          // Close modal first
           closeAuth();
-          // Trigger storage event to update guest session state
-          window.dispatchEvent(new StorageEvent('storage', {
-            key: 'ticket-guest-session',
-            newValue: localStorage.getItem('ticket-guest-session')
-          }));
-          // Navigate to tickets page after successful guest verification
-          if (eventIdentifier) {
-            navigate(`/e/${eventIdentifier}/tickets`);
-          } else {
-            navigate('/tickets');
-          }
+          
+          // Small delay to ensure modal closes before navigation
+          setTimeout(() => {
+            // Trigger storage event to update guest session state
+            window.dispatchEvent(new StorageEvent('storage', {
+              key: 'ticket-guest-session',
+              newValue: localStorage.getItem('ticket-guest-session')
+            }));
+            
+            // Navigate to tickets page after successful guest verification
+            if (eventIdentifier) {
+              navigate(`/e/${eventIdentifier}/tickets`);
+            } else {
+              navigate('/tickets');
+            }
+          }, 100);
         }}
         title={authState.title}
         description={authState.description}

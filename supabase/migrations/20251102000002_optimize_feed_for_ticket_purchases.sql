@@ -301,6 +301,8 @@ candidate_events AS (
     AND (p_categories IS NULL OR array_length(p_categories, 1) IS NULL OR e.category = ANY(p_categories))
     AND (p_max_distance_miles IS NULL OR dc.distance_miles IS NULL OR dc.distance_miles <= p_max_distance_miles)
     AND (p_date_filters IS NULL OR array_length(p_date_filters, 1) IS NULL OR dfc.passes_date_filter = true)
+    -- Exclude flashback events (added for Flashbacks feature - safe to use before column exists due to COALESCE)
+    AND (COALESCE(e.is_flashback, false) = false)
 ),
 -- PRE-AGGREGATED SIGNALS (key performance optimization)
 -- Helper: time decay formula

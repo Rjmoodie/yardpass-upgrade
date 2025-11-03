@@ -882,9 +882,10 @@ async function fetchFallbackRows({
 }) {
   const query = supabase
     .from("events")
-    .select("id, start_at")
+    .select("id, start_at, is_flashback")
     .eq("visibility", "public")
     .gte("start_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+    .or("is_flashback.is.null,is_flashback.eq.false")  // ✅ Exclude flashback events
     .order("start_at", { ascending: false })
     .limit(limit);
 

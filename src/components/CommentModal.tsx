@@ -1,12 +1,10 @@
-// src/components/CommentModal.tsx
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useHaptics } from '@/hooks/useHaptics';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, X, Trash2, Play, ExternalLink, Link as LinkIcon, ChevronDown } from 'lucide-react';
+import { Heart, X, Trash2, Play, ExternalLink, Link as LinkIcon, ChevronDown, Pin, Reply } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -16,10 +14,22 @@ import { ReportButton } from '@/components/ReportButton';
 import { muxToHls } from '@/utils/media';
 import { useRealtimeComments } from '@/hooks/useRealtimeComments';
 
+/**
+ * Optimized drop-in replacement for CommentModal
+ * - Extracted heavy helpers outside component (regex/formatters)
+ * - Memoized derived values & split into memoized subcomponents
+ * - Stable callbacks via useCallback to reduce re-renders
+ * - Safer/clearer rich text parsing with minimal allocations
+ * - Scroll-to-bottom smarts & RAF cleanup
+ * - Defensive effects (mounted guards) to avoid setState on unmounted
+ * - A11y tweaks: labels, titles, aria-live regions
+ */
+
 const PAGE_SIZE = 25;
 const MAX_LEN = 1000;
 
-type CommentRow = {
+// Types mirrored from original component
+export type CommentRow = {
   id: string;
   text: string;
   author_user_id: string;
@@ -27,7 +37,7 @@ type CommentRow = {
   post_id: string;
 };
 
-type PostRow = {
+export type PostRow = {
   id: string;
   text: string;
   author_user_id: string;
@@ -38,7 +48,7 @@ type PostRow = {
   ticket_tier_id: string | null;
 };
 
-type Comment = {
+export type Comment = {
   id: string;
   text: string;
   author_user_id: string;
@@ -49,9 +59,14 @@ type Comment = {
   is_liked: boolean;
   pending?: boolean;
   client_id?: string;
+  is_pinned?: boolean;
+  parent_comment_id?: string | null;
+  mentions?: string[];
+  reply_count?: number;
+  replies?: Comment[];
 };
 
-type Post = {
+export type Post = {
   id: string;
   text: string;
   author_user_id: string;
@@ -67,25 +82,286 @@ type Post = {
   comment_count: number;
 };
 
-interface CommentModalProps {
+export interface CommentModalProps {
   isOpen: boolean;
   onClose: () => void;
   eventId: string;
   eventTitle: string;
-  postId?: string;            // focus a single post (preferred)
-  mediaPlaybackId?: string;   // fallback to resolve post by playback id
+  postId?: string; // focus a single post (preferred)
+  mediaPlaybackId?: string; // fallback to resolve post by playback id
   onCommentCountChange?: (postId: string, newCount: number) => void;
-  // onSuccess removed - rely on realtime updates only
 }
 
+// Helpers outside component to keep stable refs
+function parseRichText(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const matches = Array.from(text.matchAll(/(https?:\/\/[^\s]+)|(@\w+)/g));
+  let last = 0;
+
+  matches.forEach((m, i) => {
+    if (m.index! > last) parts.push(text.slice(last, m.index));
+    const token = m[0];
+    if (token.startsWith('@')) {
+      parts.push(
+        <span key={`m-${i}`} className="text-primary font-medium" data-username={token.slice(1)}>
+          {token}
+        </span>
+      );
+    } else {
+      parts.push(
+        <a
+          key={`u-${i}`}
+          href={token}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {token}
+        </a>
+      );
+    }
+    last = m.index! + token.length;
+  });
+
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length ? parts : [text];
+}
+
+function extractMentions(text: string): string[] {
+  const out: string[] = [];
+  const matches = text.matchAll(/@(\w+)/g);
+  for (const m of matches) out.push(m[1]);
+  return out;
+}
+
+function isVideoUrl(url: string) {
+  return /\.m3u8$|\.(mp4|mov|webm)$/i.test(url);
+}
+
+function isImageUrl(url: string) {
+  return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+}
+
+async function resolvePostIdFromMedia(eventId: string, playbackId: string) {
+  console.log('🔍 [resolvePostIdFromMedia] Searching for playbackId:', playbackId, 'in event:', eventId);
+  
+  const { data, error } = await supabase
+    .from('event_posts')
+    .select('id, media_urls, text')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false }); // Get newest first
+    
+  if (error) {
+    console.error('❌ [resolvePostIdFromMedia] Error:', error);
+    throw error;
+  }
+
+  console.log('📋 [resolvePostIdFromMedia] Found posts:', data?.length);
+
+  for (const row of data ?? []) {
+    const arr: string[] = row.media_urls ?? [];
+    console.log('🔍 [resolvePostIdFromMedia] Checking post:', { 
+      postId: row.id, 
+      mediaUrls: arr,
+      textPreview: row.text?.substring(0, 30)
+    });
+    
+    // More precise matching - check for exact mux:playbackId or exact playbackId in URL
+    const hasMatch = arr.some((u) => {
+      const exactMux = u === `mux:${playbackId}`;
+      const inUrl = u.includes(`/${playbackId}/`) || u.includes(`/${playbackId}.`);
+      return exactMux || inUrl;
+    });
+    
+    if (hasMatch) {
+      console.log('✅ [resolvePostIdFromMedia] MATCH FOUND:', row.id);
+      return row.id;
+    }
+  }
+  
+  console.warn('⚠️ [resolvePostIdFromMedia] No match found for playbackId:', playbackId);
+  return null;
+}
+
+// --- Memoized subcomponents -------------------------------------------------
+
+type CommentItemProps = {
+  comment: Comment;
+  currentUserId?: string | null;
+  mine: boolean;
+  depth: number;
+  onLike: (id: string) => void;
+  onReply: (c: Comment) => void;
+  onDelete: (id: string) => void;
+  onTogglePin: (id: string, pinned: boolean) => void;
+  isOrganizer: boolean;
+};
+
+const CommentItem = memo(function CommentItem({
+  comment: c,
+  currentUserId,
+  mine,
+  depth,
+  onLike,
+  onReply,
+  onDelete,
+  onTogglePin,
+  isOrganizer,
+}: CommentItemProps) {
+  return (
+    <div className={depth > 0 ? 'ml-8 mt-2' : ''}>
+      <div
+        className={`group flex items-start gap-2 sm:gap-3 ${mine ? 'flex-row-reverse text-right' : ''} ${
+          c.pending ? 'opacity-70' : ''
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => window.open(routes.user(c.author_user_id), '_blank', 'noopener,noreferrer')}
+          className={`mt-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-primary ${mine ? 'order-last' : ''}`}
+          aria-label={`Open ${c.author_name || 'user'} profile in new tab`}
+        >
+          <Avatar className="w-7 h-7">
+            <AvatarImage src={c.author_avatar || undefined} />
+            <AvatarFallback className="text-xs">{c.author_name?.charAt(0) || 'A'}</AvatarFallback>
+          </Avatar>
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <div
+            className={`rounded-2xl px-3 py-2 text-xs sm:text-sm leading-relaxed break-words shadow-sm ${
+              mine ? 'bg-primary/10 text-foreground' : 'bg-muted/60 text-foreground'
+            } ${c.pending ? 'opacity-70' : ''} ${c.is_pinned ? 'ring-2 ring-primary/40' : ''}`}
+            title={c.pending ? 'Sending…' : undefined}
+          >
+            <div className="mb-1 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => window.open(routes.user(c.author_user_id), '_blank', 'noopener,noreferrer')}
+                  className="font-medium text-[11px] sm:text-xs hover:text-primary transition-colors"
+                  title="View profile (new tab)"
+                >
+                  {c.author_name}
+                </button>
+                {c.is_pinned && (
+                  <Badge variant="brand" size="sm" className="text-[9px] px-1.5 py-0 h-4 gap-0.5">
+                    <Pin className="w-2.5 h-2.5" /> PINNED
+                  </Badge>
+                )}
+              </div>
+              <span className="shrink-0 text-[10px] text-muted-foreground">
+                {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
+                {c.pending ? ' • sending…' : ''}
+              </span>
+            </div>
+            <div className="whitespace-pre-wrap">{parseRichText(c.text)}</div>
+          </div>
+
+          <div
+            className={`mt-1 flex items-center ${mine ? 'justify-end' : 'justify-start'} gap-3 text-[11px] text-muted-foreground flex-wrap`}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (!c.pending) onLike(c.id);
+              }}
+              className={`inline-flex items-center gap-1 hover:text-foreground transition-colors ${
+                c.is_liked ? 'text-red-500' : ''
+              } ${c.pending ? 'pointer-events-none opacity-60' : ''}`}
+              aria-label={c.is_liked ? 'Unlike comment' : 'Like comment'}
+              title={c.is_liked ? 'Unlike' : 'Like'}
+            >
+              <Heart className={`w-3 h-3 ${c.is_liked ? 'fill-current' : ''}`} />
+              {c.likes_count}
+            </button>
+
+            {!c.pending && depth < 2 && (
+              <button
+                type="button"
+                onClick={() => onReply(c)}
+                className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                aria-label="Reply to comment"
+                title="Reply"
+              >
+                <Reply className="w-3 h-3" /> Reply
+                {(c.reply_count ?? 0) > 0 && ` (${c.reply_count})`}
+              </button>
+            )}
+
+            {isOrganizer && !c.pending && (
+              <button
+                type="button"
+                onClick={() => onTogglePin(c.id, c.is_pinned ?? false)}
+                className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                aria-label={c.is_pinned ? 'Unpin comment' : 'Pin comment'}
+                title={c.is_pinned ? 'Unpin' : 'Pin'}
+              >
+                <Pin className="w-3 h-3" /> {c.is_pinned ? 'Unpin' : 'Pin'}
+              </button>
+            )}
+
+            {mine && !c.pending && (
+              <button
+                type="button"
+                onClick={() => onDelete(c.id)}
+                className="inline-flex items-center gap-1 hover:text-destructive transition-colors"
+                aria-label="Delete comment"
+                title="Delete"
+              >
+                <Trash2 className="w-3 h-3" /> Delete
+              </button>
+            )}
+
+            {!c.pending && (
+              <div className="inline-flex">
+                <ReportButton targetType="comment" targetId={c.id} />
+              </div>
+            )}
+          </div>
+
+          {/* Replies */}
+          {c.replies && c.replies.length > 0 && (
+            <div className="mt-2 space-y-2 border-l-2 border-border/50 pl-2">
+              {c.replies.map((r) => (
+                <CommentItem
+                  key={r.id}
+                  comment={r}
+                  currentUserId={currentUserId}
+                  mine={r.author_user_id === currentUserId}
+                  depth={depth + 1}
+                  onLike={onLike}
+                  onReply={onReply}
+                  onDelete={onDelete}
+                  onTogglePin={onTogglePin}
+                  isOrganizer={isOrganizer}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function CommentModal({
-  isOpen, onClose, eventId, eventTitle, postId, mediaPlaybackId, onCommentCountChange,
+  isOpen,
+  onClose,
+  eventId,
+  eventTitle,
+  postId,
+  mediaPlaybackId,
+  onCommentCountChange,
 }: CommentModalProps) {
   const { user } = useAuth();
 
   // layout/scroll refs
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const bottomSentinelRef = useRef<HTMLDivElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const loadingRef = useRef(false);
 
   // data state
   const [posts, setPosts] = useState<Post[]>([]);
@@ -99,174 +375,111 @@ export default function CommentModal({
   const [submitting, setSubmitting] = useState(false);
   const overLimit = draft.length > MAX_LEN;
 
+  // reply state
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
+
+  // organizer check for pin feature
+  const [isOrganizer, setIsOrganizer] = useState(false);
+
   // single vs multi mode
   const singleMode = !!postId || !!mediaPlaybackId;
-  const activePost = useMemo(
-    () => posts.find(p => p.id === activePostId) ?? posts[0],
-    [posts, activePostId]
-  );
+  const activePost = useMemo(() => posts.find((p) => p.id === activePostId) ?? posts[0], [posts, activePostId]);
 
-  function openInNewTab(href: string) {
-    try { window.open(href, '_blank', 'noopener,noreferrer'); } catch {}
-  }
-
-  async function resolvePostIdFromMedia(eventId: string, playbackId: string) {
-    const { data } = await supabase
-      .from('event_posts')
-      .select('id, media_urls')
-      .eq('event_id', eventId);
-    for (const row of data ?? []) {
-      const arr: string[] = row.media_urls ?? [];
-      if (arr.some(u => u === `mux:${playbackId}` || u.includes(playbackId))) return row.id;
-    }
-    return null;
-  }
-
-  // Resolve target post once on open
+  // Resolve target post once on open / changes
   useEffect(() => {
-    if (!isOpen) return;
-    (async () => {
-      if (postId) {
-        setActivePostId(postId);
-        return;
-      }
-      if (mediaPlaybackId) {
-        const id = await resolvePostIdFromMedia(eventId, mediaPlaybackId);
-        setActivePostId(id);
-        return;
-      }
+    if (!isOpen) {
+      // Reset when modal closes to prevent stale data
       setActivePostId(null);
+      setPosts([]);
+      setReplyingTo(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        console.log('🔍 [CommentModal] Resolving post:', { postId, mediaPlaybackId, eventId });
+        
+      if (postId) {
+          console.log('✅ [CommentModal] Using direct postId:', postId);
+          if (!cancelled) setActivePostId(postId);
+        return;
+      }
+        
+      if (mediaPlaybackId) {
+          console.log('🔍 [CommentModal] Resolving via mediaPlaybackId:', mediaPlaybackId);
+        const id = await resolvePostIdFromMedia(eventId, mediaPlaybackId);
+          console.log('✅ [CommentModal] Resolved to postId:', id);
+          if (!cancelled) setActivePostId(id);
+        return;
+      }
+        
+        console.log('⚠️ [CommentModal] No postId or mediaPlaybackId, multi-mode');
+        if (!cancelled) setActivePostId(null);
+      } catch (e: any) {
+        console.error('❌ [CommentModal] Error resolving post:', e);
+      }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, eventId, postId, mediaPlaybackId]);
 
   // Pause & mute all videos while modal is open
   useEffect(() => {
     if (!isOpen) return;
     const videos = Array.from(document.querySelectorAll<HTMLVideoElement>('video'));
-    const state = videos.map(v => ({ v, muted: v.muted }));
-    videos.forEach(v => { try { v.pause(); } catch {} v.muted = true; });
-    return () => { state.forEach(({ v, muted }) => { v.muted = muted; }); };
+    const state = videos.map((v) => ({ v, muted: v.muted, paused: v.paused }));
+    videos.forEach((v) => {
+      try {
+        v.pause();
+      } catch {}
+      v.muted = true;
+    });
+    return () => {
+      state.forEach(({ v, muted }) => {
+        v.muted = muted;
+      });
+    };
   }, [isOpen]);
 
-  // Reset & load when opened / target changes
+  // Check if user is organizer (for pin feature)
   useEffect(() => {
-    if (!isOpen) return;
-    setPosts([]);
-    setPageFrom(0);
-    setHasMore(false);
-    setDraft('');
-    void loadPage(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, eventId, activePostId, singleMode]);
-
-  // Realtime: narrow subscription using useRealtimeComments hook
-  useRealtimeComments({
-    postIds: singleMode && activePostId ? [activePostId] : undefined,
-    eventId: !singleMode ? eventId : undefined,
-    onCommentAdded: (comment) => {
-      console.log('🔥 CommentModal: Realtime comment added', { commentId: comment.id, postId: comment.post_id });
-      setPosts(prev => prev.map(p => {
-        if (p.id !== comment.post_id) return p;
-        
-        // Check if comment already exists with same ID (prevent duplicates)
-        const existingComment = p.comments.find(c => c.id === comment.id);
-        if (existingComment) {
-          console.log('🔥 CommentModal: Comment already exists, skipping duplicate', { commentId: comment.id });
-          return p;
-        }
-        
-        // Smart matching: client_id first, then fuzzy match by author+time+text
-        const keyFor = (c: any) =>
-          `${c.author_user_id}|${new Date(c.created_at).toISOString().slice(0,19)}|${(c.text||'').slice(0,64)}`;
-
-        const pendingIdx = p.comments.findIndex(c =>
-          c.pending && (
-            (c.client_id && comment.client_id && c.client_id === comment.client_id) || // client_id match
-            keyFor(c) === keyFor(comment) // fallback fuzzy match
-          )
-        );
-
-        if (pendingIdx !== -1) {
-          console.log('🔥 CommentModal: Replacing pending comment with real one', { 
-            pendingId: p.comments[pendingIdx].id, 
-            realId: comment.id,
-            clientId: comment.client_id
-          });
-          return {
-            ...p,
-            comment_count: p.comment_count, // Keep the count unchanged as it was already incremented optimistically
-            comments: p.comments.map((c, idx) => 
-              idx === pendingIdx 
-                ? { 
-                    ...comment, 
-                    author_name: comment.author_name || 'User',
-                    likes_count: 0,
-                    is_liked: false,
-                    pending: false
-                  }
-                : c
-            )
-          };
-        }
-        
-        console.log('🔥 CommentModal: Adding new realtime comment', { commentId: comment.id });
-        const updatedPost = {
-          ...p,
-          comment_count: p.comment_count + 1, // Increment count for new comments
-          comments: [
-            ...p.comments,
-            {
-              id: comment.id,
-              text: comment.text,
-              author_user_id: comment.author_user_id,
-              created_at: comment.created_at,
-              author_name: comment.author_name ?? 'Anonymous',
-              author_avatar: null,
-              likes_count: 0,
-              is_liked: false,
-            }
-          ]
-        };
-        
-        // Notify parent of count change
-        if (onCommentCountChange) {
-          onCommentCountChange(comment.post_id, updatedPost.comment_count);
-        }
-        
-        return updatedPost;
-      }));
-
-      // keep scrolled to bottom if user is near bottom
-      const scroller = scrollRef.current;
-      if (scroller) {
-        const nearBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 120;
-        if (nearBottom) requestAnimationFrame(() => bottomSentinelRef.current?.scrollIntoView({ behavior: 'smooth' }));
+    if (!isOpen || !user?.id || !eventId) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('created_by, owner_context_type, owner_context_id')
+          .eq('id', eventId)
+          .single();
+        if (error) throw error;
+        // User is organizer if they created the event (for individual) or if they're part of the organization
+        if (mounted) setIsOrganizer(data?.created_by === user.id);
+      } catch (e) {
+        console.error(e);
       }
-    },
-    onCommentDeleted: (comment) => {
-      console.log('🔥 CommentModal: Realtime comment deleted', { commentId: comment.id });
-      setPosts(prev => prev.map(p => {
-        if (p.id !== comment.post_id) return p;
-        const updatedPost = {
-          ...p,
-          comment_count: Math.max(0, p.comment_count - 1), // Decrement count
-          comments: p.comments.filter(c => c.id !== comment.id)
-        };
-        
-        // Notify parent of count change
-        if (onCommentCountChange) {
-          onCommentCountChange(comment.post_id, updatedPost.comment_count);
-        }
-        
-        return updatedPost;
-      }));
-    }
-  });
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, user?.id, eventId]);
+
+  const pinToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => bottomSentinelRef.current?.scrollIntoView({ behavior }));
+  }, []);
+
+  useEffect(() => () => rafRef.current && cancelAnimationFrame(rafRef.current), []);
 
   // Load posts (+ comments + profiles), then pin scroll to bottom
-  async function loadPage(reset = false) {
-    if (loading) return;
+  const loadPage = useCallback(
+    async (reset = false) => {
+      if (loadingRef.current) return;
+      loadingRef.current = true;
     setLoading(true);
+      let mounted = true;
     try {
       const from = reset ? 0 : pageFrom;
       const to = from + PAGE_SIZE - 1;
@@ -276,7 +489,11 @@ export default function CommentModal({
         .select('id, text, author_user_id, created_at, media_urls, like_count, comment_count, ticket_tier_id');
 
       if (singleMode) {
-        if (!activePostId) { setLoading(false); return; }
+          if (!activePostId) {
+            loadingRef.current = false;
+            setLoading(false);
+            return;
+          }
         postQuery = postQuery.eq('id', activePostId);
       } else {
         postQuery = postQuery.eq('event_id', eventId).order('created_at', { ascending: false }).range(from, to);
@@ -285,52 +502,92 @@ export default function CommentModal({
       const { data: postRows, error: postsError } = await postQuery;
       if (postsError) throw postsError;
 
-      const ids = (postRows || []).map(p => p.id);
+      console.log('📦 [loadPage] Fetched posts:', { 
+        count: postRows?.length,
+        singleMode,
+        targetPostId: activePostId,
+        fetchedIds: postRows?.map(p => p.id),
+        postPreviews: postRows?.map(p => ({ id: p.id, text: p.text?.substring(0, 50) }))
+      });
+
+      if (singleMode && postRows?.length === 0) {
+        console.error('❌ [loadPage] No post found with ID:', activePostId);
+        if (mounted) {
+          setLoading(false);
+          loadingRef.current = false;
+        }
+        return;
+      }
+
+      const ids = (postRows || []).map((p) => p.id);
       setHasMore(!singleMode && (postRows || []).length === PAGE_SIZE);
 
-      // Profiles for post authors
-      const authorIds = [...new Set((postRows || []).map(p => p.author_user_id))];
-      let authorProfiles: Record<string, { display_name: string; photo_url?: string | null }> = {};
-      if (authorIds.length) {
-        const { data: profiles } = await supabase
+        // Parallel fetch dependent data
+        const authorIds = [...new Set((postRows || []).map((p) => p.author_user_id))];
+        const tierIds = [
+          ...new Set((postRows || []).map((p) => p.ticket_tier_id).filter(Boolean)),
+        ] as string[];
+
+        const [profilesRes, tiersRes, commentsRes] = await Promise.all([
+          authorIds.length
+            ? supabase
           .from('user_profiles')
           .select('user_id, display_name, photo_url')
-          .in('user_id', authorIds);
-        authorProfiles = (profiles ?? []).reduce((acc, p: any) => { acc[p.user_id] = p; return acc; }, {});
-      }
-
-      // Ticket tiers (badges)
-      const tierIds = [...new Set((postRows || []).map(p => p.ticket_tier_id).filter(Boolean))] as string[];
-      let ticketTiers: Record<string, { badge_label?: string | null }> = {};
-      if (tierIds.length) {
-        const { data: tiers } = await supabase
+                .in('user_id', authorIds)
+            : Promise.resolve({ data: [], error: null }),
+          tierIds.length
+            ? supabase
           .from('ticket_tiers')
           .select('id, badge_label')
-          .in('id', tierIds);
-        ticketTiers = (tiers ?? []).reduce((acc: Record<string, any>, t: any) => { acc[t.id] = t; return acc; }, {});
-      }
-
-      // Comments for these posts
-      const { data: commentRows, error: commentsError } = await supabase
+                .in('id', tierIds)
+            : Promise.resolve({ data: [], error: null }),
+          supabase
         .from('event_comments')
-        .select('id, text, author_user_id, created_at, post_id')
+            .select(
+              'id, text, author_user_id, created_at, post_id, is_pinned, parent_comment_id, mentions, reply_count'
+            )
         .in('post_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
-        .order('created_at', { ascending: true });
-      if (commentsError) throw commentsError;
+            .is('deleted_at', null)
+            .order('is_pinned', { ascending: false })
+            .order('created_at', { ascending: true }),
+        ]);
 
-      const commentAuthorIds = [...new Set((commentRows ?? []).map(c => c.author_user_id))];
+        if (commentsRes.error) throw commentsRes.error;
+        if (profilesRes.error) throw profilesRes.error;
+        if (tiersRes.error) throw tiersRes.error;
+
+        const authorProfiles: Record<string, { display_name: string; photo_url?: string | null }> = (
+          (profilesRes.data as any[]) ?? []
+        ).reduce((acc, p) => {
+          acc[p.user_id] = p;
+          return acc;
+        }, {} as Record<string, any>);
+
+        const ticketTiers: Record<string, { badge_label?: string | null }> = (
+          (tiersRes.data as any[]) ?? []
+        ).reduce((acc, t) => {
+          acc[t.id] = t;
+          return acc;
+        }, {} as Record<string, any>);
+
+        // Fetch comment author profiles
+        const commentAuthorIds = [...new Set((commentsRes.data ?? []).map((c: any) => c.author_user_id))];
       let commentAuthorProfiles: Record<string, any> = {};
       if (commentAuthorIds.length) {
         const { data: profiles } = await supabase
           .from('user_profiles')
           .select('user_id, display_name, photo_url')
           .in('user_id', commentAuthorIds);
-        commentAuthorProfiles = (profiles ?? []).reduce((acc: Record<string, any>, p: any) => { acc[p.user_id] = p; return acc; }, {});
-      }
+          commentAuthorProfiles = (profiles ?? []).reduce((acc: Record<string, any>, p: any) => {
+            acc[p.user_id] = p;
+            return acc;
+          }, {});
+        }
 
-      const commentsByPost = (commentRows ?? []).reduce((acc: Record<string, Comment[]>, c: any) => {
-        const list = acc[c.post_id] ?? [];
-        list.push({
+        // Build comment tree (top-level + replies)
+        const commentsByPost = ((commentsRes.data as any[]) ?? []).reduce(
+          (acc: Record<string, Comment[]>, c: any) => {
+            const comment: Comment = {
           id: c.id,
           text: c.text,
           author_user_id: c.author_user_id,
@@ -339,10 +596,28 @@ export default function CommentModal({
           author_avatar: commentAuthorProfiles[c.author_user_id]?.photo_url ?? null,
           likes_count: 0,
           is_liked: false,
-        });
-        acc[c.post_id] = list;
+              is_pinned: c.is_pinned ?? false,
+              parent_comment_id: c.parent_comment_id ?? null,
+              mentions: c.mentions ?? [],
+              reply_count: c.reply_count ?? 0,
+              replies: [],
+            };
+
+            if (!acc[c.post_id]) acc[c.post_id] = [];
+            if (!c.parent_comment_id) {
+              acc[c.post_id].push(comment);
+            } else {
+              const parent = acc[c.post_id].find((p) => p.id === c.parent_comment_id);
+              if (parent) {
+                (parent.replies ??= []).push(comment);
+              } else {
+                acc[c.post_id].push(comment); // orphan fallback
+              }
+            }
         return acc;
-      }, {});
+          },
+          {}
+        );
 
       const mapped = (postRows as PostRow[]).map<Post>((p) => ({
         id: p.id,
@@ -352,7 +627,7 @@ export default function CommentModal({
         media_urls: (p.media_urls ?? []).map(muxToHls),
         author_name: authorProfiles[p.author_user_id]?.display_name ?? 'Anonymous',
         author_avatar: authorProfiles[p.author_user_id]?.photo_url ?? null,
-        author_badge: p.ticket_tier_id ? (ticketTiers[p.ticket_tier_id]?.badge_label ?? null) : null,
+          author_badge: p.ticket_tier_id ? ticketTiers[p.ticket_tier_id]?.badge_label ?? null : null,
         author_is_organizer: false,
         comments: commentsByPost[p.id] ?? [],
         likes_count: p.like_count ?? 0,
@@ -360,36 +635,181 @@ export default function CommentModal({
         comment_count: p.comment_count ?? 0,
       }));
 
-      setPosts(prev => reset ? mapped : [...prev, ...mapped]);
+        if (!mounted) return;
+        setPosts((prev) => (reset ? mapped : [...prev, ...mapped]));
 
-      // set default active post in multi-mode
-      if (!singleMode && reset && mapped[0] && !activePostId) {
-        setActivePostId(mapped[0].id);
-      }
-
+        if (!singleMode && reset && mapped[0] && !activePostId) setActivePostId(mapped[0].id);
       if (!singleMode) setPageFrom(to + 1);
-
-      // pin to bottom on initial load in single-mode
-      if (reset) {
-        requestAnimationFrame(() => bottomSentinelRef.current?.scrollIntoView({ behavior: 'auto' }));
-      }
+        if (reset) pinToBottom('auto');
     } catch (e: any) {
       console.error(e);
+        if (mounted) {
       toast({ title: 'Error', description: e.message || 'Failed to load comments', variant: 'destructive' });
+        }
     } finally {
-      setLoading(false);
-    }
-  }
+        if (mounted) setLoading(false);
+        loadingRef.current = false;
+      }
+    },
+    [activePostId, eventId, pageFrom, pinToBottom, singleMode]
+  );
 
-  // --- actions ---
-  const submit = async () => {
-    console.log('🔥 CommentModal: Starting comment submission', {
-      activePost: activePost?.id,
-      eventId,
-      draft: draft.trim(),
-      singleMode
-    });
+  // Reset & load when opened / target changes
+  useEffect(() => {
+    if (!isOpen || !activePostId) return;
     
+    console.log('🔄 [CommentModal] Resetting and loading:', { activePostId, eventId, singleMode });
+    setPosts([]);
+    setPageFrom(0);
+    setHasMore(false);
+    setDraft('');
+    setReplyingTo(null);
+    void loadPage(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, eventId, activePostId, singleMode]);
+
+  // Realtime subscriptions (narrowed)
+  useRealtimeComments({
+    postIds: singleMode && activePostId ? [activePostId] : undefined,
+    eventId: !singleMode ? eventId : undefined,
+    onCommentAdded: (comment) => {
+      setPosts((prev) =>
+        prev.map((p) => {
+          if (p.id !== comment.post_id) return p;
+
+          const existing = p.comments.find((c) => c.id === comment.id);
+          if (existing) return p;
+
+          const keyFor = (c: any) =>
+            `${c.author_user_id}|${new Date(c.created_at).toISOString().slice(0, 19)}|${(c.text || '').slice(0, 64)}`;
+
+          const pendingIdx = p.comments.findIndex(
+            (c) =>
+              c.pending &&
+              ((c.client_id && comment.client_id && c.client_id === comment.client_id) || keyFor(c) === keyFor(comment))
+          );
+
+          if (pendingIdx !== -1) {
+            const updated = p.comments.map((c, idx) =>
+              idx === pendingIdx
+                ? {
+                    ...comment,
+                    author_name: comment.author_name || 'User',
+                    likes_count: 0,
+                    is_liked: false,
+                    pending: false,
+                  }
+                : c
+            );
+            return { ...p, comments: updated };
+          }
+
+          // Create the comment object
+          const newComment: Comment = {
+            id: comment.id,
+            text: comment.text,
+            author_user_id: comment.author_user_id,
+            created_at: comment.created_at,
+            author_name: comment.author_name ?? 'Anonymous',
+            author_avatar: null,
+            likes_count: 0,
+            is_liked: false,
+            parent_comment_id: (comment as any).parent_comment_id ?? null,
+            is_pinned: (comment as any).is_pinned ?? false,
+            mentions: (comment as any).mentions ?? [],
+            reply_count: 0,
+            replies: [],
+          };
+
+          // If it's a reply, nest it under parent
+          if (newComment.parent_comment_id) {
+            const nestReply = (comments: Comment[]): Comment[] => {
+              return comments.map(c => {
+                if (c.id === newComment.parent_comment_id) {
+                  return {
+                    ...c,
+                    replies: [...(c.replies || []), newComment],
+                    reply_count: (c.reply_count || 0) + 1
+                  };
+                }
+                if (c.replies && c.replies.length > 0) {
+                  return { ...c, replies: nestReply(c.replies) };
+                }
+                return c;
+              });
+            };
+
+            return {
+              ...p,
+              comments: nestReply(p.comments)
+              // Note: comment_count NOT incremented for replies
+            };
+          }
+
+          // Top-level comment
+          const updatedPost = {
+            ...p,
+            comment_count: p.comment_count + 1,
+            comments: [...p.comments, newComment],
+          };
+
+          onCommentCountChange?.(comment.post_id, updatedPost.comment_count);
+
+          // auto-scroll if user is near bottom
+          const scroller = scrollRef.current;
+          if (scroller) {
+            const nearBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 120;
+            if (nearBottom) pinToBottom('smooth');
+          }
+          return updatedPost;
+        })
+      );
+    },
+    onCommentDeleted: (comment) => {
+      setPosts((prev) =>
+        prev.map((p) => {
+          if (p.id !== comment.post_id) return p;
+
+          // Delete comment recursively
+          const deleteRecursive = (comments: Comment[]): Comment[] => {
+            return comments
+              .filter(c => c.id !== comment.id)
+              .map(c => {
+                if (c.replies && c.replies.length > 0) {
+                  const newReplies = deleteRecursive(c.replies);
+                  // Update reply count if a reply was removed
+                  const replyCountDiff = c.replies.length - newReplies.length;
+                  return { 
+                    ...c, 
+                    replies: newReplies,
+                    reply_count: Math.max(0, (c.reply_count || 0) - replyCountDiff)
+                  };
+                }
+                return c;
+              });
+          };
+
+          const newComments = deleteRecursive(p.comments);
+          const topLevelRemoved = p.comments.length - newComments.length;
+
+          const updatedPost = {
+            ...p,
+            comment_count: Math.max(0, p.comment_count - topLevelRemoved),
+            comments: newComments,
+          };
+
+          if (topLevelRemoved > 0) {
+            onCommentCountChange?.(comment.post_id, updatedPost.comment_count);
+          }
+
+          return updatedPost;
+        })
+      );
+    },
+  });
+
+  // --- actions --------------------------------------------------------------
+  const submit = useCallback(async () => {
     if (!draft.trim() || !activePost?.id || overLimit) return;
     if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to comment', variant: 'destructive' });
@@ -399,6 +819,7 @@ export default function CommentModal({
     setSubmitting(true);
 
     const clientId = `c_${crypto.randomUUID?.() ?? Date.now()}`;
+    const mentions = extractMentions(draft.trim());
     const optimistic: Comment = {
       id: clientId,
       client_id: clientId,
@@ -410,89 +831,166 @@ export default function CommentModal({
       likes_count: 0,
       is_liked: false,
       pending: true,
+      parent_comment_id: replyingTo?.id ?? null,
+      mentions,
+      reply_count: 0,
     };
 
-    console.log('🔥 CommentModal: Adding optimistic comment', { clientId, postId: activePost.id });
-    setPosts(prev => prev.map(p => {
+    setPosts((prev) =>
+      prev.map((p) => {
       if (p.id !== activePost.id) return p;
-      // Increment count optimistically - will be corrected by realtime if needed
+
+        // If it's a reply, nest it under parent
+        if (replyingTo?.id) {
+          const nestReply = (comments: Comment[]): Comment[] => {
+            return comments.map(c => {
+              if (c.id === replyingTo.id) {
+                return {
+                  ...c,
+                  replies: [...(c.replies || []), optimistic],
+                  reply_count: (c.reply_count || 0) + 1
+                };
+              }
+              if (c.replies && c.replies.length > 0) {
+                return { ...c, replies: nestReply(c.replies) };
+              }
+              return c;
+            });
+          };
+
+          return {
+            ...p,
+            comments: nestReply(p.comments)
+            // Note: comment_count NOT incremented for replies (only top-level)
+          };
+        }
+
+        // Top-level comment
       const updatedPost = { 
         ...p, 
         comment_count: p.comment_count + 1,
-        comments: [...p.comments, optimistic] 
+          comments: [...p.comments, optimistic],
       };
-      
-      // Notify parent immediately about count change
       onCommentCountChange?.(activePost.id, updatedPost.comment_count);
-      
       return updatedPost;
-    }));
+      })
+    );
     setDraft('');
 
     try {
-      console.log('🔥 CommentModal: Inserting comment to DB', { postId: activePost.id, text: optimistic.text });
       const { data, error } = await supabase
         .from('event_comments')
         .insert({ 
           post_id: activePost.id, 
           author_user_id: user.id, 
           text: optimistic.text,
-          client_id: clientId
+          client_id: clientId,
+          parent_comment_id: replyingTo?.id ?? null,
+          mentions,
         })
         .select('id, created_at, client_id')
         .single();
       if (error) throw error;
 
-      console.log('🔥 CommentModal: Comment inserted successfully', { commentId: data.id });
-      // Don't update count here - it will be handled by realtime when replacing optimistic comment
-      setPosts(prev => prev.map(p => {
-        if (p.id !== activePost.id) return p;
-        const idx = p.comments.findIndex(c => c.client_id === clientId || c.id === clientId);
-        if (idx < 0) return p;
-        const updated = [...p.comments];
-        updated[idx] = { ...updated[idx], id: data.id, created_at: data.created_at, pending: false };
-        return { ...p, comments: updated };
-      }));
+      setReplyingTo(null);
 
-      console.log('🔥 CommentModal: Comment successfully posted - no callback needed');
-      console.log('🔥 CommentModal: Scrolling to bottom');
-      requestAnimationFrame(() => bottomSentinelRef.current?.scrollIntoView({ behavior: 'smooth' }));
-    } catch (e: any) {
-      console.error('🔥 CommentModal: Error submitting comment', e);
-      setPosts(prev => prev.map(p => {
+      setPosts((prev) =>
+        prev.map((p) => {
         if (p.id !== activePost.id) return p;
-        // Don't decrement optimistically since we'll get the real count from the server
-        return { 
-          ...p, 
-          comments: p.comments.filter(c => c.client_id !== clientId) 
-        };
-      }));
+
+          // Helper to update pending comment recursively
+          const updatePending = (comments: Comment[]): Comment[] => {
+            return comments.map(c => {
+              if (c.client_id === clientId || c.id === clientId) {
+                return { ...c, id: data.id, created_at: data.created_at, pending: false };
+              }
+              if (c.replies && c.replies.length > 0) {
+                return { ...c, replies: updatePending(c.replies) };
+              }
+              return c;
+            });
+          };
+
+          return { ...p, comments: updatePending(p.comments) };
+        })
+      );
+
+      pinToBottom('smooth');
+    } catch (e: any) {
+      setPosts((prev) =>
+        prev.map((p) => {
+        if (p.id !== activePost.id) return p;
+
+          // Helper to remove pending comment recursively
+          const removePending = (comments: Comment[]): Comment[] => {
+            return comments
+              .filter(c => c.client_id !== clientId)
+              .map(c => {
+                if (c.replies && c.replies.length > 0) {
+                  return { ...c, replies: removePending(c.replies) };
+                }
+                return c;
+              });
+          };
+
+          return { ...p, comments: removePending(p.comments) };
+        })
+      );
       toast({ title: 'Error', description: e.message || 'Failed to add comment', variant: 'destructive' });
     } finally {
-      console.log('🔥 CommentModal: Comment submission finished');
       setSubmitting(false);
     }
-  };
+  }, [activePost?.id, draft, onCommentCountChange, overLimit, pinToBottom, replyingTo?.id, user]);
 
-  const toggleLikeComment = async (commentId: string) => {
+  const toggleLikeComment = useCallback(
+    async (commentId: string) => {
     if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to like comments', variant: 'destructive' });
       return;
     }
+
+      // Find comment recursively
     let isLiked = false;
+      const findComment = (comments: Comment[]): Comment | null => {
+        for (const c of comments) {
+          if (c.id === commentId) return c;
+          if (c.replies && c.replies.length > 0) {
+            const found = findComment(c.replies);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
     for (const p of posts) {
-      const c = p.comments.find(cc => cc.id === commentId);
-      if (c) { isLiked = c.is_liked; break; }
-    }
+        const c = findComment(p.comments);
+        if (c) {
+          isLiked = c.is_liked;
+          break;
+        }
+      }
+
     const optimistic = !isLiked;
-    setPosts(prev => prev.map(p => ({
+
+      // Update like status recursively
+      const updateLike = (comments: Comment[]): Comment[] => {
+        return comments.map(c => {
+          if (c.id === commentId) {
+            return { ...c, is_liked: optimistic, likes_count: Math.max(0, c.likes_count + (optimistic ? 1 : -1)) };
+          }
+          if (c.replies && c.replies.length > 0) {
+            return { ...c, replies: updateLike(c.replies) };
+          }
+          return c;
+        });
+      };
+
+      setPosts((prev) =>
+        prev.map((p) => ({
       ...p,
-      comments: p.comments.map(c =>
-        c.id === commentId
-          ? { ...c, is_liked: optimistic, likes_count: Math.max(0, c.likes_count + (optimistic ? 1 : -1)) }
-          : c
-      )
-    })));
+          comments: updateLike(p.comments),
+        }))
+      );
     try {
       if (optimistic) {
         const { error } = await supabase
@@ -503,96 +1001,179 @@ export default function CommentModal({
         const { error } = await supabase
           .from('event_comment_reactions')
           .delete()
-          .eq('comment_id', commentId).eq('user_id', user.id).eq('kind', 'like');
+            .eq('comment_id', commentId)
+            .eq('user_id', user.id)
+            .eq('kind', 'like');
         if (error) throw error;
       }
     } catch {
-      setPosts(prev => prev.map(p => ({
+        // Rollback recursively
+        const rollbackLike = (comments: Comment[]): Comment[] => {
+          return comments.map(c => {
+            if (c.id === commentId) {
+              return { ...c, is_liked: !optimistic, likes_count: Math.max(0, c.likes_count + (optimistic ? -1 : 1)) };
+            }
+            if (c.replies && c.replies.length > 0) {
+              return { ...c, replies: rollbackLike(c.replies) };
+            }
+            return c;
+          });
+        };
+
+        setPosts((prev) =>
+          prev.map((p) => ({
         ...p,
-        comments: p.comments.map(c =>
-          c.id === commentId
-            ? { ...c, is_liked: !optimistic, likes_count: Math.max(0, c.likes_count + (optimistic ? -1 : 1)) }
-            : c
-        )
-      })));
+            comments: rollbackLike(p.comments),
+          }))
+        );
       toast({ title: 'Error', description: 'Failed to update like', variant: 'destructive' });
     }
-  };
+    },
+    [posts, user]
+  );
 
-  const deleteComment = async (commentId: string) => {
+  const deleteComment = useCallback(
+    async (commentId: string) => {
     if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to delete comments', variant: 'destructive' });
       return;
     }
-    // find author
+
+      // Find comment recursively
+      const findComment = (comments: Comment[]): Comment | null => {
+        for (const c of comments) {
+          if (c.id === commentId) return c;
+          if (c.replies && c.replies.length > 0) {
+            const found = findComment(c.replies);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
     let authorId: string | null = null;
     for (const p of posts) {
-      const c = p.comments.find(cc => cc.id === commentId);
-      if (c) { authorId = c.author_user_id; break; }
-    }
+        const c = findComment(p.comments);
+        if (c) {
+          authorId = c.author_user_id;
+          break;
+        }
+      }
+
     if (!authorId || authorId !== user.id) {
       toast({ title: 'Not allowed', description: 'You can only delete your own comments.', variant: 'destructive' });
       return;
     }
+
     const snapshot = posts;
-    setPosts(prev => prev.map(p => ({ ...p, comments: p.comments.filter(c => c.id !== commentId) })));
-    try {
-      const { error } = await supabase.from('event_comments').delete().eq('id', commentId).eq('author_user_id', user.id);
+
+      // Delete comment recursively
+      const deleteRecursive = (comments: Comment[]): Comment[] => {
+        return comments
+          .filter(c => c.id !== commentId)
+          .map(c => {
+            if (c.replies && c.replies.length > 0) {
+              return { ...c, replies: deleteRecursive(c.replies) };
+            }
+            return c;
+          });
+      };
+
+      setPosts((prev) => prev.map((p) => ({ ...p, comments: deleteRecursive(p.comments) })));
+
+      try {
+        const { error } = await supabase
+          .from('event_comments')
+          .delete()
+          .eq('id', commentId)
+          .eq('author_user_id', user.id);
       if (error) throw error;
       toast({ title: 'Deleted', description: 'Your comment was removed.' });
     } catch {
       setPosts(snapshot);
       toast({ title: 'Error', description: 'Failed to delete comment', variant: 'destructive' });
     }
-  };
+    },
+    [posts, user]
+  );
 
-  const mediaThumb = (urls: string[]) => {
-    if (!urls?.length) return null;
-    const raw = urls[0];
-    const url = muxToHls(raw);
-    const isVideo = /\.m3u8$|\.mp4$|\.mov$|\.webm$/i.test(url);
-    return (
-      <div className="relative w-16 h-16 flex-shrink-0 rounded-md overflow-hidden border bg-muted/30">
-        {isVideo ? (
-          <div className="w-full h-full bg-muted/40 flex items-center justify-center">
-            <Play className="w-5 h-5 text-muted-foreground" />
-          </div>
-        ) : (
-          // eslint-disable-next-line jsx-a11y/alt-text
-          <img src={url} alt="" className="w-full h-full object-cover" />
-        )}
-        <div className="absolute bottom-1 right-1 bg-black/60 text-white rounded px-1 py-0.5 text-[10px]">
-          {isVideo ? 'Video' : 'Image'}
-        </div>
-      </div>
-    );
-  };
+  const togglePinComment = useCallback(
+    async (commentId: string, currentlyPinned: boolean) => {
+      if (!isOrganizer) {
+        toast({ title: 'Not allowed', description: 'Only organizers can pin comments.', variant: 'destructive' });
+        return;
+      }
 
-  const renderFullMedia = (urls: string[]) => {
+      const snapshot = posts;
+
+      // Update pin status recursively
+      const updatePin = (comments: Comment[]): Comment[] => {
+        return comments.map(c => {
+          if (c.id === commentId) {
+            return { ...c, is_pinned: !currentlyPinned };
+          }
+          if (c.replies && c.replies.length > 0) {
+            return { ...c, replies: updatePin(c.replies) };
+          }
+          return c;
+        });
+      };
+
+      setPosts((prev) =>
+        prev.map((p) => ({
+          ...p,
+          comments: updatePin(p.comments),
+        }))
+      );
+
+      try {
+        const { error } = await supabase
+          .from('event_comments')
+          .update({ is_pinned: !currentlyPinned } as any)
+          .eq('id', commentId);
+        if (error) throw error;
+        toast({
+          title: !currentlyPinned ? 'Pinned' : 'Unpinned',
+          description: !currentlyPinned ? 'Comment pinned to top' : 'Comment unpinned',
+        });
+      } catch (e: any) {
+        setPosts(snapshot);
+        toast({ title: 'Error', description: e.message || 'Failed to pin comment', variant: 'destructive' });
+      }
+    },
+    [isOrganizer, posts]
+  );
+
+  const startReply = useCallback((comment: Comment) => {
+    setReplyingTo(comment);
+    const textarea = document.querySelector('textarea[placeholder*="comment"], textarea[placeholder*="Reply"]') as
+      | HTMLTextAreaElement
+      | undefined;
+    textarea?.focus();
+  }, []);
+
+  const cancelReply = useCallback(() => setReplyingTo(null), []);
+
+  // Derived for rendering
+  const topLevelComments = useMemo(() => (activePost ? activePost.comments.filter((c) => !c.parent_comment_id) : []), [
+    activePost,
+  ]);
+
+  const renderFullMedia = useCallback((urls: string[]) => {
     if (!urls?.length) return null;
-    
     return (
       <div className="mt-3 -mx-1 rounded-xl overflow-hidden bg-black">
         {urls.map((raw, idx) => {
-          // Check if it's a Mux HLS URL (already converted from mux:playbackId)
           const isMuxHls = raw.includes('stream.mux.com') && raw.includes('.m3u8');
-          const isVideoFile = /\.(mp4|mov|webm)$/i.test(raw);
-          const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(raw);
+          const videoFile = /\.(mp4|mov|webm)$/i.test(raw);
+          const imageFile = isImageUrl(raw);
           
           if (isMuxHls) {
-            // Extract playback ID from URL like https://stream.mux.com/ABC123.m3u8
             const playbackId = raw.split('/').pop()?.replace('.m3u8', '') || '';
             const posterUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?time=1&width=800&fit_mode=smartcrop`;
-            
             return (
               <div key={idx} className="relative w-full aspect-[9/16] max-h-[60vh]">
-                <video
-                  className="w-full h-full object-contain"
-                  controls
-                  playsInline
-                  preload="metadata"
-                  poster={posterUrl}
-                >
+                <video className="w-full h-full object-contain" controls playsInline preload="metadata" poster={posterUrl}>
                   <source src={raw} type="application/x-mpegURL" />
                   <source src={`https://stream.mux.com/${playbackId}/medium.mp4`} type="video/mp4" />
                   Your browser does not support the video tag.
@@ -601,68 +1182,66 @@ export default function CommentModal({
             );
           }
           
-          if (isVideoFile) {
+          if (videoFile) {
             return (
               <div key={idx} className="relative w-full aspect-[9/16] max-h-[60vh]">
-                <video
-                  className="w-full h-full object-contain"
-                  controls
-                  playsInline
-                  preload="metadata"
-                  src={raw}
-                >
+                <video className="w-full h-full object-contain" controls playsInline preload="metadata" src={raw}>
                   Your browser does not support the video tag.
                 </video>
               </div>
             );
           }
           
-          if (isImage) {
-            return (
-              <img 
-                key={idx} 
-                src={raw} 
-                alt="Post media" 
-                className="w-full max-h-[60vh] object-contain"
-              />
-            );
+          if (imageFile) {
+            return <img key={idx} src={raw} alt="Post media" className="w-full max-h-[60vh] object-contain" />;
           }
-          
           return null;
         })}
       </div>
     );
-  };
+  }, []);
+
+  // Create a unique key to force remount when target changes
+  const dialogKey = useMemo(() => {
+    return `comment-modal-${postId || mediaPlaybackId || eventId}-${activePostId || 'loading'}`;
+  }, [postId, mediaPlaybackId, eventId, activePostId]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      {/* NOTE: parent container uses flex/column with min-h-0; body gets the scroll */}
+    <Dialog key={dialogKey} open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[min(100vw,880px)] max-h-[84vh] p-0 gap-0 overflow-hidden bg-background border-2 border-border dark:border-white/20 shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 rounded-2xl flex flex-col">
-        {/* Header (sticky) */}
-        <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
-              <span className="truncate">{singleMode ? 'Comments' : 'Posts & Comments'}</span>
-              <span className="text-foreground/60">•</span>
-              <span className="truncate text-foreground/75">{eventTitle}</span>
+        {/* Header (sticky) - Compact */}
+        <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-3 sm:px-4 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="text-sm sm:text-base font-semibold flex items-center gap-1.5 min-w-0 flex-1">
+              <span className="shrink-0">Comments</span>
+              {activePost && (
+                <>
+                  <span className="text-foreground/40 shrink-0">•</span>
+                  <span className="truncate text-foreground/70 text-xs sm:text-sm font-normal">
+                    {activePost.text?.substring(0, 40) || eventTitle}
+                    {activePost.text && activePost.text.length > 40 ? '...' : ''}
+                  </span>
+                </>
+              )}
             </DialogTitle>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 shrink-0">
               {/* Multi-post selector (compact) */}
               {!singleMode && posts.length > 1 && (
                 <div className="relative">
                   <select
-                    className="text-sm bg-muted/40 border rounded-md px-2 py-1 pr-6"
+                    className="text-xs bg-muted/40 border rounded-md px-2 py-1 pr-5"
                     value={activePost?.id ?? ''}
                     onChange={(e) => setActivePostId(e.target.value)}
+                    aria-label="Choose a post"
                   >
-                    {posts.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.text?.slice(0, 28) || 'Post'} {p.text && p.text.length > 28 ? '…' : ''}
+                    {posts.map((p) => (
+                      <option key={p.id} value={p.id} title={p.text}>
+                        {p.text?.slice(0, 20) || 'Post'} {p.text && p.text.length > 20 ? '…' : ''}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/75" />
+                  <ChevronDown className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/75" />
                 </div>
               )}
 
@@ -671,7 +1250,7 @@ export default function CommentModal({
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-8 px-2 text-foreground/75 hover:text-foreground"
+                  className="h-7 w-7 p-0 text-foreground/60 hover:text-foreground"
                   onClick={() => {
                     navigator.clipboard
                       .writeText(`${window.location.origin}${routes.event(eventId)}?tab=posts&post=${activePost.id}`)
@@ -679,12 +1258,12 @@ export default function CommentModal({
                   }}
                   aria-label="Copy link to this post"
                 >
-                  <LinkIcon className="w-4 h-4" />
+                  <LinkIcon className="w-3.5 h-3.5" />
                 </Button>
               )}
 
-              <Button type="button" variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0" aria-label="Close">
-                <X className="h-4 w-4" />
+              <Button type="button" variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" aria-label="Close">
+                <X className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -693,9 +1272,9 @@ export default function CommentModal({
         {/* Body (scrollable) */}
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {(!activePost || loading) && posts.length === 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-3" aria-live="polite">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="border rounded-lg p-4">
+                <div key={i} className="border rounded-lg p-4" aria-busy>
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
                     <div className="flex-1 space-y-2">
@@ -714,15 +1293,13 @@ export default function CommentModal({
                 <div className="flex items-start gap-3">
                   <button
                     type="button"
-                    onClick={() => openInNewTab(routes.user(activePost.author_user_id))}
+                    onClick={() => window.open(routes.user(activePost.author_user_id), '_blank', 'noopener,noreferrer')}
                     className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
                     aria-label={`Open ${activePost.author_name || 'user'} profile in new tab`}
                   >
                     <Avatar className="w-9 h-9">
                       <AvatarImage src={activePost.author_avatar || undefined} />
-                      <AvatarFallback className="text-xs">
-                        {activePost.author_name?.charAt(0) || 'A'}
-                      </AvatarFallback>
+                      <AvatarFallback className="text-xs">{activePost.author_name?.charAt(0) || 'A'}</AvatarFallback>
                     </Avatar>
                   </button>
 
@@ -730,18 +1307,16 @@ export default function CommentModal({
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => openInNewTab(routes.user(activePost.author_user_id))}
+                        onClick={() => window.open(routes.user(activePost.author_user_id), '_blank', 'noopener,noreferrer')}
                         className="font-medium text-sm hover:text-primary transition-colors cursor-pointer"
                         title="View profile (new tab)"
                       >
                         {activePost.author_name}
                       </button>
 
-                      {activePost.author_is_organizer && (
-                        <Badge variant="outline" className="text-[10px]">ORGANIZER</Badge>
-                      )}
+                      {activePost.author_is_organizer && <Badge variant="brand" size="sm" className="text-[10px]">ORGANIZER</Badge>}
                       {activePost.author_badge && (
-                        <Badge variant="outline" className="text-[10px]">{activePost.author_badge}</Badge>
+                        <Badge variant="neutral" size="sm" className="text-[10px]">{activePost.author_badge}</Badge>
                       )}
 
                       <span className="text-xs text-muted-foreground">
@@ -750,9 +1325,7 @@ export default function CommentModal({
                     </div>
 
                     {activePost.text && (
-                      <p className="mt-1 text-sm leading-relaxed text-foreground/95 whitespace-pre-wrap">
-                        {activePost.text}
-                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-foreground/95 whitespace-pre-wrap">{activePost.text}</p>
                     )}
                   </div>
                 </div>
@@ -762,87 +1335,21 @@ export default function CommentModal({
               </div>
 
               {/* Comments list */}
-               <div className="space-y-2" aria-live="polite">
-                {activePost.comments.map((comment) => {
-                  const mine = user?.id === comment.author_user_id;
-                  return (
-                     <div
+              <div className="space-y-3" aria-live="polite">
+                {topLevelComments.map((comment) => (
+                  <CommentItem
                        key={comment.id}
-                       className={`group flex items-start gap-2 sm:gap-3 ${mine ? 'flex-row-reverse text-right' : ''} ${comment.pending ? 'opacity-70' : ''}`}
-                     >
-                      <button
-                        type="button"
-                        onClick={() => openInNewTab(routes.user(comment.author_user_id))}
-                        className={`mt-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-primary ${mine ? 'order-last' : ''}`}
-                        aria-label={`Open ${comment.author_name || 'user'} profile in new tab`}
-                      >
-                        <Avatar className="w-7 h-7">
-                          <AvatarImage src={comment.author_avatar || undefined} />
-                          <AvatarFallback className="text-xs">
-                            {comment.author_name?.charAt(0) || 'A'}
-                          </AvatarFallback>
-                        </Avatar>
-                      </button>
-
-                      <div className="max-w-[85%] sm:max-w-[70%]">
-                        <div
-                          className={`rounded-2xl px-3 py-2 text-xs sm:text-sm leading-relaxed break-words whitespace-pre-wrap shadow-sm
-                          ${mine ? 'bg-primary/10 text-foreground' : 'bg-muted/60 text-foreground'}
-                          ${comment.pending ? 'opacity-70' : ''}`}
-                          title={comment.pending ? 'Sending…' : undefined}
-                        >
-                          <div className="mb-1 flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openInNewTab(routes.user(comment.author_user_id))}
-                              className="font-medium text-[11px] sm:text-xs hover:text-primary transition-colors"
-                              title="View profile (new tab)"
-                            >
-                              {comment.author_name}
-                            </button>
-                            <span className="shrink-0 text-[10px] text-muted-foreground">
-                              {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                              {comment.pending ? ' • sending…' : ''}
-                            </span>
-                          </div>
-                          {comment.text}
-                        </div>
-
-                        <div className={`mt-1 flex items-center ${mine ? 'justify-end' : 'justify-start'} gap-3 text-[11px] text-muted-foreground`}>
-                          <button
-                            type="button"
-                            onClick={() => { if (!comment.pending) toggleLikeComment(comment.id); }}
-                            className={`inline-flex items-center gap-1 hover:text-foreground transition-colors ${comment.is_liked ? 'text-red-500' : ''} ${comment.pending ? 'pointer-events-none opacity-60' : ''}`}
-                            aria-label={comment.is_liked ? 'Unlike comment' : 'Like comment'}
-                            title={comment.is_liked ? 'Unlike' : 'Like'}
-                          >
-                            <Heart className={`w-3 h-3 ${comment.is_liked ? 'fill-current' : ''}`} />
-                            {comment.likes_count}
-                          </button>
-
-                          {user?.id === comment.author_user_id && !comment.pending && (
-                            <button
-                              type="button"
-                              onClick={() => deleteComment(comment.id)}
-                              className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                              aria-label="Delete comment"
-                              title="Delete comment"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                              Delete
-                            </button>
-                          )}
-
-                          {!comment.pending && (
-                            <div className="inline-flex">
-                              <ReportButton targetType="comment" targetId={comment.id} />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    comment={comment}
+                    currentUserId={user?.id}
+                    mine={user?.id === comment.author_user_id}
+                    depth={0}
+                    onLike={toggleLikeComment}
+                    onReply={startReply}
+                    onDelete={deleteComment}
+                    onTogglePin={togglePinComment}
+                    isOrganizer={isOrganizer}
+                  />
+                ))}
 
                 {/* sentinel for scroll-to-bottom */}
                 <div ref={bottomSentinelRef} />
@@ -851,13 +1358,7 @@ export default function CommentModal({
               {/* Load more (multi-post lists) */}
               {!singleMode && hasMore && (
                 <div className="flex justify-center pt-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => loadPage(false)}
-                    disabled={loading}
-                    className="rounded-full"
-                  >
+                  <Button type="button" variant="outline" onClick={() => loadPage(false)} disabled={loading} className="rounded-full">
                     {loading ? 'Loading…' : 'Load more'}
                   </Button>
                 </div>
@@ -882,21 +1383,42 @@ export default function CommentModal({
               </Avatar>
 
               <div className="flex-1 min-w-0">
+                {/* Reply banner */}
+                {replyingTo && (
+                  <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
+                    <Reply className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground flex-1 truncate">
+                      Replying to <span className="font-medium text-foreground">{replyingTo.author_name}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={cancelReply}
+                      className="p-1 hover:bg-muted rounded-md transition-colors"
+                      aria-label="Cancel reply"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 <Textarea
                   value={draft}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val.length <= MAX_LEN + 200) setDraft(val);
                   }}
-                  placeholder={activePost ? 'Write your comment…' : 'Select a post to comment'}
+                  placeholder={replyingTo ? `Reply to ${replyingTo.author_name}...` : activePost ? 'Write your comment…' : 'Select a post to comment'}
                   disabled={!activePost}
-                  className={`w-full min-h-[52px] max-h-[120px] resize-none text-base rounded-2xl px-4 py-3 ${overLimit ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                  className={`w-full min-h-[52px] max-h-[120px] resize-none text-base rounded-2xl px-4 py-3 ${
+                    overLimit ? 'border-destructive focus-visible:ring-destructive' : ''
+                  }`}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       submit();
                     }
                   }}
+                  aria-label="Write your comment"
                 />
                 <div className="mt-3 flex items-center justify-between">
                   <span className={`text-xs ${overLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
@@ -911,12 +1433,14 @@ export default function CommentModal({
                         className="min-h-[44px] px-4 rounded-2xl"
                         onClick={() => {
                           navigator.clipboard
-                            .writeText(`${window.location.origin}${routes.event(eventId)}?tab=posts&post=${activePost.id}`)
+                            .writeText(
+                              `${window.location.origin}${routes.event(eventId)}?tab=posts&post=${activePost.id}`
+                            )
                             .then(() => toast({ title: 'Link copied' }));
                         }}
+                        aria-label="Copy link to post"
                       >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Copy link
+                        <ExternalLink className="w-4 h-4 mr-2" /> Copy link
                       </Button>
                     )}
                     <Button

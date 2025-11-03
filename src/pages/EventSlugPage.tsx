@@ -79,7 +79,8 @@ export default function EventSlugPage() {
     <div className="min-h-screen bg-background pb-24 text-foreground">
       <div className="relative h-64 overflow-hidden sm:h-80 md:h-96">
         <ImageWithFallback src={event.coverImage} alt={event.title} className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black" />
+        {/* Enhanced dark gradient overlay for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
 
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-3 sm:p-4">
           <button
@@ -104,15 +105,15 @@ export default function EventSlugPage() {
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
-          <div className="mb-2 flex flex-wrap gap-2">
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 z-10">
+          <div className="mb-3 flex flex-wrap gap-2">
             {event.categories.map((category) => (
-              <span key={category} className="rounded-full bg-background/60 px-3 py-1 text-xs backdrop-blur-md sm:text-sm">
+              <span key={category} className="inline-flex items-center rounded-full bg-black/70 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 sm:text-sm shadow-lg">
                 {category}
               </span>
             ))}
           </div>
-          <h1 className="mb-2 text-2xl font-semibold drop-shadow-lg sm:text-3xl">{event.title}</h1>
+          <h1 className="text-white text-2xl font-extrabold leading-tight sm:text-3xl md:text-4xl on-image-strong mb-2">{event.title}</h1>
         </div>
       </div>
 

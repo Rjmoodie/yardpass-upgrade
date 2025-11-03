@@ -1167,9 +1167,9 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
             <div className="space-y-4">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-semibold">Attendee management</h2>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="space-y-1.5">
+                    <h2 className="text-xl font-semibold tracking-tight">Attendee management</h2>
+                    <p className="text-[15px] text-foreground/80 leading-relaxed">
                       Search, filter, and take action on your guest list.
                     </p>
                   </div>

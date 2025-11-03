@@ -19,7 +19,7 @@ import { updateMetaTags } from '@/utils/meta';
 import { useAuth } from '@/contexts/AuthContext';
 import { FollowStats } from '@/components/follow/FollowStats';
 import { FollowButton } from '@/components/follow/FollowButton';
-import { MessageButton } from '@/components/messaging/MessageButton';
+import { FlashbackBadge } from '@/components/flashbacks/FlashbackBadge';
 
 interface Organization {
   id: string;
@@ -46,6 +46,7 @@ interface Event {
   venue: string | null;
   cover_image_url: string | null;
   category: string | null;
+  is_flashback?: boolean;
 }
 
 export default function OrganizationProfilePage() {
@@ -57,6 +58,7 @@ export default function OrganizationProfilePage() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [eventTab, setEventTab] = useState<'upcoming' | 'past'>('upcoming');
 
   // Admin / Branding modal state
   const [brandingOpen, setBrandingOpen] = useState(false);
@@ -89,6 +91,29 @@ export default function OrganizationProfilePage() {
       return path;
     }
   }, [organization]);
+
+  // Split events into upcoming and past
+  const { upcomingEvents, pastEvents } = useMemo(() => {
+    const now = new Date();
+    const upcoming: Event[] = [];
+    const past: Event[] = [];
+
+    events.forEach(event => {
+      const eventDate = new Date(event.start_at);
+      if (eventDate >= now) {
+        upcoming.push(event);
+      } else {
+        past.push(event);
+      }
+    });
+
+    return { upcomingEvents: upcoming, pastEvents: past };
+  }, [events]);
+
+  // Get displayed events based on active tab
+  const displayedEvents = useMemo(() => {
+    return eventTab === 'upcoming' ? upcomingEvents : pastEvents;
+  }, [eventTab, upcomingEvents, pastEvents]);
 
   useEffect(() => {
     if (!id) return;
@@ -175,11 +200,11 @@ export default function OrganizationProfilePage() {
       // Fetch organization's public events using the actual org id
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
-        .select('id, title, description, start_at, city, venue, cover_image_url, category')
+        .select('id, title, description, start_at, city, venue, cover_image_url, category, is_flashback')
         .eq('owner_context_type', 'organization')
         .eq('owner_context_id', org.id)
         .eq('visibility', 'public')
-        .order('start_at', { ascending: true });
+        .order('start_at', { ascending: true});
 
       if (eventsError) throw eventsError;
       setEvents(eventsData || []);
@@ -350,9 +375,9 @@ export default function OrganizationProfilePage() {
   const showBanner = !!organization.banner_url;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* HERO */}
-      <div className="relative">
+      <div className="relative w-full">
         <div className="w-full h-48 sm:h-60 md:h-72 lg:h-80 bg-muted overflow-hidden">
           {showBanner ? (
             <ImageWithFallback
@@ -406,57 +431,54 @@ export default function OrganizationProfilePage() {
         </div>
 
         {/* Logo card overlays the banner */}
-        <div className="container max-w-4xl mx-auto px-4">
+        <div className="container max-w-4xl mx-auto px-3 sm:px-4">
           <div className="-mt-10 md:-mt-12">
-            <div className="inline-flex items-center gap-4 bg-card/90 backdrop-blur rounded-2xl border p-3 pr-5 shadow-lg">
-              <Avatar className="w-20 h-20 ring-2 ring-background">
+            {/* Responsive: Stack on mobile, side-by-side on tablet+ */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 bg-card/90 backdrop-blur rounded-2xl border p-3 sm:p-4 shadow-lg w-full max-w-full overflow-hidden">
+              <Avatar className="w-16 h-16 sm:w-20 sm:h-20 ring-2 ring-background shrink-0">
                 <AvatarImage src={organization.logo_url || undefined} alt={organization.name} />
-                <AvatarFallback className="text-xl">
-                  <Building2 className="w-8 h-8" />
+                <AvatarFallback className="text-lg sm:text-xl">
+                  <Building2 className="w-6 h-6 sm:w-8 sm:h-8" />
                 </AvatarFallback>
               </Avatar>
 
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold">{organization.name}</h1>
+              <div className="flex-1 min-w-0 w-full">
+                {/* Name + Badge */}
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <h1 className="text-xl sm:text-2xl font-bold truncate">{organization.name}</h1>
                   {organization.verification_status === 'verified' && (
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="brand" size="sm" className="shrink-0">
                       <Shield className="w-3 h-3 mr-1" />
                       Verified
                     </Badge>
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                {/* Metadata: Handle, Year, Location */}
+                <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground flex-wrap mb-3">
                   {organization.handle && (
-                    <span className="inline-flex items-center gap-1">
-                      <AtSign className="w-4 h-4" />
-                      {organization.handle}
+                    <span className="inline-flex items-center gap-1 shrink-0">
+                      <AtSign className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="truncate max-w-[120px] sm:max-w-none">{organization.handle}</span>
                     </span>
                   )}
-                  <span>Since {joinedYear}</span>
+                  <span className="shrink-0">Since {joinedYear}</span>
                   {organization.location && (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
-                      {organization.location}
+                    <span className="inline-flex items-center gap-1 shrink-0">
+                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="truncate max-w-[150px] sm:max-w-none">{organization.location}</span>
                     </span>
                   )}
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-4">
+                {/* Stats + Actions - Stack on small screens */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                   <FollowStats
                     targetType="organizer"
                     targetId={organization.id}
                     enablePendingReview={isAdmin}
                   />
-                  <div className="flex items-center gap-2">
-                    <FollowButton targetType="organizer" targetId={organization.id} size="default" />
-                    <MessageButton
-                      targetType="organization"
-                      targetId={organization.id}
-                      targetName={organization.name}
-                    />
-                  </div>
+                  <FollowButton targetType="organizer" targetId={organization.id} size="default" />
                 </div>
               </div>
             </div>
@@ -465,16 +487,16 @@ export default function OrganizationProfilePage() {
       </div> {/* /HERO */}
 
       {/* Content */}
-      <div className="container max-w-4xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="container max-w-4xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left: About / Links */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* About */}
             <Card>
               <CardHeader>
-                <CardTitle>About</CardTitle>
+                <CardTitle className="text-base sm:text-lg">About</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground whitespace-pre-wrap">
+              <CardContent className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
                 {organization.description
                   ? organization.description
                   : 'This organizer has not added a description yet.'}
@@ -488,7 +510,7 @@ export default function OrganizationProfilePage() {
               organization.tiktok_url) && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Links</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">Links</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   {organization.website_url && (
@@ -496,9 +518,10 @@ export default function OrganizationProfilePage() {
                       href={organization.website_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-2 text-primary hover:underline"
+                      className="flex items-center gap-2 text-primary hover:underline min-w-0"
                     >
-                      <Globe className="w-4 h-4" /> {organization.website_url}
+                      <Globe className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{organization.website_url}</span>
                     </a>
                   )}
                   {organization.twitter_url && (
@@ -506,9 +529,10 @@ export default function OrganizationProfilePage() {
                       href={organization.twitter_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-2 text-primary hover:underline"
+                      className="flex items-center gap-2 text-primary hover:underline min-w-0"
                     >
-                      <LinkIcon className="w-4 h-4" /> {organization.twitter_url}
+                      <LinkIcon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{organization.twitter_url}</span>
                     </a>
                   )}
                   {organization.instagram_url && (
@@ -516,9 +540,10 @@ export default function OrganizationProfilePage() {
                       href={organization.instagram_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-2 text-primary hover:underline"
+                      className="flex items-center gap-2 text-primary hover:underline min-w-0"
                     >
-                      <LinkIcon className="w-4 h-4" /> {organization.instagram_url}
+                      <LinkIcon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{organization.instagram_url}</span>
                     </a>
                   )}
                   {organization.tiktok_url && (
@@ -526,9 +551,10 @@ export default function OrganizationProfilePage() {
                       href={organization.tiktok_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-2 text-primary hover:underline"
+                      className="flex items-center gap-2 text-primary hover:underline min-w-0"
                     >
-                      <LinkIcon className="w-4 h-4" /> {organization.tiktok_url}
+                      <LinkIcon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{organization.tiktok_url}</span>
                     </a>
                   )}
                 </CardContent>
@@ -537,50 +563,94 @@ export default function OrganizationProfilePage() {
           </div>
 
           {/* Right: Events */}
-          <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="w-5 h-5" />
-              <h2 className="text-xl font-semibold">Events</h2>
-              <Badge variant="outline">{events.length}</Badge>
+          <div className="lg:col-span-2 min-w-0">
+            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
+                <h2 className="text-lg sm:text-xl font-semibold">Events</h2>
+                <Badge variant="neutral" size="sm">{events.length}</Badge>
+              </div>
+              
+              {/* Event Tabs */}
+              {events.length > 0 && (
+                <div className="flex items-center gap-2 bg-muted/30 rounded-full p-1">
+                  <button
+                    onClick={() => setEventTab('upcoming')}
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
+                      eventTab === 'upcoming'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-foreground/60 hover:text-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    Upcoming ({upcomingEvents.length})
+                  </button>
+                  <button
+                    onClick={() => setEventTab('past')}
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
+                      eventTab === 'past'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-foreground/60 hover:text-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    Past ({pastEvents.length})
+                  </button>
+                </div>
+              )}
             </div>
 
-            {events.length === 0 ? (
+            {displayedEvents.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Calendar className="w-12 h-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Events Yet</h3>
-                  <p className="text-muted-foreground text-center">
-                    This organization hasn't created any public events yet.
+                  <h3 className="text-lg font-medium mb-2">
+                    {eventTab === 'upcoming' ? 'No Upcoming Events' : 'No Past Events'}
+                  </h3>
+                  <p className="text-muted-foreground text-center text-sm">
+                    {eventTab === 'upcoming' 
+                      ? 'This organization has no scheduled events at the moment.'
+                      : 'This organization has no past events.'}
                   </p>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {events.map((event) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                {displayedEvents.map((event) => (
                   <Card
                     key={event.id}
-                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    className="cursor-pointer hover:shadow-lg transition-shadow overflow-hidden"
                     onClick={() => handleEventClick(event.id)}
                     role="button"
                     aria-label={`Open ${event.title}`}
                   >
                     {event.cover_image_url && (
-                      <div className="aspect-video bg-muted overflow-hidden rounded-t-lg">
+                      <div className="aspect-video bg-muted overflow-hidden relative">
                         <ImageWithFallback
                           src={event.cover_image_url}
                           alt={event.title}
                           className="w-full h-full object-cover"
                         />
+                        {event.is_flashback && (
+                          <div className="absolute top-3 left-3">
+                            <FlashbackBadge variant="default" className="text-sm px-3 py-1.5 shadow-xl" />
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-lg line-clamp-2">{event.title}</CardTitle>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-2 min-w-0">
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <CardTitle className="text-base sm:text-lg line-clamp-2 min-w-0 break-words">{event.title}</CardTitle>
+                          {/* Show Flashback badge in header if no cover image */}
+                          {event.is_flashback && !event.cover_image_url && (
+                            <FlashbackBadge variant="minimal" className="text-xs px-2 py-0.5" />
+                          )}
+                        </div>
                         {event.category && (
                           <Badge
-                            variant="outline"
-                            className="text-xs shrink-0 hover:bg-muted cursor-pointer"
+                            variant="neutral"
+                            size="sm"
+                            className="text-[10px] shrink-0 hover:bg-muted cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(routes.category(event.category!));
@@ -593,29 +663,29 @@ export default function OrganizationProfilePage() {
                       </div>
                     </CardHeader>
 
-                    <CardContent>
+                    <CardContent className="pt-0">
                       {event.description && (
-                        <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
+                        <p className="text-muted-foreground text-xs sm:text-sm mb-3 line-clamp-2 break-words">
                           {event.description}
                         </p>
                       )}
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="w-4 h-4" />
-                          <span>
+                      <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
+                        <div className="flex items-start gap-2 text-muted-foreground min-w-0">
+                          <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 mt-0.5" />
+                          <span className="break-words">
                             {new Date(event.start_at).toLocaleDateString('en-US', {
-                              weekday: 'long',
+                              weekday: 'short',
                               year: 'numeric',
-                              month: 'long',
+                              month: 'short',
                               day: 'numeric',
                             })}
                           </span>
                         </div>
 
                         {(event.venue || event.city) && (
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <MapPin className="w-4 h-4" />
-                            <span>{[event.venue, event.city].filter(Boolean).join(', ')}</span>
+                          <div className="flex items-start gap-2 text-muted-foreground min-w-0">
+                            <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 mt-0.5" />
+                            <span className="truncate">{[event.venue, event.city].filter(Boolean).join(', ')}</span>
                           </div>
                         )}
                       </div>

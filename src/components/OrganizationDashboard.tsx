@@ -481,69 +481,71 @@ export function OrganizationDashboard({
   }
 
   return (
-    <div className="h-full bg-background flex flex-col">
+    <div className="h-full bg-background flex flex-col overflow-x-hidden">
       {/* Header */}
-      <div className="border-b bg-card p-4 sticky top-0 z-30">
-        <div className="flex items-center gap-4 mb-4">
-          <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors" aria-label="Back">
+      <div className="border-b bg-card p-3 sm:p-4 sticky top-0 z-30">
+        <div className="flex items-center gap-2 sm:gap-4 mb-3 sm:mb-4">
+          <button onClick={onBack} className="p-2 rounded-full hover:bg-muted transition-colors flex-shrink-0" aria-label="Back">
             <ArrowLeft className="w-5 h-5" />
           </button>
 
-          <Avatar className="w-12 h-12">
+          <Avatar className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
             {organization.logo_url ? (
               <AvatarImage src={organization.logo_url} alt={organization.name} />
             ) : (
               <AvatarFallback>
-                <Building2 className="w-5 h-5" />
+                <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
               </AvatarFallback>
             )}
           </Avatar>
 
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="truncate">{organization.name}</h1>
-              <Badge variant="outline" className="text-xs">@{organization.handle}</Badge>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h1 className="text-base sm:text-lg truncate">{organization.name}</h1>
+              <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 sm:px-2">@{organization.handle}</Badge>
               {organization.verification_status === 'verified' && (
-                <Badge variant="secondary" className="text-xs">
-                  <Shield className="w-3 h-3 mr-1" />
+                <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
+                  <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
                   Verified
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">
               {teamMembers.length} team member{teamMembers.length !== 1 ? 's' : ''} • Since{' '}
               {new Date(organization.created_at).getFullYear()}
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={refresh}>
-              <RefreshCw className="w-4 h-4 mr-1" />
-              Refresh
+          <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
+            <Button variant="outline" size="sm" onClick={refresh} className="h-9 w-9 sm:w-auto p-0 sm:px-3">
+              <RefreshCw className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={copyOrgLink} aria-label="Share organization">
+            <Button variant="ghost" size="sm" onClick={copyOrgLink} aria-label="Share organization" className="h-9 w-9 p-0">
               <Share className="w-4 h-4" />
             </Button>
-            <Button onClick={onCreateEvent}>
-              <Plus className="w-4 h-4 mr-1" />
-              Create Event
+            <Button onClick={onCreateEvent} size="sm" className="h-9 w-9 sm:w-auto p-0 sm:px-3">
+              <Plus className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Create Event</span>
             </Button>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-3 sm:p-4 pb-24 sm:pb-28">
         <Tabs defaultValue="overview">
-          <div className="sticky top-0 bg-background z-20 pb-2">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="team">Team ({teamMembers.length})</TabsTrigger>
-              <TabsTrigger value="wallet">Wallet</TabsTrigger>
-              <TabsTrigger value="verification">Verification</TabsTrigger>
-              <TabsTrigger value="contacts">Contact Lists</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
+          <div className="sticky top-0 bg-background z-20 pb-2 -mx-3 sm:mx-0 px-3 sm:px-0">
+            <div className="overflow-x-auto scrollbar-hide">
+              <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-6">
+                <TabsTrigger value="overview" className="whitespace-nowrap">Overview</TabsTrigger>
+                <TabsTrigger value="team" className="whitespace-nowrap">Team ({teamMembers.length})</TabsTrigger>
+                <TabsTrigger value="wallet" className="whitespace-nowrap">Wallet</TabsTrigger>
+                <TabsTrigger value="verification" className="whitespace-nowrap text-xs sm:text-sm">Verification</TabsTrigger>
+                <TabsTrigger value="contacts" className="whitespace-nowrap text-xs sm:text-sm">Contact Lists</TabsTrigger>
+                <TabsTrigger value="settings" className="whitespace-nowrap">Settings</TabsTrigger>
+              </TabsList>
+            </div>
           </div>
 
           {/* OVERVIEW */}
@@ -930,7 +932,7 @@ export function OrganizationDashboard({
           <DialogHeader>
             <DialogTitle>Edit Organization</DialogTitle>
           </DialogHeader>
-          <div className="space-y-6 overflow-y-auto max-h-[calc(90vh-160px)] pr-2">
+          <div className="space-y-6 overflow-y-auto max-h-[calc(90vh-160px)] pr-2 pb-6">
             {/* Images Section */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold">Visual Identity</h3>
