@@ -9,13 +9,19 @@ interface ImageWithFallbackProps extends Omit<React.ImgHTMLAttributes<HTMLImageE
   disableResponsive?: boolean;
   /** Sizes attribute for responsive images (defaults to smart calculation) */
   sizes?: string;
+  /** Show blur placeholder while loading (improves perceived performance) */
+  showBlurPlaceholder?: boolean;
 }
+
+// ✅ Blur placeholder data URL (10x10 neutral gray blur)
+const BLUR_PLACEHOLDER = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGZpbHRlciBpZD0iYiI+PGZlR2F1c3NpYW5CbHVyIHN0ZERldmlhdGlvbj0iMiIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgZmlsbD0iI2VlZSIgZmlsdGVyPSJ1cmwoI2IpIi8+PC9zdmc+';
 
 /**
  * Production-grade image component with:
  * - AVIF/WebP/JPG cascading for modern format support
  * - Responsive sources (400w, 800w)
  * - Lazy loading by default (unless fetchPriority="high")
+ * - Blur placeholder for smooth loading experience
  * - Automatic quality optimization
  * - Error fallback
  */
@@ -28,12 +34,18 @@ export function ImageWithFallback({
   disableResponsive = false,
   sizes,
   loading,
+  showBlurPlaceholder = true,
   ...props 
 }: ImageWithFallbackProps) {
   const [hasError, setHasError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const handleError = () => {
     setHasError(true);
+  };
+
+  const handleLoad = () => {
+    setIsLoaded(true);
   };
 
   // Use fallback if error occurred or src is empty
@@ -92,38 +104,52 @@ export function ImageWithFallback({
   const src800jpg = generateSourceUrl(800, 'jpg', 80);
 
   return (
-    <picture>
-      {/* AVIF - best compression (70% smaller than JPG), but limited browser support */}
-      {!isPlaceholder && (
-        <source 
-          type="image/avif" 
-          srcSet={`${src400avif} 400w, ${src800avif} 800w`}
-          sizes={imageSizes}
+    <div className="relative" style={{ aspectRatio: props.style?.aspectRatio }}>
+      {/* ✅ Blur placeholder shown while loading */}
+      {showBlurPlaceholder && !isLoaded && (
+        <img
+          src={BLUR_PLACEHOLDER}
+          alt=""
+          aria-hidden="true"
+          className={`absolute inset-0 w-full h-full object-cover ${className}`}
+          style={{ filter: 'blur(10px)', transform: 'scale(1.1)' }}
         />
       )}
       
-      {/* WebP - great compression (30% smaller than JPG), widely supported */}
-      {!isPlaceholder && (
-        <source 
-          type="image/webp" 
-          srcSet={`${src400webp} 400w, ${src800webp} 800w`}
+      <picture>
+        {/* AVIF - best compression (70% smaller than JPG), but limited browser support */}
+        {!isPlaceholder && (
+          <source 
+            type="image/avif" 
+            srcSet={`${src400avif} 400w, ${src800avif} 800w`}
+            sizes={imageSizes}
+          />
+        )}
+        
+        {/* WebP - great compression (30% smaller than JPG), widely supported */}
+        {!isPlaceholder && (
+          <source 
+            type="image/webp" 
+            srcSet={`${src400webp} 400w, ${src800webp} 800w`}
+            sizes={imageSizes}
+          />
+        )}
+        
+        {/* JPG/PNG - fallback for all browsers */}
+        <img
+          src={src400jpg}
+          srcSet={!isPlaceholder ? `${src400jpg} 400w, ${src800jpg} 800w` : undefined}
           sizes={imageSizes}
+          alt={alt}
+          onError={handleError}
+          onLoad={handleLoad}
+          className={`${className} ${isLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
+          loading={loading || (fetchPriority === 'high' ? 'eager' : 'lazy')}
+          decoding="async"
+          fetchpriority={fetchPriority}
+          {...props}
         />
-      )}
-      
-      {/* JPG/PNG - fallback for all browsers */}
-      <img
-        src={src400jpg}
-        srcSet={!isPlaceholder ? `${src400jpg} 400w, ${src800jpg} 800w` : undefined}
-        sizes={imageSizes}
-        alt={alt}
-        onError={handleError}
-        className={className}
-        loading={loading || (fetchPriority === 'high' ? 'eager' : 'lazy')}
-        decoding="async"
-        fetchpriority={fetchPriority}
-        {...props}
-      />
-    </picture>
+      </picture>
+    </div>
   );
 }

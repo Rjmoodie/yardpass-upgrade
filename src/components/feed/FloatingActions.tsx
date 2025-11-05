@@ -29,14 +29,41 @@ export function FloatingActions({
   isSaved = false,
 }: FloatingActionsProps) {
   const [internalMuted, setInternalMuted] = useState(true);
-  const isMuted = controlledMuted !== undefined ? controlledMuted : internalMuted;
+  const [isToggling, setIsToggling] = useState(false);
+  const [optimisticMuted, setOptimisticMuted] = useState<boolean | null>(null);
+  
+  // ✅ Use optimistic state for instant feedback, fall back to controlled/internal
+  const displayMuted = optimisticMuted !== null ? optimisticMuted : 
+    (controlledMuted !== undefined ? controlledMuted : internalMuted);
 
-  const handleMuteToggle = () => {
+  const handleMuteToggle = (e: React.MouseEvent) => {
+    // ✅ FIX: Prevent event bubbling and default behavior
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // ✅ FIX: INSTANT optimistic UI update (before async state propagation)
+    const nextMuted = !displayMuted;
+    setOptimisticMuted(nextMuted);
+    setIsToggling(true);
+    
+    console.log('🔊 Mute toggle clicked!', { from: displayMuted, to: nextMuted });
+    
+    // ✅ FIX: Haptic feedback on mobile
+    if ('vibrate' in navigator) {
+      navigator.vibrate(10);
+    }
+    
     if (onMuteToggle) {
       onMuteToggle();
     } else {
-      setInternalMuted(!internalMuted);
+      setInternalMuted(nextMuted);
     }
+    
+    // Clear optimistic state after parent updates (smooth handoff)
+    setTimeout(() => {
+      setOptimisticMuted(null);
+      setIsToggling(false);
+    }, 300);
   };
 
   const handleLikeClick = (e: React.MouseEvent) => {
@@ -150,17 +177,25 @@ export function FloatingActions({
       {/* Divider */}
       <div className="mx-auto h-px w-6 bg-border" />
       
-      {/* Sound Toggle Button */}
+      {/* Sound Toggle Button - ✅ OPTIMIZED for smooth interaction */}
       <button 
         onClick={handleMuteToggle}
-        style={{ pointerEvents: 'auto' }}
-        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted/20 text-foreground shadow-xl backdrop-blur-xl transition-all hover:scale-110 hover:border-border hover:bg-muted/30 active:scale-95 cursor-pointer"
-        aria-label={isMuted ? "Unmute" : "Mute"}
+        style={{ 
+          pointerEvents: 'auto',
+          touchAction: 'manipulation', // ✅ Prevents double-tap zoom delay on mobile
+        }}
+        className={`flex h-11 w-11 items-center justify-center rounded-full border border-border shadow-xl backdrop-blur-xl transition-all hover:scale-110 active:scale-95 cursor-pointer ${
+          displayMuted 
+            ? 'bg-muted/20 text-muted-foreground hover:border-muted-foreground/40' 
+            : 'bg-primary/20 text-primary border-primary/60 hover:border-primary'
+        } ${isToggling ? 'scale-95' : ''}`}
+        aria-label={displayMuted ? "Unmute" : "Mute"}
+        aria-pressed={!displayMuted}
       >
-        {isMuted ? (
-          <VolumeX className="h-5 w-5" />
+        {displayMuted ? (
+          <VolumeX className="h-5 w-5 transition-all duration-150" />
         ) : (
-          <Volume2 className="h-5 w-5" />
+          <Volume2 className="h-5 w-5 transition-all duration-150" />
         )}
       </button>
     </div>

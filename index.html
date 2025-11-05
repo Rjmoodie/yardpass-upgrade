@@ -37,10 +37,21 @@
     <link rel="apple-touch-icon" sizes="167x167" href="/yardpass-logo.png" />
     
     <!-- Performance Optimizations -->
+    <!-- ✅ OPTIMIZED: Aggressive preconnects for video streaming -->
     <link rel="dns-prefetch" href="//stream.mux.com">
     <link rel="preconnect" href="https://stream.mux.com" crossorigin>
+    <link rel="dns-prefetch" href="//image.mux.com">
+    <link rel="preconnect" href="https://image.mux.com" crossorigin>
+    <link rel="dns-prefetch" href="//litix.io">
+    <link rel="preconnect" href="https://litix.io" crossorigin>
+    
+    <!-- Supabase API -->
     <link rel="dns-prefetch" href="//yieslxnrfeqchbcmgavz.supabase.co">
     <link rel="preconnect" href="https://yieslxnrfeqchbcmgavz.supabase.co" crossorigin>
+    
+    <!-- Other CDNs -->
+    <link rel="dns-prefetch" href="//api.mapbox.com">
+    <link rel="dns-prefetch" href="//js.stripe.com">
     
     <!-- Font Preloading (Inter - Latin subset only) -->
     <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>

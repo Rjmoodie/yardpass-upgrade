@@ -28,6 +28,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [hasBeenVisible, setHasBeenVisible] = useState(visible); // ✅ Track if ever visible
   const playerRef = useRef<MuxPlayerRefElement | null>(null);
   const viewTrackedRef = useRef(false);
   const playTrackedRef = useRef(false);
@@ -37,6 +38,14 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
   const playbackId = useMemo(() => extractMuxPlaybackId(url), [url]);
   const muxEnvKey = import.meta.env.VITE_MUX_DATA_ENV_KEY ?? "5i41hf91q117pfu1fgli0glfs";
   const muxBeaconDomain = import.meta.env.VITE_MUX_BEACON_DOMAIN;
+
+  // ✅ OPTIMIZATION: Mark as visible immediately (no lazy loading delay for videos)
+  // Videos need to preload to play instantly on scroll
+  useEffect(() => {
+    if (!hasBeenVisible) {
+      setHasBeenVisible(true);
+    }
+  }, [hasBeenVisible]);
 
   const sendMuxEngagement = useCallback(
     async (eventType: string, detail: Record<string, any> | undefined) => {
@@ -105,19 +114,25 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
 
     if (visible) {
       el.muted = muted;
+      
+      // ✅ OPTIMIZATION: Immediate play attempt (don't wait for isReady)
       const attemptPlay = async () => {
         try {
+          // Force load if not already loading
+          if (el.readyState < 2) {
+            el.load();
+          }
           await el.play();
           setIsPlaying(true);
+          setIsReady(true);
         } catch (err) {
           console.debug("▶️ Autoplay blocked or play() rejected:", err);
           setIsPlaying(false);
         }
       };
 
-      if (isReady) {
-        attemptPlay();
-      }
+      // Try to play immediately, don't wait for isReady
+      attemptPlay();
     } else {
       el.pause();
       el.currentTime = 0;
@@ -128,7 +143,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
       playTrackedRef.current = false;
       completeTrackedRef.current = false;
     }
-  }, [visible, muted, isReady]);
+  }, [visible, muted]);
 
   useEffect(() => {
     if (globalSoundEnabled === undefined) return;
@@ -138,13 +153,17 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
     const el = playerRef.current;
     const nextMuted = !globalSoundEnabled;
 
+    // ✅ OPTIMIZATION: Immediate state update (no delay)
     setMuted(nextMuted);
 
     if (el) {
-      el.muted = nextMuted;
-      if (!nextMuted && visible) {
-        el.play().catch(() => {});
-      }
+      // ✅ OPTIMIZATION: Use requestAnimationFrame for smooth audio transition
+      requestAnimationFrame(() => {
+        el.muted = nextMuted;
+        if (!nextMuted && visible) {
+          el.play().catch(() => {});
+        }
+      });
     }
   }, [globalSoundEnabled, visible]);
 
@@ -230,7 +249,14 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           custom_2: post?.text ?? undefined,
           player_name: "YardPass Feed",
         }}
-        style={{ width: "100%", height: "100%", objectFit: "cover", backgroundColor: "black" }}
+        style={{ 
+          width: "100%", 
+          height: "100%", 
+          objectFit: "cover", 
+          backgroundColor: "black",
+          // ✅ OPTIMIZATION: Hardware acceleration for smoother playback
+          willChange: visible ? 'transform' : 'auto',
+        }}
         className="pointer-events-none h-full w-full"
         onLoadStart={() => {
           setIsReady(false);
