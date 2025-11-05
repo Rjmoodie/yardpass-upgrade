@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AnalyticsWrapper } from '@/components/AnalyticsWrapper'
 import { CSRFProtection } from '@/lib/csrf'
+import { initializeCapacitor } from '@/lib/capacitor-init'
 import App from './App.tsx'
 import './styles-new-design.css'  // Base theme tokens + enhanced utilities
 import './index.css'              // Performance optimizations + overrides
@@ -43,6 +44,13 @@ const postHogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY || 'phc_PLACEHOLDER_K
 // Initialize CSRF protection
 CSRFProtection.enhanceSupabaseClient();
 CSRFProtection.generateToken();
+
+// Initialize Capacitor plugins (async, non-blocking)
+initializeCapacitor().then((state) => {
+  console.log('[YardPass] Capacitor initialized:', state.platform);
+}).catch((error) => {
+  console.error('[YardPass] Capacitor initialization error:', error);
+});
 
 createRoot(document.getElementById("root")!).render(
   <HelmetProvider>

@@ -26,6 +26,42 @@ const config: CapacitorConfig = {
       resize: 'native',           // 'native' | 'body' | 'ionic' | 'none'
       style: 'dark',              // 'dark' | 'light' (iOS only)
       resizeOnFullScreen: true    // Resize even in fullscreen (iOS only)
+    },
+    // Network monitoring for offline detection and feed refresh
+    Network: {},
+    // Persistent user preferences, feature flags, and device settings
+    Preferences: {},
+    // In-app browser for OAuth, terms, policies, and sponsor external sites
+    Browser: {
+      // Custom toolbar color to match YardPass branding
+      toolbarColor: '#000000',
+      // Show title in toolbar
+      showTitle: true,
+      // iOS presentation style
+      presentationStyle: 'popover'
+    },
+    // QR code and barcode scanning for ticket validation
+    BarcodeScanner: {
+      // Camera permission description
+      cameraPermissionDescription: 'YardPass needs camera access to scan ticket QR codes'
+    },
+    // Clipboard for copying referral codes and event links
+    Clipboard: {},
+    // Local notifications for venue-local reminders
+    LocalNotifications: {
+      smallIcon: 'ic_stat_icon_config_sample',
+      iconColor: '#000000'
+    },
+    // Quick toast messages for user feedback
+    Toast: {
+      duration: 'short'  // 'short' | 'long'
+    },
+    // Geolocation for venue proximity and event discovery
+    Geolocation: {
+      // High accuracy for precise venue location
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
     }
   },
   ios: {
