@@ -18,12 +18,16 @@ import {
   ChevronDown,
   Sparkles,
   History,
+  Camera as CameraIcon,
 } from 'lucide-react';
 import { VideoRecorder } from './VideoRecorder';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileView } from '@/contexts/ProfileViewContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { capturePhotoAsFile } from '@/lib/camera';
+import { Capacitor } from '@capacitor/core';
+import { useKeyboardPadding } from '@/hooks/useKeyboard';
 
 // Optional: if you have analytics
 // import { useAnalytics } from '@/hooks/useAnalytics';
@@ -241,6 +245,9 @@ export function PostCreatorModal({
   const imageInputId = useId();
   const videoInputId = useId();
 
+  // iOS keyboard handling - add 80px buffer for footer buttons
+  const keyboardPadding = useKeyboardPadding(80);
+
   // Load draft + last-event (if no preselect)
   useEffect(() => {
     if (!isOpen) return;
@@ -392,7 +399,7 @@ export function PostCreatorModal({
         const allEvents = Array.from(eventMap.values());
 
         setUserTickets(allEvents);
-        console.log('Available events for user:', allEvents.length, allEvents.map(e => ({ id: e.event_id, title: e.events.title, source: e.source })));
+        console.log('Available events for user:', allEvents.length, allEvents.map(e => ({ id: e.event_id, title: e.events.title })));
 
         if (preselectedEventId) {
           setSelectedEventId(preselectedEventId);
@@ -943,37 +950,51 @@ export function PostCreatorModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none">
+        <DialogContent className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none" aria-busy={loading}>
           <div className="flex max-h-[90vh] flex-col rounded-3xl border-2 border-border bg-background shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 dark:border-white/20">
             <div className="relative overflow-hidden">
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/20 via-background/60 to-background" />
               <DialogHeader className="relative px-6 pt-6 pb-5">
                 <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
                   <Sparkles className="h-5 w-5 text-primary" />
-                  Share a moment
+                  New Post
                 </DialogTitle>
                 <p className="text-sm text-foreground/80">
-                  Capture what's happening and bring your network along.
+                  Share photos, videos, or updates related to your event
                 </p>
               </DialogHeader>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 pb-6" onPaste={onPaste}>
+            <div 
+              className="flex-1 overflow-y-auto px-6 pb-6" 
+              style={keyboardPadding}
+              onPaste={onPaste}
+            >
               <div className="space-y-6">
-                {/* User Profile */}
-                <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-11 w-11 ring-2 ring-primary/30">
+                {/* User Profile + Event Context */}
+                <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-muted/30 p-4">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <Avatar className="h-11 w-11 ring-2 ring-primary/30 shrink-0">
                       <AvatarImage src={profile?.photo_url || ''} />
                       <AvatarFallback>{profile?.display_name?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
-                    <div>
-                      <div className="text-sm font-semibold">{profile?.display_name || 'You'}</div>
-                      <div className="text-xs text-foreground/75">{activeView === 'public' ? 'Posting publicly' : 'Network update'}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold truncate">{profile?.display_name || 'You'}</div>
+                      <div className="flex flex-wrap items-center gap-1 text-xs text-foreground/75">
+                        {selectedTicket?.events?.title && (
+                          <>
+                            <span className="font-medium truncate max-w-[180px]">
+                              {selectedTicket.events.title}
+                            </span>
+                            <span>•</span>
+                          </>
+                        )}
+                        <span>{isFlashback ? 'Flashback post' : 'Event post'}</span>
+                      </div>
                     </div>
                   </div>
                   {selectedTicket && (
-                    <Badge variant="outline" className="rounded-full text-xs" title={selectedTicket.ticket_tiers.name}>
+                    <Badge variant="neutral" className="rounded-full text-xs px-3 py-1 shrink-0" title={selectedTicket.ticket_tiers.name}>
                       {selectedTicket.ticket_tiers.badge_label}
                     </Badge>
                   )}
@@ -981,20 +1002,20 @@ export function PostCreatorModal({
 
                 {/* Event Selection */}
                 {!preselectedEventId && (
-                  <div className="rounded-2xl border border-border bg-background/90 p-4">
+                  <div className="rounded-2xl border border-border/70 bg-background/80 p-3">
                     <label className="text-xs font-semibold uppercase tracking-wide text-foreground/75">
-                      Posting to
+                      Event
                     </label>
                     <Select value={selectedEventId} onValueChange={setSelectedEventId}>
                       <SelectTrigger className="mt-2 rounded-xl border-border/70 bg-background/80">
-                        <SelectValue placeholder="Choose an event to post to" />
+                        <SelectValue placeholder={selectedEventId ? "Select an event" : "Select an event to start posting…"} />
                       </SelectTrigger>
                       <SelectContent className="max-h-64">
                         {userTickets.map((ticket) => (
                           <SelectItem key={ticket.event_id} value={ticket.event_id}>
                             <div className="flex items-center gap-2">
                               <span className="truncate max-w-[240px]">{ticket.events.title}</span>
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="neutral" className="text-xs">
                                 {ticket.ticket_tiers.badge_label}
                               </Badge>
                             </div>
@@ -1007,28 +1028,27 @@ export function PostCreatorModal({
 
                 {/* Flashback Notice */}
                 {isFlashback && (
-                  <Alert className="mb-4 border-purple-500/30 bg-purple-500/10">
+                  <Alert className="rounded-2xl border-purple-500/30 bg-purple-500/5 px-4 py-3">
                     <History className="h-4 w-4 text-purple-400" />
-                    <AlertDescription className="text-sm text-foreground/80">
-                      <strong className="text-purple-300">Flashback Post:</strong> At least one photo or video required. Caption limited to 300 characters.
+                    <AlertDescription className="text-xs text-foreground/80 space-y-1">
+                      <span>
+                        <span className="font-semibold text-purple-300">Flashback Post:</span>{' '}
+                        At least one photo or video required. Caption limited to 300 characters.
+                      </span>
                       {orgCreatedAt && (() => {
                         const windowEnd = new Date(new Date(orgCreatedAt).getTime() + 90 * 24 * 60 * 60 * 1000);
                         const today = new Date();
                         const daysLeft = Math.max(0, Math.ceil((windowEnd.getTime() - today.getTime()) / (24 * 60 * 60 * 1000)));
                         
-                        if (daysLeft === 0) {
-                          return (
-                            <span className="block mt-1 text-xs text-amber-400 font-medium">
+                        return daysLeft === 0 ? (
+                          <span className="block text-[11px] text-amber-400 font-medium">
                               ⚠️ Posting window has closed ({windowEnd.toLocaleDateString()})
                             </span>
-                          );
-                        } else {
-                          return (
-                            <span className="block mt-1 text-xs text-green-400 font-medium">
+                        ) : (
+                          <span className="block text-[11px] text-green-400 font-medium">
                               ✓ {daysLeft} days left to post (until {windowEnd.toLocaleDateString()})
                             </span>
                           );
-                        }
                       })()}
                     </AlertDescription>
                   </Alert>
@@ -1036,8 +1056,8 @@ export function PostCreatorModal({
 
                 {/* Composer */}
                 <div 
-                  className={`rounded-3xl border border-border/60 bg-background/80 p-5 shadow-inner transition-all ${
-                    isDragging ? 'border-primary bg-primary/5' : ''
+                  className={`rounded-3xl border bg-background/80 p-5 shadow-inner transition-all ${
+                    isDragging ? 'border-primary bg-primary/5' : 'border-border/40'
                   }`}
                   onDrop={onDrop}
                   onDragOver={onDragOver}
@@ -1047,22 +1067,13 @@ export function PostCreatorModal({
                     placeholder={isFlashback ? "Share your favorite moment from this event... 📸" : "What's the vibe? Share the story, shout out a set, or drop some highlights…"}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    className="min-h-[150px] resize-none border-none bg-transparent p-0 text-base leading-relaxed focus-visible:ring-0"
+                    className="min-h-[180px] resize-none border-none bg-transparent p-0 text-base leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/60"
                     maxLength={isFlashback ? 300 : 2000}
+                    enterKeyHint="done"
+                    style={{ fontSize: '16px' }} // Prevent iOS auto-zoom
                     onKeyDown={onKeyDownComposer}
                     aria-label="Post content"
                   />
-
-                  {/* Character Counter for Flashbacks */}
-                  {isFlashback && (
-                    <div className={`mt-2 text-xs text-right ${
-                      content.trim().length > 300 ? 'text-destructive font-semibold' : 
-                      content.trim().length > 250 ? 'text-amber-500' : 
-                      'text-foreground/60'
-                    }`}>
-                      {content.trim().length} / 300 characters
-                    </div>
-                  )}
 
                   {/* Simple Media Controls */}
                   <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-4">
@@ -1072,8 +1083,10 @@ export function PostCreatorModal({
                         type="button"
                         variant="ghost" 
                         size="sm" 
-                        className="flex items-center gap-2 h-9 px-3 rounded-full hover:bg-primary/10 transition-colors"
-                        title="Add photos or videos"
+                        className={`flex items-center gap-2 h-9 px-3 rounded-full hover:bg-primary/10 transition-colors ${
+                          isFlashback && queue.length === 0 ? 'text-purple-300' : ''
+                        }`}
+                        title={isFlashback ? "Media required for flashback" : "Add photos or videos"}
                         onClick={() => {
                           console.log('Upload button clicked, triggering file input');
                           document.getElementById(imageInputId)?.click();
@@ -1081,6 +1094,9 @@ export function PostCreatorModal({
                       >
                         <Upload className="h-4 w-4" />
                         <span className="text-xs font-medium hidden sm:inline">Media</span>
+                        {isFlashback && queue.length === 0 && (
+                          <span className="flex h-2 w-2 rounded-full bg-purple-400" />
+                        )}
                       </Button>
                       <input
                         id={imageInputId}
@@ -1090,6 +1106,35 @@ export function PostCreatorModal({
                         onChange={handleFilePick}
                         className="hidden"
                       />
+
+                      {/* Camera Button (iOS Native) */}
+                      {Capacitor.isNativePlatform() && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="flex items-center gap-2 h-9 px-3 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-40"
+                          onClick={async () => {
+                            console.log('Camera button clicked');
+                            try {
+                              const file = await capturePhotoAsFile();
+                              if (!file) return;
+                              await addFiles([file]);
+                            } catch (err: any) {
+                              console.error('Camera capture failed:', err);
+                              toast({
+                                title: 'Camera Error',
+                                description: err?.message || 'Unable to capture photo.',
+                                variant: 'destructive',
+                              });
+                            }
+                          }}
+                          title="Take photo or choose from library"
+                        >
+                          <CameraIcon className="h-4 w-4" />
+                          <span className="text-xs font-medium hidden sm:inline">Camera</span>
+                        </Button>
+                      )}
                       
                       {/* Record Video Button */}
                       <Button
@@ -1120,8 +1165,14 @@ export function PostCreatorModal({
                     
                     {/* Character Counter & Upload Status */}
                     <div className="flex items-center gap-3">
-                      <div className="text-xs text-muted-foreground">
-                        {content.length}/2000
+                      <div className={`text-xs ${
+                        isFlashback && content.trim().length > 300 ? 'text-destructive font-semibold' :
+                        isFlashback && content.trim().length > 250 ? 'text-amber-500' :
+                        'text-muted-foreground'
+                      }`}>
+                        {isFlashback
+                          ? `${content.trim().length} / 300`
+                          : `${content.length} / 2000`}
                       </div>
                       {queue.length > 0 && (
                         <div className="text-xs font-medium text-primary">
@@ -1139,7 +1190,7 @@ export function PostCreatorModal({
                 <div className="space-y-4">
 
                   {queue.length > 0 && (
-                    <div className="space-y-3 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner">
+                    <div className="space-y-3 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner" aria-label="Attached media">
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-sm font-semibold">Attached media</div>
                         <Button size="sm" variant="ghost" onClick={clearAll} className="rounded-full">
@@ -1147,14 +1198,14 @@ export function PostCreatorModal({
                         </Button>
                       </div>
 
-                      <div className="space-y-3">
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {queue.map((q, idx) => (
                           <div
                             key={q.name + q.size}
-                            className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-background/90 p-3 shadow-sm sm:flex-row sm:items-stretch"
+                            className="flex flex-col rounded-2xl border border-border/60 bg-background/90 p-3 shadow-sm"
                           >
-                            <div className="flex items-center justify-center sm:w-32">
-                              <div className="relative h-24 w-full overflow-hidden rounded-2xl border border-border/70 bg-muted">
+                            {/* Thumbnail */}
+                            <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-border/70 bg-muted">
                                 {q.kind === 'image' && q.previewUrl ? (
                                   <img src={q.previewUrl} className="h-full w-full object-cover" alt="" />
                                 ) : q.kind === 'image' ? (
@@ -1162,90 +1213,44 @@ export function PostCreatorModal({
                                 ) : (
                                   <VideoIcon className="absolute inset-0 m-auto h-6 w-6 text-muted-foreground" />
                                 )}
-                              </div>
                             </div>
 
-                            <div className="flex flex-1 flex-col gap-2">
-                              <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                  <div className="truncate text-sm font-semibold" title={q.name}>
+                            {/* Info & Controls */}
+                            <div className="flex flex-col gap-2 mt-2">
+                              <div className="flex flex-col gap-1">
+                                <div className="truncate text-xs font-semibold" title={q.name}>
                                     {q.name}
                                   </div>
-                                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                    <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-wide">
+                                <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                                  <Badge variant="neutral" className="rounded-full text-[9px] uppercase tracking-wide px-1.5 py-0">
                                       {q.kind === 'image'
-                                        ? 'Image'
+                                      ? 'IMG'
                                         : q.file.type.startsWith('audio')
-                                        ? 'Audio'
-                                        : 'Video'}
+                                      ? 'AUD'
+                                      : 'VID'}
                                     </Badge>
                                     <span>{bytesToMB(q.size)} MB</span>
-                                    <span>• {q.status}</span>
                                     {typeof q.progress === 'number' && (q.status === 'uploading' || q.status === 'processing') && (
-                                      <span>• {q.progress}%</span>
+                                    <span className="font-medium">• {q.progress}%</span>
                                     )}
                                     {q.errorMsg && <span className="text-destructive">• {q.errorMsg}</span>}
                                   </div>
                                 </div>
 
-                                <div className="flex flex-wrap items-center gap-1">
                                   <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => moveQueued(q.name, -1)}
-                                    title="Move up"
-                                    disabled={idx === 0}
-                                    className="rounded-full"
-                                  >
-                                    <ChevronUp className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => moveQueued(q.name, +1)}
-                                    title="Move down"
-                                    disabled={idx === queue.length - 1}
-                                    className="rounded-full"
-                                  >
-                                    <ChevronDown className="h-4 w-4" />
-                                  </Button>
-                                  {q.status === 'error' && (
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      onClick={() => retryUpload(q.name)}
-                                      title="Retry"
-                                      className="rounded-full"
-                                    >
-                                      <RefreshCw className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  {(q.status === 'uploading' || q.status === 'processing') && (
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      onClick={() => cancelUpload(q.name)}
-                                      title="Cancel"
-                                      className="rounded-full"
-                                    >
-                                      <Ban className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  <Button
-                                    size="icon"
+                                size="sm"
                                     variant="ghost"
                                     onClick={() => removeQueued(q.name)}
                                     title="Remove"
                                     disabled={q.status === 'uploading' || q.status === 'processing'}
-                                    className="rounded-full"
+                                className="w-full rounded-full text-xs h-7"
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Remove
                                   </Button>
-                                </div>
-                              </div>
 
                               {(q.status === 'uploading' || q.status === 'processing') && (
-                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
                                   <div
                                     className="h-full rounded-full bg-primary transition-[width]"
                                     style={{ width: `${Math.max(5, Math.min(100, q.progress || 5))}%` }}
@@ -1262,16 +1267,16 @@ export function PostCreatorModal({
 
                 {/* Action Buttons */}
                 <div className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner">
-                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>{content.trim().length > 0 ? `${content.trim().length} characters` : 'No text yet'}</span>
-                    <span>•</span>
-                    <span>{queue.length ? `${queue.length} media attached` : 'No media yet'}</span>
-                  </div>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button variant="ghost" onClick={onClose} className="rounded-full sm:flex-1">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <Button variant="ghost" onClick={onClose} className="rounded-full sm:w-auto text-muted-foreground hover:text-foreground">
                       Cancel
                     </Button>
-                    <Button onClick={handleSubmit} disabled={!canPost} className="rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl sm:flex-1">
+                    <Button 
+                      onClick={handleSubmit} 
+                      disabled={!canPost} 
+                      className="rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl sm:min-w-[160px]"
+                      aria-busy={loading}
+                    >
                       {loading ? (
                         <div className="flex items-center gap-2">
                           <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />

@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent } from '@/components/ui/card';
 import { Search, Users, UserPlus, UserCheck, UserX, MessageCircle, Eye, MoreHorizontal, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -209,27 +208,25 @@ export function UserSearchModal({ open, onOpenChange, eventId, onSelectUser }: U
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Start typing to search (min 2 characters)..."
+                placeholder="Search by name, bio, or location..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-10"
+                className="pl-10 pr-10 h-11"
                 autoFocus
               />
               {searching && (
                 <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-primary animate-spin" />
               )}
             </div>
-            <p className="text-xs text-muted-foreground px-1">
-              {searchQuery.length === 0 && '💡 Type at least 2 characters to see results'}
-              {searchQuery.length === 1 && '✍️ Keep typing... (1 more character needed)'}
-              {searchQuery.length >= 2 && searching && '🔍 Searching...'}
-              {searchQuery.length >= 2 && !searching && filteredResults.length > 0 && `✅ Found ${filteredResults.length} user${filteredResults.length === 1 ? '' : 's'}`}
-              {searchQuery.length >= 2 && !searching && filteredResults.length === 0 && '❌ No users found'}
-            </p>
+            {searchQuery.length >= 2 && !searching && filteredResults.length > 0 && (
+              <p className="text-xs text-muted-foreground px-1">
+                {filteredResults.length} {filteredResults.length === 1 ? 'person' : 'people'} found
+              </p>
+            )}
           </div>
 
           {/* Search Results */}
-          <div className="flex-1 overflow-y-auto space-y-2">
+          <div className="flex-1 overflow-y-auto space-y-1">
             {/* Loading State */}
             {searching && (
               <div className="text-center py-8 text-muted-foreground">
@@ -258,47 +255,43 @@ export function UserSearchModal({ open, onOpenChange, eventId, onSelectUser }: U
 
             {/* User Results */}
             {!searching && filteredResults.map((user) => (
-              <Card key={user.user_id} className="p-4 hover:shadow-md transition-all duration-200 cursor-pointer group">
-                <CardContent className="p-0">
-                  <div className="flex items-center justify-between">
-                    <div 
-                      className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                      onClick={() => handleViewProfile(user.user_id)}
-                    >
-                      <Avatar className="h-12 w-12 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
-                        <AvatarImage src={user.photo_url || undefined} />
-                        <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary/20">
-                          {user.display_name?.charAt(0)?.toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
-                          {user.display_name}
-                        </h3>
-                        {user.bio && (
-                          <p className="text-sm text-muted-foreground truncate">
-                            {user.bio}
-                          </p>
-                        )}
-                        {user.location && (
-                          <p className="text-xs text-muted-foreground">
-                            📍 {user.location}
-                          </p>
-                        )}
-                        
-                        <div className="flex gap-4 mt-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {user.follower_count} followers
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            {user.following_count} following
-                          </Badge>
-                        </div>
-                      </div>
+              <div 
+                key={user.user_id} 
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-all duration-200 cursor-pointer group"
+                onClick={() => handleViewProfile(user.user_id)}
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <Avatar className="h-11 w-11 ring-2 ring-transparent group-hover:ring-primary/30 transition-all shrink-0">
+                    <AvatarImage src={user.photo_url || undefined} />
+                    <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary/20 text-sm font-semibold">
+                      {user.display_name?.charAt(0)?.toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                        {user.display_name}
+                      </h3>
+                      {user.location && (
+                        <span className="text-xs text-muted-foreground truncate">
+                          📍 {user.location}
+                        </span>
+                      )}
                     </div>
+                    {user.bio ? (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {user.bio}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {user.follower_count} followers • {user.following_count} following
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-                    <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {/* Follow Button */}
                       {user.current_user_follow_status === 'none' && (
                         <FollowButton
@@ -310,58 +303,33 @@ export function UserSearchModal({ open, onOpenChange, eventId, onSelectUser }: U
                       )}
                       
                       {user.current_user_follow_status === 'pending' && (
-                        <Badge variant="outline" className="text-xs">
-                          <UserPlus className="h-3 w-3 mr-1" />
-                          Request Sent
-                        </Badge>
+                        <span className="text-xs text-muted-foreground font-medium px-3 py-1.5 bg-muted/50 rounded-full">
+                          Requested
+                        </span>
                       )}
                       
                       {user.current_user_follow_status === 'accepted' && (
-                        <Badge variant="default" className="text-xs">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs px-3 rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Could add unfollow logic here
+                          }}
+                        >
                           <UserCheck className="h-3 w-3 mr-1" />
                           Following
-                        </Badge>
+                        </Button>
                       )}
                       
                       {user.current_user_follow_status === 'declined' && (
-                        <Badge variant="destructive" className="text-xs">
-                          <UserX className="h-3 w-3 mr-1" />
+                        <span className="text-xs text-muted-foreground font-medium">
                           Declined
-                        </Badge>
+                        </span>
                       )}
-
-                      {/* Action Buttons */}
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewProfile(user.user_id);
-                          }}
-                          title="View Profile"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStartMessage(user.user_id);
-                          }}
-                          title="Start Message"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
-                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+              </div>
             ))}
           </div>
         </div>

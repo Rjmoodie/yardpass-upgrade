@@ -59,7 +59,8 @@ export function useTicketDetailTracking() {
       
       if (error) {
         // 409 Conflict is expected for duplicate views (deduplication working)
-        if (error.code !== '23505') {  // unique violation
+        // 23505 = Postgres unique violation, 409 = PostgREST conflict
+        if (error.code !== '23505' && !error.message?.includes('409')) {
           console.error('[Purchase Intent] Failed to track ticket view:', error);
         }
       }

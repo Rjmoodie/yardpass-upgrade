@@ -143,6 +143,40 @@ serve(async (req) => {
         });
       }
 
+      // 🔒 ATOMIC UPDATE: Mark as processing to prevent race conditions
+      // This prevents duplicate webhook events from processing the same order twice
+      const { data: updateResult, error: updateError } = await supabaseService
+        .from("orders")
+        .update({ 
+          status: 'paid',
+          paid_at: new Date().toISOString()
+        })
+        .eq("id", order.id)
+        .eq("status", "pending") // Only update if still pending
+        .select("id")
+        .maybeSingle();
+
+      if (updateError) {
+        logStep("Error updating order status", { error: updateError.message });
+        throw new Error(`Failed to update order: ${updateError.message}`);
+      }
+
+      if (!updateResult) {
+        logStep("Order already being processed by another webhook", { 
+          orderId: order.id,
+          hint: "This is expected when Stripe sends both checkout.session.completed and payment_intent.succeeded"
+        });
+        return new Response(JSON.stringify({ 
+          received: true, 
+          skipped: "already_processing" 
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      logStep("Order status updated to 'paid', proceeding with ticket creation", { orderId: order.id });
+
       // Call process-payment to handle ticket creation and email sending
       // Pass the stripe_session_id (which process-payment expects)
       const sessionIdForProcessing = stripeSessionId || order.stripe_session_id;
@@ -158,14 +192,7 @@ serve(async (req) => {
 
       if (processPaymentResponse.error) {
         logStep("process-payment failed", { error: processPaymentResponse.error });
-        // Mark as paid anyway so user can manually retry
-        await supabaseService
-          .from("orders")
-          .update({
-            status: 'paid',
-            paid_at: new Date().toISOString()
-          })
-          .eq("id", order.id);
+        // Status already marked as 'paid' above, no need to update again
       } else {
         logStep("process-payment succeeded", { 
           orderId: order.id,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { AnimatePresence, motion } from "framer-motion";
@@ -87,6 +87,19 @@ export default function EventCheckoutSheet({ event, isOpen, onClose, onSuccess }
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
+
+  // Stable onComplete handler (not used due to redirect_on_completion: always)
+  const handleComplete = useCallback(() => {
+    onSuccess();
+    toast({ title: "Payment complete" });
+  }, [onSuccess]);
+
+  // Memoize checkout options - don't include onComplete since Stripe redirects automatically
+  const checkoutOptions = useMemo(() => {
+    if (!clientSecret) return null;
+    return { clientSecret };
+  }, [clientSecret]);
+
   const [now, setNow] = useState<number>(Date.now());
 
   const dateStr = event?.startAtISO ?? event?.start_at ?? null;
@@ -200,22 +213,26 @@ export default function EventCheckoutSheet({ event, isOpen, onClose, onSuccess }
     }
 
     console.log("🎫 Starting checkout...", { event: event.id, selections, isGuest: !user });
+    
+    // Build selections -> API payload
+    const ticketSelections = Object.entries(selections)
+      .filter(([_, q]) => q > 0)
+      .map(([tierId, quantity]) => {
+        const tier = tiers.find((t) => t.id === tierId)!;
+        return { tierId, quantity, faceValue: tier.price_cents / 100 };
+      });
+
+    if (!ticketSelections.length) {
+      console.warn("❌ No tickets selected");
+      toast({ title: "Select tickets", description: "Choose at least 1 ticket to continue", variant: "destructive" });
+      return;
+    }
+
+    // Switch to pay step immediately for faster perceived speed
+    setStep("pay");
     setCreating(true);
+    
     try {
-      // Build selections -> API payload
-      const ticketSelections = Object.entries(selections)
-        .filter(([_, q]) => q > 0)
-        .map(([tierId, quantity]) => {
-          const tier = tiers.find((t) => t.id === tierId)!;
-          return { tierId, quantity, faceValue: tier.price_cents / 100 };
-        });
-
-      if (!ticketSelections.length) {
-        console.warn("❌ No tickets selected");
-        toast({ title: "Select tickets", description: "Choose at least 1 ticket to continue", variant: "destructive" });
-        return;
-      }
-
       let data: any;
       let error: any;
 
@@ -271,12 +288,12 @@ export default function EventCheckoutSheet({ event, isOpen, onClose, onSuccess }
       setCheckoutSessionId(data.checkout_session_id ?? null);
       setExpiresAt(data.expires_at ?? null);
 
-      setStep("pay");
-      console.log("✅ Switched to 'pay' step");
+      console.log("✅ Checkout session ready");
 
       toast({ title: "Tickets held", description: "Your tickets are reserved while you complete checkout." });
     } catch (e: any) {
       console.error("❌ startCheckout error:", e);
+      setStep("select"); // Go back to select on error
       
       // Handle specific error cases
       if (e?.shouldSignIn) {
@@ -516,13 +533,35 @@ export default function EventCheckoutSheet({ event, isOpen, onClose, onSuccess }
 
             {/* Step: pay (embedded checkout) */}
             <AnimatePresence mode="wait">
-              {step === "pay" && clientSecret && (
-              <div className="space-y-4">
-                <h3 className="font-semibold">Secure Checkout</h3>
-                <EmbeddedCheckoutProvider stripe={stripePromise} options={{ clientSecret, onComplete: () => { onSuccess(); toast({ title: "Payment complete" }); } }}>
-                  <EmbeddedCheckout />
-                </EmbeddedCheckoutProvider>
-              </div>
+              {step === "pay" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-4"
+                >
+                  <h3 className="font-semibold">Secure Checkout</h3>
+                  
+                  {creating || !checkoutOptions ? (
+                    // Loading skeleton while creating session
+                    <div className="space-y-4 animate-pulse">
+                      <div className="h-12 bg-muted rounded" />
+                      <div className="h-64 bg-muted rounded" />
+                      <div className="h-12 bg-muted rounded" />
+                      <div className="flex justify-center py-4">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+                          <span className="text-sm">Preparing secure checkout...</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <EmbeddedCheckoutProvider stripe={stripePromise} options={checkoutOptions}>
+                      <EmbeddedCheckout />
+                    </EmbeddedCheckoutProvider>
+                  )}
+                </motion.div>
               )}
             </AnimatePresence>
           </div>

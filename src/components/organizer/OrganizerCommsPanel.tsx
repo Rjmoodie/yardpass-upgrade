@@ -960,35 +960,35 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   );
 
   const ChannelStep = () => (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
       <div>
-        <Label htmlFor="channel-select" className="text-sm font-medium text-neutral-700 mb-2 block">Channel</Label>
+        <Label htmlFor="channel-select" className="text-sm font-medium mb-2 block">Channel</Label>
         <Select value={channel} onValueChange={(v: MessageChannel) => setChannel(v)}>
-          <SelectTrigger id="channel-select" className="h-11 border-neutral-200 focus:border-brand-600 focus:ring-brand-600">
+          <SelectTrigger id="channel-select" className="h-11">
             <SelectValue placeholder="Select channel" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="email">
               <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-neutral-600" /> 
+                <Mail className="h-4 w-4" /> 
                 <span>Email</span>
               </div>
             </SelectItem>
             <SelectItem value="sms">
               <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-neutral-600" /> 
+                <MessageSquare className="h-4 w-4" /> 
                 <span>SMS</span>
               </div>
             </SelectItem>
           </SelectContent>
         </Select>
       </div>
-      <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-md">
+      <div className="p-4 bg-muted/50 border rounded-md">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-2 h-2 bg-brand-600 rounded-full"></div>
-          <span className="text-sm font-medium text-neutral-700">Tip</span>
+          <div className="w-2 h-2 bg-primary rounded-full"></div>
+          <span className="text-sm font-medium">Tip</span>
         </div>
-        <p className="text-sm text-neutral-600 leading-relaxed">
+        <p className="text-sm text-muted-foreground leading-relaxed">
           Email supports subject, preheader, and rich content. SMS is best for short, time-sensitive reminders.
         </p>
       </div>

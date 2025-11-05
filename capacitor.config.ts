@@ -21,6 +21,11 @@ const config: CapacitorConfig = {
     Share: {},
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert']
+    },
+    Keyboard: {
+      resize: 'native',           // 'native' | 'body' | 'ionic' | 'none'
+      style: 'dark',              // 'dark' | 'light' (iOS only)
+      resizeOnFullScreen: true    // Resize even in fullscreen (iOS only)
     }
   },
   ios: {
@@ -31,8 +36,6 @@ const config: CapacitorConfig = {
     scheme: 'YardPass',
     // Optimize for iOS deployment
     cordovaSwiftVersion: '5.0',
-    // Enable proper keyboard handling
-    keyboardResize: 'native',
     // Ensure proper status bar handling
     statusBarStyle: 'default'
   },

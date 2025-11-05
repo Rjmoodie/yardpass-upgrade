@@ -154,9 +154,10 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
       completed: cur.completed,
     };
 
-    if (cur.kind === 'event') {
+    // Skip event_impressions for promoted campaigns (they're tracked in ad_impressions)
+    if (cur.kind === 'event' && !cur.promotion) {
       enqueueFlush({ __t: 'event', event_id: cur.event_id, ...base });
-    } else {
+    } else if (cur.kind === 'post') {
       enqueueFlush({ __t: 'post', post_id: cur.post_id, event_id: cur.event_id, ...base });
     }
 

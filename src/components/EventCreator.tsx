@@ -10,7 +10,8 @@ import { Progress } from './ui/progress';
 import { Alert, AlertDescription } from './ui/alert';
 import {
   ArrowLeft, ArrowRight, Plus, X, Upload, Calendar,
-  MapPin, Shield, Share2, Wand2, Image as ImageIcon, Lightbulb
+  MapPin, Shield, Share2, Wand2, Image as ImageIcon, Lightbulb, 
+  Tag as TagIcon, Clock, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { MapboxLocationPicker } from './MapboxLocationPicker';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,6 +47,28 @@ interface TicketTier {
   price: number;
   badge: string;
   quantity: number;
+  feeBear: 'customer' | 'organizer';
+  visibility: 'visible' | 'hidden' | 'secret';
+  salesStart?: string;
+  salesEnd?: string;
+  requiresTierId?: string;
+}
+interface EventAddon {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  quantity: number | null;
+  maxPerOrder: number;
+  imageUrl?: string;
+}
+interface CheckoutQuestion {
+  id: string;
+  questionText: string;
+  questionType: 'text' | 'textarea' | 'select' | 'checkbox' | 'radio';
+  options?: string[];
+  required: boolean;
+  appliesTo: 'order' | 'ticket';
 }
 
 const categories = [
@@ -108,8 +131,11 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           formData: parsed.formData || {},
           location: parsed.location || null,
           ticketTiers: parsed.ticketTiers || [
-            { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100 },
+            { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100, feeBear: 'customer', visibility: 'visible' },
           ],
+          eventAddons: parsed.eventAddons || [],
+          checkoutQuestions: parsed.checkoutQuestions || [],
+          eventSettings: parsed.eventSettings || { showRemainingTickets: true, allowWaitlist: false },
         };
       }
     } catch (error) {
@@ -130,6 +156,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     title: '',
     description: '',
     category: '',
+    tags: [] as string[],
     startDate: '',
     startTime: '',
     endDate: '',
@@ -141,14 +168,23 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     isFlashback: false,
     flashbackExplainer: '',
     linkedEventId: '',
+    scheduledPublishAt: '',
+    organizerProfileId: organizationId,
   });
 
   const [location, setLocation] = useState<Location | null>(draft?.location || null);
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>(
     draft?.ticketTiers || [
-      { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100 },
+      { id: '1', name: 'General Admission', price: 0, badge: 'GA', quantity: 100, feeBear: 'customer', visibility: 'visible' },
     ]
   );
+  const [eventAddons, setEventAddons] = useState<EventAddon[]>(draft?.eventAddons || []);
+  const [checkoutQuestions, setCheckoutQuestions] = useState<CheckoutQuestion[]>(draft?.checkoutQuestions || []);
+  const [eventSettings, setEventSettings] = useState(draft?.eventSettings || {
+    showRemainingTickets: true,
+    allowWaitlist: false,
+  });
+  const [expandedTiers, setExpandedTiers] = useState<Record<string, boolean>>({});
 
   // Flashback: Fetch organization's events for linking + org created date
   const [orgEvents, setOrgEvents] = useState<Array<{ id: string; title: string; start_at: string }>>([]);
@@ -188,7 +224,8 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
   }, [organizationId]);
 
   // Calculate totalSteps and progress based on isFlashback
-  const totalSteps = useMemo(() => formData.isFlashback ? 3 : 4, [formData.isFlashback]);
+  // Steps: 1=Basics, 2=Schedule, 3=Ticketing(skip if flashback), 4=Add-ons(skip if flashback), 5=Settings, 6=Preview
+  const totalSteps = useMemo(() => formData.isFlashback ? 4 : 6, [formData.isFlashback]);
   const progress = useMemo(() => (step / totalSteps) * 100, [step, totalSteps]);
 
   // Validation/errors + dirty + submit guard
@@ -202,17 +239,17 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     const timeoutId = setTimeout(() => {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          step, formData, location, ticketTiers, lastSaved: Date.now(),
+          step, formData, location, ticketTiers, eventAddons, checkoutQuestions, eventSettings, lastSaved: Date.now(),
         }));
       } catch (error) {
         console.warn('Failed to save event creator draft:', error);
       }
     }, 700);
     return () => clearTimeout(timeoutId);
-  }, [step, formData, location, ticketTiers, STORAGE_KEY]);
+  }, [step, formData, location, ticketTiers, eventAddons, checkoutQuestions, eventSettings, STORAGE_KEY]);
 
   // Mark dirty on changes
-  useEffect(() => { setDirty(true); }, [formData, location, ticketTiers]);
+  useEffect(() => { setDirty(true); }, [formData, location, ticketTiers, eventAddons, checkoutQuestions, eventSettings]);
 
   // Warn before unload if dirty
   useEffect(() => {
@@ -304,27 +341,29 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
     let e: Record<string,string> = {};
     if (step === 1) e = validateStep1(formData);
     if (step === 2) e = validateStep2(formData, location);
-    if (step === 3) e = validateStep3(ticketTiers);
+    if (step === 3 && !formData.isFlashback) e = validateStep3(ticketTiers);
     setErrors(e);
     if (Object.keys(e).length) {
       toast({ title: 'Fix required fields', description: 'Please review highlighted fields.', variant: 'destructive' });
       return;
     }
     
-    // For Flashback events, skip Step 3 (Ticketing)
+    // For Flashback events, skip Step 3 (Ticketing) and Step 4 (Add-ons)
+    // Regular: 1=Basics, 2=Schedule, 3=Ticketing, 4=Add-ons, 5=Settings, 6=Preview
+    // Flashback: 1=Basics, 2=Schedule, 5=Settings, 6=Preview
     let newStep = step + 1;
     if (formData.isFlashback && step === 2) {
-      newStep = 4; // Skip from Step 2 to Step 4 (Preview)
+      newStep = 5; // Skip from Step 2 to Step 5 (Settings)
     }
     newStep = Math.min(totalSteps, newStep);
     trackEvent('event_creation_step', { from_step: step, to_step: newStep, organization_id: organizationId, direction: 'forward' });
     setStep(newStep);
   };
   const handlePrevious = () => {
-    // For Flashback events, skip Step 3 (Ticketing) when going back too
+    // For Flashback events, skip Step 3 (Ticketing) and Step 4 (Add-ons) when going back too
     let newStep = step - 1;
-    if (formData.isFlashback && step === 4) {
-      newStep = 2; // Skip from Step 4 back to Step 2
+    if (formData.isFlashback && step === 5) {
+      newStep = 2; // Skip from Step 5 back to Step 2
     }
     newStep = Math.max(1, newStep);
     trackEvent('event_creation_step', { from_step: step, to_step: newStep, organization_id: organizationId, direction: 'backward' });
@@ -333,10 +372,45 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
   // Tiers CRUD
   const addTier = () =>
-    setTicketTiers((prev) => [...prev, { id: String(Date.now()), name: '', price: 0, badge: '', quantity: 0 }]);
+    setTicketTiers((prev) => [...prev, { 
+      id: String(Date.now()), 
+      name: '', 
+      price: 0, 
+      badge: '', 
+      quantity: 0, 
+      feeBear: 'customer', 
+      visibility: 'visible' 
+    }]);
   const updateTier = (id: string, field: keyof TicketTier, value: string | number) =>
     setTicketTiers((tiers) => tiers.map((t) => (t.id === id ? { ...t, [field]: value } : t)));
   const removeTier = (id: string) => setTicketTiers((tiers) => tiers.filter((t) => t.id !== id));
+
+  // Addons CRUD
+  const addAddon = () =>
+    setEventAddons((prev) => [...prev, { 
+      id: String(Date.now()), 
+      name: '', 
+      description: '',
+      price: 0, 
+      quantity: null, 
+      maxPerOrder: 10 
+    }]);
+  const updateAddon = (id: string, field: keyof EventAddon, value: string | number | null) =>
+    setEventAddons((addons) => addons.map((a) => (a.id === id ? { ...a, [field]: value } : a)));
+  const removeAddon = (id: string) => setEventAddons((addons) => addons.filter((a) => a.id !== id));
+
+  // Checkout Questions CRUD
+  const addQuestion = () =>
+    setCheckoutQuestions((prev) => [...prev, { 
+      id: String(Date.now()), 
+      questionText: '', 
+      questionType: 'text', 
+      required: false, 
+      appliesTo: 'order' 
+    }]);
+  const updateQuestion = (id: string, field: keyof CheckoutQuestion, value: any) =>
+    setCheckoutQuestions((questions) => questions.map((q) => (q.id === id ? { ...q, [field]: value } : q)));
+  const removeQuestion = (id: string) => setCheckoutQuestions((questions) => questions.filter((q) => q.id !== id));
 
   // Upload cover
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -399,6 +473,8 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       price: s.price,
       badge: s.badge,
       quantity: s.quantity,
+      feeBear: 'customer',
+      visibility: 'visible',
     }));
     setTicketTiers(mapped);
     toast({ title: 'Tiers suggested', description: 'AI proposed ticket tiers & pricing.' });
@@ -501,12 +577,13 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       const endAt = combineDateTime(formData.endDate, formData.endTime)!;
       const linkToken = formData.visibility === 'unlisted' && 'randomUUID' in crypto ? crypto.randomUUID() : null;
 
-      const { data: event, error: eventError } = await supabase
+      const { data: event, error: eventError} = await supabase
         .from('events')
         .insert({
           title: formData.title,
           description: formData.description,
           category: formData.category,
+          tags: formData.tags,
           start_at: startAt.toISOString(),
           end_at: endAt.toISOString(),
           timezone: formData.timezone,
@@ -526,24 +603,69 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           is_flashback: formData.isFlashback || false,
           flashback_explainer: formData.isFlashback && formData.flashbackExplainer ? formData.flashbackExplainer : null,
           linked_event_id: formData.isFlashback && formData.linkedEventId ? formData.linkedEventId : null,
+          scheduled_publish_at: formData.scheduledPublishAt ? new Date(formData.scheduledPublishAt).toISOString() : null,
+          settings: eventSettings,
         })
         .select('id')
         .single();
 
       if (eventError) throw eventError;
 
-      if (ticketTiers.length) {
+      if (ticketTiers.length && !formData.isFlashback) {
         const tiersPayload = ticketTiers.map((t) => ({
           event_id: event.id,
           name: t.name,
           price_cents: Math.round((t.price || 0) * 100),
           quantity: t.quantity,
+          total_quantity: t.quantity,
           badge_label: t.badge,
           currency: 'USD',
           status: 'active',
+          fee_bearer: t.feeBear,
+          tier_visibility: t.visibility,
+          sales_start: t.salesStart ? new Date(t.salesStart).toISOString() : null,
+          sales_end: t.salesEnd ? new Date(t.salesEnd).toISOString() : null,
+          requires_tier_id: t.requiresTierId || null,
         }));
         const { error: tiersErr } = await supabase.from('ticket_tiers').insert(tiersPayload);
         if (tiersErr) throw tiersErr;
+      }
+
+      // Insert Add-ons (using type assertion since table not yet in types)
+      if (eventAddons.length && !formData.isFlashback) {
+        const addonsPayload = eventAddons.map((addon) => ({
+          event_id: event.id,
+          name: addon.name,
+          description: addon.description,
+          price_cents: Math.round((addon.price || 0) * 100),
+          quantity: addon.quantity,
+          max_per_order: addon.maxPerOrder,
+          currency: 'USD',
+          status: 'active',
+        }));
+        const { error: addonsErr } = await (supabase as any).from('event_addons').insert(addonsPayload);
+        if (addonsErr) {
+          console.warn('Failed to insert add-ons:', addonsErr);
+          // Non-blocking - continue even if add-ons fail
+        }
+      }
+
+      // Insert Checkout Questions (using type assertion since table not yet in types)
+      if (checkoutQuestions.length && !formData.isFlashback) {
+        const questionsPayload = checkoutQuestions.map((q, idx) => ({
+          event_id: event.id,
+          question_text: q.questionText,
+          question_type: q.questionType,
+          options: q.options && q.options.length > 0 ? q.options : null,
+          required: q.required,
+          applies_to: q.appliesTo,
+          sort_index: idx,
+        }));
+        const { error: questionsErr } = await (supabase as any).from('checkout_questions').insert(questionsPayload);
+        if (questionsErr) {
+          console.warn('Failed to insert checkout questions:', questionsErr);
+          // Non-blocking - continue even if questions fail
+        }
       }
 
       trackEvent('event_creation_success', {
@@ -627,14 +749,14 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       >
         {/* STEP 1: BASICS + AI */}
         {step === 1 && (
-          <Card>
+          <Card className="max-w-4xl mx-auto">
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Event Basics</span>
-                <span className="flex gap-2">
+              <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <span className="text-lg sm:text-xl">Event Basics</span>
                   <Button
                     variant="outline"
                     size="sm"
+                  className="w-full sm:w-auto"
                     onClick={() =>
                       setFormData((f) => ({
                         ...f,
@@ -646,28 +768,34 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                     <Lightbulb className="w-4 h-4 mr-1" />
                     Quick Fill
                   </Button>
-                </span>
               </CardTitle>
             </CardHeader>
 
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 px-4 sm:px-6">
               {/* Title / Category */}
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label htmlFor="title">Title *</label>
+                  <label htmlFor="title" className="text-sm font-medium">
+                    Title * <span className="text-xs text-muted-foreground font-normal">({formData.title.length}/75)</span>
+                  </label>
                   <Input
                     id="title"
                     placeholder="Enter event title"
                     value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value.slice(0, 75) })}
+                    maxLength={75}
+                    className="text-base"
                   />
                   {errors.title && <p className="text-xs text-destructive mt-1">{errors.title}</p>}
+                  {formData.title.length >= 60 && formData.title.length < 75 && (
+                    <p className="text-xs text-amber-500">⚠️ Approaching character limit</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <label>Category *</label>
+                  <label className="text-sm font-medium">Category *</label>
                   <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                    <SelectTrigger className="text-base"><SelectValue placeholder="Select a category" /></SelectTrigger>
                     <SelectContent>
                       {categories.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
                     </SelectContent>
@@ -676,18 +804,59 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 </div>
               </div>
 
+              {/* Tags */}
+              <div className="space-y-2">
+                <label className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm font-medium">
+                  <span className="flex items-center gap-2">
+                    <TagIcon className="w-4 h-4" /> Tags
+                  </span>
+                  <span className="text-xs text-muted-foreground font-normal">(helps people discover your event)</span>
+                </label>
+                <div className="flex flex-wrap gap-2 p-3 sm:p-4 border rounded-lg min-h-[3rem] bg-muted/20">
+                  {formData.tags.map((tag, idx) => (
+                    <Badge key={idx} variant="neutral" className="flex items-center gap-1">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, tags: formData.tags.filter((_, i) => i !== idx) })}
+                        className="hover:bg-destructive/20 rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  <Input
+                    placeholder="Type a tag and press Enter..."
+                    className="flex-1 min-w-[150px] border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-7"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const input = e.currentTarget;
+                        const newTag = input.value.trim().toLowerCase();
+                        if (newTag && !formData.tags.includes(newTag) && formData.tags.length < 10) {
+                          setFormData({ ...formData, tags: [...formData.tags, newTag] });
+                          input.value = '';
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Add up to 10 tags. Press Enter after each tag.</p>
+              </div>
+
               {/* Description + AI */}
               <div className="space-y-2">
-                <label htmlFor="description">Description *</label>
+                <label htmlFor="description" className="text-sm font-medium">Description *</label>
                 <Textarea
                   id="description"
                   placeholder="Tell people what your event is about..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="min-h-28"
+                  className="min-h-32 sm:min-h-28 text-base resize-none"
+                  rows={4}
                 />
                 {errors.description && <p className="text-xs text-destructive mt-1">{errors.description}</p>}
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <AIWritingAssistant
                     context={aiContext}
                     onImprove={onAIReplaceDescription}
@@ -709,20 +878,37 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 </div>
               </div>
 
-              {/* Visibility + Cover */}
-              <div className="grid gap-4 md:grid-cols-2">
+              {/* Visibility + Scheduled Publish */}
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm font-medium">
                     <Shield className="w-4 h-4" /> Visibility *
                   </label>
                   <Select value={formData.visibility} onValueChange={(v) => setFormData({ ...formData, visibility: v as any })}>
-                    <SelectTrigger><SelectValue placeholder="Choose visibility" /></SelectTrigger>
+                    <SelectTrigger className="text-base"><SelectValue placeholder="Choose visibility" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="public">Public — discoverable in feeds & search</SelectItem>
                       <SelectItem value="unlisted">Unlisted — hidden, link-only access</SelectItem>
                       <SelectItem value="private">Private — invitees & ticket-holders only</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm font-medium">
+                    <span className="flex items-center gap-2">
+                      <Clock className="w-4 h-4" /> Scheduled Publish
+                    </span>
+                    <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                  </label>
+                  <Input
+                    type="datetime-local"
+                    value={formData.scheduledPublishAt}
+                    onChange={(e) => setFormData({ ...formData, scheduledPublishAt: e.target.value })}
+                    min={new Date().toISOString().slice(0, 16)}
+                    className="text-base"
+                  />
+                  <p className="text-xs text-muted-foreground">Leave blank to publish immediately</p>
                 </div>
                 </div>
 
@@ -885,13 +1071,13 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
         {/* STEP 2: SCHEDULE & LOCATION (+ Series) */}
         {step === 2 && (
-          <Card>
+          <Card className="max-w-4xl mx-auto">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                 <Calendar className="w-5 h-5" /> Schedule & Location
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 px-4 sm:px-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium">Event Schedule</h3>
@@ -933,25 +1119,27 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
 {formData.isFlashback ? (
                   /* Flashback: Only dates, no times */
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <label>Start Date *</label>
+                      <label className="text-sm font-medium">Start Date *</label>
                       <Input
                         type="date"
                         value={formData.startDate}
                         onChange={(e) => setFormData({ ...formData, startDate: e.target.value, startTime: '00:00' })}
                         max={new Date().toISOString().split('T')[0]}
+                        className="text-base"
                       />
                       {errors.start && <p className="text-xs text-destructive mt-1">{errors.start}</p>}
                     </div>
                     <div className="space-y-2">
-                      <label>End Date *</label>
+                      <label className="text-sm font-medium">End Date *</label>
                       <Input
                         type="date"
                         value={formData.endDate}
                         onChange={(e) => setFormData({ ...formData, endDate: e.target.value, endTime: '23:59' })}
                         min={formData.startDate}
                         max={new Date().toISOString().split('T')[0]}
+                        className="text-base"
                       />
                       {errors.end && <p className="text-xs text-destructive mt-1">{errors.end}</p>}
                     </div>
@@ -959,44 +1147,48 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                 ) : (
                   /* Regular Event: Dates AND times */
                   <>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label>Start Date *</label>
+                    <label className="text-sm font-medium">Start Date *</label>
                     <Input
                       type="date"
                       value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                       min={new Date().toISOString().split('T')[0]}
+                      className="text-base"
                     />
                     {errors.start && <p className="text-xs text-destructive mt-1">{errors.start}</p>}
                   </div>
                   <div className="space-y-2">
-                    <label>Start Time *</label>
+                    <label className="text-sm font-medium">Start Time *</label>
                     <Input
                       type="time"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                      className="text-base"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label>End Date *</label>
+                    <label className="text-sm font-medium">End Date *</label>
                     <Input
                       type="date"
                       value={formData.endDate}
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                       min={formData.startDate || new Date().toISOString().split('T')[0]}
+                      className="text-base"
                     />
                     {errors.end && <p className="text-xs text-destructive mt-1">{errors.end}</p>}
                   </div>
                   <div className="space-y-2">
-                    <label>End Time *</label>
+                    <label className="text-sm font-medium">End Time *</label>
                     <Input
                       type="time"
                       value={formData.endTime}
                       onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                      className="text-base"
                     />
                   </div>
                 </div>
@@ -1056,11 +1248,11 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
         {/* STEP 3: TICKETS + AI (Hidden for Flashback Events) */}
         {step === 3 && !formData.isFlashback && (
-          <Card>
+          <Card className="max-w-4xl mx-auto">
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                Ticket Tiers
-                <div className="flex items-center gap-2">
+              <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <span className="text-lg sm:text-xl">Ticket Tiers</span>
+                <div className="flex flex-wrap items-center gap-2">
                   <AIRecommendations
                     orgId={organizationId}
                     city={location?.city}
@@ -1069,18 +1261,36 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                     onApplyTiers={applyTierSuggestions}
                     invokePath="ai-event-recommendations"
                   />
-                  <Button size="sm" onClick={addTier}><Plus className="w-4 h-4 mr-1" />Add Tier</Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      const freeTier = { 
+                        id: String(Date.now()), 
+                        name: 'Free Admission', 
+                        price: 0, 
+                        badge: 'FREE', 
+                        quantity: 100, 
+                        feeBear: 'customer' as const, 
+                        visibility: 'visible' as const
+                      };
+                      setTicketTiers(prev => [...prev, freeTier]);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />Free Tier
+                  </Button>
+                  <Button size="sm" onClick={addTier}><Plus className="w-4 h-4 mr-1" />Paid Tier</Button>
                 </div>
               </CardTitle>
             </CardHeader>
 
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-4 sm:px-6">
               {errors.tiers && <p className="text-xs text-destructive">{errors.tiers}</p>}
               {ticketTiers.map((tier, index) => (
-                <Card key={tier.id} className="border-muted">
-                  <CardContent className="p-4">
+                <Card key={tier.id} className="border-muted shadow-sm">
+                  <CardContent className="p-4 sm:p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-sm">Tier {index + 1}</h4>
+                      <h4 className="text-sm font-medium">Tier {index + 1}</h4>
                       {ticketTiers.length > 1 && (
                         <Button variant="ghost" size="sm" onClick={() => removeTier(tier.id)}>
                           <X className="w-4 h-4" />
@@ -1088,50 +1298,137 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                       <div className="space-y-2">
-                        <label>Tier Name *</label>
+                        <label className="text-sm font-medium">Tier Name *</label>
                         <Input
                           placeholder="e.g., General Admission"
                           value={tier.name}
                           onChange={(e) => updateTier(tier.id, 'name', e.target.value)}
+                          className="text-base"
                         />
                         {errors[`tier-${index}-name`] && <p className="text-xs text-destructive">{errors[`tier-${index}-name`]}</p>}
                       </div>
                       <div className="space-y-2">
-                        <label>Badge *</label>
+                        <label className="text-sm font-medium">Badge *</label>
                         <Input
                           placeholder="e.g., GA"
                           value={tier.badge}
                           onChange={(e) => updateTier(tier.id, 'badge', e.target.value)}
+                          className="text-base"
                         />
                         {errors[`tier-${index}-badge`] && <p className="text-xs text-destructive">{errors[`tier-${index}-badge`]}</p>}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                       <div className="space-y-2">
-                        <label>Price ($) *</label>
+                        <label className="text-sm font-medium">
+                          Price ($) * <span className="text-xs text-muted-foreground font-normal">(0 for free tier)</span>
+                        </label>
                         <Input
                           type="number"
                           min="0"
                           step="0.01"
                           value={tier.price}
                           onChange={(e) => updateTier(tier.id, 'price', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          className="text-base"
                         />
                         {errors[`tier-${index}-price`] && <p className="text-xs text-destructive">{errors[`tier-${index}-price`]}</p>}
+                        {tier.price === 0 && <p className="text-xs text-green-600 font-medium">✓ Free tier</p>}
                       </div>
                       <div className="space-y-2">
-                        <label>Quantity *</label>
+                        <label className="text-sm font-medium">Quantity *</label>
                         <Input
                           type="number"
                           min="1"
                           value={tier.quantity}
                           onChange={(e) => updateTier(tier.id, 'quantity', parseInt(e.target.value) || 0)}
+                          className="text-base"
                         />
                         {errors[`tier-${index}-quantity`] && <p className="text-xs text-destructive">{errors[`tier-${index}-quantity`]}</p>}
                       </div>
                     </div>
+
+                    {/* Fee Bearer */}
+                    <div className="space-y-2 mb-4">
+                      <label className="text-sm font-medium">Who Pays Fees? *</label>
+                      <Select value={tier.feeBear} onValueChange={(v: 'customer' | 'organizer') => updateTier(tier.id, 'feeBear', v)}>
+                        <SelectTrigger className="text-base"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="customer">Customer (fees added at checkout)</SelectItem>
+                          <SelectItem value="organizer">Organizer (I'll absorb the fees)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">Choose who covers platform fees</p>
+                    </div>
+
+                    {/* Advanced Settings Toggle */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full mb-2"
+                      onClick={() => setExpandedTiers(prev => ({ ...prev, [tier.id]: !prev[tier.id] }))}
+                    >
+                      {expandedTiers[tier.id] ? <ChevronUp className="w-4 h-4 mr-1" /> : <ChevronDown className="w-4 h-4 mr-1" />}
+                      Advanced Settings
+                    </Button>
+
+                    {expandedTiers[tier.id] && (
+                      <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+                        {/* Visibility */}
+                        <div className="space-y-2">
+                          <label>Tier Visibility</label>
+                          <Select value={tier.visibility} onValueChange={(v: any) => updateTier(tier.id, 'visibility', v)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="visible">Visible (shown on event page)</SelectItem>
+                              <SelectItem value="hidden">Hidden (direct link only)</SelectItem>
+                              <SelectItem value="secret">Secret (invitation only)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Sales Window */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label>Sales Start <span className="text-xs text-muted-foreground">(optional)</span></label>
+                            <Input
+                              type="datetime-local"
+                              value={tier.salesStart || ''}
+                              onChange={(e) => updateTier(tier.id, 'salesStart', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label>Sales End <span className="text-xs text-muted-foreground">(optional)</span></label>
+                            <Input
+                              type="datetime-local"
+                              value={tier.salesEnd || ''}
+                              onChange={(e) => updateTier(tier.id, 'salesEnd', e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Linked Ticket (Prerequisite) */}
+                        <div className="space-y-2">
+                          <label>Requires Purchase Of</label>
+                          <Select 
+                            value={tier.requiresTierId || 'none'} 
+                            onValueChange={(v) => updateTier(tier.id, 'requiresTierId', v === 'none' ? undefined : v)}
+                          >
+                            <SelectTrigger><SelectValue placeholder="No prerequisite" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None (standalone ticket)</SelectItem>
+                              {ticketTiers.filter(t => t.id !== tier.id).map(t => (
+                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">Buyers must purchase the prerequisite ticket first</p>
+                        </div>
+                      </div>
+                    )}
 
                     {tier.badge && (
                       <div className="mt-3">
@@ -1146,15 +1443,255 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           </Card>
         )}
 
-        {/* STEP 4: PREVIEW */}
-        {step === 4 && (
+        {/* STEP 4: ADD-ONS (Hidden for Flashback Events) */}
+        {step === 4 && !formData.isFlashback && (
+          <Card className="max-w-4xl mx-auto">
+            <CardHeader>
+              <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <span className="text-lg sm:text-xl">Add-ons & Merchandise</span>
+                <Button size="sm" className="w-full sm:w-auto" onClick={addAddon}>
+                  <Plus className="w-4 h-4 mr-1" />Add Add-on
+                </Button>
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="space-y-4 px-4 sm:px-6">
+              {eventAddons.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No add-ons yet. Add merchandise, parking passes, or other items to sell with tickets.</p>
+                  <Button variant="outline" className="mt-4" onClick={addAddon}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Your First Add-on
+                  </Button>
+                </div>
+              ) : (
+                eventAddons.map((addon, index) => (
+                  <Card key={addon.id} className="border-muted">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-sm font-medium">Add-on {index + 1}</h4>
+                        <Button variant="ghost" size="sm" onClick={() => removeAddon(addon.id)}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+
           <div className="space-y-4">
-            <div className="text-center">
-              <h2 className="text-lg font-semibold mb-2">Event Preview</h2>
-              <p className="text-sm text-muted-foreground">This is how your event will appear to users</p>
+                        <div className="space-y-2">
+                          <label>Add-on Name *</label>
+                          <Input
+                            placeholder="e.g., Event T-Shirt, Parking Pass"
+                            value={addon.name}
+                            onChange={(e) => updateAddon(addon.id, 'name', e.target.value)}
+                          />
             </div>
 
-            <div className="pb-8">
+                        <div className="space-y-2">
+                          <label>Description</label>
+                          <Textarea
+                            placeholder="Describe this add-on..."
+                            value={addon.description}
+                            onChange={(e) => updateAddon(addon.id, 'description', e.target.value)}
+                            rows={2}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <label>Price ($) *</label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={addon.price}
+                              onChange={(e) => updateAddon(addon.id, 'price', parseFloat(e.target.value) || 0)}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label>Quantity <span className="text-xs text-muted-foreground">(optional)</span></label>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="Unlimited"
+                              value={addon.quantity || ''}
+                              onChange={(e) => updateAddon(addon.id, 'quantity', e.target.value ? parseInt(e.target.value) : null)}
+                            />
+                            <p className="text-xs text-muted-foreground">Leave blank for unlimited</p>
+                          </div>
+                          <div className="space-y-2">
+                            <label>Max per Order</label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={addon.maxPerOrder}
+                              onChange={(e) => updateAddon(addon.id, 'maxPerOrder', parseInt(e.target.value) || 1)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* STEP 5: SETTINGS & CHECKOUT QUESTIONS */}
+        {step === 5 && (
+          <div className="space-y-4 max-w-4xl mx-auto">
+            {/* Event Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg sm:text-xl">Event Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 px-4 sm:px-6">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <h4 className="font-medium">Show Remaining Tickets</h4>
+                    <p className="text-sm text-muted-foreground">Display ticket availability on the event page</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={eventSettings.showRemainingTickets}
+                      onChange={(e) => setEventSettings({ ...eventSettings, showRemainingTickets: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <h4 className="font-medium">Allow Waitlist</h4>
+                    <p className="text-sm text-muted-foreground">Let users join waitlist when tickets sell out</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={eventSettings.allowWaitlist}
+                      onChange={(e) => setEventSettings({ ...eventSettings, allowWaitlist: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Checkout Questions (Only for non-flashback) */}
+            {!formData.isFlashback && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <span className="text-lg sm:text-xl">Custom Checkout Questions</span>
+                    <Button size="sm" className="w-full sm:w-auto" onClick={addQuestion}>
+                      <Plus className="w-4 h-4 mr-1" />Add Question
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+
+                <CardContent className="space-y-4 px-4 sm:px-6">
+                  {checkoutQuestions.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No custom questions. Add questions to collect additional information during checkout.</p>
+                    </div>
+                  ) : (
+                    checkoutQuestions.map((question, index) => (
+                      <Card key={question.id} className="border-muted">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-medium">Question {index + 1}</h4>
+                            <Button variant="ghost" size="sm" onClick={() => removeQuestion(question.id)}>
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <label>Question Text *</label>
+                              <Input
+                                placeholder="e.g., Dietary restrictions?"
+                                value={question.questionText}
+                                onChange={(e) => updateQuestion(question.id, 'questionText', e.target.value)}
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <label>Question Type *</label>
+                                <Select 
+                                  value={question.questionType} 
+                                  onValueChange={(v: any) => updateQuestion(question.id, 'questionType', v)}
+                                >
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="text">Short Text</SelectItem>
+                                    <SelectItem value="textarea">Long Text</SelectItem>
+                                    <SelectItem value="select">Dropdown</SelectItem>
+                                    <SelectItem value="checkbox">Checkboxes</SelectItem>
+                                    <SelectItem value="radio">Radio Buttons</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label>Applies To *</label>
+                                <Select 
+                                  value={question.appliesTo} 
+                                  onValueChange={(v: any) => updateQuestion(question.id, 'appliesTo', v)}
+                                >
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="order">Per Order (asked once)</SelectItem>
+                                    <SelectItem value="ticket">Per Ticket (asked for each)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            {['select', 'checkbox', 'radio'].includes(question.questionType) && (
+                              <div className="space-y-2">
+                                <label>Options (comma-separated)</label>
+                                <Input
+                                  placeholder="Option 1, Option 2, Option 3"
+                                  value={question.options?.join(', ') || ''}
+                                  onChange={(e) => updateQuestion(question.id, 'options', e.target.value.split(',').map(o => o.trim()).filter(Boolean))}
+                                />
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id={`required-${question.id}`}
+                                checked={question.required}
+                                onChange={(e) => updateQuestion(question.id, 'required', e.target.checked)}
+                                className="w-4 h-4"
+                              />
+                              <label htmlFor={`required-${question.id}`} className="text-sm">Required field</label>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* STEP 6: PREVIEW */}
+        {step === 6 && (
+          <div className="space-y-4 max-w-4xl mx-auto">
+            <div className="text-center px-4">
+              <h2 className="text-xl sm:text-2xl font-semibold mb-2">Event Preview</h2>
+              <p className="text-sm sm:text-base text-muted-foreground">This is how your event will appear to users</p>
+            </div>
+
+            <div className="pb-8 px-0 sm:px-4">
               {formData.coverImageUrl ? (
                 <div className="relative">
                   <img

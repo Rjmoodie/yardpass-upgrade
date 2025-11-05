@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>YardPass</string>
+	<string>YardPass</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -45,5 +45,79 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+
+	<!-- ============================================== -->
+	<!-- iOS PERMISSIONS - REQUIRED FOR APP FEATURES   -->
+	<!-- ============================================== -->
+
+	<!-- Camera Access (for photo/video capture) -->
+	<key>NSCameraUsageDescription</key>
+	<string>YardPass needs access to your camera to capture photos and videos for event posts.</string>
+
+	<!-- Microphone Access (for video recording) -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>YardPass uses your microphone when recording videos for posts.</string>
+
+	<!-- Photo Library Access (Reading) -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>YardPass needs access to your photo library so you can attach images and videos to posts.</string>
+
+	<!-- Photo Library Access (Writing/Saving) -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>YardPass may save photos or videos you create to your photo library.</string>
+
+	<!-- Location Access (When In Use) -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>YardPass uses your location to show nearby events and personalize recommendations.</string>
+
+	<!-- Allow HTTPS to External APIs -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<!-- Supabase -->
+			<key>supabase.co</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<true/>
+			</dict>
+			<!-- Stripe -->
+			<key>stripe.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+			<!-- Mapbox -->
+			<key>mapbox.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+
+	<!-- Universal Links (Deep Linking) -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:yardpass.app</string>
+		<string>applinks:www.yardpass.app</string>
+	</array>
+
+	<!-- Background Modes (for Push Notifications) -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+
 </dict>
 </plist>

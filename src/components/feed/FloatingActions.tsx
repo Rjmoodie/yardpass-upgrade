@@ -71,7 +71,7 @@ export function FloatingActions({
     <div 
       className="fixed right-4 top-[37.5%] flex -translate-y-1/2 flex-col gap-2"
       style={{ 
-        zIndex: 999999,
+        zIndex: 10,
         pointerEvents: 'none',
         isolation: 'isolate'
       }}
@@ -113,11 +113,7 @@ export function FloatingActions({
       <button 
         onClick={handleCommentClick}
         disabled={!onComment}
-        style={{ 
-          pointerEvents: 'auto',
-          position: 'relative',
-          zIndex: 1
-        }}
+        style={{ pointerEvents: 'auto' }}
         className={`flex flex-col items-center gap-0.5 transition-all ${onComment ? 'hover:scale-110 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'}`}
         aria-label="Comment"
       >

@@ -97,52 +97,52 @@ export default function CampaignAnalytics({
     <div className="space-y-6">
       {/* Key Metrics Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Impressions</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground">Impressions</CardTitle>
             <Eye className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.impressions.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-foreground">{totals.impressions.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d')}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clicks</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground">Clicks</CardTitle>
             <MousePointerClick className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.clicks.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-foreground">{totals.clicks.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               CTR: {ctr.toFixed(2)}%
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Conversions</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground">Conversions</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.conversions.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-foreground">{totals.conversions.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               {totals.clicks > 0 ? ((totals.conversions / totals.clicks) * 100).toFixed(2) : 0}% conversion rate
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Spend</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground">Spend</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.spend_credits.toLocaleString()} credits</div>
+            <div className="text-2xl font-bold text-foreground">{totals.spend_credits.toLocaleString()} credits</div>
             <p className="text-xs text-muted-foreground">
               CPM: {cpm.toFixed(2)} credits
             </p>

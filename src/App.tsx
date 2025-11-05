@@ -22,6 +22,7 @@ import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
 import { DeferredImports } from '@/components/Perf/DeferredImports';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { usePlatform } from '@/hooks/usePlatform';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 // Lazy load heavy components
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
@@ -179,6 +180,7 @@ function AppContent() {
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
 
   useAccessibility();
+  usePushNotifications(); // Setup push notifications for iOS
 
   // Initialize iOS Capacitor settings on app load
   useEffect(() => {

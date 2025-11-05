@@ -40,10 +40,22 @@ export const CreativeManager = ({
   onToggleActive?: (id: string, next: boolean) => void;
   onDelete?: (id: string) => void;
 }) => {
+  // All hooks must be at the top before any conditional returns
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [uploaderOpen, setUploaderOpen] = useState(false);
 
+  const filtered = useMemo(() => {
+    return creatives.filter((c) => {
+      const tOk = typeFilter === "all" || c.type === typeFilter;
+      const sOk = statusFilter === "all" || (statusFilter === "active" ? c.active : !c.active);
+      return tOk && sOk;
+    });
+  }, [creatives, typeFilter, statusFilter]);
+
+  const IconFor = (t: Creative["type"]) => (t === "video" ? Video : t === "image" ? Image : FileText);
+
+  // Conditional render after all hooks
   if (loading) {
     return (
       <div className="space-y-4">
@@ -56,16 +68,6 @@ export const CreativeManager = ({
       </div>
     );
   }
-
-  const filtered = useMemo(() => {
-    return creatives.filter((c) => {
-      const tOk = typeFilter === "all" || c.type === typeFilter;
-      const sOk = statusFilter === "all" || (statusFilter === "active" ? c.active : !c.active);
-      return tOk && sOk;
-    });
-  }, [creatives, typeFilter, statusFilter]);
-
-  const IconFor = (t: Creative["type"]) => (t === "video" ? Video : t === "image" ? Image : FileText);
 
   return (
     <div className="space-y-4">

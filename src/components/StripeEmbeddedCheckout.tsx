@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe-js';
@@ -31,6 +31,18 @@ export function StripeEmbeddedCheckout({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Stable onComplete handler (not used due to redirect_on_completion: always)
+  const handleComplete = useCallback(() => {
+    console.log('✅ Embedded checkout completed');
+    onSuccess();
+  }, [onSuccess]);
+
+  // Memoize options - don't include onComplete since Stripe redirects automatically
+  const checkoutOptions = useMemo(() => {
+    if (!clientSecret) return null;
+    return { clientSecret };
+  }, [clientSecret]);
 
   // Fetch client secret from our backend
   useEffect(() => {
@@ -197,18 +209,14 @@ export function StripeEmbeddedCheckout({
 
       {/* Embedded Checkout Form */}
       <div className="mx-auto max-w-4xl px-4 py-8">
-        <EmbeddedCheckoutProvider
-          stripe={stripePromise}
-          options={{
-            clientSecret,
-            onComplete: () => {
-              console.log('✅ Embedded checkout completed');
-              onSuccess();
-            },
-          }}
-        >
-          <EmbeddedCheckout />
-        </EmbeddedCheckoutProvider>
+        {checkoutOptions && (
+          <EmbeddedCheckoutProvider
+            stripe={stripePromise}
+            options={checkoutOptions}
+          >
+            <EmbeddedCheckout />
+          </EmbeddedCheckoutProvider>
+        )}
       </div>
 
       {/* Timer Expiration Warning */}

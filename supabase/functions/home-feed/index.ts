@@ -650,10 +650,10 @@ async function expandRows({
 
   // Phase 1: kick off everything that only depends on IDs
   const eventsQ = supabase
-    .from("events")
+    .from("events")  // Will use public.events view after migration
     .select(`
       id, title, description, cover_image_url, start_at, end_at, venue, city, created_at,
-      created_by, owner_context_type, owner_context_id
+      created_by, owner_context_type, owner_context_id, tags
     `)
     .in("id", eventIds.length ? eventIds : ["00000000-0000-0000-0000-000000000000"]);
 
@@ -881,7 +881,7 @@ async function fetchFallbackRows({
   cursor: { ts?: string | undefined } | null;
 }) {
   const query = supabase
-    .from("events")
+    .from("events")  // Will use public.events view after migration
     .select("id, start_at, is_flashback")
     .eq("visibility", "public")
     .gte("start_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
