@@ -386,11 +386,15 @@ export function EventDetailsPageIntegrated() {
     <div className="min-h-screen bg-background pb-20">
       {/* Hero Image with Title Overlay - MODERNIZED */}
       <div className="relative h-64 overflow-hidden sm:h-80 md:h-96">
-        <ImageWithFallback
-          src={event.coverImage}
-          alt={event.title}
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        <div className="absolute inset-0">
+          <ImageWithFallback
+            src={event.coverImage}
+            alt={event.title}
+            className="h-full w-full object-cover"
+            fetchPriority="high"
+            showBlurPlaceholder={true}
+          />
+        </div>
         
         {/* Enhanced dark gradient overlay for better text readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
@@ -460,6 +464,7 @@ export function EventDetailsPageIntegrated() {
                 src={event.organizer.avatar}
                 alt={event.organizer.name}
                 className="h-6 w-6 rounded-full object-cover ring-1 ring-white/30"
+                disableResponsive={true}
               />
               <span className="text-white text-sm font-semibold">by {event.organizer.name}</span>
             </button>

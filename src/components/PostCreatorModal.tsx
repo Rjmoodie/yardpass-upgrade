@@ -28,6 +28,7 @@ import { toast } from '@/hooks/use-toast';
 import { capturePhotoAsFile } from '@/lib/camera';
 import { Capacitor } from '@capacitor/core';
 import { useKeyboardPadding } from '@/hooks/useKeyboard';
+import { ProfileCompletionModal } from './auth/ProfileCompletionModal';
 
 // Optional: if you have analytics
 // import { useAnalytics } from '@/hooks/useAnalytics';
@@ -238,6 +239,7 @@ export function PostCreatorModal({
   const [isFlashback, setIsFlashback] = useState(false);
   const [flashbackEndDate, setFlashbackEndDate] = useState<string | null>(null);
   const [orgCreatedAt, setOrgCreatedAt] = useState<string | null>(null);
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
 
   const dropRef = useRef<HTMLDivElement | null>(null);
   const unmountedRef = useRef(false);
@@ -823,6 +825,13 @@ export function PostCreatorModal({
 
   const handleSubmit = async () => {
     if (submittingRef.current) return;
+    
+    // ✅ USERNAME REQUIREMENT: Check if user has username before allowing posts
+    if (!profile?.username) {
+      setShowProfileCompletion(true);
+      return;
+    }
+    
     if (!selectedEventId || !content.trim()) {
       toast({
         title: 'Missing Information',
@@ -1307,6 +1316,23 @@ export function PostCreatorModal({
           }}
         />
       )}
+
+      {/* Profile Completion Modal - Required for guests to post */}
+      <ProfileCompletionModal
+        isOpen={showProfileCompletion}
+        onClose={() => setShowProfileCompletion(false)}
+        onSuccess={(username) => {
+          setShowProfileCompletion(false);
+          toast({
+            title: 'Success!',
+            description: `Welcome @${username}! You can now create your post.`,
+          });
+          // ✅ Reload to refresh profile with new username
+          window.location.reload();
+        }}
+        userId={user?.id || ''}
+        displayName={profile?.display_name}
+      />
     </>
   );
 }

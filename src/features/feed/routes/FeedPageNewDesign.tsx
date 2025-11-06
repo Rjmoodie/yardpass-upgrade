@@ -17,6 +17,7 @@ import { EventCardNewDesign } from '@/components/feed/EventCardNewDesign';
 import { UserPostCardNewDesign } from '@/components/feed/UserPostCardNewDesign';
 import { TopFilters } from '@/components/feed/TopFilters';
 import { FloatingActions } from '@/components/feed/FloatingActions';
+import { ProfileCompletionModal } from '@/components/auth/ProfileCompletionModal';
 import { BrandedSpinner } from '@/components/BrandedSpinner';
 import { isVideoUrl } from '@/utils/mux';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
@@ -52,7 +53,7 @@ export default function FeedPageNewDesign() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { requireAuth, isAuthenticated } = useAuthGuard();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
@@ -72,6 +73,7 @@ export default function FeedPageNewDesign() {
   const [soundToastVisible, setSoundToastVisible] = useState(false);
   const [lastGlobalSoundState, setLastGlobalSoundState] = useState(globalSoundEnabled);
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
 
   const {
     data,
@@ -98,7 +100,7 @@ export default function FeedPageNewDesign() {
   }, [filters]);
 
   const { data: boosts } = useCampaignBoosts({ placement: 'feed', enabled: true, userId: user?.id });
-  const { share } = useShare();
+  const { sharePost, shareEvent, copyLink } = useShare();
   const { toggleLike: toggleLikeOptimistic, getOptimisticData, getOptimisticCommentData } = useOptimisticReactions();
   const soundToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -245,6 +247,12 @@ export default function FeedPageNewDesign() {
       return;
     }
     
+    // ✅ USERNAME REQUIREMENT: Check before API call
+    if (!profile?.username) {
+      setShowProfileCompletion(true);
+      return;
+    }
+    
     // Get the current optimistic state or fallback to server data
     const optimisticData = getOptimisticData(
       item.item_id,
@@ -260,10 +268,16 @@ export default function FeedPageNewDesign() {
     }
     
     registerInteraction();
-  }, [toggleLikeOptimistic, isAuthenticated, requireAuth, registerInteraction, refetch, getOptimisticData]);
+  }, [toggleLikeOptimistic, isAuthenticated, requireAuth, registerInteraction, refetch, getOptimisticData, profile]);
 
   const handleComment = useCallback((item: FeedItem) => {
     if (item.item_type !== 'post') return;
+    
+    // ✅ USERNAME REQUIREMENT: Check before opening comment modal
+    if (isAuthenticated && !profile?.username) {
+      setShowProfileCompletion(true);
+      return;
+    }
     
     console.log('💬 [FeedPage] Comment clicked for post:', {
       postId: item.item_id,
@@ -289,16 +303,14 @@ export default function FeedPageNewDesign() {
     registerInteraction();
   }, [registerInteraction]);
 
-  const handleSharePost = useCallback((item: FeedItem) => {
-    const url = item.item_type === 'event' 
-      ? `${window.location.origin}/e/${item.event_id}`
-      : `${window.location.origin}/post/${item.item_id}`;
-    share(
-      { url, title: item.item_type === 'event' ? item.event_title : item.content || '', text: item.content || '' },
-      () => toast({ title: 'Link copied!', description: 'Share link copied to clipboard.' })
-    );
+  const handleSharePost = useCallback(async (item: FeedItem) => {
+    if (item.item_type === 'event') {
+      await shareEvent(item.event_id || '', item.event_title || 'Event');
+    } else if (item.item_type === 'post') {
+      await sharePost(item.item_id, item.event_title || 'Event', item.content);
+    }
     registerInteraction();
-  }, [share, toast, registerInteraction]);
+  }, [sharePost, shareEvent, registerInteraction]);
 
   const handleSave = useCallback(async (item: FeedItem) => {
     if (item.item_type !== 'post') return;
@@ -422,14 +434,19 @@ export default function FeedPageNewDesign() {
     setFiltersOpen(false);
     toast({ title: 'Filters cleared', description: 'Showing events near you anytime.' });
     registerInteraction();
-  }, [registerInteraction, toast]);
+  }, [registerInteraction, toast, isAuthenticated, profile]);
 
   const handleCreatePost = useCallback(() => {
     requireAuth(() => {
+      // ✅ USERNAME REQUIREMENT: Check before opening post creator
+      if (!profile?.username) {
+        setShowProfileCompletion(true);
+        return;
+      }
       setPostCreatorOpen(true);
     }, 'Sign in to create posts');
     registerInteraction();
-  }, [requireAuth, registerInteraction]);
+  }, [requireAuth, registerInteraction, profile]);
 
   const handleReport = useCallback(() => {
     toast({
@@ -707,6 +724,35 @@ export default function FeedPageNewDesign() {
           toast({ title: 'Success', description: 'Your post has been created!' });
           refetch();
         }}
+      />
+
+      {/* Profile Completion Modal - Required for guests to engage */}
+      <ProfileCompletionModal
+        isOpen={showProfileCompletion}
+        onClose={() => setShowProfileCompletion(false)}
+        onSuccess={async (username) => {
+          setShowProfileCompletion(false);
+          
+          // ✅ Force profile refresh by refetching from database
+          if (user?.id) {
+            const { data: updatedProfile } = await supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('user_id', user.id)
+              .single();
+            
+            // Trigger a re-render by updating a local state or forcing AuthContext to refresh
+            // The easiest way is to reload the page or refetch the feed
+            window.location.reload();
+          }
+          
+          toast({
+            title: 'Profile complete! 🎉',
+            description: `Welcome @${username}! You can now like, comment, and post.`,
+          });
+        }}
+        userId={user?.id || ''}
+        displayName={profile?.display_name}
       />
     </div>
   );

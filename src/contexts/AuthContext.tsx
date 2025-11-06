@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface UserProfile {
   user_id: string;
   display_name: string;
+  username?: string; // ✅ Added username field for guest engagement requirement
   phone?: string;
   role: 'attendee' | 'organizer';
   verification_status: 'none' | 'pending' | 'verified' | 'pro';
@@ -62,17 +63,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Check if this is a new user signup
-          if (event === 'SIGNED_IN' && session.user.created_at === session.user.updated_at) {
-            // New user - create profile if it doesn't exist
+          // ✅ Check if this is a new user (created_at ~= updated_at within 1 second)
+          const isNewUser = event === 'SIGNED_IN' && 
+            Math.abs(new Date(session.user.created_at).getTime() - new Date(session.user.updated_at).getTime()) < 1000;
+          
+          if (isNewUser) {
+            console.log('🆕 New user detected - creating profile');
+            
+            // ✅ Get display_name from user_metadata (set by SmartAuthModal on signup)
             const displayName = session.user.user_metadata?.display_name || 'User';
             const phone = session.user.phone || session.user.user_metadata?.phone;
+            
+            // ✅ Determine if guest checkout user or organic signup
+            const createdVia = session.user.user_metadata?.created_via;
+            console.log('📝 Creating profile with:', { displayName, createdVia, email: session.user.email });
             
             const { error: profileError } = await supabase
               .from('user_profiles')
               .upsert({
                 user_id: session.user.id,
                 display_name: displayName,
+                email: session.user.email,
                 phone: phone,
                 role: 'attendee',
                 verification_status: 'none',
@@ -80,7 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               });
             
             if (profileError) {
-              console.error('Error creating user profile:', profileError);
+              console.error('❌ Error creating user profile:', profileError);
+            } else {
+              console.log('✅ Profile created successfully');
             }
           }
           

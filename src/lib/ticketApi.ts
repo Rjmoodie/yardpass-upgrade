@@ -29,6 +29,8 @@ export async function createGuestCheckoutSession(params: {
   contact_name?: string;
   contact_phone?: string;
   guest_code?: string | null;
+  city?: string;  // Optional: for duplicate detection
+  country?: string;  // Optional: for duplicate detection
 }) {
   try {
     // Use raw fetch to properly handle error responses with body
@@ -47,11 +49,11 @@ export async function createGuestCheckoutSession(params: {
     const responseData = await response.json();
     console.log('[createGuestCheckoutSession] Response:', { status: response.status, data: responseData });
     
-            // Check if this is a "user exists" error (409 Conflict)
-            if (response.status === 409 || responseData?.error_code === 'user_exists' || responseData?.should_sign_in) {
-              const err: any = new Error(responseData.error || 'An account with this email already exists. Please sign in to continue.');
-              err.shouldSignIn = true;
-              throw err;
+            // ✅ FIX: Don't block existing users - let them buy as guests
+            // If user exists, the Edge Function should handle it gracefully
+            if (response.status === 409 || responseData?.error_code === 'user_exists') {
+              console.log('[createGuestCheckoutSession] User exists, but continuing with checkout...');
+              // Don't throw - proceed to check if we got a checkout URL anyway
             }
             
             // Check if event has ended (410 Gone)
@@ -66,12 +68,12 @@ export async function createGuestCheckoutSession(params: {
               throw new Error(responseData.error || 'Failed to create guest checkout session');
             }
     
-    // Validate we have a session URL
-    if (!responseData?.url && !responseData?.session_url) {
-      throw new Error('No checkout URL received from server');
+    // Validate we have checkout data (embedded checkout uses client_secret, not URL)
+    if (!responseData?.client_secret && !responseData?.url && !responseData?.session_url) {
+      throw new Error('No checkout data received from server');
     }
     
-    return responseData as { url: string };
+    return responseData;
   } catch (err: any) {
     console.error('[createGuestCheckoutSession] Unexpected error:', err);
     

@@ -295,7 +295,8 @@ export default function EventCheckoutSheet({ event, isOpen, onClose, onSuccess }
       console.error("❌ startCheckout error:", e);
       setStep("select"); // Go back to select on error
       
-      // Handle specific error cases
+      // ✅ Handle specific error cases
+      // Note: With updated guest-checkout, "user exists" should no longer block purchases
       if (e?.shouldSignIn) {
         toast({ 
           title: "Account exists", 

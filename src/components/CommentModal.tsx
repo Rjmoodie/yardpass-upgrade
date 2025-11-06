@@ -355,7 +355,7 @@ export default function CommentModal({
   mediaPlaybackId,
   onCommentCountChange,
 }: CommentModalProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   // layout/scroll refs
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -813,6 +813,17 @@ export default function CommentModal({
     if (!draft.trim() || !activePost?.id || overLimit) return;
     if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to comment', variant: 'destructive' });
+      return;
+    }
+
+    // ✅ USERNAME REQUIREMENT: Check before inserting comment
+    if (!profile?.username) {
+      toast({ 
+        title: 'Username Required', 
+        description: 'Please set your username to comment. Go to your profile to set one.', 
+        variant: 'destructive' 
+      });
+      setSubmitting(false);
       return;
     }
 

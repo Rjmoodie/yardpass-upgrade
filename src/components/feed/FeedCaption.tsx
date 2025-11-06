@@ -81,14 +81,22 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
           <div className="flex items-center gap-2 shrink-0">
             {hasTickets && (
               <button
-                onClick={onOpenTickets}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onOpenTickets();
+                }}
                 className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 text-black text-xs font-bold px-3 py-1.5 shadow"
               >
                 🎟️ {topTier?.badge ? `${topTier.badge} • ` : ""}{topTier?.name ?? "Tickets"}
               </button>
             )}
               <button
-                onClick={() => setExpanded((v) => !v)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setExpanded((v) => !v);
+                }}
                 className="rounded-full bg-muted/20 hover:bg-muted/30 border border-border w-8 h-8 grid place-items-center"
               aria-label={expanded ? "Collapse" : "Expand"}
               title={expanded ? "Collapse" : "Expand"}
@@ -100,7 +108,9 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
 
         {/* Title + caption */}
         <button
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
             capture("feed_click", { target: "title", event_id: event.id });
             navigate(routes.event(event.id));
           }}
@@ -126,7 +136,14 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
             </span>
           )}
           <span className="chip"><Users className="w-3.5 h-3.5" />{event.attendeeCount}</span>
-          <button onClick={onOpenAttendees} className="chip hover:bg-muted/30 transition">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onOpenAttendees();
+            }} 
+            className="chip hover:bg-muted/30 transition"
+          >
             {event.attendeeCount} attending
           </button>
         </div>
@@ -138,7 +155,11 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
               <Button
                 size="lg"
                 className="flex-1 min-h-[44px] rounded-full bg-amber-500 text-black hover:bg-amber-600 font-bold shadow-lg"
-                onClick={onOpenTickets}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onOpenTickets();
+                }}
               >
                 Get Tickets
               </Button>
@@ -146,7 +167,11 @@ export function FeedCaption({ event, onOpenTickets, onOpenAttendees }: CaptionPr
                 size="lg"
                 variant="outline"
                 className="min-h-[44px] rounded-full border-border text-foreground bg-muted/20 hover:bg-muted/30 font-semibold backdrop-blur-md"
-                onClick={() => navigate(routes.event(event.id))}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  navigate(routes.event(event.id));
+                }}
               >
                 Details
               </Button>

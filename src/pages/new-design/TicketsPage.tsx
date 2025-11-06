@@ -18,6 +18,8 @@ interface Ticket {
   qrCode: string;
   status: 'active' | 'used' | 'upcoming';
   eventId?: string;
+  organizerName?: string;
+  organizerLogo?: string;
 }
 
 export default function TicketsPage() {
@@ -54,7 +56,18 @@ export default function TicketsPage() {
               start_at,
               venue,
               address,
-              cover_image_url
+              cover_image_url,
+              owner_context_type,
+              owner_context_id,
+              created_by,
+              user_profiles!events_created_by_fkey (
+                display_name,
+                photo_url
+              ),
+              organizations!events_owner_context_id_fkey (
+                name,
+                logo_url
+              )
             ),
             ticket_tiers!fk_tickets_tier_id (
               name,
@@ -73,11 +86,22 @@ export default function TicketsPage() {
           const startDate = event.start_at ? new Date(event.start_at) : new Date();
           const isPast = startDate < new Date();
           
+          // ✅ Determine organizer info based on owner_context_type
+          const isOrganization = event.owner_context_type === 'organization';
+          const organizerName = isOrganization
+            ? event.organizations?.name || 'Organization'
+            : event.user_profiles?.display_name || 'Organizer';
+          const organizerLogo = isOrganization
+            ? event.organizations?.logo_url || ''
+            : event.user_profiles?.photo_url || '';
+          
           return {
             id: ticket.id,
             eventName: event.title || 'Event',
             eventImage: event.cover_image_url || '',
             eventId: event.id,
+            organizerName,
+            organizerLogo,
             date: startDate.toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
@@ -242,6 +266,21 @@ export default function TicketsPage() {
 
             {/* Card Content */}
             <div className="p-4 sm:p-5">
+              {/* Organizer Info */}
+              {ticket.organizerName && (
+                <div className="mb-4 flex items-center gap-2">
+                  {ticket.organizerLogo && (
+                    <ImageWithFallback
+                      src={ticket.organizerLogo}
+                      alt={ticket.organizerName}
+                      className="h-8 w-8 rounded-full object-cover"
+                      disableResponsive={true}
+                    />
+                  )}
+                  <p className="text-sm text-foreground/70">by {ticket.organizerName}</p>
+                </div>
+              )}
+              
               {/* Ticket Info */}
               <div className="mb-4 grid gap-3 sm:grid-cols-2">
                 <div className="flex items-start gap-2">

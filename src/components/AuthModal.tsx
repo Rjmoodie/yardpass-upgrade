@@ -1,52 +1,39 @@
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import AuthExperience from '@/components/auth/AuthExperience';
+import { SmartAuthModal } from '@/components/auth/SmartAuthModal';
 
 interface AuthModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess?: () => void;
-  title?: string;
-  description?: string;
-  allowGuestTicketAccess?: boolean;
-  guestScopeEventId?: string;
-  guestSessionMinutes?: number;
-  defaultTab?: 'signin' | 'signup' | 'guest';
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+  // Legacy props kept for backwards compatibility but not used
+  title?: string;
+  description?: string;
+  allowGuestTicketAccess?: boolean;
+  guestScopeEventId?: string;
+  guestSessionMinutes?: number;
+  defaultTab?: 'signin' | 'signup' | 'guest';
 }
 
+/**
+ * AuthModal - Smart authentication modal wrapper
+ * 
+ * Automatically detects account type and provides appropriate auth method:
+ * - Guest purchasers → Magic link
+ * - Password users → Password field
+ * - New users → Passwordless signup
+ */
 export default function AuthModal({
-  isOpen,
-  onClose,
-  onSuccess,
-  title = 'Sign in to continue',
-  description = 'You need to be signed in to perform this action',
-  allowGuestTicketAccess = true,
-  guestScopeEventId,
-  guestSessionMinutes = 30,
-  defaultTab = 'signin',
+  isOpen,
+  onClose,
+  onSuccess,
 }: AuthModalProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[420px] sm:max-w-[460px] border-none bg-transparent p-0 shadow-none">
-        <VisuallyHidden>
-          <DialogTitle>{title}</DialogTitle>
-        </VisuallyHidden>
-        <AuthExperience
-          isOpen={isOpen}
-          layout="modal"
-          title={title}
-          description={description}
-          allowGuestTicketAccess={allowGuestTicketAccess}
-          guestScopeEventId={guestScopeEventId}
-          guestSessionMinutes={guestSessionMinutes}
-          defaultTab={defaultTab}
-          onDismiss={onClose}
-          onAuthSuccess={() => {
-            onSuccess?.();
-            onClose();
-          }}
-        />
-      </DialogContent>
-    </Dialog>
-  );
+    <SmartAuthModal
+      isOpen={isOpen}
+      onClose={onClose}
+      onSuccess={() => {
+        onSuccess?.();
+        onClose();
+      }}
+    />
+  );
 }

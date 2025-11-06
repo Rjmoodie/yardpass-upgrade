@@ -1,5 +1,7 @@
 import { Plus, Volume2, VolumeX, Heart, MessageCircle, Share2, Bookmark } from "lucide-react";
 import { useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { Haptics, ImpactStyle } from "@capacitor/haptics";
 
 interface FloatingActionsProps {
   isMuted?: boolean;
@@ -32,6 +34,16 @@ export function FloatingActions({
   const [isToggling, setIsToggling] = useState(false);
   const [optimisticMuted, setOptimisticMuted] = useState<boolean | null>(null);
   
+  // ✅ Simple haptic helper (avoids circular dependency)
+  const triggerHaptic = async (style: ImpactStyle = ImpactStyle.Light) => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      await Haptics.impact({ style });
+    } catch {
+      // Silently fail if haptics not available
+    }
+  };
+  
   // ✅ Use optimistic state for instant feedback, fall back to controlled/internal
   const displayMuted = optimisticMuted !== null ? optimisticMuted : 
     (controlledMuted !== undefined ? controlledMuted : internalMuted);
@@ -48,10 +60,8 @@ export function FloatingActions({
     
     console.log('🔊 Mute toggle clicked!', { from: displayMuted, to: nextMuted });
     
-    // ✅ FIX: Haptic feedback on mobile
-    if ('vibrate' in navigator) {
-      navigator.vibrate(10);
-    }
+    // ✅ UPGRADED: Use Capacitor haptics (better than vibrate API)
+    triggerHaptic(ImpactStyle.Light);
     
     if (onMuteToggle) {
       onMuteToggle();
@@ -70,6 +80,7 @@ export function FloatingActions({
     e.stopPropagation();
     e.preventDefault();
     console.log('❤️ Like button clicked!', { hasHandler: !!onLike, likeCount });
+    triggerHaptic(ImpactStyle.Medium); // ✅ Stronger haptic for emotional action
     if (onLike) onLike();
   };
 
@@ -77,6 +88,7 @@ export function FloatingActions({
     e.stopPropagation();
     e.preventDefault();
     console.log('💬 Comment button clicked!', { hasHandler: !!onComment, commentCount });
+    triggerHaptic(ImpactStyle.Light); // ✅ Subtle haptic
     if (onComment) onComment();
   };
 
@@ -84,6 +96,7 @@ export function FloatingActions({
     e.stopPropagation();
     e.preventDefault();
     console.log('🔗 Share button clicked!', { hasHandler: !!onShare });
+    triggerHaptic(ImpactStyle.Light); // ✅ Subtle haptic
     if (onShare) onShare();
   };
 
@@ -91,6 +104,7 @@ export function FloatingActions({
     e.stopPropagation();
     e.preventDefault();
     console.log('🔖 Save button clicked!', { hasHandler: !!onSave });
+    triggerHaptic(ImpactStyle.Medium); // ✅ Medium haptic for save action
     if (onSave) onSave();
   };
 
@@ -98,7 +112,7 @@ export function FloatingActions({
     <div 
       className="fixed right-4 top-[37.5%] flex -translate-y-1/2 flex-col gap-2"
       style={{ 
-        zIndex: 10,
+        zIndex: 50,  // ✅ Higher than video overlay (z-20) to prevent click interference
         pointerEvents: 'none',
         isolation: 'isolate'
       }}

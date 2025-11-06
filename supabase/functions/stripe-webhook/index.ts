@@ -102,23 +102,29 @@ serve(async (req) => {
       // Find the order by the appropriate session ID field
       logStep("Querying order", { field: queryField, value: queryValue });
       
+      // Query public.orders view (now fixed to allow webhook access when auth.uid() IS NULL)
       const { data: order, error: orderError } = await supabaseService
         .from("orders")
-        .select(`
-          *,
-          events!orders_event_id_fkey (
-            title
-          )
-        `)
+        .select("*")
         .eq(queryField, queryValue)
         .maybeSingle();
+
+      logStep("Order query result", {
+        hasOrder: !!order,
+        orderId: order?.id,
+        hasError: !!orderError,
+        errorCode: orderError?.code,
+        errorMessage: orderError?.message
+      });
 
       if (orderError) {
         logStep("Database error finding order", { 
           queryField,
           queryValue,
           error: orderError.message,
-          code: orderError.code 
+          code: orderError.code,
+          details: orderError.details,
+          hint: orderError.hint
         });
         throw new Error(`Database error: ${orderError.message}`);
       }
@@ -130,6 +136,17 @@ serve(async (req) => {
           eventType: event.type
         });
         throw new Error(`Order not found for ${queryField}: ${queryValue}`);
+      }
+      
+      // Fetch event title separately
+      const { data: eventData } = await supabaseService
+        .from("events")
+        .select("title")
+        .eq("id", order.event_id)
+        .maybeSingle();
+      
+      if (eventData) {
+        order.events = eventData;
       }
 
       logStep("Order found", { orderId: order.id, status: order.status });
@@ -176,6 +193,53 @@ serve(async (req) => {
       }
 
       logStep("Order status updated to 'paid', proceeding with ticket creation", { orderId: order.id });
+
+      // 🗺️ Store user location from billing address (for guest checkout & analytics)
+      if (order.user_id && event.type === "checkout.session.completed") {
+        try {
+          const session = event.data.object as Stripe.Checkout.Session;
+          
+          // Fetch full session with customer details
+          const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
+            expand: ['customer']
+          });
+          
+          const customer = fullSession.customer as Stripe.Customer | null;
+          const billingAddress = customer?.address;
+          
+          if (billingAddress) {
+            const locationData = {
+              city: billingAddress.city || null,
+              state: billingAddress.state || null,
+              country: billingAddress.country || null,
+              postal_code: billingAddress.postal_code || null,
+              line1: billingAddress.line1 || null,
+            };
+            
+            logStep("Storing user location from billing address", { 
+              userId: order.user_id, 
+              city: locationData.city,
+              country: locationData.country
+            });
+            
+            // Update user_profiles with location
+            const { error: locationError } = await supabaseService
+              .from("user_profiles")
+              .update({ location: JSON.stringify(locationData) })
+              .eq("user_id", order.user_id);
+            
+            if (locationError) {
+              logStep("⚠️ Failed to store location", { error: locationError.message });
+              // Don't throw - location storage is non-critical
+            } else {
+              logStep("✅ Location stored successfully");
+            }
+          }
+        } catch (locationErr: any) {
+          logStep("⚠️ Error storing location", { error: locationErr.message });
+          // Don't throw - location storage is non-critical
+        }
+      }
 
       // Call process-payment to handle ticket creation and email sending
       // Pass the stripe_session_id (which process-payment expects)

@@ -105,6 +105,8 @@ interface GuestCheckoutRequest {
   contact_name?: string;
   contact_phone?: string;
   guest_code?: string | null;
+  city?: string;  // Optional: for duplicate detection
+  country?: string;  // Optional: for duplicate detection
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
@@ -171,6 +173,10 @@ serve(async (req) => {
     const normalizedEmail = normalizeEmail(contactEmailRaw) ?? "";
     const requestedName = payload.contact_name?.trim() || "";
     const requestedPhone = payload.contact_phone?.trim() || "";
+    
+    // 🔍 Extract location from client if provided (for duplicate detection)
+    const clientCity = payload.city?.trim() || null;
+    const clientCountry = payload.country?.trim() || null;
 
     let userId: string | null = null;
     let isNewUser = false;
@@ -223,44 +229,93 @@ serve(async (req) => {
         if (createErr) {
           console.error("[guest-checkout] createUser failed", createErr);
           
-          // If user already exists (race condition or listUsers failed), check if they're a guest
+          // ✅ If user already exists, look them up and use their ID
           if (createErr.message?.includes("already been registered") || createErr.code === "email_exists") {
-            // Try one more time to get the user and check if they're a guest
+            console.log("[guest-checkout] User already exists, looking up via database...");
+            
+            // ✅ Enhanced duplicate detection: Check by email AND location
             try {
-              const { data: recheckRes } = await supabaseService.auth.admin.listUsers();
-              const recheckUser = recheckRes?.users?.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
+              console.log("[guest-checkout] User already exists, looking up user ID...");
               
-              if (recheckUser?.user_metadata?.created_via === "guest_checkout") {
-                console.log("[guest-checkout] User exists as guest (race condition), allowing to continue");
-                userId = recheckUser.id;
-                // Continue with this existing guest user (skip profile creation since they exist)
-              } else {
-                console.log("[guest-checkout] User exists as registered user, prompting to sign in");
+              // ✅ Use RPC to get user_id directly (bypasses listUsers pagination)
+              // @ts-ignore - Custom RPC
+              const { data: existingUserId, error: rpcErr } = await supabaseService.rpc('get_user_id_by_email', {
+                p_email: normalizedEmail
+              });
+              
+              if (rpcErr) {
+                console.error("[guest-checkout] RPC error looking up user:", rpcErr);
                 return response({ 
-                  error: "An account with this email already exists. Please sign in to continue.",
-                  error_code: "user_exists",
-                  should_sign_in: true
-                }, 409);
+                  error: "Unable to verify account. Please try again.",
+                  error_code: "lookup_failed"
+                }, 500);
               }
-            } catch (recheckErr) {
-              // If recheck fails, prompt sign in to be safe
+              
+              if (existingUserId) {
+                console.log("[guest-checkout] Found existing user ID:", existingUserId);
+                
+                // ✅ Second check: Compare location if provided
+                if (clientCity || clientCountry) {
+                  const { data: profile } = await supabaseService
+                    .from("user_profiles")
+                    .select("location, user_id")
+                    .eq("user_id", existingUserId)
+                    .maybeSingle();
+                  
+                  if (profile?.location) {
+                    try {
+                      const storedLocation = JSON.parse(profile.location);
+                      const cityMatch = !clientCity || !storedLocation.city || 
+                        storedLocation.city.toLowerCase() === clientCity.toLowerCase();
+                      const countryMatch = !clientCountry || !storedLocation.country ||
+                        storedLocation.country.toLowerCase() === clientCountry.toLowerCase();
+                      
+                      if (cityMatch && countryMatch) {
+                        console.log("[guest-checkout] ✅ Location matches - same person");
+                      } else {
+                        console.warn("[guest-checkout] ⚠️ Location mismatch", {
+                          stored: { city: storedLocation.city, country: storedLocation.country },
+                          provided: { city: clientCity, country: clientCountry }
+                        });
+                        // Log but don't block - could be traveling, moved, etc.
+                      }
+                    } catch (parseErr) {
+                      console.warn("[guest-checkout] Could not parse stored location");
+                    }
+                  }
+                }
+                
+                console.log("[guest-checkout] Using existing user ID for checkout");
+                userId = existingUserId;
+                // ✅ Continue with this user's ID - no duplicates!
+              } else {
+                // RPC returned null - user doesn't exist (race condition)
+                console.error("[guest-checkout] User should exist but RPC returned null");
+                return response({ 
+                  error: "An account issue occurred. Please try again.",
+                  error_code: "user_lookup_failed"
+                }, 500);
+              }
+            } catch (lookupErr) {
+              console.error("[guest-checkout] User lookup failed:", lookupErr);
               return response({ 
-                error: "An account with this email already exists. Please sign in to continue.",
-                error_code: "user_exists",
-                should_sign_in: true
-              }, 409);
+                error: "Unable to verify account. Please try again.",
+                error_code: "lookup_failed"
+              }, 500);
             }
           } else {
+            // Different createUser error (not "already exists")
+            console.error("[guest-checkout] Different createUser error:", createErr);
             return response({ error: "Failed to provision guest account" }, 500);
           }
         }
 
-        // Only process new user creation if we didn't recover from race condition
+        // Only process new user creation if we successfully created a user
         if (!userId && created?.user) {
           userId = created.user.id;
           isNewUser = true;
 
-          const { error: profileErr } = await supabaseService
+          const { error: profileErr} = await supabaseService
             .from("user_profiles")
             .upsert(
               {
@@ -277,9 +332,13 @@ serve(async (req) => {
           }
         }
         
+        // ✅ CRITICAL: userId is required - prevent duplicate/orphaned accounts
         if (!userId) {
+          console.error("[guest-checkout] No userId after user creation/lookup");
           return response({ error: "Failed to provision guest account" }, 500);
         }
+        
+        console.log("[guest-checkout] ✅ User provisioning complete, userId:", userId);
       } catch (createError: any) {
         console.error("[guest-checkout] Failed to create user", createError);
         
@@ -315,9 +374,12 @@ serve(async (req) => {
     }
 
     if (!userId) {
+      console.error("[guest-checkout] No userId before event lookup");
       return response({ error: "Unable to determine user for checkout" }, 500);
     }
 
+    console.log("[guest-checkout] Fetching event data for:", eventId);
+    
     const { data: event, error: eventErr } = await supabaseService
       .from("events")
       .select("id, title, start_at, owner_context_type, owner_context_id")
@@ -330,37 +392,60 @@ serve(async (req) => {
     }
 
     if (!event) {
+      console.error("[guest-checkout] Event not found for ID:", eventId);
       return response({ error: "Event not found" }, 404);
     }
+    
+    console.log("[guest-checkout] ✅ Event found:", event.title);
 
     // Check if event has already passed
     if (event.start_at) {
       const eventDate = new Date(event.start_at);
       const now = new Date();
       if (eventDate < now) {
-        console.log("[guest-checkout] Event has passed:", { eventDate, now });
+        console.error("[guest-checkout] Event has passed:", { 
+          eventDate: eventDate.toISOString(), 
+          now: now.toISOString(),
+          eventId,
+          eventTitle: event.title
+        });
         return response({
           error: "This event has already ended. Tickets are no longer available for purchase.",
           error_code: "EVENT_ENDED"
         }, 410);
       }
     }
+    
+    console.log("[guest-checkout] ✅ Event is upcoming, proceeding...");
 
     const tierIds = items.map((i) => i.tier_id);
+    console.log("[guest-checkout] Fetching tiers", { eventId, tierIds });
+    
     const { data: tiers, error: tiersErr } = await supabaseService
       .from("ticket_tiers")
-      .select("id, name, price_cents, currency")
+      .select("id, name, price_cents, currency, event_id")
       .in("id", tierIds)
       .eq("event_id", eventId);
 
     if (tiersErr) {
-      console.error("[guest-checkout] tier lookup error", tiersErr.message);
+      console.error("[guest-checkout] tier lookup error", tiersErr.message, { eventId, tierIds });
       return response({ error: "Unable to load ticket tiers" }, 400);
     }
 
     if (!tiers || tiers.length !== tierIds.length) {
+      console.error("[guest-checkout] Invalid tier(s) for event", {
+        eventId,
+        requestedTierIds: tierIds,
+        foundTierIds: tiers?.map(t => t.id) ?? [],
+        foundTiers: tiers?.map(t => ({ id: t.id, name: t.name, event_id: t.event_id })) ?? []
+      });
       return response({ error: "One or more tiers are invalid for this event" }, 400);
     }
+    
+    console.log("[guest-checkout] ✅ Tiers validated", {
+      eventId,
+      tiers: tiers.map(t => ({ id: t.id, name: t.name }))
+    });
 
     const tierMap = new Map(tiers.map((tier) => [tier.id, tier]));
 
@@ -370,6 +455,12 @@ serve(async (req) => {
       quantity: item.quantity,
     }));
 
+    console.log("[guest-checkout] Reserving tickets...", {
+      checkoutSessionId,
+      userId,
+      reservationItems
+    });
+
     const { data: reservationResult, error: reservationError } = await supabaseService
       .rpc("reserve_tickets_batch", {
         p_reservations: reservationItems,
@@ -378,10 +469,18 @@ serve(async (req) => {
         p_expires_minutes: 15,
       });
 
+    console.log("[guest-checkout] Reservation result:", {
+      success: reservationResult?.success,
+      error: reservationError,
+      resultError: reservationResult?.error
+    });
+
     if (reservationError || !reservationResult?.success) {
       console.error("[guest-checkout] reservation failed", reservationError || reservationResult?.error);
       return response({ error: reservationResult?.error || "Unable to reserve tickets" }, 409);
     }
+    
+    console.log("[guest-checkout] ✅ Tickets reserved successfully");
 
     const expiresAtIso = reservationResult?.expires_at
       ? new Date(reservationResult.expires_at).toISOString()
@@ -435,6 +534,12 @@ serve(async (req) => {
 
     const idempotencyKey = req.headers.get("x-idempotency-key") || `${userId}:${Date.now()}`;
 
+    console.log("[guest-checkout] Creating Stripe checkout session...", {
+      customerId,
+      email: normalizedEmail,
+      totalCents: pricing.totalCents
+    });
+
     const session = await stripe.checkout.sessions.create(
       {
         ui_mode: "embedded", // Enable embedded checkout
@@ -469,6 +574,8 @@ serve(async (req) => {
       { idempotencyKey }
     );
 
+    console.log("[guest-checkout] ✅ Stripe session created:", session.id);
+
     const contactName = requestedName || profile?.display_name || (normalizedEmail ? normalizedEmail.split("@")[0] : "Guest");
     const contactPhone = requestedPhone || profile?.phone || null;
 
@@ -478,30 +585,69 @@ serve(async (req) => {
       phone: contactPhone ?? undefined,
     });
 
-    const { data: order, error: orderErr } = await supabaseService
-      .from("orders")
-      .insert({
-        user_id: userId,
-        event_id: eventId,
-        checkout_session_id: checkoutSessionId,
-        stripe_session_id: session.id,
-        status: "pending",
-        subtotal_cents: pricing.subtotalCents,
-        fees_cents: pricing.feesCents,
-        total_cents: pricing.totalCents,
-        currency: (tiers[0]?.currency || "USD").toUpperCase(),
-        hold_ids: reservationResult.hold_ids || [],
-        contact_email: contactSnapshot.email ?? normalizedEmail,
-        contact_name: contactSnapshot.name ?? contactName,
-        contact_phone: contactSnapshot.phone ?? contactPhone,
-      })
-      .select()
-      .single();
+    console.log("[guest-checkout] Creating order in database...", {
+      userId,
+      eventId,
+      checkoutSessionId,
+      stripeSessionId: session.id
+    });
+
+    let order;
+    let orderErr;
+    
+    try {
+      const orderInsertResult = await supabaseService
+        .from("orders")
+        .insert({
+          user_id: userId,
+          event_id: eventId,
+          checkout_session_id: checkoutSessionId,
+          stripe_session_id: session.id,
+          status: "pending",
+          subtotal_cents: pricing.subtotalCents,
+          fees_cents: pricing.feesCents,
+          total_cents: pricing.totalCents,
+          currency: (tiers[0]?.currency || "USD").toUpperCase(),
+          hold_ids: reservationResult.hold_ids || [],
+          contact_email: contactSnapshot.email ?? normalizedEmail,
+          contact_name: contactSnapshot.name ?? contactName,
+          contact_phone: contactSnapshot.phone ?? contactPhone,
+        })
+        .select()
+        .single();
+      
+      order = orderInsertResult.data;
+      orderErr = orderInsertResult.error;
+      
+      console.log("[guest-checkout] Order insert result:", {
+        hasOrder: !!order,
+        orderId: order?.id,
+        error: orderErr,
+        errorCode: orderErr?.code,
+        errorMessage: orderErr?.message
+      });
+    } catch (insertException) {
+      console.error("[guest-checkout] Exception during order insert:", insertException);
+      return response({ error: "Failed to create order (exception)" }, 500);
+    }
 
     if (orderErr) {
-      console.error("[guest-checkout] failed to create order", orderErr.message);
+      console.error("[guest-checkout] Failed to create order:", {
+        error: orderErr,
+        code: orderErr.code,
+        message: orderErr.message,
+        details: orderErr.details,
+        hint: orderErr.hint
+      });
       return response({ error: "Failed to create order" }, 500);
     }
+    
+    if (!order) {
+      console.error("[guest-checkout] No order returned from insert");
+      return response({ error: "Failed to create order (no data)" }, 500);
+    }
+    
+    console.log("[guest-checkout] ✅ Order created successfully:", order.id);
 
     const orderItems = items.map((item) => ({
       order_id: order.id,

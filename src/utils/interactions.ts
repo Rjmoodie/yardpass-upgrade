@@ -57,6 +57,32 @@ export const handlePurchaseFlow = async (eventId: string, ticketSelections: any[
 // Enhanced post interactions using optimized reactions endpoint
 export const handlePostLike = async (postId: string, currentlyLiked: boolean) => {
   try {
+    // ✅ USERNAME REQUIREMENT: Check before toggling like
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to like posts",
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('username')
+      .eq('user_id', userData.user.id)
+      .single();
+
+    if (!profile?.username) {
+      toast({
+        title: "Username Required",
+        description: "Please set your username in your profile to like posts.",
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+
     // Use the reactions-toggle function for idempotent operations
     const { data, error } = await supabase.functions.invoke('reactions-toggle', {
       body: { post_id: postId, kind: 'like' }
@@ -96,6 +122,22 @@ export const handlePostComment = async (postId: string, comment: string) => {
       toast({
         title: "Authentication required",
         description: "Please sign in to comment",
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+
+    // ✅ USERNAME REQUIREMENT: Check before inserting comment
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('username')
+      .eq('user_id', userData.user.id)
+      .single();
+
+    if (!profile?.username) {
+      toast({
+        title: "Username Required",
+        description: "Please set your username in your profile to comment.",
         variant: "destructive",
       });
       return { success: false };
