@@ -15,6 +15,7 @@ import { useEventSponsorships } from '@/hooks/useEventSponsorships';
 
 interface EventSponsorshipManagementProps {
   eventId: string;
+  onDataChange?: () => void;
 }
 
 interface SponsorshipPackage {
@@ -34,7 +35,7 @@ const defaultPackageData: SponsorshipPackage = {
   visibility: 'public'
 };
 
-export function EventSponsorshipManagement({ eventId }: EventSponsorshipManagementProps) {
+export function EventSponsorshipManagement({ eventId, onDataChange }: EventSponsorshipManagementProps) {
   const { toast } = useToast();
   const { sponsorships, loading: sponsorshipsLoading, refresh: refreshSponsorships } = useEventSponsorships(eventId);
   
@@ -140,7 +141,8 @@ export function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme
 
       setShowCreatePackage(false);
       setPackageData(defaultPackageData);
-      fetchPackages();
+      await fetchPackages();
+      onDataChange?.();
     } catch (error) {
       console.error('Error creating package:', error);
       toast({
@@ -184,8 +186,9 @@ export function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme
         description: `Sponsorship request ${action}ed successfully`
       });
 
-      fetchOrders();
-      refreshSponsorships();
+      await fetchOrders();
+      await refreshSponsorships();
+      onDataChange?.();
     } catch (error) {
       console.error('Error updating order:', error);
       toast({

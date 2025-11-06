@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Users,
   DollarSign,
+  Package,
   Plus,
   BarChart3,
   Building2,
@@ -24,6 +25,7 @@ import {
   Smartphone,
   ArrowLeft,
   Shield,
+  Loader2,
 } from 'lucide-react';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,6 +49,8 @@ const DashboardOverview = lazy(() => import('@/components/dashboard/DashboardOve
 const OrgWalletDashboard = lazy(() => import('@/components/wallet/OrgWalletDashboard').then(m => ({ default: m.OrgWalletDashboard })));
 const CampaignDashboard = lazy(() => import('@/components/campaigns/CampaignDashboard').then(m => ({ default: m.CampaignDashboard })));
 const OrganizerCommsPanel = lazy(() => import('@/components/organizer/OrganizerCommsPanel').then(m => ({ default: m.OrganizerCommsPanel })));
+const PackageEditorPanel = lazy(() => import('@/components/organizer/PackageEditor').then(m => ({ default: m.PackageEditor })));
+const EventSponsorshipManagementPanel = lazy(() => import('@/components/EventSponsorshipManagement').then(m => ({ default: m.EventSponsorshipManagement })));
 
 type OwnerContextType = 'individual' | 'organization';
 
@@ -87,6 +91,52 @@ interface EnhancedEvent extends Event {
   daysUntilStart: number | null;
   daysSinceEnd: number | null;
 }
+
+interface SponsorshipPackageRecord {
+  id: string;
+  event_id: string;
+  title?: string | null;
+  tier?: string | null;
+  price_cents: number;
+  inventory?: number | null;
+  sold?: number | null;
+  visibility?: string | null;
+  is_active?: boolean | null;
+}
+
+interface SponsorshipOrderRecord {
+  id: string;
+  event_id: string;
+  package_id: string;
+  sponsor_id: string;
+  amount_cents: number;
+  status: string;
+  created_at: string;
+  sponsor_name?: string | null;
+  package_tier?: string | null;
+}
+
+interface EventSponsorshipSummary {
+  packages: number;
+  totalAvailable: number;
+  sold: number;
+  revenue: number;
+  pending: number;
+  sponsors: number;
+}
+
+const SPONSORSHIP_COMMITTED_STATUSES = new Set([
+  'accepted',
+  'active',
+  'approved',
+  'completed',
+  'confirmed',
+  'escrow',
+  'live',
+  'paid',
+]);
+
+const SPONSORSHIP_PENDING_STATUSES = new Set(['pending', 'requires_payment', 'review']);
 
 // ─────────────────────────────────────────
 // Navigation Configuration
@@ -281,6 +331,18 @@ export default function OrganizerDashboard() {
   const [loadingEvents, setLoadingEvents] = useState<boolean>(true);
   const mountedRef = useRef(true);
 
+  const [sponsorshipPackages, setSponsorshipPackages] = useState<SponsorshipPackageRecord[]>([]);
+  const [sponsorshipOrders, setSponsorshipOrders] = useState<SponsorshipOrderRecord[]>([]);
+  const [sponsorshipLoading, setSponsorshipLoading] = useState(false);
+  const [selectedSponsorshipEventId, setSelectedSponsorshipEventId] = useState<string | null>(null);
+  const [sponsorshipManagerKey, setSponsorshipManagerKey] = useState(0);
+
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
+    []
+  );
+  const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }), []);
+
   // Dashboard aggregated metrics from orders/tickets
   const [dashboardTotals, setDashboardTotals] = useState({
     events: 0,
@@ -372,6 +434,86 @@ export default function OrganizerDashboard() {
     }
   }, [selectedOrgId]);
 
+  const fetchOrgSponsorshipData = useCallback(async () => {
+    if (!selectedOrgId) {
+      setSponsorshipPackages([]);
+      setSponsorshipOrders([]);
+      return;
+    }
+
+    setSponsorshipLoading(true);
+    try {
+      const eventIds = events.map(event => event.id);
+      if (!eventIds.length) {
+        setSponsorshipPackages([]);
+        setSponsorshipOrders([]);
+        return;
+      }
+
+      const { data: packageData, error: packageError } = await supabase
+        .from('sponsorship_packages')
+        .select('id, event_id, title, tier, price_cents, inventory, sold, visibility, is_active')
+        .in('event_id', eventIds);
+
+      if (packageError) throw packageError;
+
+      const typedPackages: SponsorshipPackageRecord[] = (packageData || []).map((pkg: any) => ({
+        id: pkg.id,
+        event_id: pkg.event_id,
+        title: pkg.title ?? null,
+        tier: pkg.tier ?? pkg.title ?? null,
+        price_cents: pkg.price_cents ?? 0,
+        inventory: pkg.inventory,
+        sold: pkg.sold,
+        visibility: pkg.visibility,
+        is_active: pkg.is_active,
+      }));
+
+      const { data: orderData, error: orderError } = await supabase
+        .from('sponsorship_orders')
+        .select(`
+          id,
+          event_id,
+          package_id,
+          sponsor_id,
+          amount_cents,
+          status,
+          created_at,
+          sponsor:sponsors(name),
+          package:sponsorship_packages(tier, title)
+        `)
+        .in('event_id', eventIds);
+
+      if (orderError) throw orderError;
+
+      const typedOrders: SponsorshipOrderRecord[] = (orderData || []).map((order: any) => ({
+        id: order.id,
+        event_id: order.event_id,
+        package_id: order.package_id,
+        sponsor_id: order.sponsor_id,
+        amount_cents: order.amount_cents ?? 0,
+        status: order.status ?? 'pending',
+        created_at: order.created_at,
+        sponsor_name: order.sponsor?.name ?? null,
+        package_tier: order.package?.tier ?? order.package?.title ?? null,
+      }));
+
+      setSponsorshipPackages(typedPackages);
+      setSponsorshipOrders(typedOrders);
+    } catch (error: any) {
+      console.error('Error loading sponsorship data', error);
+      toast({
+        title: 'Error loading sponsorship data',
+        description: error.message || 'Please try again.',
+        variant: 'destructive',
+      });
+      setSponsorshipPackages([]);
+      setSponsorshipOrders([]);
+    } finally {
+      setSponsorshipLoading(false);
+    }
+  }, [selectedOrgId, events, toast]);
+
   useEffect(() => {
     mountedRef.current = true;
     fetchScopedEvents();
@@ -393,11 +535,34 @@ export default function OrganizerDashboard() {
     };
   }, [selectedOrgId, fetchScopedEvents]);
 
+  useEffect(() => {
+    fetchOrgSponsorshipData();
+  }, [fetchOrgSponsorshipData]);
+
   // Event select
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [eventDetails, setEventDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(true);
-  
+
+  useEffect(() => {
+    if (!events.length) {
+      setSelectedSponsorshipEventId(null);
+      return;
+    }
+
+    setSelectedSponsorshipEventId(prev => {
+      if (prev && events.some(event => event.id === prev)) {
+        return prev;
+      }
+
+      if (selectedEvent && events.some(event => event.id === selectedEvent.id)) {
+        return selectedEvent.id;
+      }
+
+      return events[0]?.id ?? null;
+    });
+  }, [events, selectedEvent]);
+
   const handleEventSelect = useCallback((event: Event) => {
     if (!selectedOrgId) return;
     trackEvent('dashboard_event_selected', { event_id: event.id, org_id: selectedOrgId });
@@ -455,6 +620,116 @@ export default function OrganizerDashboard() {
     params.set('owner_context_id', selectedOrgId);
     window.location.href = `/create-event?${params.toString()}`;
   };
+
+  const sponsorshipStats = useMemo(() => {
+    const committedOrders = sponsorshipOrders.filter(order => SPONSORSHIP_COMMITTED_STATUSES.has(order.status));
+    const revenueCents = committedOrders.reduce((sum, order) => sum + (order.amount_cents ?? 0), 0);
+    const activeSponsors = new Set(committedOrders.map(order => order.sponsor_id)).size;
+    const pendingRequests = sponsorshipOrders.filter(order => SPONSORSHIP_PENDING_STATUSES.has(order.status)).length;
+    const soldOutPackages = sponsorshipPackages.filter(pkg => {
+      const inventory = pkg.inventory ?? 0;
+      if (inventory <= 0) return false;
+      const soldCount =
+        typeof pkg.sold === 'number'
+          ? pkg.sold
+          : committedOrders.filter(order => order.package_id === pkg.id).length;
+      return soldCount >= inventory;
+    }).length;
+
+    return {
+      totalRevenue: revenueCents / 100,
+      activeSponsors,
+      totalPackages: sponsorshipPackages.length,
+      pendingRequests,
+      soldOutPackages,
+    };
+  }, [sponsorshipOrders, sponsorshipPackages]);
+
+  const eventSponsorshipSummaries = useMemo(() => {
+    return events.reduce<Record<string, EventSponsorshipSummary>>((acc, event) => {
+      const eventPackages = sponsorshipPackages.filter(pkg => pkg.event_id === event.id);
+      const eventOrders = sponsorshipOrders.filter(order => order.event_id === event.id);
+      const committed = eventOrders.filter(order => SPONSORSHIP_COMMITTED_STATUSES.has(order.status));
+      const revenueCents = committed.reduce((sum, order) => sum + (order.amount_cents ?? 0), 0);
+      const totalAvailable = eventPackages.reduce((sum, pkg) => sum + (pkg.inventory ?? 0), 0);
+      const soldFromPackages = eventPackages.reduce((sum, pkg) => sum + (pkg.sold ?? 0), 0);
+      const soldFromOrders = committed.length;
+      const sold = soldFromPackages > 0 ? soldFromPackages : soldFromOrders;
+      const pending = eventOrders.filter(order => SPONSORSHIP_PENDING_STATUSES.has(order.status)).length;
+      const sponsors = new Set(committed.map(order => order.sponsor_id)).size;
+
+      acc[event.id] = {
+        packages: eventPackages.length,
+        totalAvailable,
+        sold,
+        revenue: revenueCents / 100,
+        pending,
+        sponsors,
+      };
+
+      return acc;
+    }, {});
+  }, [events, sponsorshipPackages, sponsorshipOrders]);
+
+  const eventRows = useMemo(() => {
+    return events
+      .map(event => {
+        const summary =
+          eventSponsorshipSummaries[event.id] ?? {
+            packages: 0,
+            totalAvailable: 0,
+            sold: 0,
+            revenue: 0,
+            pending: 0,
+            sponsors: 0,
+          };
+        const startDate = event.start_at ? new Date(event.start_at) : null;
+        return {
+          id: event.id,
+          title: event.title,
+          startDate,
+          summary,
+        };
+      })
+      .sort((a, b) => {
+        const aTime = a.startDate?.getTime() ?? 0;
+        const bTime = b.startDate?.getTime() ?? 0;
+        return bTime - aTime;
+      });
+  }, [events, eventSponsorshipSummaries]);
+
+  const selectedSponsorshipEvent = useMemo(
+    () => events.find(event => event.id === selectedSponsorshipEventId) || null,
+    [events, selectedSponsorshipEventId]
+  );
+
+  const selectedEventSummary = selectedSponsorshipEventId
+    ? eventSponsorshipSummaries[selectedSponsorshipEventId]
+    : undefined;
+
+  const selectedEventUtilization = useMemo(() => {
+    if (!selectedEventSummary || selectedEventSummary.totalAvailable <= 0) return 0;
+    return Math.min(
+      100,
+      (Math.min(selectedEventSummary.sold, selectedEventSummary.totalAvailable) /
+        selectedEventSummary.totalAvailable) *
+        100
+    );
+  }, [selectedEventSummary]);
+
+  const selectedEventOpenSlots = useMemo(() => {
+    if (!selectedEventSummary) return 0;
+    return Math.max(selectedEventSummary.totalAvailable - selectedEventSummary.sold, 0);
+  }, [selectedEventSummary]);
+
+  const handlePackageCreated = useCallback(() => {
+    setSponsorshipManagerKey(prev => prev + 1);
+    fetchOrgSponsorshipData();
+  }, [fetchOrgSponsorshipData]);
+
+  const handleSponsorshipDataChange = useCallback(() => {
+    fetchOrgSponsorshipData();
+  }, [fetchOrgSponsorshipData]);
 
   // All hooks must be called before any conditional returns
   const activeOrg = organizations.find(o => o.id === selectedOrgId);
@@ -1270,20 +1545,20 @@ export default function OrganizerDashboard() {
                 <div>
                   <CardTitle className="text-2xl">Sponsorship Management</CardTitle>
                   <CardDescription>
-                    Connect with sponsors, manage packages, and track sponsorship revenue
+                    Publish sponsorship packages, review partner interest, and track revenue in one place.
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Active Sponsors</CardTitle>
                     <HandshakeIcon className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">0</div>
+                    <div className="text-2xl font-bold">{numberFormatter.format(sponsorshipStats.activeSponsors)}</div>
                     <p className="text-xs text-muted-foreground">Across all events</p>
                   </CardContent>
                 </Card>
@@ -1293,40 +1568,241 @@ export default function OrganizerDashboard() {
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">$0</div>
-                    <p className="text-xs text-muted-foreground">Total committed</p>
+                    <div className="text-2xl font-bold">{currencyFormatter.format(sponsorshipStats.totalRevenue)}</div>
+                    <p className="text-xs text-muted-foreground">Committed across accepted deals</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Packages</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-medium">Packages Live</CardTitle>
+                    <Package className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">0</div>
-                    <p className="text-xs text-muted-foreground">Sponsorship tiers</p>
+                    <div className="text-2xl font-bold">{numberFormatter.format(sponsorshipStats.totalPackages)}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {numberFormatter.format(sponsorshipStats.soldOutPackages)} sold out
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+                    <Activity className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{numberFormatter.format(sponsorshipStats.pendingRequests)}</div>
+                    <p className="text-xs text-muted-foreground">Awaiting your response</p>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="rounded-xl border border-dashed bg-muted/30 p-8 text-center">
-                <HandshakeIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Sponsorship Tools Coming Soon</h3>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-                  Create sponsorship packages, manage sponsor relationships, and track ROI for your events. 
-                  This feature is currently in development.
-                </p>
-                <div className="flex gap-3 justify-center">
-                  <Button variant="outline" disabled>
+              {loadingEvents ? (
+                <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading your events…
+                </div>
+              ) : events.length === 0 ? (
+                <div className="rounded-xl border border-dashed bg-muted/30 p-10 text-center">
+                  <HandshakeIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">Create an event to unlock sponsorship tools</h3>
+                  <p className="mx-auto mb-4 max-w-md text-sm text-muted-foreground">
+                    Sponsorship packages are tied to individual events. Once your first event is live you can publish tiers, approve
+                    partners, and track fulfillment here.
+                  </p>
+                  <Button onClick={goCreateEvent}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Create Package
-                  </Button>
-                  <Button variant="outline" disabled>
-                    <Users className="mr-2 h-4 w-4" />
-                    Manage Sponsors
+                    Create Event
                   </Button>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">Choose an event to manage sponsorships</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Publish packages, review sponsor interest, and monitor delivery per event.
+                      </p>
+                    </div>
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                      <Select
+                        value={selectedSponsorshipEventId ?? undefined}
+                        onValueChange={value => setSelectedSponsorshipEventId(value)}
+                      >
+                        <SelectTrigger className="w-full sm:w-64">
+                          <SelectValue placeholder="Select event" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {events.map(event => (
+                            <SelectItem key={event.id} value={event.id}>
+                              {event.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" onClick={goCreateEvent} className="w-full sm:w-auto">
+                        <Plus className="mr-2 h-4 w-4" />
+                        New Event
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border">
+                    <div className="flex items-center justify-between border-b px-4 py-3">
+                      <h4 className="text-sm font-semibold">Event sponsorship overview</h4>
+                      <span className="text-xs text-muted-foreground">Click a row to jump to that event</span>
+                    </div>
+                    {sponsorshipLoading ? (
+                      <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Refreshing sponsorship data…
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Event</TableHead>
+                              <TableHead>Packages</TableHead>
+                              <TableHead>Sold</TableHead>
+                              <TableHead>Inventory</TableHead>
+                              <TableHead>Revenue</TableHead>
+                              <TableHead>Pending</TableHead>
+                              <TableHead>Sponsors</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {eventRows.map(row => {
+                              const summary = row.summary;
+                              const isSelected = row.id === selectedSponsorshipEventId;
+                              return (
+                                <TableRow
+                                  key={row.id}
+                                  className={`cursor-pointer transition-colors ${isSelected ? 'bg-muted/60' : 'hover:bg-muted/40'}`}
+                                  onClick={() => setSelectedSponsorshipEventId(row.id)}
+                                >
+                                  <TableCell className="font-medium">
+                                    <div className="flex flex-col">
+                                      <span>{row.title}</span>
+                                      {row.startDate && (
+                                        <span className="text-xs text-muted-foreground">
+                                          {row.startDate.toLocaleDateString()}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>{numberFormatter.format(summary.packages)}</TableCell>
+                                  <TableCell>{numberFormatter.format(summary.sold)}</TableCell>
+                                  <TableCell>
+                                    {summary.totalAvailable > 0 ? (
+                                      <span>
+                                        {numberFormatter.format(Math.max(summary.totalAvailable - summary.sold, 0))} open of{' '}
+                                        {numberFormatter.format(summary.totalAvailable)}
+                                      </span>
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </TableCell>
+                                  <TableCell>{currencyFormatter.format(summary.revenue)}</TableCell>
+                                  <TableCell>{numberFormatter.format(summary.pending)}</TableCell>
+                                  <TableCell>{numberFormatter.format(summary.sponsors)}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedSponsorshipEventId && (
+                    <div className="space-y-6">
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                        <Suspense
+                          fallback={
+                            <div className="flex items-center justify-center rounded-lg border border-dashed py-10 text-sm text-muted-foreground">
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Loading package editor…
+                            </div>
+                          }
+                        >
+                          <PackageEditorPanel eventId={selectedSponsorshipEventId} onCreated={handlePackageCreated} />
+                        </Suspense>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Event sponsorship snapshot</CardTitle>
+                            {selectedSponsorshipEvent && (
+                              <CardDescription>
+                                {selectedSponsorshipEvent.start_at
+                                  ? `Event starts ${new Date(selectedSponsorshipEvent.start_at).toLocaleDateString()}`
+                                  : 'Event date to be announced'}
+                              </CardDescription>
+                            )}
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">Packages live</p>
+                                <p className="text-lg font-semibold">
+                                  {numberFormatter.format(selectedEventSummary?.packages ?? 0)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Committed sponsors</p>
+                                <p className="text-lg font-semibold">
+                                  {numberFormatter.format(selectedEventSummary?.sponsors ?? 0)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Revenue</p>
+                                <p className="text-lg font-semibold">
+                                  {currencyFormatter.format(selectedEventSummary?.revenue ?? 0)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Pending requests</p>
+                                <p className="text-lg font-semibold">
+                                  {numberFormatter.format(selectedEventSummary?.pending ?? 0)}
+                                </p>
+                              </div>
+                            </div>
+                            {selectedEventSummary && selectedEventSummary.totalAvailable > 0 ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>Inventory utilization</span>
+                                  <span>{Math.round(selectedEventUtilization)}%</span>
+                                </div>
+                                <Progress value={selectedEventUtilization} />
+                                <p className="text-xs text-muted-foreground">
+                                  {numberFormatter.format(selectedEventOpenSlots)} slots remaining out of{' '}
+                                  {numberFormatter.format(selectedEventSummary.totalAvailable)} total
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                Add inventory counts to your packages to monitor utilization in real time.
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+                      <Suspense
+                        fallback={
+                          <div className="flex items-center justify-center rounded-lg border border-dashed py-10 text-sm text-muted-foreground">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Loading sponsorship management…
+                          </div>
+                        }
+                      >
+                        <EventSponsorshipManagementPanel
+                          key={`${selectedSponsorshipEventId}-${sponsorshipManagerKey}`}
+                          eventId={selectedSponsorshipEventId}
+                          onDataChange={handleSponsorshipDataChange}
+                        />
+                      </Suspense>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
