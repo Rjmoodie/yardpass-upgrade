@@ -119,7 +119,7 @@ export const SponsorshipMarketplace: React.FC<SponsorshipMarketplaceProps> = ({
     }
   };
 
-  const handleFilterChange = (key: keyof FilterState, value: any) => {
+  const handleFilterChange = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setCurrentPage(1);
   };
@@ -189,20 +189,24 @@ export const SponsorshipMarketplace: React.FC<SponsorshipMarketplaceProps> = ({
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center space-x-2 text-sm">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span>{new Date(pkg.start_at).toLocaleDateString()}</span>
-          </div>
+          {pkg.start_at && (
+            <div className="flex items-center space-x-2 text-sm">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span>{new Date(pkg.start_at).toLocaleDateString()}</span>
+            </div>
+          )}
           
           <div className="flex items-center space-x-2 text-sm">
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span>{pkg.category || 'General'}</span>
           </div>
 
-          <div className="flex items-center space-x-2 text-sm">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span>{pkg.total_views.toLocaleString()} views</span>
-          </div>
+          {pkg.total_views != null && (
+            <div className="flex items-center space-x-2 text-sm">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span>{pkg.total_views.toLocaleString()} views</span>
+            </div>
+          )}
         </div>
 
         {pkg.final_quality_score && (

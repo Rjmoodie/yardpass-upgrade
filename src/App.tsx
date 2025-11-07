@@ -567,16 +567,18 @@ function AppContent() {
               <Route
                 path="/sponsorship"
                 element={
-                  <AuthGuard>
-                    <SponsorshipPage userRole="sponsor" />
-                  </AuthGuard>
+                  <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                    <SponsorshipPage />
+                  </Suspense>
                 }
               />
               <Route
                 path="/sponsorship/event/:eventId"
                 element={
                   <AuthGuard>
-                    <SponsorshipPage userRole="organizer" />
+                    <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                      <SponsorshipPage />
+                    </Suspense>
                   </AuthGuard>
                 }
               />
@@ -585,7 +587,9 @@ function AppContent() {
                 element={
                   <AuthGuard>
                     <SponsorGuard>
-                      <SponsorshipPage userRole="sponsor" />
+                      <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                        <SponsorshipPage />
+                      </Suspense>
                     </SponsorGuard>
                   </AuthGuard>
                 }

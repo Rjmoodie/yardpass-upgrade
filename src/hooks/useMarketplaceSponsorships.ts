@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import type { AnalyticsShowcase, EventAnalyticsData } from '@/types/analytics';
 
 export interface SponsorshipPackage {
   id: string;
@@ -14,11 +15,22 @@ export interface SponsorshipPackage {
   benefits: any;
   is_active: boolean;
   created_at: string;
+  // Analytics showcase fields
+  analytics_showcase?: AnalyticsShowcase | null;
+  reference_event_id?: string | null;
+  current_event_analytics?: EventAnalyticsData | null;
+  reference_event_analytics?: EventAnalyticsData | null;
+  reference_event_title?: string | null;
+  reference_event_start_at?: string | null;
   // Joined fields
   event_title?: string;
   event_city?: string;
   event_category?: string;
   event_start_at?: string;
+  event_cover_image_url?: string | null;
+  // Organizer fields
+  organizer_name?: string | null;
+  organizer_logo?: string | null;
 }
 
 export interface SponsorshipOrder {
@@ -52,36 +64,16 @@ export function useMarketplaceSponsorships(filters?: MarketplaceFilters) {
   return useQuery({
     queryKey: ['marketplace-sponsorships', filters],
     queryFn: async () => {
+      // Use v_sponsorship_package_cards view which includes analytics
       let query = supabase
-        .from('sponsorship_packages')
-        .select(`
-          id,
-          event_id,
-          title,
-          description,
-          price_cents,
-          currency,
-          inventory,
-          sold,
-          benefits,
-          is_active,
-          created_at,
-          events!inner(
-            title,
-            city,
-            category,
-            start_at
-          )
-        `)
-        .eq('is_active', true)
-        .eq('visibility', 'public')
-        .gt('inventory', 0); // Only show packages with inventory
+        .from('v_sponsorship_package_cards')
+        .select('*');
 
       if (filters?.city) {
-        query = query.eq('events.city', filters.city);
+        query = query.eq('city', filters.city);
       }
       if (filters?.category) {
-        query = query.eq('events.category', filters.category);
+        query = query.eq('category', filters.category);
       }
       if (filters?.search) {
         query = query.ilike('title', `%${filters.search}%`);
@@ -91,15 +83,9 @@ export function useMarketplaceSponsorships(filters?: MarketplaceFilters) {
 
       if (error) throw error;
 
-      let packages = data.map(pkg => ({
-        ...pkg,
-        event_title: pkg.events?.title,
-        event_city: pkg.events?.city,
-        event_category: pkg.events?.category,
-        event_start_at: pkg.events?.start_at,
-      })) as SponsorshipPackage[];
-
-      // Apply price filters client-side
+      // Apply price filters (view doesn't support these as db filters)
+      let packages = (data || []) as SponsorshipPackage[];
+      
       if (filters?.min_price != null || filters?.max_price != null) {
         packages = packages.filter(pkg => {
           if (filters.min_price != null && pkg.price_cents < filters.min_price) return false;
@@ -156,9 +142,15 @@ export function useSponsorOrders(sponsorId: string) {
 
       if (error) throw error;
 
-      return data.map(order => ({
+      type JoinedSponsorOrder = typeof data[0] & {
+        sponsorship_packages?: { title?: string; description?: string; benefits?: any };
+        events?: { title?: string };
+        sponsors?: { name?: string };
+      };
+
+      return data.map((order: JoinedSponsorOrder) => ({
         ...order,
-        package: order.sponsorship_packages as any,
+        package: order.sponsorship_packages,
         event_title: order.events?.title,
         sponsor_name: order.sponsors?.name,
       })) as SponsorshipOrder[];
@@ -189,9 +181,14 @@ export function useOrganizerSponsorshipOrders(eventId: string) {
 
       if (error) throw error;
 
-      return data.map(order => ({
+      type JoinedOrganizerOrder = typeof data[0] & {
+        sponsorship_packages?: { title?: string; description?: string; benefits?: any };
+        sponsors?: { name?: string };
+      };
+
+      return data.map((order: JoinedOrganizerOrder) => ({
         ...order,
-        package: order.sponsorship_packages as any,
+        package: order.sponsorship_packages,
         sponsor_name: order.sponsors?.name,
       })) as SponsorshipOrder[];
     },
@@ -221,10 +218,11 @@ export function useProcessPayout() {
       queryClient.invalidateQueries({ queryKey: ['sponsor-orders'] });
       queryClient.invalidateQueries({ queryKey: ['organizer-sponsorship-orders'] });
     },
-    onError: (error: any) => {
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Failed to process payout';
       toast({
         title: 'Payout Failed',
-        description: error.message || 'Failed to process payout',
+        description: message,
         variant: 'destructive',
       });
     },

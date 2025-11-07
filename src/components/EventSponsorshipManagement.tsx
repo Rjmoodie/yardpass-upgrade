@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,26 +8,25 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, DollarSign, Package, Handshake, TrendingUp, Eye, CheckCircle, X, Edit } from 'lucide-react';
+import { Plus, DollarSign, Package, Handshake, TrendingUp, Eye, CheckCircle, X, Edit, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useEventSponsorships } from '@/hooks/useEventSponsorships';
+import { 
+  SponsorshipPackageRecord, 
+  SponsorshipOrderRecord,
+  EventSponsorshipManagementProps,
+  SponsorshipPackageFormData 
+} from '@/types/sponsorship';
+import { 
+  isCommittedStatus, 
+  isPendingStatus,
+  getStatusColorClasses,
+  getStatusLabel 
+} from '@/constants/sponsorship';
+import { formatCentsAsCurrency, formatNumber } from '@/utils/formatters';
 
-interface EventSponsorshipManagementProps {
-  eventId: string;
-  onDataChange?: () => void;
-}
-
-interface SponsorshipPackage {
-  id?: string;
-  tier: string;
-  price_cents: number;
-  inventory: number;
-  benefits: Record<string, any>;
-  visibility: 'public' | 'invite_only';
-}
-
-const defaultPackageData: SponsorshipPackage = {
+const defaultPackageData: SponsorshipPackageFormData = {
   tier: '',
   price_cents: 0,
   inventory: 1,
@@ -39,76 +38,140 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
   const { toast } = useToast();
   const { sponsorships, loading: sponsorshipsLoading, refresh: refreshSponsorships } = useEventSponsorships(eventId);
   
-  const [packages, setPackages] = useState<SponsorshipPackage[]>([]);
+  const [packages, setPackages] = useState<SponsorshipPackageRecord[]>([]);
   const [packageLoading, setPackageLoading] = useState(false);
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<SponsorshipOrderRecord[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [showCreatePackage, setShowCreatePackage] = useState(false);
-  const [packageData, setPackageData] = useState<SponsorshipPackage>(defaultPackageData);
+  const [packageData, setPackageData] = useState<SponsorshipPackageFormData>(defaultPackageData);
   const [benefitKey, setBenefitKey] = useState('');
   const [benefitValue, setBenefitValue] = useState('');
+  const [creatingPackage, setCreatingPackage] = useState(false);
+  const [processingOrders, setProcessingOrders] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    fetchPackages();
-    fetchOrders();
-  }, [eventId]);
-
-  const fetchPackages = async () => {
+  const fetchPackages = useCallback(async () => {
     setPackageLoading(true);
     try {
       const { data, error } = await supabase
         .from('sponsorship_packages')
-        .select('*')
+        .select('id, event_id, title, tier, price_cents, inventory, sold, visibility, is_active, benefits, created_at')
         .eq('event_id', eventId)
         .order('price_cents', { ascending: false });
 
       if (error) throw error;
       
-      const typedPackages = (data || []).map(pkg => ({
-        ...pkg,
-        benefits: pkg.benefits as Record<string, any>,
-        visibility: pkg.visibility as 'public' | 'invite_only'
+      const typedPackages: SponsorshipPackageRecord[] = (data || []).map(pkg => ({
+        id: pkg.id,
+        event_id: pkg.event_id,
+        title: pkg.title ?? null,
+        tier: pkg.tier ?? null,
+        price_cents: pkg.price_cents ?? 0,
+        inventory: pkg.inventory,
+        sold: pkg.sold,
+        visibility: pkg.visibility,
+        is_active: pkg.is_active,
+        benefits: pkg.benefits ?? {}, // Always return object, never null
+        created_at: pkg.created_at,
       }));
       
       setPackages(typedPackages);
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch sponsorship packages';
       console.error('Error fetching packages:', error);
       toast({
         title: 'Error',
-        description: 'Failed to fetch sponsorship packages',
+        description: message,
         variant: 'destructive'
       });
     } finally {
       setPackageLoading(false);
     }
-  };
+  }, [eventId, toast]);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setOrdersLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch orders first
+      const { data: ordersData, error: ordersError } = await supabase
         .from('sponsorship_orders')
-        .select(`
-          *,
-          sponsor:sponsors(name, logo_url),
-          package:sponsorship_packages(tier)
-        `)
+        .select('id, event_id, package_id, sponsor_id, amount_cents, status, created_at, updated_at')
         .eq('event_id', eventId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setOrders(data || []);
+      if (ordersError) throw ordersError;
+      if (!ordersData || ordersData.length === 0) {
+        setOrders([]);
+        return;
+      }
+
+      // Get unique sponsor IDs and package IDs
+      const sponsorIds = [...new Set(ordersData.map(o => o.sponsor_id))];
+      const packageIds = [...new Set(ordersData.map(o => o.package_id))];
+
+      // Fetch sponsors separately
+      const { data: sponsorsData, error: sponsorsError } = await supabase
+        .from('sponsors')
+        .select('id, name, logo_url')
+        .in('id', sponsorIds);
+
+      if (sponsorsError) {
+        console.error('Error fetching sponsors for orders:', sponsorsError);
+      }
+
+      // Fetch packages separately  
+      const { data: packagesData, error: packagesError } = await supabase
+        .from('sponsorship_packages')
+        .select('id, tier, title')
+        .in('id', packageIds);
+
+      if (packagesError) {
+        console.error('Error fetching packages for orders:', packagesError);
+      }
+
+      // Create lookup maps
+      const sponsorsMap = new Map(sponsorsData?.map(s => [s.id, s]) || []);
+      const packagesMap = new Map(packagesData?.map(p => [p.id, p]) || []);
+
+      // Join data in application code
+      const typedOrders: SponsorshipOrderRecord[] = ordersData.map(order => {
+        const sponsor = sponsorsMap.get(order.sponsor_id);
+        const pkg = packagesMap.get(order.package_id);
+        
+        return {
+          id: order.id,
+          event_id: order.event_id,
+          package_id: order.package_id,
+          sponsor_id: order.sponsor_id,
+          amount_cents: order.amount_cents ?? 0,
+          status: order.status ?? 'pending',
+          created_at: order.created_at,
+          updated_at: order.updated_at,
+          sponsor_name: sponsor?.name ?? null,
+          sponsor_logo: sponsor?.logo_url ?? null,
+          package_tier: pkg?.tier ?? pkg?.title ?? null,
+          package_title: pkg?.title ?? null,
+        };
+      });
+      
+      setOrders(typedOrders);
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch sponsorship orders';
       console.error('Error fetching orders:', error);
       toast({
         title: 'Error',
-        description: 'Failed to fetch sponsorship orders',
+        description: message,
         variant: 'destructive'
       });
     } finally {
       setOrdersLoading(false);
     }
-  };
+  }, [eventId, toast]);
+
+  // Fetch data when eventId changes
+  useEffect(() => {
+    fetchPackages();
+    fetchOrders();
+  }, [fetchPackages, fetchOrders]);
 
   const handleCreatePackage = async () => {
     if (!packageData.tier || packageData.price_cents <= 0) {
@@ -120,12 +183,14 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
       return;
     }
 
+    setCreatingPackage(true);
     try {
       const { error } = await supabase
         .from('sponsorship_packages')
         .insert({
           event_id: eventId,
           tier: packageData.tier,
+          title: packageData.title,
           price_cents: packageData.price_cents,
           inventory: packageData.inventory,
           benefits: packageData.benefits,
@@ -144,12 +209,15 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
       await fetchPackages();
       onDataChange?.();
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create sponsorship package';
       console.error('Error creating package:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create sponsorship package',
+        description: message,
         variant: 'destructive'
       });
+    } finally {
+      setCreatingPackage(false);
     }
   };
 
@@ -173,10 +241,21 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
   };
 
   const handleOrderAction = async (orderId: string, action: 'accept' | 'reject') => {
+    // Add to processing set
+    setProcessingOrders(prev => new Set(prev).add(orderId));
+    
+    const newStatus = action === 'accept' ? 'accepted' : 'cancelled';
+    
+    // Optimistic update
+    const previousOrders = [...orders];
+    setOrders(prev => prev.map(order =>
+      order.id === orderId ? { ...order, status: newStatus } : order
+    ));
+
     try {
       const { error } = await supabase
         .from('sponsorship_orders')
-        .update({ status: action === 'accept' ? 'accepted' : 'cancelled' })
+        .update({ status: newStatus })
         .eq('id', orderId);
 
       if (error) throw error;
@@ -186,33 +265,48 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
         description: `Sponsorship request ${action}ed successfully`
       });
 
-      await fetchOrders();
-      await refreshSponsorships();
+      // Fetch fresh data to ensure consistency
+      await Promise.all([fetchOrders(), refreshSponsorships()]);
       onDataChange?.();
     } catch (error) {
+      const message = error instanceof Error ? error.message : `Failed to ${action} sponsorship request`;
       console.error('Error updating order:', error);
+      
+      // Revert optimistic update on error
+      setOrders(previousOrders);
+      
       toast({
         title: 'Error',
-        description: `Failed to ${action} sponsorship request`,
+        description: message,
         variant: 'destructive'
+      });
+    } finally {
+      // Remove from processing set
+      setProcessingOrders(prev => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
       });
     }
   };
 
-  const statusColors = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    accepted: 'bg-blue-100 text-blue-800',
-    live: 'bg-green-100 text-green-800',
-    completed: 'bg-gray-100 text-gray-800',
-    refunded: 'bg-red-100 text-red-800',
-    cancelled: 'bg-gray-100 text-gray-600'
-  };
+  // Memoize derived values to avoid recalculation on every render
+  const totalRevenue = useMemo(
+    () => orders
+      .filter(o => isCommittedStatus(o.status))
+      .reduce((sum, o) => sum + o.amount_cents, 0),
+    [orders]
+  );
 
-  const totalRevenue = orders
-    .filter(o => ['accepted', 'live', 'completed'].includes(o.status))
-    .reduce((sum, o) => sum + o.amount_cents, 0) / 100;
-
-  const activeSponsors = sponsorships.filter(s => s.status === 'active').length;
+  const activeSponsors = useMemo(
+    () => sponsorships.filter(s => s.status === 'active').length,
+    [sponsorships]
+  );
+  
+  const pendingRequests = useMemo(
+    () => orders.filter(o => isPendingStatus(o.status)).length,
+    [orders]
+  );
 
   return (
     <div className="space-y-6">
@@ -225,7 +319,7 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
                 <DollarSign className="w-5 h-5 text-green-500" />
               </div>
               <div>
-                <div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{formatCentsAsCurrency(totalRevenue)}</div>
                 <div className="text-sm text-muted-foreground">Sponsor Revenue</div>
               </div>
             </div>
@@ -267,7 +361,7 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
                 <TrendingUp className="w-5 h-5 text-orange-500" />
               </div>
               <div>
-                <div className="text-2xl font-bold">{orders.filter(o => o.status === 'pending').length}</div>
+                <div className="text-2xl font-bold">{formatNumber(pendingRequests)}</div>
                 <div className="text-sm text-muted-foreground">Pending Requests</div>
               </div>
             </div>
@@ -313,8 +407,17 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
                         id="price"
                         type="number"
                         placeholder="5000"
-                        value={packageData.price_cents / 100}
-                        onChange={(e) => setPackageData(prev => ({ ...prev, price_cents: Number(e.target.value) * 100 }))}
+                        min="0"
+                        step="0.01"
+                        value={packageData.price_cents / 100 || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Handle empty string explicitly to avoid NaN
+                          setPackageData(prev => ({ 
+                            ...prev, 
+                            price_cents: value === '' ? 0 : Math.round(Number(value) * 100)
+                          }));
+                        }}
                       />
                     </div>
                     <div>
@@ -357,11 +460,27 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
                     </div>
 
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => setShowCreatePackage(false)} className="flex-1">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setShowCreatePackage(false)} 
+                        className="flex-1"
+                        disabled={creatingPackage}
+                      >
                         Cancel
                       </Button>
-                      <Button onClick={handleCreatePackage} className="flex-1">
-                        Create Package
+                      <Button 
+                        onClick={handleCreatePackage} 
+                        className="flex-1"
+                        disabled={creatingPackage}
+                      >
+                        {creatingPackage ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          'Create Package'
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -384,17 +503,17 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-lg">{pkg.tier}</CardTitle>
-                          <Badge variant={pkg.visibility === 'public' ? 'default' : 'secondary'}>
+                          <Badge variant={pkg.visibility === 'public' ? 'brand' : 'neutral'}>
                             {pkg.visibility}
                           </Badge>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="text-2xl font-bold text-green-600">
-                          ${(pkg.price_cents / 100).toLocaleString()}
+                          {formatCentsAsCurrency(pkg.price_cents)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {pkg.inventory} spot{pkg.inventory !== 1 ? 's' : ''} available
+                          {formatNumber(pkg.inventory ?? 0)} spot{pkg.inventory !== 1 ? 's' : ''} available
                         </div>
                         {Object.keys(pkg.benefits).length > 0 && (
                           <div>
@@ -413,7 +532,8 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
                             </div>
                           </div>
                         )}
-                        <Button variant="outline" size="sm" className="w-full">
+                        {/* TODO: Implement edit functionality - reuse dialog with prefilled packageData */}
+                        <Button variant="outline" size="sm" className="w-full" disabled>
                           <Edit className="h-3 w-3 mr-2" />
                           Edit Package
                         </Button>
@@ -457,37 +577,44 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
                       <TableRow key={order.id}>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{order.sponsor?.name || 'Unknown Sponsor'}</div>
-                            {order.notes && (
-                              <div className="text-sm text-muted-foreground">{order.notes}</div>
-                            )}
+                            <div className="font-medium">{order.sponsor_name || 'Unknown Sponsor'}</div>
                           </div>
                         </TableCell>
-                        <TableCell>{order.package?.tier || 'Unknown Package'}</TableCell>
-                        <TableCell>${(order.amount_cents / 100).toLocaleString()}</TableCell>
+                        <TableCell>{order.package_tier || order.package_title || 'Unknown Package'}</TableCell>
+                        <TableCell>{formatCentsAsCurrency(order.amount_cents)}</TableCell>
                         <TableCell>
-                          <Badge className={statusColors[order.status] || statusColors.pending}>
-                            {order.status}
+                          <Badge className={getStatusColorClasses(order.status as any)}>
+                            {getStatusLabel(order.status as any)}
                           </Badge>
                         </TableCell>
                         <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
                         <TableCell>
-                          {order.status === 'pending' && (
+                          {isPendingStatus(order.status) && (
                             <div className="flex gap-2">
                               <Button 
                                 size="sm" 
                                 onClick={() => handleOrderAction(order.id, 'accept')}
                                 className="bg-green-600 hover:bg-green-700"
+                                disabled={processingOrders.has(order.id)}
                               >
-                                <CheckCircle className="h-3 w-3 mr-1" />
+                                {processingOrders.has(order.id) ? (
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                )}
                                 Accept
                               </Button>
                               <Button 
                                 size="sm" 
                                 variant="outline"
                                 onClick={() => handleOrderAction(order.id, 'reject')}
+                                disabled={processingOrders.has(order.id)}
                               >
-                                <X className="h-3 w-3 mr-1" />
+                                {processingOrders.has(order.id) ? (
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                ) : (
+                                  <X className="h-3 w-3 mr-1" />
+                                )}
                                 Reject
                               </Button>
                             </div>
@@ -524,7 +651,7 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <h4 className="font-semibold">{sponsorship.sponsor_name}</h4>
-                            <Badge variant="secondary">{sponsorship.tier}</Badge>
+                            <Badge variant="neutral">{sponsorship.tier}</Badge>
                           </div>
                           {sponsorship.sponsor_logo_url && (
                             <img 
@@ -535,7 +662,7 @@ export function EventSponsorshipManagement({ eventId, onDataChange }: EventSpons
                           )}
                         </div>
                         <div className="text-lg font-bold text-green-600 mb-2">
-                          ${(sponsorship.amount_cents / 100).toLocaleString()}
+                          {formatCentsAsCurrency(sponsorship.amount_cents)}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           Since {new Date(sponsorship.created_at).toLocaleDateString()}

@@ -202,7 +202,16 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
     setEditingCampaignId(id);
   };
 
-  const handleSaveCampaign = async (id: string, updates: any) => {
+  type CampaignUpdates = {
+    name?: string;
+    description?: string | null;
+    start_date?: string;
+    end_date?: string | null;
+    total_budget_credits?: number;
+    daily_budget_credits?: number | null;
+  };
+
+  const handleSaveCampaign = async (id: string, updates: CampaignUpdates) => {
     try {
       await updateCampaign({ id, updates });
       toast({
@@ -210,9 +219,10 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
         description: "Your campaign has been updated successfully.",
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update campaign. Please try again.';
       toast({
         title: "Error",
-        description: "Failed to update campaign. Please try again.",
+        description: message,
         variant: "destructive",
       });
     }
@@ -387,7 +397,7 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
 
         <TabsContent value="creatives">
           <CreativeManager 
-            creatives={(creativeData ?? []).map((cr: any) => ({
+            creatives={(creativeData ?? []).map(cr => ({
               id: cr.creative_id,
               type: cr.media_type,
               headline: cr.headline || "Untitled",
@@ -412,10 +422,11 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
                   title: next ? "Creative activated" : "Creative deactivated",
                   description: `Successfully ${next ? "activated" : "deactivated"} the creative.`
                 });
-              } catch (error: any) {
+              } catch (error) {
+                const message = error instanceof Error ? error.message : "Failed to update creative status";
                 toast({ 
                   title: "Error",
-                  description: error.message || "Failed to update creative status",
+                  description: message,
                   variant: "destructive"
                 });
               }
@@ -427,10 +438,11 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
                   title: "Creative deleted",
                   description: "Successfully deleted the creative."
                 });
-              } catch (error: any) {
+              } catch (error) {
+                const message = error instanceof Error ? error.message : "Failed to delete creative";
                 toast({ 
                   title: "Error",
-                  description: error.message || "Failed to delete creative",
+                  description: message,
                   variant: "destructive"
                 });
               }
@@ -490,10 +502,11 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
               title: "Creative updated",
               description: "Successfully updated the creative."
             });
-          } catch (error: any) {
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Failed to update creative";
             toast({
               title: "Error",
-              description: error.message || "Failed to update creative",
+              description: message,
               variant: "destructive"
             });
             throw error;

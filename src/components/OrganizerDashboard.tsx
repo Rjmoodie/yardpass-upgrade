@@ -39,6 +39,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ErrorBoundary, SuspenseErrorFallback } from '@/components/ErrorBoundary';
+import { formatCentsAsCurrency, formatNumber } from '@/utils/formatters';
+import {
+  isCommittedStatus,
+  isPendingStatus,
+  SPONSORSHIP_COMMITTED_STATUSES,
+  SPONSORSHIP_PENDING_STATUSES
+} from '@/constants/sponsorship';
+import type {
+  SponsorshipPackageRecord,
+  SponsorshipOrderRecord,
+  EventSponsorshipSummary,
+  SponsorshipStats,
+  EventSponsorshipRow
+} from '@/types/sponsorship';
 
 // Lazy load dashboard components
 const AnalyticsHub = lazy(() => import('@/components/AnalyticsHub'));
@@ -92,57 +107,18 @@ interface EnhancedEvent extends Event {
   daysSinceEnd: number | null;
 }
 
-interface SponsorshipPackageRecord {
-  id: string;
-  event_id: string;
-  title?: string | null;
-  tier?: string | null;
-  price_cents: number;
-  inventory?: number | null;
-  sold?: number | null;
-  visibility?: string | null;
-  is_active?: boolean | null;
-}
-
-interface SponsorshipOrderRecord {
-  id: string;
-  event_id: string;
-  package_id: string;
-  sponsor_id: string;
-  amount_cents: number;
-  status: string;
-  created_at: string;
-  sponsor_name?: string | null;
-  package_tier?: string | null;
-}
-
-interface EventSponsorshipSummary {
-  packages: number;
-  totalAvailable: number;
-  sold: number;
-  revenue: number;
-  pending: number;
-  sponsors: number;
-}
-
-const SPONSORSHIP_COMMITTED_STATUSES = new Set([
-  'accepted',
-  'active',
-  'approved',
-  'completed',
-  'confirmed',
-  'escrow',
-  'live',
-  'paid',
-]);
-
-const SPONSORSHIP_PENDING_STATUSES = new Set(['pending', 'requires_payment', 'review']);
+// Type imports now from @/types/sponsorship and constants from @/constants/sponsorship
 
 // ─────────────────────────────────────────
 // Navigation Configuration
 const TAB_KEYS = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'wallet', 'payouts', 'sponsorship'] as const;
 type TabKey = typeof TAB_KEYS[number];
 const DEFAULT_TAB: TabKey = 'events';
+
+// ─────────────────────────────────────────
+// Dashboard Constants
+const CLOCK_UPDATE_INTERVAL_MS = 60_000; // Update dashboard clock every minute
+const MAX_RECENT_POSTS = 10; // Maximum number of recent posts to fetch for event details
 
 // App View tabs (lightweight mobile-friendly view)
 const APP_VIEW_TABS: TabKey[] = ['events', 'messaging', 'teams'];
@@ -317,14 +293,26 @@ export default function OrganizerDashboard() {
   }, [viewMode, availableTabs, activeTab]);
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60_000);
+    const interval = setInterval(() => setNow(new Date()), CLOCK_UPDATE_INTERVAL_MS);
     return () => clearInterval(interval);
   }, []);
 
   // Event pipeline controls
   const [eventSearch, setEventSearch] = useState('');
   const [eventStatusFilter, setEventStatusFilter] = useState<DerivedEventStatus | 'all'>('all');
-  const [eventSort, setEventSort] = useState<'start_desc' | 'start_asc' | 'revenue_desc' | 'attendees_desc'>('start_desc');
+  
+  type EventSortOption = 
+    | 'title-asc' 
+    | 'title-desc' 
+    | 'revenue-asc' 
+    | 'revenue-desc' 
+    | 'date-asc' 
+    | 'date-desc'
+    | 'start_desc'  // Legacy aliases
+    | 'start_asc' 
+    | 'attendees_desc';
+  
+  const [eventSort, setEventSort] = useState<EventSortOption>('date-desc');
 
   // Server-side scoped events (org only)
   const [events, setEvents] = useState<Event[]>([]);
@@ -335,13 +323,6 @@ export default function OrganizerDashboard() {
   const [sponsorshipOrders, setSponsorshipOrders] = useState<SponsorshipOrderRecord[]>([]);
   const [sponsorshipLoading, setSponsorshipLoading] = useState(false);
   const [selectedSponsorshipEventId, setSelectedSponsorshipEventId] = useState<string | null>(null);
-  const [sponsorshipManagerKey, setSponsorshipManagerKey] = useState(0);
-
-  const currencyFormatter = useMemo(
-    () => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
-    []
-  );
-  const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }), []);
 
   // Dashboard aggregated metrics from orders/tickets
   const [dashboardTotals, setDashboardTotals] = useState({
@@ -368,11 +349,15 @@ export default function OrganizerDashboard() {
       if (error) throw error;
 
       const transformed: Event[] = (data || []).map(e => {
-        const paidOrders = (e.orders || []).filter((o: any) => o.status === 'paid');
-        const revenue = paidOrders.reduce((sum: number, o: any) => sum + (o.total_cents || 0), 0) / 100;
+        // Type the nested arrays properly
+        type OrderRecord = { status: string; total_cents?: number };
+        type TicketRecord = { status: string };
         
-        const issuedTickets = (e.tickets || []).filter(
-          (t: any) => t.status === 'issued' || t.status === 'transferred' || t.status === 'redeemed'
+        const paidOrders = (e.orders as OrderRecord[] || []).filter(o => o.status === 'paid');
+        const revenue = paidOrders.reduce((sum: number, o) => sum + (o.total_cents || 0), 0) / 100;
+        
+        const issuedTickets = (e.tickets as TicketRecord[] || []).filter(
+          t => t.status === 'issued' || t.status === 'transferred' || t.status === 'redeemed'
         );
         const attendees = issuedTickets.length;
         const tickets_sold = issuedTickets.length;
@@ -422,9 +407,10 @@ export default function OrganizerDashboard() {
           revenue: totals.revenue,
         });
       }
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Please try again.';
       console.error('fetchScopedEvents error', err);
-      toast({ title: 'Error loading events', description: err.message || 'Please try again.', variant: 'destructive' });
+      toast({ title: 'Error loading events', description: message, variant: 'destructive' });
       if (mountedRef.current) {
         setEvents([]);
         setDashboardTotals({ events: 0, attendees: 0, revenue: 0 });
@@ -435,6 +421,8 @@ export default function OrganizerDashboard() {
   }, [selectedOrgId]);
 
   const fetchOrgSponsorshipData = useCallback(async () => {
+    // Fetch summary data for all events for the overview table
+    // Individual event management panel will load its own detailed data
     if (!selectedOrgId) {
       setSponsorshipPackages([]);
       setSponsorshipOrders([]);
@@ -452,12 +440,12 @@ export default function OrganizerDashboard() {
 
       const { data: packageData, error: packageError } = await supabase
         .from('sponsorship_packages')
-        .select('id, event_id, title, tier, price_cents, inventory, sold, visibility, is_active')
+        .select('id, event_id, title, tier, price_cents, inventory, sold, visibility, is_active, benefits')
         .in('event_id', eventIds);
 
       if (packageError) throw packageError;
 
-      const typedPackages: SponsorshipPackageRecord[] = (packageData || []).map((pkg: any) => ({
+      const typedPackages: SponsorshipPackageRecord[] = (packageData || []).map(pkg => ({
         id: pkg.id,
         event_id: pkg.event_id,
         title: pkg.title ?? null,
@@ -467,44 +455,70 @@ export default function OrganizerDashboard() {
         sold: pkg.sold,
         visibility: pkg.visibility,
         is_active: pkg.is_active,
+        benefits: pkg.benefits ?? {}, // Always object, consistent with type
       }));
 
-      const { data: orderData, error: orderError } = await supabase
+      // Fetch orders without joins
+      const { data: orderData, error: orderError} = await supabase
         .from('sponsorship_orders')
-        .select(`
-          id,
-          event_id,
-          package_id,
-          sponsor_id,
-          amount_cents,
-          status,
-          created_at,
-          sponsor:sponsors(name),
-          package:sponsorship_packages(tier, title)
-        `)
+        .select('id, event_id, package_id, sponsor_id, amount_cents, status, created_at')
         .in('event_id', eventIds);
 
       if (orderError) throw orderError;
 
-      const typedOrders: SponsorshipOrderRecord[] = (orderData || []).map((order: any) => ({
-        id: order.id,
-        event_id: order.event_id,
-        package_id: order.package_id,
-        sponsor_id: order.sponsor_id,
-        amount_cents: order.amount_cents ?? 0,
-        status: order.status ?? 'pending',
-        created_at: order.created_at,
-        sponsor_name: order.sponsor?.name ?? null,
-        package_tier: order.package?.tier ?? order.package?.title ?? null,
-      }));
+      // If there are orders, fetch related sponsors and packages
+      let typedOrders: SponsorshipOrderRecord[] = [];
+      if (orderData && orderData.length > 0) {
+        const sponsorIds = [...new Set(orderData.map(o => o.sponsor_id))];
+        const packageIds = [...new Set(orderData.map(o => o.package_id))];
+
+        const { data: sponsorsData, error: sponsorsError } = await supabase
+          .from('sponsors')
+          .select('id, name')
+          .in('id', sponsorIds);
+
+        if (sponsorsError) {
+          console.error('Error fetching sponsors for dashboard:', sponsorsError);
+        }
+
+        const { data: packagesData, error: packagesError } = await supabase
+          .from('sponsorship_packages')
+          .select('id, tier, title')
+          .in('id', packageIds);
+
+        if (packagesError) {
+          console.error('Error fetching packages for dashboard:', packagesError);
+        }
+
+        const sponsorsMap = new Map(sponsorsData?.map(s => [s.id, s]) || []);
+        const packagesMap = new Map(packagesData?.map(p => [p.id, p]) || []);
+
+        typedOrders = orderData.map(order => {
+          const sponsor = sponsorsMap.get(order.sponsor_id);
+          const pkg = packagesMap.get(order.package_id);
+          
+          return {
+            id: order.id,
+            event_id: order.event_id,
+            package_id: order.package_id,
+            sponsor_id: order.sponsor_id,
+            amount_cents: order.amount_cents ?? 0,
+            status: order.status ?? 'pending',
+            created_at: order.created_at,
+            sponsor_name: sponsor?.name ?? null,
+            package_tier: pkg?.tier ?? pkg?.title ?? null,
+          };
+        });
+      }
 
       setSponsorshipPackages(typedPackages);
       setSponsorshipOrders(typedOrders);
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Please try again.';
       console.error('Error loading sponsorship data', error);
       toast({
         title: 'Error loading sponsorship data',
-        description: error.message || 'Please try again.',
+        description: message,
         variant: 'destructive',
       });
       setSponsorshipPackages([]);
@@ -531,17 +545,37 @@ export default function OrganizerDashboard() {
 
     return () => {
       mountedRef.current = false;
-      try { supabase.removeChannel(ch); } catch {}
+      try { 
+        supabase.removeChannel(ch); 
+      } catch (error) {
+        console.error('Error removing realtime channel:', error);
+      }
     };
   }, [selectedOrgId, fetchScopedEvents]);
 
+  // Fetch sponsorship data only after events are loaded to avoid race condition
   useEffect(() => {
-    fetchOrgSponsorshipData();
-  }, [fetchOrgSponsorshipData]);
+    if (events.length > 0 && selectedOrgId) {
+      fetchOrgSponsorshipData();
+    }
+  }, [events.length, selectedOrgId, fetchOrgSponsorshipData]);
 
   // Event select
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [eventDetails, setEventDetails] = useState<any>(null);
+  
+  interface EventDetails {
+    ticketTiers: Array<{
+      id: string;
+      name: string;
+      price: number;
+      total: number;
+      available: number;
+      sold: number;
+    }>;
+    posts: any[]; // Could be typed more specifically if needed
+  }
+  
+  const [eventDetails, setEventDetails] = useState<EventDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(true);
 
   useEffect(() => {
@@ -576,22 +610,40 @@ export default function OrganizerDashboard() {
     const fetchEventDetails = async () => {
       setLoadingDetails(true);
       try {
-        const { data: tiers } = await supabase
+        const { data: tiers, error: tiersError } = await supabase
           .from('ticket_tiers')
           .select('id, name, price_cents, total_quantity, reserved_quantity, issued_quantity')
           .eq('event_id', selectedEvent.id)
           .order('price_cents', { ascending: true });
 
-        const { data: posts } = await supabase
+        if (tiersError) {
+          console.error('Error fetching ticket tiers:', tiersError);
+        }
+
+        const { data: posts, error: postsError } = await supabase
           .from('event_posts')
           .select('id, text, created_at, media_urls, like_count, comment_count')
           .eq('event_id', selectedEvent.id)
           .is('deleted_at', null)
           .order('created_at', { ascending: false })
-          .limit(10);
+          .limit(MAX_RECENT_POSTS);
+
+        if (postsError) {
+          console.error('Error fetching event posts:', postsError);
+        }
+
+        // Type ticket tier records
+        type TierRecord = {
+          id: string;
+          name: string;
+          price_cents: number;
+          total_quantity: number;
+          reserved_quantity: number;
+          issued_quantity: number;
+        };
 
         setEventDetails({
-          ticketTiers: (tiers || []).map((t: any) => ({
+          ticketTiers: (tiers as TierRecord[] || []).map(t => ({
             id: t.id,
             name: t.name,
             price: t.price_cents / 100,
@@ -621,11 +673,11 @@ export default function OrganizerDashboard() {
     window.location.href = `/create-event?${params.toString()}`;
   };
 
-  const sponsorshipStats = useMemo(() => {
-    const committedOrders = sponsorshipOrders.filter(order => SPONSORSHIP_COMMITTED_STATUSES.has(order.status));
+  const sponsorshipStats = useMemo((): SponsorshipStats => {
+    const committedOrders = sponsorshipOrders.filter(order => isCommittedStatus(order.status));
     const revenueCents = committedOrders.reduce((sum, order) => sum + (order.amount_cents ?? 0), 0);
     const activeSponsors = new Set(committedOrders.map(order => order.sponsor_id)).size;
-    const pendingRequests = sponsorshipOrders.filter(order => SPONSORSHIP_PENDING_STATUSES.has(order.status)).length;
+    const pendingRequests = sponsorshipOrders.filter(order => isPendingStatus(order.status)).length;
     const soldOutPackages = sponsorshipPackages.filter(pkg => {
       const inventory = pkg.inventory ?? 0;
       if (inventory <= 0) return false;
@@ -649,13 +701,13 @@ export default function OrganizerDashboard() {
     return events.reduce<Record<string, EventSponsorshipSummary>>((acc, event) => {
       const eventPackages = sponsorshipPackages.filter(pkg => pkg.event_id === event.id);
       const eventOrders = sponsorshipOrders.filter(order => order.event_id === event.id);
-      const committed = eventOrders.filter(order => SPONSORSHIP_COMMITTED_STATUSES.has(order.status));
+      const committed = eventOrders.filter(order => isCommittedStatus(order.status));
       const revenueCents = committed.reduce((sum, order) => sum + (order.amount_cents ?? 0), 0);
       const totalAvailable = eventPackages.reduce((sum, pkg) => sum + (pkg.inventory ?? 0), 0);
       const soldFromPackages = eventPackages.reduce((sum, pkg) => sum + (pkg.sold ?? 0), 0);
       const soldFromOrders = committed.length;
       const sold = soldFromPackages > 0 ? soldFromPackages : soldFromOrders;
-      const pending = eventOrders.filter(order => SPONSORSHIP_PENDING_STATUSES.has(order.status)).length;
+      const pending = eventOrders.filter(order => isPendingStatus(order.status)).length;
       const sponsors = new Set(committed.map(order => order.sponsor_id)).size;
 
       acc[event.id] = {
@@ -722,11 +774,7 @@ export default function OrganizerDashboard() {
     return Math.max(selectedEventSummary.totalAvailable - selectedEventSummary.sold, 0);
   }, [selectedEventSummary]);
 
-  const handlePackageCreated = useCallback(() => {
-    setSponsorshipManagerKey(prev => prev + 1);
-    fetchOrgSponsorshipData();
-  }, [fetchOrgSponsorshipData]);
-
+  // Callback for when sponsorship data changes - simply refetch
   const handleSponsorshipDataChange = useCallback(() => {
     fetchOrgSponsorshipData();
   }, [fetchOrgSponsorshipData]);
@@ -1471,26 +1519,33 @@ export default function OrganizerDashboard() {
         </TabsContent>
 
         <TabsContent value="teams" className="space-y-6">
-          <Suspense fallback={<LoadingSpinner />}>
-            <OrganizationTeamPanel organizationId={selectedOrgId} />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingSpinner />}>
+              <OrganizationTeamPanel organizationId={selectedOrgId} />
+            </Suspense>
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
-          <Suspense fallback={<LoadingSpinner />}>
-            <AnalyticsHub initialOrgId={selectedOrgId} />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingSpinner />}>
+              <AnalyticsHub initialOrgId={selectedOrgId} />
+            </Suspense>
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="campaigns" className="space-y-6">
-          <Suspense fallback={<LoadingSpinner />}>
-            <CampaignDashboard orgId={selectedOrgId} />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingSpinner />}>
+              <CampaignDashboard orgId={selectedOrgId} />
+            </Suspense>
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="messaging" className="space-y-6">
-          <Suspense fallback={<LoadingSpinner />}>
-            {events && events.length > 0 ? (
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingSpinner />}>
+              {events && events.length > 0 ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                   <Mail className="h-5 w-5" />
@@ -1516,23 +1571,28 @@ export default function OrganizerDashboard() {
                 </Button>
               </div>
             )}
-          </Suspense>
+            </Suspense>
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="wallet" className="space-y-6">
-          <Suspense fallback={<LoadingSpinner />}>
-            <OrgWalletDashboard orgId={selectedOrgId} />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingSpinner />}>
+              <OrgWalletDashboard orgId={selectedOrgId} />
+            </Suspense>
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="payouts" className="space-y-6">
-          <Suspense fallback={<LoadingSpinner />}>
-            <PayoutPanel
-              key={`${selectedOrgId}-payouts`}
-              contextType="organization"
-              contextId={selectedOrgId}
-            />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingSpinner />}>
+              <PayoutPanel
+                key={`${selectedOrgId}-payouts`}
+                contextType="organization"
+                contextId={selectedOrgId}
+              />
+            </Suspense>
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="sponsorship" className="space-y-6">
@@ -1558,7 +1618,7 @@ export default function OrganizerDashboard() {
                     <HandshakeIcon className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{numberFormatter.format(sponsorshipStats.activeSponsors)}</div>
+                    <div className="text-2xl font-bold">{formatNumber(sponsorshipStats.activeSponsors)}</div>
                     <p className="text-xs text-muted-foreground">Across all events</p>
                   </CardContent>
                 </Card>
@@ -1568,7 +1628,7 @@ export default function OrganizerDashboard() {
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{currencyFormatter.format(sponsorshipStats.totalRevenue)}</div>
+                    <div className="text-2xl font-bold">{formatCentsAsCurrency(sponsorshipStats.totalRevenue * 100)}</div>
                     <p className="text-xs text-muted-foreground">Committed across accepted deals</p>
                   </CardContent>
                 </Card>
@@ -1578,9 +1638,9 @@ export default function OrganizerDashboard() {
                     <Package className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{numberFormatter.format(sponsorshipStats.totalPackages)}</div>
+                    <div className="text-2xl font-bold">{formatNumber(sponsorshipStats.totalPackages)}</div>
                     <p className="text-xs text-muted-foreground">
-                      {numberFormatter.format(sponsorshipStats.soldOutPackages)} sold out
+                      {formatNumber(sponsorshipStats.soldOutPackages)} sold out
                     </p>
                   </CardContent>
                 </Card>
@@ -1590,7 +1650,7 @@ export default function OrganizerDashboard() {
                     <Activity className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{numberFormatter.format(sponsorshipStats.pendingRequests)}</div>
+                    <div className="text-2xl font-bold">{formatNumber(sponsorshipStats.pendingRequests)}</div>
                     <p className="text-xs text-muted-foreground">Awaiting your response</p>
                   </CardContent>
                 </Card>
@@ -1690,21 +1750,21 @@ export default function OrganizerDashboard() {
                                       )}
                                     </div>
                                   </TableCell>
-                                  <TableCell>{numberFormatter.format(summary.packages)}</TableCell>
-                                  <TableCell>{numberFormatter.format(summary.sold)}</TableCell>
+                                  <TableCell>{formatNumber(summary.packages)}</TableCell>
+                                  <TableCell>{formatNumber(summary.sold)}</TableCell>
                                   <TableCell>
                                     {summary.totalAvailable > 0 ? (
                                       <span>
-                                        {numberFormatter.format(Math.max(summary.totalAvailable - summary.sold, 0))} open of{' '}
-                                        {numberFormatter.format(summary.totalAvailable)}
+                                        {formatNumber(Math.max(summary.totalAvailable - summary.sold, 0))} open of{' '}
+                                        {formatNumber(summary.totalAvailable)}
                                       </span>
                                     ) : (
                                       '—'
                                     )}
                                   </TableCell>
-                                  <TableCell>{currencyFormatter.format(summary.revenue)}</TableCell>
-                                  <TableCell>{numberFormatter.format(summary.pending)}</TableCell>
-                                  <TableCell>{numberFormatter.format(summary.sponsors)}</TableCell>
+                                  <TableCell>{formatCentsAsCurrency(summary.revenue * 100)}</TableCell>
+                                  <TableCell>{formatNumber(summary.pending)}</TableCell>
+                                  <TableCell>{formatNumber(summary.sponsors)}</TableCell>
                                 </TableRow>
                               );
                             })}
@@ -1717,16 +1777,18 @@ export default function OrganizerDashboard() {
                   {selectedSponsorshipEventId && (
                     <div className="space-y-6">
                       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                        <Suspense
-                          fallback={
-                            <div className="flex items-center justify-center rounded-lg border border-dashed py-10 text-sm text-muted-foreground">
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Loading package editor…
-                            </div>
-                          }
-                        >
-                          <PackageEditorPanel eventId={selectedSponsorshipEventId} onCreated={handlePackageCreated} />
-                        </Suspense>
+                        <ErrorBoundary>
+                          <Suspense
+                            fallback={
+                              <div className="flex items-center justify-center rounded-lg border border-dashed py-10 text-sm text-muted-foreground">
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading package editor…
+                              </div>
+                            }
+                          >
+                            <PackageEditorPanel eventId={selectedSponsorshipEventId} onCreated={handleSponsorshipDataChange} />
+                          </Suspense>
+                        </ErrorBoundary>
                         <Card>
                           <CardHeader>
                             <CardTitle>Event sponsorship snapshot</CardTitle>
@@ -1743,25 +1805,25 @@ export default function OrganizerDashboard() {
                               <div>
                                 <p className="text-muted-foreground">Packages live</p>
                                 <p className="text-lg font-semibold">
-                                  {numberFormatter.format(selectedEventSummary?.packages ?? 0)}
+                                  {formatNumber(selectedEventSummary?.packages ?? 0)}
                                 </p>
                               </div>
                               <div>
                                 <p className="text-muted-foreground">Committed sponsors</p>
                                 <p className="text-lg font-semibold">
-                                  {numberFormatter.format(selectedEventSummary?.sponsors ?? 0)}
+                                  {formatNumber(selectedEventSummary?.sponsors ?? 0)}
                                 </p>
                               </div>
                               <div>
                                 <p className="text-muted-foreground">Revenue</p>
                                 <p className="text-lg font-semibold">
-                                  {currencyFormatter.format(selectedEventSummary?.revenue ?? 0)}
+                                  {formatCentsAsCurrency((selectedEventSummary?.revenue ?? 0) * 100)}
                                 </p>
                               </div>
                               <div>
                                 <p className="text-muted-foreground">Pending requests</p>
                                 <p className="text-lg font-semibold">
-                                  {numberFormatter.format(selectedEventSummary?.pending ?? 0)}
+                                  {formatNumber(selectedEventSummary?.pending ?? 0)}
                                 </p>
                               </div>
                             </div>
@@ -1773,8 +1835,8 @@ export default function OrganizerDashboard() {
                                 </div>
                                 <Progress value={selectedEventUtilization} />
                                 <p className="text-xs text-muted-foreground">
-                                  {numberFormatter.format(selectedEventOpenSlots)} slots remaining out of{' '}
-                                  {numberFormatter.format(selectedEventSummary.totalAvailable)} total
+                                  {formatNumber(selectedEventOpenSlots)} slots remaining out of{' '}
+                                  {formatNumber(selectedEventSummary.totalAvailable)} total
                                 </p>
                               </div>
                             ) : (
@@ -1785,20 +1847,21 @@ export default function OrganizerDashboard() {
                           </CardContent>
                         </Card>
                       </div>
-                      <Suspense
-                        fallback={
-                          <div className="flex items-center justify-center rounded-lg border border-dashed py-10 text-sm text-muted-foreground">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Loading sponsorship management…
-                          </div>
-                        }
-                      >
-                        <EventSponsorshipManagementPanel
-                          key={`${selectedSponsorshipEventId}-${sponsorshipManagerKey}`}
-                          eventId={selectedSponsorshipEventId}
-                          onDataChange={handleSponsorshipDataChange}
-                        />
-                      </Suspense>
+                      <ErrorBoundary>
+                        <Suspense
+                          fallback={
+                            <div className="flex items-center justify-center rounded-lg border border-dashed py-10 text-sm text-muted-foreground">
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Loading sponsorship management…
+                            </div>
+                          }
+                        >
+                          <EventSponsorshipManagementPanel
+                            eventId={selectedSponsorshipEventId}
+                            onDataChange={handleSponsorshipDataChange}
+                          />
+                        </Suspense>
+                      </ErrorBoundary>
                     </div>
                   )}
                 </div>

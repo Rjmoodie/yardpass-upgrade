@@ -1,67 +1,112 @@
-import React from 'react';
+/**
+ * Error Boundary Component
+ * 
+ * Catches React errors and displays a fallback UI.
+ * Use this to wrap Suspense boundaries and other components that may error.
+ */
+
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-interface ErrorBoundaryState {
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  resetKeys?: Array<string | number>;
+}
+
+interface State {
   hasError: boolean;
-  error?: Error;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
 }
 
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-  fallback?: React.ComponentType<{ error?: Error; resetError: () => void }>;
-}
-
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+    };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    return {
+      hasError: true,
+      error,
+    };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    this.setState({ errorInfo });
+    this.props.onError?.(error, errorInfo);
   }
 
-  resetError = () => {
-    this.setState({ hasError: false, error: undefined });
+  componentDidUpdate(prevProps: Props) {
+    // Reset error state if resetKeys change
+    if (this.state.hasError && this.props.resetKeys) {
+      const prevKeys = prevProps.resetKeys || [];
+      const currentKeys = this.props.resetKeys;
+      
+      if (prevKeys.length !== currentKeys.length || 
+          prevKeys.some((key, index) => key !== currentKeys[index])) {
+        this.reset();
+      }
+    }
+  }
+
+  reset = () => {
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+    });
   };
 
   render() {
     if (this.state.hasError) {
+      // Use custom fallback if provided
       if (this.props.fallback) {
-        const FallbackComponent = this.props.fallback;
-        return <FallbackComponent error={this.state.error} resetError={this.resetError} />;
+        return this.props.fallback;
       }
 
+      // Default fallback UI
       return (
-        <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 flex flex-col items-center justify-center p-4">
-          <div className="text-center space-y-4 max-w-md">
-            <div className="text-6xl">⚠️</div>
-            <h2 className="text-2xl font-semibold">Something went wrong</h2>
-            <p className="text-muted-foreground">
-              We encountered an unexpected error. Please try refreshing the page.
-            </p>
-            {this.state.error && (
-              <details className="text-left text-sm text-muted-foreground bg-muted p-3 rounded">
-                <summary className="cursor-pointer font-medium">Error details</summary>
-                <pre className="mt-2 text-xs overflow-auto">
-                  {this.state.error.message}
-                </pre>
-              </details>
-            )}
-            <div className="flex gap-2 justify-center">
-              <Button onClick={this.resetError} variant="outline">
-                Try Again
-              </Button>
-              <Button onClick={() => window.location.reload()}>
-                Refresh Page
-              </Button>
+        <Card className="border-destructive">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Something went wrong</CardTitle>
+                <CardDescription>
+                  An error occurred while loading this component
+                </CardDescription>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {this.state.error && (
+              <div className="rounded-lg bg-muted p-4">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  Error details:
+                </p>
+                <p className="text-sm text-destructive font-mono">
+                  {this.state.error.message}
+                </p>
+              </div>
+            )}
+            <Button onClick={this.reset} variant="outline" className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
       );
     }
 
@@ -69,4 +114,51 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-export default ErrorBoundary;
+/**
+ * Functional wrapper for error boundary with standard loading fallback
+ */
+export function withErrorBoundary<P extends object>(
+  Component: React.ComponentType<P>,
+  fallback?: ReactNode
+) {
+  return function WithErrorBoundaryWrapper(props: P) {
+    return (
+      <ErrorBoundary fallback={fallback}>
+        <Component {...props} />
+      </ErrorBoundary>
+    );
+  };
+}
+
+/**
+ * Simple inline error fallback for Suspense boundaries
+ */
+export function SuspenseErrorFallback({ error, reset }: { error?: Error; reset?: () => void }) {
+  return (
+    <div className="flex items-center justify-center rounded-lg border border-dashed border-destructive/50 bg-destructive/5 py-10 text-center">
+      <div className="space-y-3">
+        <div className="flex justify-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+            <AlertCircle className="h-5 w-5 text-destructive" />
+          </div>
+        </div>
+        <div>
+          <p className="text-sm font-medium text-destructive mb-1">
+            Failed to load component
+          </p>
+          {error && (
+            <p className="text-xs text-muted-foreground">
+              {error.message}
+            </p>
+          )}
+        </div>
+        {reset && (
+          <Button onClick={reset} variant="outline" size="sm" className="gap-2">
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}

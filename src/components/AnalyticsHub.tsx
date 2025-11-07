@@ -96,10 +96,10 @@ const downloadFile = (filename: string, content: string, type = 'text/plain') =>
   URL.revokeObjectURL(url);
 };
 
-const toCSV = <T extends Record<string, any>>(rows: T[]): string => {
+const toCSV = <T extends Record<string, unknown>>(rows: T[]): string => {
   if (!rows?.length) return '';
   const headers = Object.keys(rows[0]);
-  const esc = (v: any) => {
+  const esc = (v: unknown): string => {
     if (v == null) return '';
     const s = typeof v === 'string' ? v : JSON.stringify(v);
     return `"${s.replace(/"/g, '""')}"`;
@@ -147,12 +147,58 @@ type AIInsights = {
   notes?: string[];
 };
 
+type AIInsightsPayload = {
+  orgId: string;
+  dateRange: string;
+  kpis?: AnalyticsKPIs;
+  revenueTrend?: Array<{ date: string; revenue: number }>;
+  topEvents?: Array<{ event_id: string; title: string; revenue: number }>;
+  [key: string]: unknown; // Allow additional fields
+};
+
+type VideoRecord = {
+  title: string;
+  plays: number;
+  ctr: number;
+  avg_watch_time?: number;
+};
+
+type VideoAnalyticsData = {
+  videos: VideoRecord[];
+  total_plays?: number;
+  total_ctr?: number;
+};
+
+type FunnelStep = {
+  event: string;
+  count: number;
+  conversion_rate: number;
+};
+
+type AcquisitionChannel = {
+  channel: string;
+  visitors: number;
+  conversions: number;
+};
+
+type DeviceBreakdown = {
+  device: string;
+  sessions: number;
+  conversion_rate: number;
+};
+
+type AudienceData = {
+  funnel_steps?: FunnelStep[];
+  acquisition_channels?: AcquisitionChannel[];
+  device_breakdown?: DeviceBreakdown[];
+};
+
 const useAIInsights = () => {
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState<AIInsights | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const run = useCallback(async (payload: any) => {
+  const run = useCallback(async (payload: AIInsightsPayload) => {
     setLoading(true);
     setError(null);
     try {
@@ -162,8 +208,9 @@ const useAIInsights = () => {
       if (error) throw new Error(error.message);
       setInsights(data as AIInsights);
       return data as AIInsights;
-    } catch (e: any) {
-      setError(e?.message || 'AI insights failed');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'AI insights failed';
+      setError(message);
       setInsights(null);
       return null;
     } finally {
@@ -259,7 +306,7 @@ const InlineAIInsightsPanel: React.FC<{
 /* ----------------------- Video Analytics ------------------------- */
 
 const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
-  const [videoData, setVideoData] = useState<any>(null);
+  const [videoData, setVideoData] = useState<VideoAnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<'live' | 'sample' | 'empty'>('live');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -277,8 +324,9 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
       });
 
       if (error) throw error;
-      setVideoData(data);
-      setDataSource((data as any)?.videos?.length ? 'live' : 'empty');
+      const typedData = data as VideoAnalyticsData;
+      setVideoData(typedData);
+      setDataSource(typedData?.videos?.length ? 'live' : 'empty');
       setErrorMessage(null);
     } catch (err) {
       console.error('Video analytics error:', err);
@@ -315,7 +363,7 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
     downloadFile(`videos_${new Date().toISOString()}.json`, JSON.stringify(videoData || {}, null, 2), 'application/json');
 
   const exportCSV = () => {
-    const rows = (videoData?.videos || []).map((v: any) => ({
+    const rows = (videoData?.videos || []).map(v => ({
       title: v.title,
       plays: v.plays,
       ctr_percent: v.ctr,
@@ -406,7 +454,7 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {videoData?.videos?.map((video: any, index: number) => (
+            {videoData?.videos?.map((video, index) => (
               <div key={`${video.title}-${index}`} className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="text-sm font-medium text-muted-foreground">#{index + 1}</div>
@@ -430,7 +478,7 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
 /* ----------------------- Audience Analytics ----------------------- */
 
 const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
-  const [audienceData, setAudienceData] = useState<any>(null);
+  const [audienceData, setAudienceData] = useState<AudienceData | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -487,20 +535,20 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
 
   const exportCSV = () => {
     const rows = [
-      ...(audienceData?.funnel_steps || []).map((s: any) => ({
-        section: 'funnel',
+      ...(audienceData?.funnel_steps || []).map(s => ({
+        section: 'funnel' as const,
         event: s.event,
         count: s.count,
         conversion_rate: s.conversion_rate,
       })),
-      ...(audienceData?.acquisition_channels || []).map((a: any) => ({
-        section: 'acquisition',
+      ...(audienceData?.acquisition_channels || []).map(a => ({
+        section: 'acquisition' as const,
         channel: a.channel,
         visitors: a.visitors,
         conversions: a.conversions,
       })),
-      ...(audienceData?.device_breakdown || []).map((d: any) => ({
-        section: 'device',
+      ...(audienceData?.device_breakdown || []).map(d => ({
+        section: 'device' as const,
         device: d.device,
         sessions: d.sessions,
         conversion_rate: d.conversion_rate,
@@ -535,7 +583,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        {audienceData?.funnel_steps?.map((step: any, index: number) => (
+        {audienceData?.funnel_steps?.map((step, index) => (
           <Card key={`${step.event}-${index}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs sm:text-sm font-medium">
@@ -570,7 +618,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {audienceData?.acquisition_channels?.map((channel: any, index: number) => {
+              {audienceData?.acquisition_channels?.map((channel, index) => {
                 const visitors = channel.visitors || 0;
                 const conversions = channel.conversions || 0;
                 const convRate = visitors > 0 ? (conversions / visitors) * 100 : 0;
@@ -600,7 +648,7 @@ const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = 
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {audienceData?.device_breakdown?.map((device: any, index: number) => (
+              {audienceData?.device_breakdown?.map((device, index) => (
                 <div key={`${device.device}-${index}`} className="flex items-center justify-between">
                   <div>
                     <p className="font-medium capitalize">{device.device}</p>
@@ -663,18 +711,46 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
 
       if (error) throw error;
 
+      type OrderRecord = {
+        id: string;
+        total_cents?: number;
+        status: string;
+        order_items?: Array<{ quantity: number }>;
+      };
+      
+      type TicketRecord = {
+        id: string;
+        status: string;
+        redeemed_at?: string;
+      };
+      
+      type EventPostRecord = {
+        id: string;
+        event_reactions?: Array<{ kind: string }>;
+      };
+      
+      type EventWithAnalytics = {
+        id: string;
+        title: string;
+        start_at: string;
+        end_at: string;
+        orders?: OrderRecord[];
+        tickets?: TicketRecord[];
+        event_posts?: EventPostRecord[];
+      };
+
       const mapped =
-        events?.map((event: any) => {
-          const paidOrders = (event.orders || []).filter((o: any) => o.status === 'paid');
-          const totalRevenue = paidOrders.reduce((sum: number, order: any) => sum + (order.total_cents || 0), 0);
+        (events as EventWithAnalytics[] || []).map(event => {
+          const paidOrders = (event.orders || []).filter(o => o.status === 'paid');
+          const totalRevenue = paidOrders.reduce((sum, order) => sum + (order.total_cents || 0), 0);
           const totalTickets = paidOrders.reduce(
-            (sum: number, order: any) =>
-              sum + (order.order_items?.reduce((s: number, item: any) => s + (item.quantity || 0), 0) || 0),
+            (sum, order) =>
+              sum + (order.order_items?.reduce((s, item) => s + (item.quantity || 0), 0) || 0),
             0
           );
-          const attendeesCount = (event.tickets || []).filter((t: any) => t.status === 'redeemed').length || 0;
+          const attendeesCount = (event.tickets || []).filter(t => t.status === 'redeemed').length || 0;
           const totalEngagements =
-            (event.event_posts || []).reduce((sum: number, post: any) => sum + (post.event_reactions?.length || 0), 0) ||
+            (event.event_posts || []).reduce((sum, post) => sum + (post.event_reactions?.length || 0), 0) ||
             0;
 
           return {
@@ -1046,9 +1122,10 @@ const AnalyticsHub: React.FC<{ initialOrgId?: string | null }> = ({ initialOrgId
       if (cached) {
         try { setInsights(JSON.parse(cached) as AIInsights); } catch {}
       }
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch analytics';
       console.error('Analytics invoke failed:', err);
-      toast({ title: 'Error', description: 'Failed to fetch analytics', variant: 'destructive' });
+      toast({ title: 'Error', description: message, variant: 'destructive' });
       setAnalytics(null);
     } finally {
       setLoading(false);

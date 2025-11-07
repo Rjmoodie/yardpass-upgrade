@@ -1,0 +1,49 @@
+[33mcommit 5cd818cbf1a31516aee21ca9eedc562f15de2eb4[m[33m ([m[1;31morigin/codex/implement-complete-sponsorship-flow[m[33m)[m
+Author: Roderick Moodie <71142044+Rjmoodie@users.noreply.github.com>
+Date:   Thu Nov 6 01:14:36 2025 -0500
+
+    Implement full sponsorship management flow
+
+[1mdiff --git a/src/components/EventSponsorshipManagement.tsx b/src/components/EventSponsorshipManagement.tsx[m
+[1mindex 7ffef60..47e00ca 100644[m
+[1m--- a/src/components/EventSponsorshipManagement.tsx[m
+[1m+++ b/src/components/EventSponsorshipManagement.tsx[m
+[36m@@ -15,6 +15,7 @@[m [mimport { useEventSponsorships } from '@/hooks/useEventSponsorships';[m
+ [m
+ interface EventSponsorshipManagementProps {[m
+   eventId: string;[m
+[32m+[m[32m  onDataChange?: () => void;[m
+ }[m
+ [m
+ interface SponsorshipPackage {[m
+[36m@@ -34,7 +35,7 @@[m [mconst defaultPackageData: SponsorshipPackage = {[m
+   visibility: 'public'[m
+ };[m
+ [m
+[31m-export function EventSponsorshipManagement({ eventId }: EventSponsorshipManagementProps) {[m
+[32m+[m[32mexport function EventSponsorshipManagement({ eventId, onDataChange }: EventSponsorshipManagementProps) {[m
+   const { toast } = useToast();[m
+   const { sponsorships, loading: sponsorshipsLoading, refresh: refreshSponsorships } = useEventSponsorships(eventId);[m
+   [m
+[36m@@ -140,7 +141,8 @@[m [mexport function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme[m
+ [m
+       setShowCreatePackage(false);[m
+       setPackageData(defaultPackageData);[m
+[31m-      fetchPackages();[m
+[32m+[m[32m      await fetchPackages();[m
+[32m+[m[32m      onDataChange?.();[m
+     } catch (error) {[m
+       console.error('Error creating package:', error);[m
+       toast({[m
+[36m@@ -184,8 +186,9 @@[m [mexport function EventSponsorshipManagement({ eventId }: EventSponsorshipManageme[m
+         description: `Sponsorship request ${action}ed successfully`[m
+       });[m
+ [m
+[31m-      fetchOrders();[m
+[31m-      refreshSponsorships();[m
+[32m+[m[32m      await fetchOrders();[m
+[32m+[m[32m      await refreshSponsorships();[m
+[32m+[m[32m      onDataChange?.();[m
+     } catch (error) {[m
+       console.error('Error updating order:', error);[m
+       toast({[m

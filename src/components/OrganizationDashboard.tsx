@@ -178,6 +178,12 @@ export function OrganizationDashboard({
       let profilesById: Record<string, { display_name: string; photo_url: string | null }> = {};
 
       if (userIds.length) {
+        type UserProfileRecord = {
+          user_id: string;
+          display_name: string;
+          photo_url: string | null;
+        };
+
         const { data: profiles, error: profilesErr } = await supabase
           .from('user_profiles')
           .select('user_id, display_name, photo_url')
@@ -185,7 +191,7 @@ export function OrganizationDashboard({
 
         if (!profilesErr && profiles) {
           profilesById = Object.fromEntries(
-            profiles.map((p: any) => [p.user_id, { display_name: p.display_name, photo_url: p.photo_url }])
+            (profiles as UserProfileRecord[]).map(p => [p.user_id, { display_name: p.display_name, photo_url: p.photo_url }])
           );
         }
       }
@@ -222,10 +228,11 @@ export function OrganizationDashboard({
         totalAttendees: row?.total_attendees || 0,
         completedEvents: row?.completed_events || 0,
       });
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load organization.';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to load organization.',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -254,10 +261,11 @@ export function OrganizationDashboard({
       });
       setInviteEmail('');
       await refresh();
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not send invitation';
       toast({
         title: 'Invite failed',
-        description: error.message || 'Could not send invitation',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -288,10 +296,11 @@ export function OrganizationDashboard({
 
       setTeamMembers((members) => members.filter((m) => m.user_id !== userId));
       toast({ title: 'Member removed' });
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not remove member';
       toast({
         title: 'Error',
-        description: error.message,
+        description: message,
         variant: 'destructive',
       });
     }
@@ -311,10 +320,11 @@ export function OrganizationDashboard({
         members.map((m) => (m.user_id === userId ? { ...m, role: nextRole } : m))
       );
       toast({ title: 'Role updated', description: `New role: ${nextRole}` });
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update role';
       toast({
         title: 'Failed to update role',
-        description: error.message,
+        description: message,
         variant: 'destructive',
       });
     }
@@ -389,10 +399,11 @@ export function OrganizationDashboard({
       }));
 
       toast({ title: `${type === 'logo' ? 'Logo' : 'Banner'} uploaded successfully` });
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Upload failed';
       toast({
         title: 'Upload failed',
-        description: error.message,
+        description: message,
         variant: 'destructive'
       });
     } finally {
@@ -432,10 +443,11 @@ export function OrganizationDashboard({
         description: 'Organization details have been saved.',
       });
       setEditingOrg(false);
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update organization';
       toast({
         title: 'Failed to update organization',
-        description: error.message,
+        description: message,
         variant: 'destructive',
       });
     }

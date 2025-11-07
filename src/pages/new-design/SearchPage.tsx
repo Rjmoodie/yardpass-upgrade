@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 import { EVENT_CATEGORIES } from "@/constants/categories";
+import { SponsorBadges } from "@/components/sponsorship/SponsorBadges";
 
 interface SearchResult {
   id: string;
@@ -319,7 +320,7 @@ export default function SearchPage() {
                     <p className="mb-2 text-[11px] text-foreground/60 line-clamp-1 sm:text-xs">{result.subtitle}</p>
 
                     {/* Details */}
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {result.type === 'event' ? (
                         <>
                           {result.date && (
@@ -340,6 +341,10 @@ export default function SearchPage() {
                               <span>{result.price}</span>
                             </div>
                           )}
+                          {/* Sponsor Badge */}
+                          <div className="pt-1">
+                            <SponsorBadges eventId={result.id} variant="compact" />
+                          </div>
                         </>
                       ) : (
                         <>

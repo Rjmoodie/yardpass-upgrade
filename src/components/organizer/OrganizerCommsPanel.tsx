@@ -547,8 +547,17 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const [contactListsLoading, setContactListsLoading] = useState(false);
 
   // ui/derived
+  type MessageJob = {
+    id: string;
+    channel: MessageChannel;
+    subject?: string;
+    status: string;
+    created_at: string;
+    [key: string]: any; // Additional fields from message_jobs table
+  };
+
   const [audienceCount, setAudienceCount] = useState<number>(0);
-  const [recentJobs, setRecentJobs] = useState<any[]>([]);
+  const [recentJobs, setRecentJobs] = useState<MessageJob[]>([]);
   const [sendingTest, setSendingTest] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiOutput, setAiOutput] = useState<AiResult | null>(null);
@@ -663,7 +672,13 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         console.log('[OrganizerCommsPanel] Contact imports table not available:', error.message);
         setContactLists([]);
       } else if (!error) {
-        const mapped = (data ?? []).map((row: any) => ({
+        type ImportRow = {
+          id: string;
+          name: string;
+          org_contact_import_entries?: Array<{ count: number }>;
+        };
+        
+        const mapped = (data as ImportRow[] ?? []).map(row => ({
           id: row.id,
           name: row.name,
           contact_count: row.org_contact_import_entries?.[0]?.count ?? 0,
@@ -790,8 +805,9 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       await retryJob(jobId);
       toast({ title: 'Re-queued', description: 'Processing started.' });
       await refreshRecent();
-    } catch (e: any) {
-      toast({ title: 'Failed to re-queue', description: e.message || 'Please try again.', variant: 'destructive' });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Please try again.';
+      toast({ title: 'Failed to re-queue', description: message, variant: 'destructive' });
     }
   }
 
@@ -829,8 +845,9 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         toast({ title: 'Tip', description: 'Use a test phone via queue or Twilio console.' });
       }
       toast({ title: 'Test sent' });
-    } catch (e: any) {
-      toast({ title: 'Test failed', description: e?.message ?? String(e), variant: 'destructive' });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      toast({ title: 'Test failed', description: message, variant: 'destructive' });
     } finally {
       setSendingTest(false);
     }
@@ -860,8 +877,9 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       if (error) throw new Error(error.message);
       setAiOutput(data as AiResult);
       return data as AiResult;
-    } catch (e: any) {
-      toast({ title: 'AI request failed', description: e?.message ?? String(e), variant: 'destructive' });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      toast({ title: 'AI request failed', description: message, variant: 'destructive' });
     } finally {
       setAiLoading(false);
     }
@@ -1581,7 +1599,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                 <div className="flex flex-wrap items-end gap-2 mb-3">
                   <div className="min-w-[140px]">
                     <Label className="text-xs">Channel</Label>
-                    <Select value={filterChannel} onValueChange={(v: any) => setFilterChannel(v)}>
+                    <Select value={filterChannel} onValueChange={(v) => setFilterChannel(v as typeof filterChannel)}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All</SelectItem>
@@ -1592,7 +1610,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                   </div>
                   <div className="min-w-[160px]">
                     <Label className="text-xs">Status</Label>
-                    <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+                    <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All</SelectItem>
@@ -1658,7 +1676,12 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                           <Separator orientation="vertical" className="h-4" />
                           {(() => {
                             const common = "text-xs";
-                            const clickable = (label: string, cb: () => void, variant: any, extra = "") =>
+                            const clickable = (
+                              label: string, 
+                              cb: () => void, 
+                              variant: "brand" | "success" | "warning" | "neutral" | "danger" | "outline" | "destructive" | "secondary", 
+                              extra = ""
+                            ) =>
                               <Badge variant={variant} className={cn(common, "cursor-pointer", extra)} onClick={cb}>{label}</Badge>;
                             switch (job.status) {
                               case 'draft': return <Badge variant="secondary" className={common}>Draft</Badge>;
