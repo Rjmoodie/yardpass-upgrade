@@ -67,7 +67,10 @@ export default function SearchPage() {
         limit: 50,
       };
 
-      console.log('[SearchPage] Calling search-events with:', requestBody);
+      // ✅ Reduced logging (only if verbose mode enabled)
+      if (import.meta.env.DEV && localStorage.getItem('verbose_search') === 'true') {
+        console.log('[SearchPage] Calling search-events with:', requestBody);
+      }
 
       // Get session for auth
       const { data: { session } } = await supabase.auth.getSession();
@@ -87,7 +90,10 @@ export default function SearchPage() {
         throw new Error(data?.error || 'Search failed');
       }
 
-      console.log('[SearchPage] Search returned', data.results?.length || 0, 'events');
+      // ✅ Single clean log
+      if (import.meta.env.DEV) {
+        console.log(`🔍 Found ${data.results?.length || 0} events`);
+      }
 
       // Transform event results
       const eventResults: SearchResult[] = (data.results || []).map((event: any) => {
@@ -156,8 +162,18 @@ export default function SearchPage() {
 
   // Trigger search on filter changes
   useEffect(() => {
-    performSearch();
-  }, [performSearch]);
+    let cancelled = false;
+    
+    performSearch().then(() => {
+      if (cancelled) {
+        console.debug('[SearchPage] Search cancelled (unmounted)');
+      }
+    });
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [performSearch]); // ✅ With cancellation token
 
   return (
     <div className="min-h-screen bg-background pb-20 pt-4 sm:pt-6">

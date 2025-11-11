@@ -48,8 +48,6 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
         url.searchParams.append('_t', Date.now().toString());
 
         const { data: { session } } = await supabase.auth.getSession();
-
-        console.log('🔍 EventPostsGrid fetching:', url.toString());
         
         // Build headers - include auth token if user is signed in, but allow guest access
         const headers: Record<string, string> = {};
@@ -74,11 +72,6 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
 
         const payload = await res.json();
         const rows: any[] = payload.data ?? [];
-        
-        console.log(`✅ EventPostsGrid received ${rows.length} posts with filterType=${filterType}`);
-        if (rows.length > 0) {
-          console.log('First post:', rows[0]);
-        }
 
         setPosts(rows.map((r: any) => ({
           id: r.id,
@@ -156,8 +149,8 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
                 loading="lazy"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center p-2">
-                <p className="text-xs text-white/60 line-clamp-4">{post.text || 'Post'}</p>
+              <div className="flex h-full w-full items-center justify-center p-2 bg-muted/10 border border-border/20">
+                <p className="text-xs text-foreground/70 line-clamp-4 text-center">{post.text || 'Post'}</p>
               </div>
             )}
 

@@ -175,9 +175,14 @@ export function EventDetailsPageIntegrated() {
           query = query.eq('slug', eventId);
         }
 
-        const { data, error } = await query.single();
+        const { data, error } = await query.maybeSingle();
 
         if (error) throw error;
+        
+        // ✅ Handle case where event doesn't exist or RLS blocks it
+        if (!data) {
+          throw new Error('Event not found or you don\'t have permission to view it');
+        }
 
         // Get attendee count (count issued and transferred tickets)
         const { count: attendeeCount } = await supabase
@@ -601,10 +606,10 @@ export function EventDetailsPageIntegrated() {
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-3">
                 <MessageCircle className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold text-foreground">Official Posts</h3>
+                <h3 className="text-lg font-semibold text-foreground">Event Posts</h3>
               </div>
               <p className="text-sm text-foreground/60 mb-4">
-                Updates and content from the event organizers
+                Updates and moments from organizers and attendees
               </p>
             </div>
             
@@ -612,7 +617,8 @@ export function EventDetailsPageIntegrated() {
               <EventPostsGrid 
                 eventId={event.id}
                 userId={user?.id}
-                filterType="organizer_only"
+                // ✅ Removed filterType to show ALL posts (organizer + attendee)
+                // The "Official Posts" heading is misleading - should show all event posts
                 onPostClick={(post) => {
                   setSelectedPostId(post.id);
                   setShowCommentModal(true);

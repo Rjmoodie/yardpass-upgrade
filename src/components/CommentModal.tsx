@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, X, Trash2, Play, ExternalLink, Link as LinkIcon, ChevronDown, Pin, Reply } from 'lucide-react';
+import { Heart, X, Trash2, Play, ExternalLink, Link as LinkIcon, ChevronDown, Pin, Reply, MoreVertical, Flag } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -13,6 +13,12 @@ import { routes } from '@/lib/routes';
 import { ReportButton } from '@/components/ReportButton';
 import { muxToHls } from '@/utils/media';
 import { useRealtimeComments } from '@/hooks/useRealtimeComments';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /**
  * Optimized drop-in replacement for CommentModal
@@ -90,6 +96,8 @@ export interface CommentModalProps {
   postId?: string; // focus a single post (preferred)
   mediaPlaybackId?: string; // fallback to resolve post by playback id
   onCommentCountChange?: (postId: string, newCount: number) => void;
+  onPostDelete?: (postId: string) => void; // ✅ Added: Callback when post is deleted
+  onRequestUsername?: () => void; // ✅ Added: Callback to request username (opens modal)
 }
 
 // Helpers outside component to keep stable refs
@@ -354,6 +362,8 @@ export default function CommentModal({
   postId,
   mediaPlaybackId,
   onCommentCountChange,
+  onPostDelete,
+  onRequestUsername,
 }: CommentModalProps) {
   const { user, profile } = useAuth();
 
@@ -369,6 +379,7 @@ export default function CommentModal({
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [pageFrom, setPageFrom] = useState(0);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 
   // compose state (single, bottom composer)
   const [draft, setDraft] = useState('');
@@ -809,6 +820,63 @@ export default function CommentModal({
   });
 
   // --- actions --------------------------------------------------------------
+  const handleDeletePost = useCallback(async (postIdToDelete: string) => {
+    if (!user || deletingPostId) return;
+    
+    // Find the post to check ownership
+    const postToDelete = posts.find(p => p.id === postIdToDelete);
+    if (!postToDelete || postToDelete.author_user_id !== user.id) {
+      toast({ title: 'Error', description: 'You can only delete your own posts', variant: 'destructive' });
+      return;
+    }
+    
+    // Confirm deletion
+    if (!confirm('Delete this post? This action cannot be undone.')) {
+      return;
+    }
+    
+    setDeletingPostId(postIdToDelete);
+    
+    try {
+      // Soft delete (set deleted_at)
+      const { error } = await supabase
+        .from('event_posts')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', postIdToDelete)
+        .eq('author_user_id', user.id); // Security check
+      
+      if (error) throw error;
+      
+      toast({ 
+        title: 'Post deleted', 
+        description: 'Your post has been removed',
+        duration: 3000
+      });
+      
+      // Remove from local state
+      setPosts(prev => prev.filter(p => p.id !== postIdToDelete));
+      
+      // Notify parent
+      onPostDelete?.(postIdToDelete);
+      
+      // If viewing single post mode, close modal
+      if (singleMode) {
+        onClose();
+      }
+      
+    } catch (error: any) {
+      console.error('Error deleting post:', error);
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'Failed to delete post',
+        variant: 'destructive',
+        duration: 3000
+      });
+    } finally {
+      setDeletingPostId(null);
+    }
+  }, [user, posts, deletingPostId, singleMode, onClose, onPostDelete]);
+
   const submit = useCallback(async () => {
     if (!draft.trim() || !activePost?.id || overLimit) return;
     if (!user) {
@@ -816,14 +884,23 @@ export default function CommentModal({
       return;
     }
 
-    // ✅ USERNAME REQUIREMENT: Check before inserting comment
+    // ✅ USERNAME REQUIREMENT: Seamlessly prompt for username
     if (!profile?.username) {
-      toast({ 
-        title: 'Username Required', 
-        description: 'Please set your username to comment. Go to your profile to set one.', 
-        variant: 'destructive' 
-      });
       setSubmitting(false);
+      
+      // If parent provided username modal callback, use it (seamless!)
+      if (onRequestUsername) {
+        onRequestUsername();
+        return;
+      }
+      
+      // Fallback: gentle toast (not destructive)
+      toast({ 
+        title: 'One more step', 
+        description: 'Set your username to start commenting', 
+        variant: 'default',
+        duration: 4000
+      });
       return;
     }
 
@@ -1339,6 +1416,27 @@ export default function CommentModal({
                       <p className="mt-1 text-sm leading-relaxed text-foreground/95 whitespace-pre-wrap">{activePost.text}</p>
                     )}
                   </div>
+
+                  {/* Delete button for own posts */}
+                  {user && activePost.author_user_id === user.id && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-2 hover:bg-accent rounded-full transition-colors" aria-label="Post options">
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => handleDeletePost(activePost.id)}
+                          disabled={deletingPostId === activePost.id}
+                          className="text-red-400 hover:bg-white/10 cursor-pointer disabled:opacity-50"
+                        >
+                          <Flag className="h-4 w-4 mr-2" />
+                          {deletingPostId === activePost.id ? 'Deleting...' : 'Delete Post'}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
 
                 {/* Full media display (video player or images) */}
@@ -1394,6 +1492,36 @@ export default function CommentModal({
               </Avatar>
 
               <div className="flex-1 min-w-0">
+                {/* Username required banner */}
+                {user && !profile?.username && (
+                  <div className="mb-2 px-3 py-2.5 rounded-lg bg-primary/10 border border-primary/30">
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm text-foreground/90 flex-1">
+                        👋 <span className="font-medium">One quick step:</span> Set your username to start commenting
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="default"
+                        className="h-7 px-3 text-xs"
+                        onClick={() => {
+                          if (onRequestUsername) {
+                            onRequestUsername();
+                          } else {
+                            toast({
+                              title: 'Set Username',
+                              description: 'Go to Settings → Profile to set your username',
+                              duration: 5000
+                            });
+                          }
+                        }}
+                      >
+                        Set Username
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Reply banner */}
                 {replyingTo && (
                   <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
@@ -1418,11 +1546,25 @@ export default function CommentModal({
                     const val = e.target.value;
                     if (val.length <= MAX_LEN + 200) setDraft(val);
                   }}
-                  placeholder={replyingTo ? `Reply to ${replyingTo.author_name}...` : activePost ? 'Write your comment…' : 'Select a post to comment'}
-                  disabled={!activePost}
+                  onClick={() => {
+                    // ✅ Seamlessly prompt for username when clicking textarea
+                    if (user && !profile?.username) {
+                      onRequestUsername?.();
+                    }
+                  }}
+                  placeholder={
+                    !profile?.username 
+                      ? '👋 Set your username to start commenting...'
+                      : replyingTo 
+                        ? `Reply to ${replyingTo.author_name}...` 
+                        : activePost 
+                          ? 'Write your comment…' 
+                          : 'Select a post to comment'
+                  }
+                  disabled={!activePost || !profile?.username}
                   className={`w-full min-h-[52px] max-h-[120px] resize-none text-base rounded-2xl px-4 py-3 ${
                     overLimit ? 'border-destructive focus-visible:ring-destructive' : ''
-                  }`}
+                  } ${!profile?.username ? 'cursor-pointer' : ''}`}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -1458,10 +1600,17 @@ export default function CommentModal({
                       type="button"
                       size="sm"
                       className="min-h-[44px] px-6 rounded-2xl font-semibold"
-                      onClick={submit}
-                      disabled={!draft.trim() || submitting || !activePost || overLimit}
+                      onClick={() => {
+                        // ✅ Smart button: Set username or submit comment
+                        if (!profile?.username) {
+                          onRequestUsername?.();
+                        } else {
+                          submit();
+                        }
+                      }}
+                      disabled={submitting || !activePost || (profile?.username && (!draft.trim() || overLimit))}
                     >
-                      {submitting ? 'Posting…' : 'Post'}
+                      {submitting ? 'Posting…' : !profile?.username ? 'Set Username' : 'Post'}
                     </Button>
                   </div>
                 </div>

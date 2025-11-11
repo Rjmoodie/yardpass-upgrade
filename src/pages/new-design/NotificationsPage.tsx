@@ -1,14 +1,30 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MessageCircle, UserPlus, Calendar, Ticket, Settings, Filter } from "lucide-react";
+import { Heart, MessageCircle, UserPlus, Calendar, Ticket, Settings, Filter, Check, Trash2 } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { transformNotification, getTimeAgo } from "@/lib/dataTransformers";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatDistanceToNow } from "date-fns";
+
+interface NotificationRow {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  action_url: string | null;
+  event_type: string | null;
+  data: Record<string, any> | null;
+  read_at: string | null;
+  created_at: string;
+}
 
 interface Notification {
   id: string;
-  type: 'like' | 'comment' | 'follow' | 'event' | 'ticket';
+  type: 'like' | 'comment' | 'follow' | 'event' | 'ticket' | 'message';
   user: {
     id?: string;
     name: string;
@@ -17,8 +33,8 @@ interface Notification {
   message: string;
   time: string;
   isRead: boolean;
-  postId?: string;
-  eventId?: string;
+  actionUrl?: string;
+  data?: Record<string, any>;
 }
 
 const notificationIcons = {
@@ -26,7 +42,8 @@ const notificationIcons = {
   comment: MessageCircle,
   follow: UserPlus,
   event: Calendar,
-  ticket: Ticket
+  ticket: Ticket,
+  message: MessageCircle,
 };
 
 const notificationColors = {
@@ -34,7 +51,8 @@ const notificationColors = {
   comment: 'text-blue-500',
   follow: 'text-purple-500',
   event: 'text-yellow-500',
-  ticket: 'text-green-500'
+  ticket: 'text-green-500',
+  message: 'text-blue-500',
 };
 
 export function NotificationsPageIntegrated() {
@@ -44,119 +62,211 @@ export function NotificationsPageIntegrated() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load notifications
-  useEffect(() => {
-    const loadNotifications = async () => {
-      if (!user?.id) {
-        setLoading(false);
-        return;
-      }
+  // Transform DB row to UI notification
+  const transformNotification = useCallback((row: NotificationRow): Notification => {
+    // Determine notification type from event_type
+    let type: Notification['type'] = 'event';
+    if (row.event_type?.includes('follow')) type = 'follow';
+    else if (row.event_type?.includes('like')) type = 'like';
+    else if (row.event_type?.includes('comment')) type = 'comment';
+    else if (row.event_type?.includes('ticket')) type = 'ticket';
+    else if (row.event_type?.includes('message')) type = 'message';
 
-      try {
-        setLoading(true);
-        
-        // Fetch reactions (likes/comments on user's posts)
-        const { data: reactions } = await supabase
-          .from('event_reactions')
-          .select(`
-            id,
-            kind,
-            created_at,
-            user_id,
-            post_id,
-            user_profiles!event_reactions_user_id_fkey (
-              user_id,
-              display_name,
-              photo_url
-            ),
-            event_posts!event_reactions_post_id_fkey (
-              author_user_id,
-              event_id
-            )
-          `)
-          .eq('event_posts.author_user_id', user.id)
-          .neq('user_id', user.id) // Don't show own reactions
-          .order('created_at', { ascending: false })
-          .limit(30);
+    // Extract user info from data
+    const userName = row.data?.follower_name || row.data?.user_name || 'Someone';
+    const userAvatar = row.data?.user_avatar || '';
+    const userId = row.data?.follower_user_id || row.data?.user_id;
 
-        // Fetch new followers
-        const { data: follows } = await supabase
-          .from('follows')
-          .select(`
-            id,
-            created_at,
-            follower_user_id,
-            user_profiles!follows_follower_user_id_fkey (
-              user_id,
-              display_name,
-              photo_url
-            )
-          `)
-          .eq('target_id', user.id)
-          .eq('target_type', 'user')
-          .order('created_at', { ascending: false })
-          .limit(20);
-
-        // Combine and transform
-        const combined: Notification[] = [
-          ...(reactions || []).map((r: any) => ({
-            id: r.id,
-            type: r.kind === 'like' ? 'like' as const : 'comment' as const,
-            user: {
-              id: r.user_profiles?.user_id,
-              name: r.user_profiles?.display_name || 'User',
-              avatar: r.user_profiles?.photo_url || ''
-            },
-            message: r.kind === 'like' ? 'liked your post' : 'commented on your post',
-            time: getTimeAgo(r.created_at),
-            isRead: false,
-            postId: r.post_id,
-            eventId: r.event_posts?.event_id
-          })),
-          ...(follows || []).map((f: any) => ({
-            id: f.id,
-            type: 'follow' as const,
-            user: {
-              id: f.user_profiles?.user_id,
-              name: f.user_profiles?.display_name || 'User',
-              avatar: f.user_profiles?.photo_url || ''
-            },
-            message: 'started following you',
-            time: getTimeAgo(f.created_at),
-            isRead: false
-          }))
-        ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-
-        setNotifications(combined);
-      } catch (error) {
-        console.error('Error loading notifications:', error);
-      } finally {
-        setLoading(false);
-      }
+    return {
+      id: row.id,
+      type,
+      user: {
+        id: userId,
+        name: userName,
+        avatar: userAvatar,
+      },
+      message: row.message,
+      time: formatDistanceToNow(new Date(row.created_at), { addSuffix: true }),
+      isRead: !!row.read_at,
+      actionUrl: row.action_url || undefined,
+      data: row.data || undefined,
     };
+  }, []);
 
+  // Load notifications from table
+  const loadNotifications = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const transformed = (data || []).map(transformNotification);
+      setNotifications(transformed);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, transformNotification]);
+
+  // Initial load
+  useEffect(() => {
     loadNotifications();
+  }, [loadNotifications]);
+
+  // Real-time subscriptions
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('user-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const newRow = payload.new as NotificationRow;
+          const newNotification = transformNotification(newRow);
+          setNotifications(prev => [newNotification, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const updatedRow = payload.new as NotificationRow;
+          const updatedNotification = transformNotification(updatedRow);
+          setNotifications(prev =>
+            prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const deletedId = (payload.old as NotificationRow).id;
+          setNotifications(prev => prev.filter(n => n.id !== deletedId));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, transformNotification]);
+
+  // Mark notification as read
+  const markAsRead = useCallback(async (notificationId: string) => {
+    if (!user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', notificationId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Optimistically update UI
+      setNotifications(prev =>
+        prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+      );
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  }, [user?.id]);
+
+  // Mark all as read
+  const markAllAsRead = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .is('read_at', null);
+
+      if (error) throw error;
+
+      // Optimistically update UI
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
+  }, [user?.id]);
+
+  // Delete notification
+  const deleteNotification = useCallback(async (notificationId: string) => {
+    if (!user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Optimistically update UI
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
   }, [user?.id]);
 
   const filteredNotifications = notifications.filter(notif => 
     filter === 'all' || !notif.isRead
   );
 
-  const handleNotificationClick = (notification: Notification) => {
-    if (notification.postId) {
-      navigate(`/post/${notification.postId}`);
-    } else if (notification.eventId) {
-      navigate(`/e/${notification.eventId}`);
-    } else if (notification.user.id && notification.type === 'follow') {
-      navigate(`/profile/${notification.user.id}`);
-    }
-  };
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const markAllAsRead = async () => {
-    // Mark all as read in database
-    setNotifications(prev => 
-      prev.map(n => ({ ...n, isRead: true }))
-    );
+  const handleNotificationClick = (notification: Notification) => {
+    // Mark as read
+    if (!notification.isRead) {
+      markAsRead(notification.id);
+    }
+
+    // Navigate to action URL if exists
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl);
+    } else if (notification.data?.post_id) {
+      navigate(`/post/${notification.data.post_id}`);
+    } else if (notification.data?.event_id) {
+      navigate(`/e/${notification.data.event_id}`);
+    } else if (notification.user?.id) {
+      navigate(`/user/${notification.user.id}`);
+    }
   };
 
   // Loading state
@@ -171,107 +281,151 @@ export function NotificationsPageIntegrated() {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-40 border-b border-border/10 bg-background/80 px-3 py-4 backdrop-blur-xl sm:px-4 md:px-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Notifications</h1>
-          <button 
-            onClick={() => navigate('/notifications/settings')}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border/10 bg-white/5 transition-all hover:bg-white/10"
-          >
-            <Settings className="h-5 w-5 text-foreground" />
-          </button>
+      <div className="sticky top-0 z-10 border-b border-border/10 bg-background/95 backdrop-blur-sm">
+        <div className="flex items-center justify-between p-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+            {unreadCount > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {unreadCount} unread
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={markAllAsRead}
+                className="gap-2"
+              >
+                <Check className="h-4 w-4" />
+                Mark all read
+              </Button>
+            )}
+            <Button variant="ghost" size="icon">
+              <Settings className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 px-4 pb-3">
           <button
             onClick={() => setFilter('all')}
-            className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all sm:text-base ${
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
               filter === 'all'
-                ? 'bg-primary text-foreground'
-                : 'border border-border/10 bg-white/5 text-foreground/60 hover:bg-white/10'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-background/80 text-foreground/80 hover:bg-foreground/5'
             }`}
           >
-            All
+            All ({notifications.length})
           </button>
           <button
             onClick={() => setFilter('unread')}
-            className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all sm:text-base ${
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
               filter === 'unread'
-                ? 'bg-primary text-foreground'
-                : 'border border-border/10 bg-white/5 text-foreground/60 hover:bg-white/10'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-background/80 text-foreground/80 hover:bg-foreground/5'
             }`}
           >
-            Unread {notifications.filter(n => !n.isRead).length > 0 && `(${notifications.filter(n => !n.isRead).length})`}
+            Unread ({unreadCount})
           </button>
         </div>
-
-        {/* Mark All Read */}
-        {notifications.filter(n => !n.isRead).length > 0 && (
-          <button
-            onClick={markAllAsRead}
-            className="mt-3 text-xs text-primary hover:text-primary/90 sm:text-sm"
-          >
-            Mark all as read
-          </button>
-        )}
       </div>
 
       {/* Notifications List */}
-      <div className="px-3 pt-2 sm:px-4 md:px-6">
-        {filteredNotifications.length > 0 ? (
-          <div className="space-y-2">
-            {filteredNotifications.map((notif) => {
-              const Icon = notificationIcons[notif.type];
-              const iconColor = notificationColors[notif.type];
-
-              return (
-                <button
-                  key={notif.id}
-                  onClick={() => handleNotificationClick(notif)}
-                  className={`w-full rounded-2xl border p-3 text-left transition-all hover:border-border/20 hover:bg-white/10 sm:p-4 ${
-                    notif.isRead
-                      ? 'border-border/5 bg-white/5'
-                      : 'border-border/10 bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="relative">
-                      <ImageWithFallback
-                        src={notif.user.avatar}
-                        alt={notif.user.name}
-                        className="h-10 w-10 rounded-full object-cover sm:h-12 sm:w-12"
-                      />
-                      <div className={`absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-black bg-white ${iconColor}`}>
-                        <Icon className="h-3 w-3" />
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground sm:text-base">
-                        <span className="font-semibold">{notif.user.name}</span>{' '}
-                        <span className="text-foreground/70">{notif.message}</span>
-                      </p>
-                      <p className="mt-1 text-xs text-foreground/50">{notif.time}</p>
-                    </div>
-                    {!notif.isRead && (
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          /* Empty State */
-          <div className="rounded-2xl border border-border/10 bg-white/5 p-12 text-center backdrop-blur-xl sm:rounded-3xl">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-              <Heart className="h-8 w-8 text-foreground/30" />
+      <div className="divide-y divide-border/5">
+        {filteredNotifications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
+              <UserPlus className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="mb-2 text-lg font-bold text-foreground">No notifications</h3>
-            <p className="text-sm text-foreground/60">
-              {filter === 'unread' ? 'You\'re all caught up!' : 'New notifications will appear here'}
+            <h3 className="text-lg font-semibold mb-2">
+              {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              {filter === 'unread' 
+                ? 'You\'re all caught up!' 
+                : 'When people interact with you, you\'ll see it here'}
             </p>
           </div>
+        ) : (
+          filteredNotifications.map((notification) => {
+            const Icon = notificationIcons[notification.type] || MessageCircle;
+            const iconColor = notificationColors[notification.type] || 'text-foreground';
+
+            return (
+              <div
+                key={notification.id}
+                className={`group relative flex items-start gap-3 p-4 transition-all hover:bg-muted/30 ${
+                  !notification.isRead ? 'bg-primary/5' : ''
+                }`}
+              >
+                {/* Unread indicator */}
+                {!notification.isRead && (
+                  <div className="absolute left-2 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-primary" />
+                )}
+
+                {/* Avatar */}
+                <Avatar className="h-11 w-11 flex-shrink-0">
+                  <AvatarImage src={notification.user.avatar} alt={notification.user.name} />
+                  <AvatarFallback className="bg-muted">
+                    {notification.user.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+
+                {/* Content */}
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => handleNotificationClick(notification)}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <Icon className={`h-4 w-4 ${iconColor}`} />
+                      <p className="text-sm font-medium text-foreground">
+                        {notification.user.name}
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                      {notification.time}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground/80">{notification.message}</p>
+                </div>
+
+                {/* Actions (on hover) */}
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {!notification.isRead && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markAsRead(notification.id);
+                      }}
+                      title="Mark as read"
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteNotification(notification.id);
+                    }}
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>
@@ -279,4 +433,3 @@ export function NotificationsPageIntegrated() {
 }
 
 export default NotificationsPageIntegrated;
-

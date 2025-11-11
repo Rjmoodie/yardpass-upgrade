@@ -29,31 +29,20 @@ export const updateCheckoutSession = async (
   id: string,
   patch: any,
 ): Promise<void> => {
-  const updateRecord: Record<string, unknown> = {};
-
-  if (patch.status !== undefined) updateRecord.status = patch.status;
-  if (patch.verificationState !== undefined) updateRecord.verification_state = patch.verificationState;
-  if (patch.expressMethods !== undefined) updateRecord.express_methods = patch.expressMethods;
-  if (patch.pricingSnapshot !== undefined) updateRecord.pricing_snapshot = patch.pricingSnapshot;
-  if (patch.stripeSessionId !== undefined) updateRecord.stripe_session_id = patch.stripeSessionId;
-  if (patch.contactSnapshot !== undefined) updateRecord.contact_snapshot = patch.contactSnapshot;
-
-  if (patch.expiresAt !== undefined) {
-    updateRecord.expires_at = patch.expiresAt instanceof Date ? patch.expiresAt.toISOString() : patch.expiresAt;
-  }
-
-  if (!Object.keys(updateRecord).length) {
-    return;
-  }
-
-  const { error } = await client
-    .from("checkout_sessions")
-    .update(updateRecord)
-    .eq("id", id);
-
-  if (error) {
-    console.error("[checkout-session] update failed", error);
-    throw error;
+  // ✅ SIMPLIFIED: Use RPC to target ticketing.checkout_sessions (not public)
+  // Only update if we have data to update
+  if (!id) return;
+  
+  try {
+    await client.rpc('update_checkout_session_status', {
+      p_session_id: id,
+      p_status: patch.status ?? 'converted',
+    });
+  } catch (error) {
+    // ⚠️ Non-critical: Checkout session update is optional
+    // Order is already marked as paid (critical path succeeded)
+    console.warn("[checkout-session] update failed (non-critical)", error);
+    // Don't throw - let payment succeed even if session update fails
   }
 };
 
@@ -160,6 +149,8 @@ serve(async (req) => {
     }
 
     const ticketCount = ensureTicketsResponse.data?.issued || ensureTicketsResponse.data?.already_issued || 0;
+    const rsvpCount = ensureTicketsResponse.data?.rsvp_count || 0;
+    const isRsvpOnly = ensureTicketsResponse.data?.status === "rsvp_confirmed";
     
     // Get ticket IDs for email
     const { data: tickets } = await supabaseService
@@ -171,6 +162,8 @@ serve(async (req) => {
 
     logStep("Tickets ensured", { 
       count: ticketCount,
+      rsvpCount,
+      isRsvpOnly,
       ticketIds: ticketIds,
       ticketIdsLength: ticketIds.length
     });
@@ -235,13 +228,15 @@ serve(async (req) => {
           eventDate,
           eventLocation,
           ticketType,
-          quantity: ticketCount,
+          quantity: isRsvpOnly ? rsvpCount : ticketCount,
           totalAmount: order.total_cents,
           orderId: order.id,
-          ticketIds,
+          ticketIds: isRsvpOnly ? [] : ticketIds, // ✅ Empty array for RSVP-only (no tickets)
           eventId: order.event_id, // This will trigger auto-fetch of org/event context
           isGuest: !order.user_id || (userProfile?.display_name === 'User'),
           userId: order.user_id,
+          isRsvpOnly, // ✅ Flag to differentiate RSVP confirmation vs ticket confirmation
+          rsvpCount, // ✅ Number of RSVPs for display
         };
 
         logStep("📧 Calling send-purchase-confirmation with payload:", {

@@ -48,6 +48,7 @@ export function useTicketDetailTracking() {
       const sessionId = getSessionId();
       const { data: { user } } = await supabase.auth.getUser();
       
+      // ✅ Use insert and silently ignore duplicate key errors (deduplication working as intended)
       const { error } = await supabase
         .from('ticket_detail_views')
         .insert({
@@ -55,18 +56,17 @@ export function useTicketDetailTracking() {
           user_id: user?.id || null,
           session_id: sessionId,
           tier_viewed: tierViewed || null,
+          hour_bucket: new Date(Math.floor(Date.now() / 3600000) * 3600000).toISOString(), // Current hour
+          viewed_at: new Date().toISOString(),
         });
       
-      if (error) {
-        // 409 Conflict is expected for duplicate views (deduplication working)
-        // 23505 = Postgres unique violation, 409 = PostgREST conflict
-        if (error.code !== '23505' && !error.message?.includes('409')) {
-          console.error('[Purchase Intent] Failed to track ticket view:', error);
-        }
+      // Silently ignore 23505 (duplicate key) - that's deduplication working correctly
+      if (error && error.code !== '23505') {
+        console.error('[Purchase Intent] Failed to track ticket view:', error);
       }
     } catch (err) {
       // Non-blocking: don't break UX if tracking fails
-      console.error('[Purchase Intent] Unexpected error tracking ticket view:', err);
+      // Silently fail - this is just analytics
     }
   }, []);
   
@@ -98,23 +98,30 @@ export function useProfileVisitTracking() {
         return;
       }
       
+      // ✅ Use upsert with ignoreDuplicates to avoid 409 errors entirely
       const { error } = await supabase
         .from('profile_visits')
         .insert({
           visited_user_id: visitedUserId,
           visitor_id: user?.id || null,
           session_id: sessionId,
+          hour_bucket: new Date(Math.floor(Date.now() / 3600000) * 3600000).toISOString(), // Current hour
+          visited_at: new Date().toISOString(),
         });
       
       if (error) {
-        // 409 Conflict is expected for duplicate visits (deduplication working)
-        if (error.code !== '23505') {  // unique violation
-          console.error('[Purchase Intent] Failed to track profile visit:', error);
+        // Ignore duplicate key violations (23505) - this is intentional deduplication
+        if (error.code === '23505') {
+          // Silent: this visit was already tracked in this time window
+          return;
         }
+        
+        // Only log actual errors (not duplicates)
+        console.error('[Purchase Intent] Failed to track profile visit:', error);
       }
     } catch (err) {
       // Non-blocking: don't break UX if tracking fails
-      console.error('[Purchase Intent] Unexpected error tracking profile visit:', err);
+      // Silently fail - this is just analytics
     }
   }, []);
   

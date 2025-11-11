@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { stripeCallWithResilience } from "../_shared/stripe-resilience.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,12 +36,31 @@ serve(async (req) => {
       throw new Error("Missing required parameters");
     }
 
+    // Validate minimum payout amount ($10.00)
+    const MINIMUM_PAYOUT_CENTS = 1000;
+    if (amount_cents < MINIMUM_PAYOUT_CENTS) {
+      throw new Error(`Minimum payout amount is $${(MINIMUM_PAYOUT_CENTS / 100).toFixed(2)}`);
+    }
+
     // Initialize Supabase service client
     const supabaseService = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
+
+    // Check rate limit (max 3 payouts per hour per context)
+    const { data: rateLimitCheck } = await supabaseService
+      .rpc('check_payout_rate_limit', {
+        p_context_type: context_type,
+        p_context_id: context_id
+      });
+
+    if (rateLimitCheck && !rateLimitCheck.allowed) {
+      throw new Error(
+        `Payout request limit exceeded. You can request ${rateLimitCheck.max_requests} payouts every ${rateLimitCheck.window_hours} hour(s). Please try again later.`
+      );
+    }
 
     // Verify user has permission to request payout for this context
     let hasPermission = false;
@@ -89,10 +109,14 @@ serve(async (req) => {
       apiVersion: "2023-10-16",
     });
 
-    // Check account balance
-    const balance = await stripe.balance.retrieve({
-      stripeAccount: payoutAccount.stripe_connect_id
-    });
+    // Check account balance (with retry logic)
+    const balance = await stripeCallWithResilience(
+      supabaseService,
+      () => stripe.balance.retrieve({
+        stripeAccount: payoutAccount.stripe_connect_id
+      }),
+      { operationName: 'balance.retrieve' }
+    );
 
     const availableAmount = balance.available.reduce((total: number, b: any) => {
       if (b.currency === 'usd') return total + b.amount;
@@ -103,41 +127,103 @@ serve(async (req) => {
       throw new Error(`Insufficient balance. Available: $${(availableAmount / 100).toFixed(2)}, Requested: $${(amount_cents / 100).toFixed(2)}`);
     }
 
-    // Create payout
-    const payout = await stripe.payouts.create({
-      amount: amount_cents,
-      currency: 'usd',
-      description: `Payout requested via platform`,
-      metadata: {
+    // Capture request metadata for audit trail
+    const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    const userAgent = req.headers.get('user-agent') || 'unknown';
+
+    let payoutId: string | null = null;
+    let payoutStatus = 'pending';
+
+    try {
+      // Create payout (with retry logic)
+      const payout = await stripeCallWithResilience(
+        supabaseService,
+        () => stripe.payouts.create({
+          amount: amount_cents,
+          currency: 'usd',
+          description: `Payout requested via platform`,
+          metadata: {
+            context_type,
+            context_id,
+            requested_by: userData.user.id
+          }
+        }, {
+          stripeAccount: payoutAccount.stripe_connect_id
+        }),
+        { operationName: 'payouts.create' }
+      );
+
+      payoutId = payout.id;
+      payoutStatus = 'success';
+
+      // Log successful payout request
+      await supabaseService.from('payout_requests_log').insert({
         context_type,
         context_id,
-        requested_by: userData.user.id
-      }
-    }, {
-      stripeAccount: payoutAccount.stripe_connect_id
-    });
+        requested_by: userData.user.id,
+        amount_cents,
+        stripe_payout_id: payout.id,
+        status: 'success',
+        ip_address: ipAddress,
+        user_agent: userAgent
+      });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        payout_id: payout.id,
-        amount: payout.amount,
-        status: payout.status,
-        arrival_date: payout.arrival_date
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
-    );
+      return new Response(
+        JSON.stringify({
+          success: true,
+          payout_id: payout.id,
+          amount: payout.amount,
+          status: payout.status,
+          arrival_date: payout.arrival_date
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    } catch (payoutError: any) {
+      // Log failed payout request
+      await supabaseService.from('payout_requests_log').insert({
+        context_type,
+        context_id,
+        requested_by: userData.user.id,
+        amount_cents,
+        stripe_payout_id: payoutId,
+        status: 'failed',
+        error_message: payoutError.message || 'Unknown error',
+        error_code: payoutError.code || payoutError.type,
+        ip_address: ipAddress,
+        user_agent: userAgent
+      });
+
+      throw payoutError;
+    }
 
   } catch (error) {
     console.error('Error in create-payout:', error);
+    
+    // Determine appropriate HTTP status code
+    const errorMessage = (error as any)?.message || 'Unknown error';
+    let statusCode = 500;
+    
+    if (errorMessage.includes('Minimum payout amount')) {
+      statusCode = 400;
+    } else if (errorMessage.includes('rate limit') || errorMessage.includes('limit exceeded')) {
+      statusCode = 429;
+    } else if (errorMessage.includes('Unauthorized')) {
+      statusCode = 403;
+    } else if (errorMessage.includes('not found')) {
+      statusCode = 404;
+    }
+    
     return new Response(
-      JSON.stringify({ error: (error as any)?.message || 'Unknown error' }),
+      JSON.stringify({ 
+        error: errorMessage,
+        code: (error as any)?.code || 'PAYOUT_FAILED'
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
+        status: statusCode,
       }
     );
   }

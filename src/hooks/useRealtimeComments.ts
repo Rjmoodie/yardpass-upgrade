@@ -33,15 +33,14 @@ export const useRealtimeComments = ({
   const [postIds, setPostIds] = useState<string[]>(explicitPostIds ?? []);
   const authorCacheRef = useRef<Map<string, { display_name?: string }>>(new Map());
 
-  // Keep latest callbacks
+  // 🎯 PERF-003: Keep latest callbacks in refs (prevent subscription churn)
   const addedRef = useRef(onCommentAdded);
   const deletedRef = useRef(onCommentDeleted);
   useEffect(() => { 
-    console.log('🔥 useRealtimeComments: Updating onCommentAdded callback');
+    // Removed verbose logging - refs update silently
     addedRef.current = onCommentAdded; 
   }, [onCommentAdded]);
   useEffect(() => { 
-    console.log('🔥 useRealtimeComments: Updating onCommentDeleted callback');
     deletedRef.current = onCommentDeleted; 
   }, [onCommentDeleted]);
 

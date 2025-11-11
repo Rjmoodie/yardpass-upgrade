@@ -25,6 +25,7 @@ interface AuthContextType {
   signUpWithPhone: (phone: string, displayName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateRole: (role: 'attendee' | 'organizer') => Promise<{ error: Error | null }>;
+  updateProfileOptimistic: (updates: Partial<UserProfile>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,94 +36,123 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-    
-    if (error) {
-      console.error('Error fetching user profile:', error);
-      return null;
+  // ✅ SECURITY FIX: Fetch with retry logic (no more setTimeout hack)
+  const fetchUserProfile = async (
+    userId: string,
+    retries: number = 3
+  ): Promise<UserProfile | null> => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (!error && data) {
+        // Success - return typed profile
+        return {
+          ...data,
+          role: data.role as 'attendee' | 'organizer',
+          verification_status: data.verification_status as 'none' | 'pending' | 'verified' | 'pro'
+        };
+      }
+      
+      if (error && error.code !== 'PGRST116') {
+        // Real error (not just "not found")
+        console.error(`[Auth] Error fetching profile (attempt ${attempt}/${retries}):`, error);
+        return null;
+      }
+      
+      // Profile not found yet - retry with exponential backoff
+      if (attempt < retries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 3000); // Max 3s
+        console.log(`[Auth] Profile not ready, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
     
-    // Type cast the data to ensure role is properly typed
-    return {
-      ...data,
-      role: data.role as 'attendee' | 'organizer',
-      verification_status: data.verification_status as 'none' | 'pending' | 'verified' | 'pro'
-    };
+    console.error(`[Auth] Profile not found after ${retries} attempts for user:`, userId);
+    return null;
   };
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // ✅ Check if this is a new user (created_at ~= updated_at within 1 second)
-          const isNewUser = event === 'SIGNED_IN' && 
-            Math.abs(new Date(session.user.created_at).getTime() - new Date(session.user.updated_at).getTime()) < 1000;
-          
-          if (isNewUser) {
-            console.log('🆕 New user detected - creating profile');
-            
-            // ✅ Get display_name from user_metadata (set by SmartAuthModal on signup)
-            const displayName = session.user.user_metadata?.display_name || 'User';
-            const phone = session.user.phone || session.user.user_metadata?.phone;
-            
-            // ✅ Determine if guest checkout user or organic signup
-            const createdVia = session.user.user_metadata?.created_via;
-            console.log('📝 Creating profile with:', { displayName, createdVia, email: session.user.email });
-            
-            const { error: profileError } = await supabase
-              .from('user_profiles')
-              .upsert({
-                user_id: session.user.id,
-                display_name: displayName,
-                email: session.user.email,
-                phone: phone,
-                role: 'attendee',
-                verification_status: 'none',
-                created_at: new Date().toISOString(),
-              });
-            
-            if (profileError) {
-              console.error('❌ Error creating user profile:', profileError);
-            } else {
-              console.log('✅ Profile created successfully');
-            }
-          }
-          
-          // Fetch user profile to get role and other info
-          setTimeout(async () => {
-            const userProfile = await fetchUserProfile(session.user.id);
-            setProfile(userProfile);
-          }, 0);
-        } else {
-          setProfile(null);
-        }
-        
-        setLoading(false);
-      }
-    );
-
-    // Check for existing session
+    // ✅ FIX: Handle initial session and subscription separately to avoid duplicate logs
+    let mounted = true;
+    
+    // Check for existing session ONCE on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserProfile(session.user.id).then(setProfile);
+        if (import.meta.env.DEV) {
+          console.log('[Auth] User authenticated:', session.user.email);
+        }
+        
+        fetchUserProfile(session.user.id).then(userProfile => {
+          if (!mounted) return;
+          
+          if (userProfile) {
+            if (import.meta.env.DEV) {
+              console.log('[Auth] ✅ Profile loaded:', userProfile.role);
+            }
+            setProfile(userProfile);
+          } else {
+            console.error('[Auth] ❌ Failed to load profile after retries');
+            setProfile(null);
+          }
+        }).catch(error => {
+          if (!mounted) return;
+          console.error('[Auth] Profile fetch error:', error);
+          setProfile(null);
+        });
       }
       
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Set up listener for FUTURE auth changes (not initial load)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        
+        // Only log for actual auth events (not initial load)
+        if (event !== 'INITIAL_SESSION') {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            if (import.meta.env.DEV) {
+              console.log('[Auth] User authenticated:', session.user.email);
+            }
+            
+            fetchUserProfile(session.user.id).then(userProfile => {
+              if (!mounted) return;
+              
+              if (userProfile) {
+                if (import.meta.env.DEV) {
+                  console.log('[Auth] ✅ Profile loaded:', userProfile.role);
+                }
+                setProfile(userProfile);
+              } else {
+                setProfile(null);
+              }
+            });
+          } else {
+            setProfile(null);
+          }
+          
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -181,34 +211,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  // ✅ SECURITY FIX: Role updates now go through server-side function
   const updateRole = async (role: 'attendee' | 'organizer') => {
     if (!user) {
-      console.error('updateRole: No user logged in');
-      return { error: 'No user logged in' };
+      console.error('[Auth] updateRole: No user logged in');
+      return { error: new Error('No user logged in') };
     }
     
-    console.log('updateRole: Updating role to:', role, 'for user:', user.id);
+    console.log('[Auth] Requesting role update to:', role);
     
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .update({ role })
-      .eq('user_id', user.id)
-      .select();
-    
-    console.log('updateRole result:', { data, error });
-    
-    if (!error) {
-      // Refetch the complete profile to ensure consistency
-      const updatedProfile = await fetchUserProfile(user.id);
-      if (updatedProfile) {
-        console.log('updateRole: Setting updated profile with role:', role);
-        setProfile(updatedProfile);
+    // ⚠️ NOTE: This will call the database function which requires admin privileges
+    // For normal users upgrading to organizer, implement a separate verification flow
+    try {
+      const { data, error } = await supabase.rpc('update_user_role', {
+        p_user_id: user.id,
+        p_new_role: role
+      });
+      
+      if (error) {
+        console.error('[Auth] Role update failed:', error);
+        
+        // Provide user-friendly error message
+        if (error.message?.includes('Unauthorized')) {
+          return { 
+            error: new Error('You do not have permission to change roles. Please contact support.')
+          };
+        }
+        
+        return { error: new Error(error.message || 'Failed to update role') };
       }
-    } else {
-      console.error('updateRole: Database error:', error);
+      
+      console.log('[Auth] ✅ Role updated:', data);
+      
+      // ✅ Optimistic update for instant UI response
+      setProfile(prev => prev ? { ...prev, role } : prev);
+      
+      // Then fetch full profile to ensure consistency
+      fetchUserProfile(user.id).then(updatedProfile => {
+        if (updatedProfile) {
+          setProfile(updatedProfile);
+        }
+      });
+      
+      return { error: null };
+    } catch (err) {
+      const error = err as Error;
+      console.error('[Auth] updateRole exception:', error);
+      return { error };
     }
-    
-    return { error };
   };
 
   const signOut = async () => {
@@ -219,6 +269,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Clear guest sessions to prevent conflicts
     localStorage.removeItem('ticket-guest-session');
+  };
+
+  // ✅ Optimistic profile update for instant UI changes
+  const updateProfileOptimistic = (updates: Partial<UserProfile>) => {
+    setProfile(prev => prev ? { ...prev, ...updates } : prev);
   };
 
   return (
@@ -234,6 +289,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUpWithPhone,
       signOut,
       updateRole: updateRole as any,
+      updateProfileOptimistic,
     }}>
       {children}
     </AuthContext.Provider>

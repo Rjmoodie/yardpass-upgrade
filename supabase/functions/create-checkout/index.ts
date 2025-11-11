@@ -149,22 +149,37 @@ serve(async (req) => {
 
     logStep("Tickets reserved successfully", reservationResult);
 
-    // Calculate fees and total
+    // Calculate fees with Stripe gross-up (organizer gets 100% of faceValue)
     const calculateTotal = (faceValueCents: number) => {
-      const faceValue = faceValueCents / 100;
-      const processingFee = faceValue * 0.066 + 2.19;
-      const total = faceValue + processingFee;
-      const totalCents = Math.round(total * 100);
+      // ✅ No processing fee for free tickets
+      if (faceValueCents === 0) {
+        logStep("Free tickets - no processing fee", { faceValueCents });
+        return 0;
+      }
       
-      logStep("Fee calculation", { 
-        faceValueCents, 
-        faceValue, 
-        processingFee, 
-        total, 
-        totalCents 
+      const faceValue = faceValueCents / 100;
+      
+      // Platform fee target (Eventbrite-equivalent): 6.6% + $1.79
+      const platformFeeTarget = faceValue * 0.066 + 1.79;
+      
+      // Net needed after Stripe fees
+      const totalNetNeeded = faceValue + platformFeeTarget;
+      
+      // Gross up for Stripe: 2.9% + $0.30
+      const totalCharge = (totalNetNeeded + 0.30) / 0.971;
+      
+      const totalCents = Math.round(totalCharge * 100);
+      
+      logStep("Fee calculation (with gross-up)", { 
+        faceValueCents,
+        faceValue,
+        platformFeeTarget,
+        totalNetNeeded,
+        totalCharge,
+        totalCents
       });
       
-      return totalCents; // Convert back to cents
+      return totalCents;
     };
 
     // Calculate Stripe line items with fees included

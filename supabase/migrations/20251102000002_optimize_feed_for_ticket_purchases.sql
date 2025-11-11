@@ -11,6 +11,7 @@
 -- 8. Label leakage prevention (exclude purchased events)
 -- 9. Proper indexes + RLS
 -- 10. Diagnostic views for debugging
+-- 11. Urgency boost for events happening within 1 week (last-minute sales)
 
 -- ==========================================
 -- PART 1: New tracking tables
@@ -133,6 +134,10 @@ VALUES
   -- Engagement smoothing (Bayesian prior)
   ('engagement.prior_alpha', 5.0, NULL, 'Beta prior: pseudo-likes'),
   ('engagement.prior_beta', 10.0, NULL, 'Beta prior: pseudo-views'),
+  
+  -- Urgency boost (time-based)
+  ('urgency.one_week_boost', 0.30, NULL, 'Boost for events within 7 days (last-minute sales)'),
+  ('urgency.one_day_boost', 0.50, NULL, 'Extra boost for events within 24 hours (urgent!)'),
   
   -- Diversity penalties
   ('diversity.rank_1', 1.00, NULL, 'Top event from organizer: no penalty'),
@@ -310,13 +315,25 @@ candidate_events AS (
 -- Saved events (explicit intent, half-life 21d)
 saved_signal AS (
   SELECT 
-    se.event_id,
-    MAX(se.saved_at) AS last_saved_at,
-    exp(-ln(2) * GREATEST(0, EXTRACT(EPOCH FROM (now() - MAX(se.saved_at))) / 86400.0) / 21.0) AS decay
-  FROM public.saved_events se
-  WHERE se.user_id = p_user
-    AND se.saved_at > now() - INTERVAL '180 days'
-  GROUP BY se.event_id
+    event_id,
+    MAX(saved_at) AS last_saved_at,
+    exp(-ln(2) * GREATEST(0, EXTRACT(EPOCH FROM (now() - MAX(saved_at))) / 86400.0) / 21.0) AS decay
+  FROM (
+    -- Saved events
+    SELECT event_id, saved_at
+    FROM public.saved_events
+    WHERE user_id = p_user
+      AND saved_at > now() - INTERVAL '180 days'
+    
+    UNION ALL
+    
+    -- Saved posts (also indicate interest in the event)
+    SELECT event_id, created_at AS saved_at
+    FROM events.user_saved_posts
+    WHERE user_id = p_user
+      AND created_at > now() - INTERVAL '180 days'
+  ) AS all_saves
+  GROUP BY event_id
 ),
 -- Ticket detail views (high intent, half-life 14d)
 ticket_detail_signal AS (
@@ -328,6 +345,18 @@ ticket_detail_signal AS (
   WHERE tdv.user_id = p_user
     AND tdv.viewed_at > now() - INTERVAL '90 days'
   GROUP BY tdv.event_id
+),
+-- Checkout sessions (very high intent, half-life 14d)
+checkout_signal AS (
+  SELECT 
+    cs.event_id,
+    MAX(cs.started_at) AS last_checkout_at,
+    exp(-ln(2) * GREATEST(0, EXTRACT(EPOCH FROM (now() - MAX(cs.started_at))) / 86400.0) / 14.0) AS decay
+  FROM public.checkout_sessions cs
+  WHERE cs.user_id = p_user
+    AND cs.started_at > now() - INTERVAL '90 days'
+    AND cs.completed_at IS NULL  -- Only abandoned checkouts (high intent!)
+  GROUP BY cs.event_id
 ),
 -- High dwell impressions (completed views, half-life 7d)
 dwell_signal AS (
@@ -441,6 +470,7 @@ purchase_intent AS (
   SELECT 
     ce.event_id,
     (w.w->>'intent.saved')::float8 * COALESCE(ss.decay, 0)
+    + (w.w->>'intent.checkout_start')::float8 * COALESCE(cos.decay, 0)
     + (w.w->>'intent.ticket_detail')::float8 * COALESCE(tds.decay, 0)
     + (w.w->>'behavior.dwell_completed')::float8 * COALESCE(ds.decay, 0)
     + (w.w->>'behavior.share')::float8 * COALESCE(shs.decay, 0)
@@ -465,12 +495,13 @@ purchase_intent AS (
   FROM candidate_events ce
   CROSS JOIN weights w
   LEFT JOIN saved_signal ss ON ss.event_id = ce.event_id
+  LEFT JOIN checkout_signal cos ON cos.event_id = ce.event_id
   LEFT JOIN ticket_detail_signal tds ON tds.event_id = ce.event_id
   LEFT JOIN dwell_signal ds ON ds.event_id = ce.event_id
   LEFT JOIN share_signal shs ON shs.event_id = ce.event_id
   LEFT JOIN similar_purchase_signal sps ON sps.event_id = ce.event_id
   LEFT JOIN profile_visit_signal pvs ON pvs.event_id = ce.event_id
-  CROSS JOIN user_price_profile upp
+  LEFT JOIN user_price_profile upp ON true  -- Fixed: LEFT JOIN prevents empty result when user has no orders
 ),
 -- Affinity score
 affinity_score AS (
@@ -539,6 +570,29 @@ exploration_bonus AS (
     ) AS exploration_score
   FROM candidate_events ce
 ),
+-- Urgency boost for upcoming events (1 week window)
+urgency_boost AS (
+  SELECT
+    ce.event_id,
+    CASE
+      -- Events within 24 hours get max boost (last-minute ticket sales!)
+      WHEN ce.start_at IS NOT NULL 
+        AND ce.start_at > now() 
+        AND ce.start_at <= now() + INTERVAL '1 day'
+      THEN (w.w->>'urgency.one_day_boost')::float8
+      
+      -- Events within 7 days get standard boost
+      WHEN ce.start_at IS NOT NULL 
+        AND ce.start_at > now() 
+        AND ce.start_at <= now() + INTERVAL '7 days'
+      THEN (w.w->>'urgency.one_week_boost')::float8
+      
+      -- No boost for events > 7 days away or past events
+      ELSE 0.0
+    END AS urgency
+  FROM candidate_events ce
+  CROSS JOIN weights w
+),
 -- Combine all signals (normalize to [0,1] within candidate set)
 combined_signals AS (
   SELECT
@@ -548,7 +602,8 @@ combined_signals AS (
     COALESCE(afs.affinity, 0) AS affinity,
     COALESCE(es.engagement, 0) AS engagement,
     COALESCE(ccp.avg_city_cat_views, 0) AS cold_start_prior,
-    COALESCE(eb.exploration_score, 0) AS exploration
+    COALESCE(eb.exploration_score, 0) AS exploration,
+    COALESCE(ub.urgency, 0) AS urgency
   FROM candidate_events ce
   LEFT JOIN purchase_intent pi ON pi.event_id = ce.event_id
   LEFT JOIN affinity_score afs ON afs.event_id = ce.event_id
@@ -556,6 +611,7 @@ combined_signals AS (
   LEFT JOIN city_category_popularity ccp ON ccp.city = (SELECT city FROM events WHERE id = ce.event_id) 
     AND ccp.category = (SELECT category FROM events WHERE id = ce.event_id)
   LEFT JOIN exploration_bonus eb ON eb.event_id = ce.event_id
+  LEFT JOIN urgency_boost ub ON ub.event_id = ce.event_id
 ),
 -- Normalize signals
 signal_stats AS (
@@ -579,6 +635,7 @@ base_scores AS (
     + (w.w->>'component.exploration')::float8 * (
         0.7 * cs.exploration + 0.3 * (cs.cold_start_prior / ss.max_cold)
       )
+    + cs.urgency  -- 🚨 Urgency boost: flat addition (0.3 for 7d, 0.5 for 24h)
     AS base_score
   FROM combined_signals cs
   CROSS JOIN signal_stats ss
@@ -669,12 +726,16 @@ items AS (
     'post'::text AS item_type,
     rp.post_id AS item_id,
     rp.event_id,
-    se.score * 0.98 AS score,  -- Slight penalty for posts vs. event card
+    CASE
+      WHEN ce.user_already_purchased THEN se.score * 1.2  -- 🔥 Strong boost for posts from events viewer has tickets for
+      ELSE se.score * 0.98                                -- Slight penalty vs event cards for non-purchased events
+    END AS score,
     rp.created_at AS sort_ts,
     se.event_rank,
     rp.rn AS within_event_rank
   FROM ranked_posts rp
   JOIN scored_events se ON se.event_id = rp.event_id
+  JOIN candidate_events ce ON ce.event_id = rp.event_id  -- Added: needed for user_already_purchased check
   -- ✅ Keep POSTS from purchased events (attendees want social engagement!)
   WHERE rp.rn <= 3  -- Top 3 posts per event
 ),
@@ -825,7 +886,7 @@ COMMENT ON TABLE public.model_feature_weights IS
   'Configurable weights for ranking features. Update without redeploying SQL.';
   
 COMMENT ON FUNCTION public.get_home_feed_ranked IS 
-  'Production-grade feed ranking optimized for ticket purchases. Uses time-decayed signals, Bayesian smoothing, diversity control, and exploration. Configurable via model_feature_weights table.';
+  'Production-grade feed ranking optimized for ticket purchases. Uses time-decayed signals, Bayesian smoothing, diversity control, exploration, and urgency boost for upcoming events. Configurable via model_feature_weights table.';
 
 -- Success message
 SELECT 'Feed ranking optimized for ticket purchase intent! 🎯' AS status;

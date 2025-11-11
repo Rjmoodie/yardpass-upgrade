@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -55,6 +55,9 @@ export function FollowListModal({ open, onOpenChange, targetType, targetId, dire
       <DialogContent className="max-h-[80vh] w-full max-w-lg overflow-hidden p-0">
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">
+            View and manage {direction === 'followers' ? 'followers' : 'following'}
+          </DialogDescription>
         </DialogHeader>
         <ScrollArea className="h-[60vh]">
           <div className="space-y-0 divide-y">

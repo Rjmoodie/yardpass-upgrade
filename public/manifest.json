@@ -1,76 +1,65 @@
 {
-  "name": "YardPass - Discover Amazing Events",
+  "name": "YardPass - Your Event Passport",
   "short_name": "YardPass",
-  "description": "Video-first event discovery and ticketing platform",
+  "description": "Discover and attend the best events in your area",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0f23",
-  "theme_color": "#f59e0b",
+  "background_color": "#ffffff",
+  "theme_color": "#0EA5E9",
   "orientation": "portrait-primary",
-  "categories": ["entertainment", "social", "lifestyle"],
-  "lang": "en-US",
-  "scope": "/",
   "icons": [
     {
-      "src": "/yardpass-logo.png",
+      "src": "/images/yardpass-logo-full.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/yardpass-logo.png",
+      "src": "/images/yardpass-logo-full.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
+  "categories": ["entertainment", "lifestyle", "social"],
   "shortcuts": [
     {
-      "name": "Discover Events",
-      "short_name": "Discover",
-      "description": "Browse trending events",
-      "url": "/",
+      "name": "Browse Events",
+      "short_name": "Events",
+      "description": "Browse upcoming events",
+      "url": "/feed",
       "icons": [
         {
-          "src": "/yardpass-logo.png",
-          "sizes": "96x96"
+          "src": "/images/yardpass-logo-full.png",
+          "sizes": "192x192"
         }
       ]
     },
     {
       "name": "My Tickets",
       "short_name": "Tickets",
-      "description": "View your event tickets",
+      "description": "View your tickets",
       "url": "/tickets",
       "icons": [
         {
-          "src": "/yardpass-logo.png",
-          "sizes": "96x96"
+          "src": "/images/yardpass-logo-full.png",
+          "sizes": "192x192"
         }
       ]
     },
     {
-      "name": "Organizer Dashboard",
+      "name": "Dashboard",
       "short_name": "Dashboard",
-      "description": "Manage your events",
+      "description": "Organizer dashboard",
       "url": "/dashboard",
       "icons": [
         {
-          "src": "/yardpass-logo.png",
-          "sizes": "96x96"
+          "src": "/images/yardpass-logo-full.png",
+          "sizes": "192x192"
         }
       ]
     }
   ],
-  "related_applications": [
-    {
-      "platform": "play",
-      "url": "https://play.google.com/store/apps/details?id=app.lovable.f63ed2d9b24c482abacd65518a3b8e6f"
-    },
-    {
-      "platform": "itunes",
-      "url": "https://apps.apple.com/app/yardpass/id1234567890"
-    }
-  ],
+  "screenshots": [],
   "prefer_related_applications": false
 }

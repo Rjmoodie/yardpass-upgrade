@@ -80,6 +80,8 @@ const RequestSchema = z.object({
   eventInfo: EventInfoSchema.optional(),
   isGuest: z.boolean().optional(),
   userId: z.string().optional(),
+  isRsvpOnly: z.boolean().optional(), // ✅ Flag for RSVP-only confirmations (no tickets)
+  rsvpCount: z.number().int().nonnegative().optional(), // ✅ Number of RSVPs
 });
 
 export type PurchaseConfirmationRequest = z.infer<typeof RequestSchema>;
@@ -379,7 +381,10 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
 
 function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: PurchaseConfirmationRequest; orgInfo?: OrgInfo; eventInfo?: EventInfo }) {
   const title = eventInfo?.title || data.eventTitle;
-  const preheaderText = `Your tickets for ${title} are confirmed. Access them anytime with YardPass.`;
+  const isRsvp = data.isRsvpOnly || false;
+  const preheaderText = isRsvp
+    ? `Your RSVP for ${title} is confirmed. See you there!`
+    : `Your tickets for ${title} are confirmed. Access them anytime with YardPass.`;
   const formattedDate = formatDate(eventInfo?.date || data.eventDate);
   const formattedTotal = formatCurrency(data.totalAmount);
 
@@ -389,9 +394,9 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
     React.createElement(
       "div",
       { style: { background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", color: "#ffffff", padding: "24px", borderRadius: "14px", marginBottom: "28px", textAlign: "center" } },
-      React.createElement("div", { style: { fontSize: "32px", marginBottom: "8px" } }, "🎉"),
-      React.createElement("h1", { style: { margin: 0, fontSize: "26px", fontWeight: 700 } }, "Purchase Confirmed!"),
-      React.createElement("p", { style: { margin: "10px 0 0 0", fontSize: "15px", opacity: 0.95 } }, "Your tickets are ready to scan at the door."),
+      React.createElement("div", { style: { fontSize: "32px", marginBottom: "8px" } }, isRsvp ? "✅" : "🎉"),
+      React.createElement("h1", { style: { margin: 0, fontSize: "26px", fontWeight: 700 } }, isRsvp ? "RSVP Confirmed!" : "Purchase Confirmed!"),
+      React.createElement("p", { style: { margin: "10px 0 0 0", fontSize: "15px", opacity: 0.95 } }, isRsvp ? "You're all set! No ticket required." : "Your tickets are ready to scan at the door."),
     ),
     eventInfo?.coverImageUrl
       ? React.createElement(
@@ -411,9 +416,11 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
             React.createElement(
               "p",
               { style: { margin: "0 0 16px 0", color: "#475569", fontSize: "15px", lineHeight: 1.6 } },
-              "Thank you for your purchase! Your tickets for ",
-              React.createElement("strong", {}, title),
-              " have been confirmed and are ready to use.",
+              isRsvp 
+                ? `Thank you for your RSVP! You're confirmed for ${title}. Just show up and enjoy!`
+                : "Thank you for your purchase! Your tickets for ",
+              !isRsvp ? React.createElement("strong", {}, title) : null,
+              !isRsvp ? " have been confirmed and are ready to use." : null,
             ),
             React.createElement(
               "div",
@@ -438,9 +445,11 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
             React.createElement(
               "p",
               { style: { margin: 0, color: "#475569", fontSize: "15px", lineHeight: 1.6 } },
-              "Thank you for your purchase! Your tickets for ",
-              React.createElement("strong", {}, title),
-              " have been confirmed and are ready to use.",
+              isRsvp 
+                ? `Thank you for your RSVP! You're confirmed for ${title}. Just show up and enjoy!`
+                : "Thank you for your purchase! Your tickets for ",
+              !isRsvp ? React.createElement("strong", {}, title) : null,
+              !isRsvp ? " have been confirmed and are ready to use." : null,
             ),
           ),
     ),
@@ -465,20 +474,20 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
     React.createElement(
       "div",
       { style: { backgroundColor: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: "14px", padding: "20px", marginBottom: "20px" } },
-      React.createElement("h3", { style: { margin: "0 0 16px 0", color: "#0c4a6e", fontSize: "17px", fontWeight: 600 } }, "🎟️ Your Tickets"),
+      React.createElement("h3", { style: { margin: "0 0 16px 0", color: "#0c4a6e", fontSize: "17px", fontWeight: 600 } }, isRsvp ? "✅ Your RSVP" : "🎟️ Your Tickets"),
       React.createElement(
         "table",
         { width: "100%", cellPadding: 0, cellSpacing: 0, role: "presentation" },
         React.createElement(
           "tbody",
           {},
-          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#075985" } }, "Ticket Type"), React.createElement("td", { style: { padding: "6px 0", fontSize: "15px", color: "#0c4a6e", fontWeight: 600, textAlign: "right" } }, data.ticketType)),
-          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#075985" } }, "Quantity"), React.createElement("td", { style: { padding: "6px 0", fontSize: "18px", color: "#0c4a6e", fontWeight: 700, textAlign: "right" } }, `×${data.quantity}`)),
-          formattedTotal ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "12px 0 6px 0", fontSize: "15px", color: "#0c4a6e", fontWeight: 500 } }, "Total Paid"), React.createElement("td", { style: { padding: "12px 0 6px 0", fontSize: "20px", color: "#0c4a6e", fontWeight: 700, textAlign: "right" } }, formattedTotal)) : null,
+          !isRsvp ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#075985" } }, "Ticket Type"), React.createElement("td", { style: { padding: "6px 0", fontSize: "15px", color: "#0c4a6e", fontWeight: 600, textAlign: "right" } }, data.ticketType)) : null,
+          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#075985" } }, isRsvp ? "Guests" : "Quantity"), React.createElement("td", { style: { padding: "6px 0", fontSize: "18px", color: "#0c4a6e", fontWeight: 700, textAlign: "right" } }, `×${data.rsvpCount || data.quantity}`)),
+          !isRsvp && formattedTotal ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "12px 0 6px 0", fontSize: "15px", color: "#0c4a6e", fontWeight: 500 } }, "Total Paid"), React.createElement("td", { style: { padding: "12px 0 6px 0", fontSize: "20px", color: "#0c4a6e", fontWeight: 700, textAlign: "right" } }, formattedTotal)) : null,
           React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "12px", color: "#075985" } }, "Order ID"), React.createElement("td", { style: { padding: "6px 0", fontSize: "12px", color: "#075985", fontFamily: "monospace", textAlign: "right" } }, data.orderId)),
         ),
       ),
-      React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#0369a1", lineHeight: 1.6 } }, "Need to transfer tickets to a guest? Forward this email or share access from your YardPass account."),
+      !isRsvp ? React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#0369a1", lineHeight: 1.6 } }, "Need to transfer tickets to a guest? Forward this email or share access from your YardPass account.") : null,
     ),
     data.qrCodes && data.qrCodes.length > 0
       ? React.createElement(
@@ -502,13 +511,14 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
           React.createElement("p", { style: { margin: "8px 0 0 0", fontSize: "12px", color: "#94a3af", textAlign: "center" } }, "💾 Download the attached PDF for offline access"),
         )
       : null,
-    React.createElement(
+    // ✅ Only show attachment notice for paid tickets (skip for RSVP)
+    !isRsvp ? React.createElement(
       "div",
       { style: { backgroundColor: "#eff6ff", border: "1px solid #93c5fd", borderRadius: "14px", padding: "20px", marginBottom: "28px", textAlign: "center" } },
       React.createElement("div", { style: { fontSize: "24px", marginBottom: "8px" } }, "📎"),
       React.createElement("h3", { style: { margin: "0 0 8px 0", color: "#1e40af", fontSize: "16px", fontWeight: 600 } }, "Your Ticket PDF is Attached"),
       React.createElement("p", { style: { margin: "0", color: "#1e3a8a", fontSize: "14px", lineHeight: 1.6 } }, "Download and save the attached PDF file. Present the QR code from the PDF at check-in for quick entry."),
-    ),
+    ) : null,
     // Add to Wallet buttons
     data.walletLinks && data.walletLinks.length > 0 && (data.walletLinks[0].appleWallet || data.walletLinks[0].googleWallet)
       ? React.createElement(
@@ -544,8 +554,8 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
         "ul",
         { style: { margin: 0, paddingLeft: "20px", color: "#854d0e", fontSize: "14px", lineHeight: 1.8 } },
         React.createElement("li", {}, "Add this event to your calendar and plan your arrival."),
-        React.createElement("li", {}, "Bring a valid ID and have your QR code ready for scanning."),
-        React.createElement("li", {}, "Save this email for easy access to your tickets and order details."),
+        !isRsvp ? React.createElement("li", {}, "Bring a valid ID and have your QR code ready for scanning.") : React.createElement("li", {}, "Just show up - no ticket required for free entry!"),
+        React.createElement("li", {}, isRsvp ? "Save this email for your RSVP confirmation." : "Save this email for easy access to your tickets and order details."),
       ),
     ),
   );
@@ -992,8 +1002,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Prepare PDF attachment with ALL tickets (replaces HTML)
+    // ✅ Skip attachment for RSVP-only (no tickets issued)
     let ticketAttachment: { filename: string; content: string; contentType: string; disposition: string } | undefined;
-    if (data.ticketIds?.length || data.orderId) {
+    if (!data.isRsvpOnly && (data.ticketIds?.length || data.orderId)) {
       try {
         // Probe: verify tickets exist or try to resolve by orderId
         if (data.ticketIds?.length) {
@@ -1067,7 +1078,9 @@ const handler = async (req: Request): Promise<Response> => {
     const html = "<!DOCTYPE html>" + renderToStaticMarkup(
       React.createElement(PurchaseConfirmationTemplate, { data: { ...data, isGuest, qrCodes, walletLinks }, orgInfo, eventInfo }),
     );
-    const text = `Purchase Confirmed\n\nEvent: ${eventInfo?.title || data.eventTitle}\nWhen: ${formatDate(eventInfo?.date || data.eventDate) || "TBA"}\nWhere: ${eventInfo?.venue || eventInfo?.location || data.eventLocation}\nTicket Type: ${data.ticketType}\nQuantity: ${data.quantity}\nOrder ID: ${data.orderId}\n\nYour ticket PDF is attached to this email. Download and save it for check-in.`;
+    const text = data.isRsvpOnly
+      ? `RSVP Confirmed\n\nEvent: ${eventInfo?.title || data.eventTitle}\nWhen: ${formatDate(eventInfo?.date || data.eventDate) || "TBA"}\nWhere: ${eventInfo?.venue || eventInfo?.location || data.eventLocation}\nGuests: ${data.rsvpCount || data.quantity}\nOrder ID: ${data.orderId}\n\nYou're all set! No ticket required - just show up and enjoy the event.`
+      : `Purchase Confirmed\n\nEvent: ${eventInfo?.title || data.eventTitle}\nWhen: ${formatDate(eventInfo?.date || data.eventDate) || "TBA"}\nWhere: ${eventInfo?.venue || eventInfo?.location || data.eventLocation}\nTicket Type: ${data.ticketType}\nQuantity: ${data.quantity}\nOrder ID: ${data.orderId}\n\nYour ticket PDF is attached to this email. Download and save it for check-in.`;
 
     // Support idempotency — callers can pass Idempotency-Key header
     const idemKey = req.headers.get("Idempotency-Key") ?? requestId;
@@ -1075,7 +1088,9 @@ const handler = async (req: Request): Promise<Response> => {
     const emailPayload: Record<string, unknown> = {
       from: orgInfo?.name ? `${orgInfo.name} via YardPass <hello@yardpass.tech>` : "YardPass <hello@yardpass.tech>",
       to: [data.customerEmail],
-      subject: `✅ Ticket Confirmation - ${eventInfo?.title || data.eventTitle}`,
+      subject: data.isRsvpOnly 
+        ? `✅ RSVP Confirmed - ${eventInfo?.title || data.eventTitle}`
+        : `✅ Ticket Confirmation - ${eventInfo?.title || data.eventTitle}`,
       html,
       text,
       reply_to: orgInfo?.supportEmail || "support@yardpass.tech",

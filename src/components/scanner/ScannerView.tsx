@@ -36,6 +36,9 @@ interface ScanHistoryItem {
   timestamp: string;
 }
 
+// Scan cooldown to prevent double-scans and give operator time to react
+const SCAN_COOLDOWN_MS = 2200; // 2.2s feels natural for human reaction time
+
 const RESULT_COPY: Record<ScanResultType, { label: string }> = {
   valid: { label: 'Checked in' },
   duplicate: { label: 'Already scanned' },
@@ -75,6 +78,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   const [torchSupported, setTorchSupported] = useState(false);
   const [initializing, setInitializing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [scanLocked, setScanLocked] = useState(false);
 
   const detectorSupported = useMemo(() => typeof window !== 'undefined' && 'BarcodeDetector' in window, []);
 
@@ -102,7 +106,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   }, [torchOn, toast]);
 
   const analyseFrame = useCallback(async () => {
-    if (!detectorSupported || !videoRef.current || videoRef.current.readyState < 2) {
+    if (scanLocked || !detectorSupported || !videoRef.current || videoRef.current.readyState < 2) {
       rafRef.current = requestAnimationFrame(analyseFrame);
       return;
     }
@@ -118,7 +122,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
     } finally {
       rafRef.current = requestAnimationFrame(analyseFrame);
     }
-  }, [detectorSupported]);
+  }, [detectorSupported, scanLocked]);
 
   const startCamera = useCallback(async () => {
     if (!detectorSupported) {
@@ -170,15 +174,23 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   }, []);
 
   const handlePayload = useCallback(async (payload: string) => {
-    if (!payload) return;
+    if (!payload || scanLocked) return;
+    
+    // Set lock immediately to prevent double-scans
+    setScanLocked(true);
+    
     const now = Date.now();
     duplicateCache.current.forEach((timestamp, key) => {
       if (now - timestamp > 10 * 60 * 1000) {
         duplicateCache.current.delete(key);
       }
     });
-    if (now < cooldownRef.current) return;
-    cooldownRef.current = now + 1200;
+    if (now < cooldownRef.current) {
+      // Unlock if we're still in cooldown from a previous scan
+      setTimeout(() => setScanLocked(false), 300);
+      return;
+    }
+    cooldownRef.current = now + SCAN_COOLDOWN_MS;
 
     const cached = duplicateCache.current.get(payload);
     if (cached && now - cached < 10_000) {
@@ -220,8 +232,11 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
       };
       appendHistory(entry);
       await triggerHaptic(false);
+    } finally {
+      // Unlock after cooldown period to give operator time to see result
+      setTimeout(() => setScanLocked(false), SCAN_COOLDOWN_MS);
     }
-  }, [appendHistory, eventId]);
+  }, [appendHistory, eventId, scanLocked]);
 
   const handleManualSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -320,7 +335,26 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
                   </Button>
                 </div>
               )}
-              <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
+              <video 
+                ref={videoRef} 
+                className={`h-full w-full object-cover transition-all duration-300 ${
+                  scanLocked && status?.status === 'valid' 
+                    ? 'ring-4 ring-green-500/80 ring-offset-4 ring-offset-black' 
+                    : scanLocked && status?.status && status.status !== 'valid'
+                    ? 'ring-4 ring-red-500/80 ring-offset-4 ring-offset-black'
+                    : ''
+                }`}
+                playsInline 
+                muted 
+              />
+              
+              {/* Scan Lock Indicator */}
+              {scanLocked && (
+                <div className="absolute top-4 right-4 z-20 flex items-center gap-2 rounded-full bg-black/80 px-3 py-1.5 backdrop-blur-sm">
+                  <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                  <span className="text-xs font-semibold text-white">Processing...</span>
+                </div>
+              )}
               
               {/* Enhanced Scanning Overlay */}
               <div className="pointer-events-none absolute inset-0">

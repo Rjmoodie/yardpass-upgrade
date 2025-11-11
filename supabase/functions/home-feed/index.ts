@@ -2,6 +2,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /** ---------------------------
+ *   UTILITY: Simple Hash for ETags
+ * ---------------------------- */
+function hashCode(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
+/** ---------------------------
  *   CORS HELPER (inlined to avoid import issues)
  * ---------------------------- */
 type WithCORSOpts = { allowOrigins?: string[] };
@@ -36,7 +49,7 @@ function withCORS(
         headers: {
           "Access-Control-Allow-Origin": allowOrigin,
           "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-          "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, idempotency-key",
+          "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, idempotency-key, if-none-match",
           "Access-Control-Max-Age": "86400",
         },
       });
@@ -282,7 +295,6 @@ async function injectAds({
     }
 
     if (!eligibleAds || eligibleAds.length === 0) {
-      console.log('No eligible ads available');
       return organicItems;
     }
 
@@ -341,13 +353,6 @@ async function injectAds({
     }
 
     monitor?.mark('ad_injection_complete');
-
-    console.log('Ad injection stats:', {
-      organic_count: organicItems.length,
-      ads_eligible: eligibleAds.length,
-      ads_injected: adIndex,
-      total_items: result.length
-    });
 
     return result;
   } catch (err) {
@@ -447,8 +452,6 @@ const handler = withCORS(async (req: Request) => {
     const dateFilters: string[] = Array.isArray(filters.dates) ? filters.dates : [];
     const searchRadius: number | undefined = typeof filters.searchRadius === 'number' ? filters.searchRadius : undefined;
 
-    console.log('🔍 Feed filters received:', { locationFilters, categoryFilters, dateFilters, searchRadius, viewerId });
-
     // Build RPC args (pass all cursor parts for stable pagination + filters)
     const rpcArgs: Record<string, unknown> = {
       p_user_id: viewerId,        // null for guests
@@ -456,8 +459,7 @@ const handler = withCORS(async (req: Request) => {
       p_limit: (limit as number) + 1,
     };
     if (cursor?.id) rpcArgs.p_cursor_item_id = cursor.id;
-    if (cursor?.ts) rpcArgs.p_cursor_ts = cursor.ts;
-    if (cursor?.score !== undefined) rpcArgs.p_cursor_score = cursor.score;
+    // ❌ Removed p_cursor_ts and p_cursor_score - new SQL uses ROW_NUMBER + p_cursor_item_id for pagination
     
     // Add filter parameters
     if (categoryFilters.length > 0) rpcArgs.p_categories = categoryFilters;
@@ -474,6 +476,9 @@ const handler = withCORS(async (req: Request) => {
     }
     if (dateFilters.length > 0) rpcArgs.p_date_filters = dateFilters;
 
+    // 🎯 PERF-001: Track SQL query duration
+    const queryStartTime = Date.now();
+    
     // Try ranked feed; fallback to time-ordered events if RPC fails or returns none
     let ranked: any[] = [];
     const { data: rankedData, error: rankedError } =
@@ -485,22 +490,44 @@ const handler = withCORS(async (req: Request) => {
       if (rankedError) {
         console.warn("get_home_feed_ranked error => fallback:", rankedError.message);
       }
-      ranked = await fetchFallbackRows({ supabase, limit: (limit as number) + 1, cursor });
+      ranked = await fetchFallbackRows({ supabase, limit: (limit as number) + 1, cursor, viewerId });
+    }
+    
+    // 🎯 PERF-001: Calculate query duration
+    const queryDuration = Date.now() - queryStartTime;
+    
+    // 🎯 PERF-010: SLO Monitoring - Log slow queries with context
+    const SLO_TARGET_MS = 500; // P95 should be under 500ms
+    if (queryDuration > SLO_TARGET_MS) {
+      console.warn('🚨 [SLO BREACH] Feed query exceeded 500ms target:', {
+        duration_ms: queryDuration,
+        slo_target_ms: SLO_TARGET_MS,
+        breach_percentage: Math.round((queryDuration / SLO_TARGET_MS - 1) * 100),
+        query_params: {
+          user_id: viewerId || 'anonymous',
+          limit: rpcArgs.p_limit,
+          has_categories: !!rpcArgs.p_categories?.length,
+          has_location: !!(rpcArgs.p_user_lat && rpcArgs.p_user_lng),
+          has_date_filters: !!rpcArgs.p_date_filters?.length,
+          cursor_provided: !!rpcArgs.p_cursor_item_id
+        },
+        result: {
+          item_count: ranked.length,
+          used_fallback: !!rankedError
+        }
+      });
+    } else {
+      console.log('✅ [SLO OK] Feed query within target:', {
+        duration_ms: queryDuration,
+        slo_target_ms: SLO_TARGET_MS,
+        margin_ms: SLO_TARGET_MS - queryDuration
+      });
     }
 
     // Performance: Feed data retrieved
     monitor.mark('feed_data_retrieved');
 
     // Filters are now applied server-side in the SQL function
-    const hasFilters = categoryFilters.length > 0 || dateFilters.length > 0 || (searchRadius && searchRadius < 100);
-    if (hasFilters) {
-      console.log('✅ Server-side filters applied:', {
-        resultCount: ranked.length,
-        categoryFilters,
-        dateFilters,
-        searchRadius
-      });
-    }
 
     // Paging cursor
     let nextCursor: any = null;
@@ -539,41 +566,57 @@ const handler = withCORS(async (req: Request) => {
     // Performance: All data processed (including ads)
     monitor.mark('data_processed');
 
-    // Debug logging
-    console.log('Feed stats:', {
-      total_items: items.length,
-      events: items.filter(i => i.item_type === 'event').length,
-      posts: items.filter(i => i.item_type === 'post').length,
-      posts_with_media: items.filter(i => i.item_type === 'post' && i.media_urls && i.media_urls.length > 0).length,
-      posts_without_media: items.filter(i => i.item_type === 'post' && (!i.media_urls || i.media_urls.length === 0)).length
-    });
-
-    // Log performance metrics for monitoring
+    // Performance metrics (lightweight, production-safe)
     const metrics = monitor.getMetrics();
-    console.log('Home feed performance:', {
-      viewerId: viewerId ? 'authenticated' : 'guest',
-      itemCount: items.length,
-      ...metrics
-    });
+    if (metrics.total_duration > 200) {
+      // Only log slow requests for monitoring
+      console.warn('⚠️ Slow feed response:', {
+        duration: metrics.total_duration,
+        itemCount: items.length
+      });
+    }
 
+    // 🎯 PERF-008: Add ETag support for conditional requests
+    const responseData = {
+      items, 
+      nextCursor,
+      performance: {
+        query_time: metrics.feed_data_retrieved,
+        total_time: metrics.total_time
+      }
+    };
+    
+    // Generate ETag from content hash (simple but effective)
+    const etag = `"${hashCode(JSON.stringify({ itemCount: items.length, cursor: nextCursor }))}"`;
+    
+    // Check If-None-Match header for conditional request
+    const clientEtag = req.headers.get('If-None-Match');
+    if (clientEtag === etag) {
+      console.log('✅ [PERF-008] Cache hit - returning 304 Not Modified');
+      return new Response(null, { 
+        status: 304,
+        headers: {
+          "ETag": etag,
+          "Cache-Control": "public, max-age=15, stale-while-revalidate=30",
+          "X-Cache-Status": "HIT"
+        }
+      });
+    }
+    
     // Determine cache strategy based on user type
     const cacheControl = viewerId 
-      ? `private, max-age=${CACHE_TTL_AUTHENTICATED}` 
-      : `private, max-age=${CACHE_TTL_GUEST}`;
+      ? `private, max-age=${CACHE_TTL_AUTHENTICATED}, stale-while-revalidate=30` 
+      : `public, max-age=${CACHE_TTL_GUEST}, stale-while-revalidate=60`;
 
     return json(
       200,
-      { 
-        items, 
-        nextCursor,
-        performance: {
-          query_time: metrics.feed_data_retrieved,
-          total_time: metrics.total_time
-        }
-      },
+      responseData,
       { 
         "Cache-Control": cacheControl,
-        "X-Performance-Metrics": JSON.stringify(metrics)
+        "ETag": etag,
+        "X-Performance-Metrics": JSON.stringify(metrics),
+        "X-Query-Duration-Ms": queryDuration.toString(), // 🎯 PERF-001: Expose query duration
+        "X-Cache-Status": "MISS"
       }
     );
   } catch (err) {
@@ -599,7 +642,7 @@ Deno.serve(async (req: Request) => {
         "Access-Control-Allow-Origin": allowOrigin,
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
         "Access-Control-Allow-Headers":
-          "authorization, x-client-info, apikey, content-type, " + INTERNAL_OVERRIDE_HEADER,
+          "authorization, x-client-info, apikey, content-type, if-none-match, " + INTERNAL_OVERRIDE_HEADER,
         "Access-Control-Max-Age": "86400",
       },
     });
@@ -638,15 +681,7 @@ async function expandRows({
   const eventIds = dedupe(rows.map((r) => r.event_id));
   const postIds = rows.filter((r) => r.item_type === "post").map((r) => r.item_id);
 
-  // Debug: Check what types of items we received
-  console.log('Expanding rows:', {
-    totalRows: rows.length,
-    events: rows.filter((r) => r.item_type === "event").length,
-    posts: rows.filter((r) => r.item_type === "post").length,
-    eventIds: eventIds.length,
-    postIds: postIds.length,
-    sampleRows: rows.slice(0, 3).map(r => ({ type: r.item_type, id: r.item_id }))
-  });
+  // Debug: Performance monitoring only (removed verbose logging for production)
 
   // Phase 1: kick off everything that only depends on IDs
   const eventsQ = supabase
@@ -684,8 +719,18 @@ async function expandRows({
         .throwOnError(false)
     : Promise.resolve({ data: [], error: null });
 
-  const [{ data: events, error: eventsError }, postsRes, sponsorsRes, likesRes] =
-    await Promise.all([eventsQ, postsQ, sponsorsQ, likesQ]);
+  // NEW: Query tickets to determine is_attending
+  const ticketsQ = viewerId && eventIds.length
+    ? supabase
+        .from("tickets")
+        .select("event_id")
+        .eq("owner_user_id", viewerId)
+        .in("event_id", eventIds)
+        .in("status", ["issued", "transferred", "redeemed"])
+    : Promise.resolve({ data: [], error: null });
+
+  const [{ data: events, error: eventsError }, postsRes, sponsorsRes, likesRes, ticketsRes] =
+    await Promise.all([eventsQ, postsQ, sponsorsQ, likesQ, ticketsQ]);
   if (eventsError) throw eventsError;
 
   // Performance: Phase 1 queries completed
@@ -693,20 +738,9 @@ async function expandRows({
 
   const posts = postsRes?.data ?? [];
   const likedPostIds = new Set((likesRes?.data ?? []).map((l: any) => l.post_id));
+  const attendingEventIds = new Set((ticketsRes?.data ?? []).map((t: any) => t.event_id));
 
-  // Debug: Check what posts were fetched
-  console.log('Posts query result:', {
-    postIds: postIds.length,
-    postsFetched: posts.length,
-    postsError: postsRes?.error?.message,
-    samplePostIds: postIds.slice(0, 3),
-    samplePosts: posts.slice(0, 2).map((p: any) => ({ 
-      id: p.id, 
-      has_media: !!p.media_urls,
-      like_count: p.like_count,
-      comment_count: p.comment_count
-    }))
-  });
+  // Posts fetched - verbose logging removed for production performance
 
   // Phase 2: author profiles (fetch display_name, username, avatar_url, and social_links)
   const authorIds = dedupe(posts.map((p: any) => p.author_user_id).filter(Boolean));
@@ -805,6 +839,7 @@ async function expandRows({
           },
           sponsor: primarySponsor,
           sponsors: sponsorList,
+          is_attending: viewerId ? attendingEventIds.has(row.event_id) : false,  // NEW: viewer has tickets
         };
       }
 
@@ -849,22 +884,12 @@ async function expandRows({
       },
       sponsor: null,
       sponsors: null,
+      is_attending_event: viewerId ? attendingEventIds.has(row.event_id) : false,  // NEW: viewer has tickets for this event
     };
     })
     .filter(Boolean);
 
   // 🔍 Debug: Log what metrics are being mapped
-  const postItemsDebug = expandedRows.filter(item => item && item.item_type === 'post');
-  console.log('🔍 Final post metrics being returned:', {
-    totalPosts: postItemsDebug.length,
-    sampleMetrics: postItemsDebug.slice(0, 3).map((p: any) => ({
-      id: p.item_id,
-      likes: p.metrics?.likes,
-      comments: p.metrics?.comments,
-      hasMetrics: !!p.metrics
-    }))
-  });
-
   return expandedRows;
 }
 
@@ -875,10 +900,12 @@ async function fetchFallbackRows({
   supabase,
   limit,
   cursor,
+  viewerId,
 }: {
   supabase: ReturnType<typeof createClient>;
   limit: number;
   cursor: { ts?: string | undefined } | null;
+  viewerId: string | null;
 }) {
   const query = supabase
     .from("events")  // Will use public.events view after migration
@@ -896,11 +923,28 @@ async function fetchFallbackRows({
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data ?? []).map((event: any) => ({
+  let rows = (data ?? []).map((event: any) => ({
     item_type: "event",
     item_id: event.id,
     event_id: event.id,
     score: 0.1,
     sort_ts: event.start_at ?? new Date().toISOString(),
   }));
+
+  // Filter out events the viewer already has tickets for (consistent with ranked feed behavior)
+  if (viewerId && rows.length) {
+    const eventIds = rows.map((r) => r.event_id);
+
+    const { data: tickets } = await supabase
+      .from("tickets")
+      .select("event_id")
+      .eq("owner_user_id", viewerId)
+      .in("event_id", eventIds)
+      .in("status", ["issued", "transferred", "redeemed"]);
+
+    const purchased = new Set((tickets ?? []).map((t: any) => t.event_id));
+    rows = rows.filter((r) => !purchased.has(r.event_id));
+  }
+
+  return rows;
 }

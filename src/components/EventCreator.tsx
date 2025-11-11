@@ -52,6 +52,7 @@ interface TicketTier {
   salesStart?: string;
   salesEnd?: string;
   requiresTierId?: string;
+  isRsvpOnly?: boolean; // For free tiers: RSVP only (headcount), no tickets issued
 }
 interface EventAddon {
   id: string;
@@ -112,6 +113,9 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
   const { user } = useAuth();
   const { trackEvent } = useAnalyticsIntegration();
   const { toast } = useToast();
+
+  // Idempotency: Track creation session to prevent duplicates
+  const creationSessionIdRef = useRef<string | null>(null);
 
   // Series hook
   const series = useSeriesCreation({
@@ -483,11 +487,43 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
   // Submit
   const handleSubmit = async () => {
     if (!user || !location) return;
-    if (submittingRef.current) return;
+    
+    // Prevent duplicate submissions (double-click protection)
+    if (submittingRef.current) {
+      console.log('[EventCreator] Submission already in progress, ignoring duplicate request');
+      return;
+    }
+    
+    // Generate idempotency key for this submission
+    const sessionId = crypto.randomUUID();
+    creationSessionIdRef.current = sessionId;
+    
     submittingRef.current = true;
     setLoading(true);
 
     try {
+      // Verify user has permission to create events for this organization
+      const { data: membership, error: membershipError } = await supabase
+        .from('org_memberships')
+        .select('role')
+        .eq('org_id', organizationId)
+        .eq('user_id', user.id)
+        .in('role', ['owner', 'admin', 'editor'])
+        .maybeSingle();
+
+      if (membershipError) throw membershipError;
+      
+      if (!membership) {
+        toast({
+          title: 'Permission Denied',
+          description: 'You must be an Editor, Admin, or Owner of this organization to create events.',
+          variant: 'destructive',
+        });
+        submittingRef.current = false;
+        setLoading(false);
+        return;
+      }
+
       // Flashback window validation
       if (formData.isFlashback && orgCreatedAt) {
         const windowEnd = new Date(orgCreatedAt.getTime() + 90 * 24 * 60 * 60 * 1000);
@@ -626,6 +662,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
           sales_start: t.salesStart ? new Date(t.salesStart).toISOString() : null,
           sales_end: t.salesEnd ? new Date(t.salesEnd).toISOString() : null,
           requires_tier_id: t.requiresTierId || null,
+          is_rsvp_only: t.isRsvpOnly || false, // RSVP-only for free tiers (headcount, no tickets)
         }));
         const { error: tiersErr } = await supabase.from('ticket_tiers').insert(tiersPayload);
         if (tiersErr) throw tiersErr;
@@ -676,6 +713,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
 
       clearDraft();
       setDirty(false);
+      creationSessionIdRef.current = null; // Clear session on success
       toast({
         title: 'Event Created!',
         description:
@@ -687,16 +725,22 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       });
       onCreate();
     } catch (err: any) {
-      trackEvent('event_creation_error', {
-        organization_id: organizationId,
-        error_message: err.message,
-        step,
-        event_title: formData.title,
-      });
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      // Only log error if this is still the active session (not cancelled/superseded)
+      if (creationSessionIdRef.current === sessionId) {
+        trackEvent('event_creation_error', {
+          organization_id: organizationId,
+          error_message: err.message,
+          step,
+          event_title: formData.title,
+        });
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      }
     } finally {
-      submittingRef.current = false;
-      setLoading(false);
+      // Only reset if this is still the active session
+      if (creationSessionIdRef.current === sessionId) {
+        submittingRef.current = false;
+        setLoading(false);
+      }
     }
   };
 
@@ -1272,7 +1316,8 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                         badge: 'FREE', 
                         quantity: 100, 
                         feeBear: 'customer' as const, 
-                        visibility: 'visible' as const
+                        visibility: 'visible' as const,
+                        isRsvpOnly: true // RSVP-only by default for free tiers
                       };
                       setTicketTiers(prev => [...prev, freeTier]);
                     }}
@@ -1336,7 +1381,20 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                           className="text-base"
                         />
                         {errors[`tier-${index}-price`] && <p className="text-xs text-destructive">{errors[`tier-${index}-price`]}</p>}
-                        {tier.price === 0 && <p className="text-xs text-green-600 font-medium">✓ Free tier</p>}
+                        {tier.price === 0 && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <input
+                              type="checkbox"
+                              id={`rsvp-only-${tier.id}`}
+                              checked={tier.isRsvpOnly || false}
+                              onChange={(e) => updateTier(tier.id, 'isRsvpOnly', e.target.checked)}
+                              className="rounded border-gray-300"
+                            />
+                            <label htmlFor={`rsvp-only-${tier.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                              RSVP only (headcount, no tickets issued)
+                            </label>
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Quantity *</label>
@@ -1814,7 +1872,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
         ) : (
           <Button 
             onClick={handleSubmit} 
-            disabled={!canProceed() || loading} 
+            disabled={!canProceed() || loading || submittingRef.current} 
             className="min-w-[100px] sm:min-w-[140px]"
           >
             {loading ? (

@@ -53,9 +53,17 @@ export function useTickets() {
     isOffline: !navigator.onLine,
   });
 
-  // Prevent race conditions between quick re-fetches
+  // ✅ FIX: Stable references to prevent unnecessary refetches
   const inFlight = useRef(0);
   const lastToast = useRef<number>(0);
+  const cacheRef = useRef(cache);
+  const toastRef = useRef(toast);
+  
+  // Update refs without triggering re-renders
+  useEffect(() => {
+    cacheRef.current = cache;
+    toastRef.current = toast;
+  }, [cache, toast]);
 
   const setPartial = (patch: Partial<FetchState>) =>
     setState((s) => ({ ...s, ...patch }));
@@ -165,7 +173,10 @@ export function useTickets() {
         },
       });
       
-      console.log('🎫 get-user-tickets response:', { data, error });
+      // ✅ Reduced logging spam (only log if DEV mode and verbose flag set)
+      if (import.meta.env.DEV && localStorage.getItem('verbose_tickets') === 'true') {
+        console.log('🎫 get-user-tickets response:', { data, error });
+      }
       if (error) throw error;
 
       // Ignore outdated responses
@@ -176,7 +187,6 @@ export function useTickets() {
       if (typeof data === 'string') {
         try {
           parsedData = JSON.parse(data);
-          console.log('🎫 Parsed string data successfully');
         } catch (parseError) {
           console.error('🎫 Failed to parse tickets data:', parseError);
           parsedData = { tickets: [] };
@@ -186,24 +196,22 @@ export function useTickets() {
       // Ensure we have an array of tickets
       let tickets = [];
       if (Array.isArray(parsedData)) {
-        console.log('🎫 Using parsedData directly as array, length:', parsedData.length);
         tickets = parsedData;
       } else if (parsedData?.tickets && Array.isArray(parsedData.tickets)) {
-        console.log('🎫 Using parsedData.tickets array, length:', parsedData.tickets.length);
         tickets = parsedData.tickets;
       } else if (parsedData?.tickets === null) {
-        console.log('🎫 parsedData.tickets is null');
         tickets = [];
       } else {
         console.warn('🎫 Unexpected tickets data structure, keys:', Object.keys(parsedData || {}));
-        console.warn('🎫 parsedData.tickets type:', typeof parsedData?.tickets);
         tickets = [];
       }
       
-      console.log('🎫 Extracted tickets:', tickets);
       const transformed = transform(tickets);
-      console.log('🎫 Raw tickets from API:', tickets);
-      console.log('🎫 Transformed tickets:', transformed);
+      
+      // ✅ Single log instead of spam
+      if (import.meta.env.DEV) {
+        console.log(`🎫 Loaded ${transformed.length} tickets`);
+      }
       const nowMs = Date.now();
       transformed.sort((a, b) => {
         const aStart = new Date(a.startAtISO).getTime();
@@ -217,16 +225,16 @@ export function useTickets() {
 
       setPartial({ tickets: transformed, loading: false, isOffline: false });
 
-      // Cache for offline
-      cache.cacheTicketList(transformed as any);
+      // Cache for offline using ref
+      cacheRef.current.cacheTicketList(transformed as any);
     } catch (e: any) {
-      console.error('Error fetching tickets:', e);
+      console.error('[Tickets] Error fetching:', e.message || e);
 
-      // Try cached
-      const cached = cache.getCachedTicketList();
+      // Try cached using ref
+      const cached = cacheRef.current.getCachedTicketList();
       if (Array.isArray(cached) && cached.length) {
         setPartial({ tickets: cached as any, loading: false, isOffline: !navigator.onLine });
-        toast({
+        toastRef.current({
           title: 'Using Cached Data',
           description: e?.message || 'Network error. Showing cached tickets.',
         });
@@ -236,14 +244,14 @@ export function useTickets() {
           error: e?.message || 'Failed to fetch tickets',
           isOffline: !navigator.onLine,
         });
-        toast({
+        toastRef.current({
           title: 'Error Loading Tickets',
           description: e?.message || 'Failed to fetch tickets',
           variant: 'destructive',
         });
       }
     }
-  }, [user, cache, toast, transform]);
+  }, [user?.id, transform]); // ✅ FIX: Only depend on user.id (stable), not entire user object
   
   // Store stable reference
   fetchRef.current = fetchUserTickets;
@@ -258,7 +266,7 @@ export function useTickets() {
   const forceRefreshTickets = useCallback(async () => {
     if (!user) return;
     
-    console.log('🔄 Force refreshing tickets...');
+    if (import.meta.env.DEV) console.log('🔄 Force refreshing tickets...');
     setPartial({ loading: true, error: null });
     
     try {
@@ -345,7 +353,7 @@ export function useTickets() {
       setPartial({ isOffline: true });
       const now = Date.now();
       if (now - lastToast.current > 2500) {
-        toast({
+        toastRef.current({
           title: 'Offline',
           description: 'You lost internet connection. Showing cached data if available.',
         });
@@ -358,7 +366,7 @@ export function useTickets() {
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
     };
-  }, [toast]);
+  }, []); // ✅ FIX: Empty deps - listeners don't need to recreate
 
   // First load
   useEffect(() => {

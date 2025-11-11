@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useHasBlock } from './useBlock';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type FollowTargetType = 'organizer' | 'event' | 'user';
 
@@ -7,10 +9,22 @@ type Target = { type: FollowTargetType; id: string };
 
 export type FollowState = 'none' | 'pending' | 'accepted';
 
+interface FollowError extends Error {
+  code?: string;
+  isBlocked?: boolean;
+}
+
 export function useFollow(target: Target) {
+  const { user } = useAuth();
   const [state, setState] = useState<FollowState>('none');
   const [loading, setLoading] = useState(true);
   const [rowId, setRowId] = useState<string | null>(null);
+  
+  // Check if there's a block between users (only for user-to-user follows)
+  const { hasBlock, isLoading: blockLoading } = useHasBlock(
+    target.type === 'user' ? user?.id : null,
+    target.type === 'user' ? target.id : null
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -69,19 +83,29 @@ export function useFollow(target: Target) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // ✅ BLOCKING CHECK: Prevent follow if blocked
+    if (target.type === 'user' && hasBlock) {
+      const error: FollowError = new Error('Cannot follow: blocking relationship exists');
+      error.code = 'BLOCKED';
+      error.isBlocked = true;
+      throw error;
+    }
+
     // Determine if this follow type requires approval
     const requiresApproval = target.type === 'user';
-    const initialStatus = requiresApproval ? 'pending' : 'accepted';
-
+    
+    // For user follows, status will be set by the database trigger based on privacy settings
+    // For org/event follows, status defaults to 'accepted'
     const payload: Record<string, unknown> = {
       follower_user_id: user.id,
       target_type: target.type,
       target_id: target.id,
     };
 
-    // Only add status if the column exists (for user follows)
-    if (requiresApproval) {
-      payload.status = initialStatus;
+    // Don't set status manually - let the trigger handle it for user follows
+    // This ensures privacy settings are respected
+    if (target.type !== 'user') {
+      payload.status = 'accepted';
     }
 
     const { data, error } = await supabase
@@ -90,14 +114,29 @@ export function useFollow(target: Target) {
       .select('id,status')
       .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      // Handle block-related errors from RLS
+      if (error.message?.includes('block') || error.code === '42501') {
+        const blockError: FollowError = new Error('Cannot follow: blocking relationship exists');
+        blockError.code = 'BLOCKED';
+        blockError.isBlocked = true;
+        throw blockError;
+      }
+      throw error;
+    }
+
     if (data) {
-      setState((data.status as FollowState) ?? initialStatus);
+      setState((data.status as FollowState) ?? 'pending');
       setRowId(data.id);
     } else {
-      setState(initialStatus);
+      setState('pending');
     }
-  }, [target.id, target.type]);
+
+    // Invalidate follow counts cache after successful follow
+    if (typeof window !== 'undefined' && (window as any).__swrInvalidateFollowCounts) {
+      (window as any).__swrInvalidateFollowCounts({ targetType: target.type, targetId: target.id });
+    }
+  }, [target.id, target.type, hasBlock]);
 
   const unfollow = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -114,6 +153,11 @@ export function useFollow(target: Target) {
     if (error) throw error;
     setState('none');
     setRowId(null);
+
+    // Invalidate follow counts cache after successful unfollow
+    if (typeof window !== 'undefined' && (window as any).__swrInvalidateFollowCounts) {
+      (window as any).__swrInvalidateFollowCounts({ targetType: target.type, targetId: target.id });
+    }
   }, [target.id, target.type]);
 
   const toggle = useCallback(async () => {
@@ -136,7 +180,7 @@ export function useFollow(target: Target) {
 
   const decline = useCallback(async () => {
     if (!rowId) return;
-    const { error } = await supabase
+    const { error} = await supabase
       .from('follows')
       .update({ status: 'declined' })
       .eq('id', rowId);
@@ -148,12 +192,13 @@ export function useFollow(target: Target) {
     state,
     isFollowing: state === 'accepted',
     isPending: state === 'pending',
+    isBlocked: hasBlock, // ✅ Expose block status
     toggle,
     follow,
     unfollow,
     accept,
     decline,
     refresh,
-    loading,
+    loading: loading || blockLoading,
   };
 }

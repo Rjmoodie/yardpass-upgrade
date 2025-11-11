@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+// 🎯 Removed framer-motion import (using CSS animations instead)
 import { useAuth } from '@/contexts/AuthContext';
 import { useGuestTicketSession } from '@/hooks/useGuestTicketSession';
 import TicketsPage from '@/components/TicketsPage';
@@ -153,43 +153,24 @@ export function TicketsRoute() {
           <section className="mx-auto bg-card/80 backdrop-blur rounded-3xl shadow-xl ring-1 ring-border/20 overflow-hidden">
             {/* Hero */}
             <div className="px-6 sm:px-12 py-10 sm:py-14 text-center">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35 }}
-                className="inline-flex items-center gap-3 mb-4"
-              >
+              {/* 🎯 Replaced framer-motion with CSS animations */}
+              <div className="inline-flex items-center gap-3 mb-4 animate-slide-up">
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
                   <TicketIcon className="h-5 w-5 text-primary" aria-hidden="true" />
                 </span>
                 <p className="text-sm font-medium text-muted-foreground">Ticket Wallet</p>
-              </motion.div>
+              </div>
 
-              <motion.h1
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05, duration: 0.4 }}
-                className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground"
-              >
+              <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground animate-slide-up animate-stagger-1">
                 {heroTitle}
-              </motion.h1>
+              </h1>
 
-              <motion.p
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.35 }}
-                className="mt-4 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto"
-              >
+              <p className="mt-4 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto animate-slide-up animate-stagger-2">
                 {heroDescription}
-              </motion.p>
+              </p>
 
               {/* CTAs */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.35 }}
-                className="mt-8 flex flex-col items-center gap-3"
-              >
+              <div className="mt-8 flex flex-col items-center gap-3 animate-fade-in animate-stagger-3">
                 <Button
                   onClick={handleGuestAccess}
                   className="group inline-flex items-center justify-center rounded-2xl px-6 sm:px-8 py-3 text-base sm:text-lg font-semibold bg-primary text-primary-foreground shadow-md hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition"
@@ -203,7 +184,7 @@ export function TicketsRoute() {
                 >
                   Already a member? Sign in here
                 </Button>
-              </motion.div>
+              </div>
             </div>
 
             {/* Value props */}
@@ -214,13 +195,10 @@ export function TicketsRoute() {
                   const isFullWidth = feature.span === 2;
                   
                   return (
-                    <motion.div
+                    <div
                       key={feature.title}
-                      initial={{ opacity: 0, y: 8 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, amount: 0.4 }}
-                      transition={{ delay: index * 0.05, duration: 0.35 }}
-                      className={`${isFullWidth ? 'sm:col-span-2' : ''} rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm`}
+                      className={`${isFullWidth ? 'sm:col-span-2' : ''} rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm animate-scale-in`}
+                      style={{ animationDelay: `${index * 50}ms` }}
                     >
                       <div className="flex items-start gap-3">
                         <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
@@ -233,7 +211,7 @@ export function TicketsRoute() {
                           </p>
                         </div>
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
               </div>

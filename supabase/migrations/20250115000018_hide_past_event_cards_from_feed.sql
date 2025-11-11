@@ -65,7 +65,7 @@ WITH
       -- ✅ FIX: Only include FUTURE events as candidates for event cards
       -- Posts from past events will still be included in all_posts CTE below
       e.start_at >= now()
-      AND e.start_at < now() + interval '90 days'
+      AND e.start_at < now() + interval '365 days'  -- Extended to 365 days (1 year) to show events planned well in advance
       AND e.visibility = 'public'
       AND (p_categories IS NULL OR e.category = ANY(p_categories))
       AND (p_max_distance_miles IS NULL OR dc.distance_miles IS NULL OR dc.distance_miles <= p_max_distance_miles)
@@ -148,7 +148,8 @@ WITH
       ns.start_at,
       ns.collab_score,
       CASE
-        WHEN ns.is_new_event AND ns.eng_score_norm < 1.0 THEN 0.05
+        -- 🔥 Big cold-start boost for new events with low engagement
+        WHEN ns.is_new_event AND ns.eng_score_norm < 1.0 THEN 0.5
         ELSE 0.005
       END AS explore_boost,
       (
@@ -158,7 +159,8 @@ WITH
         0.15 * ns.tag_affinity_norm +
         0.05 * ns.collab_score +
         CASE
-          WHEN ns.is_new_event AND ns.eng_score_norm < 1.0 THEN 0.05
+          -- 🔥 Big cold-start boost for new events with low engagement (expires after 48h)
+          WHEN ns.is_new_event AND ns.eng_score_norm < 1.0 THEN 0.5
           ELSE 0.005
         END
       )::numeric AS final_score

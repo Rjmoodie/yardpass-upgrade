@@ -27,6 +27,7 @@ type Action =
   | "generate_subject"
   | "subject_variants"
   | "generate_preheader"
+  | "generate_title"
   | "improve"
   | "adjust_tone"
   | "shorten"
@@ -136,6 +137,16 @@ Respond as: {"variants":[{"text":"...","score":9},{"text":"...","score":8},{"tex
         const json = await completeJSON(sys, `
 Write a concise preheader (max 90 chars) that complements a subject line and teases content.
 Respond as: {"text":"preheader"}
+`);
+        return ok(json);
+      }
+
+      case "generate_title": {
+        const json = await completeJSON(sys, `
+Create a compelling and concise title (max 80 chars) for ${ctx.eventTitle || "an event"}. 
+The title should be clear, engaging, and capture the essence of the event.
+${ctx.text ? `Context/seed text: ${ctx.text}` : ''}
+Respond as: {"text":"title"}
 `);
         return ok(json);
       }

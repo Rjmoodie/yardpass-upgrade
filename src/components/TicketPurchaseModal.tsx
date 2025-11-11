@@ -8,6 +8,7 @@ import { Input } from './ui/input';
 import { Plus, Minus, CreditCard, Key, Check, AlertCircle, Mail, Clock, Smartphone, Wifi } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
+import { useCheckoutTracking } from '@/hooks/useCheckoutTracking';
 import { toast } from '@/hooks/use-toast';
 import { createGuestCheckoutSession } from '@/lib/ticketApi';
 import { StripeEmbeddedCheckout } from './StripeEmbeddedCheckout';
@@ -56,6 +57,7 @@ export function TicketPurchaseModal({
   onSuccess 
 }: TicketPurchaseModalProps) {
   const { trackEvent } = useAnalyticsIntegration();
+  const { trackCheckoutStart } = useCheckoutTracking();
   const navigate = useNavigate();
   const [selections, setSelections] = useState<TicketSelection>({});
   const [loading, setLoading] = useState(false);
@@ -267,15 +269,33 @@ export function TicketPurchaseModal({
     }
   };
 
-  // Fee calculation function
+  // Fee calculation function with Stripe gross-up
   const calculateFees = (faceValue: number) => {
-    // processingFee = (faceValue * 0.037) + 1.89 + (faceValue * 0.029) + 0.30
-    // which simplifies to: faceValue * 0.066 + 2.19
-    const processingFee = faceValue * 0.066 + 2.19;
-    const total = faceValue + processingFee;
+    // ✅ No processing fee for free tickets
+    if (faceValue === 0) {
+      return {
+        total: 0,
+        processingFee: 0,
+        stripeFee: 0,
+        platformComponent: 0
+      };
+    }
+    
+    // Platform fee target (Eventbrite-equivalent): 6.6% + $1.79
+    const platformFeeTarget = faceValue * 0.066 + 1.79;
+    
+    // Net needed after Stripe fees (organizer gets faceValue, platform gets platformFeeTarget)
+    const totalNetNeeded = faceValue + platformFeeTarget;
+    
+    // Gross up for Stripe fees: 2.9% + $0.30
+    // Solving: net = total × 0.971 - 0.30  →  total = (net + 0.30) / 0.971
+    const totalCharge = (totalNetNeeded + 0.30) / 0.971;
+    
+    // Processing fee shown to customer (includes platform + Stripe)
+    const processingFee = totalCharge - faceValue;
     
     return {
-      total: Math.round(total * 100) / 100, // Round to cents
+      total: Math.round(totalCharge * 100) / 100, // Round to cents
       processingFee: Math.round(processingFee * 100) / 100,
       stripeFee: 0, // Not needed for display
       platformComponent: 0 // Not needed for display
@@ -405,6 +425,15 @@ export function TicketPurchaseModal({
     } else {
       setGuestEmailError(null);
     }
+
+    // Track checkout start in database (for feed ranking - weight: 4.0)
+    const tierIds = selectedEntries.map(([tierId]) => tierId);
+    trackCheckoutStart({
+      eventId: event.id,
+      totalCents: totalAmount,
+      totalQuantity: totalTickets,
+      tierIds,
+    });
 
     busyRef.current = true;
     setSubmitting(true);

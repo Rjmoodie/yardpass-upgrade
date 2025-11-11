@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { FeedCursor, FeedItem, FeedPage } from './unifiedFeedTypes';
+import { logger } from '@/utils/logger';
 
 type EngagementDelta = {
   like_count?: number;
@@ -36,6 +37,10 @@ async function fetchPage(
   filters?: FeedFilters,
   userLocation?: { lat: number; lng: number } | null
 ): Promise<FeedPage> {
+  // 🎯 PERF-008: Retrieve last ETag for conditional requests
+  const cacheKey = `feed-etag:${JSON.stringify({ limit, filters, cursor })}`;
+  const lastEtag = sessionStorage.getItem(cacheKey);
+  
   const invokeOptions: {
     body: Record<string, unknown>;
     headers?: Record<string, string>;
@@ -61,24 +66,35 @@ async function fetchPage(
     },
   };
 
+  // Add headers
+  const headers: Record<string, string> = {};
   if (accessToken) {
-    invokeOptions.headers = { Authorization: `Bearer ${accessToken}` };
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  // 🎯 PERF-008: Send If-None-Match for cache validation
+  if (lastEtag) {
+    headers['If-None-Match'] = lastEtag;
+  }
+  
+  if (Object.keys(headers).length > 0) {
+    invokeOptions.headers = headers;
   }
 
-  const { data, error } = await supabase.functions.invoke('home-feed', invokeOptions);
+  const response = await supabase.functions.invoke('home-feed', invokeOptions);
 
-  if (error) {
-    throw new Error(`home-feed failed: ${error.message}`);
+  if (response.error) {
+    throw new Error(`home-feed failed: ${response.error.message}`);
   }
 
-  if (!data || typeof data !== 'object' || !Array.isArray((data as any).items)) {
+  if (!response.data || typeof response.data !== 'object' || !Array.isArray((response.data as any).items)) {
     throw new Error('home-feed returned an unexpected payload');
   }
+  
+  const data = response.data;
 
-  // 🔍 Debug: Log what home-feed is returning
   const feedData = data as FeedPage;
   const posts = feedData.items.filter(i => i.item_type === 'post');
-  console.log('🔍 home-feed Edge Function returned:', {
+  logger.debug('🔍 home-feed Edge Function returned:', {
     totalItems: feedData.items.length,
     totalPosts: posts.length,
     postSamples: posts.slice(0, 3).map(p => ({
@@ -89,8 +105,48 @@ async function fetchPage(
       hasMetrics: !!p.metrics
     }))
   });
+  
+  // 🎯 PERF-008: Store ETag for future requests
+  // Note: Supabase functions.invoke doesn't expose response headers easily
+  // So we generate a client-side cache key based on content
+  const clientEtag = `"${hashCode(JSON.stringify({ itemCount: feedData.items.length }))}"`;
+  sessionStorage.setItem(cacheKey, clientEtag);
+  
+  // 🎯 PERF-010: Track query performance for SLO monitoring
+  // The Edge Function logs are visible in Supabase dashboard, but we also
+  // send to PostHog for aggregated metrics and alerting
+  if (feedData.performance?.query_time) {
+    const queryDuration = feedData.performance.query_time;
+    const SLO_TARGET = 500; // ms
+    
+    // Import posthog dynamically to avoid circular deps
+    import('posthog-js').then(({ default: posthog }) => {
+      posthog?.capture('feed_query_performance', {
+        duration_ms: queryDuration,
+        slo_target_ms: SLO_TARGET,
+        slo_met: queryDuration <= SLO_TARGET,
+        breach_percentage: queryDuration > SLO_TARGET ? Math.round((queryDuration / SLO_TARGET - 1) * 100) : 0,
+        item_count: feedData.items.length,
+        has_filters: !!(filters?.categories?.length || filters?.locations?.length || filters?.dates?.length),
+        is_first_page: !cursor
+      });
+    }).catch(() => {
+      // PostHog not available, skip tracking
+    });
+  }
 
   return data as FeedPage;
+}
+
+// Simple hash function (matches Edge Function)
+function hashCode(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
 }
 
 export function useUnifiedFeedInfinite(options: FeedFilters & { limit?: number } = {}) {
@@ -127,7 +183,7 @@ export function useUnifiedFeedInfinite(options: FeedFilters & { limit?: number }
                   console.warn('Failed to get user location:', error.message);
                   resolve(null);
                 },
-                { timeout: 5000, maximumAge: 300000 } // 5min cache
+                { timeout: 1000, maximumAge: 300000 } // 🎯 PERF: 1s timeout (was 5s), 5min cache
               );
             } else {
               resolve(null);

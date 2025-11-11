@@ -2,123 +2,35 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-// Shared utilities (copied from _shared/checkout-session.ts)
+// Import shared utilities
+import {
+  calculateProcessingFeeCents,
+  calculatePlatformFeeCents,
+  buildPricingBreakdown,
+} from "../_shared/pricing.ts";
+import { stripeCallWithResilience } from "../_shared/stripe-resilience.ts";
+import {
+  normalizeEmail,
+  hashEmail,
+  defaultExpressMethods,
+  buildPricingSnapshot,
+  buildContactSnapshot,
+  upsertCheckoutSession,
+  normalizeItem,
+  resolveUnitPriceCents,
+  generateIdempotencyKey,
+} from "../_shared/checkout-utils.ts";
+
+// CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-export const normalizeEmail = (email: string | null | undefined): string | null => {
-  if (!email) return null;
-  return email.trim().toLowerCase();
-};
-
-export const hashEmail = async (email: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(email);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-};
-
-export const defaultExpressMethods = {
-  applePay: true,
-  googlePay: true,
-  link: true,
-};
-
-export const calculateProcessingFeeCents = (faceValueCents: number): number => {
-  const faceValue = faceValueCents / 100;
-  const fee = faceValue * 0.066 + 2.19;
-  return Math.round(fee * 100);
-};
-
-export const buildPricingBreakdown = (faceValueCents: number, currency = "USD") => {
-  const feesCents = calculateProcessingFeeCents(faceValueCents);
-  const totalCents = faceValueCents + feesCents;
-  return {
-    subtotalCents: faceValueCents,
-    feesCents,
-    totalCents,
-    currency,
-  };
-};
-
-export const buildPricingSnapshot = (pricing: any): Record<string, unknown> => ({
-  subtotal_cents: pricing.subtotalCents,
-  fees_cents: pricing.feesCents,
-  total_cents: pricing.totalCents,
-  currency: pricing.currency ?? "USD",
-});
-
-export const buildContactSnapshot = async (contact: any): Promise<Record<string, unknown>> => {
-  const normalizedEmail = normalizeEmail(contact.email ?? null);
-  return {
-    email: normalizedEmail,
-    name: contact.name ?? null,
-    phone: contact.phone ?? null,
-    email_hash: normalizedEmail ? await hashEmail(normalizedEmail) : null,
-  };
-};
-
-export const upsertCheckoutSession = async (
-  client: any,
-  payload: any,
-): Promise<void> => {
-  const record: Record<string, unknown> = {
-    id: payload.id,
-    order_id: payload.orderId,
-    event_id: payload.eventId,
-    user_id: payload.userId ?? null,
-    hold_ids: payload.holdIds ?? [],
-    pricing_snapshot: payload.pricingSnapshot ?? null,
-    contact_snapshot: payload.contactSnapshot ?? null,
-    verification_state: payload.verificationState ?? null,
-    express_methods: payload.expressMethods ?? null,
-    cart_snapshot: payload.cartSnapshot ?? null,
-    stripe_session_id: payload.stripeSessionId ?? null,
-    expires_at: payload.expiresAt instanceof Date ? payload.expiresAt.toISOString() : payload.expiresAt,
-    status: payload.status ?? "pending",
-  };
-
-  const { error } = await client
-    .from("checkout_sessions")
-    .upsert(record, { onConflict: "id" });
-
-  if (error) {
-    console.error("[checkout-session] upsert failed", error);
-    throw error;
-  }
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
-
-const normalizeItem = (item: any) => ({
-  tier_id: item?.tier_id ?? item?.tierId ?? null,
-  quantity: Number(item?.quantity ?? 0),
-  unit_price_cents: typeof item?.unit_price_cents === "number"
-    ? item.unit_price_cents
-    : typeof item?.unitPriceCents === "number"
-      ? item.unitPriceCents
-      : typeof item?.faceValueCents === "number"
-        ? item.faceValueCents
-        : typeof item?.faceValue === "number"
-          ? Math.round(item.faceValue * 100)
-          : undefined,
-});
-
-const resolveUnitPriceCents = (item: any, tier: any | undefined) => {
-  if (typeof item.unit_price_cents === "number") return item.unit_price_cents;
-  if (typeof item.unitPriceCents === "number") return item.unitPriceCents;
-  if (typeof item.faceValueCents === "number") return item.faceValueCents;
-  if (typeof item.faceValue === "number") return Math.round(item.faceValue * 100);
-  if (typeof tier?.price_cents === "number") return tier.price_cents;
-  return 0;
-};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -228,12 +140,37 @@ serve(async (req) => {
       }
     }
 
+    // Fetch payout destination (organizer's Stripe account)
     const { data: payoutDestination } = await supabaseService
       .from("payout_accounts")
       .select("*")
       .eq("context_type", event.owner_context_type)
       .eq("context_id", event.owner_context_id)
       .maybeSingle();
+
+    // Validate organizer can accept payments
+    if (payoutDestination?.stripe_connect_id) {
+      if (!payoutDestination.charges_enabled) {
+        console.error('[enhanced-checkout] Organizer cannot accept payments', {
+          eventId: orderData.event_id,
+          contextType: event.owner_context_type,
+          contextId: event.owner_context_id,
+          chargesEnabled: payoutDestination.charges_enabled
+        });
+        
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "This organizer cannot accept payments at this time. Please contact the event organizer or try again later.",
+            error_code: "ORGANIZER_CHARGES_DISABLED"
+          }),
+          {
+            status: 503,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          }
+        );
+      }
+    }
 
     const { data: profileRecord } = await supabaseService
       .from("user_profiles")
@@ -379,17 +316,52 @@ serve(async (req) => {
       },
     };
 
-    if (payoutDestination?.stripe_connect_id && payoutDestination?.payouts_enabled) {
-      sessionConfig.payment_intent_data = {
-        ...sessionConfig.payment_intent_data,
-        application_fee_amount: pricing.feesCents,
-        transfer_data: {
-          destination: payoutDestination.stripe_connect_id,
-        },
-      };
+    // Configure destination charges if organizer is fully onboarded
+    if (payoutDestination?.stripe_connect_id) {
+      if (payoutDestination.payouts_enabled && payoutDestination.details_submitted) {
+        // Organizer is fully verified - route funds to them
+        sessionConfig.payment_intent_data = {
+          ...sessionConfig.payment_intent_data,
+          application_fee_amount: pricing.platformFeeCents, // ✅ Platform fee only (not total processing fee)
+          transfer_data: {
+            destination: payoutDestination.stripe_connect_id,
+          },
+        };
+        
+        console.log('[enhanced-checkout] Routing funds to organizer', {
+          stripeAccountId: payoutDestination.stripe_connect_id,
+          platformFeeCents: pricing.platformFeeCents
+        });
+      } else {
+        // Organizer exists but not fully verified - hold funds on platform
+        console.warn('[enhanced-checkout] Organizer not fully verified, funds held by platform', {
+          eventId: orderData.event_id,
+          contextId: event.owner_context_id,
+          payoutsEnabled: payoutDestination.payouts_enabled,
+          detailsSubmitted: payoutDestination.details_submitted
+        });
+        
+        // Optional: Add metadata to track these cases
+        sessionConfig.metadata = {
+          ...sessionConfig.metadata,
+          platform_hold: 'true',
+          platform_hold_reason: 'organizer_not_verified'
+        };
+      }
     }
 
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+    // Idempotency key: use stable domain identifiers, not timestamps
+    const idempotencyKey = generateIdempotencyKey(
+      ['checkout', checkoutSessionId, orderData.user_id],
+      req
+    );
+
+    // Create session with retry logic and circuit breaker
+    const session = await stripeCallWithResilience(
+      supabaseService,
+      () => stripe.checkout.sessions.create(sessionConfig, { idempotencyKey }),
+      { operationName: 'checkout.sessions.create' }
+    );
     
     console.log("[enhanced-checkout] Stripe session created:", {
       id: session.id,
@@ -451,15 +423,8 @@ serve(async (req) => {
       throw new Error(itemsError.message ?? "Failed to create order items");
     }
 
-    const cartSnapshot = {
-      items: orderItemsPayload.map((item) => ({
-        tier_id: item.tier_id,
-        quantity: item.quantity,
-        unit_price_cents: item.unit_price_cents,
-        tier_name: tierMap.get(item.tier_id)?.name ?? null,
-      })),
-    };
-
+    // ✅ REMOVED: cartSnapshot - redundant (data already in order_items table)
+    
     await upsertCheckoutSession(supabaseService, {
       id: checkoutSessionId,
       orderId: order.id,
@@ -470,7 +435,6 @@ serve(async (req) => {
       contactSnapshot,
       verificationState: { email_verified: true, risk_score: 0 },
       expressMethods: defaultExpressMethods,
-      cartSnapshot,
       stripeSessionId: session.id,
       expiresAt: expiresAtIso,
       status: "pending",

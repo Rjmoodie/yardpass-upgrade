@@ -1,21 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { 
-  MessageSquare, 
-  Send, 
-  MoreVertical, 
-  Check, 
-  CheckCheck, 
-  Clock, 
-  UserPlus, 
-  Users,
+import {
+  MessageSquare,
+  Send,
+  MoreVertical,
+  Check,
+  CheckCheck,
+  Clock,
+  UserPlus,
   Search,
   Phone,
   Video,
   Paperclip,
   Smile,
-  ArrowLeft,
-  ArrowRight
 } from 'lucide-react';
 import { BrandedSpinner } from '../BrandedSpinner';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,14 +28,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { handleUserFriendlyError } from '@/utils/errorMessages';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
+import { featureFlags } from '@/config/featureFlags';
+import { UserSearchModal } from '@/components/follow/UserSearchModal';
+import { startConversation } from '@/utils/messaging';
 
 interface RawParticipant {
   participant_type: 'user' | 'organization';
@@ -80,6 +91,8 @@ type IdentityOption =
   | { type: 'user'; id: string; label: string }
   | { type: 'organization'; id: string; label: string };
 
+const MAX_MESSAGE_LENGTH = 1000;
+
 export function MessagingCenter() {
   const { user, profile } = useAuth();
   const { organizations } = useOrganizations(user?.id);
@@ -92,30 +105,58 @@ export function MessagingCenter() {
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState('');
   const [activeIdentity, setActiveIdentity] = useState<IdentityOption | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showUserSearch, setShowUserSearch] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // ✅ FEATURE FLAG CHECK
+  if (!featureFlags.messaging.enabled) {
+    return (
+      <Card className="max-w-2xl mx-auto mt-8">
+        <CardHeader>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <MessageSquare className="h-6 w-6" />
+            Messaging
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
+            Messaging is coming soon! Check back later to connect with other attendees and organizers.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            💡 <strong>Developers:</strong> Enable locally with{' '}
+            <code className="bg-muted px-2 py-1 rounded">
+              localStorage.setItem('feature_messaging', 'true')
+            </code>
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Reset state when user logs out
+  useEffect(() => {
+    if (!user) {
+      setConversations([]);
+      setSelectedId(null);
+      setMessages([]);
+      setLoading(false);
+    }
+  }, [user]);
 
   const loadConversations = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      // Check if messaging tables exist first
-      const { data: tableCheck, error: tableError } = await supabase
-        .from('tables')
-        .select('table_name')
-        .eq('table_schema', 'public')
-        .eq('table_name', 'direct_conversations')
-        .single();
-
-      if (tableError || !tableCheck) {
-        // Messaging system not set up yet - show empty state
-        console.log('Messaging system not available yet');
-        setConversations([]);
-        return;
-      }
-
-      // Query conversations directly from the tables
-      const { data: conversations, error: conversationsError } = await supabase
+      const { data: conversationsRaw, error: conversationsError } = await supabase
         .from('direct_conversations')
-        .select(`
+        .select(
+          `
           id,
           subject,
           request_status,
@@ -129,27 +170,31 @@ export function MessagingCenter() {
             joined_at,
             last_read_at
           )
-        `)
-        .order('last_message_at', { ascending: false, nullsLast: true })
+        `,
+        )
+        .order('last_message_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false });
-      
+
       if (conversationsError) throw conversationsError;
 
-      const rows = (conversations ?? []) as any[];
+      const rows = (conversationsRaw ?? []) as any[];
       const orgIds = new Set((organizations ?? []).map((o) => o.id));
 
-      // Filter conversations where the user is a participant
+      // Filter conversations where the user (or their org) is a participant
       const filtered = rows.filter((row) =>
         row.conversation_participants?.some((participant: any) => {
           if (participant.participant_type === 'user') {
             return participant.participant_user_id === user.id;
           }
-          return participant.participant_org_id ? orgIds.has(participant.participant_org_id) : false;
+          return participant.participant_org_id
+            ? orgIds.has(participant.participant_org_id)
+            : false;
         }),
       );
 
       const userIds = new Set<string>();
       const organizationIds = new Set<string>();
+
       filtered.forEach((row) => {
         row.conversation_participants?.forEach((participant: any) => {
           if (participant.participant_type === 'user' && participant.participant_user_id) {
@@ -203,7 +248,11 @@ export function MessagingCenter() {
         created_at: row.created_at,
         participants: (row.conversation_participants || []).map((participant: any) => {
           if (participant.participant_type === 'organization' && participant.participant_org_id) {
-            const details = orgMap.get(participant.participant_org_id) ?? { display_name: 'Organization', photo_url: null };
+            const details =
+              orgMap.get(participant.participant_org_id) ?? {
+                display_name: 'Organization',
+                photo_url: null,
+              };
             return {
               ...participant,
               displayName: details.display_name,
@@ -222,26 +271,27 @@ export function MessagingCenter() {
       }));
 
       setConversations(mapped);
+
+      // Auto-select first conversation if nothing selected
       if (!selectedId && mapped.length) {
         setSelectedId(mapped[0].id);
       }
     } catch (err: any) {
       console.error('Failed to load conversations', err);
-      
-      const { message, shouldRetry } = handleUserFriendlyError(err, { 
-        feature: 'messaging', 
-        action: 'load conversations' 
+
+      const { message } = handleUserFriendlyError(err, {
+        feature: 'messaging',
+        action: 'load conversations',
       });
-      
-      // Show a more user-friendly message for missing tables
+
       if (err?.message?.includes('does not exist')) {
         console.log('Messaging system not available - showing empty state');
         setConversations([]);
       } else {
-        toast({ 
-          title: 'Unable to load messages', 
-          description: message, 
-          variant: 'destructive' 
+        toast({
+          title: 'Unable to load messages',
+          description: message,
+          variant: 'destructive',
         });
       }
     } finally {
@@ -249,45 +299,50 @@ export function MessagingCenter() {
     }
   }, [organizations, selectedId, toast, user]);
 
-  const loadMessages = useCallback(async (conversationId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('direct_messages')
-        .select('id,body,created_at,sender_type,sender_user_id,sender_org_id,status')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-      
-      if (error) {
-        if (error.message?.includes('does not exist')) {
-          console.log('Messaging system not available');
-          setMessages([]);
-          return;
-        }
-        throw error;
-      }
-      
-      setMessages((data ?? []) as DirectMessageRow[]);
-    } catch (err: any) {
-      console.error('Failed to load messages', err);
-      
-      const { message } = handleUserFriendlyError(err, { 
-        feature: 'messaging', 
-        action: 'load messages' 
-      });
-      
-      toast({ 
-        title: 'Unable to load messages', 
-        description: message, 
-        variant: 'destructive' 
-      });
-      setMessages([]);
-    }
-  }, []);
+  const loadMessages = useCallback(
+    async (conversationId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from('direct_messages')
+          .select('id,body,created_at,sender_type,sender_user_id,sender_org_id,status')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true });
 
+        if (error) {
+          if (error.message?.includes('does not exist')) {
+            console.log('Messaging system not available');
+            setMessages([]);
+            return;
+          }
+          throw error;
+        }
+
+        setMessages((data ?? []) as DirectMessageRow[]);
+      } catch (err: any) {
+        console.error('Failed to load messages', err);
+
+        const { message } = handleUserFriendlyError(err, {
+          feature: 'messaging',
+          action: 'load messages',
+        });
+
+        toast({
+          title: 'Unable to load messages',
+          description: message,
+          variant: 'destructive',
+        });
+        setMessages([]);
+      }
+    },
+    [toast],
+  );
+
+  // Initial conversations load
   useEffect(() => {
     void loadConversations();
   }, [loadConversations]);
 
+  // Load messages when conversation changes
   useEffect(() => {
     if (!selectedId) return;
     void (async () => {
@@ -295,34 +350,46 @@ export function MessagingCenter() {
         await loadMessages(selectedId);
       } catch (err: any) {
         console.error('Failed to load messages', err);
-        
-        const { message } = handleUserFriendlyError(err, { 
-          feature: 'messaging', 
-          action: 'load conversation' 
+
+        const { message } = handleUserFriendlyError(err, {
+          feature: 'messaging',
+          action: 'load conversation',
         });
-        
-        toast({ title: 'Unable to load conversation', description: message, variant: 'destructive' });
+
+        toast({
+          title: 'Unable to load conversation',
+          description: message,
+          variant: 'destructive',
+        });
       }
     })();
   }, [selectedId, loadMessages, toast]);
 
+  // Realtime subscription for new messages
   useEffect(() => {
     if (!selectedId) return;
     const channel = supabase
       .channel(`messages-${selectedId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `conversation_id=eq.${selectedId}` },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'direct_messages',
+          filter: `conversation_id=eq.${selectedId}`,
+        },
         () => {
           void loadMessages(selectedId);
         },
       )
       .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
     };
   }, [selectedId, loadMessages]);
 
+  // Listen for external "open conversation" events
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent).detail as { conversationId?: string };
@@ -334,9 +401,14 @@ export function MessagingCenter() {
     return () => window.removeEventListener('messaging:open', handler as EventListener);
   }, [loadConversations]);
 
+  // Set default active identity
   useEffect(() => {
     if (!user) return;
-    setActiveIdentity({ type: 'user', id: user.id, label: profile?.display_name || 'You' });
+    setActiveIdentity({
+      type: 'user',
+      id: user.id,
+      label: profile?.display_name || 'You',
+    });
   }, [profile?.display_name, user]);
 
   const selectedConversation = useMemo(
@@ -347,7 +419,11 @@ export function MessagingCenter() {
   const identityOptions = useMemo<IdentityOption[]>(() => {
     const options: IdentityOption[] = [];
     if (user) {
-      options.push({ type: 'user', id: user.id, label: profile?.display_name || 'You' });
+      options.push({
+        type: 'user',
+        id: user.id,
+        label: profile?.display_name || 'You',
+      });
     }
     if (selectedConversation) {
       const participantOrgIds = selectedConversation.participants
@@ -355,11 +431,18 @@ export function MessagingCenter() {
         .map((p) => p.participant_org_id as string);
       organizations
         ?.filter((org) => participantOrgIds.includes(org.id))
-        .forEach((org) => options.push({ type: 'organization', id: org.id, label: `${org.name} (org)` }));
+        .forEach((org) =>
+          options.push({
+            type: 'organization',
+            id: org.id,
+            label: `${org.name} (org)`,
+          }),
+        );
     }
     return options;
   }, [organizations, profile?.display_name, selectedConversation, user]);
 
+  // Keep active identity in sync with available options
   useEffect(() => {
     if (!identityOptions.length) {
       setActiveIdentity(null);
@@ -367,14 +450,26 @@ export function MessagingCenter() {
     }
     if (!activeIdentity) {
       setActiveIdentity(identityOptions[0]);
-    } else if (!identityOptions.some((opt) => opt.type === activeIdentity.type && opt.id === activeIdentity.id)) {
+    } else if (
+      !identityOptions.some(
+        (opt) => opt.type === activeIdentity.type && opt.id === activeIdentity.id,
+      )
+    ) {
       setActiveIdentity(identityOptions[0]);
     }
   }, [identityOptions, activeIdentity]);
 
-  const sendMessage = async () => {
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [messages.length, selectedId]);
+
+  const sendMessage = useCallback(async () => {
     if (!selectedId || !activeIdentity) return;
     if (!draft.trim()) return;
+    if (selectedConversation?.request_status === 'pending') return;
 
     try {
       setSending(true);
@@ -390,10 +485,10 @@ export function MessagingCenter() {
       if (error) {
         if (error.message?.includes('does not exist')) {
           console.log('Messaging system not available');
-          toast({ 
-            title: 'Messaging not available', 
-            description: 'The messaging system is not set up yet.', 
-            variant: 'destructive' 
+          toast({
+            title: 'Messaging not available',
+            description: 'The messaging system is not set up yet.',
+            variant: 'destructive',
           });
           return;
         }
@@ -403,52 +498,125 @@ export function MessagingCenter() {
       await loadMessages(selectedId);
     } catch (err: any) {
       console.error('Failed to send message', err);
-      
-      const { message } = handleUserFriendlyError(err, { 
-        feature: 'messaging', 
-        action: 'send message' 
+
+      const { message } = handleUserFriendlyError(err, {
+        feature: 'messaging',
+        action: 'send message',
       });
-      
-      toast({ title: 'Unable to send message', description: message, variant: 'destructive' });
+
+      toast({
+        title: 'Unable to send message',
+        description: message,
+        variant: 'destructive',
+      });
     } finally {
       setSending(false);
     }
-  };
+  }, [activeIdentity, draft, loadMessages, selectedConversation?.request_status, selectedId, toast]);
 
-  const acceptRequest = async (conversationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('direct_conversations')
-        .update({ request_status: 'accepted' })
-        .eq('id', conversationId);
-      if (error) throw error;
-      await loadConversations();
-      toast({ title: 'Request accepted', description: 'You can now exchange messages.' });
-    } catch (err: any) {
-      toast({ title: 'Unable to accept request', description: err?.message ?? 'Please try again later.', variant: 'destructive' });
-    }
-  };
+  const acceptRequest = useCallback(
+    async (conversationId: string) => {
+      try {
+        const { error } = await supabase
+          .from('direct_conversations')
+          .update({ request_status: 'accepted' })
+          .eq('id', conversationId);
+        if (error) throw error;
+        await loadConversations();
+        toast({
+          title: 'Request accepted',
+          description: 'You can now exchange messages.',
+        });
+      } catch (err: any) {
+        toast({
+          title: 'Unable to accept request',
+          description: err?.message ?? 'Please try again later.',
+          variant: 'destructive',
+        });
+      }
+    },
+    [loadConversations, toast],
+  );
 
-  const declineRequest = async (conversationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('direct_conversations')
-        .update({ request_status: 'declined' })
-        .eq('id', conversationId);
-      if (error) throw error;
-      await loadConversations();
-      toast({ title: 'Request declined' });
-    } catch (err: any) {
-      toast({ title: 'Unable to decline request', description: err?.message ?? 'Please try again later.', variant: 'destructive' });
-    }
-  };
+  const declineRequest = useCallback(
+    async (conversationId: string) => {
+      try {
+        const { error } = await supabase
+          .from('direct_conversations')
+          .update({ request_status: 'declined' })
+          .eq('id', conversationId);
+        if (error) throw error;
+        await loadConversations();
+        toast({ title: 'Request declined' });
+      } catch (err: any) {
+        toast({
+          title: 'Unable to decline request',
+          description: err?.message ?? 'Please try again later.',
+          variant: 'destructive',
+        });
+      }
+    },
+    [loadConversations, toast],
+  );
+
+  const handleStartConversation = useCallback(
+    async (userId: string) => {
+      try {
+        const { conversationId } = await startConversation({
+          targetType: 'user',
+          targetId: userId,
+          subject: null,
+        });
+
+        // Reload conversations and select the new one
+        await loadConversations();
+        setSelectedId(conversationId);
+        setShowUserSearch(false);
+
+        toast({
+          title: 'Conversation started',
+          description: 'You can now send messages.',
+        });
+      } catch (err: any) {
+        console.error('Failed to start conversation', err);
+
+        const { message } = handleUserFriendlyError(err, {
+          feature: 'messaging',
+          action: 'start conversation',
+        });
+
+        toast({
+          title: 'Unable to start conversation',
+          description: message,
+          variant: 'destructive',
+        });
+      }
+    },
+    [loadConversations, toast],
+  );
+
+  const filteredConversations = useMemo(() => {
+    if (!searchTerm.trim()) return conversations;
+
+    const term = searchTerm.toLowerCase();
+    return conversations.filter((conversation) => {
+      const participantNames = conversation.participants
+        .map((p) => p.displayName.toLowerCase())
+        .join(' ');
+      const subject = conversation.subject?.toLowerCase() ?? '';
+      return participantNames.includes(term) || subject.includes(term);
+    });
+  }, [conversations, searchTerm]);
 
   const renderConversationList = () => {
     if (loading) {
       return (
         <div className="space-y-3 px-4 py-6">
           {[0, 1, 2].map((idx) => (
-            <div key={idx} className="flex items-center gap-3 rounded-2xl border border-border/40 bg-background/80 p-3">
+            <div
+              key={idx}
+              className="flex items-center gap-3 rounded-2xl border border-border/40 bg-background/80 p-3"
+            >
               <Skeleton className="h-12 w-12 rounded-full" />
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-32" />
@@ -463,18 +631,23 @@ export function MessagingCenter() {
     if (!conversations.length) {
       return (
         <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-secondary/10 shadow-sm">
-            <MessageSquare className="h-8 w-8 text-primary" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50">
+            <MessageSquare className="h-7 w-7 text-muted-foreground" />
           </div>
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold">No conversations yet</h3>
+          <div className="space-y-1">
+            <h3 className="text-base font-medium">No conversations yet</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Start a chat from a profile or connection to open your first conversation.
+              Start a new conversation
             </p>
           </div>
-          <Button variant="outline" size="sm" className="gap-2 rounded-full px-4">
+          <Button
+            variant="default"
+            size="sm"
+            className="gap-2 rounded-full px-5"
+            onClick={() => setShowUserSearch(true)}
+          >
             <UserPlus className="h-4 w-4" />
-            Find people to chat
+            New Message
           </Button>
         </div>
       );
@@ -482,12 +655,14 @@ export function MessagingCenter() {
 
     return (
       <div className="flex h-full flex-col">
-        <div className="space-y-3 border-b border-border/40 bg-gradient-to-br from-background via-muted/30 to-background px-4 py-4">
+        <div className="space-y-3 border-b border-border/40 bg-background px-4 py-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search conversations"
               className="h-10 rounded-full border-0 bg-background/90 pl-10 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-primary/30"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <p className="text-xs text-muted-foreground">
@@ -497,7 +672,16 @@ export function MessagingCenter() {
 
         <ScrollArea className="flex-1">
           <div className="space-y-2 px-3 py-4">
-            {conversations.map((conversation) => {
+            {filteredConversations.length === 0 && searchTerm.trim() ? (
+            <div className="flex flex-col items-center justify-center py-12 px-6">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/40">
+                <Search className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium mb-1">No results found</p>
+              <p className="text-xs text-muted-foreground">Try a different search term</p>
+            </div>
+          ) : (
+            filteredConversations.map((conversation) => {
               const otherParticipants = conversation.participants.filter((participant) => {
                 if (participant.participant_type === 'user') {
                   return participant.participant_user_id !== user?.id;
@@ -507,16 +691,17 @@ export function MessagingCenter() {
               const title = otherParticipants.length
                 ? otherParticipants.map((p) => p.displayName).join(', ')
                 : conversation.subject || 'Conversation';
-              
+
               const primaryParticipant = otherParticipants[0];
               const isActive = selectedId === conversation.id;
               const hasUnread = false; // TODO: Implement unread logic
 
               return (
-                <div
+                <button
                   key={conversation.id}
+                  type="button"
                   onClick={() => setSelectedId(conversation.id)}
-                  className={`group relative flex cursor-pointer items-center gap-3 rounded-2xl border transition-all duration-200 ${
+                  className={`group relative flex w-full cursor-pointer items-center gap-3 rounded-2xl border text-left transition-all duration-200 ${
                     isActive
                       ? 'border-primary/30 bg-primary/10 shadow-sm shadow-primary/10'
                       : 'border-transparent bg-background/80 hover:-translate-y-0.5 hover:border-border/60 hover:shadow-sm'
@@ -535,25 +720,30 @@ export function MessagingCenter() {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="mb-1 flex items-center justify-between">
                       <h4 className="truncate text-sm font-semibold">{title}</h4>
                       {conversation.last_message_at && (
                         <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
-                          {formatDistanceToNow(new Date(conversation.last_message_at), { addSuffix: true })}
+                          {formatDistanceToNow(
+                            new Date(conversation.last_message_at),
+                            { addSuffix: true },
+                          )}
                         </span>
                       )}
                     </div>
 
                     <div className="flex items-center justify-between">
                       <p className="flex-1 truncate text-xs text-muted-foreground">
-                        {conversation.request_status === 'pending' ? 'Follow request pending...' : 'Tap to open conversation'}
+                        {conversation.request_status === 'pending'
+                          ? 'Follow request pending...'
+                          : 'Tap to open conversation'}
                       </p>
 
                       {conversation.request_status !== 'accepted' && (
                         <Badge
-                          variant={conversation.request_status === 'pending' ? 'default' : 'secondary'}
+                          variant="warning"
                           className="ml-2 rounded-full px-2 text-[10px] uppercase tracking-wide"
                         >
                           {conversation.request_status}
@@ -569,19 +759,65 @@ export function MessagingCenter() {
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
-                </div>
+                </button>
               );
-            })}
+            })
+          )}
           </div>
         </ScrollArea>
       </div>
     );
   };
 
+  // ✅ Dedicated empty state (clean, single-purpose)
+  const renderEmptyState = () => (
+    <div className="h-[80vh] w-full bg-background flex flex-col">
+      {/* Header */}
+      <header className="flex items-center justify-between px-4 py-4 border-b border-border/40 bg-background">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Inbox</h1>
+          <p className="text-xs text-muted-foreground">
+            Catch up with your latest conversations
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setShowUserSearch(true)}
+            aria-label="New message"
+          >
+            <UserPlus className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+      {/* Centered empty state */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6">
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
+          <MessageSquare className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">No conversations yet</h2>
+        <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
+          Find people you know and start a conversation
+        </p>
+        <Button
+          variant="default"
+          size="default"
+          className="rounded-full px-6 gap-2"
+          onClick={() => setShowUserSearch(true)}
+        >
+          <UserPlus className="h-4 w-4" />
+          New Message
+        </Button>
+      </main>
+    </div>
+  );
+
   const renderMessages = () => {
     if (!selectedConversation) {
       return (
-        <div className="flex h-full flex-1 items-center justify-center bg-gradient-to-br from-background via-muted/20 to-background">
+        <div className="flex h-full flex-1 items-center justify-center bg-background">
           <div className="text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30">
               <MessageSquare className="h-8 w-8 text-muted-foreground" />
@@ -600,11 +836,12 @@ export function MessagingCenter() {
         ? participant.participant_user_id !== user?.id
         : true,
     );
-    const conversationTitle = otherParticipants.map((p) => p.displayName).join(', ') || 'Conversation';
+    const conversationTitle =
+      otherParticipants.map((p) => p.displayName).join(', ') || 'Conversation';
     const primaryParticipant = otherParticipants[0];
 
     return (
-      <div className="flex h-full flex-1 flex-col bg-gradient-to-b from-background via-muted/10 to-background">
+      <div className="flex h-full flex-1 flex-col bg-background">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/40 bg-background/80 px-6 py-4 backdrop-blur">
           <div className="flex items-center gap-3">
@@ -618,18 +855,20 @@ export function MessagingCenter() {
               <h2 className="text-lg font-semibold leading-tight">{conversationTitle}</h2>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                  <span className="text-xs text-muted-foreground">Usually responds within a day</span>
+                  <div className="h-2 w-2 rounded-full bg-green-500" />
+                  <span className="text-xs text-muted-foreground">
+                    Usually responds within a day
+                  </span>
                 </div>
                 {selectedConversation.request_status === 'pending' && (
-                  <Badge variant="outline" className="text-[10px] uppercase">
+                  <Badge variant="warning" className="text-[10px] uppercase">
                     Pending approval
                   </Badge>
                 )}
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
               <Phone className="h-4 w-4" />
@@ -649,13 +888,22 @@ export function MessagingCenter() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-amber-600" />
-                <span className="text-sm text-amber-800">This conversation is pending approval</span>
+                <span className="text-sm text-amber-800">
+                  This conversation is pending approval
+                </span>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => declineRequest(selectedConversation.id)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => declineRequest(selectedConversation.id)}
+                >
                   Decline
                 </Button>
-                <Button size="sm" onClick={() => acceptRequest(selectedConversation.id)}>
+                <Button
+                  size="sm"
+                  onClick={() => acceptRequest(selectedConversation.id)}
+                >
                   Accept
                 </Button>
               </div>
@@ -666,48 +914,68 @@ export function MessagingCenter() {
         <ScrollArea className="flex-1 px-4 py-6 sm:px-6">
           <div className="space-y-6">
             {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-secondary/10">
-                  <MessageSquare className="h-8 w-8 text-primary" />
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50">
+                  <MessageSquare className="h-7 w-7 text-muted-foreground" />
                 </div>
-                <h3 className="mb-2 text-lg font-semibold">Start the conversation</h3>
+                <h3 className="mb-1 text-base font-medium">Start the conversation</h3>
                 <p className="max-w-sm text-center text-sm text-muted-foreground">
-                  Send your first message to begin this conversation.
+                  Send your first message below
                 </p>
               </div>
             ) : (
               messages.map((message, index) => {
                 const isSelf =
-                  (message.sender_type === 'user' && message.sender_user_id === user?.id) ||
-                  (message.sender_type === 'organization' && organizations?.some((org) => org.id === message.sender_org_id));
+                  (message.sender_type === 'user' &&
+                    message.sender_user_id === user?.id) ||
+                  (message.sender_type === 'organization' &&
+                    organizations?.some((org) => org.id === message.sender_org_id));
 
                 const label = (() => {
                   if (message.sender_type === 'organization') {
-                    const org = organizations?.find((org) => org.id === message.sender_org_id);
+                    const org = organizations?.find(
+                      (org) => org.id === message.sender_org_id,
+                    );
                     return org?.name ?? 'Organization';
                   }
                   if (message.sender_user_id === user?.id) {
                     return profile?.display_name || 'You';
                   }
                   const participant = selectedConversation.participants.find(
-                    (p) => p.participant_type === 'user' && p.participant_user_id === message.sender_user_id,
+                    (p) =>
+                      p.participant_type === 'user' &&
+                      p.participant_user_id === message.sender_user_id,
                   );
                   return participant?.displayName ?? 'Member';
                 })();
 
                 const prevMessage = index > 0 ? messages[index - 1] : null;
-                const showAvatar = !prevMessage || prevMessage.sender_user_id !== message.sender_user_id;
-                const showTimestamp = index === messages.length - 1 || 
-                  (index < messages.length - 1 && 
-                   new Date(messages[index + 1].created_at).getTime() - new Date(message.created_at).getTime() > 5 * 60 * 1000);
+                const showAvatar =
+                  !prevMessage || prevMessage.sender_user_id !== message.sender_user_id;
+                const showTimestamp =
+                  index === messages.length - 1 ||
+                  (index < messages.length - 1 &&
+                    new Date(messages[index + 1].created_at).getTime() -
+                      new Date(message.created_at).getTime() >
+                      5 * 60 * 1000);
 
                 return (
-                  <div key={message.id} className={`flex gap-3 ${isSelf ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div
+                    key={message.id}
+                    className={`flex gap-3 ${isSelf ? 'flex-row-reverse' : 'flex-row'}`}
+                  >
                     {!isSelf && (
                       <div className="flex-shrink-0">
                         {showAvatar ? (
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={selectedConversation.participants.find(p => p.participant_user_id === message.sender_user_id)?.avatarUrl || ''} />
+                            <AvatarImage
+                              src={
+                                selectedConversation.participants.find(
+                                  (p) =>
+                                    p.participant_user_id === message.sender_user_id,
+                                )?.avatarUrl || ''
+                              }
+                            />
                             <AvatarFallback className="text-xs">
                               {label.charAt(0)}
                             </AvatarFallback>
@@ -717,26 +985,38 @@ export function MessagingCenter() {
                         )}
                       </div>
                     )}
-                    
-                    <div className={`flex max-w-[80%] flex-col ${isSelf ? 'items-end' : 'items-start'}`}>
+
+                    <div
+                      className={`flex max-w-[80%] flex-col ${
+                        isSelf ? 'items-end' : 'items-start'
+                      }`}
+                    >
                       {!isSelf && showAvatar && (
-                        <span className="text-xs font-medium text-muted-foreground mb-1">{label}</span>
+                        <span className="text-xs font-medium text-muted-foreground mb-1">
+                          {label}
+                        </span>
                       )}
 
                       <div
-                        className={`group relative rounded-3xl border px-4 py-2 text-sm shadow-sm transition-all duration-200 ${
+                        className={`group relative rounded-2xl px-4 py-2.5 text-sm transition-all ${
                           isSelf
-                            ? 'border-primary/50 bg-primary text-primary-foreground shadow-primary/20'
-                            : 'border-border/60 bg-background'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted/80'
                         }`}
                       >
                         <div className="whitespace-pre-line break-words">{message.body}</div>
 
-                        <div className={`mt-2 flex items-center gap-1 text-[11px] ${
-                          isSelf ? 'justify-end text-primary-foreground/80' : 'justify-start text-muted-foreground'
-                        }`}>
+                        <div
+                          className={`mt-2 flex items-center gap-1 text-[11px] ${
+                            isSelf
+                              ? 'justify-end text-primary-foreground/80'
+                              : 'justify-start text-muted-foreground'
+                          }`}
+                        >
                           <span>
-                            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                            {formatDistanceToNow(new Date(message.created_at), {
+                              addSuffix: true,
+                            })}
                           </span>
                           {isSelf && (
                             <div className="flex items-center gap-1">
@@ -746,9 +1026,13 @@ export function MessagingCenter() {
                           )}
                         </div>
                       </div>
-                      
+
                       {showTimestamp && (
-                        <div className={`mt-2 text-[10px] uppercase tracking-wide text-muted-foreground ${isSelf ? 'text-right' : 'text-left'}`}>
+                        <div
+                          className={`mt-2 text-[10px] uppercase tracking-wide text-muted-foreground ${
+                            isSelf ? 'text-right' : 'text-left'
+                          }`}
+                        >
                           {new Date(message.created_at).toLocaleDateString()}
                         </div>
                       )}
@@ -757,6 +1041,7 @@ export function MessagingCenter() {
                 );
               })
             )}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
 
@@ -765,16 +1050,26 @@ export function MessagingCenter() {
           {identityOptions.length > 1 && activeIdentity && (
             <div className="mb-3">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-medium text-muted-foreground">Message as:</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Message as:
+                </span>
                 <Select
                   value={`${activeIdentity.type}:${activeIdentity.id}`}
                   onValueChange={(value) => {
                     const [type, id] = value.split(':');
                     if (type === 'organization') {
                       const org = organizations?.find((o) => o.id === id);
-                      setActiveIdentity({ type: 'organization', id, label: org?.name ?? 'Organization' });
+                      setActiveIdentity({
+                        type: 'organization',
+                        id,
+                        label: org?.name ?? 'Organization',
+                      });
                     } else {
-                      setActiveIdentity({ type: 'user', id, label: profile?.display_name || 'You' });
+                      setActiveIdentity({
+                        type: 'user',
+                        id,
+                        label: profile?.display_name || 'You',
+                      });
                     }
                   }}
                 >
@@ -783,7 +1078,10 @@ export function MessagingCenter() {
                   </SelectTrigger>
                   <SelectContent>
                     {identityOptions.map((option) => (
-                      <SelectItem key={`${option.type}:${option.id}`} value={`${option.type}:${option.id}`}>
+                      <SelectItem
+                        key={`${option.type}:${option.id}`}
+                        value={`${option.type}:${option.id}`}
+                      >
                         {option.label}
                       </SelectItem>
                     ))}
@@ -796,46 +1094,60 @@ export function MessagingCenter() {
           <div className="relative">
             <div className="flex items-end gap-2 rounded-3xl border border-border/50 bg-muted/40 p-3 transition-all duration-200 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20">
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                >
                   <Paperclip className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                >
                   <Smile className="h-4 w-4" />
                 </Button>
               </div>
-              
+
               <div className="flex-1">
                 <Textarea
-                  placeholder={selectedConversation.request_status === 'pending' 
-                    ? "Messages will send once this request is accepted..." 
-                    : "Write a message..."
+                  placeholder={
+                    selectedConversation.request_status === 'pending'
+                      ? 'Messages will send once this request is accepted...'
+                      : 'Write a message...'
                   }
                   value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
+                  onChange={(event) =>
+                    setDraft(event.target.value.slice(0, MAX_MESSAGE_LENGTH))
+                  }
                   className="min-h-[40px] max-h-32 resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                   rows={1}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       if (draft.trim() && !sending) {
-                        sendMessage();
+                        void sendMessage();
                       }
                     }
                   }}
                 />
               </div>
-              
+
               <Button
-                onClick={sendMessage}
-                disabled={sending || !draft.trim() || selectedConversation.request_status === 'pending'}
+                type="button"
+                onClick={() => void sendMessage()}
+                disabled={
+                  sending ||
+                  !draft.trim() ||
+                  selectedConversation.request_status === 'pending'
+                }
                 size="sm"
                 className="h-9 rounded-full px-4"
               >
-                {sending ? (
-                  <BrandedSpinner size="sm" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
+                {sending ? <BrandedSpinner size="sm" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
 
@@ -846,7 +1158,7 @@ export function MessagingCenter() {
                   : 'Press Enter to send, Shift + Enter for new line'}
               </span>
               <span>
-                {draft.length}/1000
+                {draft.length}/{MAX_MESSAGE_LENGTH}
               </span>
             </div>
           </div>
@@ -856,32 +1168,75 @@ export function MessagingCenter() {
   };
 
   return (
-    <div className="h-[80vh] w-full overflow-hidden rounded-3xl border border-border/40 bg-gradient-to-br from-background via-muted/10 to-background shadow-xl">
-      <div className="flex h-full flex-col lg:flex-row">
-        {/* Conversation Sidebar */}
-        <div className="w-full border-b border-border/40 bg-gradient-to-b from-background via-muted/20 to-background lg:w-[22rem] lg:border-b-0 lg:border-r">
-          <div className="border-b border-border/40 px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold">Inbox</h2>
-                <p className="text-xs text-muted-foreground">Catch up with your latest conversations</p>
+    <>
+      {/* If we're still loading, keep the existing skeleton UI */}
+      {loading ? (
+        <div className="h-[80vh] w-full overflow-hidden rounded-2xl border border-border/40 bg-background shadow-sm">
+          <div className="flex h-full flex-col lg:flex-row">
+            {/* Just reuse your existing sidebar skeleton */}
+            <div className="w-full border-b border-border/40 bg-background lg:w-[22rem] lg:border-b-0 lg:border-r">
+              <div className="border-b border-border/40 px-4 py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold">Inbox</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Catch up with your latest conversations
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <Search className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </div>
+              {renderConversationList()}
             </div>
+            <div className="flex flex-1">{renderMessages()}</div>
           </div>
-          {renderConversationList()}
         </div>
+      ) : conversations.length === 0 ? (
+        // ✅ Clean single empty state
+        <div className="rounded-2xl border border-border/40 bg-background shadow-sm">
+          {renderEmptyState()}
+        </div>
+      ) : (
+        // ✅ Normal 2-pane layout once you actually have conversations
+        <div className="h-[80vh] w-full overflow-hidden rounded-2xl border border-border/40 bg-background shadow-sm">
+          <div className="flex h-full flex-col lg:flex-row">
+            {/* Conversation Sidebar */}
+            <div className="w-full border-b border-border/40 bg-background lg:w-[22rem] lg:border-b-0 lg:border-r">
+              <div className="border-b border-border/40 px-4 py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold">Inbox</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Catch up with your latest conversations
+                    </p>
+                  </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setShowUserSearch(true)}
+                  aria-label="New message"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </div>
+                </div>
+              </div>
+              {renderConversationList()}
+            </div>
 
-        {/* Messages Area */}
-        <div className="flex flex-1">{renderMessages()}</div>
-      </div>
-    </div>
+            {/* Messages Area */}
+            <div className="flex flex-1">{renderMessages()}</div>
+          </div>
+        </div>
+      )}
+
+      {/* User Search Modal for Starting New Conversations */}
+      <UserSearchModal
+        open={showUserSearch}
+        onOpenChange={setShowUserSearch}
+        onSelectUser={handleStartConversation}
+      />
+    </>
   );
 }

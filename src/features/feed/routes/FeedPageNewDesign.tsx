@@ -20,6 +20,9 @@ import { FloatingActions } from '@/components/feed/FloatingActions';
 import { ProfileCompletionModal } from '@/components/auth/ProfileCompletionModal';
 import { BrandedSpinner } from '@/components/BrandedSpinner';
 import { isVideoUrl } from '@/utils/mux';
+import { logger } from '@/utils/logger';
+import { startTracking, endTracking } from '@/utils/performanceTracking';
+import { FeedLoadingSkeleton } from '@/components/feed/FeedCardSkeleton';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import { Volume2, VolumeX } from 'lucide-react';
 
@@ -89,9 +92,9 @@ export default function FeedPageNewDesign() {
     searchRadius: filters.searchRadius,
   });
 
-  // Debug: Log active filters
+  // Debug: Log active filters (dev only)
   useEffect(() => {
-    console.log('🔍 [FeedPage] Active filters:', {
+    logger.debug('🔍 [FeedPage] Active filters:', {
       locations: filters.locations,
       categories: filters.categories,
       dates: filters.dates,
@@ -133,31 +136,38 @@ export default function FeedPageNewDesign() {
 
   const allFeedItems = useMemo(() => {
     const items = data?.pages.flatMap((p) => p.items) ?? [];
-    console.log('🎯 Feed items loaded:', {
+    logger.debug('🎯 Feed items loaded:', {
       total: items.length,
       events: items.filter(i => i.item_type === 'event').length,
       posts: items.filter(i => i.item_type === 'post').length,
-      promoted: items.filter(i => i.isPromoted || i.promotion).length,
-      promotedAds: items.filter(i => i.isPromoted || i.promotion).map((ad, idx) => ({
-        feedIndex: items.indexOf(ad),
-        eventId: ad.event_id,
-        isPromoted: ad.isPromoted,
-        hasPromotion: !!ad.promotion,
-        campaignId: ad.promotion?.campaignId,
-        creativeId: ad.promotion?.creativeId,
-        placement: ad.promotion?.placement,
-        ctaLabel: ad.promotion?.ctaLabel,
-      })),
-      postsWithCounts: items.filter(i => i.item_type === 'post').map(i => ({
-        id: i.item_id,
-        likes: i.metrics?.likes || 0,
-        comments: i.metrics?.comments || 0,
-        viewer_has_liked: i.metrics?.viewer_has_liked || false
-      })),
-      sample: items.slice(0, 3).map(i => ({ type: i.item_type, id: i.item_id }))
+      promoted: items.filter(i => i.isPromoted || i.promotion).length
     });
     return items;
   }, [data]);
+
+  // 🎯 PERF-001: Track feed load performance
+  const trackingStartedRef = useRef(false);
+  
+  useEffect(() => {
+    if (!trackingStartedRef.current) {
+      startTracking('feed_load');
+      trackingStartedRef.current = true;
+    }
+  }, []); // Start tracking on mount
+
+  useEffect(() => {
+    // End tracking when we have data and it's not loading
+    if (status === 'success' && allFeedItems.length > 0 && !isFetchingNextPage && trackingStartedRef.current) {
+      endTracking('feed_load', {
+        itemCount: allFeedItems.length,
+        eventCount: allFeedItems.filter(i => i.item_type === 'event').length,
+        postCount: allFeedItems.filter(i => i.item_type === 'post').length,
+        promotedCount: allFeedItems.filter(i => i.isPromoted || i.promotion).length,
+        hasFilters: filters.locations.length > 1 || filters.categories.length > 0 || filters.dates.length > 0
+      });
+      trackingStartedRef.current = false; // Reset for next load
+    }
+  }, [status, allFeedItems.length, isFetchingNextPage, filters]);
 
   // Ad impression tracking
   useImpressionTracker({
@@ -279,12 +289,7 @@ export default function FeedPageNewDesign() {
       return;
     }
     
-    console.log('💬 [FeedPage] Comment clicked for post:', {
-      postId: item.item_id,
-      eventId: item.event_id,
-      eventTitle: item.event_title,
-      itemType: item.item_type
-    });
+    logger.debug('💬 [FeedPage] Comment clicked for post:', item.item_id);
     
     // Clear old context first to ensure clean state
     setCommentContext(null);
@@ -319,49 +324,71 @@ export default function FeedPageNewDesign() {
       return;
     }
 
-    try {
-      // Check if already saved
-      const { data: existing } = await supabase
-        .from('user_saved_posts')
-        .select('id')
-        .eq('user_id', user?.id)
-        .eq('post_id', item.item_id)
-        .maybeSingle();
-
-      if (existing) {
-        // Unsave
-        await supabase
-          .from('user_saved_posts')
-          .delete()
-          .eq('id', existing.id);
-        
-        setSavedPostIds(prev => {
-          const next = new Set(prev);
-          next.delete(item.item_id);
-          return next;
-        });
-        
-        toast({ title: 'Removed from saved', description: 'Post removed from your saved collection' });
+    // ✅ OPTIMISTIC UPDATE: Update UI immediately
+    const wasSaved = savedPostIds.has(item.item_id);
+    const optimisticState = !wasSaved;
+    
+    // Update UI instantly
+    setSavedPostIds(prev => {
+      const next = new Set(prev);
+      if (optimisticState) {
+        next.add(item.item_id);
       } else {
-        // Save
-        await supabase
-          .from('user_saved_posts')
-          .insert({
-            user_id: user?.id,
-            post_id: item.item_id,
-            event_id: item.event_id
-          });
-        
-        setSavedPostIds(prev => new Set([...prev, item.item_id]));
-        
-        toast({ title: 'Saved!', description: 'Post saved to your collection' });
+        next.delete(item.item_id);
       }
+      return next;
+    });
+    
+    // Show instant feedback
+    toast({ 
+      title: optimisticState ? 'Saved!' : 'Removed', 
+      description: optimisticState 
+        ? 'Post saved to your collection' 
+        : 'Post removed from saved',
+      duration: 2000
+    });
+
+    try {
+      // ✅ Use toggle RPC function (single call, faster)
+      const { data: isSaved, error } = await supabase
+        .rpc('toggle_saved_post', { p_post_id: item.item_id });
+
+      if (error) throw error;
+
+      // Sync state with server response (in case of race conditions)
+      setSavedPostIds(prev => {
+        const next = new Set(prev);
+        if (isSaved) {
+          next.add(item.item_id);
+        } else {
+          next.delete(item.item_id);
+        }
+        return next;
+      });
     } catch (error) {
       console.error('Error saving post:', error);
-      toast({ title: 'Save feature coming soon', description: 'This feature will be available soon', variant: 'default' });
+      
+      // ✅ ROLLBACK: Revert optimistic update on error
+      setSavedPostIds(prev => {
+        const next = new Set(prev);
+        if (wasSaved) {
+          next.add(item.item_id);
+        } else {
+          next.delete(item.item_id);
+        }
+        return next;
+      });
+      
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to save post. Please try again.',
+        variant: 'destructive',
+        duration: 3000
+      });
     }
+    
     registerInteraction();
-  }, [user, isAuthenticated, requireAuth, toast, registerInteraction]);
+  }, [user, isAuthenticated, requireAuth, toast, registerInteraction, savedPostIds]);
 
   const handleEventClick = useCallback((eventId: string) => {
     navigate(`/e/${eventId}`);
@@ -420,8 +447,6 @@ export default function FeedPageNewDesign() {
       setSoundToastVisible(true);
       if (soundToastTimeoutRef.current) clearTimeout(soundToastTimeoutRef.current);
       soundToastTimeoutRef.current = setTimeout(() => setSoundToastVisible(false), 2400);
-      
-      console.log('🔊 Global sound toggled:', { from: prev, to: next });
       
       return next;
     });
@@ -511,58 +536,24 @@ export default function FeedPageNewDesign() {
       {/* Floating Actions - Hidden when filters are open */}
       {!filtersOpen && (
         <>
-          {(() => {
-            const currentItem = allFeedItems[activeIndex];
-            const isPost = currentItem?.item_type === 'post';
-            const rawLikes = currentItem?.metrics?.likes;
-            const rawComments = currentItem?.metrics?.comments;
-            
-            const optimisticLikes = isPost ? getOptimisticData(
-              currentItem.item_id, 
-              { isLiked: currentItem.metrics?.viewer_has_liked || false, likeCount: rawLikes || 0 }
-            ).likeCount : 0;
-            
-            const optimisticComments = isPost ? getOptimisticCommentData(
-              currentItem.item_id,
-              { commentCount: rawComments || 0 }
-            ).commentCount : 0;
-            
-            console.log('🔍 FloatingActions DETAILED Debug:', {
-              activeIndex,
-              itemType: currentItem?.item_type,
-              isPost,
-              rawMetrics: currentItem?.metrics,
-              rawLikes,
-              rawComments,
-              optimisticLikes,
-              optimisticComments,
-              fullItem: currentItem
-            });
-            
-            return null;
-          })()}
           <FloatingActions
         isMuted={!globalSoundEnabled}
         onMuteToggle={handleToggleGlobalSound}
         onCreatePost={handleCreatePost}
         onLike={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
           const item = allFeedItems[activeIndex];
-          console.log('🎯 FloatingActions Like clicked for post:', item.item_id, 'Current likes:', item.metrics?.likes);
           handleLike(item);
         } : undefined}
         onComment={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
           const item = allFeedItems[activeIndex];
-          console.log('💬 FloatingActions Comment clicked for post:', item.item_id, 'Current comments:', item.metrics?.comments);
           handleComment(item);
         } : undefined}
         onShare={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
           const item = allFeedItems[activeIndex];
-          console.log('🔗 FloatingActions Share clicked for post:', item.item_id);
           handleSharePost(item);
         } : undefined}
         onSave={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
           const item = allFeedItems[activeIndex];
-          console.log('🔖 FloatingActions Save clicked for post:', item.item_id);
           handleSave(item);
         } : undefined}
         likeCount={allFeedItems[activeIndex]?.item_type === 'post' ? 
@@ -648,6 +639,7 @@ export default function FeedPageNewDesign() {
                     if (identifier) navigate(`/profile/${identifier}`);
                   }}
                   onReport={handleReport}
+                  onDelete={() => refetch()} // ✅ Refresh feed when post deleted
                   soundEnabled={globalSoundEnabled}
                   isVideoPlaying={isVideoActive}
                   onGetTickets={(eventId) => handleOpenTickets(eventId, item)}
@@ -659,15 +651,27 @@ export default function FeedPageNewDesign() {
 
         <div ref={sentinelRef} className="h-32" />
         
+        {/* 🎯 PERF-009: Replace spinner with skeleton for next page */}
         {isFetchingNextPage && (
-          <div className="flex justify-center py-8">
-            <BrandedSpinner size="sm" text="Loading more" />
+          <div className="py-4">
+            <FeedLoadingSkeleton count={2} />
           </div>
         )}
 
-        {allFeedItems.length === 0 && status !== 'loading' && !isFetchingNextPage && (
+        {/* 🎯 PERF-009: Show skeleton while initial feed loads */}
+        {allFeedItems.length === 0 && status === 'pending' && (
+          <div className="px-4">
+            <FeedLoadingSkeleton count={3} />
+          </div>
+        )}
+        
+        {/* Empty state (only show if loaded but no items) */}
+        {allFeedItems.length === 0 && status === 'success' && !isFetchingNextPage && (
           <div className="flex h-[60vh] items-center justify-center px-4">
-            <BrandedSpinner size="lg" text="Loading your feed" />
+            <div className="text-center space-y-2">
+              <p className="text-lg font-medium text-muted-foreground">No events found</p>
+              <p className="text-sm text-muted-foreground">Try adjusting your filters</p>
+            </div>
           </div>
         )}
         
@@ -696,8 +700,11 @@ export default function FeedPageNewDesign() {
           postId={commentContext.postId}
           onCommentCountChange={(postId, newCount) => {
             // Comment count will be updated via refetch
-            console.log('💬 [FeedPage] Comment count updated:', postId, newCount);
             refetch();
+          }}
+          onRequestUsername={() => {
+            // ✅ Seamlessly open username prompt (keeps comment modal open in background)
+            setShowProfileCompletion(true);
           }}
         />
       )}

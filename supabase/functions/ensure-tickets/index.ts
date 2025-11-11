@@ -135,11 +135,11 @@ if (!isPaid) {
     })).filter(i => i.tier_id && i.quantity > 0);
     if (!normalized.length) return err("Nothing to issue (all quantities = 0)", 422);
 
-    // 6) Fetch tiers once, build map (only need event_id and name for ticket creation)
+    // 6) Fetch tiers once, build map (need event_id, name, and is_rsvp_only)
     const tierIds = Array.from(new Set(normalized.map(i => i.tier_id)));
     const { data: tiers, error: tErr } = await admin
       .from("ticket_tiers")
-      .select("id, event_id, name")
+      .select("id, event_id, name, is_rsvp_only")
       .in("id", tierIds.length ? tierIds : ["00000000-0000-0000-0000-000000000000"]);
     if (tErr) return err(`Load tiers failed: ${tErr.message}`, 500);
 
@@ -152,9 +152,19 @@ if (!isPaid) {
 
     // 7) Build ticket rows - DB enforces capacity via BEFORE INSERT trigger
     // DB assigns serial_no via trigger and qr_code via DEFAULT
+    // ✅ Skip ticket issuance for RSVP-only tiers (free tiers that just track headcount)
     const rows: any[] = [];
+    let rsvpCount = 0;
     for (const it of normalized) {
       const tt = tierMap.get(it.tier_id)!;
+      
+      // ✅ Skip ticket creation for RSVP-only tiers
+      if (tt.is_rsvp_only) {
+        console.log(`[ENSURE-TICKETS] Skipping ticket issuance for RSVP-only tier: ${tt.name} (${it.quantity} attendees)`);
+        rsvpCount += it.quantity;
+        continue;
+      }
+      
       for (let n = 1; n <= it.quantity; n++) {
         rows.push({
           order_id,
@@ -170,16 +180,21 @@ if (!isPaid) {
     }
 
     // 6) Insert tickets (DB assigns serial_no + qr_code; triggers handle capacity & counts)
-    const { error: insErr } = await admin
-      .from("tickets")
-      .insert(rows);
-    if (insErr) {
-      console.error("[ENSURE-TICKETS] insert failed", { error: insErr.message, code: insErr.code });
-      // Capacity errors are graceful - trigger raises exception
-      if (insErr.message?.includes('capacity') || insErr.message?.includes('Tier')) {
-        return ok({ status: "capacity_error", message: insErr.message });
+    // ✅ Skip insert if all tiers are RSVP-only (no tickets to issue)
+    if (rows.length > 0) {
+      const { error: insErr } = await admin
+        .from("tickets")
+        .insert(rows);
+      if (insErr) {
+        console.error("[ENSURE-TICKETS] insert failed", { error: insErr.message, code: insErr.code });
+        // Capacity errors are graceful - trigger raises exception
+        if (insErr.message?.includes('capacity') || insErr.message?.includes('Tier')) {
+          return ok({ status: "capacity_error", message: insErr.message });
+        }
+        return err(`Insert tickets failed: ${insErr.message}`, 500);
       }
-      return err(`Insert tickets failed: ${insErr.message}`, 500);
+    } else {
+      console.log("[ENSURE-TICKETS] No tickets to issue (all RSVP-only)", { rsvpCount });
     }
 
     // 7) Mark order complete and return final count
@@ -194,8 +209,16 @@ if (!isPaid) {
       .select("*", { head: true, count: "exact" })
       .eq("order_id", order_id);
 
-    console.log("[ENSURE-TICKETS] success", { order_id, issued: finalCount ?? 0 });
-    return ok({ status: "issued", issued: finalCount ?? 0 });
+    console.log("[ENSURE-TICKETS] success", { 
+      order_id, 
+      issued: finalCount ?? 0, 
+      rsvp_count: rsvpCount 
+    });
+    return ok({ 
+      status: rsvpCount > 0 && !finalCount ? "rsvp_confirmed" : "issued", 
+      issued: finalCount ?? 0,
+      rsvp_count: rsvpCount
+    });
   } catch (e: any) {
     console.error("[ENSURE-TICKETS] error", { message: e?.message, stack: e?.stack });
     return err(`ensure-tickets error: ${e?.message || String(e)}`, 500);

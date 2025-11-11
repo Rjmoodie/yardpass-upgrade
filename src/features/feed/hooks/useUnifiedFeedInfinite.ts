@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { FeedCursor, FeedItem, FeedPage } from './unifiedFeedTypes';
+import { logger } from '@/utils/logger';
 
 type EngagementDelta = {
   like_count?: number;
@@ -80,7 +81,7 @@ export function useUnifiedFeedInfinite(options: FeedFilters & { limit?: number }
       const { data: { session } } = await supabase.auth.getSession();
       const cursor = pageParam as FeedCursor | undefined;
       
-      console.log('🔍 [useUnifiedFeedInfinite] Fetching with filters:', {
+      logger.debug('🔍 [useUnifiedFeedInfinite] Fetching with filters:', {
         locations,
         categories,
         dates,
@@ -102,17 +103,17 @@ export function useUnifiedFeedInfinite(options: FeedFilters & { limit?: number }
                   });
                 },
                 (error) => {
-                  console.warn('Failed to get user location:', error.message);
+                  logger.warn('Failed to get user location:', error.message);
                   resolve(null);
                 },
-                { timeout: 5000, maximumAge: 300000 } // 5min cache
+                { timeout: 1000, maximumAge: 300000 } // 🎯 PERF: 1s timeout (was 5s), 5min cache
               );
             } else {
               resolve(null);
             }
           });
         } catch (error) {
-          console.warn('Geolocation error:', error);
+          logger.warn('Geolocation error:', error);
           userLocation = null;
         }
       }

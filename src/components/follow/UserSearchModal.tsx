@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -200,6 +200,9 @@ export function UserSearchModal({ open, onOpenChange, eventId, onSelectUser }: U
             <Users className="h-5 w-5" />
             {eventId ? 'Find People at This Event' : 'Find People to Follow'}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Search for users by name to follow or message
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 flex-1 overflow-hidden flex flex-col">

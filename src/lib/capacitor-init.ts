@@ -196,23 +196,36 @@ const initKeyboard = async (): Promise<PluginStatus> => {
 };
 
 /**
- * Initialize Haptics plugin
+ * Initialize Haptics plugin (lazy - on first user interaction)
+ * Browsers require user gesture before allowing vibrate API
  */
-const initHaptics = async (): Promise<PluginStatus> => {
-  if (!isPluginAvailable('Haptics')) {
-    return { available: false, initialized: false, error: 'Plugin not available' };
-  }
+let hapticsInitialized = false;
 
-  try {
-    // Test haptics availability with a light impact
-    await Haptics.impact({ style: ImpactStyle.Light });
-    
-    return { available: true, initialized: true };
-  } catch (error) {
-    console.error('[Capacitor] Haptics init failed:', error);
-    return { available: true, initialized: false, error: String(error) };
-  }
+const initHaptics = async (): Promise<PluginStatus> => {
+  // Mark as available but not initialized yet (will init on first tap)
+  return { available: isPluginAvailable('Haptics'), initialized: false };
 };
+
+/**
+ * Initialize haptics on first user interaction
+ * Call this from main.tsx after Capacitor init
+ */
+export function initHapticsOnFirstTap() {
+  if (hapticsInitialized || !isPluginAvailable('Haptics')) return;
+  
+  const handler = async () => {
+    try {
+      await Haptics.impact({ style: ImpactStyle.Light });
+      hapticsInitialized = true;
+      console.log('[Capacitor] Haptics initialized on user interaction');
+    } catch (error) {
+      console.debug('[Capacitor] Haptics not available:', error);
+    }
+  };
+  
+  // Initialize on first pointer/touch interaction
+  window.addEventListener('pointerdown', handler, { once: true });
+}
 
 /**
  * Initialize Push Notifications plugin

@@ -5,6 +5,7 @@ import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { VideoMedia } from "@/components/feed/VideoMedia";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import type { FeedItem } from "@/hooks/unifiedFeedTypes";
 import { usePostViewCount } from "@/hooks/usePostViewCount";
 import { useProfileVisitTracking } from "@/hooks/usePurchaseIntentTracking";
@@ -24,6 +25,7 @@ interface UserPostCardNewDesignProps {
   onShare: () => void;
   onAuthorClick: () => void;
   onReport?: () => void;
+  onDelete?: () => void; // ✅ Added delete callback
   soundEnabled?: boolean;
   isVideoPlaying?: boolean;
   onGetTickets?: (eventId: string) => void;
@@ -36,6 +38,7 @@ const UserPostCardNewDesignComponent = ({
   onShare,
   onAuthorClick,
   onReport,
+  onDelete,
   soundEnabled = false,
   isVideoPlaying = false,
   onGetTickets
@@ -48,21 +51,11 @@ const UserPostCardNewDesignComponent = ({
   const [showFullCaption, setShowFullCaption] = useState(false);
   const [saved, setSaved] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   const isOwnPost = user?.id === item.author_id;
   const isOrganizer = item.author_id && item.event_created_by && item.author_id === item.event_created_by;
   const { viewCount, loading: viewCountLoading } = usePostViewCount(item.item_id);
-  
-  // Debug logging
-  console.log('[UserPostCard] Badge Check:', {
-    eventTitle: item.event_title,
-    authorId: item.author_id,
-    createdBy: item.event_created_by,
-    organizerId: item.event_organizer_id,
-    isOrganizer,
-    authorBadge: item.author_badge,
-    shouldShowOrganizer: isOrganizer,
-  });
 
   const mediaUrl = useMemo(() => item.media_urls?.[0] || null, [item.media_urls]);
   const isVideo = useMemo(() => Boolean(mediaUrl && isVideoUrl(mediaUrl!)), [mediaUrl]);
@@ -71,6 +64,48 @@ const UserPostCardNewDesignComponent = ({
     setLiked(!liked);
     setLikeCount(liked ? likeCount - 1 : likeCount + 1);
     onLike();
+  };
+
+  const handleDeletePost = async () => {
+    if (!isOwnPost || deleting) return;
+    
+    // Confirm deletion
+    if (!confirm(`Delete this post? This action cannot be undone.`)) {
+      return;
+    }
+    
+    setDeleting(true);
+    
+    try {
+      // Soft delete (set deleted_at, don't actually delete the row)
+      const { error } = await supabase
+        .from('event_posts')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', item.item_id)
+        .eq('author_user_id', user?.id); // Security check
+      
+      if (error) throw error;
+      
+      toast({ 
+        title: 'Post deleted', 
+        description: 'Your post has been removed from the feed',
+        duration: 3000
+      });
+      
+      // Notify parent to refresh/remove from UI
+      onDelete?.();
+      
+    } catch (error: any) {
+      console.error('Error deleting post:', error);
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'Failed to delete post',
+        variant: 'destructive',
+        duration: 3000
+      });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const truncatedCaption = (item.content || '').length > 120 
@@ -316,14 +351,13 @@ const UserPostCardNewDesignComponent = ({
                     </>
                   )}
                   {isOwnPost && (
-                    <DropdownMenuItem 
-                      onClick={() => {
-                        toast({ title: 'Delete', description: 'Post deletion coming soon' });
-                      }}
-                      className="text-red-400 hover:bg-white/10 cursor-pointer"
+                    <DropdownMenuItem
+                      onClick={handleDeletePost}
+                      disabled={deleting}
+                      className="text-red-400 hover:bg-white/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Flag className="h-4 w-4 mr-2" />
-                      Delete Post
+                      {deleting ? 'Deleting...' : 'Delete Post'}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>

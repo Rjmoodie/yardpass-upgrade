@@ -1,25 +1,120 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export async function createHold(params: { event_id: string; items: Record<string, number>; guest_code?: string | null }) {
-  const { data, error } = await supabase.functions.invoke('create-hold', { body: params });
-  if (error) throw new Error(error.message ?? 'Failed to create hold');
-  return data as { id: string; totals: { subtotal_cents: number; fees_cents: number; discount_cents: number; total_cents: number } };
+//
+// Shared types
+//
+
+export type ScanResultType =
+  | 'valid'
+  | 'duplicate'
+  | 'invalid'
+  | 'expired'
+  | 'wrong_event'
+  | 'refunded'
+  | 'void';
+
+type HoldResponse = {
+  id: string;
+  totals: {
+    subtotal_cents: number;
+    fees_cents: number;
+    discount_cents: number;
+    total_cents: number;
+  };
+};
+
+type CheckoutSessionResponse = {
+  url: string;
+};
+
+export type TicketValidationResponse = {
+  success: boolean;
+  result: ScanResultType;
+  message?: string;
+  ticket?: {
+    id: string;
+    tier_name: string;
+    attendee_name: string;
+    badge_label?: string;
+  };
+  timestamp?: string;
+};
+
+export type GuestCheckoutResponse = {
+  url?: string;
+  session_url?: string;
+  client_secret?: string;
+  error?: string;
+  error_code?: string;
+  [key: string]: unknown;
+};
+
+export type OrderStatus = 'pending' | 'completed' | 'failed';
+
+//
+// Shared helper for Supabase edge functions
+//
+
+export class ApiError extends Error {
+  code?: string;
+  status?: number;
+  details?: unknown;
+  isEventEnded?: boolean;
+  shouldSignIn?: boolean;
+
+  constructor(message: string, init?: Partial<ApiError>) {
+    super(message);
+    Object.assign(this, init);
+    this.name = 'ApiError';
+  }
 }
 
-export async function createCheckoutSession(params: { 
-  hold_id: string; 
-  eventId: string; 
-  ticketSelections: { tierId: string; quantity: number }[] 
-}) {
-  const { data, error } = await supabase.functions.invoke('checkout', { 
-    body: {
-      hold_id: params.hold_id,
-      eventId: params.eventId,
-      ticketSelections: params.ticketSelections
-    }
+async function callFunction<T>(
+  name: string,
+  body: unknown
+): Promise<T> {
+  const { data, error } = await supabase.functions.invoke<T>(name, {
+    body,
   });
-  if (error) throw new Error(error.message ?? 'Failed to create checkout session');
-  return data as { url: string };
+
+  if (error) {
+    throw new ApiError(error.message ?? `Failed to call function: ${name}`, {
+      status: (error as any).status,
+      details: error,
+      code: (error as any).code,
+    });
+  }
+
+  if (!data) {
+    throw new ApiError(`No data returned from function: ${name}`);
+  }
+
+  return data;
+}
+
+//
+// Public helpers
+//
+
+export async function createHold(params: {
+  event_id: string;
+  items: Record<string, number>;
+  guest_code?: string | null;
+}): Promise<HoldResponse> {
+  return await callFunction<HoldResponse>('create-hold', params);
+}
+
+export async function createCheckoutSession(params: {
+  hold_id: string;
+  eventId: string;
+  ticketSelections: { tierId: string; quantity: number }[];
+}): Promise<CheckoutSessionResponse> {
+  // translate to the payload your edge function expects
+  return await callFunction<CheckoutSessionResponse>('checkout', {
+    hold_id: params.hold_id,
+    eventId: params.eventId,
+    ticketSelections: params.ticketSelections,
+  });
 }
 
 export async function createGuestCheckoutSession(params: {
@@ -29,97 +124,143 @@ export async function createGuestCheckoutSession(params: {
   contact_name?: string;
   contact_phone?: string;
   guest_code?: string | null;
-  city?: string;  // Optional: for duplicate detection
-  country?: string;  // Optional: for duplicate detection
-}) {
+  city?: string;
+  country?: string;
+}): Promise<GuestCheckoutResponse> {
   try {
-    // Use raw fetch to properly handle error responses with body
-    const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-    
+    const baseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+
+    if (!baseUrl || !anonKey) {
+      throw new ApiError('Supabase environment variables are not configured', {
+        code: 'CONFIG_ERROR',
+      });
+    }
+
     const response = await fetch(`${baseUrl}/functions/v1/guest-checkout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`
+        Authorization: `Bearer ${anonKey}`,
       },
-      body: JSON.stringify(params)
+      body: JSON.stringify(params),
     });
-    
-    const responseData = await response.json();
-    console.log('[createGuestCheckoutSession] Response:', { status: response.status, data: responseData });
-    
-            // ✅ FIX: Don't block existing users - let them buy as guests
-            // If user exists, the Edge Function should handle it gracefully
-            if (response.status === 409 || responseData?.error_code === 'user_exists') {
-              console.log('[createGuestCheckoutSession] User exists, but continuing with checkout...');
-              // Don't throw - proceed to check if we got a checkout URL anyway
-            }
-            
-            // Check if event has ended (410 Gone)
-            if (response.status === 410 || responseData?.error_code === 'EVENT_ENDED') {
-              const err: any = new Error(responseData.error || 'This event has already ended.');
-              err.isEventEnded = true;
-              throw err;
-            }
-            
-            // Check for other errors
-            if (!response.ok) {
-              throw new Error(responseData.error || 'Failed to create guest checkout session');
-            }
-    
-    // Validate we have checkout data (embedded checkout uses client_secret, not URL)
-    if (!responseData?.client_secret && !responseData?.url && !responseData?.session_url) {
-      throw new Error('No checkout data received from server');
+
+    const responseData: GuestCheckoutResponse = await response.json().catch(() => ({} as any));
+
+    console.log('[createGuestCheckoutSession] Response:', {
+      status: response.status,
+      data: responseData,
+    });
+
+    // User already exists → let the function decide what to do,
+    // but don't block the client on 409 alone.
+    if (response.status === 409 || responseData?.error_code === 'user_exists') {
+      console.log('[createGuestCheckoutSession] User exists, but continuing with checkout...');
+      // no early throw – we still check for checkout data below
     }
-    
+
+    // Event has ended
+    if (response.status === 410 || responseData?.error_code === 'EVENT_ENDED') {
+      throw new ApiError(responseData.error || 'This event has already ended.', {
+        isEventEnded: true,
+        status: 410,
+        code: 'EVENT_ENDED',
+        details: responseData,
+      });
+    }
+
+    // Any other non-OK response
+    if (!response.ok) {
+      throw new ApiError(
+        responseData.error || 'Failed to create guest checkout session',
+        {
+          status: response.status,
+          code: responseData.error_code,
+          details: responseData,
+        }
+      );
+    }
+
+    // Ensure we have some kind of checkout info
+    if (
+      !responseData?.client_secret &&
+      !responseData?.url &&
+      !responseData?.session_url
+    ) {
+      throw new ApiError('No checkout data received from server', {
+        code: 'NO_CHECKOUT_DATA',
+        details: responseData,
+      });
+    }
+
     return responseData;
   } catch (err: any) {
     console.error('[createGuestCheckoutSession] Unexpected error:', err);
-    
-    // Re-throw if it's a "should sign in" error
-    if (err.shouldSignIn) {
+
+    // Preserve structured / intentional errors
+    if (err instanceof ApiError) {
+      // let caller decide what to do with isEventEnded, shouldSignIn, etc.
       throw err;
     }
-    
-    // Fallback: redirect to regular checkout with a message
-    throw new Error('Guest checkout is temporarily unavailable. Please create an account to purchase tickets.');
+
+    if (err?.shouldSignIn) {
+      throw err;
+    }
+
+    // Fallback generic error
+    throw new ApiError(
+      'Guest checkout is temporarily unavailable. Please create an account to purchase tickets.',
+      {
+        code: 'GUEST_CHECKOUT_UNAVAILABLE',
+        details: err,
+      }
+    );
   }
 }
 
 export async function fetchTicketTiers(eventId: string) {
   const { data, error } = await supabase
     .from('ticket_tiers')
-    .select('*')
+    .select('*') // consider selecting explicit columns for perf
     .eq('event_id', eventId)
     .in('status', ['active', 'sold_out'])
     .order('sort_index', { ascending: true });
+
   if (error) throw error;
   return data ?? [];
 }
 
-export async function fetchOrderStatus(orderId: string) {
+export async function fetchOrderStatus(orderId: string): Promise<OrderStatus> {
   const { data, error } = await supabase
     .from('orders')
     .select('status')
     .eq('id', orderId)
     .maybeSingle();
+
   if (error) throw error;
-  return (data?.status ?? 'pending') as 'pending'|'completed'|'failed';
+
+  // If the DB ever gets new statuses, this will still compile,
+  // but you can map/validate here if needed.
+  return (data?.status ?? 'pending') as OrderStatus;
 }
 
-export async function validateTicket(payload: { qr: string; event_id: string }, opts?: { signal?: AbortSignal }) {
-  const { data, error } = await supabase.functions.invoke('scanner-validate', { body: { qr_token: payload.qr, event_id: payload.event_id } });
-  if (error) {
-    if ((opts?.signal as any)?.aborted) throw new DOMException('Aborted', 'AbortError');
-    throw new Error(error.message ?? 'Validation failed');
+export async function validateTicket(
+  payload: { qr: string; event_id: string },
+  opts?: { signal?: AbortSignal }
+): Promise<TicketValidationResponse> {
+  try {
+    // Note: Supabase client doesn't support AbortSignal in functions.invoke yet
+    // If you need cancellation, consider using raw fetch instead
+    return await callFunction<TicketValidationResponse>(
+      'scanner-validate',
+      { qr_token: payload.qr, event_id: payload.event_id }
+    );
+  } catch (err: any) {
+    // Preserve abort semantics for callers if signal was passed
+    if (opts?.signal?.aborted || err?.name === 'AbortError') {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+    throw err;
   }
-  return data as { 
-    success: boolean; 
-    result: 'valid'|'duplicate'|'invalid'|'expired'|'wrong_event'|'refunded'|'void'; 
-    message?: string;
-    ticket?: { id: string; tier_name: string; attendee_name: string; badge_label?: string };
-    timestamp?: string;
-  };
 }
-

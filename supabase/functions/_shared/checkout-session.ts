@@ -86,25 +86,22 @@ export const upsertCheckoutSession = async (
   client: SupabaseClient,
   payload: CheckoutSessionUpsertInput,
 ): Promise<void> => {
-  const record: Record<string, unknown> = {
-    id: payload.id,
-    order_id: payload.orderId,
-    event_id: payload.eventId,
-    user_id: payload.userId ?? null,
-    hold_ids: payload.holdIds ?? [],
-    pricing_snapshot: payload.pricingSnapshot ?? null,
-    contact_snapshot: payload.contactSnapshot ?? null,
-    verification_state: payload.verificationState ?? null,
-    express_methods: payload.expressMethods ?? null,
-    cart_snapshot: payload.cartSnapshot ?? null,
-    stripe_session_id: payload.stripeSessionId ?? null,
-    expires_at: toIsoString(payload.expiresAt),
-    status: payload.status ?? "pending",
-  };
-
-  const { error } = await client
-    .from("checkout_sessions")
-    .upsert(record, { onConflict: "id" });
+  // ✅ Use raw SQL to bypass PostgREST cache issue
+  // PostgREST cache doesn't see new columns, but SQL works directly
+  const { error } = await client.rpc('upsert_checkout_session', {
+    p_id: payload.id,
+    p_order_id: payload.orderId,
+    p_event_id: payload.eventId,
+    p_user_id: payload.userId ?? null,
+    p_hold_ids: payload.holdIds ?? [],
+    p_pricing_snapshot: payload.pricingSnapshot ?? null,
+    p_contact_snapshot: payload.contactSnapshot ?? null,
+    p_verification_state: payload.verificationState ?? null,
+    p_express_methods: payload.expressMethods ?? null,
+    p_stripe_session_id: payload.stripeSessionId ?? null,
+    p_expires_at: toIsoString(payload.expiresAt),
+    p_status: payload.status ?? "pending",
+  });
 
   if (error) {
     console.error("[checkout-session] upsert failed", error);
@@ -146,18 +143,80 @@ export const updateCheckoutSession = async (
 };
 
 export const calculateProcessingFeeCents = (faceValueCents: number): number => {
+  // ✅ No processing fee for free tickets
+  if (faceValueCents === 0) {
+    return 0;
+  }
+  
   const faceValue = faceValueCents / 100;
-  const fee = faceValue * 0.066 + 2.19;
-  return Math.round(fee * 100);
+  
+  // Platform fee target (Eventbrite-equivalent): 6.6% + $1.79
+  const platformFeeTarget = faceValue * 0.066 + 1.79;
+  
+  // Net needed after Stripe fees
+  const totalNetNeeded = faceValue + platformFeeTarget;
+  
+  // Gross up for Stripe: 2.9% + $0.30
+  const totalCharge = (totalNetNeeded + 0.30) / 0.971;
+  
+  // Processing fee = total customer pays - face value
+  const processingFee = totalCharge - faceValue;
+  
+  return Math.round(processingFee * 100);
+};
+
+export const calculatePlatformFeeCents = (faceValueCents: number): number => {
+  // Platform fee only (for Stripe Connect application_fee_amount)
+  if (faceValueCents === 0) {
+    return 0;
+  }
+  
+  const faceValue = faceValueCents / 100;
+  const platformFeeTarget = faceValue * 0.066 + 1.79;
+  return Math.round(platformFeeTarget * 100);
 };
 
 export const buildPricingBreakdown = (faceValueCents: number, currency = "USD") => {
   const feesCents = calculateProcessingFeeCents(faceValueCents);
   const totalCents = faceValueCents + feesCents;
+  const platformFeeCents = calculatePlatformFeeCents(faceValueCents);
+  
   return {
     subtotalCents: faceValueCents,
     feesCents,
     totalCents,
+    platformFeeCents, // For Stripe Connect application_fee_amount
+    currency,
+  };
+};
+
+  // Processing fee = total customer pays - face value
+  const processingFee = totalCharge - faceValue;
+  
+  return Math.round(processingFee * 100);
+};
+
+export const calculatePlatformFeeCents = (faceValueCents: number): number => {
+  // Platform fee only (for Stripe Connect application_fee_amount)
+  if (faceValueCents === 0) {
+    return 0;
+  }
+  
+  const faceValue = faceValueCents / 100;
+  const platformFeeTarget = faceValue * 0.066 + 1.79;
+  return Math.round(platformFeeTarget * 100);
+};
+
+export const buildPricingBreakdown = (faceValueCents: number, currency = "USD") => {
+  const feesCents = calculateProcessingFeeCents(faceValueCents);
+  const totalCents = faceValueCents + feesCents;
+  const platformFeeCents = calculatePlatformFeeCents(faceValueCents);
+  
+  return {
+    subtotalCents: faceValueCents,
+    feesCents,
+    totalCents,
+    platformFeeCents, // For Stripe Connect application_fee_amount
     currency,
   };
 };

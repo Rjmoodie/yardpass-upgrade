@@ -15,6 +15,11 @@ import CommentModal from "@/components/CommentModal";
 import { muxToPoster } from "@/lib/video/muxClient";
 import { useProfileVisitTracking } from "@/hooks/usePurchaseIntentTracking";
 import { FlashbackBadge } from "@/components/flashbacks/FlashbackBadge";
+import { FollowListModal } from "@/components/follow/FollowListModal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface UserProfile {
   user_id: string;
@@ -39,16 +44,20 @@ interface Post {
   event_id?: string;
 }
 
-interface UserEvent {
+interface SavedItem {
   id: string;
+  item_type: 'event' | 'post';
+  item_id: string;
   title: string;
   cover_image_url: string | null;
   start_at: string;
   is_flashback?: boolean;
+  post_media_urls?: string[] | null;
+  post_text?: string | null;
 }
 
 export function ProfilePage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, updateProfileOptimistic } = useAuth();
   const { username, userId } = useParams<{ username?: string; userId?: string }>();
   const navigate = useNavigate();
   const { trackProfileVisit } = useProfileVisitTracking();
@@ -57,22 +66,46 @@ export function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [savedEvents, setSavedEvents] = useState<UserEvent[]>([]);
+  const [savedEvents, setSavedEvents] = useState<SavedItem[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modal state for viewing posts
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
   
-  const { following, followers } = useUserConnections(profile?.user_id);
+  const { following: userFollowing, followers } = useUserConnections(profile?.user_id);
   const { tickets } = useTickets();
+  const [totalFollowingCount, setTotalFollowingCount] = useState(0);
   const { state: followState, follow, unfollow, loading: followLoading } = useFollow({
     type: 'user',
     id: profile?.user_id || '' // useFollow requires non-null string
   });
   
   const isOwnProfile = profile ? profile.user_id === currentUser?.id : (!username && !userId);
+
+  // Load total following count (includes users, events, organizers)
+  useEffect(() => {
+    if (!profile?.user_id) return;
+
+    const loadTotalFollowing = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_user_id', profile.user_id)
+          .eq('status', 'accepted');
+
+        if (error) throw error;
+        setTotalFollowingCount(count || 0);
+      } catch (err) {
+        console.error('Error loading total following count:', err);
+      }
+    };
+
+    loadTotalFollowing();
+  }, [profile?.user_id]);
 
   // Fetch profile data
   useEffect(() => {
@@ -179,47 +212,44 @@ export function ProfilePage() {
     loadPosts();
   }, [profile?.user_id]);
 
-  // Fetch saved events (if own profile)
+  // Fetch saved items (events + posts) (if own profile)
   useEffect(() => {
-    const loadSavedEvents = async () => {
+    const loadSavedItems = async () => {
       if (!isOwnProfile || !profile?.user_id) return;
 
       try {
+        // Use the unified view that includes both events and posts
         const { data, error } = await supabase
-          .from('saved_events')
-          .select(`
-            id,
-            event_id,
-            events (
-              id,
-              title,
-              cover_image_url,
-              start_at,
-              is_flashback
-            )
-          `)
+          .from('user_saved_items')
+          .select('*')
           .eq('user_id', profile.user_id)
-          .order('saved_at', { ascending: false});
+          .order('saved_at', { ascending: false });
 
         if (error) throw error;
 
         // Transform the data
-        const events: UserEvent[] = (data || []).map((item: any) => ({
-          id: item.events.id,
-          title: item.events.title,
-          cover_image_url: item.events.cover_image_url,
-          start_at: item.events.start_at,
-          is_flashback: item.events.is_flashback || false,
+        const items: SavedItem[] = (data || []).map((item: any) => ({
+          id: item.id,
+          item_type: item.item_type,
+          item_id: item.item_id,
+          title: item.event_title || 'Untitled',
+          cover_image_url: item.item_type === 'event' 
+            ? item.event_cover_image 
+            : (item.post_media_urls?.[0] || item.event_cover_image),
+          start_at: item.event_start_at,
+          is_flashback: false,
+          post_media_urls: item.post_media_urls,
+          post_text: item.post_text,
         }));
 
-        setSavedEvents(events);
+        setSavedEvents(items);
       } catch (error) {
-        console.error('Error loading saved events:', error);
+        console.error('Error loading saved items:', error);
         setSavedEvents([]);
       }
     };
 
-    loadSavedEvents();
+    loadSavedItems();
   }, [profile?.user_id, isOwnProfile]);
 
   // Determine content to show based on active tab
@@ -241,15 +271,26 @@ export function ProfilePage() {
         };
       });
     } else {
-      // Saved tab - show saved events
-      return savedEvents.map(e => ({
-        id: e.id,
-        image: e.cover_image_url || '',
-        likes: 0,
-        type: 'event' as const,
-        event_id: e.id,
-        is_flashback: e.is_flashback || false
-      }));
+      // Saved tab - show saved events AND posts
+      return savedEvents.map(e => {
+        // Handle media URLs - convert Mux if needed
+        let imageUrl = e.cover_image_url || '';
+        if (e.item_type === 'post' && e.post_media_urls?.[0]) {
+          const rawUrl = e.post_media_urls[0];
+          imageUrl = rawUrl.startsWith('mux:') 
+            ? muxToPoster(rawUrl) 
+            : rawUrl;
+        }
+        
+        return {
+          id: e.item_id, // Use item_id (either event_id or post_id)
+          image: imageUrl,
+          likes: 0,
+          type: e.item_type, // 'event' or 'post'
+          event_id: e.event_id, // ✅ Always use event_id from saved item (works for both events and posts)
+          is_flashback: e.is_flashback || false
+        };
+      });
     }
   }, [activeTab, posts, savedEvents]);
 
@@ -294,15 +335,20 @@ export function ProfilePage() {
               onClick={async () => {
                 try {
                   const newRole = profile?.role === 'organizer' ? 'attendee' : 'organizer';
+                  
+                  // ✅ Update AuthContext immediately for instant navigation update
+                  updateProfileOptimistic({ role: newRole });
+                  
+                  // Update local state immediately
+                  setProfile(prev => prev ? { ...prev, role: newRole } : prev);
+
+                  // Update database
                   const { error } = await supabase
                     .from('user_profiles')
                     .update({ role: newRole })
                     .eq('user_id', currentUser?.id);
 
                   if (error) throw error;
-
-                  // Update local state immediately (no reload needed!)
-                  setProfile(prev => prev ? { ...prev, role: newRole } : prev);
 
                   toast({
                     title: 'Role Updated',
@@ -408,18 +454,18 @@ export function ProfilePage() {
             
             {/* Followers & Following */}
             <div className="flex items-center gap-3 text-sm">
-              <button 
-                onClick={() => navigate(`/profile/${targetUserId}/followers`)}
+              <button
+                onClick={() => setFollowModal('followers')}
                 className="flex items-center gap-1 transition-opacity hover:opacity-70"
               >
                 <span className="font-bold text-foreground">{followers.length.toLocaleString()}</span>
                 <span className="text-foreground/60">Followers</span>
               </button>
-              <button 
-                onClick={() => navigate(`/profile/${targetUserId}/following`)}
+              <button
+                onClick={() => setFollowModal('following')}
                 className="flex items-center gap-1 transition-opacity hover:opacity-70"
               >
-                <span className="font-bold text-foreground">{following.length}</span>
+                <span className="font-bold text-foreground">{totalFollowingCount}</span>
                 <span className="text-foreground/60">Following</span>
               </button>
             </div>
@@ -644,17 +690,31 @@ export function ProfilePage() {
               <button
                 key={post.id}
                 onClick={() => {
-                  if (post.type === 'event' && !post.event_id) {
-                    // If it's an event card (not a post), navigate to event page
-                    navigate(`/e/${post.id}`);
-                  } else if (activeTab === 'posts' && post.event_id) {
-                    // If it's a post, open modal
-                    setSelectedPostId(post.id);
-                    setSelectedEventId(post.event_id);
-                    setShowPostModal(true);
-                  } else {
-                    // Fallback navigation
+                  if (post.type === 'event') {
+                    // Event card → Navigate to event page
                     navigate(`/e/${post.event_id || post.id}`);
+                  } else if (post.type === 'post') {
+                    // Post → Open modal (don't navigate!)
+                    if (post.event_id) {
+                      setSelectedPostId(post.id);
+                      setSelectedEventId(post.event_id);
+                      setShowPostModal(true);
+                    } else {
+                      // Edge case: post without event_id (shouldn't happen, but handle it)
+                      toast({
+                        title: 'Error',
+                        description: 'This post is missing event information',
+                        variant: 'destructive'
+                      });
+                    }
+                  } else {
+                    // Unknown type - log and show error
+                    console.error('Unknown post type:', post);
+                    toast({
+                      title: 'Error',
+                      description: 'Unable to open this item',
+                      variant: 'destructive'
+                    });
                   }
                 }}
                 className="group relative aspect-square overflow-hidden rounded-lg bg-white/5 sm:rounded-xl"
@@ -680,12 +740,10 @@ export function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Event Badge */}
-                {post.type === 'event' && (
-                  <div className="absolute right-1 top-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-foreground sm:text-xs">
-                    Event
-                  </div>
-                )}
+                {/* Type Badge */}
+                <div className="absolute right-1 top-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-foreground sm:text-xs">
+                  {post.type === 'event' ? 'Event' : 'Post'}
+                </div>
               </button>
             ))}
           </div>
@@ -724,7 +782,90 @@ export function ProfilePage() {
           onCommentCountChange={(postId, newCount) => {
             console.log('💬 [Profile] Comment count updated:', postId, newCount);
           }}
+          onPostDelete={(postId) => {
+            // Remove deleted post from local state
+            setPosts(prev => prev.filter(p => p.id !== postId));
+            // Close modal
+            setShowPostModal(false);
+            setSelectedPostId(null);
+            setSelectedEventId(null);
+            console.log('🗑️ [Profile] Post deleted:', postId);
+          }}
+          onRequestUsername={() => {
+            // ✅ Open username modal (keeps comment modal in background)
+            toast({
+              title: 'Complete Your Profile',
+              description: 'Set your username to comment on posts',
+              action: {
+                label: 'Go to Settings',
+                onClick: () => {
+                  setShowPostModal(false);
+                  navigate('/settings');
+                }
+              },
+              duration: 6000
+            });
+          }}
         />
+      )}
+
+      {/* Followers Modal */}
+      <FollowListModal
+        open={followModal === 'followers'}
+        onOpenChange={(open) => setFollowModal(open ? 'followers' : null)}
+        targetType="user"
+        targetId={targetUserId || ''}
+        direction="followers"
+      />
+
+      {/* Following Modal - Shows users only (events/organizers coming soon) */}
+      {followModal === 'following' && (
+        <Dialog open={true} onOpenChange={(open) => setFollowModal(open ? 'following' : null)}>
+          <DialogContent className="max-h-[80vh] w-full max-w-lg overflow-hidden p-0">
+            <DialogHeader className="border-b px-6 py-4">
+              <DialogTitle>Following ({totalFollowingCount} total)</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-1">
+                Showing {userFollowing.length} users • {totalFollowingCount - userFollowing.length} events/organizers
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="h-[60vh]">
+              <div className="space-y-0 divide-y">
+                {userFollowing.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    Not following any users yet.
+                  </div>
+                ) : (
+                  <ul className="divide-y">
+                    {userFollowing.map(connection => (
+                      <li key={connection.user_id} className="flex items-center gap-3 px-6 py-4">
+                        <Avatar className="h-10 w-10">
+                          {connection.photo_url ? <AvatarImage src={connection.photo_url} alt={connection.display_name} /> : null}
+                          <AvatarFallback>{connection.display_name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-1 flex-col">
+                          <span className="text-sm font-medium">{connection.display_name}</span>
+                          {connection.bio && (
+                            <span className="text-xs text-muted-foreground line-clamp-1">{connection.bio}</span>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setFollowModal(null);
+                            navigate(`/u/${connection.user_id}`);
+                          }}
+                        >
+                          View
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

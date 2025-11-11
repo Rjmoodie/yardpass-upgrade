@@ -33,6 +33,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import { DashboardOverviewSkeleton, EventListSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -528,37 +529,54 @@ export default function OrganizerDashboard() {
     }
   }, [selectedOrgId, events, toast]);
 
+  // 🎯 PERF-003: Use ref pattern to prevent subscription churn
+  const fetchScopedEventsRef = useRef(fetchScopedEvents);
+  useEffect(() => {
+    fetchScopedEventsRef.current = fetchScopedEvents;
+  }, [fetchScopedEvents]);
+
   useEffect(() => {
     mountedRef.current = true;
-    fetchScopedEvents();
+    fetchScopedEventsRef.current(); // Use ref for initial fetch
 
     if (!selectedOrgId) return;
+    
+    console.log('🔌 [PERF-003] Creating realtime subscription for org:', selectedOrgId);
+    
     const ch = supabase
       .channel(`events-org-${selectedOrgId}`)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'events', filter: `owner_context_type=eq.organization,owner_context_id=eq.${selectedOrgId}` },
         () => {
-          fetchScopedEvents();
+          console.log('⚡ [PERF-003] Event change detected, refreshing...');
+          fetchScopedEventsRef.current(); // ✅ Use ref to always get latest callback
         }
       )
       .subscribe();
 
     return () => {
       mountedRef.current = false;
+      console.log('🔌 [PERF-003] Cleaning up realtime subscription for org:', selectedOrgId);
       try { 
         supabase.removeChannel(ch); 
       } catch (error) {
         console.error('Error removing realtime channel:', error);
       }
     };
-  }, [selectedOrgId, fetchScopedEvents]);
+  }, [selectedOrgId]); // ✅ Only depend on selectedOrgId, not callback
+
+  // 🎯 PERF-003: Use ref pattern for sponsorship data callback too
+  const fetchOrgSponsorshipDataRef = useRef(fetchOrgSponsorshipData);
+  useEffect(() => {
+    fetchOrgSponsorshipDataRef.current = fetchOrgSponsorshipData;
+  }, [fetchOrgSponsorshipData]);
 
   // Fetch sponsorship data only after events are loaded to avoid race condition
   useEffect(() => {
     if (events.length > 0 && selectedOrgId) {
-      fetchOrgSponsorshipData();
+      fetchOrgSponsorshipDataRef.current();
     }
-  }, [events.length, selectedOrgId, fetchOrgSponsorshipData]);
+  }, [events.length, selectedOrgId]); // ✅ Removed callback from dependencies
 
   // Event select
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -1236,9 +1254,10 @@ export default function OrganizerDashboard() {
         </div>
 
         <TabsContent value="events" className="space-y-6">
+          {/* 🎯 PERF-009: Show skeleton while loading events */}
           {loadingEvents ? (
-            <div className="flex justify-center py-12">
-              <LoadingSpinner />
+            <div className="py-4">
+              <EventListSkeleton count={5} />
             </div>
           ) : events.length === 0 ? (
               <div className="text-center py-16 border rounded-lg">
@@ -1511,7 +1530,8 @@ export default function OrganizerDashboard() {
                 </Card>
               </div>
 
-              <Suspense fallback={<LoadingSpinner />}>
+              {/* 🎯 PERF-009: Use skeleton for Suspense fallback */}
+              <Suspense fallback={<DashboardOverviewSkeleton />}>
                 <DashboardOverview events={enhancedEvents} onEventSelect={handleEventSelect} />
           </Suspense>
             </div>

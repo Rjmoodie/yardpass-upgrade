@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { stripeCallWithResilience } from "../_shared/stripe-resilience.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,7 +53,7 @@ serve(async (req) => {
     } else if (context_type === 'organization') {
       // Check if user is member of the organization
       const { data: membership, error: membershipError } = await supabaseService
-        .from('org_members')
+        .from('org_memberships')
         .select('role')
         .eq('org_id', context_id)
         .eq('user_id', userData.user.id)
@@ -111,15 +112,58 @@ serve(async (req) => {
       );
     }
 
+    // Check for cached balance (5-minute TTL)
+    const nowIso = new Date().toISOString();
+    const { data: cachedBalance } = await supabaseService
+      .from('stripe_balance_cache')
+      .select('*')
+      .eq('context_type', context_type)
+      .eq('context_id', context_id)
+      .gte('expires_at', nowIso)
+      .maybeSingle();
+
+    if (cachedBalance) {
+      console.log('[get-stripe-balance] Returning cached balance', {
+        contextId: context_id,
+        cachedAt: cachedBalance.cached_at,
+        expiresAt: cachedBalance.expires_at
+      });
+
+      return new Response(
+        JSON.stringify({
+          available: cachedBalance.available_cents,
+          pending: cachedBalance.pending_cents,
+          currency: cachedBalance.currency,
+          account_ready: cachedBalance.charges_enabled && 
+                        cachedBalance.payouts_enabled && 
+                        cachedBalance.details_submitted,
+          charges_enabled: cachedBalance.charges_enabled,
+          payouts_enabled: cachedBalance.payouts_enabled,
+          details_submitted: cachedBalance.details_submitted,
+          cached: true
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    }
+
+    console.log('[get-stripe-balance] Cache miss or expired, fetching from Stripe...');
+
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2023-10-16",
     });
 
-    // Get balance
-    const balance = await stripe.balance.retrieve({
-      stripeAccount: payoutAccount.stripe_connect_id
-    });
+    // Get balance (with retry logic)
+    const balance = await stripeCallWithResilience(
+      supabaseService,
+      () => stripe.balance.retrieve({
+        stripeAccount: payoutAccount.stripe_connect_id
+      }),
+      { operationName: 'balance.retrieve' }
+    );
 
     const availableAmount = balance.available.reduce((total: number, b: any) => {
       if (b.currency === 'usd') return total + b.amount;
@@ -135,6 +179,31 @@ serve(async (req) => {
                         payoutAccount.payouts_enabled && 
                         payoutAccount.details_submitted;
 
+    // Cache the balance for 5 minutes
+    const cacheExpiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    await supabaseService
+      .from('stripe_balance_cache')
+      .upsert({
+        context_type,
+        context_id,
+        stripe_account_id: payoutAccount.stripe_connect_id,
+        available_cents: availableAmount,
+        pending_cents: pendingAmount,
+        currency: 'usd',
+        charges_enabled: payoutAccount.charges_enabled,
+        payouts_enabled: payoutAccount.payouts_enabled,
+        details_submitted: payoutAccount.details_submitted,
+        cached_at: new Date().toISOString(),
+        expires_at: cacheExpiresAt
+      }, {
+        onConflict: 'context_type,context_id'
+      });
+
+    console.log('[get-stripe-balance] Balance cached', {
+      contextId: context_id,
+      expiresAt: cacheExpiresAt
+    });
+
     return new Response(
       JSON.stringify({
         available: availableAmount,
@@ -143,7 +212,8 @@ serve(async (req) => {
         account_ready: accountReady,
         charges_enabled: payoutAccount.charges_enabled,
         payouts_enabled: payoutAccount.payouts_enabled,
-        details_submitted: payoutAccount.details_submitted
+        details_submitted: payoutAccount.details_submitted,
+        cached: false
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -177,13 +177,27 @@ export default function EventCheckoutSheet({ event, isOpen, onClose, onSuccess }
     return tiers.reduce((sum, t) => sum + (selections[t.id] || 0) * t.price_cents, 0);
   }, [tiers, selections]);
 
-  // Calculate fees upfront (6.6% + $2.19 per transaction - matches edge function)
+  // Calculate fees with Stripe gross-up (organizer gets 100% of faceValue)
   const pricing = useMemo(() => {
     const subtotal = subtotalCents;
     const faceValue = subtotal / 100; // Convert to dollars
-    const fee = faceValue * 0.066 + 2.19; // 6.6% + $2.19
-    const fees = Math.round(fee * 100); // Convert back to cents
-    const total = subtotal + fees;
+    
+    if (faceValue === 0) {
+      return { subtotalCents: 0, feesCents: 0, totalCents: 0 };
+    }
+    
+    // Platform fee target (Eventbrite-equivalent): 6.6% + $1.79
+    const platformFeeTarget = faceValue * 0.066 + 1.79;
+    
+    // Net needed after Stripe fees
+    const totalNetNeeded = faceValue + platformFeeTarget;
+    
+    // Gross up for Stripe: 2.9% + $0.30
+    const totalCharge = (totalNetNeeded + 0.30) / 0.971;
+    
+    const fees = Math.round((totalCharge - faceValue) * 100); // Processing fee in cents
+    const total = Math.round(totalCharge * 100); // Total charge in cents
+    
     return { subtotalCents: subtotal, feesCents: fees, totalCents: total };
   }, [subtotalCents]);
 

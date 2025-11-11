@@ -2,90 +2,21 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-// Shared utilities (copied from _shared/checkout-session.ts)
-export const normalizeEmail = (email: string | null | undefined): string | null => {
-  if (!email) return null;
-  return email.trim().toLowerCase();
-};
-
-export const hashEmail = async (email: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(email);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-};
-
-export const defaultExpressMethods = {
-  applePay: true,
-  googlePay: true,
-  link: true,
-};
-
-export const calculateProcessingFeeCents = (faceValueCents: number): number => {
-  const faceValue = faceValueCents / 100;
-  const fee = faceValue * 0.066 + 2.19;
-  return Math.round(fee * 100);
-};
-
-export const buildPricingBreakdown = (faceValueCents: number, currency = "USD") => {
-  const feesCents = calculateProcessingFeeCents(faceValueCents);
-  const totalCents = faceValueCents + feesCents;
-  return {
-    subtotalCents: faceValueCents,
-    feesCents,
-    totalCents,
-    currency,
-  };
-};
-
-export const buildPricingSnapshot = (pricing: any): Record<string, unknown> => ({
-  subtotal_cents: pricing.subtotalCents,
-  fees_cents: pricing.feesCents,
-  total_cents: pricing.totalCents,
-  currency: pricing.currency ?? "USD",
-});
-
-export const buildContactSnapshot = async (contact: any): Promise<Record<string, unknown>> => {
-  const normalizedEmail = normalizeEmail(contact.email ?? null);
-  return {
-    email: normalizedEmail,
-    name: contact.name ?? null,
-    phone: contact.phone ?? null,
-    email_hash: normalizedEmail ? await hashEmail(normalizedEmail) : null,
-  };
-};
-
-export const upsertCheckoutSession = async (
-  client: any,
-  payload: any,
-): Promise<void> => {
-  const record: Record<string, unknown> = {
-    id: payload.id,
-    order_id: payload.orderId,
-    event_id: payload.eventId,
-    user_id: payload.userId ?? null,
-    hold_ids: payload.holdIds ?? [],
-    pricing_snapshot: payload.pricingSnapshot ?? null,
-    contact_snapshot: payload.contactSnapshot ?? null,
-    verification_state: payload.verificationState ?? null,
-    express_methods: payload.expressMethods ?? null,
-    cart_snapshot: payload.cartSnapshot ?? null,
-    stripe_session_id: payload.stripeSessionId ?? null,
-    expires_at: payload.expiresAt instanceof Date ? payload.expiresAt.toISOString() : payload.expiresAt,
-    status: payload.status ?? "pending",
-  };
-
-  const { error } = await client
-    .from("checkout_sessions")
-    .upsert(record, { onConflict: "id" });
-
-  if (error) {
-    console.error("[checkout-session] upsert failed", error);
-    throw error;
-  }
-};
+// Import shared utilities
+import {
+  calculateProcessingFeeCents,
+  buildPricingBreakdown,
+} from "../_shared/pricing.ts";
+import { stripeCallWithResilience } from "../_shared/stripe-resilience.ts";
+import {
+  normalizeEmail,
+  hashEmail,
+  defaultExpressMethods,
+  buildPricingSnapshot,
+  buildContactSnapshot,
+  upsertCheckoutSession,
+  generateIdempotencyKey,
+} from "../_shared/checkout-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -447,6 +378,30 @@ serve(async (req) => {
       tiers: tiers.map(t => ({ id: t.id, name: t.name }))
     });
 
+    // Check if organizer can accept payments
+    const { data: payoutDestination } = await supabaseService
+      .from("payout_accounts")
+      .select("*")
+      .eq("context_type", event.owner_context_type)
+      .eq("context_id", event.owner_context_id)
+      .maybeSingle();
+
+    if (payoutDestination?.stripe_connect_id) {
+      if (!payoutDestination.charges_enabled) {
+        console.error('[guest-checkout] Organizer cannot accept payments', {
+          eventId,
+          contextType: event.owner_context_type,
+          contextId: event.owner_context_id,
+          chargesEnabled: payoutDestination.charges_enabled
+        });
+        
+        return response({
+          error: "This organizer cannot accept payments at this time. Please contact the event organizer or try again later.",
+          error_code: "ORGANIZER_CHARGES_DISABLED"
+        }, 503);
+      }
+    }
+
     const tierMap = new Map(tiers.map((tier) => [tier.id, tier]));
 
     const checkoutSessionId = crypto.randomUUID();
@@ -532,7 +487,11 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") ||
       "http://localhost:5173";
 
-    const idempotencyKey = req.headers.get("x-idempotency-key") || `${userId}:${Date.now()}`;
+    // Idempotency key: use stable domain identifiers, not timestamps
+    const idempotencyKey = generateIdempotencyKey(
+      ['checkout', checkoutSessionId, userId],
+      req
+    );
 
     console.log("[guest-checkout] Creating Stripe checkout session...", {
       customerId,
@@ -540,9 +499,12 @@ serve(async (req) => {
       totalCents: pricing.totalCents
     });
 
-    const session = await stripe.checkout.sessions.create(
-      {
-        ui_mode: "embedded", // Enable embedded checkout
+    // Create session with retry logic and circuit breaker
+    const session = await stripeCallWithResilience(
+      supabaseService,
+      () => stripe.checkout.sessions.create(
+        {
+          ui_mode: "embedded", // Enable embedded checkout
         customer: customerId,
         customer_email: customerId ? undefined : normalizedEmail,
         line_items: lineItems,
@@ -571,7 +533,8 @@ serve(async (req) => {
           },
         },
       },
-      { idempotencyKey }
+      { idempotencyKey }),
+      { operationName: 'checkout.sessions.create' }
     );
 
     console.log("[guest-checkout] ✅ Stripe session created:", session.id);
@@ -665,15 +628,8 @@ serve(async (req) => {
       return response({ error: "Failed to create order items" }, 500);
     }
 
-    const cartSnapshot = {
-      items: orderItems.map((item) => ({
-        tier_id: item.tier_id,
-        quantity: item.quantity,
-        unit_price_cents: item.unit_price_cents,
-        tier_name: tierMap.get(item.tier_id)?.name ?? null,
-      })),
-    };
-
+    // ✅ REMOVED: cartSnapshot - redundant (data already in order_items table)
+    
     await upsertCheckoutSession(supabaseService, {
       id: checkoutSessionId,
       orderId: order.id,
@@ -684,7 +640,6 @@ serve(async (req) => {
       contactSnapshot,
       verificationState: { email_verified: !isNewUser, risk_score: 0 },
       expressMethods: defaultExpressMethods,
-      cartSnapshot,
       stripeSessionId: session.id,
       expiresAt: expiresAtIso,
       status: "pending",

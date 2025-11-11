@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
+import { startTracking, endTracking } from '@/utils/performanceTracking';
 
 interface Event {
   id: string;
@@ -43,6 +44,9 @@ export function useOrganizerData(user: any) {
     try {
       console.log('🔍 Fetching events for user:', user.id);
       setLoading(true);
+      
+      // 🎯 PERF-001: Start tracking dashboard load
+      startTracking('dashboard_load');
 
       // Fetch events with ticket sales data
       const { data: eventsData, error: eventsError } = await supabase
@@ -78,45 +82,104 @@ export function useOrganizerData(user: any) {
 
       console.log('📊 Events query result:', { data: eventsData, count: eventsData?.length });
 
-      // Fetch actual ticket sales and order data for each event
-      const transformedEvents = await Promise.all((eventsData || []).map(async event => {
+      // 🎯 PERF-002: Batch all queries to eliminate N+1 pattern
+      // Instead of 4 queries per event, make 4 queries total
+      
+      const eventIds = eventsData.map(e => e.id);
+      
+      if (eventIds.length === 0) {
+        setUserEvents([]);
+        endTracking('dashboard_load', { eventCount: 0 });
+        return;
+      }
+
+      console.log('🚀 [PERF-002] Batching queries for', eventIds.length, 'events');
+
+      // Batch all queries in parallel (4 queries instead of N×4)
+      const [ticketsResult, ordersResult, scansResult, reactionsResult] = await Promise.all([
+        supabase
+          .from('tickets')
+          .select('event_id, status, tier_id')
+          .in('event_id', eventIds),
+        
+        supabase
+          .from('orders')
+          .select('event_id, total_cents, status')
+          .in('event_id', eventIds)
+          .eq('status', 'paid'),
+        
+        supabase
+          .from('scan_logs')
+          .select('event_id, id')
+          .in('event_id', eventIds)
+          .eq('result', 'valid'),
+        
+        supabase
+          .from('event_reactions')
+          .select('kind, event_posts!inner(event_id)')
+          .in('event_posts.event_id', eventIds)
+      ]);
+
+      // Group results by event_id for O(1) lookups
+      const ticketsByEvent = new Map<string, any[]>();
+      ticketsResult.data?.forEach(ticket => {
+        if (!ticketsByEvent.has(ticket.event_id)) {
+          ticketsByEvent.set(ticket.event_id, []);
+        }
+        ticketsByEvent.get(ticket.event_id)!.push(ticket);
+      });
+
+      const ordersByEvent = new Map<string, any[]>();
+      ordersResult.data?.forEach(order => {
+        if (!ordersByEvent.has(order.event_id)) {
+          ordersByEvent.set(order.event_id, []);
+        }
+        ordersByEvent.get(order.event_id)!.push(order);
+      });
+
+      const scansByEvent = new Map<string, any[]>();
+      scansResult.data?.forEach(scan => {
+        if (!scansByEvent.has(scan.event_id)) {
+          scansByEvent.set(scan.event_id, []);
+        }
+        scansByEvent.get(scan.event_id)!.push(scan);
+      });
+
+      const reactionsByEvent = new Map<string, any[]>();
+      reactionsResult.data?.forEach((reaction: any) => {
+        const eventId = reaction.event_posts?.event_id;
+        if (eventId) {
+          if (!reactionsByEvent.has(eventId)) {
+            reactionsByEvent.set(eventId, []);
+          }
+          reactionsByEvent.get(eventId)!.push(reaction);
+        }
+      });
+
+      console.log('✅ [PERF-002] Batched queries complete:', {
+        tickets: ticketsResult.data?.length || 0,
+        orders: ordersResult.data?.length || 0,
+        scans: scansResult.data?.length || 0,
+        reactions: reactionsResult.data?.length || 0
+      });
+
+      // Transform events with O(1) lookups (no more async queries!)
+      const transformedEvents = eventsData.map(event => {
         const ticketTiers = event.ticket_tiers || [];
         const totalCapacity = ticketTiers.reduce((sum: number, tier: any) => sum + (tier.quantity || 0), 0);
 
-        // Get actual ticket sales data
-        const { data: ticketsData } = await supabase
-          .from('tickets')
-          .select('status, tier_id')
-          .eq('event_id', event.id);
+        // O(1) lookups instead of queries
+        const tickets = ticketsByEvent.get(event.id) || [];
+        const orders = ordersByEvent.get(event.id) || [];
+        const scans = scansByEvent.get(event.id) || [];
+        const reactions = reactionsByEvent.get(event.id) || [];
 
-        // Get actual order data for revenue
-        const { data: ordersData } = await supabase
-          .from('orders')
-          .select('total_cents, status')
-          .eq('event_id', event.id)
-          .eq('status', 'paid');
-
-        // Calculate actual metrics
-        const totalSold = ticketsData?.filter(t => t.status === 'issued').length || 0;
-        const totalRevenue = ordersData?.reduce((sum, order) => sum + (order.total_cents || 0), 0) || 0;
-        
-        // Get actual check-ins
-        const { data: checkInsData } = await supabase
-          .from('scan_logs')
-          .select('id')
-          .eq('event_id', event.id)
-          .eq('result', 'valid');
-
-        const checkIns = checkInsData?.length || 0;
-
-        // Get actual engagement metrics
-        const { data: reactionsData } = await supabase
-          .from('event_reactions')
-          .select('kind, event_posts!inner(event_id)')
-          .eq('event_posts.event_id', event.id);
-
-        const likes = reactionsData?.filter(r => r.kind === 'like').length || 0;
-        const totalReactions = reactionsData?.length || 0;
+        // Calculate metrics from grouped data
+        const totalSold = tickets.filter(t => t.status === 'issued').length;
+        const totalRevenue = orders.reduce((sum, order) => sum + (order.total_cents || 0), 0);
+        const checkIns = scans.length;
+        const likes = reactions.filter((r: any) => r.kind === 'like').length;
+        const totalReactions = reactions.length;
 
         return {
           id: event.id,
@@ -143,13 +206,23 @@ export function useOrganizerData(user: any) {
           city: event.city || '',
           visibility: event.visibility || 'public'
         };
-      }));
+      });
       
       setUserEvents(transformedEvents);
+      
+      // 🎯 PERF-001: End tracking with metadata
+      endTracking('dashboard_load', {
+        eventCount: transformedEvents.length,
+        totalRevenue: transformedEvents.reduce((sum, e) => sum + e.revenue, 0),
+        totalTicketsSold: transformedEvents.reduce((sum, e) => sum + e.tickets_sold, 0)
+      });
       
     } catch (error) {
       console.error('Error in fetchUserEvents:', error);
       setUserEvents([]);
+      
+      // Track failed loads too
+      endTracking('dashboard_load', { error: true });
     } finally {
       setLoading(false);
     }

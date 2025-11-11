@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext'; // Removed AuthProvider import (already in main.tsx)
 import { ProfileViewProvider, useProfileView } from '@/contexts/ProfileViewContext';
 import { ThemeProvider } from "next-themes";
 import { Toaster } from '@/components/ui/toaster';
@@ -678,11 +678,10 @@ function AppContent() {
 export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <AuthProvider>
-        <ProfileViewProvider>
-          <AppContent />
-        </ProfileViewProvider>
-      </AuthProvider>
+      {/* ✅ REMOVED DUPLICATE: AuthProvider already wraps App in main.tsx */}
+      <ProfileViewProvider>
+        <AppContent />
+      </ProfileViewProvider>
     </ThemeProvider>
   );
 }

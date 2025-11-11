@@ -1,0 +1,187 @@
+name: Bundle Size Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  bundle-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build project
+        run: npm run build
+        
+      - name: Analyze bundle sizes
+        id: analyze
+        run: |
+          # Extract bundle sizes from build output
+          echo "Analyzing bundle sizes..."
+          
+          # Get vendor chunk size (gzipped)
+          VENDOR_SIZE=$(ls -lh dist/assets/vendor-*.js | awk '{print $5}')
+          VENDOR_GZIP=$(find dist/assets -name "vendor-*.js" -exec gzip -c {} \; | wc -c | awk '{printf "%.0f", $1/1024}')
+          
+          # Get index chunk size (gzipped)
+          INDEX_SIZE=$(ls -lh dist/assets/index-*.js | awk '{print $5}')
+          INDEX_GZIP=$(find dist/assets -name "index-*.js" -exec gzip -c {} \; | wc -c | awk '{printf "%.0f", $1/1024}')
+          
+          # Calculate critical path size
+          CRITICAL_PATH=$((VENDOR_GZIP + INDEX_GZIP))
+          
+          # Get total dist size
+          TOTAL_SIZE=$(du -sh dist/assets | awk '{print $1}')
+          
+          # Count chunks
+          CHUNK_COUNT=$(ls dist/assets/*.js | wc -l)
+          
+          # Output for GitHub Actions
+          echo "vendor_gzip=${VENDOR_GZIP}" >> $GITHUB_OUTPUT
+          echo "index_gzip=${INDEX_GZIP}" >> $GITHUB_OUTPUT
+          echo "critical_path=${CRITICAL_PATH}" >> $GITHUB_OUTPUT
+          echo "total_size=${TOTAL_SIZE}" >> $GITHUB_OUTPUT
+          echo "chunk_count=${CHUNK_COUNT}" >> $GITHUB_OUTPUT
+          
+          # Print summary
+          echo "📊 Bundle Analysis:"
+          echo "  Vendor chunk: ${VENDOR_GZIP} KB (gzipped)"
+          echo "  Index chunk: ${INDEX_GZIP} KB (gzipped)"
+          echo "  Critical path: ${CRITICAL_PATH} KB"
+          echo "  Total size: ${TOTAL_SIZE}"
+          echo "  Chunk count: ${CHUNK_COUNT}"
+          
+      - name: Check bundle size limits
+        id: check
+        run: |
+          VENDOR_GZIP=${{ steps.analyze.outputs.vendor_gzip }}
+          CRITICAL_PATH=${{ steps.analyze.outputs.critical_path }}
+          
+          # Set limits (in KB)
+          VENDOR_LIMIT=350
+          CRITICAL_LIMIT=400
+          
+          # Check vendor chunk
+          if [ "$VENDOR_GZIP" -gt "$VENDOR_LIMIT" ]; then
+            echo "❌ Vendor chunk ($VENDOR_GZIP KB) exceeds limit ($VENDOR_LIMIT KB)"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "message=Vendor chunk too large: ${VENDOR_GZIP} KB (limit: ${VENDOR_LIMIT} KB)" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Check critical path
+          if [ "$CRITICAL_PATH" -gt "$CRITICAL_LIMIT" ]; then
+            echo "❌ Critical path ($CRITICAL_PATH KB) exceeds limit ($CRITICAL_LIMIT KB)"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "message=Critical path too large: ${CRITICAL_PATH} KB (limit: ${CRITICAL_LIMIT} KB)" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "✅ Bundle sizes within limits"
+          echo "status=passed" >> $GITHUB_OUTPUT
+          echo "message=All bundle sizes within limits ✅" >> $GITHUB_OUTPUT
+          
+      - name: Create bundle size report
+        if: always()
+        run: |
+          cat > bundle-report.md << 'EOF'
+          ## 📦 Bundle Size Report
+          
+          ### Critical Path (loads immediately)
+          - **Vendor chunk:** ${{ steps.analyze.outputs.vendor_gzip }} KB (gzipped) - Limit: 350 KB
+          - **Index chunk:** ${{ steps.analyze.outputs.index_gzip }} KB (gzipped)
+          - **Total critical:** ${{ steps.analyze.outputs.critical_path }} KB - Limit: 400 KB
+          
+          ### Overall Stats
+          - **Total dist size:** ${{ steps.analyze.outputs.total_size }}
+          - **Chunk count:** ${{ steps.analyze.outputs.chunk_count }}
+          
+          ### Status
+          ${{ steps.check.outputs.message }}
+          
+          ---
+          
+          <details>
+          <summary>📈 Performance Budget</summary>
+          
+          | Metric | Current | Limit | Status |
+          |--------|---------|-------|--------|
+          | Vendor (gzip) | ${{ steps.analyze.outputs.vendor_gzip }} KB | 350 KB | ${{ steps.analyze.outputs.vendor_gzip < 350 && '✅' || '❌' }} |
+          | Critical Path | ${{ steps.analyze.outputs.critical_path }} KB | 400 KB | ${{ steps.analyze.outputs.critical_path < 400 && '✅' || '❌' }} |
+          
+          </details>
+          
+          <details>
+          <summary>💡 Tips for Reducing Bundle Size</summary>
+          
+          - Use dynamic `import()` for heavy components
+          - Check for duplicate dependencies with `npm ls <package>`
+          - Use `rollup-plugin-visualizer` to analyze bundle composition
+          - Consider lazy loading route components
+          - Review `manualChunks` configuration in `vite.config.ts`
+          
+          </details>
+          EOF
+          
+          cat bundle-report.md
+          
+      - name: Comment PR with bundle report
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('bundle-report.md', 'utf8');
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Bundle Size Report')
+            );
+            
+            // Create or update comment
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: report
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            }
+            
+      - name: Upload bundle stats artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-stats-${{ github.sha }}
+          path: |
+            dist/assets/
+            bundle-report.md
+          retention-days: 30
+

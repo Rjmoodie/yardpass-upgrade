@@ -1,55 +1,79 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Search, Ticket, User, MessageCircle, LayoutDashboard, ScanLine } from "lucide-react";
+import {
+  Home,
+  Search,
+  Ticket,
+  User,
+  MessageCircle,
+  LayoutDashboard,
+  ScanLine,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+
+type UserRole = 'attendee' | 'organizer';
 
 export function NavigationNewDesign() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile } = useAuth();
-  const [userRole, setUserRole] = useState<'attendee' | 'organizer'>('attendee');
-  
-  // Fetch user role from profile - refetch whenever needed
+
+  // ✅ Use role from AuthContext directly (no redundant fetch)
+  const userRole: UserRole = (profile?.role as UserRole) || 'attendee';
+
+  // ✅ Log only when role actually changes
+  const prevRoleRef = useRef<string | null>(null);
   useEffect(() => {
-    const fetchUserRole = async () => {
-      if (!user?.id) {
-        setUserRole('attendee');
-        return;
-      }
-      
-      // Always fetch fresh from database to ensure latest role
-      const { data } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (data?.role) {
-        console.log('[Navigation] Role updated to:', data.role);
-        setUserRole(data.role as 'attendee' | 'organizer');
-      }
-    };
-    
-    fetchUserRole();
-  }, [user?.id, profile?.role, location.pathname]);
-  
+    if (profile?.role && profile.role !== prevRoleRef.current) {
+      console.log('[Navigation] Role updated to:', profile.role);
+      prevRoleRef.current = profile.role;
+    }
+  }, [profile?.role]);
+
   // Dynamic nav items based on user role
   const navItems = [
     { id: 'feed', icon: Home, label: 'Feed', path: '/' },
     { id: 'search', icon: Search, label: 'Search', path: '/search' },
-    // Show Scanner for organizers, Tickets for attendees
     userRole === 'organizer'
-      ? { id: 'scanner', icon: ScanLine, label: 'Scanner', path: '/scanner', authRequired: true }
-      : { id: 'tickets', icon: Ticket, label: 'Tickets', path: '/tickets', authRequired: true },
-    { id: 'messages', icon: MessageCircle, label: 'Messages', path: '/messages', authRequired: true },
-    // Show Dashboard for organizers, Profile for attendees
+      ? {
+          id: 'scanner',
+          icon: ScanLine,
+          label: 'Scanner',
+          path: '/scanner',
+          authRequired: true,
+        }
+      : {
+          id: 'tickets',
+          icon: Ticket,
+          label: 'Tickets',
+          path: '/tickets',
+          authRequired: true,
+        },
+    {
+      id: 'messages',
+      icon: MessageCircle,
+      label: 'Messages',
+      path: '/messages',
+      authRequired: true,
+    },
     userRole === 'organizer'
-      ? { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', authRequired: true }
-      : { id: 'profile', icon: User, label: 'Profile', path: '/profile', authRequired: true },
+      ? {
+          id: 'dashboard',
+          icon: LayoutDashboard,
+          label: 'Dashboard',
+          path: '/dashboard',
+          authRequired: true,
+        }
+      : {
+          id: 'profile',
+          icon: User,
+          label: 'Profile',
+          path: '/profile',
+          authRequired: true,
+        },
   ];
 
-  const handleNavigate = (path: string, authRequired: boolean) => {
+  const handleNavigate = (path: string, authRequired: boolean | undefined) => {
     if (authRequired && !user) {
       navigate('/auth');
       return;
@@ -76,15 +100,17 @@ export function NavigationNewDesign() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t border-border/60 bg-background/85 backdrop-blur-xl shadow-[var(--shadow-sm)]">
       <div className="mx-auto flex max-w-5xl items-center justify-around px-2 py-2 sm:px-4">
-        {/* Main Navigation Items */}
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentScreen === item.id;
-          
+
           return (
             <button
               key={item.id}
-              onClick={() => handleNavigate(item.path, item.authRequired || false)}
+              type="button"
+              onClick={() => handleNavigate(item.path, item.authRequired)}
+              aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
               className={`group relative flex flex-col items-center gap-1 rounded-[var(--radius-md)] px-3 py-2 transition-all active:scale-95 sm:px-4 ${
                 isActive
                   ? 'bg-primary/15 text-primary shadow-[var(--shadow-sm)]'
@@ -116,4 +142,3 @@ export function NavigationNewDesign() {
 }
 
 export default NavigationNewDesign;
-

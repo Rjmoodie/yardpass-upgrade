@@ -151,6 +151,23 @@ serve(async (req) => {
 
       logStep("Order found", { orderId: order.id, status: order.status });
 
+      // Mark checkout session as completed (for feed ranking analytics)
+      if (stripeSessionId) {
+        const { error: checkoutError } = await supabaseService.rpc('complete_checkout_session', {
+          p_stripe_session_id: stripeSessionId
+        });
+        
+        if (checkoutError) {
+          logStep("Warning: Could not mark checkout as completed", { 
+            error: checkoutError.message,
+            stripeSessionId,
+            note: "This is non-critical - order processing will continue"
+          });
+        } else {
+          logStep("Checkout session marked as completed", { stripeSessionId });
+        }
+      }
+
       // If already processed, skip
       if (order.status === 'paid') {
         logStep("Order already processed", { orderId: order.id });

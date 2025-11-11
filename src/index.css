@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import CSS-based animations (replaces framer-motion) */
+@import './utils/animations.css';
+
+/* 🎯 PERF-004: Font Declaration with font-display: swap */
+/* DISABLED: Using system fonts until Inter font file is fixed */
+/* @font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+} */
+
 /* Accessibility - Skip Link (hidden until Tab key focus) */
 .skip-link {
   position: absolute;
