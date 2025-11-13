@@ -1,4 +1,4 @@
-# 🖼️ YardPass Image Optimization Guide
+# 🖼️ Liventix Image Optimization Guide
 **Generated:** November 9, 2025  
 **Status:** 111 issues found (1 critical, 6 warnings, 104 optimizations)
 
@@ -44,7 +44,7 @@ convert public/lovable-uploads/247f3ae4-8789-4a73-af97-f0e41767873a.png \
 | File | Current Size | Est. WebP Size | Savings |
 |------|--------------|----------------|---------|
 | `public/images/placeholders/event-cover-fallback.jpg` | 93 KB | ~60 KB | 35% |
-| `public/images/yardpass-logo-full.png` | Various | Various | 25-35% |
+| `public/images/liventix-logo-full.png` | Various | Various | 25-35% |
 | `public/lovable-uploads/*.png` | Various | Various | 25-35% |
 
 **Why WebP?**
@@ -272,7 +272,7 @@ export function optimizedImageUrl(
   { width, height, format = 'auto', quality = 85 }
 ) {
   // Example for Cloudinary
-  return `https://res.cloudinary.com/yardpass/image/upload/w_${width},h_${height},q_${quality},f_${format}/${url}`;
+  return `https://res.cloudinary.com/liventix/image/upload/w_${width},h_${height},q_${quality},f_${format}/${url}`;
 }
 
 // Usage

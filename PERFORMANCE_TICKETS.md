@@ -1,4 +1,4 @@
-# YardPass Performance Optimization Tickets
+# Liventix Performance Optimization Tickets
 **Source:** [PERFORMANCE_AUDIT_2025-11-09.md](./PERFORMANCE_AUDIT_2025-11-09.md)  
 **Created:** November 9, 2025  
 **Total Tickets:** 10  

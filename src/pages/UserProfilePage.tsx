@@ -57,7 +57,7 @@ export default function UserProfilePage() {
       <div className="min-h-screen bg-black flex items-center justify-center text-white">
         <div className="text-center">
           <p className="mb-4">Profile not found</p>
-          <button onClick={() => navigate(-1)} className="text-[#FF8C00] hover:underline">Go back</button>
+          <button onClick={() => navigate(-1)} className="text-[#1171c0] hover:underline">Go back</button>
         </div>
       </div>
     );
@@ -117,7 +117,7 @@ export default function UserProfilePage() {
             </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3 sm:mt-0 sm:ml-auto sm:justify-end">
-              <button className="rounded-full bg-[#FF8C00] px-6 py-2 text-sm font-medium text-white transition hover:bg-[#FF9D1A]">
+              <button className="rounded-full bg-[#1171c0] px-6 py-2 text-sm font-medium text-white transition hover:bg-[#0d5aa1]">
                 Follow
               </button>
               <button className="rounded-full border border-white/10 bg-white/5 px-6 py-2 text-sm text-white transition hover:bg-white/10">
@@ -148,7 +148,7 @@ export default function UserProfilePage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`rounded-full px-5 py-2 text-sm transition ${
-                  activeTab === tab.id ? 'bg-[#FF8C00] text-white shadow-lg' : 'text-white/70 hover:text-white'
+                  activeTab === tab.id ? 'bg-[#1171c0] text-white shadow-lg' : 'text-white/70 hover:text-white'
                 }`}
               >
                 {tab.label}

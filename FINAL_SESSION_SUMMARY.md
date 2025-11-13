@@ -174,7 +174,7 @@ Ctrl/Cmd + Shift + R
 - [x] Redirects to Stripe
 - [x] Stripe shows timer message
 - [x] Clean error messages (no JSON)
-- [x] No persistent banner on YardPass
+- [x] No persistent banner on Liventix
 
 **Console**:
 - [x] No 404 errors
@@ -189,7 +189,7 @@ Ctrl/Cmd + Shift + R
 ### **Optional Enhancements:**
 
 **Stripe Branding** (5 minutes):
-- Upload YardPass logo to Stripe Dashboard
+- Upload Liventix logo to Stripe Dashboard
 - Set brand color to #FF8C00
 - Configure at: https://dashboard.stripe.com/settings/branding
 

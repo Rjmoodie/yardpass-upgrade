@@ -461,7 +461,7 @@ export default function TicketsPage({
           <button
             onClick={() => setActiveTab('upcoming')}
             className={`flex-1 rounded-full px-4 py-2 text-sm transition-colors duration-100 sm:text-base ${
-              activeTab === 'upcoming' ? 'bg-[#FF8C00] text-white shadow-lg' : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+              activeTab === 'upcoming' ? 'bg-[#1171c0] text-white shadow-lg' : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
             }`}
           >
             Upcoming
@@ -469,7 +469,7 @@ export default function TicketsPage({
           <button
             onClick={() => setActiveTab('past')}
             className={`flex-1 rounded-full px-4 py-2 text-sm transition-colors duration-100 sm:text-base ${
-              activeTab === 'past' ? 'bg-[#FF8C00] text-white shadow-lg' : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+              activeTab === 'past' ? 'bg-[#1171c0] text-white shadow-lg' : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
             }`}
           >
             Past
@@ -505,7 +505,7 @@ export default function TicketsPage({
                 : 'Buy your first ticket to see it here.'}
             </p>
             {!guestSession && (
-              <button className="rounded-full bg-[#FF8C00] px-6 py-2 text-sm font-medium text-white transition hover:bg-[#FF9D1A]">
+              <button className="rounded-full bg-[#1171c0] px-6 py-2 text-sm font-medium text-white transition hover:bg-[#0d5aa1]">
                 Discover Events
               </button>
             )}
@@ -548,7 +548,7 @@ export default function TicketsPage({
                       <div className="flex items-center justify-between gap-3">
                         <h3 
                           onClick={(e) => handleEventClick(ticket.eventId, e)}
-                          className="text-base text-white sm:text-lg cursor-pointer hover:text-[#FF8C00] transition-colors underline-offset-2 hover:underline"
+                          className="text-base text-white sm:text-lg cursor-pointer hover:text-[#1171c0] transition-colors underline-offset-2 hover:underline"
                         >
                           {ticket.title}
                         </h3>

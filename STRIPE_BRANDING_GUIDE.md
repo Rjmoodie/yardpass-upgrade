@@ -1,11 +1,11 @@
 # Stripe Checkout Branding Guide 🎨
 
 ## Summary
-How to customize Stripe Checkout to match YardPass branding (orange #FF8C00 and black theme).
+How to customize Stripe Checkout to match Liventix branding (orange #FF8C00 and black theme).
 
 ---
 
-## 🎯 **YardPass Brand Colors**
+## 🎯 **Liventix Brand Colors**
 
 ```css
 Primary Orange: #FF8C00
@@ -26,20 +26,20 @@ Border: rgba(255, 140, 0, 0.3)
 
 **Brand Name:**
 ```
-YardPass
+Liventix
 ```
 
 **Brand Color (Primary):**
 ```
-#FF8C00  (YardPass Orange)
+#FF8C00  (Liventix Orange)
 ```
 
 **Icon** (512x512px square):
-- Upload YardPass logo icon
+- Upload Liventix logo icon
 - Will appear as favicon and in header
 
 **Logo** (Rectangular, transparent PNG):
-- Upload YardPass horizontal logo
+- Upload Liventix horizontal logo
 - Recommended: 512x200px
 - Shows in checkout header
 
@@ -60,10 +60,10 @@ YardPass
 - ⚪ Default white/gray theme
 - 🏢 Stripe logo
 
-**After** (YardPass Branded):
+**After** (Liventix Branded):
 - 🟠 Orange accents (#FF8C00)
-- 🎪 YardPass logo in header
-- 🎫 YardPass icon as favicon
+- 🎪 Liventix logo in header
+- 🎫 Liventix icon as favicon
 - ✨ Brand-consistent experience
 
 ---
@@ -98,11 +98,11 @@ expires_at: 30 minutes  // Synced with ticket hold
 
 After configuring in Stripe Dashboard:
 
-1. Start a test purchase on YardPass
+1. Start a test purchase on Liventix
 2. Go to Stripe checkout
 3. Should see:
    - 🟠 Orange accents
-   - 🎪 YardPass logo
+   - 🎪 Liventix logo
    - ⏱️ "Your tickets are reserved for 30 minutes..."
    - 💳 "Pay" button (orange when you click)
 
@@ -151,7 +151,7 @@ If you have Stripe's **Enterprise plan**, you can add custom CSS:
 | **Custom Fonts** | ❌ No | ✅ Yes |
 | **Layout Control** | ❌ No | ✅ Yes |
 
-**For YardPass**: Standard branding features are **sufficient**! ✅
+**For Liventix**: Standard branding features are **sufficient**! ✅
 
 ---
 
@@ -163,7 +163,7 @@ If you have Stripe's **Enterprise plan**, you can add custom CSS:
 ✅ **30-minute expiration**: Matches ticket hold  
 ✅ **Auto-fill email**: Pre-fills user's email  
 ✅ **Promotion codes**: Enabled  
-✅ **Success/Cancel URLs**: Redirects back to YardPass  
+✅ **Success/Cancel URLs**: Redirects back to Liventix  
 
 ---
 
@@ -174,14 +174,14 @@ If you have Stripe's **Enterprise plan**, you can add custom CSS:
 1. **Go to Stripe Dashboard**: https://dashboard.stripe.com/settings/branding
 
 2. **Upload Logo**: 
-   - Icon: Square YardPass logo (512x512)
-   - Logo: Horizontal YardPass logo (512x200)
+   - Icon: Square Liventix logo (512x512)
+   - Logo: Horizontal Liventix logo (512x200)
 
 3. **Set Colors**:
    - Brand color: `#FF8C00`
    - Accent color: `#FF8C00`
 
-4. **Brand Name**: `YardPass`
+4. **Brand Name**: `Liventix`
 
 5. **Save Settings**
 
@@ -194,9 +194,9 @@ If you have Stripe's **Enterprise plan**, you can add custom CSS:
 **Stripe Checkout will show**:
 ```
 ┌─────────────────────────────────────┐
-│ [YardPass Logo]              Sandbox│
+│ [Liventix Logo]              Sandbox│
 │                                      │
-│ YardPass Launch - General Admission  │
+│ Liventix Launch - General Admission  │
 │ $12.85                               │
 │ Event tickets (includes processing)  │
 │                                      │
@@ -213,7 +213,7 @@ If you have Stripe's **Enterprise plan**, you can add custom CSS:
 └─────────────────────────────────────┘
 ```
 
-**Branded with YardPass orange throughout!** 🟠
+**Branded with Liventix orange throughout!** 🟠
 
 ---
 

@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# YardPass - Deploy Edge Functions Only
+# Liventix - Deploy Edge Functions Only
 # Run this after: npx supabase login
 
 set -e  # Exit on error
 
-echo "🚀 Deploying YardPass Edge Functions..."
+echo "🚀 Deploying Liventix Edge Functions..."
 echo ""
 
 # Check if logged in
@@ -68,6 +68,7 @@ echo "⚠️  Note: Database migrations NOT deployed"
 echo "To deploy database changes, run: npx supabase db push"
 echo ""
 echo "🧪 Ready to test!"
+
 
 
 

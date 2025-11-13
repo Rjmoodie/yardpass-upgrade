@@ -1,4 +1,4 @@
-# YardPass - Technical Architecture & Stack Documentation
+# Liventix - Technical Architecture & Stack Documentation
 
 > **Purpose:** Technical reference for developers auditing iOS Capacitor integration and overall architecture
 
@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-YardPass is a mobile-first event ticketing and social platform built with React + Capacitor for cross-platform deployment (iOS, Android, Web). The backend is powered by Supabase (PostgreSQL + Edge Functions) with Stripe for payments.
+Liventix is a mobile-first event ticketing and social platform built with React + Capacitor for cross-platform deployment (iOS, Android, Web). The backend is powered by Supabase (PostgreSQL + Edge Functions) with Stripe for payments.
 
 ---
 
@@ -127,7 +127,7 @@ YardPass is a mobile-first event ticketing and social platform built with React 
 ### File Structure
 
 ```
-yardpass-upgrade/
+liventix-upgrade/
 ├── capacitor.config.ts          # Main Capacitor configuration
 ├── ios/                          # iOS native project
 │   ├── App/
@@ -154,8 +154,8 @@ yardpass-upgrade/
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.yardpass.app',        // CRITICAL: iOS Bundle ID
-  appName: 'YardPass',
+  appId: 'com.liventix.app',        // CRITICAL: iOS Bundle ID
+  appName: 'Liventix',
   webDir: 'dist',                    // Vite build output
   server: {
     androidScheme: 'https',
@@ -192,37 +192,37 @@ export default config;
 <dict>
   <!-- App Identity -->
   <key>CFBundleDisplayName</key>
-  <string>YardPass</string>
+  <string>Liventix</string>
   <key>CFBundleIdentifier</key>
-  <string>com.yardpass.app</string>
+  <string>com.liventix.app</string>
   
   <!-- CRITICAL: Required iOS Permissions -->
   
   <!-- Camera Permission -->
   <key>NSCameraUsageDescription</key>
-  <string>YardPass needs access to your camera to capture photos and videos for event posts.</string>
+  <string>Liventix needs access to your camera to capture photos and videos for event posts.</string>
   
   <!-- Photo Library -->
   <key>NSPhotoLibraryUsageDescription</key>
-  <string>YardPass needs access to your photo library to select images for posts and profile.</string>
+  <string>Liventix needs access to your photo library to select images for posts and profile.</string>
   
   <key>NSPhotoLibraryAddUsageDescription</key>
-  <string>YardPass needs permission to save photos to your library.</string>
+  <string>Liventix needs permission to save photos to your library.</string>
   
   <!-- Location -->
   <key>NSLocationWhenInUseUsageDescription</key>
-  <string>YardPass uses your location to show nearby events and improve recommendations.</string>
+  <string>Liventix uses your location to show nearby events and improve recommendations.</string>
   
   <key>NSLocationAlwaysUsageDescription</key>
-  <string>YardPass uses your location to show nearby events even when the app is in the background.</string>
+  <string>Liventix uses your location to show nearby events even when the app is in the background.</string>
   
   <!-- Push Notifications (handled by Capacitor) -->
   
   <!-- Universal Links (Deep Links) -->
   <key>com.apple.developer.associated-domains</key>
   <array>
-    <string>applinks:yardpass.app</string>
-    <string>applinks:www.yardpass.app</string>
+    <string>applinks:liventix.app</string>
+    <string>applinks:www.liventix.app</string>
   </array>
   
   <!-- Allow HTTPS to Supabase -->
@@ -325,8 +325,8 @@ import { Share } from '@capacitor/share';
 const shareEvent = async (event) => {
   await Share.share({
     title: event.title,
-    text: `Check out ${event.title} on YardPass!`,
-    url: `https://yardpass.app/events/${event.id}`,
+    text: `Check out ${event.title} on Liventix!`,
+    url: `https://liventix.app/events/${event.id}`,
     dialogTitle: 'Share Event'
   });
 };
@@ -345,7 +345,7 @@ const shareEvent = async (event) => {
 import { App } from '@capacitor/app';
 
 App.addListener('appUrlOpen', (event) => {
-  // Handle deep link: yardpass.app/events/123
+  // Handle deep link: liventix.app/events/123
   const url = new URL(event.url);
   const path = url.pathname;
   
@@ -662,7 +662,7 @@ npx cap sync ios
 **Cause:** Associated Domains not configured  
 **Fix:**
 1. Enable Associated Domains in Xcode
-2. Add `applinks:yardpass.app`
+2. Add `applinks:liventix.app`
 3. Host `apple-app-site-association` file
 
 ### Issue 5: API Calls Failing

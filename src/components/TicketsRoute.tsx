@@ -87,7 +87,7 @@ export function TicketsRoute() {
   const handleMemberSignIn = useCallback(() => {
     openAuth({
       defaultTab: 'signin',
-      title: 'Sign in to YardPass',
+      title: 'Sign in to Liventix',
       description: 'Members can view every ticket and manage their profile.',
     });
   }, [openAuth]);

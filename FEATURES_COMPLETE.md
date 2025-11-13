@@ -322,7 +322,7 @@ FROM (
 
 ## ✨ Thank You!
 
-Your YardPass event platform now has:
+Your Liventix event platform now has:
 - 🎫 Advanced ticketing with fee options
 - 🏷️ Intelligent tag-based recommendations
 - 🛍️ Merchandise & add-ons

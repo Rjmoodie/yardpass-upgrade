@@ -1,12 +1,12 @@
-# 🌐📱 Hybrid Deployment Strategy for yardpass.tech
+# 🌐📱 Hybrid Deployment Strategy for liventix.tech
 
 ## Overview
 
-This document outlines the hybrid deployment strategy for Yardpass, where certain components are web-only and others are optimized for mobile apps, all deployed under the yardpass.tech domain.
+This document outlines the hybrid deployment strategy for Yardpass, where certain components are web-only and others are optimized for mobile apps, all deployed under the liventix.tech domain.
 
 ## 🏗️ Architecture Overview
 
-### Web App (yardpass.tech)
+### Web App (liventix.tech)
 - **Primary Platform**: Full-featured web application
 - **Target Users**: Event organizers, sponsors, desktop users
 - **Features**: Complete sponsorship system, analytics, management tools
@@ -141,7 +141,7 @@ const getRoutes = () => {
 
 ## 🚀 Deployment Configuration
 
-### Web App Deployment (yardpass.tech)
+### Web App Deployment (liventix.tech)
 
 #### **Vercel Configuration**
 ```json
@@ -172,7 +172,7 @@ const getRoutes = () => {
 ```bash
 # Web-specific environment
 VITE_PLATFORM=web
-VITE_DOMAIN=yardpass.tech
+VITE_DOMAIN=liventix.tech
 VITE_ANALYTICS_ENABLED=true
 VITE_ADMIN_FEATURES=true
 ```
@@ -185,7 +185,7 @@ VITE_ADMIN_FEATURES=true
 import { CapacitorConfig } from '@capacitor/core';
 
 const config: CapacitorConfig = {
-  appId: 'com.yardpass.app',
+  appId: 'com.liventix.app',
   appName: 'Yardpass',
   webDir: 'dist',
   server: {
@@ -310,7 +310,7 @@ export const EventCard: React.FC<EventCardProps> = (props) => {
 
 ## 🚀 Deployment Pipeline
 
-### **Web Deployment (yardpass.tech)**
+### **Web Deployment (liventix.tech)**
 ```yaml
 # .github/workflows/web-deploy.yml
 name: Web Deployment
@@ -453,7 +453,7 @@ const getNavigationItems = () => {
 };
 ```
 
-### **4. Deploy to yardpass.tech**
+### **4. Deploy to liventix.tech**
 ```bash
 # Build for web
 npm run build:web
@@ -479,4 +479,4 @@ vercel --prod
 - **Better UX**: Platform-optimized experiences
 - **Scalable**: Independent scaling of web vs mobile
 
-This hybrid approach gives you the best of both worlds: a powerful web platform for management and a mobile-optimized app for social interaction, all under the yardpass.tech domain! 🚀
+This hybrid approach gives you the best of both worlds: a powerful web platform for management and a mobile-optimized app for social interaction, all under the liventix.tech domain! 🚀

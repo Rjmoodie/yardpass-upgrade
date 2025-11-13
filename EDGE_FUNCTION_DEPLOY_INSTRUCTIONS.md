@@ -14,7 +14,7 @@
 supabase login
 
 # Step 2: Deploy function
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 supabase functions deploy send-role-invite
 
 # Done! ✅
@@ -28,7 +28,7 @@ supabase functions deploy send-role-invite
 
 1. **Go to Supabase Dashboard:**
    - Visit https://supabase.com/dashboard
-   - Select your YardPass project
+   - Select your Liventix project
 
 2. **Navigate to Edge Functions:**
    - Click "Edge Functions" in sidebar

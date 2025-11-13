@@ -48,9 +48,9 @@ type ReqBody = {
 };
 
 const SYS = (ctx: Omit<ReqBody, "action">) =>
-  `You are YardPass' email & SMS copywriting assistant. 
+  `You are Liventix' email & SMS copywriting assistant. 
 Return clean, concise results. Never include JSON backticks—return raw JSON only when asked.
-Brand: YardPass. Audience: ${ctx.audience || "event attendees"}. 
+Brand: Liventix. Audience: ${ctx.audience || "event attendees"}. 
 Event: ${ctx.eventTitle || "Event"}${ctx.eventDate ? ` on ${ctx.eventDate}` : ""}.
 Channel: ${ctx.messageType || "email"}.
 Use US English, friendly/professional tone unless otherwise requested.`;

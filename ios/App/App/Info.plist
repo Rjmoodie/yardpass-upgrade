@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>YardPass</string>
+	<string>Liventix</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -52,23 +52,23 @@
 
 	<!-- Camera Access (for photo/video capture) -->
 	<key>NSCameraUsageDescription</key>
-	<string>YardPass needs access to your camera to capture photos and videos for event posts.</string>
+	<string>Liventix needs access to your camera to capture photos and videos for event posts.</string>
 
 	<!-- Microphone Access (for video recording) -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>YardPass uses your microphone when recording videos for posts.</string>
+	<string>Liventix uses your microphone when recording videos for posts.</string>
 
 	<!-- Photo Library Access (Reading) -->
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>YardPass needs access to your photo library so you can attach images and videos to posts.</string>
+	<string>Liventix needs access to your photo library so you can attach images and videos to posts.</string>
 
 	<!-- Photo Library Access (Writing/Saving) -->
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>YardPass may save photos or videos you create to your photo library.</string>
+	<string>Liventix may save photos or videos you create to your photo library.</string>
 
 	<!-- Location Access (When In Use) -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>YardPass uses your location to show nearby events and personalize recommendations.</string>
+	<string>Liventix uses your location to show nearby events and personalize recommendations.</string>
 
 	<!-- Allow HTTPS to External APIs -->
 	<key>NSAppTransportSecurity</key>
@@ -109,8 +109,8 @@
 	<!-- Universal Links (Deep Linking) -->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:yardpass.app</string>
-		<string>applinks:www.yardpass.app</string>
+		<string>applinks:liventix.app</string>
+		<string>applinks:www.liventix.app</string>
 	</array>
 
 	<!-- Background Modes (for Push Notifications) -->

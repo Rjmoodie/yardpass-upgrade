@@ -86,7 +86,7 @@ test.describe('Share functionality', () => {
     
     // Check clipboard content
     const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
-    expect(clipboardText).toContain('https://yardpass.com');
+    expect(clipboardText).toContain('https://liventix.com');
     expect(clipboardText).toContain('utm_source=share');
     expect(clipboardText).toContain('utm_medium=app');
   });
@@ -106,7 +106,7 @@ test.describe('Share functionality', () => {
     await page.waitForSelector('input[readonly]');
     const shareUrl = await page.inputValue('input[readonly]');
     
-    expect(shareUrl).toContain('https://yardpass.com');
+    expect(shareUrl).toContain('https://liventix.com');
     expect(shareUrl).toContain('utm_source=share');
     expect(shareUrl).toContain('utm_medium=app');
     expect(shareUrl).toContain('utm_campaign=');

@@ -1,6 +1,6 @@
-# 🧪 YardPass Load Testing Suite
+# 🧪 Liventix Load Testing Suite
 
-Complete collection of ready-to-run load tests for all critical YardPass systems.
+Complete collection of ready-to-run load tests for all critical Liventix systems.
 
 ---
 
@@ -306,7 +306,7 @@ node tests/load/frontend-ticketing-test.js
 
 ```
 ╔═══════════════════════════════════════════════════╗
-║   YardPass Frontend Ticketing Load Test Suite    ║
+║   Liventix Frontend Ticketing Load Test Suite    ║
 ╚═══════════════════════════════════════════════════╝
 
 🧪 TEST 1: Sequential Purchase (Baseline Performance)

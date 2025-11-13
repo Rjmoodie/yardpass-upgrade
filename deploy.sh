@@ -86,7 +86,7 @@ Documentation:
 - TESTING_GUIDE.md - How to test
 - TAG_RECOMMENDATIONS_QUICK_START.md - Developer guide
 
-🎉 Your YardPass platform is now powered by intelligent
+🎉 Your Liventix platform is now powered by intelligent
    tag-based recommendations!
 ====================================================="
 

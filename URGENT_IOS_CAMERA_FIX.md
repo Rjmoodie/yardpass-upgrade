@@ -16,7 +16,7 @@ Your app is missing:
 ## Step 1: Install Missing Plugins (5 minutes)
 
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 # Install Camera plugin
 npm install @capacitor/camera
@@ -44,7 +44,7 @@ npx cap sync ios
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>YardPass</string>
+	<string>Liventix</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -91,23 +91,23 @@ npx cap sync ios
 
 	<!-- Camera Access -->
 	<key>NSCameraUsageDescription</key>
-	<string>YardPass needs camera access to let you capture photos and videos for event posts and stories.</string>
+	<string>Liventix needs camera access to let you capture photos and videos for event posts and stories.</string>
 
 	<!-- Photo Library Access (Reading) -->
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>YardPass needs access to your photo library to let you select photos and videos for your posts.</string>
+	<string>Liventix needs access to your photo library to let you select photos and videos for your posts.</string>
 
 	<!-- Photo Library Access (Writing) -->
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>YardPass needs permission to save photos and videos to your library.</string>
+	<string>Liventix needs permission to save photos and videos to your library.</string>
 
 	<!-- Location Access (When In Use) -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>YardPass uses your location to show nearby events and improve your event recommendations.</string>
+	<string>Liventix uses your location to show nearby events and improve your event recommendations.</string>
 
 	<!-- Location Access (Always - Optional, only if needed for background) -->
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>YardPass uses your location to notify you about nearby events even when the app is in the background.</string>
+	<string>Liventix uses your location to notify you about nearby events even when the app is in the background.</string>
 
 	<!-- Allow HTTPS to Supabase & External APIs -->
 	<key>NSAppTransportSecurity</key>
@@ -140,8 +140,8 @@ npx cap sync ios
 	<!-- Allow Universal Links (Deep Linking) -->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:yardpass.app</string>
-		<string>applinks:www.yardpass.app</string>
+		<string>applinks:liventix.app</string>
+		<string>applinks:www.liventix.app</string>
 	</array>
 
 	<!-- App Capabilities -->

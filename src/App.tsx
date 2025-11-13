@@ -39,6 +39,7 @@ const CreateEventFlow = lazy(() =>
   import('@/components/CreateEventFlow').then((m) => ({ default: m.CreateEventFlow })),
 );
 const OrganizerDashboard = lazy(() => import('@/components/OrganizerDashboard'));
+const OrganizerRefundsPage = lazy(() => import('@/pages/new-design/OrganizerRefundsPage').then(m => ({ default: m.OrganizerRefundsPage })));
 const UserProfile = lazy(() => import('@/components/UserProfile'));
 const PostCreator = lazy(() => import('@/components/PostCreator'));
 const SearchPage = lazy(() => import('@/components/SearchPage'));
@@ -386,6 +387,16 @@ function AppContent() {
                   <AuthGuard>
                     <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
                       <OrganizerDashboard />
+                    </Suspense>
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/dashboard/refunds"
+                element={
+                  <AuthGuard>
+                    <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                      <OrganizerRefundsPage />
                     </Suspense>
                   </AuthGuard>
                 }

@@ -1,5 +1,5 @@
 /**
- * YardPass Service Worker
+ * Liventix Service Worker
  * 
  * Implements offline-first caching strategy for improved performance:
  * - Precaches critical assets (shell, fonts, core JS/CSS)
@@ -10,7 +10,7 @@
  * Performance impact: 40-60% faster repeat visits
  */
 
-const CACHE_VERSION = 'yardpass-v1.0.0';
+const CACHE_VERSION = 'liventix-v1.0.0';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 const IMAGE_CACHE = `${CACHE_VERSION}-images`;
@@ -20,7 +20,7 @@ const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/images/yardpass-logo-full.png',
+  '/images/liventix-logo-full.png',
 ];
 
 // Cache size limits
@@ -61,7 +61,7 @@ self.addEventListener('activate', (event) => {
         return Promise.all(
           cacheNames
             .filter(cacheName => {
-              return cacheName.startsWith('yardpass-') && 
+              return cacheName.startsWith('liventix-') && 
                      cacheName !== STATIC_CACHE &&
                      cacheName !== API_CACHE &&
                      cacheName !== IMAGE_CACHE;
@@ -236,7 +236,7 @@ self.addEventListener('message', (event) => {
         .then(cacheNames => {
           return Promise.all(
             cacheNames
-              .filter(name => name.startsWith('yardpass-'))
+              .filter(name => name.startsWith('liventix-'))
               .map(name => caches.delete(name))
           );
         })

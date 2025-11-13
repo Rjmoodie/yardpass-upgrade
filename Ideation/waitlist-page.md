@@ -1,7 +1,7 @@
 # Waitlist Page Specification
 
 ## Purpose
-Capture early interest from potential users and build excitement for YardPass launch.
+Capture early interest from potential users and build excitement for Liventix launch.
 
 ## Page URL
 `/waitlist` or integrated into landing page
@@ -11,12 +11,12 @@ Capture early interest from potential users and build excitement for YardPass la
 "Join the Future of Event Management"
 
 ### Subheadline
-"Be among the first to experience YardPass. Sign up now for early access and exclusive beta perks."
+"Be among the first to experience Liventix. Sign up now for early access and exclusive beta perks."
 
 ### Visual Elements
-- High-quality screenshot or mockup of YardPass interface
+- High-quality screenshot or mockup of Liventix interface
 - Short animated GIF or video showing key feature (15-30 seconds)
-- Clean, modern design with YardPass brand colors
+- Clean, modern design with Liventix brand colors
 
 ## Signup Form
 ### Required Fields
@@ -59,7 +59,7 @@ Capture early interest from potential users and build excitement for YardPass la
 4. **Hidden Fees**: "Surprised by unexpected platform fees eating into revenue?"
 
 ### Solution Preview
-Brief, persuasive copy for each pain point showing how YardPass solves it.
+Brief, persuasive copy for each pain point showing how Liventix solves it.
 
 ## Email Confirmation Flow
 1. User submits form

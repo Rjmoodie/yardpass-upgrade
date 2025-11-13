@@ -1,4 +1,4 @@
-# YardPass Sponsorship System - UI/Design Files
+# Liventix Sponsorship System - UI/Design Files
 
 This document lists all files responsible for the **layout, design, buttons, and appearance** of the sponsorship system.
 

@@ -267,8 +267,8 @@ use_frameworks!
 **Location:** `ios/App/App/Info.plist`
 
 **Configured:**
-- ✅ Bundle identifier: `com.yardpass.app`
-- ✅ Display name: `YardPass`
+- ✅ Bundle identifier: `com.liventix.app`
+- ✅ Display name: `Liventix`
 - ✅ Supported orientations (Portrait + Landscape)
 - ✅ Status bar appearance: View controller-based
 - ✅ Launch screen: LaunchScreen.storyboard
@@ -279,15 +279,15 @@ The following iOS permissions should be added to `Info.plist` when implementing 
 ```xml
 <!-- Camera permission for QR scanner -->
 <key>NSCameraUsageDescription</key>
-<string>YardPass needs camera access to scan tickets</string>
+<string>Liventix needs camera access to scan tickets</string>
 
 <!-- Photo library for user profile photos -->
 <key>NSPhotoLibraryUsageDescription</key>
-<string>YardPass needs access to save tickets and event photos</string>
+<string>Liventix needs access to save tickets and event photos</string>
 
 <!-- Location (if using event location features) -->
 <key>NSLocationWhenInUseUsageDescription</key>
-<string>YardPass uses your location to show nearby events</string>
+<string>Liventix uses your location to show nearby events</string>
 
 <!-- Push notifications (already installed, just need permission text) -->
 <key>UIBackgroundModes</key>
@@ -305,8 +305,8 @@ The following iOS permissions should be added to `Info.plist` when implementing 
 
 ```typescript
 {
-  appId: 'com.yardpass.app',
-  appName: 'YardPass',
+  appId: 'com.liventix.app',
+  appName: 'Liventix',
   webDir: 'dist',
   
   ios: {

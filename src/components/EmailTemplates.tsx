@@ -70,7 +70,7 @@ export interface EventUpdateTemplateProps {
 const getBaseUrl = (override?: string) => {
   if (override) return override;
   if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
-  return 'https://yardpass.tech';
+  return 'https://liventix.tech';
 };
 
 const formatCurrency = (amount: number, currency: Currency = 'USD', isAmountInCents = true) => {
@@ -101,26 +101,26 @@ interface BaseEmailLayoutProps {
 }
 
 const BaseEmailLayout: React.FC<BaseEmailLayoutProps> = ({ children, orgInfo, preheaderText }) => {
-  const yardpassLogo = 'https://yieslxnrfeqchbcmgavz.supabase.co/yardpass-logo.png';
+  const liventixLogo = 'https://yieslxnrfeqchbcmgavz.supabase.co/liventix-logo.png';
   const currentYear = new Date().getFullYear();
-  const supportEmail = orgInfo?.supportEmail || 'support@yardpass.tech';
+  const supportEmail = orgInfo?.supportEmail || 'support@liventix.tech';
 
   return (
     <div style={{ background: '#f4f4f5', padding: '32px 16px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', color: '#0f172a' }}>
       {preheaderText && <HiddenPreheader text={preheaderText} />}
 
       <div style={{ maxWidth: 640, margin: '0 auto', background: '#ffffff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 18px 30px rgba(15, 23, 42, 0.08)' }}>
-        {/* Header with YardPass Logo */}
+        {/* Header with Liventix Logo */}
         <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', padding: '28px 32px', textAlign: 'center' }}>
           <img
-            src={orgInfo?.logoUrl || yardpassLogo}
-            alt={orgInfo?.name || 'YardPass'}
+            src={orgInfo?.logoUrl || liventixLogo}
+            alt={orgInfo?.name || 'Liventix'}
             style={{ height: 60, width: 'auto', marginBottom: 12 }}
             loading="eager"
             decoding="sync"
           />
           <div style={{ fontSize: 13, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Powered by YardPass
+            Powered by Liventix
           </div>
         </div>
 
@@ -171,14 +171,14 @@ const BaseEmailLayout: React.FC<BaseEmailLayoutProps> = ({ children, orgInfo, pr
               </a>
             </p>
             <p style={{ margin: '0 0 16px 0', fontSize: 12 }}>
-              © {currentYear} YardPass. All rights reserved.
+              © {currentYear} Liventix. All rights reserved.
             </p>
             <div style={{ fontSize: 11, color: '#94a3b8' }}>
-              <a href="https://yardpass.tech/privacy" style={{ color: '#94a3b8', textDecoration: 'none', margin: '0 8px' }}>
+              <a href="https://liventix.tech/privacy" style={{ color: '#94a3b8', textDecoration: 'none', margin: '0 8px' }}>
                 Privacy Policy
               </a>
               •
-              <a href="https://yardpass.tech/terms" style={{ color: '#94a3b8', textDecoration: 'none', margin: '0 8px' }}>
+              <a href="https://liventix.tech/terms" style={{ color: '#94a3b8', textDecoration: 'none', margin: '0 8px' }}>
                 Terms of Service
               </a>
             </div>
@@ -205,7 +205,7 @@ export const PurchaseConfirmationTemplate: React.FC<PurchaseConfirmationTemplate
   baseUrl,
   currency = 'USD',
   isAmountInCents = true,
-  preheaderText = 'Your YardPass purchase is confirmed. View or download your tickets.',
+  preheaderText = 'Your Liventix purchase is confirmed. View or download your tickets.',
   orgInfo,
   eventInfo,
 }) => {
@@ -302,7 +302,7 @@ export const PurchaseConfirmationTemplate: React.FC<PurchaseConfirmationTemplate
           </tbody>
         </table>
         <p style={{ margin: '16px 0 0 0', fontSize: 13, color: '#0369a1', lineHeight: 1.6 }}>
-          Need to transfer tickets to a guest? Forward this email or share access from your YardPass account.
+          Need to transfer tickets to a guest? Forward this email or share access from your Liventix account.
         </p>
       </div>
 
@@ -315,7 +315,7 @@ export const PurchaseConfirmationTemplate: React.FC<PurchaseConfirmationTemplate
             style={{ maxWidth: 200, height: 'auto', margin: '0 auto', display: 'block', border: '3px solid #0f172a', borderRadius: 12, padding: 10, background: '#fff' }}
           />
           <p style={{ margin: '16px 0 0 0', fontSize: 13, color: '#64748b' }}>
-            Present this QR code at check-in. Each ticket is also available in the YardPass app.
+            Present this QR code at check-in. Each ticket is also available in the Liventix app.
           </p>
         </div>
       )}

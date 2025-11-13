@@ -23,11 +23,11 @@
 ## Sample Email to Testers
 
 ```
-Subject: YardPass Beta Testing - Device Registration Required
+Subject: Liventix Beta Testing - Device Registration Required
 
 Hi [Tester Name],
 
-Thank you for agreeing to test YardPass! To install the app on your device, I need your device's UDID.
+Thank you for agreeing to test Liventix! To install the app on your device, I need your device's UDID.
 
 Please follow these steps:
 1. Open this link on your iOS device: https://udid.tech

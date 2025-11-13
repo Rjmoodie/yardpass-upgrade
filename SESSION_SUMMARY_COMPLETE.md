@@ -149,7 +149,7 @@ final_score =
 
 ## **PART 3: Documentation Created** 📚
 
-1. ✅ **`YARDPASS_VS_TIKTOK_RECOMMENDATION_COMPARISON.md`**
+1. ✅ **`LIVENTIX_VS_TIKTOK_RECOMMENDATION_COMPARISON.md`**
    - Gap analysis vs TikTok
    - 11 detailed comparison tables
    - Score: 58% aligned (strong foundation)
@@ -337,7 +337,7 @@ WHERE feature = 'intent.saved';
 2. `index.html` (preloading)
 
 ### **Documentation (9 files):**
-1. `YARDPASS_VS_TIKTOK_RECOMMENDATION_COMPARISON.md`
+1. `LIVENTIX_VS_TIKTOK_RECOMMENDATION_COMPARISON.md`
 2. `FEED_INTELLIGENCE_OPTIMIZATION_FOR_TICKETS.md`
 3. `PRODUCTION_FEED_OPTIMIZATION_SUMMARY.md`
 4. `FRONTEND_INTEGRATION_GUIDE.md`

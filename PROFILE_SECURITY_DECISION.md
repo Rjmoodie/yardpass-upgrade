@@ -157,7 +157,7 @@ supabase db push
 
 **Command:**
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 supabase db push
 ```
 

@@ -1,7 +1,7 @@
-# 🎯 YardPass Product Claims Audit
+# 🎯 Liventix Product Claims Audit
 
 **Date:** November 11, 2025  
-**Claim:** "Eventbrite + Instagram + Netflix = YardPass"
+**Claim:** "Eventbrite + Instagram + Netflix = Liventix"
 
 Let's verify each claim against the actual codebase.
 
@@ -301,7 +301,7 @@ score = dot_product(user_vector, content_embedding)
 + 90+ other signals
 ```
 
-**What YardPass Does:**
+**What Liventix Does:**
 ```sql
 -- Algorithmic scoring (no ML)
 score = weighted_sum([
@@ -342,7 +342,7 @@ score = weighted_sum([
 
 ---
 
-## 🎯 **FINAL VERDICT: "YardPass = Eventbrite + Instagram + Netflix"**
+## 🎯 **FINAL VERDICT: "Liventix = Eventbrite + Instagram + Netflix"**
 
 ### **Overall Grade: B** (75% accurate)
 
@@ -406,7 +406,7 @@ score = weighted_sum([
 
 ### **Option 1: Honest & Impressive**
 ```
-"YardPass combines:
+"Liventix combines:
 • Full-stack ticketing with Stripe
 • Social discovery feed
 • Personalized event recommendations
@@ -416,7 +416,7 @@ score = weighted_sum([
 
 ### **Option 2: Technical Accuracy**
 ```
-"YardPass = 
+"Liventix = 
   Eventbrite's core ticketing
   + Instagram's social graph
   + Algorithmic personalization
@@ -426,7 +426,7 @@ score = weighted_sum([
 
 ### **Option 3: Unique Value Prop**
 ```
-"YardPass is the only platform where:
+"Liventix is the only platform where:
 ✓ Every event has a social feed
 ✓ Attendees follow organizers
 ✓ Your feed learns what you like
@@ -437,7 +437,7 @@ score = weighted_sum([
 
 ---
 
-## 🚀 **What Makes YardPass Actually UNIQUE**
+## 🚀 **What Makes Liventix Actually UNIQUE**
 
 ### **Things You Have That Eventbrite DOESN'T:**
 
@@ -471,7 +471,7 @@ score = weighted_sum([
 
 ## 💡 **The REAL Unique Value**
 
-### **What YardPass Actually Is:**
+### **What Liventix Actually Is:**
 
 **"The first social ticketing platform where discovery drives sales"**
 
@@ -493,7 +493,7 @@ score = weighted_sum([
 
 ## 📊 **Feature Comparison Table**
 
-| Feature | Eventbrite | Instagram | Netflix | YardPass |
+| Feature | Eventbrite | Instagram | Netflix | Liventix |
 |---------|-----------|-----------|---------|----------|
 | **Event Ticketing** | ✅ Full | ❌ None | ❌ None | ✅ Core |
 | **Social Feed** | ❌ None | ✅ Full | ❌ None | ✅ Core |
@@ -519,7 +519,7 @@ score = weighted_sum([
 
 **Option A: Technical Accuracy**
 ```
-"YardPass combines:
+"Liventix combines:
 • Event ticketing (Eventbrite-style)
 • Social discovery (Instagram-inspired)
 • Intelligent ranking (Netflix-like personalization)
@@ -529,7 +529,7 @@ score = weighted_sum([
 
 **Option B: Unique Value Focus**
 ```
-"YardPass is the only platform where:
+"Liventix is the only platform where:
 ✓ Events have social feeds
 ✓ Discovery drives ticket sales
 ✓ Organizers build lasting audiences
@@ -538,12 +538,12 @@ Traditional platforms make you choose:
 - Eventbrite = ticketing, no social
 - Instagram = social, no ticketing
 
-YardPass = both, built for each other"
+Liventix = both, built for each other"
 ```
 
 **Option C: Outcome-Focused**
 ```
-"YardPass helps events:
+"Liventix helps events:
 • Sell 3x more tickets (social proof)
 • Build audiences, not just attendees
 • Get discovered by the right people
@@ -598,7 +598,7 @@ How?
 
 ### **Current State:**
 ```
-YardPass = 
+Liventix = 
   80% of Eventbrite's ticketing
   70% of Instagram's social
   60% of Netflix's recommendations
@@ -608,7 +608,7 @@ YardPass =
 
 ### **More Accurate Claim:**
 ```
-YardPass = 
+Liventix = 
   Core event ticketing
   + Social discovery feed
   + Smart personalization
@@ -637,7 +637,7 @@ YardPass =
 - Instagram posts don't sell tickets
 - Netflix doesn't have user-generated content
 
-**YardPass does all three in ONE integrated experience.**
+**Liventix does all three in ONE integrated experience.**
 
 ---
 
@@ -647,7 +647,7 @@ YardPass =
 "Eventbrite + Instagram + Netflix"
 
 ### **Try:**
-"YardPass reimagines events for the social era:
+"Liventix reimagines events for the social era:
 
 ✓ Discover events like you discover content (smart feed)
 ✓ Build audiences, not just attendees (social graph)
@@ -657,7 +657,7 @@ Traditional platforms force a choice:
 - Eventbrite: ticketing without social
 - Instagram: social without ticketing
 
-YardPass: Built for both, from the ground up."
+Liventix: Built for both, from the ground up."
 
 ---
 

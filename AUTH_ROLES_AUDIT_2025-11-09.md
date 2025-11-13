@@ -1,4 +1,4 @@
-# 🔐 YardPass Authentication & Roles System Audit
+# 🔐 Liventix Authentication & Roles System Audit
 **Date:** November 9, 2025  
 **Scope:** User authentication, authorization, roles, and permissions  
 **Status:** 🟡 Several critical issues found, improvements recommended

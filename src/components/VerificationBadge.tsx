@@ -30,7 +30,7 @@ export function VerificationBadge({ status, size = 'sm' }: VerificationBadgeProp
           variant: 'default' as const,
           icon: CheckCircle,
           text: 'Premium',
-          className: 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0'
+          className: 'bg-gradient-to-r from-yellow-400 to-brand-500 text-white border-0'
         };
       default:
         return null;

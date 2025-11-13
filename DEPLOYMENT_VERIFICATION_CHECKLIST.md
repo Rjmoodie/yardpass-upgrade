@@ -12,7 +12,7 @@ Never deploy directly to production without testing. Here's the proper order:
 
 ```bash
 # Navigate to migration
-cd "C:\Users\Louis Cid\Yardpass 3.0\yardpass-upgrade"
+cd "C:\Users\Louis Cid\Yardpass 3.0\liventix-upgrade"
 
 # Validate SQL syntax (dry run)
 supabase db lint

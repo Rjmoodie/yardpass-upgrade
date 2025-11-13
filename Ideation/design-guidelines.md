@@ -1,4 +1,4 @@
-# YardPass Marketing Site - Design Guidelines
+# Liventix Marketing Site - Design Guidelines
 
 ## Brand Colors
 

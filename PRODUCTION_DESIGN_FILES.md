@@ -1,7 +1,7 @@
 # 🎨 Production Design Files - Complete Reference
 
 ## Overview
-This is the **single source of truth** for all design files currently powering the YardPass app.
+This is the **single source of truth** for all design files currently powering the Liventix app.
 
 ---
 
@@ -20,7 +20,7 @@ All main screens that users navigate to:
 | **ProfilePage.tsx** | User profile, posts, stats | ✅ Active | - |
 | **ScannerSelectEventPage.tsx** | Organizer ticket scanner | ✅ Active | - |
 
-**Path:** `/Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade/src/pages/new-design/`
+**Path:** `/Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade/src/pages/new-design/`
 
 ---
 
@@ -40,7 +40,7 @@ Specialized components for the feed experience:
 | **FeedActionRail.tsx** | Action buttons for posts | ✅ Active | - |
 | **BottomNav.tsx** | Alternative bottom navigation | ✅ Active | - |
 
-**Path:** `/Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade/src/components/feed/`
+**Path:** `/Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade/src/components/feed/`
 
 ---
 
@@ -83,7 +83,7 @@ form.tsx
 hover-card.tsx         
 ```
 
-**Path:** `/Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade/src/components/ui/`
+**Path:** `/Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade/src/components/ui/`
 
 ---
 
@@ -110,7 +110,7 @@ AttendeeListModal.tsx        - View event attendees
 EventTicketModal.tsx         - Event ticket info
 ```
 
-**Path:** `/Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade/src/components/`
+**Path:** `/Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade/src/components/`
 
 ---
 
@@ -122,14 +122,14 @@ EventTicketModal.tsx         - Event ticket info
 | **styles-new-design.css** | New design-specific styles | - |
 | **tailwind.config.ts** | Tailwind configuration | - |
 
-**Path:** `/Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade/src/`
+**Path:** `/Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade/src/`
 
 ---
 
 ## 🗂️ **Complete Production File Structure**
 
 ```
-📁 yardpass-upgrade/
+📁 liventix-upgrade/
 │
 ├── 📁 src/
 │   │
@@ -244,7 +244,7 @@ EventTicketModal.tsx         - Event ticket info
 
 **To push changes, run in YOUR terminal:**
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 git add .
 git commit -m "feat: contrast improvements and design cleanup"
 git push origin main

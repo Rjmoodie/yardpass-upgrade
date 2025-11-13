@@ -193,7 +193,7 @@ localStorage.setItem('verbose_tickets', 'true');
 ```
 [Capacitor] Starting initialization...
 [Capacitor] Platform: web | Native: false
-[YardPass] Capacitor initialized: web
+[Liventix] Capacitor initialized: web
 [Auth] User authenticated: rodzrj@gmail.com
 [Auth] ✅ Profile loaded: attendee
 [Navigation] Role updated to: attendee

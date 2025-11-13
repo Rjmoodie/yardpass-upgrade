@@ -1,4 +1,4 @@
-# 🔧 Systematic Fixes Applied to YardPass
+# 🔧 Systematic Fixes Applied to Liventix
 
 ## 📋 Overview
 This document outlines all systematic fixes applied to resolve errors after the recent database schema migration pull.
@@ -269,8 +269,8 @@ Vite dev server uses different ports (8080-8085) but Edge Function only allowed 
 ```typescript
 // Before:
 const ALLOWED_ORIGINS = [
-  "https://app.yardpass.com",
-  "https://staging.yardpass.com",
+  "https://app.liventix.com",
+  "https://staging.liventix.com",
   "http://localhost:5173",
   "https://*.lovable.app",
   "https://*.lovableproject.com",
@@ -278,8 +278,8 @@ const ALLOWED_ORIGINS = [
 
 // After:
 const ALLOWED_ORIGINS = [
-  "https://app.yardpass.com",
-  "https://staging.yardpass.com",
+  "https://app.liventix.com",
+  "https://staging.liventix.com",
   "http://localhost:5173",
   "http://localhost:8080",
   "http://localhost:8081",

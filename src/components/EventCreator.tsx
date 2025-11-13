@@ -1136,7 +1136,7 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
                   <Alert className="bg-purple-500/10 border-purple-500/30">
                     <AlertDescription className="text-xs text-foreground/80">
                       Enter the dates when this event <strong>originally happened</strong>. 
-                      You can create Flashback events for any past event within 90 days of your organization joining YardPass.
+                      You can create Flashback events for any past event within 90 days of your organization joining Liventix.
                       {orgCreatedAt && (() => {
                         const windowEnd = new Date(orgCreatedAt.getTime() + 90 * 24 * 60 * 60 * 1000);
                         const today = new Date();

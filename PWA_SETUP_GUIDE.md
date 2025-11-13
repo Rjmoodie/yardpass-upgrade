@@ -1,4 +1,4 @@
-# 🚀 YardPass PWA Setup Guide
+# 🚀 Liventix PWA Setup Guide
 **Status:** ✅ Complete  
 **Impact:** 40-60% faster repeat visits, offline support enabled
 
@@ -240,7 +240,7 @@ Properties:
 1. Ensure `public/offline.html` exists
 2. Check if Service Worker cached it:
    ```js
-   caches.open('yardpass-v1.0.0-static').then(cache => 
+   caches.open('liventix-v1.0.0-static').then(cache => 
      cache.match('/offline.html')
    );
    ```
@@ -339,7 +339,7 @@ Properties:
 
 ### For Developers:
 
-1. **Version your caches** (`yardpass-v1.0.0-static`)
+1. **Version your caches** (`liventix-v1.0.0-static`)
 2. **Set cache limits** (prevent unbounded growth)
 3. **Test offline mode** (disable network in DevTools)
 4. **Handle updates gracefully** (prompt users, don't force)

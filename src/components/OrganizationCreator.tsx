@@ -14,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { StripeConnectOnboarding } from './StripeConnectOnboarding';
 import { SocialLinkManager } from './SocialLinkManager';
-import { YardpassSpinner } from '@/components/LoadingSpinner';
+import { LiventixSpinner } from '@/components/LoadingSpinner';
 
 interface OrganizationCreatorProps {
   onBack: () => void;

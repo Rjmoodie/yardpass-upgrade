@@ -266,7 +266,7 @@ export const UserPostCardNewDesign = React.memo(UserPostCardNewDesignComponent, 
 
 ### **Step 1: Build Production Bundle**
 ```bash
-cd "C:\Users\Louis Cid\Yardpass 3.0\yardpass-upgrade"
+cd "C:\Users\Louis Cid\Yardpass 3.0\liventix-upgrade"
 npm run build
 ```
 
@@ -467,7 +467,7 @@ If Supabase Storage doesn't support `?format=avif` or `?format=webp` params, you
 // Change generateSourceUrl to:
 const base = src.replace(
   'supabase.co/storage',
-  'res.cloudinary.com/yardpass/image/fetch'
+  'res.cloudinary.com/liventix/image/fetch'
 );
 return `${base}/w_${width},q_${quality},f_${format}/${src}`;
 ```

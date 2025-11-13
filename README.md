@@ -1,4 +1,4 @@
-# YardPass
+# Liventix - Live Event Tickets
 
 A premium event ticketing and social platform built with React, TypeScript, and Supabase.
 
@@ -17,7 +17,7 @@ A premium event ticketing and social platform built with React, TypeScript, and 
 ```bash
 # Clone the repository
 git clone <YOUR_GIT_URL>
-cd yardpass-upgrade
+cd liventix-upgrade
 
 # Install dependencies
 npm install

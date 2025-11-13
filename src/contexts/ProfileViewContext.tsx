@@ -9,7 +9,7 @@ interface ProfileViewContextType {
 
 const ProfileViewContext = createContext<ProfileViewContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'yardpass-profile-view-mode';
+const STORAGE_KEY = 'liventix-profile-view-mode';
 
 export function ProfileViewProvider({ children }: { children: ReactNode }) {
   // Initialize from localStorage or default to 'attendee'

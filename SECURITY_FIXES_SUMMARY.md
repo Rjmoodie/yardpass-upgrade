@@ -1,4 +1,4 @@
-# 🔒 YardPass Security Fixes - Session Summary
+# 🔒 Liventix Security Fixes - Session Summary
 
 **Date:** November 9, 2025  
 **Session Duration:** ~1 hour  

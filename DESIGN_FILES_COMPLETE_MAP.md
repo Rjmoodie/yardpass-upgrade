@@ -1,4 +1,4 @@
-# 🎨 YardPass Design System - Complete File Map
+# 🎨 Liventix Design System - Complete File Map
 
 ## 📍 **Files That Control The ENTIRE App Design**
 
@@ -14,7 +14,7 @@
 ```typescript
 colors: {
   neutral: { 900: "#0F172A", ... },    // Gray scale
-  brand: { 500: "#DF9D07", ... },      // YardPass amber/gold
+  brand: { 500: "#DF9D07", ... },      // Liventix amber/gold
   success: "#16A34A",                   // Green
   warning: "#F59E0B",                   // Orange  
   danger: "#DC2626",                    // Red
@@ -463,7 +463,7 @@ Edit: `src/components/navigation/NavigationNewDesign.tsx`
 ## 📁 **File Locations (Quick Access)**
 
 ```
-yardpass-upgrade/
+liventix-upgrade/
 ├── tailwind.config.ts          ⭐ DESIGN TOKENS
 ├── src/
 │   ├── index.css               ⭐ GLOBAL CSS

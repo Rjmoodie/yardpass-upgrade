@@ -134,7 +134,7 @@ AS SELECT * FROM ticketing.tickets;
 
 ```bash
 # Fix the 2 RLS-disabled tables
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 supabase db push
 ```
 
@@ -232,7 +232,7 @@ The remaining 33 SECURITY DEFINER warnings are mostly **informational**. Many ar
 
 ```bash
 # Fix the 2 critical issues NOW
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 supabase db push
 
 # That's it! ✅

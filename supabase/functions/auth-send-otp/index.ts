@@ -93,7 +93,7 @@ serve(async (req) => {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>YardPass Verification Code</title>
+    <title>Liventix Verification Code</title>
   </head>
   <body style="margin:0; padding:0; background-color:#f8fafc; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
     <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc; padding:32px 0;">
@@ -103,7 +103,7 @@ serve(async (req) => {
             <!-- Header -->
             <tr>
               <td align="center" style="background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding:32px;">
-                <h1 style="margin:0; color:#ffffff; font-size:24px; font-weight:700; letter-spacing:-0.5px;">YardPass</h1>
+                <h1 style="margin:0; color:#ffffff; font-size:24px; font-weight:700; letter-spacing:-0.5px;">Liventix</h1>
                 <p style="margin:8px 0 0 0; color:rgba(255,255,255,0.9); font-size:15px;">
                   Your gateway to events and culture
                 </p>
@@ -156,8 +156,8 @@ serve(async (req) => {
             <!-- Footer -->
             <tr>
               <td align="center" style="background-color:#f8fafc; padding:20px 32px; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:12px;">
-                <p style="margin:0 0 6px 0;">© ${new Date().getFullYear()} YardPass. All rights reserved.</p>
-                <a href="https://yardpass.tech" style="color:#94a3b8; text-decoration:none;">yardpass.tech</a>
+                <p style="margin:0 0 6px 0;">© ${new Date().getFullYear()} Liventix. All rights reserved.</p>
+                <a href="https://liventix.tech" style="color:#94a3b8; text-decoration:none;">liventix.tech</a>
               </td>
             </tr>
           </table>
@@ -168,7 +168,7 @@ serve(async (req) => {
 </html>
 `.trim();
 
-        const textBody = `YardPass - Your Verification Code
+        const textBody = `Liventix - Your Verification Code
 
 Your verification code is: ${otp}
 
@@ -178,8 +178,8 @@ Enter this code to sign in and access your tickets.
 
 For security, never share this code with anyone.
 
-© ${new Date().getFullYear()} YardPass
-yardpass.tech`;
+© ${new Date().getFullYear()} Liventix
+liventix.tech`;
 
         console.log(`[auth-send-otp] OTP in HTML: ${emailHtml.includes(otp)}, in text: ${textBody.includes(otp)}`);
 
@@ -190,9 +190,9 @@ yardpass.tech`;
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "YardPass <hello@yardpass.tech>",
+            from: "Liventix <hello@liventix.tech>",
             to: [normalizedEmail],
-            subject: "Your YardPass verification code",
+            subject: "Your Liventix verification code",
             html: emailHtml,
             text: textBody,
           }),

@@ -1,56 +1,260 @@
 /**
- * Analytics Types for Sponsorship Packages
- * 
- * Defines available analytics metrics that organizers can showcase to sponsors
+ * TypeScript types for analytics system
+ * Centralized type definitions with Zod schemas for validation
  */
 
-/**
- * Available analytics metrics that can be displayed
- */
-export const ANALYTICS_METRICS = {
-  // Attendance & Reach
-  TOTAL_ATTENDEES: 'total_attendees',
-  TICKET_SALES_VELOCITY: 'ticket_sales_velocity',
-  ESTIMATED_REACH: 'estimated_reach',
-  REPEAT_ATTENDEES: 'repeat_attendees',
-  
-  // Engagement
-  ENGAGEMENT_RATE: 'engagement_rate',
-  ENGAGEMENT_COUNT: 'engagement_count',
-  SOCIAL_MENTIONS: 'social_mentions',
-  POST_INTERACTIONS: 'post_interactions',
-  AVERAGE_DWELL_TIME: 'average_dwell_time',
-  
-  // Demographics
-  AGE_DISTRIBUTION: 'age_distribution',
-  GENDER_DISTRIBUTION: 'gender_distribution',
-  LOCATION_DISTRIBUTION: 'location_distribution',
-  PROFESSION_DISTRIBUTION: 'profession_distribution',
-  
-  // Financial
-  TOTAL_REVENUE: 'total_revenue',
-  AVERAGE_TICKET_PRICE: 'average_ticket_price',
-  CONVERSION_RATE: 'conversion_rate',
-  
-  // Sponsor-Specific
-  PAST_SPONSOR_ROI: 'past_sponsor_roi',
-  SPONSOR_SATISFACTION: 'sponsor_satisfaction',
-  BRAND_VISIBILITY_SCORE: 'brand_visibility_score',
-  
-  // Media & Content
-  MEDIA_IMPRESSIONS: 'media_impressions',
-  VIDEO_VIEWS: 'video_views',
-  PHOTO_SHARES: 'photo_shares',
-} as const;
+import { z } from 'zod';
 
-export type AnalyticsMetric = typeof ANALYTICS_METRICS[keyof typeof ANALYTICS_METRICS];
+// =====================================================================
+// FUNNEL TYPES
+// =====================================================================
 
-/**
- * Display configuration for an analytics metric
- */
-/**
- * Analytics category types
- */
+export const FunnelStepSchema = z.object({
+  stage: z.string(),
+  users: z.number(),
+  sessions: z.number().optional(),
+  conversion_rate: z.number(),
+  gross_revenue_cents: z.number().optional(),
+  net_revenue_cents: z.number().optional(),
+});
+
+export type FunnelStep = z.infer<typeof FunnelStepSchema>;
+
+export const AcquisitionChannelSchema = z.object({
+  channel: z.string(),
+  visitors: z.number(),
+  purchasers: z.number(),
+  conversion_rate: z.number(),
+  net_revenue_cents: z.number(),
+});
+
+export type AcquisitionChannel = z.infer<typeof AcquisitionChannelSchema>;
+
+export const DeviceBreakdownSchema = z.object({
+  device: z.string(),
+  sessions: z.number(),
+  conversion_rate: z.number(),
+});
+
+export type DeviceBreakdown = z.infer<typeof DeviceBreakdownSchema>;
+
+export const TopEventSchema = z.object({
+  event_id: z.string(),
+  title: z.string(),
+  views: z.number(),
+  ctr: z.number(),
+  purchasers: z.number(),
+  net_revenue_cents: z.number(),
+});
+
+export type TopEvent = z.infer<typeof TopEventSchema>;
+
+export const AudienceFunnelSchema = z.object({
+  meta: z.object({
+    org_id: z.string(),
+    from: z.string(),
+    to: z.string(),
+    attribution: z.string(),
+    source: z.string(),
+  }),
+  funnel_steps: z.array(FunnelStepSchema),
+  acquisition_channels: z.array(AcquisitionChannelSchema),
+  device_breakdown: z.array(DeviceBreakdownSchema),
+  top_events: z.array(TopEventSchema),
+  total_conversion_rate: z.number(),
+});
+
+export type AudienceFunnel = z.infer<typeof AudienceFunnelSchema>;
+
+// =====================================================================
+// COMPARISON TYPES
+// =====================================================================
+
+export const ComparisonSchema = z.object({
+  current_users: z.number(),
+  previous_users: z.number(),
+  delta: z.number(),
+  delta_pct: z.number(),
+  stage: z.string(),
+});
+
+export type Comparison = z.infer<typeof ComparisonSchema>;
+
+export type ComparisonPeriod = 'DoD' | 'WoW' | 'MoM' | 'YoY';
+
+export const AnalyticsWithComparisonSchema = z.object({
+  current: AudienceFunnelSchema,
+  previous: AudienceFunnelSchema,
+  comparison_type: z.string(),
+  comparisons: z.object({
+    funnel_steps: z.array(ComparisonSchema),
+    total_conversion_rate: z.object({
+      current: z.number(),
+      previous: z.number(),
+      delta_pct: z.number(),
+    }),
+  }),
+});
+
+export type AnalyticsWithComparison = z.infer<typeof AnalyticsWithComparisonSchema>;
+
+// =====================================================================
+// TARGET & BENCHMARK TYPES
+// =====================================================================
+
+export interface KPITarget {
+  kpi: string;
+  target_value: number;
+  period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  currency?: string;
+}
+
+export interface Benchmark {
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+}
+
+export const EnhancedFunnelSchema = AudienceFunnelSchema.extend({
+  targets: z.record(z.number()).optional(),
+  benchmarks: z.record(
+    z.object({
+      p50: z.number(),
+      p75: z.number(),
+      p90: z.number(),
+    })
+  ).optional(),
+  comparison: z.object({
+    funnel_steps: z.array(ComparisonSchema),
+  }).optional(),
+  comparison_period: z.string().optional(),
+});
+
+export type EnhancedFunnel = z.infer<typeof EnhancedFunnelSchema>;
+
+// =====================================================================
+// SAVED VIEWS
+// =====================================================================
+
+export interface SavedView {
+  id: string;
+  org_id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  filters: {
+    dateRange?: string;
+    eventIds?: string[];
+    attribution?: 'first_touch' | 'last_touch';
+    compareType?: ComparisonPeriod;
+    includeRefunds?: boolean;
+  };
+  active_tab?: 'overview' | 'events' | 'videos' | 'audience';
+  is_shared: boolean;
+  access_count: number;
+  last_accessed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// =====================================================================
+// DRILLTHROUGH TYPES
+// =====================================================================
+
+export interface DrillthroughQuery {
+  metric: string;
+  table: string;
+  filters: Record<string, any>;
+  sample_query: string;
+  export_url: string;
+  count_estimate: number;
+}
+
+// =====================================================================
+// LEAKY STEPS TYPES
+// =====================================================================
+
+export interface LeakyStep {
+  step: string;
+  drop_users: number;
+  top_causes: string[];
+}
+
+// =====================================================================
+// CREATIVE DIAGNOSTICS TYPES
+// =====================================================================
+
+export interface CreativeDiagnostic {
+  event_id: string;
+  title: string;
+  impressions: number;
+  ctr: number;
+  media_count: number;
+  recommendation: string;
+}
+
+// =====================================================================
+// ORG ANALYTICS (Overview)
+// =====================================================================
+
+export const OrgAnalyticsKPIsSchema = z.object({
+  gross_revenue: z.number(),
+  net_revenue: z.number(),
+  total_attendees: z.number(),
+  total_events: z.number(),
+  avg_ticket_price: z.number(),
+  conversion_rate: z.number().optional(),
+});
+
+export type OrgAnalyticsKPIs = z.infer<typeof OrgAnalyticsKPIsSchema>;
+
+export const RevenueTrendPointSchema = z.object({
+  date: z.string(),
+  revenue: z.number(),
+  event_id: z.string().nullable(),
+});
+
+export type RevenueTrendPoint = z.infer<typeof RevenueTrendPointSchema>;
+
+export const OrgTopEventSchema = z.object({
+  event_id: z.string(),
+  title: z.string(),
+  revenue: z.number(),
+  attendees: z.number(),
+  engagement: z.number().optional(),
+});
+
+export type TopEventAnalytics = z.infer<typeof OrgTopEventSchema>;
+
+export const OrgAnalyticsSchema = z.object({
+  kpis: OrgAnalyticsKPIsSchema,
+  revenue_trend: z.array(RevenueTrendPointSchema),
+  top_events: z.array(OrgTopEventSchema),
+});
+
+export type OrgAnalytics = z.infer<typeof OrgAnalyticsSchema>;
+
+// =====================================================================
+// SPONSORSHIP ANALYTICS TYPES
+// =====================================================================
+
+export type AnalyticsMetric =
+  | 'total_attendees'
+  | 'total_revenue'
+  | 'avg_ticket_price'
+  | 'engagement_rate'
+  | 'social_reach'
+  | 'media_impressions'
+  | 'brand_mentions'
+  | 'conversion_rate'
+  | 'ticket_sales'
+  | 'vip_ratio'
+  | 'repeat_attendee_rate'
+  | 'avg_age'
+  | 'gender_split'
+  | 'top_cities';
+
 export type AnalyticsCategory = 
   | 'attendance' 
   | 'engagement' 
@@ -59,251 +263,289 @@ export type AnalyticsCategory =
   | 'sponsor' 
   | 'media';
 
-/**
- * Display configuration for an analytics metric
- */
-export interface AnalyticsMetricConfig {
-  id: AnalyticsMetric;
-  label: string;
-  description: string;
-  category: AnalyticsCategory;
-  format: 'number' | 'percentage' | 'currency' | 'chart' | 'text';
-  icon?: string;
-}
-
-/**
- * Available analytics metrics with display configuration
- */
-export const ANALYTICS_METRIC_CONFIGS: Record<AnalyticsMetric, AnalyticsMetricConfig> = {
-  total_attendees: {
-    id: 'total_attendees',
-    label: 'Total Attendees',
-    description: 'Number of people who attended the event',
-    category: 'attendance',
-    format: 'number',
-  },
-  ticket_sales_velocity: {
-    id: 'ticket_sales_velocity',
-    label: 'Ticket Sales Velocity',
-    description: 'How quickly tickets are selling',
-    category: 'attendance',
-    format: 'text',
-  },
-  estimated_reach: {
-    id: 'estimated_reach',
-    label: 'Estimated Reach',
-    description: 'Projected audience size including social amplification',
-    category: 'attendance',
-    format: 'number',
-  },
-  repeat_attendees: {
-    id: 'repeat_attendees',
-    label: 'Repeat Attendees',
-    description: 'Percentage of attendees who came to previous events',
-    category: 'attendance',
-    format: 'percentage',
-  },
-  engagement_rate: {
-    id: 'engagement_rate',
-    label: 'Engagement Rate',
-    description: 'Percentage of attendees actively engaging with content',
-    category: 'engagement',
-    format: 'percentage',
-  },
-  engagement_count: {
-    id: 'engagement_count',
-    label: 'Total Engagements',
-    description: 'Posts, comments, reactions, and shares',
-    category: 'engagement',
-    format: 'number',
-  },
-  social_mentions: {
-    id: 'social_mentions',
-    label: 'Social Mentions',
-    description: 'Times the event was mentioned on social media',
-    category: 'engagement',
-    format: 'number',
-  },
-  post_interactions: {
-    id: 'post_interactions',
-    label: 'Post Interactions',
-    description: 'Likes, comments, and shares on event posts',
-    category: 'engagement',
-    format: 'number',
-  },
-  average_dwell_time: {
-    id: 'average_dwell_time',
-    label: 'Average Dwell Time',
-    description: 'How long attendees spend at the event',
-    category: 'engagement',
-    format: 'text',
-  },
-  age_distribution: {
-    id: 'age_distribution',
-    label: 'Age Distribution',
-    description: 'Breakdown of attendees by age group',
-    category: 'demographics',
-    format: 'chart',
-  },
-  gender_distribution: {
-    id: 'gender_distribution',
-    label: 'Gender Distribution',
-    description: 'Breakdown of attendees by gender',
-    category: 'demographics',
-    format: 'chart',
-  },
-  location_distribution: {
-    id: 'location_distribution',
-    label: 'Location Distribution',
-    description: 'Geographic breakdown of attendees',
-    category: 'demographics',
-    format: 'chart',
-  },
-  profession_distribution: {
-    id: 'profession_distribution',
-    label: 'Profession Distribution',
-    description: 'Breakdown of attendees by profession/industry',
-    category: 'demographics',
-    format: 'chart',
-  },
-  total_revenue: {
-    id: 'total_revenue',
-    label: 'Total Revenue',
-    description: 'Total ticket revenue generated',
-    category: 'financial',
-    format: 'currency',
-  },
-  average_ticket_price: {
-    id: 'average_ticket_price',
-    label: 'Average Ticket Price',
-    description: 'Average amount paid per ticket',
-    category: 'financial',
-    format: 'currency',
-  },
-  conversion_rate: {
-    id: 'conversion_rate',
-    label: 'Conversion Rate',
-    description: 'Percentage of viewers who purchased tickets',
-    category: 'financial',
-    format: 'percentage',
-  },
-  past_sponsor_roi: {
-    id: 'past_sponsor_roi',
-    label: 'Past Sponsor ROI',
-    description: 'Return on investment from previous sponsors',
-    category: 'sponsor',
-    format: 'percentage',
-  },
-  sponsor_satisfaction: {
-    id: 'sponsor_satisfaction',
-    label: 'Sponsor Satisfaction',
-    description: 'Average satisfaction rating from past sponsors',
-    category: 'sponsor',
-    format: 'number',
-  },
-  brand_visibility_score: {
-    id: 'brand_visibility_score',
-    label: 'Brand Visibility Score',
-    description: 'How visible sponsor branding is to attendees',
-    category: 'sponsor',
-    format: 'number',
-  },
-  media_impressions: {
-    id: 'media_impressions',
-    label: 'Media Impressions',
-    description: 'Total views across all media channels',
-    category: 'media',
-    format: 'number',
-  },
-  video_views: {
-    id: 'video_views',
-    label: 'Video Views',
-    description: 'Total video content views',
-    category: 'media',
-    format: 'number',
-  },
-  photo_shares: {
-    id: 'photo_shares',
-    label: 'Photo Shares',
-    description: 'Number of times event photos were shared',
-    category: 'media',
-    format: 'number',
-  },
-};
-
-/**
- * Analytics showcase configuration structure
- */
 export interface AnalyticsShowcase {
   enabled: boolean;
-  metrics: AnalyticsMetric[];
   source: 'current' | 'reference';
-  customStats?: Array<{
-    label: string;
-    value: string;
-  }>;
+  metrics: AnalyticsMetric[];
+  customStats?: Array<{ label: string; value: string }>;
 }
 
-/**
- * Computed analytics data for display
- */
 export interface EventAnalyticsData {
   total_attendees?: number;
   total_revenue?: number;
-  engagement_count?: number;
+  avg_ticket_price?: number;
   engagement_rate?: number;
-  social_mentions?: number;
+  social_reach?: number;
+  media_impressions?: number;
+  brand_mentions?: number;
   conversion_rate?: number;
-  average_ticket_price?: number;
-  calculated_at?: string;
+  ticket_sales?: number;
+  vip_ratio?: number;
+  repeat_attendee_rate?: number;
+  avg_age?: number;
+  gender_split?: string;
+  top_cities?: string;
+  [key: string]: any;
 }
 
-/**
- * Get metric categories for grouping in UI
- */
-export function getMetricsByCategory(): Record<string, AnalyticsMetricConfig[]> {
-  const categories: Record<string, AnalyticsMetricConfig[]> = {
-    attendance: [],
-    engagement: [],
-    demographics: [],
-    financial: [],
-    sponsor: [],
-    media: [],
-  };
+// Metric configurations for display
+export const ANALYTICS_METRIC_CONFIGS: Record<AnalyticsMetric, {
+  label: string;
+  format: 'number' | 'currency' | 'percent' | 'text';
+  category: AnalyticsCategory;
+  description: string;
+}> = {
+  total_attendees: {
+    label: 'Total Attendees',
+    format: 'number',
+    category: 'attendance',
+    description: 'Total number of people who attended'
+  },
+  total_revenue: {
+    label: 'Total Revenue',
+    format: 'currency',
+    category: 'financial',
+    description: 'Total ticket sales revenue'
+  },
+  avg_ticket_price: {
+    label: 'Avg Ticket Price',
+    format: 'currency',
+    category: 'financial',
+    description: 'Average price per ticket sold'
+  },
+  engagement_rate: {
+    label: 'Engagement Rate',
+    format: 'percent',
+    category: 'engagement',
+    description: 'Percentage of attendees who engaged with content'
+  },
+  social_reach: {
+    label: 'Social Reach',
+    format: 'number',
+    category: 'media',
+    description: 'Total social media impressions'
+  },
+  media_impressions: {
+    label: 'Media Impressions',
+    format: 'number',
+    category: 'media',
+    description: 'Total media coverage impressions'
+  },
+  brand_mentions: {
+    label: 'Brand Mentions',
+    format: 'number',
+    category: 'sponsor',
+    description: 'Number of brand mentions'
+  },
+  conversion_rate: {
+    label: 'Conversion Rate',
+    format: 'percent',
+    category: 'engagement',
+    description: 'Percentage who converted to attendees'
+  },
+  ticket_sales: {
+    label: 'Tickets Sold',
+    format: 'number',
+    category: 'financial',
+    description: 'Total number of tickets sold'
+  },
+  vip_ratio: {
+    label: 'VIP Ratio',
+    format: 'percent',
+    category: 'demographics',
+    description: 'Percentage of VIP ticket holders'
+  },
+  repeat_attendee_rate: {
+    label: 'Repeat Rate',
+    format: 'percent',
+    category: 'engagement',
+    description: 'Percentage of returning attendees'
+  },
+  avg_age: {
+    label: 'Average Age',
+    format: 'number',
+    category: 'demographics',
+    description: 'Average age of attendees'
+  },
+  gender_split: {
+    label: 'Gender Split',
+    format: 'text',
+    category: 'demographics',
+    description: 'Gender distribution'
+  },
+  top_cities: {
+    label: 'Top Cities',
+    format: 'text',
+    category: 'demographics',
+    description: 'Cities with most attendees'
+  }
+};
 
-  Object.values(ANALYTICS_METRIC_CONFIGS).forEach(config => {
-    categories[config.category].push(config);
-  });
-
-  return categories;
+// Helper to get metrics by category
+export function getMetricsByCategory(category: AnalyticsCategory): AnalyticsMetric[] {
+  return Object.entries(ANALYTICS_METRIC_CONFIGS)
+    .filter(([_, config]) => config.category === category)
+    .map(([key]) => key as AnalyticsMetric);
 }
 
-/**
- * Format analytics value based on its type
- */
-export function formatAnalyticsValue(value: number | string | null | undefined, format: AnalyticsMetricConfig['format']): string {
-  if (value == null) return 'N/A';
-
+// Format analytics value based on type
+export function formatAnalyticsValue(value: any, format: 'number' | 'currency' | 'percent' | 'text'): string {
+  if (value === undefined || value === null) return 'N/A';
+  
   switch (format) {
-    case 'number':
-      return typeof value === 'number' ? value.toLocaleString() : String(value);
-    case 'percentage':
-      return typeof value === 'number' ? `${Math.round(value * 100)}%` : String(value);
     case 'currency':
-      return typeof value === 'number' ? `$${value.toLocaleString()}` : String(value);
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(typeof value === 'number' ? value / 100 : parseFloat(value) / 100);
+    
+    case 'percent':
+      return new Intl.NumberFormat('en-US', {
+        style: 'percent',
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }).format((typeof value === 'number' ? value : parseFloat(value)) / 100);
+    
     case 'text':
       return String(value);
+    
+    case 'number':
     default:
-      return String(value);
+      return new Intl.NumberFormat('en-US').format(
+        typeof value === 'number' ? value : parseFloat(value) || 0
+      );
+  }
+}
+
+// Safe date formatter
+export function formatDateSafe(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'N/A';
+  try {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch {
+    return 'Invalid date';
+  }
+}
+
+// =====================================================================
+// VIDEO ANALYTICS TYPES
+// =====================================================================
+
+export interface MuxVideoMetrics {
+  total_plays: number;
+  unique_viewers: number;
+  avg_watch_time: number;
+  completion_rate: number;
+  videos: Array<{
+    asset_id: string;
+    plays: number;
+    unique_viewers: number;
+    avg_watch_time: number;
+    completion_rate: number;
+  }>;
+}
+
+// =====================================================================
+// UTILITY TYPES
+// =====================================================================
+
+export type DateRangeKey = '7d' | '30d' | '90d' | 'custom';
+
+export interface DateRange {
+  from: Date;
+  to: Date;
+  label: string;
+}
+
+export interface AnalyticsFilter {
+  orgId?: string;
+  eventIds?: string[];
+  dateRange: DateRangeKey;
+  customRange?: DateRange;
+  attribution?: 'first_touch' | 'last_touch';
+  compareType?: ComparisonPeriod | null;
+  includeRefunds?: boolean;
+  showNetRevenue?: boolean;
+}
+
+// =====================================================================
+// ANOMALY DETECTION
+// =====================================================================
+
+export interface Anomaly {
+  metric: string;
+  severity: 'low' | 'medium' | 'high';
+  message: string;
+  current_value: number;
+  expected_value: number;
+  delta_pct: number;
+  causes?: string[];
+  recommendations?: string[];
+}
+
+// =====================================================================
+// RESPONSE HELPERS
+// =====================================================================
+
+/**
+ * Validate and parse analytics response
+ */
+export function parseAudienceFunnel(data: unknown): AudienceFunnel {
+  try {
+    return AudienceFunnelSchema.parse(data);
+  } catch (error) {
+    console.error('[Analytics] Failed to parse funnel data:', error);
+    throw new Error('Invalid analytics response format');
   }
 }
 
 /**
- * Safely format a date string, returning empty string for invalid dates
+ * Validate and parse org analytics response
  */
-export function formatDateSafe(value?: string | null, format: 'date' | 'datetime' = 'date'): string {
-  if (!value) return '';
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return '';
-  return format === 'date' ? d.toLocaleDateString() : d.toLocaleString();
+export function parseOrgAnalytics(data: unknown): OrgAnalytics {
+  try {
+    return OrgAnalyticsSchema.parse(data);
+  } catch (error) {
+    console.error('[Analytics] Failed to parse org analytics:', error);
+    throw new Error('Invalid org analytics response format');
+  }
+}
+
+/**
+ * Safe number formatter with fallback
+ */
+export function formatMetric(
+  value: number | undefined | null,
+  type: 'number' | 'currency' | 'percent' = 'number',
+  currency: string = 'USD'
+): string {
+  if (value === undefined || value === null || !isFinite(value)) {
+    return '—';
+  }
+  
+  switch (type) {
+    case 'currency':
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(value);
+    
+    case 'percent':
+      return new Intl.NumberFormat('en-US', {
+        style: 'percent',
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }).format(value / 100);
+    
+    default:
+      return new Intl.NumberFormat('en-US').format(value);
+  }
 }

@@ -1,13 +1,13 @@
-# 🎯 YardPass vs TikTok: Recommendation System Comparison
+# 🎯 Liventix vs TikTok: Recommendation System Comparison
 
 ## Overview
-TikTok recommends **content** (videos). YardPass recommends **events** (experiences).
+TikTok recommends **content** (videos). Liventix recommends **events** (experiences).
 
 ---
 
 ## 📊 Core Recommendation Factors
 
-| Factor | TikTok | YardPass | Status |
+| Factor | TikTok | Liventix | Status |
 |--------|--------|----------|--------|
 | **User Interactions** | Likes, shares, comments, watch time, follows | Likes, shares, comments, dwell time, saves, ticket purchases, event attendance | ✅ **ALIGNED** |
 | **Content Information** | Sounds, hashtags, views, publish location | Event category, location, date, ticket tiers, organizer, venue | ✅ **ALIGNED** |
@@ -20,7 +20,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ### **For You Feed**
 
-| Feature | TikTok | YardPass | Implementation | Status |
+| Feature | TikTok | Liventix | Implementation | Status |
 |---------|--------|----------|----------------|--------|
 | **Purpose** | Discover new content | Discover new events | Home feed with ranked events | ✅ **IMPLEMENTED** |
 | **Initial recommendations** | Popular content for broad audience | Popular events by location/category | `get_home_feed_ranked` RPC | ✅ **IMPLEMENTED** |
@@ -37,7 +37,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ### **Following Feed**
 
-| Feature | TikTok | YardPass | Implementation | Status |
+| Feature | TikTok | Liventix | Implementation | Status |
 |---------|--------|----------|----------------|--------|
 | **Purpose** | Content from followed creators | Events from followed organizers | Following feed option | ✅ **IMPLEMENTED** |
 | **Personalization** | Ranked by engagement predictions | Ranked by relevance + affinity | Affinity scoring system | ✅ **IMPLEMENTED** |
@@ -49,7 +49,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ### **Friends Tab**
 
-| Feature | TikTok | YardPass | Implementation | Status |
+| Feature | TikTok | Liventix | Implementation | Status |
 |---------|--------|----------|----------------|--------|
 | **Purpose** | Content from mutual friends | Events from friends/connections | (Missing dedicated tab) | ❌ **GAP** |
 | **Source** | Followers you follow back | Users you're connected with | `follows` table (mutual connections) | ⚠️ **PARTIAL** |
@@ -62,7 +62,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ### **LIVE Feed**
 
-| Feature | TikTok | YardPass | Implementation | Status |
+| Feature | TikTok | Liventix | Implementation | Status |
 |---------|--------|----------|----------------|--------|
 | **LIVE streaming** | Live video broadcasts | **N/A - Not in scope** | Not applicable | ⛔ **EXCLUDED** |
 | **LIVE recommendations** | Real-time content discovery | **N/A - Not in scope** | Not applicable | ⛔ **EXCLUDED** |
@@ -72,7 +72,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ## 🔍 Search Comparison
 
-| Feature | TikTok | YardPass | Implementation | Status |
+| Feature | TikTok | Liventix | Implementation | Status |
 |---------|--------|----------|----------------|--------|
 | **Search functionality** | Search videos by keyword | Search events by title/location/category | Search page + filters | ✅ **IMPLEMENTED** |
 | **Search term suggestions** | Recommend search queries | (Missing autocomplete) | Not implemented | ❌ **GAP** |
@@ -84,7 +84,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ## 💬 Comments Comparison
 
-| Feature | TikTok | YardPass | Implementation | Status |
+| Feature | TikTok | Liventix | Implementation | Status |
 |---------|--------|----------|----------------|--------|
 | **Comment recommendations** | Show interesting comments | (Missing sorting) | Comments shown chronologically | ⚠️ **PARTIAL** |
 | **Comment ranking** | Likes, replies, creator/follower status | (Missing) | Not implemented | ❌ **GAP** |
@@ -94,7 +94,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ## 🔔 Notifications Comparison
 
-| Feature | TikTok | YardPass | Implementation | Status |
+| Feature | TikTok | Liventix | Implementation | Status |
 |---------|--------|----------|----------------|--------|
 | **Recommended content** | Suggest posts you might like | Suggest events you might attend | (Missing proactive notifications) | ❌ **GAP** |
 | **Suggested people** | People you might know | (Missing) | Not implemented | ❌ **GAP** |
@@ -105,7 +105,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ## 👥 Account Recommendations
 
-| Feature | TikTok | YardPass | Implementation | Status |
+| Feature | TikTok | Liventix | Implementation | Status |
 |---------|--------|----------|----------------|--------|
 | **Suggested accounts** | People/creators to follow | Organizers to follow | (Missing dedicated UI) | ❌ **GAP** |
 | **Based on activity** | Accounts you interact with | Organizers of events you attend | Could use ticket purchase data | ⚠️ **PARTIAL** |
@@ -118,7 +118,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ## 🛡️ Safety & Quality
 
-| Feature | TikTok | YardPass | Implementation | Status |
+| Feature | TikTok | Liventix | Implementation | Status |
 |---------|--------|----------|----------------|--------|
 | **Content moderation** | Remove violating content | Remove spam/inappropriate events | Manual moderation | ⚠️ **PARTIAL** |
 | **Rising content review** | Review before recommending | (Missing) | Not implemented | ❌ **GAP** |
@@ -130,7 +130,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ## 🎨 Diversification
 
-| Feature | TikTok | YardPass | Implementation | Status |
+| Feature | TikTok | Liventix | Implementation | Status |
 |---------|--------|----------|----------------|--------|
 | **Avoid repetition** | Don't show same video twice | Don't show same event twice (per session) | Deduplication in feed | ✅ **IMPLEMENTED** |
 | **Avoid creator spam** | Limit consecutive posts from same creator | Limit consecutive events from same organizer | (Missing) | ❌ **GAP** |
@@ -141,7 +141,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ## 📈 Ranking Signals
 
-### ✅ **Signals YardPass DOES Track**
+### ✅ **Signals Liventix DOES Track**
 
 | Signal Type | Examples | Database Tables |
 |-------------|----------|-----------------|
@@ -154,9 +154,9 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 | **Content metadata** | Category, venue, organizer | `events` table columns |
 | **Promotional signals** | Sponsored content, ad boosts | `campaigns`, `campaign_impressions` |
 
-### ❌ **Signals YardPass Does NOT Track (Yet)**
+### ❌ **Signals Liventix Does NOT Track (Yet)**
 
-| Signal Type | TikTok Has | YardPass Status |
+| Signal Type | TikTok Has | Liventix Status |
 |-------------|------------|-----------------|
 | **Skip behavior** | User skipped video quickly | Not tracking explicit "skip" | ❌ **GAP** |
 | **Profile visit frequency** | How often you visit a creator | Not tracking profile visits | ❌ **GAP** |
@@ -167,9 +167,9 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ---
 
-## 🎯 YardPass-Specific Advantages
+## 🎯 Liventix-Specific Advantages
 
-| Feature | TikTok Equivalent | YardPass Implementation | Benefit |
+| Feature | TikTok Equivalent | Liventix Implementation | Benefit |
 |---------|-------------------|-------------------------|---------|
 | **Ticket Purchase Intent** | N/A (no transactions) | Track ticket views, cart adds, purchases | **Better conversion prediction** |
 | **Event RSVP/Interest** | Save video | Save event, view tickets, share | **Stronger intent signal** |
@@ -212,7 +212,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ## 📊 Recommendation Quality Score
 
-| Category | TikTok (10/10) | YardPass | Score |
+| Category | TikTok (10/10) | Liventix | Score |
 |----------|----------------|----------|-------|
 | **Core Ranking Signals** | ✅ All present | ✅ All present + ticket data | **11/10** ⭐ |
 | **User Feedback** | ✅ Not Interested, Refresh | ❌ Missing | **3/10** |
@@ -229,7 +229,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ## 🎯 Recommendation Ranking Files
 
-### **Where YardPass Aligns with TikTok**
+### **Where Liventix Aligns with TikTok**
 
 #### **1. Main Ranking Algorithm**
 **File:** `supabase/migrations/*_affinity_scoring.sql` or RPC functions
@@ -264,7 +264,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ---
 
-## ❌ Where YardPass Has Gaps
+## ❌ Where Liventix Has Gaps
 
 ### **1. User Feedback Mechanisms**
 
@@ -386,7 +386,7 @@ TikTok recommends **content** (videos). YardPass recommends **events** (experien
 
 ## 🎉 Summary
 
-**YardPass Strengths:**
+**Liventix Strengths:**
 - ✅ Strong transaction signals (ticket purchases)
 - ✅ Location-based intelligence
 - ✅ Temporal relevance (event dates)

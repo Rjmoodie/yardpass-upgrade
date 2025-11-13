@@ -22,7 +22,7 @@ const baseTicket: UserTicket = {
   price: 150,
   orderDate: new Date().toISOString(),
   isUpcoming: true,
-  organizerName: 'YardPass',
+  organizerName: 'Liventix',
   startAtISO: new Date().toISOString(),
   endAtISO: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   timezone: 'America/New_York',

@@ -27,7 +27,7 @@
 ┌─────────────────────────────────────────────────────────┐
 │  🌐 PLATFORM ADMIN (Option B - System-wide)            │
 │                                                          │
-│  Who: 1-3 internal YardPass staff                      │
+│  Who: 1-3 internal Liventix staff                      │
 │  Can: Manage ANY event, override ANY permission        │
 │  Use case: Support, moderation, platform operations    │
 │                                                          │
@@ -102,7 +102,7 @@ await sendInvite({
 
 **Email:** Contains link like:
 ```
-https://app.yardpass.app/roles/accept?token=abc123...
+https://app.liventix.app/roles/accept?token=abc123...
 ```
 
 **SMS:** Contains same link
@@ -398,7 +398,7 @@ CHECK (
 
 **Issue:**
 ```
-https://app.yardpass.app/roles/accept?token=abc123...
+https://app.liventix.app/roles/accept?token=abc123...
 ```
 
 - Token visible in browser history
@@ -407,7 +407,7 @@ https://app.yardpass.app/roles/accept?token=abc123...
 
 **Better (but more complex):** Use short-lived codes
 ```
-https://app.yardpass.app/roles/accept?code=XY123
+https://app.liventix.app/roles/accept?code=XY123
 // Code maps to token in database, expires in 10 minutes
 ```
 

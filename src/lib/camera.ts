@@ -18,7 +18,7 @@ export async function capturePhotoAsFile(): Promise<File | null> {
 
     const response = await fetch(photo.webPath);
     const blob = await response.blob();
-    const fileName = `yardpass-photo-${Date.now()}.jpeg`;
+    const fileName = `liventix-photo-${Date.now()}.jpeg`;
 
     return new File([blob], fileName, { type: blob.type || 'image/jpeg' });
   } catch (error) {
@@ -44,7 +44,7 @@ export async function pickPhotos(limit: number = 10): Promise<File[]> {
       images.photos.map(async (photo, index) => {
         const response = await fetch(photo.webPath);
         const blob = await response.blob();
-        const fileName = `yardpass-photo-${Date.now()}-${index}.jpeg`;
+        const fileName = `liventix-photo-${Date.now()}-${index}.jpeg`;
         return new File([blob], fileName, { type: blob.type || 'image/jpeg' });
       })
     );
@@ -73,7 +73,7 @@ export async function takePicture(): Promise<File | null> {
 
     const response = await fetch(photo.webPath);
     const blob = await response.blob();
-    const fileName = `yardpass-photo-${Date.now()}.jpeg`;
+    const fileName = `liventix-photo-${Date.now()}.jpeg`;
 
     return new File([blob], fileName, { type: blob.type || 'image/jpeg' });
   } catch (error) {

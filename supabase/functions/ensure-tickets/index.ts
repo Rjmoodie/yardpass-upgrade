@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import Stripe from "https://esm.sh/stripe@14.23.0?target=deno";
+import Stripe from "https://esm.sh/stripe@14.21.0";
 
 
 const corsHeaders = {
@@ -135,11 +135,11 @@ if (!isPaid) {
     })).filter(i => i.tier_id && i.quantity > 0);
     if (!normalized.length) return err("Nothing to issue (all quantities = 0)", 422);
 
-    // 6) Fetch tiers once, build map (need event_id, name, and is_rsvp_only)
+    // 6) Fetch tiers once, build map (need event_id, name, and price_cents)
     const tierIds = Array.from(new Set(normalized.map(i => i.tier_id)));
     const { data: tiers, error: tErr } = await admin
       .from("ticket_tiers")
-      .select("id, event_id, name, is_rsvp_only")
+      .select("id, event_id, name, price_cents")
       .in("id", tierIds.length ? tierIds : ["00000000-0000-0000-0000-000000000000"]);
     if (tErr) return err(`Load tiers failed: ${tErr.message}`, 500);
 
@@ -152,15 +152,16 @@ if (!isPaid) {
 
     // 7) Build ticket rows - DB enforces capacity via BEFORE INSERT trigger
     // DB assigns serial_no via trigger and qr_code via DEFAULT
-    // ✅ Skip ticket issuance for RSVP-only tiers (free tiers that just track headcount)
+    // ✅ Free tiers ($0) = RSVP only (no tickets), Paid tiers = issue tickets
     const rows: any[] = [];
     let rsvpCount = 0;
     for (const it of normalized) {
       const tt = tierMap.get(it.tier_id)!;
       
-      // ✅ Skip ticket creation for RSVP-only tiers
-      if (tt.is_rsvp_only) {
-        console.log(`[ENSURE-TICKETS] Skipping ticket issuance for RSVP-only tier: ${tt.name} (${it.quantity} attendees)`);
+      // ✅ Skip ticket creation for free tiers (price_cents = 0 means RSVP-only)
+      const isFree = (tt.price_cents === 0 || tt.price_cents === null);
+      if (isFree) {
+        console.log(`[ENSURE-TICKETS] Free tier detected - RSVP only (no tickets): ${tt.name} (${it.quantity} attendees, $${tt.price_cents / 100})`);
         rsvpCount += it.quantity;
         continue;
       }

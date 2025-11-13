@@ -74,7 +74,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               placeholder="Search events, organizers..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-10 pr-4 text-sm text-white placeholder:text-white/50 focus:border-[#FF8C00] focus:bg-white/10 focus:outline-none sm:h-12 sm:pl-12 sm:text-base"
+              className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-10 pr-4 text-sm text-white placeholder:text-white/50 focus:border-[#1171c0] focus:bg-white/10 focus:outline-none sm:h-12 sm:pl-12 sm:text-base"
             />
             {searchQuery && (
               <button
@@ -89,7 +89,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
           <button
             onClick={() => setShowFilters((value) => !value)}
             className={`flex h-11 w-11 items-center justify-center rounded-full border transition-all sm:h-12 sm:w-12 ${
-              showFilters ? 'border-[#FF8C00] bg-[#FF8C00]/20' : 'border-white/10 bg-white/5 hover:bg-white/10'
+              showFilters ? 'border-[#1171c0] bg-[#1171c0]/20' : 'border-white/10 bg-white/5 hover:bg-white/10'
             }`}
             aria-label="Toggle filters"
           >
@@ -104,7 +104,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
               onClick={() => setSelectedCategory(category)}
               className={`whitespace-nowrap rounded-full px-4 py-1.5 text-xs transition-all sm:px-5 sm:py-2 sm:text-sm ${
                 selectedCategory === category
-                  ? 'bg-[#FF8C00] text-white shadow-lg'
+                  ? 'bg-[#1171c0] text-white shadow-lg'
                   : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
               }`}
             >

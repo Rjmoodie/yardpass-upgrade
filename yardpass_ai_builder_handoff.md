@@ -1,5 +1,5 @@
 
-# YardPass — Home Feed & PostHero: AI Builder Handoff
+# Liventix — Home Feed & PostHero: AI Builder Handoff
 
 This is a compact, save-friendly handoff to **tie the updated files together**, including **supplementals** (helpers, contracts, routes, RPC/Edge notes, QA, and “done when” criteria).
 

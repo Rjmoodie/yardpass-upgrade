@@ -256,7 +256,7 @@ ranked = await fetchFallbackRows({ supabase, limit: (limit as number) + 1, curso
 
 ### 1. Deploy SQL Migration
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 npx supabase db push
 ```
 
@@ -266,7 +266,7 @@ npx supabase db push
 
 ### 2. Deploy Edge Function
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 npx supabase functions deploy home-feed
 ```
 
@@ -371,6 +371,7 @@ npx supabase functions deploy home-feed
 ---
 
 Generated: November 7, 2025
+
 
 
 

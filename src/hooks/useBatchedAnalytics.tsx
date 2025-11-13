@@ -71,7 +71,7 @@ export const useBatchedAnalytics = () => {
       if (queueRef.current.length > 0) {
         // Final attempt to save data
         try {
-          localStorage.setItem('yardpass_pending_analytics', JSON.stringify(queueRef.current));
+          localStorage.setItem('liventix_pending_analytics', JSON.stringify(queueRef.current));
         } catch (e) {
           console.warn('Could not save analytics to localStorage:', e);
         }
@@ -83,11 +83,11 @@ export const useBatchedAnalytics = () => {
     
     // Load any pending analytics on mount
     try {
-      const pending = localStorage.getItem('yardpass_pending_analytics');
+      const pending = localStorage.getItem('liventix_pending_analytics');
       if (pending) {
         const events = JSON.parse(pending);
         queueRef.current.push(...events);
-        localStorage.removeItem('yardpass_pending_analytics');
+        localStorage.removeItem('liventix_pending_analytics');
         scheduleFlush();
       }
     } catch (e) {

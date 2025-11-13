@@ -107,8 +107,8 @@ Result: Light text on black container ✅
 ┌──────────────────────────────────┐
 │  [Vibrant Multi-Color Banner]   │
 │                                  │
-│  YardPass Launch                 │ ← Hard to read!
-│  by YardPass                     │ ← Blends in!
+│  Liventix Launch                 │ ← Hard to read!
+│  by Liventix                     │ ← Blends in!
 └──────────────────────────────────┘
 ```
 
@@ -140,10 +140,10 @@ Result: Light text on black container ✅
 │  [Any Banner Image]              │
 │                                  │
 │  ┌────────────────────┐          │
-│  │  YardPass Launch   │          │ ← Always visible!
+│  │  Liventix Launch   │          │ ← Always visible!
 │  └────────────────────┘          │
 │  ┌──────────────────┐            │
-│  │ 👤 by YardPass   │            │ ← Always clear!
+│  │ 👤 by Liventix   │            │ ← Always clear!
 │  └──────────────────┘            │
 └──────────────────────────────────┘
 ```
@@ -193,7 +193,7 @@ hover:bg-background    // 100% opacity on hover
 
 ## 🎯 Visibility on Different Banners
 
-### **Scenario 1: Bright/Colorful Banner** (Like YardPass Launch)
+### **Scenario 1: Bright/Colorful Banner** (Like Liventix Launch)
 ```
 Banner: Vibrant orange, purple, blue
 Light Mode Container: White (90%)

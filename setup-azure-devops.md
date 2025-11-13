@@ -1,15 +1,15 @@
-# 🚀 Quick Azure DevOps Setup for YardPass iOS
+# 🚀 Quick Azure DevOps Setup for Liventix iOS
 
 ## Step 1: Create Azure DevOps Organization
 1. In Azure Portal, click **"Azure DevOps organizations"**
 2. You'll be redirected to `dev.azure.com`
 3. Click **"New organization"**
-4. Name it: `YardPass-Builds`
+4. Name it: `Liventix-Builds`
 5. Choose region closest to you
 
 ## Step 2: Create Project
 1. Click **"New project"**
-2. Name: `YardPass-iOS`
+2. Name: `Liventix-iOS`
 3. Visibility: **Private**
 4. Click **"Create"**
 
@@ -24,14 +24,14 @@ Choose one of these options:
 ### Option B: Push from Local
 ```bash
 # In your project directory
-git remote add azure https://dev.azure.com/YardPass-Builds/YardPass-iOS/_git/YardPass-iOS
+git remote add azure https://dev.azure.com/Liventix-Builds/Liventix-iOS/_git/Liventix-iOS
 git push -u azure main
 ```
 
 ## Step 4: Set Up Variables
 1. Go to **Pipelines** → **Library**
 2. Click **"+ Variable group"**
-3. Name: `YardPass-Secrets`
+3. Name: `Liventix-Secrets`
 4. Add these variables (click "+ Add" for each):
 
 ```
@@ -64,7 +64,7 @@ Your first build will start automatically! 🎉
 ## Step 7: Download Your App
 1. When build completes, go to build results
 2. Click **"Artifacts"** tab
-3. Download **"YardPass-iOS"** artifact
+3. Download **"Liventix-iOS"** artifact
 4. Extract the .ipa file
 5. Install on your iOS device!
 

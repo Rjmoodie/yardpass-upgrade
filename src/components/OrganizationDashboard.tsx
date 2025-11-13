@@ -336,7 +336,7 @@ export function OrganizationDashboard({
         try {
           await (navigator as any).share({
             title: organization?.name,
-            text: `Follow ${organization?.name} on YardPass`,
+            text: `Follow ${organization?.name} on Liventix`,
             url: orgPublicUrl,
           });
           return;

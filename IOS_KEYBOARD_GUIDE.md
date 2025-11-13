@@ -2,7 +2,7 @@
 
 ## Overview
 
-iOS keyboard behavior is critical for good UX. This guide covers everything you need to know about keyboard handling in YardPass using Capacitor.
+iOS keyboard behavior is critical for good UX. This guide covers everything you need to know about keyboard handling in Liventix using Capacitor.
 
 ---
 

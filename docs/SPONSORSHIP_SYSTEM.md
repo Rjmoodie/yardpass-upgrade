@@ -439,7 +439,7 @@ WHERE eai.event_id IS NULL
 ## Support
 
 For questions or issues:
-- GitHub Issues: [yardpass-upgrade/issues](https://github.com/yardpass/yardpass-upgrade/issues)
-- Email: dev@yardpass.com
-- Docs: [docs.yardpass.com/sponsorships](https://docs.yardpass.com/sponsorships)
+- GitHub Issues: [liventix-upgrade/issues](https://github.com/liventix/liventix-upgrade/issues)
+- Email: dev@liventix.com
+- Docs: [docs.liventix.com/sponsorships](https://docs.liventix.com/sponsorships)
 

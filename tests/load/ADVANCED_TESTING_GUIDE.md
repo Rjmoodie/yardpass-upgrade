@@ -1,4 +1,4 @@
-# 🏆 YardPass Advanced Load Testing Guide
+# 🏆 Liventix Advanced Load Testing Guide
 
 **True concurrency, race condition testing, and production-grade performance validation.**
 

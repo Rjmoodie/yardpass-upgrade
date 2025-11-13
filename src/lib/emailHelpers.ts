@@ -23,8 +23,8 @@ export async function getOrgInfoForEmail(orgId: string): Promise<OrgInfo | undef
     return {
       name: org.name,
       logoUrl: org.logo_url || undefined,
-      websiteUrl: org.handle ? `https://yardpass.tech/org/${org.handle}` : undefined,
-      supportEmail: org.support_email || 'support@yardpass.tech',
+      websiteUrl: org.handle ? `https://liventix.tech/org/${org.handle}` : undefined,
+      supportEmail: org.support_email || 'support@liventix.tech',
     };
   } catch (err) {
     console.error('[emailHelpers] Error fetching org info:', err);

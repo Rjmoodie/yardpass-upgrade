@@ -506,7 +506,7 @@ export const SponsorProfileManager: React.FC<SponsorProfileManagerProps> = ({
                     disabled={mode === 'view'}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    This will be your public profile URL: yardpass.com/sponsors/{publicProfileData.slug}
+                    This will be your public profile URL: liventix.com/sponsors/{publicProfileData.slug}
                   </p>
                 </div>
 

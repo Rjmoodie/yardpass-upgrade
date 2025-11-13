@@ -1,4 +1,4 @@
-# 🎯 Complete Ad System Flow - YardPass
+# 🎯 Complete Ad System Flow - Liventix
 
 ## 🏗️ **Two-Stage Feed Assembly**
 

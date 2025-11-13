@@ -122,7 +122,7 @@ No PGRST204 error!
 
 **1. Force cache reload:**
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 cat << 'EOF' | supabase db execute
 NOTIFY pgrst, 'reload schema';

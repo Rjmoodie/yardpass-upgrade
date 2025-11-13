@@ -249,7 +249,7 @@ src/__tests__/
 ## 📂 File Structure Visualization
 
 ```
-yardpass-upgrade/
+liventix-upgrade/
 │
 ├── src/
 │   ├── pages/                                    (7 files)

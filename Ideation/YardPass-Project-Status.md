@@ -1,4 +1,4 @@
-# YardPass Project Status Report
+# Liventix Project Status Report
 
 *Last Updated: January 2025*
 
@@ -6,7 +6,7 @@
 
 **Current Status:** 🟡 **MAJOR PROGRESS - PRODUCTION-READY UI WITH BEAUTIFUL THEME**
 
-YardPass has undergone significant development with a complete UI overhaul featuring the "Mango Sand" theme with TikTok-inspired design. The application is now visually stunning with dark-mode-first design, but core backend integrations still need implementation.
+Liventix has undergone significant development with a complete UI overhaul featuring the "Mango Sand" theme with TikTok-inspired design. The application is now visually stunning with dark-mode-first design, but core backend integrations still need implementation.
 
 ---
 

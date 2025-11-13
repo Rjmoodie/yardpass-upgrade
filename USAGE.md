@@ -25,7 +25,7 @@ Figma Code Connect bridges the gap between design and development by:
 3. Choose **"GitHub Repository"** as your source type
 4. Enter this repository URL:
    ```
-   https://github.com/YOUR_USERNAME/yardpass-figma
+   https://github.com/YOUR_USERNAME/liventix-figma
    ```
 5. Click **"Connect"** to authenticate with GitHub
 
@@ -45,7 +45,7 @@ The repository includes a `figma.config.json` file that maps Figma components to
       "figmaNode": "FIGMA_NODE_ID",
       "source": "./src/components/AuthScreen.tsx",
       "component": "AuthScreen",
-      "docs": "https://username.github.io/yardpass-figma/?path=/docs/components-authscreen--docs"
+      "docs": "https://username.github.io/liventix-figma/?path=/docs/components-authscreen--docs"
     }
   ]
 }
@@ -150,7 +150,7 @@ When mapping a new component:
 
 - **[Figma Code Connect Documentation](https://help.figma.com/hc/en-us/articles/15023124644247-Guide-to-Code-Connect)**
 - **[Storybook Documentation](https://storybook.js.org/docs)**
-- **[Project Storybook](https://YOUR_USERNAME.github.io/yardpass-figma/)**
+- **[Project Storybook](https://YOUR_USERNAME.github.io/liventix-figma/)**
 
 ## 🆘 Getting Help
 

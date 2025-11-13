@@ -1,4 +1,4 @@
-# YardPass Ticketing System - Complete Structure
+# Liventix Ticketing System - Complete Structure
 
 ## Core Ticketing Files
 
@@ -490,10 +490,10 @@ async function generateAppleWalletPass(ticket: Ticket) {
   // 1. Create pass data
   const passData = {
     formatVersion: 1,
-    passTypeIdentifier: 'pass.com.yardpass.ticket',
+    passTypeIdentifier: 'pass.com.liventix.ticket',
     serialNumber: ticket.id,
-    teamIdentifier: 'YARDPASS_TEAM_ID',
-    organizationName: 'YardPass',
+    teamIdentifier: 'LIVENTIX_TEAM_ID',
+    organizationName: 'Liventix',
     description: event.title,
     
     // Barcode (QR code)
@@ -504,7 +504,7 @@ async function generateAppleWalletPass(ticket: Ticket) {
     },
     
     // Visual design
-    logoText: 'YardPass',
+    logoText: 'Liventix',
     foregroundColor: 'rgb(255, 255, 255)',
     backgroundColor: 'rgb(0, 0, 0)',
     

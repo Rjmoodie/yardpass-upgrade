@@ -1,4 +1,4 @@
-# 📦 YardPass Bundle Analysis Report
+# 📦 Liventix Bundle Analysis Report
 **Generated:** November 9, 2025  
 **Build Time:** 51.7 seconds  
 **Total Modules:** 4,313  
@@ -235,7 +235,7 @@ workbox.precacheAndRoute([
 
 **To view:**
 1. Open Finder
-2. Navigate to: `/Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade/`
+2. Navigate to: `/Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade/`
 3. Double-click `bundle-analysis.html`
 
 **What you'll see:**

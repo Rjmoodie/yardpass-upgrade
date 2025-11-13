@@ -1,4 +1,4 @@
-# YardPass Restructuring - Complete Documentation Index
+# Liventix Restructuring - Complete Documentation Index
 
 ## 📚 What Got Restructured
 
@@ -398,5 +398,5 @@
 
 ---
 
-**This restructuring sets YardPass up for production-grade performance, security, and maintainability!** 🚀
+**This restructuring sets Liventix up for production-grade performance, security, and maintainability!** 🚀
 

@@ -7,7 +7,7 @@
  * 3. Audit log populates
  * 4. Anon cannot query tokens
  * 
- * Run in browser console on YardPass app
+ * Run in browser console on Liventix app
  */
 
 // Import from your app

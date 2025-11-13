@@ -1,6 +1,6 @@
 /**
  * =====================================================
- * YardPass Frontend Load Test: Ticketing System
+ * Liventix Frontend Load Test: Ticketing System
  * =====================================================
  * Purpose: Test concurrent ticket purchases from frontend
  * 
@@ -383,7 +383,7 @@ async function test3_OversellPrevention() {
 async function runAllTests() {
   console.log('\n');
   console.log('╔═══════════════════════════════════════════════════╗');
-  console.log('║   YardPass Frontend Ticketing Load Test Suite    ║');
+  console.log('║   Liventix Frontend Ticketing Load Test Suite    ║');
   console.log('╚═══════════════════════════════════════════════════╝');
   console.log('\n');
   

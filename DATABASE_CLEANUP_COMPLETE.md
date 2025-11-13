@@ -1,4 +1,4 @@
-# YardPass Database Cleanup - Complete ✅
+# Liventix Database Cleanup - Complete ✅
 
 ## Summary
 
@@ -70,7 +70,7 @@ Successfully addressed all **actionable** Supabase database linter warnings, red
 
 **Status**: ✅ **INTENTIONAL - NOT A BUG**
 
-The Supabase linter flags all `SECURITY DEFINER` views as errors, but in YardPass these are **architectural choices** to:
+The Supabase linter flags all `SECURITY DEFINER` views as errors, but in Liventix these are **architectural choices** to:
 
 1. **Fix RLS recursion issues** in feed/social graph algorithms
 2. **Hide cross-schema complexity** from client applications
@@ -94,7 +94,7 @@ The Supabase linter flags all `SECURITY DEFINER` views as errors, but in YardPas
 
 ### Option 1: Run All Migrations at Once
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 supabase db push
 ```
 

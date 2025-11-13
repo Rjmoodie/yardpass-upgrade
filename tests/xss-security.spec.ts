@@ -169,7 +169,7 @@ test.describe('XSS Protection Tests', () => {
         expect(action).not.toContain('javascript:');
         expect(action).not.toContain('data:');
         // Should be relative or same-origin
-        expect(action.startsWith('/') || action.startsWith('http://localhost') || action.startsWith('https://yardpass')).toBe(true);
+        expect(action.startsWith('/') || action.startsWith('http://localhost') || action.startsWith('https://liventix')).toBe(true);
       }
     }
   });

@@ -5,7 +5,7 @@
 
 set -e  # Exit on error
 
-echo "🧹 YardPass Design Files Cleanup"
+echo "🧹 Liventix Design Files Cleanup"
 echo "================================"
 echo ""
 

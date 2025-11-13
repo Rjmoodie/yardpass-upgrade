@@ -260,7 +260,7 @@ export const SponsorshipPage: React.FC = () => {
                 <span className="text-muted-foreground">events</span>
               </div>
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-orange-600" />
+                <TrendingUp className="h-4 w-4 text-brand-600" />
                 <span className="font-bold">82%</span>
                 <span className="text-muted-foreground">match rate</span>
               </div>

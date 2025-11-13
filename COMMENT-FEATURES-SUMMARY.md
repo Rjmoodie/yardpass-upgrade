@@ -42,8 +42,8 @@ All three requested features have been **fully implemented** and are ready for d
 
 ### Examples:
 ```
-Input:  "Check out https://yardpass.com and tag @sarah!"
-Output: "Check out [https://yardpass.com] and tag [@sarah]!"
+Input:  "Check out https://liventix.com and tag @sarah!"
+Output: "Check out [https://liventix.com] and tag [@sarah]!"
          (clickable link)            (highlighted mention)
 ```
 
@@ -129,7 +129,7 @@ Output: "Check out [https://yardpass.com] and tag [@sarah]!"
 
 ### Step 1: Run Migration
 ```bash
-cd /path/to/yardpass-upgrade
+cd /path/to/liventix-upgrade
 supabase db push
 ```
 
@@ -161,7 +161,7 @@ No additional steps needed! The CommentModal component is already updated and wi
    - Verify it moves to top with badge
 
 2. **Test Rich Text:**
-   - Post a comment with a URL: `Check https://yardpass.com`
+   - Post a comment with a URL: `Check https://liventix.com`
    - Post a comment with mention: `Hey @john!`
    - Verify links are clickable and mentions are styled
 

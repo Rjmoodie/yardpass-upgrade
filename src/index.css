@@ -76,14 +76,14 @@ button, a, [role="button"] {
   --destructive-foreground: 0 0% 100%;
 
   /* Brand */
-  --primary: 28 100% 50%;
+  --primary: 207 86% 41%;
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 28 100% 82%;
+  --primary-glow: 207 86% 82%;
 
   /* System tokens */
   --border: 214 32% 88%;
   --input: 214 32% 88%;
-  --ring: 28 90% 52%;
+  --ring: 207 86% 52%;
   --modal-border: rgba(15, 23, 42, 0.08);
   --overlay: rgba(15, 23, 42, 0.45);
   
@@ -147,13 +147,13 @@ button, a, [role="button"] {
   --destructive: 359 72% 62%;
   --destructive-foreground: 0 0% 100%;
 
-  --primary: 28 94% 56%;
+  --primary: 207 86% 56%;
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 28 96% 70%;
+  --primary-glow: 207 86% 70%;
 
   --border: 217 25% 24%;
   --input: 217 25% 24%;
-  --ring: 28 94% 56%;
+  --ring: 207 86% 56%;
   --modal-border: rgba(148, 163, 184, 0.18);
   --overlay: rgba(2, 6, 23, 0.65);
   

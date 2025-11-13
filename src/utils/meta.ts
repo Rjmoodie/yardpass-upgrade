@@ -46,8 +46,8 @@ function updateMetaTag(attr: 'name' | 'property', value: string, content: string
 
 // Default meta tags for the app
 export const defaultMeta: MetaTags = {
-  title: 'YardPass - Discover Amazing Events',
-  description: 'Join the hottest events in your area. Discover, attend, and share unforgettable experiences.',
-  image: 'https://yardpass.com/og-image.jpg',
-  url: 'https://yardpass.com',
+  title: 'Liventix - Live Event Tickets',
+  description: 'Buy tickets to live events, concerts, parties, and experiences. Discover, attend, and share unforgettable moments with Liventix.',
+  image: 'https://liventix.com/og-image.jpg',
+  url: 'https://liventix.com',
 };

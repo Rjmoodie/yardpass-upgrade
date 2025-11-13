@@ -1,5 +1,5 @@
 -- =====================================================
--- YardPass Load Test #1: Ticketing & Checkout System
+-- Liventix Load Test #1: Ticketing & Checkout System
 -- =====================================================
 -- Purpose: Test concurrent ticket purchases and inventory management
 -- Run this in Supabase SQL Editor

@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-Your YardPass platform now has **intelligent tag-based recommendations** that automatically learn user preferences and personalize their feed.
+Your Liventix platform now has **intelligent tag-based recommendations** that automatically learn user preferences and personalize their feed.
 
 ---
 

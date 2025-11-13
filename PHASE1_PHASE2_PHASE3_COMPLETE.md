@@ -523,7 +523,7 @@ messaging: {
 }
 
 // Option B: Enable for specific users (custom logic)
-const isBetaUser = user.email.endsWith('@yardpass.com');
+const isBetaUser = user.email.endsWith('@liventix.com');
 if (!isBetaUser && !featureFlags.messaging.enabled) {
   return <ComingSoonMessage />;
 }

@@ -20,7 +20,7 @@ describe('share', () => {
   const mockPayload = {
     title: 'Test Event',
     text: 'Join us for this amazing event',
-    url: 'https://yardpass.com/e/test-event',
+    url: 'https://liventix.com/e/test-event',
   };
 
   beforeEach(() => {

@@ -1,6 +1,6 @@
 # Server Functions
 
-This directory contains edge functions and server utilities for the YardPass application.
+This directory contains edge functions and server utilities for the Liventix application.
 
 ## Files
 

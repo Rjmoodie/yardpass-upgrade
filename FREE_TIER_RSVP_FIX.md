@@ -475,7 +475,7 @@ if (tier.is_rsvp_only) {
 
 ```bash
 # Deploy edge functions
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 npx supabase functions deploy _shared
 npx supabase functions deploy enhanced-checkout
@@ -527,6 +527,7 @@ npx supabase functions deploy send-purchase-confirmation
 ---
 
 Generated: November 7, 2025
+
 
 
 

@@ -8,6 +8,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalyticsIntegration } from '@/hooks/useAnalyticsIntegration';
 import { supabase } from '@/integrations/supabase/client';
@@ -475,196 +476,433 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
   );
 };
 
-/* ----------------------- Audience Analytics ----------------------- */
+/* ----------------------- Audience Intelligence (Full Platform) ----------------------- */
 
 const AudienceAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ selectedOrg, dateRange }) => {
-  const [audienceData, setAudienceData] = useState<AudienceData | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const fetchAudienceAnalytics = useCallback(async () => {
-    setLoading(true);
-    try {
-      const eventIds: string[] = [];
-      const { data, error } = await supabase.functions.invoke('analytics-posthog-funnel', {
-        body: {
-          event_ids: eventIds,
-          from_date: getDateFromRange(dateRange),
-          to_date: new Date().toISOString(),
-          org_id: selectedOrg,
-        },
-      });
-
-      if (error) throw error;
-      const responseData = (data && (data.data ?? data)) || {};
-      setAudienceData(responseData);
-      setErrorMessage(null);
-    } catch (err) {
-      console.error('Audience analytics error:', err);
-      setAudienceData({
-        funnel_steps: [
-          { event: 'event_view', count: 1250, conversion_rate: 100 },
-          { event: 'ticket_cta_click', count: 387, conversion_rate: 31.0 },
-          { event: 'checkout_started', count: 156, conversion_rate: 40.3 },
-          { event: 'checkout_completed', count: 89, conversion_rate: 57.1 },
-        ],
-        acquisition_channels: [
-          { channel: 'direct', visitors: 542, conversions: 38 },
-          { channel: 'social_share', visitors: 298, conversions: 22 },
-          { channel: 'qr_code', visitors: 189, conversions: 15 },
-          { channel: 'organic', visitors: 221, conversions: 14 },
-        ],
-        device_breakdown: [
-          { device: 'mobile', sessions: 892, conversion_rate: 6.8 },
-          { device: 'desktop', sessions: 298, conversion_rate: 8.1 },
-          { device: 'tablet', sessions: 60, conversion_rate: 5.2 },
-        ],
-      });
-      setErrorMessage(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
+  // Date range helpers
+  const { from, to } = useMemo(() => {
+    const to = new Date();
+    const from = new Date();
+    
+    switch (dateRange) {
+      case '7d': from.setDate(to.getDate() - 7); break;
+      case '30d': from.setDate(to.getDate() - 30); break;
+      case '90d': from.setDate(to.getDate() - 90); break;
+      default: from.setDate(to.getDate() - 30);
     }
-  }, [selectedOrg, dateRange]);
+    
+    return { from: from.toISOString(), to: to.toISOString() };
+  }, [dateRange]);
 
-  useEffect(() => {
-    if (selectedOrg) fetchAudienceAnalytics();
-  }, [selectedOrg, dateRange, fetchAudienceAnalytics]);
+  // Fetch all audience data using new hooks
+  const { data: overview, isLoading: overviewLoading } = useQuery({
+    queryKey: ['audience-overview', selectedOrg, from, to],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_audience_overview', {
+        p_org_id: selectedOrg,
+        p_from: from,
+        p_to: to
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedOrg
+  });
 
-  const exportJSON = () =>
-    downloadFile(`audience_${new Date().toISOString()}.json`, JSON.stringify(audienceData || {}, null, 2), 'application/json');
+  const { data: acquisition, isLoading: acquisitionLoading } = useQuery({
+    queryKey: ['audience-acquisition', selectedOrg, from, to],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_audience_acquisition', {
+        p_org_id: selectedOrg,
+        p_from: from,
+        p_to: to
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedOrg
+  });
 
-  const exportCSV = () => {
-    const rows = [
-      ...(audienceData?.funnel_steps || []).map(s => ({
-        section: 'funnel' as const,
-        event: s.event,
-        count: s.count,
-        conversion_rate: s.conversion_rate,
-      })),
-      ...(audienceData?.acquisition_channels || []).map(a => ({
-        section: 'acquisition' as const,
-        channel: a.channel,
-        visitors: a.visitors,
-        conversions: a.conversions,
-      })),
-      ...(audienceData?.device_breakdown || []).map(d => ({
-        section: 'device' as const,
-        device: d.device,
-        sessions: d.sessions,
-        conversion_rate: d.conversion_rate,
-      })),
-    ];
-    downloadFile(`audience_${new Date().toISOString()}.csv`, toCSV(rows as any), 'text/csv');
+  const { data: deviceNetwork, isLoading: deviceLoading } = useQuery({
+    queryKey: ['audience-device', selectedOrg, from, to],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_audience_device_network', {
+        p_org_id: selectedOrg,
+        p_from: from,
+        p_to: to
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedOrg
+  });
+
+  const { data: cohorts, isLoading: cohortsLoading } = useQuery({
+    queryKey: ['audience-cohorts', selectedOrg],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_audience_cohorts', {
+        p_org_id: selectedOrg,
+        p_weeks: 12
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedOrg
+  });
+
+  const { data: paths, isLoading: pathsLoading } = useQuery({
+    queryKey: ['audience-paths', selectedOrg, from, to],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_audience_paths', {
+        p_org_id: selectedOrg,
+        p_from: from,
+        p_to: to,
+        p_limit: 10
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedOrg
+  });
+
+  const { data: hotLeads, isLoading: hotLeadsLoading } = useQuery({
+    queryKey: ['audience-hot-leads', selectedOrg],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_high_intent_visitors', {
+        p_org_id: selectedOrg,
+        p_hours: 24,
+        p_min_score: 7
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedOrg,
+    refetchInterval: 5 * 60 * 1000 // Refresh every 5 minutes
+  });
+
+  const isAnyLoading = overviewLoading || acquisitionLoading || deviceLoading || cohortsLoading || pathsLoading || hotLeadsLoading;
+
+  // Export functions
+  const exportAudienceData = () => {
+    const data = { overview, acquisition, deviceNetwork, cohorts, paths, hotLeads };
+    downloadFile(`audience-full-${new Date().toISOString()}.json`, JSON.stringify(data, null, 2), 'application/json');
   };
 
-  if (loading) return <div className="text-center py-8">Loading audience analytics...</div>;
+  const exportAcquisitionCSV = () => {
+    if (!acquisition) return;
+    const rows = acquisition.map((row: any) => ({
+      source: row.utm_source,
+      medium: row.utm_medium,
+      campaign: row.utm_campaign || '',
+      visitors: row.visitors,
+      sessions: row.sessions,
+      cta_clicks: row.cta_clicks,
+      checkouts: row.checkouts,
+      purchases: row.purchases,
+      revenue_cents: row.revenue_cents,
+      conversion_rate: row.conversion_rate,
+      quality_score: row.quality_score
+    }));
+    downloadFile(`acquisition-${new Date().toISOString()}.csv`, toCSV(rows), 'text/csv');
+  };
+
+  if (isAnyLoading && !overview) {
+    return <div className="text-center py-12">
+      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <p className="mt-4 text-muted-foreground">Loading audience intelligence...</p>
+    </div>;
+  }
 
   return (
-    <>
-      <Alert variant={errorMessage ? 'destructive' : 'default'} className="mb-3">
-        <AlertTitle>Audience pipeline</AlertTitle>
-        <AlertDescription>
-          Data comes from the <strong>analytics-posthog-funnel</strong> Edge Function backed by PostHog events.
-          {errorMessage
-            ? ` Showing cached benchmarks because ${errorMessage}. Verify the Edge Function deployment and PostHog keys.`
-            : ' Ensure PostHog capture is enabled to populate these steps.'}
+    <div className="space-y-6">
+      {/* Header Alert */}
+      <Alert variant="default" className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+        <AlertTitle className="text-blue-900 dark:text-blue-100">🎯 Audience Intelligence</AlertTitle>
+        <AlertDescription className="text-blue-800 dark:text-blue-200">
+          Complete growth analytics powered by your internal database. Track acquisition quality, retention, pathways, and high-intent visitors.
         </AlertDescription>
       </Alert>
 
-      <div className="flex items-center justify-end mb-2">
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={exportCSV}>
-            <DownloadIcon className="h-4 w-4 mr-1" /> CSV
-          </Button>
-          <Button size="sm" variant="outline" onClick={exportJSON}>
-            <DownloadIcon className="h-4 w-4 mr-1" /> JSON
-          </Button>
-        </div>
+      {/* Export Actions */}
+      <div className="flex items-center justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={exportAcquisitionCSV}>
+          <DownloadIcon className="h-4 w-4 mr-1" /> Export Acquisition
+        </Button>
+        <Button size="sm" variant="outline" onClick={exportAudienceData}>
+          <DownloadIcon className="h-4 w-4 mr-1" /> Export All
+        </Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        {audienceData?.funnel_steps?.map((step, index) => (
-          <Card key={`${step.event}-${index}`}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">
-                {step.event === 'event_view' && 'Event Views'}
-                {step.event === 'ticket_cta_click' && 'Ticket CTAs'}
-                {step.event === 'checkout_started' && 'Checkouts Started'}
-                {step.event === 'checkout_completed' && 'Purchases'}
-              </CardTitle>
-              {step.event === 'checkout_completed' ? (
-                <DollarSignIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-              ) : (
-                <TrendingUpIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-              )}
+      {/* Overview KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Visitors</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{(overview?.total_visitors || 0).toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">Unique visitors</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Sessions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{(overview?.total_sessions || 0).toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {overview?.avg_session_duration_min ? `${overview.avg_session_duration_min.toFixed(1)}min avg` : 'Multiple visits'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Purchase Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{(overview?.purchase_rate || 0).toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground mt-1">{(overview?.total_purchases || 0).toLocaleString()} purchases</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              ${((overview?.total_revenue_cents || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              ${((overview?.avg_order_value_cents || 0) / 100).toFixed(2)} AOV
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* New vs Returning */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Audience Composition</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <p className="text-sm font-medium mb-1">New Visitors</p>
+              <p className="text-3xl font-bold">{(overview?.new_visitors || 0).toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {overview?.new_visitor_conversion ? `${overview.new_visitor_conversion.toFixed(1)}% convert` : 'First-time'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-1">Returning Visitors</p>
+              <p className="text-3xl font-bold">{(overview?.returning_visitors || 0).toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {overview?.returning_visitor_conversion ? `${overview.returning_visitor_conversion.toFixed(1)}% convert` : 'Repeat visits'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Acquisition Quality Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Acquisition Quality</CardTitle>
+            <span className="text-sm text-muted-foreground">{(acquisition?.length || 0)} channels</span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-2 font-medium">Source / Medium</th>
+                  <th className="text-right py-2 px-2 font-medium">Visitors</th>
+                  <th className="text-right py-2 px-2 font-medium">CTR</th>
+                  <th className="text-right py-2 px-2 font-medium">Conv%</th>
+                  <th className="text-right py-2 px-2 font-medium">Revenue</th>
+                  <th className="text-right py-2 px-2 font-medium">Quality</th>
+                </tr>
+              </thead>
+              <tbody>
+                {acquisition?.slice(0, 10).map((row: any, idx: number) => {
+                  const ctr = row.visitors > 0 ? ((row.cta_clicks / row.visitors) * 100).toFixed(1) : '0.0';
+                  const quality = row.quality_score || 0;
+                  const qualityColor = quality >= 70 ? 'text-green-600' : quality >= 40 ? 'text-yellow-600' : 'text-red-600';
+                  
+                  return (
+                    <tr key={idx} className="border-b hover:bg-muted/50">
+                      <td className="py-2 px-2">
+                        <p className="font-medium">{row.utm_source || 'direct'}</p>
+                        <p className="text-xs text-muted-foreground">{row.utm_medium || 'none'}</p>
+                      </td>
+                      <td className="text-right py-2 px-2">{row.visitors?.toLocaleString()}</td>
+                      <td className="text-right py-2 px-2">{ctr}%</td>
+                      <td className="text-right py-2 px-2">{row.conversion_rate?.toFixed(1)}%</td>
+                      <td className="text-right py-2 px-2">${((row.revenue_cents || 0) / 100).toFixed(0)}</td>
+                      <td className="text-right py-2 px-2">
+                        <span className={`font-semibold ${qualityColor}`}>{quality}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Two Column Layout: Main + Sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content (2/3) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Device & Network Performance */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Device & Network Performance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">{(step.count || 0).toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                {index === 0 ? 'Funnel start' : `${(step.conversion_rate || 0).toFixed(1)}% conversion`}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <CardTitle>Acquisition Channels</CardTitle>
-            <span className="text-xs text-muted-foreground">
-              {(audienceData?.acquisition_channels?.length || 0).toLocaleString()} sources
-            </span>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {audienceData?.acquisition_channels?.map((channel, index) => {
-                const visitors = channel.visitors || 0;
-                const conversions = channel.conversions || 0;
-                const convRate = visitors > 0 ? (conversions / visitors) * 100 : 0;
-                return (
-                  <div key={`${channel.channel}-${index}`} className="flex items-center justify-between">
+              <div className="space-y-4">
+                {deviceNetwork?.slice(0, 6).map((row: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                     <div>
-                      <p className="font-medium capitalize">{String(channel.channel || '').replace('_', ' ')}</p>
-                      <p className="text-sm text-muted-foreground">{visitors.toLocaleString()} visitors</p>
+                      <p className="font-medium">{row.device_type} / {row.network_type}</p>
+                      <p className="text-sm text-muted-foreground">{row.sessions?.toLocaleString()} sessions</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">{conversions} sales</p>
-                      <p className="text-sm text-muted-foreground">{convRate.toFixed(1)}% conversion</p>
+                      <p className="font-medium">{row.conversion_rate?.toFixed(1)}% conv</p>
+                      <p className="text-sm text-muted-foreground">{row.avg_page_load_ms}ms load</p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <CardTitle>Device Breakdown</CardTitle>
-            <span className="text-xs text-muted-foreground">
-              {(audienceData?.device_breakdown?.length || 0).toLocaleString()} devices
-            </span>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {audienceData?.device_breakdown?.map((device, index) => (
-                <div key={`${device.device}-${index}`} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium capitalize">{device.device}</p>
-                    <p className="text-sm text-muted-foreground">{(device.sessions || 0).toLocaleString()} sessions</p>
+          {/* Cohort Retention */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Cohort Retention</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">Repeat purchase rates by week</p>
+              <div className="space-y-2">
+                {cohorts?.slice(0, 8).map((cohort: any, idx: number) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <span className="text-sm font-mono w-20">{cohort.cohort_week}</span>
+                    <div className="flex-1 bg-muted rounded-full h-6 relative">
+                      <div 
+                        className="bg-primary rounded-full h-full transition-all"
+                        style={{ width: `${cohort.retention_rate}%` }}
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center text-xs font-medium">
+                        {cohort.retention_rate?.toFixed(1)}%
+                      </span>
+                    </div>
+                    <span className="text-sm text-muted-foreground w-16 text-right">
+                      {cohort.repeat_buyers} buyers
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium">{(device.conversion_rate || 0).toFixed(1)}%</p>
-                    <p className="text-sm text-muted-foreground">conversion rate</p>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* User Pathways */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Purchase Pathways</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {paths?.slice(0, 5).map((path: any, idx: number) => (
+                  <div key={idx} className="p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Path #{idx + 1}</span>
+                      <span className="text-sm text-muted-foreground">{path.user_count} users</span>
+                    </div>
+                    <p className="text-xs font-mono mb-2">{path.path_sequence}</p>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{path.avg_time_to_purchase_min?.toFixed(0)}min avg</span>
+                      <span>{path.conversion_rate?.toFixed(1)}% convert</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Sidebar (1/3) */}
+        <div className="space-y-6">
+          {/* Hot Leads */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>🔥 Hot Leads</CardTitle>
+                <span className="text-sm font-bold" style={{color: '#1171c0'}}>{hotLeads?.length || 0}</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">High-intent visitors (score ≥7)</p>
+              <div className="space-y-3">
+                {hotLeads?.slice(0, 5).map((lead: any, idx: number) => (
+                  <div key={idx} className="p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Visitor #{lead.session_id?.slice(0, 8)}</span>
+                      <span className="text-xs font-bold px-2 py-1 rounded" style={{backgroundColor: '#e3f2fd', color: '#1171c0'}}>
+                        {lead.propensity_score}/10
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {lead.events_count} events • Last: {Math.floor((Date.now() - new Date(lead.last_activity).getTime()) / 60000)}m ago
+                    </p>
+                    <Button size="sm" variant="outline" className="w-full text-xs">
+                      Contact
+                    </Button>
+                  </div>
+                ))}
+                {(!hotLeads || hotLeads.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No hot leads in last 24 hours</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Stats */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Stats</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Bounce Rate</span>
+                <span className="font-medium">{(overview?.bounce_rate || 0).toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Checkout Start Rate</span>
+                <span className="font-medium">{(overview?.checkout_start_rate || 0).toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Mobile Traffic</span>
+                <span className="font-medium">{(overview?.mobile_percentage || 0).toFixed(0)}%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Unique Buyers</span>
+                <span className="font-medium">{(overview?.unique_buyers || 0).toLocaleString()}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 
@@ -1289,7 +1527,7 @@ const AnalyticsHub: React.FC<{ initialOrgId?: string | null }> = ({ initialOrgId
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">YardPass Analytics Hub</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Liventix Analytics Hub</h1>
             <p className="text-sm sm:text-base text-muted-foreground">Comprehensive insights across your events and content</p>
           </div>
         </div>

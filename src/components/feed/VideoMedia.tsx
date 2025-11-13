@@ -255,7 +255,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           viewer_user_id: viewerId,
           custom_1: post?.id,
           custom_2: post?.text ?? undefined,
-          player_name: "YardPass Feed",
+          player_name: "Liventix Feed",
         }}
         style={{ 
           width: "100%", 

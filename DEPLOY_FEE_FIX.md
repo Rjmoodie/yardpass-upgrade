@@ -25,7 +25,7 @@ All 5 locations updated with the corrected fee formula!
 ### Step 1: Deploy Edge Functions
 
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 # Deploy the updated checkout functions
 npx supabase functions deploy enhanced-checkout
@@ -172,6 +172,7 @@ npm run build && [deploy to hosting]
 ```
 
 **The fix is production-ready!** 🎉
+
 
 
 

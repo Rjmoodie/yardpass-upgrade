@@ -198,7 +198,7 @@ export function ProfilePage() {
             media_urls: post.media_urls || [],
             likes: likeCount,
             comments: commentCount,
-            type: (post.event_id ? 'event' : 'post') as 'post' | 'event',
+            type: 'post' as const,  // ✅ ALWAYS 'post' (from event_posts table)
             event_id: post.event_id || undefined
           };
         }).filter(post => post.media_urls.length > 0); // Only show posts with media
@@ -297,7 +297,7 @@ export function ProfilePage() {
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: `${profile?.display_name || 'User'} on Yardpass`,
+        title: `${profile?.display_name || 'User'} on Liventix`,
         url: window.location.href
       });
     } else {

@@ -1,6 +1,6 @@
-# Contributing to YardPass Figma Design System
+# Contributing to Liventix Figma Design System
 
-Thank you for your interest in contributing! This document provides guidelines for contributing to the YardPass design system.
+Thank you for your interest in contributing! This document provides guidelines for contributing to the Liventix design system.
 
 ## 🏗️ Development Setup
 
@@ -155,7 +155,7 @@ When adding components that should appear in Figma:
     }
   },
   "example": "<Button variant='primary'>Click me</Button>",
-  "docs": "https://username.github.io/yardpass-figma/?path=/docs/components-button--docs"
+  "docs": "https://username.github.io/liventix-figma/?path=/docs/components-button--docs"
 }
 ```
 
@@ -287,4 +287,4 @@ Before submitting a new component:
 - **GitHub Discussions**: For questions and general discussion
 - **Storybook**: For component documentation and examples
 
-Thank you for contributing to the YardPass design system! 🎉
+Thank you for contributing to the Liventix design system! 🎉

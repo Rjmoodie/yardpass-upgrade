@@ -31,7 +31,7 @@ function withCORS(
     if (opts.allowOrigins?.length) {
       const isAllowed = opts.allowOrigins.some(allowed => {
         if (allowed === origin) return true;
-        // Support wildcard patterns like *.yardpass.com
+        // Support wildcard patterns like *.liventix.com
         if (allowed.includes("*")) {
           const pattern = allowed.replace(/\./g, "\\.").replace(/\*/g, ".*");
           return new RegExp(`^${pattern}$`).test(origin);
@@ -73,8 +73,8 @@ const CACHE_TTL_GUEST = 30; // seconds
 
 // Public web origins that may call this endpoint
 const ALLOWED_ORIGINS = [
-  "https://app.yardpass.com",
-  "https://staging.yardpass.com",
+  "https://app.liventix.com",
+  "https://staging.liventix.com",
   "http://localhost:5173",
   "http://localhost:8080",
   "http://localhost:8081",
@@ -242,8 +242,8 @@ function computeAllowedOrigin(origin: string) {
 }
 
 const isTrustedOrigin = (o: string) =>
-  o === "https://app.yardpass.com" ||
-  o === "https://staging.yardpass.com" ||
+  o === "https://app.liventix.com" ||
+  o === "https://staging.liventix.com" ||
   o === "http://localhost:5173";
 
 /** ---------------------------

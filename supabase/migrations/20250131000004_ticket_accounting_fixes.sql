@@ -247,7 +247,7 @@ SELECT
 FROM ticket_tiers
 WHERE status = 'active';
 
--- Show YardPass Launch specifically
+-- Show Liventix Launch specifically
 SELECT 
   name as tier_name,
   quantity as capacity,

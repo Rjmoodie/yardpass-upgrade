@@ -318,7 +318,7 @@ export function OrgContactExportPanel({ organizationId }: OrgContactExportPanelP
               Contact exports
             </CardTitle>
             <CardDescription>
-              Build deduped attendee, purchaser, or subscriber lists directly from your YardPass data
+              Build deduped attendee, purchaser, or subscriber lists directly from your Liventix data
               and follow Eventbrite’s export best practices.
             </CardDescription>
           </div>

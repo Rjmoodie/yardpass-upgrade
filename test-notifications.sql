@@ -8,7 +8,7 @@ values
   -- Success notification
   (
     '34cce931-f181-4caf-8f05-4bcc7ee3ecaa',
-    '🎉 Welcome to YardPass!',
+    '🎉 Welcome to Liventix!',
     'Your account has been successfully created. Start exploring events near you.',
     'success',
     '/search',
@@ -20,7 +20,7 @@ values
   (
     '34cce931-f181-4caf-8f05-4bcc7ee3ecaa',
     '📅 New Event Posted',
-    'YardPass Launch is happening on October 31st! Check it out.',
+    'Liventix Launch is happening on October 31st! Check it out.',
     'info',
     '/e/yardpass-launch',
     'event_created',
@@ -31,7 +31,7 @@ values
   (
     '34cce931-f181-4caf-8f05-4bcc7ee3ecaa',
     '⚠️ Ticket Sale Ends Soon',
-    'Only 2 hours left to get tickets for YardPass Launch at the early bird price!',
+    'Only 2 hours left to get tickets for Liventix Launch at the early bird price!',
     'warning',
     '/e/yardpass-launch',
     'ticket_reminder',
@@ -42,7 +42,7 @@ values
   (
     '34cce931-f181-4caf-8f05-4bcc7ee3ecaa',
     '❤️ Someone liked your post',
-    'John Doe liked your post from YardPass Launch event.',
+    'John Doe liked your post from Liventix Launch event.',
     'success',
     '/profile',
     'post_liked',
@@ -64,7 +64,7 @@ values
   (
     '34cce931-f181-4caf-8f05-4bcc7ee3ecaa',
     '🎫 Ticket Confirmed',
-    'Your ticket for YardPass Launch has been confirmed! See you there.',
+    'Your ticket for Liventix Launch has been confirmed! See you there.',
     'success',
     '/tickets',
     'ticket_purchased',
@@ -75,7 +75,7 @@ values
   (
     '34cce931-f181-4caf-8f05-4bcc7ee3ecaa',
     '🔔 Event Tomorrow',
-    'YardPass Launch starts tomorrow at 7:00 PM. Don''t forget to check in!',
+    'Liventix Launch starts tomorrow at 7:00 PM. Don''t forget to check in!',
     'info',
     '/tickets',
     'event_reminder',

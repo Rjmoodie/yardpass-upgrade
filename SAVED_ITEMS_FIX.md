@@ -267,7 +267,7 @@ async function handleUnsavePost(postId: string) {
 
 ### 1. Deploy New Migration
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 npx supabase db push
 ```
 
@@ -352,6 +352,7 @@ Replace separate queries for `saved_events` and `user_saved_posts` with single q
 ---
 
 Generated: November 7, 2025
+
 
 
 

@@ -32,7 +32,7 @@ export const WebSponsorshipPage: React.FC = () => {
 
   return (
     <WebLayout userRole="organizer">
-      {/* Hero Section - Yardpass Style */}
+      {/* Hero Section - Liventix Style */}
       <section className="py-16 bg-white rounded-2xl mb-12 border border-gray-100">
         <div className="text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900 mb-6">
@@ -163,7 +163,7 @@ export const WebSponsorshipPage: React.FC = () => {
             </Card>
             <Card>
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-orange-600 mb-2">156</div>
+                <div className="text-3xl font-bold text-brand-600 mb-2">156</div>
                 <p className="text-gray-600">Total Views</p>
               </CardContent>
             </Card>

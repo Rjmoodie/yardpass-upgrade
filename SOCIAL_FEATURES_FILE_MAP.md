@@ -1,4 +1,4 @@
-# 📱 YardPass Social Features - Complete File Map
+# 📱 Liventix Social Features - Complete File Map
 
 **Date:** November 11, 2025  
 **Scope:** Following, Messaging, User Search & Discovery

@@ -33,8 +33,8 @@ export function BrandedSpinner({
         <div className="relative">
           <div className={`${logoSizeClasses[size]} bg-white rounded-2xl flex items-center justify-center shadow-lg animate-pulse`}>
             <img 
-              src="/yardpass-logo.png" 
-              alt="YardPass" 
+              src="/liventix-logo.png" 
+              alt="Liventix" 
               className={`${size === 'sm' ? 'w-4 h-4' : size === 'md' ? 'w-6 h-6' : size === 'lg' ? 'w-8 h-8' : 'w-12 h-12'} object-contain`}
             />
           </div>

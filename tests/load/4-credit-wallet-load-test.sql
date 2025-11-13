@@ -1,5 +1,5 @@
 -- =====================================================
--- YardPass Load Test #4: Credit/Wallet System
+-- Liventix Load Test #4: Credit/Wallet System
 -- =====================================================
 -- Purpose: Test FIFO credit deduction and concurrent spending
 -- Run this in Supabase SQL Editor

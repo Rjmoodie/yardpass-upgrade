@@ -36,7 +36,7 @@ interface AuthExperienceProps {
 
 type GuestStep = 'collect' | 'otp';
 
-const DEFAULT_LOGO = '/yardpass-logo.png';
+const DEFAULT_LOGO = '/liventix-logo.png';
 
 export function AuthExperience({
   isOpen = true,
@@ -308,7 +308,7 @@ export function AuthExperience({
           )}
 
           <div className="mx-auto flex h-24 w-28 items-center justify-center rounded-2xl bg-gradient-to-r from-primary/80 to-accent/70 shadow-xl">
-            <img src={logoSrc} alt="YardPass" className="h-16 w-20 object-contain" />
+            <img src={logoSrc} alt="Liventix" className="h-16 w-20 object-contain" />
           </div>
 
           {/* Show guest session status if active */}

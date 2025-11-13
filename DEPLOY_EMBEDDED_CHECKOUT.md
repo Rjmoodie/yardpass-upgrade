@@ -24,7 +24,7 @@ But the frontend expects the **new format**:
 
 ### **Step 1: Deploy enhanced-checkout**
 ```bash
-cd "C:\Users\Louis Cid\Yardpass 3.0\yardpass-upgrade"
+cd "C:\Users\Louis Cid\Yardpass 3.0\liventix-upgrade"
 npx supabase functions deploy enhanced-checkout
 ```
 
@@ -87,7 +87,7 @@ return {
 2. Click "Proceed to payment"
 3. Timer appears at top: 🕐 29:45
 4. Stripe form embeds (no redirect!)
-5. Payment completes on YardPass
+5. Payment completes on Liventix
 ```
 
 ---
@@ -110,7 +110,7 @@ Response keys: session_id, session_url, order_id, checkout_session_id, expires_a
 
 ```bash
 # Navigate to project
-cd "C:\Users\Louis Cid\Yardpass 3.0\yardpass-upgrade"
+cd "C:\Users\Louis Cid\Yardpass 3.0\liventix-upgrade"
 
 # Deploy edge function
 npx supabase functions deploy enhanced-checkout

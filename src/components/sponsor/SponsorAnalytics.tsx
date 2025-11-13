@@ -146,7 +146,7 @@ export function SponsorAnalytics({ sponsorId }: SponsorAnalyticsProps) {
                 <div className="text-2xl font-bold">{metrics.activeSponsorships}</div>
                 <div className="text-sm text-muted-foreground">Active Sponsorships</div>
               </div>
-              <Calendar className="h-8 w-8 text-orange-600" />
+              <Calendar className="h-8 w-8 text-brand-600" />
             </div>
             <div className="mt-2">
               <Badge variant="secondary">2 ending soon</Badge>

@@ -371,8 +371,8 @@ psql postgres://postgres:postgres@localhost:54322/postgres
 
 ### Resources
 - **Documentation:** `docs/SPONSORSHIP_*.md`
-- **GitHub Issues:** [yardpass-upgrade/issues](https://github.com/yardpass/yardpass-upgrade/issues)
-- **Email:** dev@yardpass.com
+- **GitHub Issues:** [liventix-upgrade/issues](https://github.com/liventix/liventix-upgrade/issues)
+- **Email:** dev@liventix.com
 - **Slack:** #sponsorship-platform
 
 ### Escalation Path

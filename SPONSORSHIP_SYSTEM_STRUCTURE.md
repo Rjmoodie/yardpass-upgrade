@@ -1,7 +1,7 @@
-# YardPass Sponsorship System Structure
+# Liventix Sponsorship System Structure
 
 ## Overview
-YardPass's sponsorship wing is an **enterprise-grade marketplace** that connects sponsors with events through intelligent matching, proposal negotiation, deliverable tracking, and automated payouts. It's designed to create a data-driven sponsorship economy on the platform.
+Liventix's sponsorship wing is an **enterprise-grade marketplace** that connects sponsors with events through intelligent matching, proposal negotiation, deliverable tracking, and automated payouts. It's designed to create a data-driven sponsorship economy on the platform.
 
 ---
 
@@ -148,7 +148,7 @@ Accept → Creates sponsorship order
 3. **Escrow State** - Funds held until deliverables completed
 4. **Milestone Tracking** - Optional multi-stage payments
 5. **Payout Processing** - Organizer receives funds via Stripe Connect
-6. **Platform Fee** - YardPass takes % (configurable per organizer)
+6. **Platform Fee** - Liventix takes % (configurable per organizer)
 
 **Escrow States:**
 - `pending` - Order created, awaiting payment
@@ -580,7 +580,7 @@ supabase/functions/
 ---
 
 ## Summary
-YardPass's sponsorship system is a **full-stack marketplace** with:
+Liventix's sponsorship system is a **full-stack marketplace** with:
 - ✅ Intelligent AI matching
 - ✅ Proposal negotiation
 - ✅ Escrow & milestone payments

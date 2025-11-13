@@ -48,7 +48,7 @@ export default function WalletTransactionsTable({ orgId }: { orgId: string }) {
       case 'spend':
         return <ArrowUpCircle className="h-4 w-4 text-blue-600" />;
       case 'refund':
-        return <RefreshCw className="h-4 w-4 text-orange-600" />;
+        return <RefreshCw className="h-4 w-4 text-brand-600" />;
       case 'adjustment':
         return <AlertCircle className="h-4 w-4 text-purple-600" />;
       default:

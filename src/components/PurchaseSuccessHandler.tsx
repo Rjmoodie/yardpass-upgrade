@@ -136,7 +136,7 @@ export function PurchaseSuccessHandler() {
                 </div>
                 
                 {attempts > 3 && (
-                  <p className="text-sm text-orange-600 font-medium">
+                  <p className="text-sm text-brand-600 font-medium">
                     Taking longer than expected, please wait...
                   </p>
                 )}

@@ -11,7 +11,7 @@ describe('shareLinks', () => {
       });
 
       expect(result).toBe(
-        'https://yardpass.com/e/summer-fest?utm_source=share&utm_medium=app&utm_campaign=event'
+        'https://liventix.com/e/summer-fest?utm_source=share&utm_medium=app&utm_campaign=event'
       );
     });
 
@@ -23,7 +23,7 @@ describe('shareLinks', () => {
       });
 
       expect(result).toBe(
-        'https://yardpass.com/org/awesome-events?utm_source=share&utm_medium=app&utm_campaign=org'
+        'https://liventix.com/org/awesome-events?utm_source=share&utm_medium=app&utm_campaign=org'
       );
     });
 
@@ -35,7 +35,7 @@ describe('shareLinks', () => {
       });
 
       expect(result).toBe(
-        'https://yardpass.com/u/johndoe?utm_source=share&utm_medium=app&utm_campaign=user'
+        'https://liventix.com/u/johndoe?utm_source=share&utm_medium=app&utm_campaign=user'
       );
     });
 
@@ -59,7 +59,7 @@ describe('shareLinks', () => {
       });
 
       expect(result).toBe(
-        'https://yardpass.com/p/post123?utm_source=share&utm_medium=app&utm_campaign=post'
+        'https://liventix.com/p/post123?utm_source=share&utm_medium=app&utm_campaign=post'
       );
     });
   });
@@ -127,7 +127,7 @@ describe('shareLinks', () => {
         title: 'Event',
       });
 
-      expect(result).toBe('Check out this event on YardPass');
+      expect(result).toBe('Check out this event on Liventix');
     });
 
     it('returns org text', () => {
@@ -137,7 +137,7 @@ describe('shareLinks', () => {
         name: 'My Org',
       });
 
-      expect(result).toBe('Check out this organizer on YardPass');
+      expect(result).toBe('Check out this organizer on Liventix');
     });
 
     it('returns user text', () => {
@@ -147,7 +147,7 @@ describe('shareLinks', () => {
         name: 'John Doe',
       });
 
-      expect(result).toBe('Check out this profile on YardPass');
+      expect(result).toBe('Check out this profile on Liventix');
     });
   });
 });

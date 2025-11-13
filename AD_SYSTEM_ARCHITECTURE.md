@@ -1,4 +1,4 @@
-# 🎯 YardPass Ad System Architecture
+# 🎯 Liventix Ad System Architecture
 
 ## Overview
 You have **TWO parallel monetization systems** that work together in the feed.

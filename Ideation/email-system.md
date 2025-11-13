@@ -1,7 +1,7 @@
 # Email System Specification
 
 ## Purpose
-Automate user communication, drive engagement, and guide users through the YardPass journey from waitlist to active beta user.
+Automate user communication, drive engagement, and guide users through the Liventix journey from waitlist to active beta user.
 
 ## Recommended Platform
 **Loops** (preferred), Customer.io, or Mailchimp
@@ -29,7 +29,7 @@ Promotional, educational, engagement-focused
 **Email 1: Immediate Confirmation** (Transactional)
 - **Trigger**: Form submission
 - **Timing**: Within 1 minute
-- **Subject**: "Welcome to YardPass! 🎪 You're on the list"
+- **Subject**: "Welcome to Liventix! 🎪 You're on the list"
 - **Content**:
   - Warm welcome
   - Confirmation of signup
@@ -41,16 +41,16 @@ Promotional, educational, engagement-focused
 
 **Email 2: Behind the Scenes** (Marketing)
 - **Trigger**: 3 days after signup
-- **Subject**: "The story behind YardPass"
+- **Subject**: "The story behind Liventix"
 - **Content**:
   - Founder story / mission
-  - Problems YardPass solves
+  - Problems Liventix solves
   - Sneak peek at key features
   - CTA: "Vote on features" → Feedback board
 
 **Email 3: Feature Spotlight** (Marketing)
 - **Trigger**: 7 days after signup
-- **Subject**: "How YardPass handles [Problem X]"
+- **Subject**: "How Liventix handles [Problem X]"
 - **Content**:
   - Deep dive into one core feature
   - Screenshots or short demo video
@@ -71,17 +71,17 @@ Promotional, educational, engagement-focused
 
 **Email 1: Beta Invitation** (Transactional)
 - **Trigger**: User granted beta access
-- **Subject**: "Your YardPass beta access is ready!"
+- **Subject**: "Your Liventix beta access is ready!"
 - **Content**:
   - Congratulations
   - TestFlight link or web app login
   - Quick start guide (3-5 key steps)
   - Support contact info
-  - CTA: "Start exploring YardPass"
+  - CTA: "Start exploring Liventix"
 
 **Email 2: Onboarding Day 1** (Transactional)
 - **Trigger**: 24 hours after first login
-- **Subject**: "Make the most of YardPass (Quick tips)"
+- **Subject**: "Make the most of Liventix (Quick tips)"
 - **Content**:
   - Congratulate first login
   - Top 3 features to try first
@@ -98,7 +98,7 @@ Promotional, educational, engagement-focused
 
 **Email 4: Engagement Check** (Marketing)
 - **Trigger**: 7 days after first login
-- **Subject**: "How's your YardPass experience so far?"
+- **Subject**: "How's your Liventix experience so far?"
 - **Content**:
   - Ask for feedback
   - Link to feedback board
@@ -128,7 +128,7 @@ Promotional, educational, engagement-focused
 - **Trigger**: 7 days after Email 2 if still inactive
 - **Subject**: "We'd love your feedback before you go"
 - **Content**:
-  - Ask why they stopped using YardPass
+  - Ask why they stopped using Liventix
   - Exit survey (keep it short, 3 questions max)
   - Option to pause emails
   - CTA: "Help us improve"
@@ -146,7 +146,7 @@ Promotional, educational, engagement-focused
 
 **Email: Weekly Digest** (Marketing, optional)
 - **Trigger**: Every Friday (for engaged users only)
-- **Subject**: "Your weekly YardPass update"
+- **Subject**: "Your weekly Liventix update"
 - **Content**:
   - Top voted feedback this week
   - New features shipped
@@ -157,7 +157,7 @@ Promotional, educational, engagement-focused
 
 **Email: Public Launch** (Marketing)
 - **Trigger**: Manual send when exiting beta
-- **Subject**: "YardPass is officially live! 🎉"
+- **Subject**: "Liventix is officially live! 🎉"
 - **Content**:
   - Celebrate launch
   - Thank beta testers
@@ -177,7 +177,7 @@ Promotional, educational, engagement-focused
 ## Email Design Guidelines
 
 ### Template Structure
-- **Header**: YardPass logo, centered
+- **Header**: Liventix logo, centered
 - **Hero Section**: Eye-catching headline with optional image
 - **Body**: Clear, scannable text (short paragraphs, bullet points)
 - **CTA**: Single, prominent button
@@ -187,7 +187,7 @@ Promotional, educational, engagement-focused
 - **Mobile-first**: 60%+ of opens are mobile
 - **Single column**: Easier to read and code
 - **High contrast**: Ensure readability
-- **Brand colors**: Use YardPass palette
+- **Brand colors**: Use Liventix palette
 - **Minimal images**: Reduce load time, avoid spam filters
 - **Plain text version**: Always include for deliverability
 

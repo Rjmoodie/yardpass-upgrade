@@ -83,23 +83,23 @@ serve(async (req) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              from: 'YardPass <hello@yardpass.tech>',
+              from: 'Liventix <hello@liventix.tech>',
               to: [contact],
-              subject: 'Your YardPass Access Code',
+              subject: 'Your Liventix Access Code',
               html: `
                 <!DOCTYPE html>
                 <html lang="en">
                   <head>
                     <meta charset="utf-8" />
                     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                    <title>YardPass Access Code</title>
+                    <title>Liventix Access Code</title>
                   </head>
                   <body style="margin:0; padding:0; background-color:#f4f4f5; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color:#0f172a;">
-                    <div style="display:none; overflow:hidden; line-height:1px; max-height:0; max-width:0; opacity:0; color:transparent;">Your YardPass access code is ${otp}. It expires in 5 minutes.</div>
+                    <div style="display:none; overflow:hidden; line-height:1px; max-height:0; max-width:0; opacity:0; color:transparent;">Your Liventix access code is ${otp}. It expires in 5 minutes.</div>
                     <div style="padding:32px 16px; background-color:#f4f4f5;">
                       <div style="max-width:520px; margin:0 auto; background-color:#ffffff; border-radius:20px; overflow:hidden; box-shadow:0 18px 30px rgba(15,23,42,0.08);">
                         <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding:28px 32px; text-align:center;">
-                          <img src="https://yardpass.tech/yardpass-logo.png" alt="YardPass" style="height:40px; width:auto; margin-bottom:12px;" />
+                          <img src="https://liventix.tech/liventix-logo.png" alt="Liventix" style="height:40px; width:auto; margin-bottom:12px;" />
                           <div style="font-size:13px; color:#94a3b8; letter-spacing:0.08em; text-transform:uppercase;">Secure ticket access</div>
                         </div>
                         <div style="padding:32px;">
@@ -115,7 +115,7 @@ serve(async (req) => {
                           <div style="background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:18px; margin-bottom:24px;">
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px; color:#475569;">
                               <tr>
-                                <td style="padding-bottom:8px;">1. Enter the code in the YardPass guest portal.</td>
+                                <td style="padding-bottom:8px;">1. Enter the code in the Liventix guest portal.</td>
                               </tr>
                               <tr>
                                 <td style="padding-bottom:8px;">2. Access, download, or share the tickets assigned to you.</td>
@@ -126,13 +126,13 @@ serve(async (req) => {
                             </table>
                           </div>
                           <div style="text-align:center; margin-bottom:16px;">
-                            <a href="https://yardpass.tech/tickets" style="display:inline-block; background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color:#ffffff; padding:14px 32px; border-radius:12px; text-decoration:none; font-size:15px; font-weight:600; box-shadow:0 12px 24px rgba(79,70,229,0.25);">Open YardPass</a>
+                            <a href="https://liventix.tech/tickets" style="display:inline-block; background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color:#ffffff; padding:14px 32px; border-radius:12px; text-decoration:none; font-size:15px; font-weight:600; box-shadow:0 12px 24px rgba(79,70,229,0.25);">Open Liventix</a>
                           </div>
                           <p style="margin:0; color:#64748b; font-size:13px; line-height:1.6;">If you didn’t request this code, you can safely ignore this email. For security, never share this code with anyone.</p>
                         </div>
                         <div style="background-color:#f8fafc; padding:20px 32px; border-top:1px solid #e2e8f0; text-align:center; color:#94a3b8; font-size:12px;">
-                          <p style="margin:0 0 6px 0;">© ${new Date().getFullYear()} YardPass. All rights reserved.</p>
-                          <a href="https://yardpass.tech" style="color:#94a3b8; text-decoration:none;">yardpass.tech</a>
+                          <p style="margin:0 0 6px 0;">© ${new Date().getFullYear()} Liventix. All rights reserved.</p>
+                          <a href="https://liventix.tech" style="color:#94a3b8; text-decoration:none;">liventix.tech</a>
                         </div>
                       </div>
                     </div>

@@ -134,7 +134,7 @@ export function FilterModal({ isOpen, onClose, onApply, currentFilters }: Filter
               Advanced Filters
             </div>
             {getActiveFilterCount() > 0 && (
-              <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+              <Badge variant="secondary" className="bg-brand-100 text-brand-800">
                 {getActiveFilterCount()} active
               </Badge>
             )}

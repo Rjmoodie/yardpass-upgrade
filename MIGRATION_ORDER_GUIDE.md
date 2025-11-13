@@ -100,7 +100,7 @@ ls -la supabase/migrations/202511*.sql
 ### **Step 2: Apply Migrations**
 
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 # Apply all pending migrations
 supabase db push

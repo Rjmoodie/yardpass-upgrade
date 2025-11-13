@@ -213,6 +213,6 @@ FOR VALUES FROM ('2025-10-01') TO ('2025-11-01');
 - **Docs**: `docs/SPONSORSHIP_*.md`
 - **Phase 1**: `PHASE1_COMPLETE.md`
 - **Phase 2 & 3**: `PHASE2_PHASE3_COMPLETE.md`
-- **GitHub**: [issues](https://github.com/yardpass/yardpass-upgrade/issues)
-- **Email**: dev@yardpass.com
+- **GitHub**: [issues](https://github.com/liventix/liventix-upgrade/issues)
+- **Email**: dev@liventix.com
 

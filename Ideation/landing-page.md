@@ -1,7 +1,7 @@
 # Landing Page Specification
 
 ## Purpose
-The primary conversion page for YardPass - clearly communicate value, build trust, and drive waitlist signups.
+The primary conversion page for Liventix - clearly communicate value, build trust, and drive waitlist signups.
 
 ## Page URL
 `/` (homepage)
@@ -11,13 +11,13 @@ The primary conversion page for YardPass - clearly communicate value, build trus
 ### 1. Hero Section (Above the Fold)
 
 **Headline:**
-"Simplify Event Management with YardPass"
+"Simplify Event Management with Liventix"
 
 **Subheadline:**
 "The all-in-one platform for ticketing, analytics, and community engagement. Trusted by organizers who care about their events."
 
 **Visual:**
-- High-quality hero image or animated mockup of YardPass dashboard
+- High-quality hero image or animated mockup of Liventix dashboard
 - Or: Background video of event scenes (looping, 10-15 seconds)
 - Subtle gradient overlay for text readability
 
@@ -43,7 +43,7 @@ Grid of 4 pain point cards
 **Card 1: Scattered Tools**
 - Icon: Multiple overlapping windows
 - Title: "Too Many Platforms"
-- Text: "Stop juggling separate tools for tickets, marketing, and analytics. YardPass brings everything together."
+- Text: "Stop juggling separate tools for tickets, marketing, and analytics. Liventix brings everything together."
 
 **Card 2: Hidden Costs**
 - Icon: Money bag with question mark
@@ -68,7 +68,7 @@ Grid of 4 pain point cards
 "Everything You Need, Nothing You Don't"
 
 **Subheadline:**
-"YardPass combines the best features from multiple platforms into one elegant solution."
+"Liventix combines the best features from multiple platforms into one elegant solution."
 
 **Feature Grid (3 columns x 2 rows):**
 
@@ -147,7 +147,7 @@ Three-step process with connecting arrows
 Show 3-5 testimonials from beta testers or early users
 
 **Testimonial Card Template:**
-- Quote: "YardPass cut our event setup time in half and doubled our ticket sales visibility."
+- Quote: "Liventix cut our event setup time in half and doubled our ticket sales visibility."
 - Name: Sarah Chen
 - Role: Festival Director
 - Organization: Summer Sounds Festival
@@ -155,7 +155,7 @@ Show 3-5 testimonials from beta testers or early users
 
 **Logos Section:**
 "As featured in" or "Trusted by organizers at"
-- Logos of events/organizations using YardPass
+- Logos of events/organizations using Liventix
 - Or: "100+ events managed" / "50,000+ tickets sold"
 
 ---
@@ -163,12 +163,12 @@ Show 3-5 testimonials from beta testers or early users
 ### 6. Comparison Table (Optional)
 
 **Headline:**
-"Why Choose YardPass?"
+"Why Choose Liventix?"
 
 **Table:**
-Comparison of YardPass vs. "Traditional Platforms"
+Comparison of Liventix vs. "Traditional Platforms"
 
-| Feature | Traditional | YardPass |
+| Feature | Traditional | Liventix |
 |---------|-------------|----------|
 | Ticketing | ✓ | ✓ |
 | Real-time Analytics | Limited | ✓ |
@@ -183,7 +183,7 @@ Comparison of YardPass vs. "Traditional Platforms"
 ### 7. Beta Testing / Early Access Section
 
 **Headline:**
-"Be Part of the YardPass Journey"
+"Be Part of the Liventix Journey"
 
 **Subheadline:**
 "Join our beta program and get exclusive perks"
@@ -211,19 +211,19 @@ Comparison of YardPass vs. "Traditional Platforms"
 
 **Accordion-style questions:**
 
-**Q: When will YardPass launch publicly?**
+**Q: When will Liventix launch publicly?**
 A: We're in private beta now. Public launch depends on user feedback and metrics—we'll only launch when we're confident in delivering exceptional value. Sign up for the waitlist to be notified.
 
-**Q: How much does YardPass cost?**
+**Q: How much does Liventix cost?**
 A: Beta is 100% free. Our pricing will be transparent and competitive. Beta users get lifetime discounts.
 
-**Q: Do I need technical skills to use YardPass?**
-A: No! YardPass is designed for anyone. If you can use email, you can use YardPass.
+**Q: Do I need technical skills to use Liventix?**
+A: No! Liventix is designed for anyone. If you can use email, you can use Liventix.
 
 **Q: Can I import my existing events and attendees?**
 A: Yes, we offer easy migration tools and support for popular platforms.
 
-**Q: What platforms does YardPass support?**
+**Q: What platforms does Liventix support?**
 A: Web app (all browsers) and native mobile apps (iOS and Android).
 
 **Q: What if I have questions or need help?**
@@ -240,7 +240,7 @@ A: Absolutely. We use bank-level encryption and comply with GDPR, CCPA, and othe
 "Ready to Simplify Your Event Management?"
 
 **Subheadline:**
-"Join the waitlist and be among the first to experience YardPass."
+"Join the waitlist and be among the first to experience Liventix."
 
 **CTA:**
 Large, prominent button: "Get Early Access"
@@ -254,7 +254,7 @@ Large, prominent button: "Get Early Access"
 ### 10. Footer
 
 **Logo:**
-YardPass logo and tagline
+Liventix logo and tagline
 
 **Navigation Links:**
 - About Us
@@ -273,14 +273,14 @@ YardPass logo and tagline
 "Stay updated" → Email input + Subscribe button
 
 **Legal:**
-© 2025 YardPass. All rights reserved.
+© 2025 Liventix. All rights reserved.
 
 ---
 
 ## Design Specifications
 
 ### Color Palette
-Use YardPass brand colors (to be defined in design-guidelines.md)
+Use Liventix brand colors (to be defined in design-guidelines.md)
 
 ### Typography
 - **Headings**: Bold, modern sans-serif (e.g., Inter, Poppins)
@@ -316,7 +316,7 @@ Use YardPass brand colors (to be defined in design-guidelines.md)
 - Lazy load below-the-fold images
 
 ## SEO Requirements
-- **Title Tag**: "YardPass - Simplify Event Management | Ticketing & Analytics Platform"
+- **Title Tag**: "Liventix - Simplify Event Management | Ticketing & Analytics Platform"
 - **Meta Description**: "The all-in-one platform for event ticketing, real-time analytics, and community engagement. Join the beta and transform how you manage events."
 - **H1**: One per page (Hero headline)
 - **Alt text**: All images and icons

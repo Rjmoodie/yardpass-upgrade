@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { QrCode, Download, Share2, MoreVertical, Clock, MapPin, Calendar, ChevronDown } from "lucide-react";
+import { QrCode, Download, Share2, MoreVertical, Clock, MapPin, Calendar, ChevronDown, RefreshCcw } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { RefundRequestModal } from "@/components/tickets/RefundRequestModal";
+import { Badge } from "@/components/ui/badge";
 import QRCode from "qrcode";
 
 interface Ticket {
@@ -20,6 +22,11 @@ interface Ticket {
   eventId?: string;
   organizerName?: string;
   organizerLogo?: string;
+  orderId?: string;
+  orderTotalCents?: number;
+  ticketStatus?: string;
+  refundRequestStatus?: string;
+  eventStartAt?: string;
 }
 
 export default function TicketsPage() {
@@ -30,6 +37,8 @@ export default function TicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [qrCodeImages, setQrCodeImages] = useState<Record<string, string>>({});
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [selectedTicketForRefund, setSelectedTicketForRefund] = useState<Ticket | null>(null);
 
   // Load user tickets
   useEffect(() => {
@@ -42,7 +51,7 @@ export default function TicketsPage() {
       try {
         setLoading(true);
         
-        const { data, error } = await supabase
+        const { data, error} = await supabase
           .from('tickets')
           .select(`
             id,
@@ -50,6 +59,7 @@ export default function TicketsPage() {
             qr_code,
             created_at,
             event_id,
+            order_id,
             events!fk_tickets_event_id (
               id,
               title,
@@ -72,6 +82,10 @@ export default function TicketsPage() {
             ticket_tiers!fk_tickets_tier_id (
               name,
               price_cents
+            ),
+            orders!fk_tickets_order_id (
+              id,
+              total_cents
             )
           `)
           .eq('owner_user_id', user.id)
@@ -95,6 +109,8 @@ export default function TicketsPage() {
             ? event.organizations?.logo_url || ''
             : event.user_profiles?.photo_url || '';
           
+          const order = ticket.orders || {};
+          
           return {
             id: ticket.id,
             eventName: event.title || 'Event',
@@ -115,7 +131,11 @@ export default function TicketsPage() {
             ticketType: tier.name || 'General Admission',
             price: tier.price_cents ? `$${(tier.price_cents / 100).toFixed(2)}` : 'Free',
             qrCode: ticket.qr_code || '',
-            status: ticket.status === 'used' || isPast ? 'used' : 'upcoming'
+            status: ticket.status === 'used' || isPast ? 'used' : 'upcoming',
+            orderId: ticket.order_id,
+            orderTotalCents: order.total_cents,
+            ticketStatus: ticket.status,
+            eventStartAt: event.start_at
           };
         });
 
@@ -371,7 +391,7 @@ export default function TicketsPage() {
               )}
 
               {/* Actions */}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <button 
                   onClick={() => handleDownload(ticket)}
                   disabled={!qrCodeImages[ticket.id]}
@@ -387,9 +407,21 @@ export default function TicketsPage() {
                   <Share2 className="h-4 w-4" />
                   Share
                 </button>
+                {ticket.status === 'upcoming' && ticket.ticketStatus !== 'refunded' && ticket.ticketStatus !== 'redeemed' && (
+                  <button 
+                    onClick={() => {
+                      setSelectedTicketForRefund(ticket);
+                      setRefundModalOpen(true);
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-full border border-brand-500/20 bg-brand-500/10 py-2.5 text-xs font-medium text-brand-600 transition-all hover:bg-brand-500/20 active:scale-95 sm:text-sm"
+                  >
+                    <RefreshCcw className="h-4 w-4" />
+                    Refund
+                  </button>
+                )}
                 <button 
                   onClick={() => ticket.eventId && navigate(`/e/${ticket.eventId}`)}
-                  className="col-span-2 flex items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-xs font-semibold text-foreground transition-all hover:bg-[#FF9D1A] active:scale-95 sm:col-span-1 sm:text-sm"
+                  className="col-span-2 flex items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-xs font-semibold text-foreground transition-all hover:bg-[#0d5aa1] active:scale-95 sm:col-span-1 sm:text-sm"
                 >
                   View Event
                 </button>
@@ -413,7 +445,7 @@ export default function TicketsPage() {
             {activeTab === 'upcoming' && (
               <button 
                 onClick={() => navigate('/search')}
-                className="mt-6 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-foreground transition-all hover:bg-[#FF9D1A] active:scale-95"
+                className="mt-6 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-foreground transition-all hover:bg-[#0d5aa1] active:scale-95"
               >
                 Browse Events
               </button>
@@ -421,6 +453,114 @@ export default function TicketsPage() {
           </div>
         )}
       </div>
+
+      {/* Refund Request Modal */}
+      {selectedTicketForRefund && (
+        <RefundRequestModal
+          open={refundModalOpen}
+          onClose={() => {
+            setRefundModalOpen(false);
+            setSelectedTicketForRefund(null);
+          }}
+          ticket={selectedTicketForRefund}
+          order={{
+            id: selectedTicketForRefund.orderId,
+            total_cents: selectedTicketForRefund.orderTotalCents,
+            tickets_count: 1
+          }}
+          event={{
+            title: selectedTicketForRefund.eventName,
+            start_at: selectedTicketForRefund.eventStartAt
+          }}
+          onSuccess={() => {
+            // Reload tickets to show updated status
+            setLoading(true);
+            if (user?.id) {
+              const loadTickets = async () => {
+                try {
+                  const { data } = await supabase
+                    .from('tickets')
+                    .select(`
+                      id,
+                      status,
+                      qr_code,
+                      created_at,
+                      event_id,
+                      order_id,
+                      events!fk_tickets_event_id (
+                        id,
+                        title,
+                        start_at,
+                        venue,
+                        address,
+                        cover_image_url,
+                        owner_context_type,
+                        owner_context_id,
+                        created_by,
+                        user_profiles!events_created_by_fkey (display_name, photo_url),
+                        organizations!events_owner_context_id_fkey (name, logo_url)
+                      ),
+                      ticket_tiers!fk_tickets_tier_id (name, price_cents),
+                      orders!fk_tickets_order_id (id, total_cents)
+                    `)
+                    .eq('owner_user_id', user.id)
+                    .order('created_at', { ascending: false });
+                  
+                  if (data) {
+                    const mappedTickets = (data || []).map((ticket: any) => {
+                      const event = ticket.events || {};
+                      const tier = ticket.ticket_tiers || {};
+                      const order = ticket.orders || {};
+                      const startDate = event.start_at ? new Date(event.start_at) : new Date();
+                      const isPast = startDate < new Date();
+                      const isOrganization = event.owner_context_type === 'organization';
+                      const organizerName = isOrganization
+                        ? event.organizations?.name || 'Organization'
+                        : event.user_profiles?.display_name || 'Organizer';
+                      const organizerLogo = isOrganization
+                        ? event.organizations?.logo_url || ''
+                        : event.user_profiles?.photo_url || '';
+                      
+                      return {
+                        id: ticket.id,
+                        eventName: event.title || 'Event',
+                        eventImage: event.cover_image_url || '',
+                        eventId: event.id,
+                        organizerName,
+                        organizerLogo,
+                        date: startDate.toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        }),
+                        time: startDate.toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        }),
+                        location: `${event.venue || 'Venue TBA'}${event.address ? ', ' + event.address : ''}`,
+                        ticketType: tier.name || 'General Admission',
+                        price: tier.price_cents ? `$${(tier.price_cents / 100).toFixed(2)}` : 'Free',
+                        qrCode: ticket.qr_code || '',
+                        status: ticket.status === 'used' || isPast ? 'used' : 'upcoming',
+                        orderId: ticket.order_id,
+                        orderTotalCents: order.total_cents,
+                        ticketStatus: ticket.status,
+                        eventStartAt: event.start_at
+                      };
+                    });
+                    setTickets(mappedTickets);
+                  }
+                } catch (error) {
+                  console.error('Error reloading tickets:', error);
+                } finally {
+                  setLoading(false);
+                }
+              };
+              loadTickets();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

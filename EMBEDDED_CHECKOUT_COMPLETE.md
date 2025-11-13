@@ -1,7 +1,7 @@
 # Embedded Checkout - Complete Implementation ✅
 
 ## Summary
-**Replaced two-modal flow with single-screen embedded checkout!** All ticket purchasing now happens on YardPass with Stripe iframe.
+**Replaced two-modal flow with single-screen embedded checkout!** All ticket purchasing now happens on Liventix with Stripe iframe.
 
 ---
 
@@ -13,7 +13,7 @@
    ↓
 2. TicketPurchaseModal    (Select quantity)
    ↓
-3. Redirect to stripe.com (Leave YardPass)
+3. Redirect to stripe.com (Leave Liventix)
 ```
 
 ### **After** (New Single-Screen Flow):
@@ -24,7 +24,7 @@
    - See live timer ✅
    - Embedded Stripe payment ✅
    - Complete checkout ✅
-   Never leaves YardPass! 🎯
+   Never leaves Liventix! 🎯
 ```
 
 ---
@@ -51,7 +51,7 @@
 ### **Step 1: Select Tickets**
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ 🎫 YardPass Launch                          [Close]     │
+│ 🎫 Liventix Launch                          [Close]     │
 │    Oct 31, 2025 • 7:00 PM                               │
 ├─────────────────────────────────────────────────────────┤
 │ Left Side (2/3 width):              Right Side (1/3):   │
@@ -73,7 +73,7 @@
 ### **Step 2: Payment (Embedded)**
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ 🎫 YardPass Launch       🕐 29:45    [← Edit] │
+│ 🎫 Liventix Launch       🕐 29:45    [← Edit] │
 │    Oct 31, 2025 • 7:00 PM                               │
 ├─────────────────────────────────────────────────────────┤
 │ Left Side:                          Right Side:         │
@@ -127,10 +127,10 @@ When < 1 minute:
 | Aspect | Old (Two Modals) | New (EventCheckoutSheet) |
 |--------|------------------|--------------------------|
 | **Screens** | 3 (ticket view → selection → Stripe) | 2 (selection → payment) |
-| **Leaves app** | ✅ Yes (redirects to Stripe) | ❌ No (stays on YardPass) |
+| **Leaves app** | ✅ Yes (redirects to Stripe) | ❌ No (stays on Liventix) |
 | **Timer** | ❌ Small (Stripe's) | ✅ **HUGE** (color-coded) |
 | **Edit tickets** | ❌ Hard (start over) | ✅ Easy (click "Edit") |
-| **Brand consistent** | ⚠️ Stripe branding | ✅ YardPass branding |
+| **Brand consistent** | ⚠️ Stripe branding | ✅ Liventix branding |
 | **Mobile friendly** | ⚠️ Redirect issues | ✅ Perfect |
 | **UX friction** | ⚠️ Multiple steps | ✅ Guided flow |
 
@@ -171,10 +171,10 @@ Ctrl/Cmd + Shift + R
 3. Select quantity
 4. Click "Proceed to payment"
 5. **See huge timer at top** ⏱️
-6. **Stripe form embeds** (stays on YardPass!)
+6. **Stripe form embeds** (stays on Liventix!)
 7. Enter test card: `4242 4242 4242 4242`
 8. Complete purchase
-9. Success! (never left YardPass)
+9. Success! (never left Liventix)
 
 ---
 
@@ -209,7 +209,7 @@ Complete payment in the next 30 seconds to secure your tickets!
 - [x] Live availability calculation
 - [x] Auto-expiration handling
 - [x] Mobile responsive
-- [x] Never leaves YardPass
+- [x] Never leaves Liventix
 
 ---
 
@@ -224,7 +224,7 @@ Complete payment in the next 30 seconds to secure your tickets!
 - [ ] See Stripe form embedded
 - [ ] Use test card: `4242 4242 4242 4242`
 - [ ] Complete payment
-- [ ] Stay on YardPass throughout
+- [ ] Stay on Liventix throughout
 - [ ] Verify tickets appear in wallet
 
 ---

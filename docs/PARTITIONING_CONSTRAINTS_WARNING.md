@@ -143,7 +143,7 @@ EXPLAIN ANALYZE SELECT * FROM orders_test_p WHERE id = 'some-uuid';
 
 ### Recommendation
 
-**For YardPass:**
+**For Liventix:**
 
 1. **DO partition `event_impressions` and `ticket_analytics`** (analytics tables, no incoming FKs)
 2. **SKIP `orders` partitioning for now** (has many foreign keys)

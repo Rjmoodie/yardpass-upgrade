@@ -32,7 +32,7 @@ const BASE_CONFIG: StyledQrOptions = {
  * - night: Inverted colors for dark mode (UI keeps white frame)
  * 
  * @param theme Theme name
- * @param brandHex Custom brand color (default YardPass amber)
+ * @param brandHex Custom brand color (default Liventix amber)
  * @returns Complete QR styling configuration
  */
 export function getQrTheme(

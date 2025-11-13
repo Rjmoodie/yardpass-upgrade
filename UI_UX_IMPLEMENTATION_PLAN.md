@@ -1,4 +1,4 @@
-# YardPass UI/UX Implementation Plan
+# Liventix UI/UX Implementation Plan
 
 ## 🎯 **Overview**
 This document outlines the systematic implementation plan to address all UI/UX issues identified in the comprehensive review.

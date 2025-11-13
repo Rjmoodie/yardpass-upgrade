@@ -82,11 +82,11 @@ Organizers now get **exactly** the ticket price they set (within 3 cents roundin
 ### **2. Eventbrite Price Parity** ✅
 New fee matches Eventbrite exactly:
 ```
-YardPass:     6.6% + $1.79
+Liventix:     6.6% + $1.79
 Eventbrite:   6.6% + $1.79  ← MATCH!
 ```
 
-Organizers can't say "YardPass is more expensive than Eventbrite"
+Organizers can't say "Liventix is more expensive than Eventbrite"
 
 ### **3. Competitive Positioning** ✅
 - **Same price as Eventbrite** → No friction
@@ -379,6 +379,7 @@ processingFee = totalCharge - faceValue
 ```
 
 **The difference:** Gross-up ensures Stripe's cut comes from the customer, not the organizer! 💡
+
 
 
 

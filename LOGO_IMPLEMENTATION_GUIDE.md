@@ -1,9 +1,9 @@
-# 🎨 YardPass Logo Implementation Guide
+# 🎨 Liventix Logo Implementation Guide
 
 ## ✅ **Completed Updates**
 
 ### **1. Email Templates** 
-- ✅ **Frontend EmailTemplates.tsx**: Updated to use `/yardpass-logo.png`
+- ✅ **Frontend EmailTemplates.tsx**: Updated to use `/liventix-logo.png`
 - ✅ **Purchase Confirmation**: Already using correct path
 - ✅ **Messaging Queue**: Updated to use direct Supabase URL
 - ✅ **Role Invite**: Updated to use direct Supabase URL
@@ -22,9 +22,9 @@ You need to replace the actual logo files with your new design:
 #### **A. Main Logo Files**
 ```bash
 # Replace these files with your new logo:
-public/yardpass-logo.png          # Main logo (should be ~200x60px, <50KB)
-public/yardpass-qr-logo.png       # QR code version
-public/images/yardpass-logo-full.png  # Full version
+public/liventix-logo.png          # Main logo (should be ~200x60px, <50KB)
+public/liventix-qr-logo.png       # QR code version
+public/images/liventix-logo-full.png  # Full version
 ```
 
 #### **B. Favicon Files**
@@ -43,7 +43,7 @@ ios/App/App/Assets.xcassets/Splash.imageset/splash-*.png
 
 ### **4. Logo File Specifications**
 
-#### **Email Logo** (`/yardpass-logo.png`)
+#### **Email Logo** (`/liventix-logo.png`)
 - **Dimensions**: 300x90px (optimal for email headers - increased size)
 - **Format**: PNG with transparency
 - **File Size**: <75KB (increased due to larger size)
@@ -89,7 +89,7 @@ cp your-new-logo-2732x2732.png ios/App/App/Assets.xcassets/Splash.imageset/splas
 {
   "icons": [
     {
-      "src": "/yardpass-logo.png",
+      "src": "/liventix-logo.png",
       "sizes": "192x192",
       "type": "image/png"
     }

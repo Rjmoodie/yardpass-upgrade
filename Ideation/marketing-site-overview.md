@@ -1,7 +1,7 @@
-# YardPass Marketing Website - Project Overview
+# Liventix Marketing Website - Project Overview
 
 ## Mission
-Create a beautiful, conversion-driven marketing website for YardPass that captures early interest, showcases product value, and prepares for a successful launch.
+Create a beautiful, conversion-driven marketing website for Liventix that captures early interest, showcases product value, and prepares for a successful launch.
 
 ## Target Audience
 - Event organizers
@@ -11,7 +11,7 @@ Create a beautiful, conversion-driven marketing website for YardPass that captur
 
 ## Core Objectives
 1. **Capture Signups**: Build a waitlist of interested early adopters
-2. **Showcase Value**: Clearly communicate YardPass's unique benefits
+2. **Showcase Value**: Clearly communicate Liventix's unique benefits
 3. **Collect Feedback**: Enable user feedback to guide product development
 4. **Enable Beta Testing**: Provide clear path for beta testers to join
 5. **Track Metrics**: Monitor user engagement and conversion rates

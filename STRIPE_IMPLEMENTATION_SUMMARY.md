@@ -1,4 +1,4 @@
-# Stripe Implementation Summary - YardPass 3.0
+# Stripe Implementation Summary - Liventix 3.0
 
 ## 🎉 Implementation Complete
 

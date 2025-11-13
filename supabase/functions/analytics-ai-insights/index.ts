@@ -24,7 +24,7 @@ serve(async (req) => {
   try {
     const { org_id, date_range, kpis, revenue_trend, top_events, question } = await req.json();
 
-    const systemPrompt = `You are an AI analytics assistant for YardPass, an event management platform. 
+    const systemPrompt = `You are an AI analytics assistant for Liventix, an event management platform. 
     Analyze the provided analytics data for a specific organization and generate actionable insights for that organization's event organizers.
     
     IMPORTANT: Focus only on the data provided for this specific organization (org_id: ${org_id}). Do not make general assumptions or provide generic advice.

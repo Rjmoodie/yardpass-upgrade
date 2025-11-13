@@ -1,4 +1,4 @@
-# Ad Hoc Distribution Setup for YardPass
+# Ad Hoc Distribution Setup for Liventix
 
 ## Prerequisites
 - Apple Developer Account ✅ (You have this!)
@@ -38,10 +38,10 @@
 1. In Apple Developer Portal, go to **Profiles**
 2. Click **+** to create new profile
 3. Select **Ad Hoc** under **Distribution**
-4. Choose your App ID: `com.yardpass.app`
+4. Choose your App ID: `com.liventix.app`
 5. Select the certificate for your Apple ID
 6. Choose all registered devices
-7. Name the profile: "YardPass Ad Hoc"
+7. Name the profile: "Liventix Ad Hoc"
 8. Download the `.mobileprovision` file
 
 ## Step 4: Update GitHub Actions for Ad Hoc Build

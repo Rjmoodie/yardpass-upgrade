@@ -12,7 +12,7 @@ interface DeploymentReadinessPageProps {
 export function DeploymentReadinessPage({ onBack }: DeploymentReadinessPageProps) {
   useEffect(() => {
     updateMetaTags({
-      title: 'Mobile Deployment Readiness - YardPass',
+      title: 'Mobile Deployment Readiness - Liventix',
       description: 'Check your app readiness for iOS and Android deployment',
       type: 'website'
     });

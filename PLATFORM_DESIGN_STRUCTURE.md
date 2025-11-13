@@ -1,8 +1,8 @@
-# YardPass Platform-Specific Design Structure (Revamped)
+# Liventix Platform-Specific Design Structure (Revamped)
 
 ## Overview
 
-YardPass uses a **platform-aware architecture** with one codebase that adapts to different platforms:
+Liventix uses a **platform-aware architecture** with one codebase that adapts to different platforms:
 - **Mobile App** = Social, discovery-first, consumer-focused (TikTok-like)
 - **Desktop Web** = Management, analytics-heavy, professional (Eventbrite-like)
 
@@ -376,7 +376,7 @@ export function TopBar() {
             <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm">Y</span>
             </div>
-            <span className="text-xl font-bold">YardPass</span>
+            <span className="text-xl font-bold">Liventix</span>
             <span className="text-xs text-muted-foreground bg-accent/10 px-2 py-1 rounded-full">
               Now in Beta
             </span>
@@ -435,7 +435,7 @@ All colors are tokenized using CSS custom properties for easy theming and dark m
   --fg: 240 10% 3.9%;
   
   /* Brand */
-  --primary: 42 96% 52%;         /* YardPass yellow/orange */
+  --primary: 42 96% 52%;         /* Liventix yellow/orange */
   --primary-foreground: 0 0% 100%;
   --accent: 221 83% 53%;          /* Blue */
   --accent-foreground: 0 0% 100%;
@@ -648,10 +648,10 @@ export function UpsellDesktop({ feature }: { feature: string }) {
         {feature} includes advanced tools like charts, exports, and team management that work best on desktop.
       </p>
       <p className="text-xs text-muted-foreground">
-        Visit <strong>yardpass.tech</strong> from a desktop browser to unlock these features.
+        Visit <strong>liventix.tech</strong> from a desktop browser to unlock these features.
       </p>
       <Button variant="outline" size="sm" onClick={() => {
-        window.open('https://yardpass.tech/analytics', '_blank');
+        window.open('https://liventix.tech/analytics', '_blank');
       }}>
         Open on Desktop
       </Button>
@@ -668,16 +668,16 @@ export function UpsellMobile({ feature }: { feature: string }) {
       <Smartphone className="h-12 w-12 text-muted-foreground" />
       <h2 className="text-xl font-semibold">Designed for Mobile</h2>
       <p className="text-sm text-muted-foreground max-w-md">
-        {feature} is optimized for the YardPass mobile app with camera access, haptics, and native wallet integration.
+        {feature} is optimized for the Liventix mobile app with camera access, haptics, and native wallet integration.
       </p>
       <div className="flex gap-3 mt-4">
         <Button variant="default" size="sm" onClick={() => {
-          window.open('https://apps.apple.com/yardpass', '_blank');
+          window.open('https://apps.apple.com/liventix', '_blank');
         }}>
           Download on App Store
         </Button>
         <Button variant="outline" size="sm" onClick={() => {
-          window.open('https://play.google.com/yardpass', '_blank');
+          window.open('https://play.google.com/liventix', '_blank');
         }}>
           Get on Google Play
         </Button>
@@ -799,9 +799,9 @@ packages/
 ### **Environment Variables**
 ```env
 VITE_PLATFORM=web|ios|android
-VITE_WEB_URL=https://yardpass.tech
-VITE_APP_STORE_URL=https://apps.apple.com/yardpass
-VITE_PLAY_STORE_URL=https://play.google.com/store/apps/yardpass
+VITE_WEB_URL=https://liventix.tech
+VITE_APP_STORE_URL=https://apps.apple.com/liventix
+VITE_PLAY_STORE_URL=https://play.google.com/store/apps/liventix
 ```
 
 ### **Build Commands**

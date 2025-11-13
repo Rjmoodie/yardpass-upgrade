@@ -22,7 +22,7 @@ import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import type { FeedItem } from '@/hooks/unifiedFeedTypes';
 import EventCheckoutSheet from '@/components/EventCheckoutSheet';
 import { isVideoUrl } from '@/utils/mux';
-import { YardpassSpinner } from '@/components/LoadingSpinner';
+import { LiventixSpinner } from '@/components/LoadingSpinner';
 
 type FeedFilters = {
   dates: string[];
@@ -585,7 +585,7 @@ export default function UnifiedFeedList() {
 
   const handleEventClick = useCallback(
     (eventId: string) => {
-      navigate(`/event/${eventId}`);
+      navigate(`/e/${eventId}`);
     },
     [navigate]
   );

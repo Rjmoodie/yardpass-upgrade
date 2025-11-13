@@ -17,7 +17,7 @@ test.describe('OG/Twitter meta validation', () => {
     expect(ogTitle).toBeTruthy();
     expect(ogDescription).toBeTruthy();
     expect(ogType).toBe('website');
-    expect(ogUrl).toContain('yardpass.com');
+    expect(ogUrl).toContain('liventix.com');
     
     // Check Twitter Card tags
     const twitterCard = await page.getAttribute('meta[name="twitter:card"]', 'content');
@@ -40,7 +40,7 @@ test.describe('OG/Twitter meta validation', () => {
       
       // Check event-specific meta tags
       const title = await page.title();
-      expect(title).toContain('YardPass'); // Should contain event title and YardPass
+      expect(title).toContain('Liventix'); // Should contain event title and Liventix
       
       const ogTitle = await page.getAttribute('meta[property="og:title"]', 'content');
       const ogDescription = await page.getAttribute('meta[property="og:description"]', 'content');

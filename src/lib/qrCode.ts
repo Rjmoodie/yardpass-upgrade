@@ -308,7 +308,7 @@ export async function generateQRCodeDataURLWithLogo(
 
 export function copyQRDataToClipboard(data: QRCodeData): Promise<void> {
   const qrText =
-    `YardPass Ticket\n` +
+    `Liventix Ticket\n` +
     `ID: ${data.ticketId}\n` +
     `Event: ${data.eventId}\n` +
     `Time: ${new Date(data.timestamp).toLocaleString()}\n` +
@@ -332,7 +332,7 @@ export function copyQRDataToClipboard(data: QRCodeData): Promise<void> {
 export function shareQRData(data: QRCodeData): Promise<void> {
   if (!isBrowser) return Promise.resolve();
   const shareData = {
-    title: 'YardPass Ticket',
+    title: 'Liventix Ticket',
     text: `My ticket for event ${data.eventId}`,
     url: `${window.location.origin}/ticket/${data.ticketId}`
   };

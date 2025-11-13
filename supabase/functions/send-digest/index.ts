@@ -19,7 +19,7 @@ async function renderHtml(userName: string, recs: any[]) {
           ${r.category ?? ""} ${r.distance_km ? `· ${r.distance_km.toFixed(1)} km` : ""}
         </div>
         <div>
-          <a href="${Deno.env.get("APP_ORIGIN") || "https://yardpass.app"}/e/${r.event_id}" style="display:inline-block;margin-top:6px;padding:8px 12px;background:#111;color:#fff;border-radius:6px;text-decoration:none">View event</a>
+          <a href="${Deno.env.get("APP_ORIGIN") || "https://liventix.app"}/e/${r.event_id}" style="display:inline-block;margin-top:6px;padding:8px 12px;background:#111;color:#fff;border-radius:6px;text-decoration:none">View event</a>
         </div>
       </td>
     </tr>
@@ -80,7 +80,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: "YardPass <updates@yardpass.app>",
+        from: "Liventix <updates@liventix.app>",
         to: [userRow.email],
         subject: reason === "ticket_intent" ? "Still thinking about these?" : "Your weekly picks",
         html,

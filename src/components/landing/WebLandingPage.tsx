@@ -85,7 +85,7 @@ const curatedCollections = [
     title: 'Giving Back & Community',
     description: 'Volunteer drives, charity concerts, and purpose-driven meetups.',
     stats: '9 programs',
-    gradient: 'from-amber-500/90 via-orange-400/80 to-yellow-300/80',
+    gradient: 'from-amber-500/90 via-brand-400/80 to-yellow-300/80',
     icon: Gift,
   },
 ];
@@ -150,7 +150,7 @@ export function WebLandingPage() {
             </div>
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.25em] text-emerald-200">
-                YardPass Holiday
+                Liventix Holiday
               </p>
               <p className="font-semibold tracking-tight">Experiences & Ticketing</p>
             </div>
@@ -159,7 +159,7 @@ export function WebLandingPage() {
             <a className="hover:text-white" href="#collections">Collections</a>
             <a className="hover:text-white" href="#spotlight">Spotlight</a>
             <a className="hover:text-white" href="#guides">City guides</a>
-            <a className="hover:text-white" href="#host">Host on YardPass</a>
+            <a className="hover:text-white" href="#host">Host on Liventix</a>
           </nav>
           <div className="flex items-center gap-3">
             <Button variant="ghost" className="hidden text-slate-200 hover:text-white md:inline-flex">
@@ -184,7 +184,7 @@ export function WebLandingPage() {
                 Holiday events that sparkle across every city
               </h1>
               <p className="max-w-xl text-lg text-slate-300">
-                Discover immersive markets, elevated galas, and community gatherings curated by the YardPass team. Seamless ticketing, verified hosts, and experiences your guests will remember.
+                Discover immersive markets, elevated galas, and community gatherings curated by the Liventix team. Seamless ticketing, verified hosts, and experiences your guests will remember.
               </p>
 
               <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur">
@@ -357,7 +357,7 @@ export function WebLandingPage() {
               </div>
               <div className="flex items-center gap-3 text-sm text-slate-300">
                 <Users className="h-5 w-5 text-emerald-300" aria-hidden="true" />
-                <span>Updated daily by the YardPass community team</span>
+                <span>Updated daily by the Liventix community team</span>
               </div>
             </div>
 
@@ -404,7 +404,7 @@ export function WebLandingPage() {
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-white/5 p-8">
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-300">Why hosts choose YardPass</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-300">Why hosts choose Liventix</p>
                 <h3 className="mt-4 text-3xl font-semibold text-white">The all-in-one seasonal toolkit</h3>
                 <p className="mt-4 text-sm text-slate-300">
                   Instant payouts, rich attendee insights, and collaborative planning tools built for teams and agencies.
@@ -515,10 +515,10 @@ export function WebLandingPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <Sparkles className="h-6 w-6 text-emerald-300" aria-hidden="true" />
-                <span className="text-lg font-semibold text-white">YardPass Holiday Network</span>
+                <span className="text-lg font-semibold text-white">Liventix Holiday Network</span>
               </div>
               <p className="text-sm text-slate-400">
-                Powered by the YardPass event platform. Built for organizers who lead with experience design and community.
+                Powered by the Liventix event platform. Built for organizers who lead with experience design and community.
               </p>
               <div className="flex flex-wrap gap-3 text-sm text-slate-400">
                 <a className="hover:text-white" href="#">About</a>
@@ -544,12 +544,12 @@ export function WebLandingPage() {
                 <Button className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300">Notify me</Button>
               </div>
               <p className="text-xs text-slate-500">
-                By subscribing, you agree to receive updates from YardPass. You can opt out anytime.
+                By subscribing, you agree to receive updates from Liventix. You can opt out anytime.
               </p>
             </div>
           </div>
           <div className="mt-10 border-t border-white/10 pt-6 text-xs text-slate-500">
-            © {new Date().getFullYear()} YardPass. Crafted with care for seasonal storytellers.
+            © {new Date().getFullYear()} Liventix. Crafted with care for seasonal storytellers.
           </div>
         </div>
       </footer>

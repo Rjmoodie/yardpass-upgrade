@@ -8,7 +8,7 @@ INSERT INTO organizations.organizations (
   verification_status,
   logo_url
 ) VALUES (
-  'YardPass Test Events',
+  'Liventix Test Events',
   'Test organization for flashback events and demos',
   'pending',
   'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400'  -- Event planning image
@@ -34,7 +34,7 @@ INSERT INTO organizations.org_memberships (
 
 -- ============================================================================
 -- After running both steps, you'll have:
--- ✅ Organization: "YardPass Test Events"
+-- ✅ Organization: "Liventix Test Events"
 -- ✅ Member: datmahseh@gmail.com (owner role)
 -- ✅ Ready to create flashback events!
 -- ============================================================================

@@ -137,7 +137,7 @@ npx cap open ios
 6. If **Associated Domains** is missing:
    - Click **"+ Capability"** at top
    - Add **"Associated Domains"**
-   - Add domains: `applinks:yardpass.app` and `applinks:www.yardpass.app`
+   - Add domains: `applinks:liventix.app` and `applinks:www.liventix.app`
 
 ### Step 4: APNs Certificate Setup (15 minutes)
 
@@ -146,7 +146,7 @@ npx cap open ios
 1. **Apple Developer Portal:**
    - Go to: https://developer.apple.com/account/resources/authkeys/list
    - Click **"+"** to create a new key
-   - Name: "YardPass APNs"
+   - Name: "Liventix APNs"
    - Enable: **Apple Push Notifications service (APNs)**
    - Download the `.p8` file
    - Note the **Key ID** and **Team ID**
@@ -158,7 +158,7 @@ npx cap open ios
      - APNs Auth Key (`.p8` file)
      - Key ID
      - Team ID
-     - Bundle ID: `com.yardpass.app`
+     - Bundle ID: `com.liventix.app`
 
 3. **Test:**
    - Run app on real iPhone
@@ -295,19 +295,19 @@ const { data: devices } = await supabase
 ### Camera not working
 - ✅ Check Info.plist has `NSCameraUsageDescription`
 - ✅ Test on real device (not simulator)
-- ✅ Check iOS Settings → YardPass → Camera is allowed
+- ✅ Check iOS Settings → Liventix → Camera is allowed
 
 ### Location not working
 - ✅ Check Info.plist has `NSLocationWhenInUseUsageDescription`
 - ✅ Test on real device
-- ✅ Check iOS Settings → YardPass → Location is "While Using"
+- ✅ Check iOS Settings → Liventix → Location is "While Using"
 
 ### Push notifications not received
 - ✅ APNs certificate configured in Supabase
 - ✅ Push Notifications capability added in Xcode
 - ✅ Tested on real device (not simulator)
 - ✅ Device token stored in `user_devices` table
-- ✅ Notifications allowed in iOS Settings → YardPass
+- ✅ Notifications allowed in iOS Settings → Liventix
 
 ### App crashes on file selection
 - ✅ Check all permission strings in Info.plist

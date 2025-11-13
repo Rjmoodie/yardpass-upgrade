@@ -18,7 +18,7 @@ export function buildICS({
   const ics = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//YardPass//EN',
+    'PRODID:-//Liventix//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',

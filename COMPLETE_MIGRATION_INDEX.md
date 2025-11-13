@@ -1,4 +1,4 @@
-# 🎯 Complete Migration Index - YardPass Database & Code Update
+# 🎯 Complete Migration Index - Liventix Database & Code Update
 
 ## 📋 Quick Navigation
 
@@ -80,7 +80,7 @@ This is your complete guide to the **database restructuring** and **code update*
 ### **Database Structure**
 
 ```
-YardPass Database (After Migration)
+Liventix Database (After Migration)
 ├── users (2 tables)           - 509 profiles
 ├── organizations (4 tables)   - 4 orgs, 2 members
 ├── events (15+ tables)        - 11 events, 21 posts

@@ -1,8 +1,8 @@
-# YardPass Database Restructuring Plan
+# Liventix Database Restructuring Plan
 
 ## Overview
 
-YardPass currently has **150+ tables** in the `public` schema with no domain separation. This plan aligns the database structure with the new feature-first codebase architecture.
+Liventix currently has **150+ tables** in the `public` schema with no domain separation. This plan aligns the database structure with the new feature-first codebase architecture.
 
 ---
 
@@ -36,7 +36,7 @@ public (schema)
 ## Proposed Structure
 
 ```
-Database: yardpass
+Database: liventix
 ├── ref (schema)               # 🆕 Reference data (countries, currencies, etc.)
 ├── campaigns (schema)         # Advertising & promotions
 ├── events (schema)            # Events & content
@@ -992,13 +992,13 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ref
 
 ```sql
 -- Set search path so you can write "SELECT * FROM events" instead of "events.events"
-ALTER ROLE authenticated IN DATABASE yardpass
+ALTER ROLE authenticated IN DATABASE liventix
   SET search_path = public, ref, users, events, ticketing, sponsorship, campaigns, analytics, messaging, organizations, payments, ml;
 
-ALTER ROLE anon IN DATABASE yardpass
+ALTER ROLE anon IN DATABASE liventix
   SET search_path = public, ref;
 
-ALTER ROLE service_role IN DATABASE yardpass
+ALTER ROLE service_role IN DATABASE liventix
   SET search_path = public, ref, users, events, ticketing, sponsorship, campaigns, analytics, messaging, organizations, payments, ml;
 ```
 
@@ -1057,7 +1057,7 @@ src/features/ticketing/  → ticketing.*
 ### 5. **Easier Backups**
 ```bash
 # Backup just campaigns schema
-pg_dump --schema=campaigns yardpass > campaigns_backup.sql
+pg_dump --schema=campaigns liventix > campaigns_backup.sql
 
 # Restore just ticketing schema
 pg_restore --schema=ticketing ticketing_backup.sql
@@ -1348,7 +1348,7 @@ If issues arise:
 ```sql
 -- 1. Stop application writes
 -- 2. Restore from backup
-pg_restore yardpass_backup.sql
+pg_restore liventix_backup.sql
 
 -- 3. Drop new schemas
 DROP SCHEMA campaigns CASCADE;

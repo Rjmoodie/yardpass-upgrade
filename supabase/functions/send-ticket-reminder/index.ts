@@ -84,8 +84,8 @@ async function fetchEmailContext(eventId: string) {
       orgInfo = {
         name: org.name,
         logoUrl: org.logo_url || undefined,
-        websiteUrl: org.handle ? `https://yardpass.tech/org/${org.handle}` : undefined,
-        supportEmail: 'support@yardpass.tech',
+        websiteUrl: org.handle ? `https://liventix.tech/org/${org.handle}` : undefined,
+        supportEmail: 'support@liventix.tech',
       };
     }
   }
@@ -95,8 +95,8 @@ async function fetchEmailContext(eventId: string) {
 
 // Import email template components (inline for edge function)
 function BaseEmailLayout({ children, orgInfo }: { children: any; orgInfo?: OrgInfo }) {
-  const baseUrl = SUPABASE_URL?.replace('/rest/v1', '') || 'https://yardpass.tech';
-  const logoUrl = orgInfo?.logoUrl || `${baseUrl}/yardpass-logo.png`;
+  const baseUrl = SUPABASE_URL?.replace('/rest/v1', '') || 'https://liventix.tech';
+  const logoUrl = orgInfo?.logoUrl || `${baseUrl}/liventix-logo.png`;
   
   return React.createElement('html', {},
     React.createElement('head', {},
@@ -107,19 +107,19 @@ function BaseEmailLayout({ children, orgInfo }: { children: any; orgInfo?: OrgIn
       React.createElement('div', { style: { maxWidth: '600px', margin: '0 auto', backgroundColor: '#ffffff' } },
         // Header
         React.createElement('div', { style: { backgroundColor: '#1a1a1a', padding: '24px', textAlign: 'center' } },
-          React.createElement('img', { src: logoUrl, alt: orgInfo?.name || 'YardPass', style: { height: '60px', maxWidth: '300px' } })
+          React.createElement('img', { src: logoUrl, alt: orgInfo?.name || 'Liventix', style: { height: '60px', maxWidth: '300px' } })
         ),
         // Content
         React.createElement('div', { style: { padding: '32px 24px' } }, children),
         // Footer
         React.createElement('div', { style: { backgroundColor: '#f9fafb', padding: '24px', textAlign: 'center', fontSize: '14px', color: '#6b7280' } },
           React.createElement('p', { style: { margin: '0 0 8px 0' } }, 
-            `Powered by YardPass ${orgInfo?.name ? `· Organized by ${orgInfo.name}` : ''}`
+            `Powered by Liventix ${orgInfo?.name ? `· Organized by ${orgInfo.name}` : ''}`
           ),
           React.createElement('p', { style: { margin: '0' } },
             `Questions? Contact `,
-            React.createElement('a', { href: `mailto:${orgInfo?.supportEmail || 'support@yardpass.tech'}`, style: { color: '#3b82f6' } },
-              orgInfo?.supportEmail || 'support@yardpass.tech'
+            React.createElement('a', { href: `mailto:${orgInfo?.supportEmail || 'support@liventix.tech'}`, style: { color: '#3b82f6' } },
+              orgInfo?.supportEmail || 'support@liventix.tech'
             )
           )
         )
@@ -129,7 +129,7 @@ function BaseEmailLayout({ children, orgInfo }: { children: any; orgInfo?: OrgIn
 }
 
 function TicketReminderTemplate({ data, orgInfo, eventInfo }: { data: TicketReminderRequest; orgInfo?: OrgInfo; eventInfo?: EventInfo }) {
-  const baseUrl = SUPABASE_URL?.replace('/rest/v1', '') || 'https://yardpass.tech';
+  const baseUrl = SUPABASE_URL?.replace('/rest/v1', '') || 'https://liventix.tech';
   
   return React.createElement(BaseEmailLayout, { orgInfo },
     React.createElement('div', { style: { backgroundColor: '#f59e0b', color: 'white', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center' } },
@@ -219,11 +219,11 @@ const handler = async (req: Request): Promise<Response> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: orgInfo?.name ? `${orgInfo.name} via YardPass <hello@yardpass.tech>` : "YardPass <hello@yardpass.tech>",
+        from: orgInfo?.name ? `${orgInfo.name} via Liventix <hello@liventix.tech>` : "Liventix <hello@liventix.tech>",
         to: [data.customerEmail],
         subject: `⏰ Reminder: ${eventInfo?.title || data.eventTitle} is coming up!`,
         html,
-        reply_to: orgInfo?.supportEmail || "support@yardpass.tech",
+        reply_to: orgInfo?.supportEmail || "support@liventix.tech",
       }),
     });
 

@@ -8,7 +8,7 @@
 ## 📁 Complete File Structure
 
 ```
-yardpass-upgrade/
+liventix-upgrade/
 │
 ├── 📁 src/
 │   │

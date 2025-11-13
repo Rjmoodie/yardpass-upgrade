@@ -42,10 +42,10 @@ export const RoleInviteEmail = ({
           {/* Logo/Header */}
           <Section style={header}>
             <Img
-              src="https://yieslxnrfeqchbcmgavz.supabase.co/yardpass-logo.png"
+              src="https://yieslxnrfeqchbcmgavz.supabase.co/liventix-logo.png"
               width="180"
               height="60"
-              alt="YardPass"
+              alt="Liventix"
               style={logo}
             />
           </Section>
@@ -99,18 +99,18 @@ export const RoleInviteEmail = ({
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerCopyright}>
-              © {new Date().getFullYear()} YardPass. All rights reserved.
+              © {new Date().getFullYear()} Liventix. All rights reserved.
             </Text>
             <Text style={footerLinks}>
-              <Link href="https://yardpass.app" style={footerLink}>
-                YardPass
+              <Link href="https://liventix.app" style={footerLink}>
+                Liventix
               </Link>
               {' · '}
-              <Link href="https://yardpass.app/help" style={footerLink}>
+              <Link href="https://liventix.app/help" style={footerLink}>
                 Help Center
               </Link>
               {' · '}
-              <Link href="https://yardpass.app/privacy" style={footerLink}>
+              <Link href="https://liventix.app/privacy" style={footerLink}>
                 Privacy
               </Link>
             </Text>

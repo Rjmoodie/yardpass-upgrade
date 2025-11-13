@@ -176,7 +176,7 @@ const transformedResults = (data || []).map((event: any) => ({
 ) : (...)}
 ```
 - ✅ Centered spinner
-- ✅ YardPass orange accent color
+- ✅ Liventix orange accent color
 - ✅ Smooth animation
 
 **Empty State:**

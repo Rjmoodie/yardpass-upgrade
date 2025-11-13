@@ -137,7 +137,7 @@ const handler = withCORS(async (req) => {
 
     // Send email invitation
     if (RESEND_API_KEY) {
-      const inviteLink = `${req.headers.get("origin") || "https://app.yardpass.app"}/invite/org?token=${token}`;
+      const inviteLink = `${req.headers.get("origin") || "https://app.liventix.app"}/invite/org?token=${token}`;
       
       const emailHtml = `
         <!DOCTYPE html>
@@ -161,7 +161,7 @@ const handler = withCORS(async (req) => {
             </div>
             <div class="content">
               <p>Hello!</p>
-              <p>You've been invited to join <strong>${organization.name}</strong> on YardPass as a <strong>${role}</strong>.</p>
+              <p>You've been invited to join <strong>${organization.name}</strong> on Liventix as a <strong>${role}</strong>.</p>
               ${organization.description ? `<p>${organization.description}</p>` : ''}
               <p>Click the button below to accept your invitation:</p>
               <a href="${inviteLink}" class="button">Accept Invitation</a>
@@ -169,7 +169,7 @@ const handler = withCORS(async (req) => {
               <p>If you didn't expect this invitation, you can safely ignore this email.</p>
             </div>
             <div class="footer">
-              <p>YardPass - Connecting communities through events</p>
+              <p>Liventix - Connecting communities through events</p>
             </div>
           </div>
         </body>
@@ -184,9 +184,9 @@ const handler = withCORS(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: "YardPass <invites@yardpass.app>",
+            from: "Liventix <invites@liventix.app>",
             to: [email],
-            subject: `You're invited to join ${organization.name} on YardPass`,
+            subject: `You're invited to join ${organization.name} on Liventix`,
             html: emailHtml,
           }),
         });

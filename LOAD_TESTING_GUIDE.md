@@ -1,8 +1,8 @@
-# 🚀 YardPass Load Testing Guide
+# 🚀 Liventix Load Testing Guide
 
 ## 📋 Overview
 
-This guide provides comprehensive load testing strategies for all critical systems in YardPass. Use this to ensure your app performs well under real-world production loads before TestFlight and App Store launch.
+This guide provides comprehensive load testing strategies for all critical systems in Liventix. Use this to ensure your app performs well under real-world production loads before TestFlight and App Store launch.
 
 ---
 

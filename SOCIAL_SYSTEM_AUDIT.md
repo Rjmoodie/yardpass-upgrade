@@ -1,4 +1,4 @@
-# YardPass Social System Audit
+# Liventix Social System Audit
 ## Following & Messaging System Analysis
 
 **Date:** November 11, 2025  

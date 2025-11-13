@@ -212,7 +212,7 @@ function Header({ onCreatePost }: { onCreatePost: () => void }) {
       <div className="flex items-center justify-between text-white">
         <div className="flex items-center gap-2">
           <span className="text-lg">🎪</span>
-          <span>YardPass</span>
+          <span>Liventix</span>
         </div>
           <Button
           size="lg"

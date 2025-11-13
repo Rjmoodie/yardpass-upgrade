@@ -66,12 +66,12 @@ export const WebLayout: React.FC<WebLayoutProps> = ({ children, userRole = 'orga
           {/* Main Navigation Row */}
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center space-x-8">
-              {/* Yardpass Logo */}
+              {/* Liventix Logo */}
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">Y</span>
                 </div>
-                <span className="text-xl font-bold text-gray-900">Yardpass</span>
+                <span className="text-xl font-bold text-gray-900">Liventix</span>
                 <span className="text-xs text-gray-500 bg-yellow-50 px-2 py-1 rounded-full">
                   Now in Beta
                 </span>
@@ -82,7 +82,7 @@ export const WebLayout: React.FC<WebLayoutProps> = ({ children, userRole = 'orga
             <div className="flex items-center space-x-8">
               {/* Feed - Active */}
               <div className="flex items-center space-x-3">
-                <div className="bg-orange-400 px-4 py-2 rounded-lg flex items-center space-x-2">
+                <div className="bg-brand-400 px-4 py-2 rounded-lg flex items-center space-x-2">
                   <Home className="h-4 w-4 text-white" />
                   <span className="text-white font-medium">Feed</span>
                 </div>

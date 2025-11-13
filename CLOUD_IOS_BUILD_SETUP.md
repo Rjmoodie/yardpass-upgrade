@@ -1,6 +1,6 @@
-# 🚀 Cloud iOS Build Setup for YardPass
+# 🚀 Cloud iOS Build Setup for Liventix
 
-This guide helps you set up cloud-based iOS building for your YardPass app using your older Mac.
+This guide helps you set up cloud-based iOS building for your Liventix app using your older Mac.
 
 ## 🎯 Quick Comparison
 
@@ -22,7 +22,7 @@ This guide helps you set up cloud-based iOS building for your YardPass app using
 ### **Step 1: Repository Setup**
 ```bash
 # Push your code to GitHub if not already there
-git remote add origin https://github.com/yourusername/yardpass.git
+git remote add origin https://github.com/yourusername/liventix.git
 git push -u origin main
 ```
 
@@ -43,7 +43,7 @@ APPLE_TEAM_ID=your_apple_team_id
 1. **Create App ID:**
    - Go to [Apple Developer Portal](https://developer.apple.com)
    - Certificates, Identifiers & Profiles → Identifiers
-   - Create new App ID: `com.yardpass.app`
+   - Create new App ID: `com.liventix.app`
 
 2. **Create Development Certificate:**
    - Generate on your Mac: `security find-identity -v -p codesigning`
@@ -53,8 +53,8 @@ APPLE_TEAM_ID=your_apple_team_id
 ```typescript
 // capacitor.config.ts
 const config: CapacitorConfig = {
-  appId: 'com.yardpass.app', // Changed from the long ID
-  appName: 'YardPass',       // Changed from yardpass-upgrade
+  appId: 'com.liventix.app', // Changed from the long ID
+  appName: 'Liventix',       // Changed from liventix-upgrade
   webDir: 'dist',
   // ... rest of config
 };
@@ -88,7 +88,7 @@ git push
 
 2. **Configure Variable Group:**
    - Pipelines → Library → Variable groups
-   - Create "YardPass-Secrets" group
+   - Create "Liventix-Secrets" group
    - Add all environment variables
 
 3. **Setup Pipeline:**

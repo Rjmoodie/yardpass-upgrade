@@ -106,7 +106,7 @@ score = 0.25 × budget_fit
 ### Quick Start (30 minutes)
 ```bash
 # 1. Navigate to project
-cd yardpass-upgrade
+cd liventix-upgrade
 
 # 2. Apply migrations
 npx supabase db push
@@ -365,9 +365,9 @@ Every match includes a breakdown:
    - Expected vs actual behavior
 
 ### Contact
-- **Email:** dev@yardpass.com
+- **Email:** dev@liventix.com
 - **Slack:** #sponsorship-platform
-- **GitHub:** [yardpass-upgrade/issues](https://github.com/yardpass/yardpass-upgrade/issues)
+- **GitHub:** [liventix-upgrade/issues](https://github.com/liventix/liventix-upgrade/issues)
 
 ---
 

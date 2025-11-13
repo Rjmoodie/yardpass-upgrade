@@ -34,21 +34,21 @@ CSRFProtection.generateToken();
 import { initHapticsOnFirstTap } from '@/lib/capacitor-init';
 
 initializeCapacitor().then((state) => {
-  console.log('[YardPass] Capacitor initialized:', state.platform);
+  console.log('[Liventix] Capacitor initialized:', state.platform);
   
   // ✅ Initialize haptics on first user tap (prevents browser warning)
   initHapticsOnFirstTap();
 }).catch((error) => {
-  console.error('[YardPass] Capacitor initialization error:', error);
+  console.error('[Liventix] Capacitor initialization error:', error);
 });
 
 // 🎯 Register service worker for offline support and 40-60% faster repeat visits
 registerServiceWorker().then((registration) => {
   if (registration) {
-    console.log('[YardPass] ✅ Service worker registered - offline support enabled');
+    console.log('[Liventix] ✅ Service worker registered - offline support enabled');
   }
 }).catch((error) => {
-  console.warn('[YardPass] ⚠️ Service worker registration failed:', error);
+  console.warn('[Liventix] ⚠️ Service worker registration failed:', error);
 });
 
 createRoot(document.getElementById("root")!).render(

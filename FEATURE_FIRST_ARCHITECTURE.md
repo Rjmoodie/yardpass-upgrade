@@ -1,8 +1,8 @@
-# YardPass Feature-First Architecture
+# Liventix Feature-First Architecture
 
 ## ✅ Complete Implementation
 
-YardPass now uses a **feature-first** file organization that groups all code by domain (feature) rather than by type (components, pages, hooks).
+Liventix now uses a **feature-first** file organization that groups all code by domain (feature) rather than by type (components, pages, hooks).
 
 ---
 
@@ -404,7 +404,7 @@ features/marketplace/
 ✅ **Shared components reorganized**: nav/, gates/, ui/
 ✅ **Build-ready**: All imports resolved
 
-**YardPass is now organized by domain, not by file type!** 🚀
+**Liventix is now organized by domain, not by file type!** 🚀
 
 This makes the codebase:
 - **Easier to navigate** (everything for a feature is in one place)

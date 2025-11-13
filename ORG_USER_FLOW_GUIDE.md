@@ -59,10 +59,10 @@ Component: OrganizationCreator loads
 
 **Form Fields:**
 1. **Organization Name** (required)
-   - Example: "YardPass Events Inc"
+   - Example: "Liventix Events Inc"
    
 2. **Handle** (required)
-   - Example: "@yardpass-events"
+   - Example: "@liventix-events"
    - 3-30 characters, lowercase, letters/numbers/hyphens
    - Real-time availability check
    - ✅ Shows green checkmark if available
@@ -86,8 +86,8 @@ Component: OrganizationCreator loads
 ```typescript
 // 1. Call RPC function
 const { data: orgId } = await supabase.rpc('create_organization_with_membership', {
-  p_name: 'YardPass Events Inc',
-  p_handle: 'yardpass-events',
+  p_name: 'Liventix Events Inc',
+  p_handle: 'liventix-events',
   p_logo_url: null, // Will be uploaded after
   p_creator_id: user.id
 });
@@ -227,7 +227,7 @@ window.location.href = data.account_link_url; // Redirects to Stripe
 
 **Time:** 10-15 minutes
 
-### **Step 5: Return to YardPass**
+### **Step 5: Return to Liventix**
 
 ```
 Stripe completes onboarding
@@ -595,7 +595,7 @@ Transaction history shows:
 │         ├─ 💳 Charge Alice's card: $100.00                  │
 │         │                                                    │
 │         ▼                                                    │
-│  checkout.session.completed webhook → YardPass              │
+│  checkout.session.completed webhook → Liventix              │
 │         │                                                    │
 │         ▼                                                    │
 │  wallet-stripe-webhook Edge Function                        │
@@ -772,7 +772,7 @@ User Input → create-stripe-connect function
 
 ### **Scenario 1: New Org - Just Ads**
 ```
-Alice creates "YardPass Events Inc"
+Alice creates "Liventix Events Inc"
   → Takes 5 minutes
   → Immediately buys 10,000 credits ($100)
   → Starts running ad campaigns

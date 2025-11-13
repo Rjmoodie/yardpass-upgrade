@@ -8,7 +8,7 @@ import { generateStyledQRDataURL } from '@/lib/styledQr';
 import { getQrTheme, getAllThemes, type QrThemeName } from '@/lib/qrTheme';
 import { UserTicket } from '@/hooks/useTickets';
 import { toast } from '@/hooks/use-toast';
-import { YardpassSpinner } from '@/components/LoadingSpinner';
+import { LiventixSpinner } from '@/components/LoadingSpinner';
 
 interface User {
   id: string;
@@ -33,7 +33,7 @@ export function QRCodeModal({
   onClose,
   onCopy,
   onShare,
-  logoUrl = '/yardpass-qr-logo.png',
+  logoUrl = '/liventix-qr-logo.png',
   theme: initialTheme = 'brand',
   brandHex = '#ffb400',
 }: QRCodeModalProps) {
@@ -199,7 +199,7 @@ export function QRCodeModal({
           <div className="flex items-center justify-center py-1">
             {loading && (
               <div className="flex flex-col items-center gap-1 py-4">
-                <YardpassSpinner size="sm" />
+                <LiventixSpinner size="sm" />
                 <p className="text-[10px] text-accent-muted">
                   Loading QR code…
                 </p>

@@ -134,7 +134,7 @@ User purchases 1 ticket
 
 ```bash
 # Deploy the updated webhook function
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 supabase functions deploy stripe-webhook
 
 # Or deploy all functions

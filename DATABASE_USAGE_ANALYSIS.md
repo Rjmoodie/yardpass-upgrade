@@ -2,7 +2,7 @@
 
 ## Overview
 
-Analysis of which database views and tables are actively used vs. potentially unused in YardPass.
+Analysis of which database views and tables are actively used vs. potentially unused in Liventix.
 
 **Methodology:**
 - Scanned all frontend files (`src/`)

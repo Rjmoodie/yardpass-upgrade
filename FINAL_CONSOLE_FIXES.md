@@ -110,7 +110,7 @@ if (import.meta.env.DEV && localStorage.getItem('verbose_X') === 'true') {
 [Capacitor] Starting initialization...
 [Capacitor] Platform: web | Native: false
 [SW] Skipping service worker in development
-[YardPass] Capacitor initialized: web
+[Liventix] Capacitor initialized: web
 [Capacitor] Initialization complete: {platform: 'web'}
 [Auth] User authenticated: rodzrj@gmail.com
 [Auth] ✅ Profile loaded: organizer
@@ -211,5 +211,5 @@ Cmd/Ctrl + Shift + R
 
 ---
 
-**Refresh and enjoy your clean, fast, secure YardPass platform!** 🚀🎊
+**Refresh and enjoy your clean, fast, secure Liventix platform!** 🚀🎊
 

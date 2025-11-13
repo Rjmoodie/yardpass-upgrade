@@ -42,7 +42,7 @@ export { type OrgInfo, type EventInfo };
 
 type Result = { success: boolean; error?: string; provider?: string; id?: string };
 
-const FROM_DEFAULT = 'YardPass <noreply@yardpass.tech>';
+const FROM_DEFAULT = 'Liventix <noreply@liventix.com>';
 
 export class EmailService {
   async sendEmail(options: EmailOptions): Promise<Result> {
@@ -57,7 +57,7 @@ export class EmailService {
           subject: options.subject,
           html: options.html,
           from: options.from || FROM_DEFAULT,
-          replyTo: options.replyTo || 'support@yardpass.tech',
+          replyTo: options.replyTo || 'support@liventix.com',
         },
       });
 

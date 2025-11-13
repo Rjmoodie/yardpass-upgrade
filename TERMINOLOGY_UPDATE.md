@@ -18,7 +18,7 @@ Updated all user-facing terminology from "Social" to "Network" to make the featu
 - ✅ Section title: "Your Social Network" → "Your Network"
 - ✅ Discovery title: "Discover New People" → "Discover New Connections"
 - ✅ Discovery heading: "Find People to Follow" → "Expand Your Network"
-- ✅ Discovery description: "Discover other YardPass users..." → "Connect with other professionals..."
+- ✅ Discovery description: "Discover other Liventix users..." → "Connect with other professionals..."
 
 ### **Documentation**
 - ✅ Implementation guide updated

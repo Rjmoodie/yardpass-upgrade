@@ -23,7 +23,7 @@ Please call Stripe() with your publishable key. You used an empty string.
 
 ### **Step 2: Create `.env.local` File**
 
-In your project root (`C:\Users\Louis Cid\Yardpass 3.0\yardpass-upgrade\`):
+In your project root (`C:\Users\Louis Cid\Yardpass 3.0\liventix-upgrade\`):
 
 **Create new file**: `.env.local`
 

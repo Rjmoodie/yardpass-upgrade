@@ -126,7 +126,7 @@ User taps Notification Bell → Navigate to /notifications
 
 ## 🎉 Status: FULLY ACTIVATED
 
-The new bottom navigation design is now **LIVE** across the entire YardPass application!
+The new bottom navigation design is now **LIVE** across the entire Liventix application!
 
 **Date Activated**: October 24, 2025
 **Component**: `NavigationNewDesign` from `@/components/NavigationNewDesign`

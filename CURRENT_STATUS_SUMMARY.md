@@ -20,7 +20,7 @@ Summary of what's working and what needs attention after debugging.
 
 ### **2. Event Details Page** ✅
 - ✅ Loads event data successfully
-- ✅ Console logs: `[EventDetailsPage] Event loaded successfully: YardPass Launch`
+- ✅ Console logs: `[EventDetailsPage] Event loaded successfully: Liventix Launch`
 - ✅ Displays event information
 - ✅ Shows ticket tiers
 - ✅ All database columns correct

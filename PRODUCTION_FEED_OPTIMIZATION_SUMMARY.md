@@ -221,7 +221,7 @@ final_score =
 
 ### **Step 1: Run Migration**
 ```bash
-cd "C:\Users\Louis Cid\Yardpass 3.0\yardpass-upgrade"
+cd "C:\Users\Louis Cid\Yardpass 3.0\liventix-upgrade"
 supabase db push
 ```
 

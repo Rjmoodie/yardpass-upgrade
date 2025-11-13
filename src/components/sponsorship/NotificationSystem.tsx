@@ -168,7 +168,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
       case 'proposal_received':
         return <MessageSquare className="h-4 w-4 text-blue-600" />;
       case 'deliverable_due':
-        return <AlertTriangle className="h-4 w-4 text-orange-600" />;
+        return <AlertTriangle className="h-4 w-4 text-brand-600" />;
       case 'payout_completed':
         return <DollarSign className="h-4 w-4 text-green-600" />;
       case 'match_accepted':
@@ -185,7 +185,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
       case 'proposal_received':
         return 'border-blue-200 bg-blue-50';
       case 'deliverable_due':
-        return 'border-orange-200 bg-orange-50';
+        return 'border-brand-200 bg-brand-50';
       case 'payout_completed':
         return 'border-green-200 bg-green-50';
       case 'match_accepted':

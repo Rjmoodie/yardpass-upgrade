@@ -9,10 +9,10 @@ interface TrackingData {
 
 // Generate or get session ID
 const getSessionId = () => {
-  let sessionId = sessionStorage.getItem('yardpass_session_id');
+  let sessionId = sessionStorage.getItem('liventix_session_id');
   if (!sessionId) {
     sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    sessionStorage.setItem('yardpass_session_id', sessionId);
+    sessionStorage.setItem('liventix_session_id', sessionId);
   }
   return sessionId;
 };

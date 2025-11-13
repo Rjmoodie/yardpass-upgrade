@@ -2,7 +2,7 @@
 
 ## What Was Done
 
-The YardPass codebase has been successfully restructured from **type-first** to **feature-first** architecture.
+The Liventix codebase has been successfully restructured from **type-first** to **feature-first** architecture.
 
 ---
 

@@ -30,7 +30,7 @@ export function RefundPolicy({ onBack }: RefundPolicyProps) {
           <section>
             <h2 className="text-lg font-semibold mb-3">1. General Refund Policy</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>YardPass facilitates ticket sales between event organizers and attendees. Refund policies are primarily set by individual event organizers, but we provide the following general guidelines:</p>
+              <p>Liventix facilitates ticket sales between event organizers and attendees. Refund policies are primarily set by individual event organizers, but we provide the following general guidelines:</p>
               <ul className="list-disc pl-6 space-y-1">
                 <li>Refunds are generally available up to 7 days before an event</li>
                 <li>Platform fees may not be refundable depending on the circumstances</li>
@@ -71,7 +71,7 @@ export function RefundPolicy({ onBack }: RefundPolicyProps) {
           <section>
             <h2 className="text-lg font-semibold mb-3">4. Platform Fees</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>YardPass platform fees (~3.7% + $1.79 per ticket) are handled as follows:</p>
+              <p>Liventix platform fees (~3.7% + $1.79 per ticket) are handled as follows:</p>
               <ul className="list-disc pl-6 space-y-1">
                 <li><strong>Event Cancellation:</strong> Platform fees are fully refunded</li>
                 <li><strong>Customer-Initiated Refund:</strong> Platform fees may be retained to cover processing costs</li>
@@ -157,7 +157,7 @@ export function RefundPolicy({ onBack }: RefundPolicyProps) {
             <div className="space-y-3 text-sm text-muted-foreground">
               <p>For refund-related questions or disputes, contact our support team:</p>
               <ul className="list-none space-y-1">
-                <li>Email: refunds@yardpass.com</li>
+                <li>Email: refunds@liventix.com</li>
                 <li>Support Portal: Available in your account dashboard</li>
                 <li>Response Time: We aim to respond within 24 hours</li>
               </ul>

@@ -1,4 +1,4 @@
-# 🧠 YardPass Feed Intelligence: Ticket Purchase Optimization
+# 🧠 Liventix Feed Intelligence: Ticket Purchase Optimization
 
 ## 📍 **Core Intelligence File**
 **`supabase/migrations/20250125_add_feed_filters.sql`**  
@@ -345,7 +345,7 @@ Users can add words/phrases like:
 - "networking"
 - "free event"
 
-### **YardPass Implementation:**
+### **Liventix Implementation:**
 
 ```sql
 CREATE TABLE public.user_content_filters (

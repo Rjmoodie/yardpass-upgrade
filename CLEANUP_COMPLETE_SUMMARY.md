@@ -38,7 +38,7 @@ The "New design" folder at the project root needs to be deleted manually.
 
 ### **Option A: Via Terminal (Recommended)**
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 # Create backup (optional but recommended)
 cp -r "New design" "New design.backup"
@@ -52,7 +52,7 @@ ls -la | grep "New design"  # Should show nothing
 
 ### **Option B: Via Finder (macOS)**
 1. Open Finder
-2. Navigate to: `/Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade/`
+2. Navigate to: `/Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade/`
 3. Find the folder named "New design"
 4. Right-click → Move to Trash
 5. Empty Trash
@@ -233,7 +233,7 @@ After cleanup, you should have:
 
 ```bash
 # Navigate to project
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 # OPTIONAL: Create backup first
 cp -r "New design" "New design.backup.$(date +%Y%m%d_%H%M%S)"

@@ -102,7 +102,7 @@ serve(async (req) => {
       // Find the order by the appropriate session ID field
       logStep("Querying order", { field: queryField, value: queryValue });
       
-      // Query public.orders view (now fixed to allow webhook access when auth.uid() IS NULL)
+      // Query public.orders view (with service_role grants)
       const { data: order, error: orderError } = await supabaseService
         .from("orders")
         .select("*")
@@ -282,6 +282,124 @@ serve(async (req) => {
       }
 
       logStep("Payment processed successfully", { orderId: order.id });
+
+    } else if (event.type === "charge.refunded") {
+      // ============================================================================
+      // TICKET REFUNDS - Automatic Processing
+      // ============================================================================
+      
+      logStep("🔄 Refund event received", { eventId: event.id });
+      
+      const charge = event.data.object as Stripe.Charge;
+      const piId = (charge.payment_intent as string) ?? null;
+      
+      if (!piId) {
+        logStep("No payment intent ID in refund event");
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      // Find ticket order by payment intent
+      const { data: order, error: orderErr } = await supabaseService
+        .from("orders")
+        .select("id, user_id, event_id, total_cents, contact_email")
+        .eq("stripe_payment_intent_id", piId)
+        .maybeSingle();
+
+      if (orderErr || !order) {
+        logStep("No ticket order found for refund (might be wallet purchase)", { 
+          paymentIntentId: piId 
+        });
+        // Not an error - could be a wallet purchase refunded via wallet-webhook
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const refundId = charge.refund 
+        ? (typeof charge.refund === 'string' ? charge.refund : (charge.refund as any).id)
+        : `refund_${event.id}`;
+      const refundCents = charge.amount_refunded ?? 0;
+
+      logStep("Processing ticket refund", { 
+        orderId: order.id, 
+        refundCents,
+        stripeRefundId: refundId,
+        stripeEventId: event.id 
+      });
+
+      // ✅ Process refund via RPC (idempotent via stripe_refund_id)
+      const { data: refundResult, error: refundErr } = await supabaseService
+        .rpc('process_ticket_refund', {
+          p_order_id: order.id,
+          p_refund_amount_cents: refundCents,
+          p_stripe_refund_id: refundId,
+          p_stripe_event_id: event.id,
+          p_reason: 'Stripe refund',
+          p_refund_type: 'admin',
+          p_initiated_by: null
+        });
+
+      if (refundErr) {
+        logStep("❌ Refund processing failed", { error: refundErr.message });
+        throw new Error(`Refund processing failed: ${refundErr.message}`);
+      }
+
+      // Check if refund was actually processed or already done
+      if (refundResult?.status === 'already_processed') {
+        logStep("✅ Refund already processed (idempotency)", { 
+          stripeRefundId: refundId 
+        });
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (refundResult?.status === 'no_refundable_tickets') {
+        logStep("⚠️ No tickets to refund (all redeemed)", { 
+          orderId: order.id 
+        });
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      logStep("✅ Refund processed successfully", { 
+        orderId: order.id,
+        ticketsRefunded: refundResult?.tickets_refunded,
+        inventoryReleased: refundResult?.inventory_released
+      });
+
+      // ✅ Send refund confirmation email (webhook-only, single source)
+      try {
+        const emailResponse = await supabaseService.functions.invoke('send-refund-confirmation', {
+          body: {
+            order_id: order.id,
+            email: order.contact_email,
+            refund_amount: refundCents / 100,
+            tickets_refunded: refundResult?.tickets_refunded,
+            event_title: refundResult?.event_title,
+            reason: 'Refund processed'
+          }
+        });
+
+        if (emailResponse.error) {
+          logStep("⚠️ Refund email failed (non-critical)", { 
+            error: emailResponse.error 
+          });
+        } else {
+          logStep("✅ Refund confirmation email sent", { 
+            emailId: emailResponse.data?.id 
+          });
+        }
+      } catch (emailErr) {
+        logStep("⚠️ Email error (non-critical)", { error: emailErr });
+      }
 
     } else {
       logStep("Unhandled webhook event", { type: event.type });

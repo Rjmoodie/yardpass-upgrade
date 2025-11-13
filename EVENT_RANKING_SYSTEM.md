@@ -1,4 +1,4 @@
-# 🎯 YardPass Event Ranking System
+# 🎯 Liventix Event Ranking System
 
 **Date:** November 11, 2025  
 **Question:** Are events AI ranked?  
@@ -418,7 +418,7 @@ final_score =
 
 ## 🚀 **Compared to "Real AI"**
 
-| Feature | YardPass | Instagram/TikTok AI |
+| Feature | Liventix | Instagram/TikTok AI |
 |---------|----------|---------------------|
 | **Personalized** | ✅ Yes | ✅ Yes |
 | **Multi-signal** | ✅ 7 signals | ✅ 100+ signals |
@@ -429,7 +429,7 @@ final_score =
 | **Exploration/Exploitation** | ✅ Yes (70/30) | ✅ Yes |
 | **Real-time Updates** | ✅ Yes | ✅ Yes |
 
-**Verdict:** YardPass has **algorithmic ranking** that's very effective for its scale, but not "AI" in the ML sense.
+**Verdict:** Liventix has **algorithmic ranking** that's very effective for its scale, but not "AI" in the ML sense.
 
 ---
 

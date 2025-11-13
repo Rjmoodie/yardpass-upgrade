@@ -40,7 +40,7 @@ Ensure that event-level roles (scanner, staff, volunteer, etc.) can be granted v
 │  🌐 PLATFORM ADMIN (Option B - System-wide)            │
 │                                                          │
 │  Scope: Cross-event, platform-level operations         │
-│  Who: 1-3 internal YardPass staff                      │
+│  Who: 1-3 internal Liventix staff                      │
 │  Can: View/revoke ANY invite, grant roles globally,    │
 │       access complete audit trail                       │
 │                                                          │
@@ -115,7 +115,7 @@ You've been invited to help with Music Festival 2025 as a Scanner.
 
 [Accept Invitation Button]
 
-Link: https://app.yardpass.app/roles/accept?token=abc123...
+Link: https://app.liventix.app/roles/accept?token=abc123...
 Expires: November 12, 2025
 ```
 
@@ -574,7 +574,7 @@ CREATE TRIGGER trg_enforce_scanner_limit
 
 **Current:**
 ```
-https://app.yardpass.app/roles/accept?token=abc123...
+https://app.liventix.app/roles/accept?token=abc123...
 ```
 
 **Assessment:**
@@ -590,7 +590,7 @@ https://app.yardpass.app/roles/accept?token=abc123...
 **Future Enhancement (if needed):**
 ```typescript
 // Use short-lived code → token exchange
-// 1. Email contains: https://app.yardpass.app/roles/accept?code=XY123
+// 1. Email contains: https://app.liventix.app/roles/accept?code=XY123
 // 2. Code valid for 10 minutes only
 // 3. Exchange code for token via POST (not GET)
 // 4. Token never in URL

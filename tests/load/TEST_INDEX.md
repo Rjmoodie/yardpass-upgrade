@@ -1,4 +1,4 @@
-# 🧪 YardPass Load Testing - Complete Index
+# 🧪 Liventix Load Testing - Complete Index
 
 **Quick Reference:** All available load tests at a glance.
 

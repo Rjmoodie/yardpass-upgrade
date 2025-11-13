@@ -5,7 +5,7 @@ import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, XCircle, Building2 } from 'lucide-react';
-import { YardpassSpinner } from '@/components/LoadingSpinner';
+import { LiventixSpinner } from '@/components/LoadingSpinner';
 
 export default function OrgInvitePage() {
   const [searchParams] = useSearchParams();
@@ -115,7 +115,7 @@ export default function OrgInvitePage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-transparent to-accent/10">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <YardpassSpinner className="mb-4" />
+            <LiventixSpinner className="mb-4" />
             <p className="text-muted-foreground">Loading invitation...</p>
           </CardContent>
         </Card>
@@ -144,7 +144,7 @@ export default function OrgInvitePage() {
           <CardDescription>
             {status === 'accepted' ? 'You have successfully joined the organization.' :
              status === 'invalid' ? error :
-             'You have been invited to join an organization on YardPass.'}
+             'You have been invited to join an organization on Liventix.'}
           </CardDescription>
         </CardHeader>
         
@@ -171,7 +171,7 @@ export default function OrgInvitePage() {
               >
                 {processing ? (
                   <>
-                    <YardpassSpinner
+                    <LiventixSpinner
                       size="xs"
                       showGlow={false}
                       showLogo={false}

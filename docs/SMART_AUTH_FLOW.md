@@ -32,7 +32,7 @@ The new authentication system automatically detects what type of user is signing
 │   roderickmoodie@yahoo.com                                 │
 │                                                             │
 │   What's next?                                             │
-│   1. Open the email from YardPass                          │
+│   1. Open the email from Liventix                          │
 │   2. Click the "Sign In" button                            │
 │   3. You'll be instantly signed in!                        │
 │                                                             │
@@ -95,7 +95,7 @@ The new authentication system automatically detects what type of user is signing
 │ Step 2: Create Account ✨                                   │
 │                                                             │
 │   Create your account                                      │
-│   Join YardPass - no password needed!                      │
+│   Join Liventix - no password needed!                      │
 │                                                             │
 │   Display Name: [John Doe              ]                   │
 │   Email:        newuser@example.com (locked)               │

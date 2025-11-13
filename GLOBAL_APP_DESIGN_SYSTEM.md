@@ -1,6 +1,6 @@
-# 🎨 YardPass Global Design System
+# 🎨 Liventix Global Design System
 
-Complete reference for the global design language, visual identity, and design patterns used throughout the YardPass application.
+Complete reference for the global design language, visual identity, and design patterns used throughout the Liventix application.
 
 ---
 
@@ -46,9 +46,9 @@ Complete reference for the global design language, visual identity, and design p
 --color-neutral-800: #262626;        /* Medium dark - borders */
 
 /* Brand Colors */
---color-yardpass-yellow: #FFCC00;    /* Primary brand color */
---color-yardpass-yellow-hover: #FFD633; /* Hover state */
---color-yardpass-yellow-active: #E6B800; /* Active state */
+--color-liventix-yellow: #FFCC00;    /* Primary brand color */
+--color-liventix-yellow-hover: #FFD633; /* Hover state */
+--color-liventix-yellow-active: #E6B800; /* Active state */
 
 /* Text Colors */
 --color-white: #FFFFFF;              /* Primary text */
@@ -507,20 +507,20 @@ p {
 ```css
 /* Default */
 .button {
-  background: var(--color-yardpass-yellow);
+  background: var(--color-liventix-yellow);
   color: var(--color-black);
   transition: all var(--duration-fast) var(--ease-out);
 }
 
 /* Hover */
 .button:hover {
-  background: var(--color-yardpass-yellow-hover);
+  background: var(--color-liventix-yellow-hover);
   transform: scale(1.02);
 }
 
 /* Active / Pressed */
 .button:active {
-  background: var(--color-yardpass-yellow-active);
+  background: var(--color-liventix-yellow-active);
   transform: scale(0.98);
 }
 
@@ -553,7 +553,7 @@ p {
 /* Focus */
 .input:focus {
   background: rgba(255, 255, 255, 0.1);
-  border-color: var(--color-yardpass-yellow);
+  border-color: var(--color-liventix-yellow);
   outline: none;
   box-shadow: 0 0 0 3px rgba(255, 204, 0, 0.1);
 }
@@ -651,7 +651,7 @@ p {
 ```css
 /* Primary Button */
 .btn-primary {
-  background: var(--color-yardpass-yellow);
+  background: var(--color-liventix-yellow);
   color: var(--color-black);
   font-weight: var(--font-weight-semibold);
 }
@@ -751,7 +751,7 @@ p {
 
 /* Active icon */
 .icon-active {
-  color: var(--color-yardpass-yellow);
+  color: var(--color-liventix-yellow);
 }
 
 /* Muted icon */
@@ -837,7 +837,7 @@ p {
 
 .spinner {
   border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: var(--color-yardpass-yellow);
+  border-top-color: var(--color-liventix-yellow);
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -903,7 +903,7 @@ p {
 ```css
 /* Visible focus ring */
 *:focus-visible {
-  outline: 2px solid var(--color-yardpass-yellow);
+  outline: 2px solid var(--color-liventix-yellow);
   outline-offset: 2px;
 }
 

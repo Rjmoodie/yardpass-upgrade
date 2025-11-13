@@ -68,7 +68,7 @@ When false, shows normal sign-in/sign-up form.
 
 ```
 ┌─────────────────────────────────────┐
-│        [YardPass Logo]              │
+│        [Liventix Logo]              │
 │                                     │
 │    Guest Session Active             │
 │    You're currently signed in       │

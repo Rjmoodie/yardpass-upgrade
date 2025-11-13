@@ -305,7 +305,7 @@ analytics.page_views
 analytics.conversions
 ```
 
-This is **exactly** what we implemented for YardPass! ✅
+This is **exactly** what we implemented for Liventix! ✅
 
 ---
 

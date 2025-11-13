@@ -13,7 +13,7 @@
 
 ```bash
 # Navigate to project root
-cd yardpass-upgrade
+cd liventix-upgrade
 
 # Apply foundation migration
 npx supabase db push
@@ -541,6 +541,6 @@ REINDEX TABLE public.sponsorship_matches;
 
 Issues? Contact:
 - Slack: #sponsorship-platform
-- Email: dev@yardpass.com
-- Docs: https://docs.yardpass.com/sponsorship-deployment
+- Email: dev@liventix.com
+- Docs: https://docs.liventix.com/sponsorship-deployment
 

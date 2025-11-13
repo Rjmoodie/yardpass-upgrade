@@ -1,0 +1,70 @@
+═══════════════════════════════════════════════════════════════
+🚀 DEPLOY THESE 4 FUNCTIONS NOW - CRITICAL FIX
+═══════════════════════════════════════════════════════════════
+
+Go to: https://supabase.com/dashboard/project/yieslxnrfeqchbcmgavz/functions
+
+Then for EACH function below, click it → "Deploy new version":
+
+1. ✅ ensure-tickets
+2. ✅ process-payment
+3. ✅ resend-confirmation
+4. ✅ stripe-webhook
+
+═══════════════════════════════════════════════════════════════
+AFTER DEPLOYMENT: RUN THESE COMMANDS TO FIX FAILED ORDERS
+═══════════════════════════════════════════════════════════════
+
+Order 1: 5cd581b8-9b00-4e96-b6f0-d6458e5db278
+─────────────────────────────────────────────
+curl -X POST 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/ensure-tickets' -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY" -H "Content-Type: application/json" -d '{"order_id": "5cd581b8-9b00-4e96-b6f0-d6458e5db278"}'
+
+curl -X POST 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/resend-confirmation' -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY" -H "Content-Type: application/json" -d '{"orderId": "5cd581b8-9b00-4e96-b6f0-d6458e5db278"}'
+
+
+Order 2: ba1eff01-8955-4136-b4af-39161aaebda8
+─────────────────────────────────────────────
+curl -X POST 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/ensure-tickets' -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY" -H "Content-Type: application/json" -d '{"order_id": "ba1eff01-8955-4136-b4af-39161aaebda8"}'
+
+curl -X POST 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/resend-confirmation' -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY" -H "Content-Type: application/json" -d '{"orderId": "ba1eff01-8955-4136-b4af-39161aaebda8"}'
+
+
+Order 3: 176315e6-8219-41b6-ad2f-e983b17792d0
+─────────────────────────────────────────────
+curl -X POST 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/ensure-tickets' -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY" -H "Content-Type: application/json" -d '{"order_id": "176315e6-8219-41b6-ad2f-e983b17792d0"}'
+
+curl -X POST 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/resend-confirmation' -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY" -H "Content-Type: application/json" -d '{"orderId": "176315e6-8219-41b6-ad2f-e983b17792d0"}'
+
+
+═══════════════════════════════════════════════════════════════
+VERIFY TICKETS CREATED (Run in Supabase SQL Editor)
+═══════════════════════════════════════════════════════════════
+
+SELECT 
+  o.id as order_id,
+  o.created_at::text,
+  o.contact_email,
+  (SELECT COUNT(*) FROM ticketing.tickets t WHERE t.order_id = o.id) as tickets_created
+FROM ticketing.orders o
+WHERE o.id IN (
+  '5cd581b8-9b00-4e96-b6f0-d6458e5db278',
+  'ba1eff01-8955-4136-b4af-39161aaebda8',
+  '176315e6-8219-41b6-ad2f-e983b17792d0'
+);
+
+-- Should show tickets_created = 1 for each order
+
+
+═══════════════════════════════════════════════════════════════
+OPTIONAL: SET RESEND_API_KEY FOR EMAILS
+═══════════════════════════════════════════════════════════════
+
+Get API key from: https://resend.com/api-keys
+
+Then set it:
+  supabase secrets set RESEND_API_KEY=re_your_key_here
+
+Or via Dashboard:
+  Settings → Edge Functions → Secrets → Add RESEND_API_KEY
+
+

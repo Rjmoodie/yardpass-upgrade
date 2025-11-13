@@ -1,5 +1,5 @@
 export const routes = {
-  event: (id: string) => `/event/${id}`,
+  event: (id: string) => `/e/${id}`,
   post: (id: string) => `/post/${id}`,
   user: (id: string) => `/u/${id}`,
   org:  (id: string) => `/org/${id}`,

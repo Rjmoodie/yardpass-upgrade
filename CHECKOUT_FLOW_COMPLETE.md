@@ -201,7 +201,7 @@ npm run dev
 ## 🎯 **Deploy All Checkout Functions**
 
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 # Deploy all checkout-related functions
 supabase functions deploy enhanced-checkout
@@ -270,7 +270,7 @@ Order 3 (3bda5a52): status=pending, tickets=0, emails=0 ❌ (payment not complet
 
 ```bash
 # Deploy the fix
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 supabase functions deploy stripe-webhook
 supabase functions deploy process-payment  

@@ -347,7 +347,7 @@ export const CampaignDashboard = ({ orgId }: { orgId?: string }) => {
 
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2">Campaign Manager</h1>
-        <p className="text-muted-foreground">Create and manage your ad campaigns across YardPass</p>
+        <p className="text-muted-foreground">Create and manage your ad campaigns across Liventix</p>
       </div>
 
       {/* Error Banner */}

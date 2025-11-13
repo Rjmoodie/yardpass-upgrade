@@ -1,7 +1,7 @@
 # Stripe Connect Integration Documentation
 
 ## Overview
-This implementation provides a complete Stripe Connect integration for the YardPass platform, enabling seamless payment processing and payouts for event organizers.
+This implementation provides a complete Stripe Connect integration for the Liventix platform, enabling seamless payment processing and payouts for event organizers.
 
 ## Architecture
 

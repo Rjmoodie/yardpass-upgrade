@@ -90,12 +90,12 @@ Now calls Edge Functions instead of Supabase's built-in OTP:
 
 ### Subject
 ```
-Your YardPass verification code
+Your Liventix verification code
 ```
 
 ### Content
 ```
-YardPass
+Liventix
 Your gateway to events and culture
 
 Access Your Tickets
@@ -109,8 +109,8 @@ Enter this verification code to sign in and access your tickets:
 
 For security, never share this code with anyone.
 
-© 2025 YardPass. All rights reserved.
-yardpass.tech
+© 2025 Liventix. All rights reserved.
+liventix.tech
 ```
 
 ---
@@ -198,9 +198,9 @@ UI:
 ### Test 2: Verify Email is from Resend
 
 Check the email headers:
-- **From**: `YardPass <hello@yardpass.tech>`
+- **From**: `Liventix <hello@liventix.tech>`
 - **Service**: Should say "via resend.com" in email headers
-- **Subject**: "Your YardPass verification code"
+- **Subject**: "Your Liventix verification code"
 
 ---
 

@@ -91,7 +91,7 @@ npm install qrcode @types/qrcode
 Copy these styles from `New design/globals.css` to `src/index.css`:
 
 ```css
-/* YardPass Feed Custom Styles */
+/* Liventix Feed Custom Styles */
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -101,7 +101,7 @@ Copy these styles from `New design/globals.css` to `src/index.css`:
   display: none;
 }
 
-/* Custom heading sizes for YardPass branding */
+/* Custom heading sizes for Liventix branding */
 h1 {
   font-size: 1.5rem !important; /* 24px for LAUNDACH */
   font-weight: 700 !important;

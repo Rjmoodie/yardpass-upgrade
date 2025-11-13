@@ -30,14 +30,14 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           <section>
             <h2 className="text-lg font-semibold mb-3">1. Acceptance of Terms</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>By accessing or using YardPass, you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any of these terms, you are prohibited from using our services.</p>
+              <p>By accessing or using Liventix, you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any of these terms, you are prohibited from using our services.</p>
             </div>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold mb-3">2. Description of Service</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>YardPass is a video-first event discovery and ticketing platform that allows users to:</p>
+              <p>Liventix is a video-first event discovery and ticketing platform that allows users to:</p>
               <ul className="list-disc pl-6 space-y-1">
                 <li>Discover and attend events through a video-based feed</li>
                 <li>Purchase tickets and manage event attendance</li>
@@ -51,7 +51,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           <section>
             <h2 className="text-lg font-semibold mb-3">3. User Accounts</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>To use certain features of YardPass, you must create an account. You agree to:</p>
+              <p>To use certain features of Liventix, you must create an account. You agree to:</p>
               <ul className="list-disc pl-6 space-y-1">
                 <li>Provide accurate and complete information</li>
                 <li>Maintain the security of your account credentials</li>
@@ -100,7 +100,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           <section>
             <h2 className="text-lg font-semibold mb-3">6. Payments and Fees</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>YardPass charges platform fees for ticket sales, similar to industry standards:</p>
+              <p>Liventix charges platform fees for ticket sales, similar to industry standards:</p>
               <ul className="list-disc pl-6 space-y-1">
                 <li>Service fees of approximately 3.7% + $1.79 per ticket</li>
                 <li>Payment processing fees as determined by our payment partners</li>
@@ -126,15 +126,15 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           <section>
             <h2 className="text-lg font-semibold mb-3">8. Intellectual Property</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>By posting content on YardPass, you grant us a non-exclusive license to use, modify, and display your content for the purpose of operating our services. You retain ownership of your content and may remove it at any time.</p>
-              <p>YardPass and its associated trademarks, logos, and designs are our intellectual property and may not be used without permission.</p>
+              <p>By posting content on Liventix, you grant us a non-exclusive license to use, modify, and display your content for the purpose of operating our services. You retain ownership of your content and may remove it at any time.</p>
+              <p>Liventix and its associated trademarks, logos, and designs are our intellectual property and may not be used without permission.</p>
             </div>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold mb-3">9. Disclaimers and Limitation of Liability</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>YardPass is provided "as is" without warranties of any kind. We are not responsible for:</p>
+              <p>Liventix is provided "as is" without warranties of any kind. We are not responsible for:</p>
               <ul className="list-disc pl-6 space-y-1">
                 <li>Event quality, safety, or organizer conduct</li>
                 <li>User-generated content or interactions</li>
@@ -156,7 +156,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           <section>
             <h2 className="text-lg font-semibold mb-3">11. Changes to Terms</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>We may update these terms from time to time. We will notify users of material changes through the platform or via email. Continued use of YardPass after changes constitutes acceptance of the new terms.</p>
+              <p>We may update these terms from time to time. We will notify users of material changes through the platform or via email. Continued use of Liventix after changes constitutes acceptance of the new terms.</p>
             </div>
           </section>
 
@@ -165,7 +165,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             <div className="space-y-3 text-sm text-muted-foreground">
               <p>For questions about these terms or our services, contact us at:</p>
               <ul className="list-none space-y-1">
-                <li>Email: legal@yardpass.com</li>
+                <li>Email: legal@liventix.com</li>
                 <li>Address: 123 Innovation Drive, Tech City, TC 12345</li>
                 <li>Phone: +1 (555) 123-4567</li>
               </ul>

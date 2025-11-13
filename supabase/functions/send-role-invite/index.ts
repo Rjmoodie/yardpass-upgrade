@@ -144,7 +144,7 @@ serve(async (req) => {
         })
       : "TBA";
     
-    const link = `${req.headers.get("origin") || "https://app.yardpass.app"}/roles/accept?token=${token}`;
+    const link = `${req.headers.get("origin") || "https://app.liventix.app"}/roles/accept?token=${token}`;
 
     // Send email if provided and Resend is configured
     if (email && RESEND_API_KEY) {
@@ -172,11 +172,11 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "YardPass <noreply@yardpass.tech>",
+            from: "Liventix <noreply@liventix.tech>",
             to: [email],
             subject: `Lend a hand at ${eventTitle}?`,
             html,
-            reply_to: "support@yardpass.tech",
+            reply_to: "support@liventix.tech",
           }),
         });
       } catch (emailError) {

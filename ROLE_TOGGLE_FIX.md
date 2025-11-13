@@ -162,7 +162,7 @@ Profile refetch ensures consistency (300ms)
 
 ## 🎨 **Why This Matters**
 
-Role switching is a **core interaction** in YardPass:
+Role switching is a **core interaction** in Liventix:
 - ✅ Attendees switch to create events
 - ✅ Organizers switch to attend events
 - ✅ Used multiple times per session

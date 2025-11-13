@@ -7,8 +7,8 @@
 - ✅ `decoding="sync"` - Decode image synchronously for faster display
 
 ### **2. Current Logo URLs**
-- **Primary**: `https://yardpass.tech/yardpass-logo.png`
-- **Supabase**: `https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/assets/yardpass-logo.png`
+- **Primary**: `https://liventix.tech/liventix-logo.png`
+- **Supabase**: `https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/assets/liventix-logo.png`
 
 ## 🎯 **Next Steps for Maximum Performance**
 
@@ -36,8 +36,8 @@
 ```html
 <!-- Add WebP fallback for modern email clients -->
 <picture>
-  <source srcset="yardpass-logo.webp" type="image/webp">
-  <img src="yardpass-logo.png" alt="YardPass" style="height:40px;">
+  <source srcset="liventix-logo.webp" type="image/webp">
+  <img src="liventix-logo.png" alt="Liventix" style="height:40px;">
 </picture>
 ```
 
@@ -45,8 +45,8 @@
 
 #### **A. Add Preconnect Hints**
 ```html
-<link rel="preconnect" href="https://yardpass.tech">
-<link rel="dns-prefetch" href="https://yardpass.tech">
+<link rel="preconnect" href="https://liventix.tech">
+<link rel="dns-prefetch" href="https://liventix.tech">
 ```
 
 #### **B. Optimize for Email Clients**
@@ -65,14 +65,14 @@
 #### **C. Add Retry Logic**
 ```typescript
 // For Edge Functions, add retry for failed logo loads
-const logoUrl = orgInfo?.logoUrl || `${baseUrl()}/yardpass-logo.png`;
-const fallbackLogo = `${baseUrl()}/yardpass-logo-fallback.png`;
+const logoUrl = orgInfo?.logoUrl || `${baseUrl()}/liventix-logo.png`;
+const fallbackLogo = `${baseUrl()}/liventix-logo-fallback.png`;
 
 // Use fallback if primary fails
 <img 
   src={logoUrl} 
   onerror={`this.src='${fallbackLogo}'`}
-  alt={orgInfo?.name || 'YardPass'}
+  alt={orgInfo?.name || 'Liventix'}
 />
 ```
 

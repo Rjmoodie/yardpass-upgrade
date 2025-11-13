@@ -128,7 +128,7 @@ await supabase
 
 ## 📊 **Why This Happened**
 
-**YardPass Schema Structure:**
+**Liventix Schema Structure:**
 ```
 users schema (private):
   └── follows (TABLE) ← Has RLS policies

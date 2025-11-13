@@ -1,4 +1,4 @@
-# 🎯 YardPass Database - Current Structure (After Migration)
+# 🎯 Liventix Database - Current Structure (After Migration)
 
 ## 📊 Overview
 

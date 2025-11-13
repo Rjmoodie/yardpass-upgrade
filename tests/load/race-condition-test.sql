@@ -1,5 +1,5 @@
 -- =====================================================
--- YardPass TRUE RACE CONDITION & CONCURRENCY TEST
+-- Liventix TRUE RACE CONDITION & CONCURRENCY TEST
 -- =====================================================
 -- Purpose: Test real concurrent access with multiple sessions
 -- This uses pgbench for true multi-session concurrency testing

@@ -6,7 +6,7 @@ Use this data when testing your checkout system with real events and tiers from 
 
 ---
 
-## Event 1: YardPass Launch
+## Event 1: Liventix Launch
 
 **Tier:** General Admission  
 **Price:** $10.00 ($0.10 in cents)  
@@ -76,8 +76,8 @@ Use this data when testing your checkout system with real events and tiers from 
 
 ### Simple Tests (Single Tier)
 ```
-1. YardPass Launch - 1x GA ($10)
-2. YardPass Launch - 6x GA ($60) [max per order]
+1. Liventix Launch - 1x GA ($10)
+2. Liventix Launch - 6x GA ($60) [max per order]
 3. Summer Festival - 2x GA ($100)
 ```
 
@@ -179,7 +179,7 @@ ORDER BY t.created_at DESC;
 
 ## 🎯 Testing Priority
 
-1. **High Priority:** YardPass Launch (simple, single tier)
+1. **High Priority:** Liventix Launch (simple, single tier)
 2. **Medium Priority:** Splish and Splash (multi-tier, mid-price)
 3. **Low Priority:** Summer Festival (high-price, stress test)
 
@@ -193,5 +193,5 @@ ORDER BY t.created_at DESC;
 - Session expiration is typically 15 minutes
 - Hold extension adds 10 minutes
 
-**Start with YardPass Launch for your first test!** 🚀
+**Start with Liventix Launch for your first test!** 🚀
 

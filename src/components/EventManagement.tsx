@@ -529,7 +529,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
         label: 'Avg price',
         value: `$${ticketStats.averagePrice.toFixed(0)}`,
         icon: TrendingUp,
-        tone: 'text-orange-600',
+        tone: 'text-brand-600',
       },
       {
         label: 'Total scans',
@@ -1030,8 +1030,8 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
               <Card className="border-border hover:shadow-md transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-500/10 rounded-full flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-orange-600" />
+                    <div className="w-10 h-10 bg-brand-500/10 rounded-full flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-brand-600" />
                     </div>
                     <div>
                       <div className="text-2xl font-bold">${ticketStats.averagePrice.toFixed(0)}</div>

@@ -12,7 +12,7 @@
 
 ```bash
 # Navigate to project
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 # Stop Supabase (refreshes cache)
 supabase stop

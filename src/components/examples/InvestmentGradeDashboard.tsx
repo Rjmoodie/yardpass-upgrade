@@ -15,7 +15,7 @@ export function InvestmentGradeDashboard() {
       {/* Header */}
       <div className="space-y-2">
         <Title>Organizer<br/>Dashboard</Title>
-        <Body>YardPass Official · 5 events · 49 attendees</Body>
+        <Body>Liventix Official · 5 events · 49 attendees</Body>
         <Caption>$783.56 revenue</Caption>
       </div>
 

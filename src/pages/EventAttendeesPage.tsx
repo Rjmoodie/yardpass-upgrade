@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Users } from 'lucide-react';
-import { YardpassSpinner } from '@/components/LoadingSpinner';
+import { LiventixSpinner } from '@/components/LoadingSpinner';
 
 type TicketRow = { 
   owner_user_id: string;
@@ -141,7 +141,7 @@ export default function EventAttendeesPage() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <YardpassSpinner className="mx-auto mb-4" />
+            <LiventixSpinner className="mx-auto mb-4" />
             <p className="text-muted-foreground">Loading attendees...</p>
           </div>
         </div>
@@ -224,7 +224,7 @@ export default function EventAttendeesPage() {
             <div className="mt-6">
               <Button onClick={loadMore} disabled={loadingMore} className="w-full">
                 {loadingMore && (
-                  <YardpassSpinner size="xs" showGlow={false} showLogo={false} className="mr-2" />
+                  <LiventixSpinner size="xs" showGlow={false} showLogo={false} className="mr-2" />
                 )}
                 Load more
               </Button>

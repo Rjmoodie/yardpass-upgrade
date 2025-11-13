@@ -42,11 +42,11 @@ const handler = async (req: Request): Promise<Response> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: from || "YardPass <noreply@yardpass.tech>",
+        from: from || "Liventix <noreply@liventix.tech>",
         to: [to],
         subject,
         html,
-        reply_to: replyTo || "support@yardpass.tech",
+        reply_to: replyTo || "support@liventix.tech",
       }),
     });
 

@@ -1,5 +1,5 @@
 -- =====================================================
--- YardPass Load Test #2: Unified Feed System
+-- Liventix Load Test #2: Unified Feed System
 -- =====================================================
 -- Purpose: Test feed performance with large datasets
 -- Run this in Supabase SQL Editor

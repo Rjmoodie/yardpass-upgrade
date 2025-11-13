@@ -78,7 +78,7 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
           ? formatUSD((Number(os.total_amount_cents) || 0) / 100)
           : formatUSD(os.total_amount),
       hasTiming: Boolean(start),
-      uid: (os.id || sessionId || Math.random().toString(36).slice(2)) + '@yardpass',
+      uid: (os.id || sessionId || Math.random().toString(36).slice(2)) + '@liventix',
     };
   }, [orderStatus, sessionId]);
 
@@ -203,7 +203,7 @@ export function TicketSuccessPage({ onBack, onViewTickets }: TicketSuccessPagePr
       const ics = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//YardPass//TicketSuccess//EN',
+        'PRODID:-//Liventix//TicketSuccess//EN',
         'CALSCALE:GREGORIAN',
         'METHOD:PUBLISH',
         'BEGIN:VEVENT',

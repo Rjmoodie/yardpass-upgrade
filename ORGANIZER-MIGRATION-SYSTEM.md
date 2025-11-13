@@ -2,7 +2,7 @@
 
 ## ✅ **Status: FULLY IMPLEMENTED & OPERATIONAL**
 
-YardPass has a **comprehensive migration system** for organizers moving from platforms like Eventbrite, Ticketmaster, Mailchimp, or other event/marketing tools.
+Liventix has a **comprehensive migration system** for organizers moving from platforms like Eventbrite, Ticketmaster, Mailchimp, or other event/marketing tools.
 
 ---
 
@@ -74,7 +74,7 @@ Jane Smith,jane@example.com,,No
 
 ### **3. Eventbrite Migration Guide (Built-in)**
 
-YardPass includes **step-by-step instructions** for migrating from Eventbrite:
+Liventix includes **step-by-step instructions** for migrating from Eventbrite:
 
 #### **Step 1: Export Attendee Reports**
 ```
@@ -89,7 +89,7 @@ YardPass includes **step-by-step instructions** for migrating from Eventbrite:
 ```
 1. In Eventbrite Reporting, select multiple events
 2. Export single combined report
-3. Use YardPass deduplication to merge contacts
+3. Use Liventix deduplication to merge contacts
 4. Result: One person appears only once
 ```
 
@@ -97,7 +97,7 @@ YardPass includes **step-by-step instructions** for migrating from Eventbrite:
 ```
 1. Inside Eventbrite Email Campaigns
 2. Export "Subscribers" or "Purchasers" as CSV
-3. Import to YardPass with consent status
+3. Import to Liventix with consent status
 4. Only send marketing to opted-in contacts
 ```
 
@@ -105,7 +105,7 @@ YardPass includes **step-by-step instructions** for migrating from Eventbrite:
 ```
 1. Connect Eventbrite to CRMs/Google Sheets via Zapier
 2. Use automation for real-time syncing
-3. Manage unsubscribe preferences in YardPass
+3. Manage unsubscribe preferences in Liventix
 ```
 
 ---
@@ -152,7 +152,7 @@ CREATE TABLE organizations.org_contact_import_entries (
 
 ---
 
-## 🎯 **Integration with YardPass Features**
+## 🎯 **Integration with Liventix Features**
 
 ### **1. Messaging System**
 Imported lists are directly usable in the event messaging panel:
@@ -178,7 +178,7 @@ Imported lists are directly usable in the event messaging panel:
 - ✅ Email past attendees about new events
 
 ### **2. Audience Segmentation**
-Combine imported lists with YardPass data:
+Combine imported lists with Liventix data:
 
 ```
 Segment Options:
@@ -240,7 +240,7 @@ Every imported contact has a `consent` status:
    ↓
 2. Downloads CSV with attendees, orders, or subscribers
    ↓
-3. Logs into YardPass → Organization Dashboard
+3. Logs into Liventix → Organization Dashboard
    ↓
 4. Clicks "Contacts" tab → "Import CSV"
    ↓
@@ -263,34 +263,34 @@ Result: 3,000 past attendees notified in minutes ✅
 
 ## 🧪 **Real-World Examples**
 
-### **Example 1: Eventbrite → YardPass**
+### **Example 1: Eventbrite → Liventix**
 ```
 Scenario: Music festival organizer with 5 years of Eventbrite data
 
 Step 1: Export all events from Eventbrite (combined report)
-Step 2: Upload CSV to YardPass → "Past Festival Attendees"
+Step 2: Upload CSV to Liventix → "Past Festival Attendees"
 Step 3: System imports 12,450 unique contacts
 Step 4: Send "We're back in 2025!" email campaign
 Result: 42% open rate, 2,300 tickets sold in first week
 ```
 
-### **Example 2: Mailchimp → YardPass**
+### **Example 2: Mailchimp → Liventix**
 ```
 Scenario: Nonprofit with 8,000 Mailchimp subscribers
 
 Step 1: Export "All Subscribers" from Mailchimp
-Step 2: Upload to YardPass with consent='granted'
+Step 2: Upload to Liventix with consent='granted'
 Step 3: Map custom fields (City, Interests) to metadata
 Step 4: Use for event announcements + ticket sales
 Result: Saved $300/month on Mailchimp, kept audience
 ```
 
-### **Example 3: Manual Excel List → YardPass**
+### **Example 3: Manual Excel List → Liventix**
 ```
 Scenario: Corporate event planner with custom Excel sheet
 
 Step 1: Save Excel as CSV (UTF-8)
-Step 2: Upload to YardPass
+Step 2: Upload to Liventix
 Step 3: Map custom columns (Company, Title, VIP Status)
 Step 4: Use VIP status to segment for premium tickets
 Result: 100% data preserved, ready for next event
@@ -338,7 +338,7 @@ Result: 100% data preserved, ready for next event
 
 ## 🎯 **Summary**
 
-### **For Organizers Migrating to YardPass:**
+### **For Organizers Migrating to Liventix:**
 
 **✅ You CAN bring:**
 - All attendee lists (CSV export from any platform)
@@ -377,8 +377,8 @@ Eventbrite → Manage Attendees → Export CSV
 Mailchimp → Audience → Export All Contacts
 Ticketmaster → Reports → Attendee List
 
-# 2. Log into YardPass
-https://yardpass.tech/dashboard
+# 2. Log into Liventix
+https://liventix.tech/dashboard
 
 # 3. Navigate to organization
 Dashboard → Organization Settings → Contacts Tab

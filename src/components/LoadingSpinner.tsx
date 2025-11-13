@@ -20,7 +20,7 @@ export function PageLoadingSpinner() {
 }
 
 // Legacy export for backward compatibility
-export function YardpassSpinner({ size = 'md', className = '', showGlow = false, showLogo = false }: { 
+export function LiventixSpinner({ size = 'md', className = '', showGlow = false, showLogo = false }: { 
   size?: string; 
   className?: string; 
   showGlow?: boolean; 

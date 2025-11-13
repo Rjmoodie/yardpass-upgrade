@@ -1,4 +1,4 @@
-# 🧪 Frontend Testing Guide - YardPass Checkout System
+# 🧪 Frontend Testing Guide - Liventix Checkout System
 
 ## Overview
 This guide will walk you through testing your modernized checkout system with real event data using the frontend interface.
@@ -14,16 +14,16 @@ This guide will walk you through testing your modernized checkout system with re
 
 ### **Test 1: Guest Checkout - Single Ticket**
 
-**Event:** YardPass Launch  
+**Event:** Liventix Launch  
 **Tier:** General Admission ($10.00)  
 **Tier ID:** `a496a470-0f96-4ee6-aa3e-5d6628623686`
 
 **Steps:**
 1. Make sure you're **logged out** (clear cookies if needed)
-2. Navigate to the YardPass Launch event page
+2. Navigate to the Liventix Launch event page
 3. Click "Purchase Tickets"
 4. Select **1x General Admission** ticket
-5. Enter guest email: `test-guest@yardpass.com`
+5. Enter guest email: `test-guest@liventix.com`
 6. Enter guest name: `Test Guest`
 7. Click "Purchase" button
 
@@ -62,7 +62,7 @@ ORDER BY created_at DESC LIMIT 5;
 3. Click "Purchase Tickets"
 4. Select **2x General Admission**
 5. Select **1x VIP**
-6. Enter email: `multi-ticket@yardpass.com`
+6. Enter email: `multi-ticket@liventix.com`
 7. Click "Purchase"
 
 **Expected Results:**
@@ -94,7 +94,7 @@ GROUP BY o.id, o.total_cents;
 **Tier:** General Admission ($50.00) - Qty: 2
 
 **Steps:**
-1. **Log in** to your YardPass account
+1. **Log in** to your Liventix account
 2. Navigate to Summer Music Festival 2024
 3. Click "Purchase Tickets"
 4. Select **2x General Admission**

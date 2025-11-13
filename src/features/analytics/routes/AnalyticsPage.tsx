@@ -347,7 +347,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           title="Avg Deal Size"
           value={formatCurrency(analytics.avg_deal_size_cents)}
           change={15.3}
-          icon={<TrendingUp className="h-5 w-5 text-orange-600" />}
+          icon={<TrendingUp className="h-5 w-5 text-brand-600" />}
           color="orange"
         />
       </div>

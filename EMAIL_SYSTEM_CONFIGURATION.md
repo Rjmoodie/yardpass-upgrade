@@ -50,36 +50,36 @@ Customer receives email with:
 ### **1. Purchase Confirmation** ✅
 - **Trigger**: After successful Stripe payment
 - **Function**: `send-purchase-confirmation`
-- **From**: `YardPass <noreply@yardpass.tech>` (or org-branded)
-- **Reply-To**: `support@yardpass.tech`
+- **From**: `Liventix <noreply@liventix.tech>` (or org-branded)
+- **Reply-To**: `support@liventix.tech`
 - **Contents**: Order details, tickets, event info, QR codes
 
 ### **2. Guest Access Code (OTP)** ✅
 - **Trigger**: When guest requests ticket access
 - **Function**: `guest-tickets-start`
-- **From**: `YardPass <noreply@yardpass.tech>`
+- **From**: `Liventix <noreply@liventix.tech>`
 - **Contents**: 6-digit OTP code, expires in 5 minutes
 
 ### **3. Ticket Reminders** ✅
 - **Trigger**: Scheduled reminders before events
 - **Function**: `send-ticket-reminder`
-- **From**: `YardPass <noreply@yardpass.tech>` (or org-branded)
-- **Reply-To**: `support@yardpass.tech`
+- **From**: `Liventix <noreply@liventix.tech>` (or org-branded)
+- **Reply-To**: `support@liventix.tech`
 
 ### **4. Role Invites** ✅
 - **Trigger**: When user is invited to help at an event
 - **Function**: `send-role-invite`
-- **From**: `YardPass <noreply@yardpass.tech>`
-- **Reply-To**: `support@yardpass.tech`
+- **From**: `Liventix <noreply@liventix.tech>`
+- **Reply-To**: `support@liventix.tech`
 
 ---
 
 ## 🔧 **Configuration Requirements**
 
 ### **1. Resend API Setup**
-✅ Domain: `yardpass.tech` must be verified in Resend dashboard
-✅ Sender email: `noreply@yardpass.tech` verified
-✅ Reply-to email: `support@yardpass.tech` verified
+✅ Domain: `liventix.tech` must be verified in Resend dashboard
+✅ Sender email: `noreply@liventix.tech` verified
+✅ Reply-to email: `support@liventix.tech` verified
 ✅ API Key: `RESEND_API_KEY` set in Supabase environment variables
 
 ### **2. Supabase Edge Functions**
@@ -134,7 +134,7 @@ Customer receives email with:
    ```
 
 4. **Check your email inbox:**
-   - Look for email from `YardPass <noreply@yardpass.tech>`
+   - Look for email from `Liventix <noreply@liventix.tech>`
    - Subject: `✅ Ticket Confirmation - [Event Name]`
    - Should contain order details, tickets, and "View Your Tickets" button
 
@@ -225,7 +225,7 @@ Customer receives email with:
   <body>
     <!-- Header with Logo -->
     <div style="background: #1a1a1a; padding: 24px;">
-      <img src="[org-logo or yardpass-logo]" alt="YardPass" />
+      <img src="[org-logo or liventix-logo]" alt="Liventix" />
     </div>
 
     <!-- Success Banner -->
@@ -257,8 +257,8 @@ Customer receives email with:
 
     <!-- Footer -->
     <div style="background: #f9fafb; padding: 24px;">
-      Powered by YardPass · Organized by [Org Name]
-      Questions? Contact support@yardpass.tech
+      Powered by Liventix · Organized by [Org Name]
+      Questions? Contact support@liventix.tech
     </div>
   </body>
 </html>

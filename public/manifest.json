@@ -1,7 +1,7 @@
 {
-  "name": "YardPass - Your Event Passport",
-  "short_name": "YardPass",
-  "description": "Discover and attend the best events in your area",
+  "name": "Liventix - Live Event Tickets",
+  "short_name": "Liventix",
+  "description": "Buy tickets to live events, concerts, parties, and experiences",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -9,13 +9,13 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/images/yardpass-logo-full.png",
+      "src": "/images/liventix-logo-full.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/images/yardpass-logo-full.png",
+      "src": "/images/liventix-logo-full.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -30,7 +30,7 @@
       "url": "/feed",
       "icons": [
         {
-          "src": "/images/yardpass-logo-full.png",
+          "src": "/images/liventix-logo-full.png",
           "sizes": "192x192"
         }
       ]
@@ -42,7 +42,7 @@
       "url": "/tickets",
       "icons": [
         {
-          "src": "/images/yardpass-logo-full.png",
+          "src": "/images/liventix-logo-full.png",
           "sizes": "192x192"
         }
       ]
@@ -54,7 +54,7 @@
       "url": "/dashboard",
       "icons": [
         {
-          "src": "/images/yardpass-logo-full.png",
+          "src": "/images/liventix-logo-full.png",
           "sizes": "192x192"
         }
       ]

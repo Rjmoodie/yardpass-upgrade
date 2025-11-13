@@ -150,8 +150,8 @@ Deno.serve(async (req) => {
           price_data: {
             currency: "usd",
             product_data: {
-              name: `${credits.toLocaleString()} YardPass Credits`,
-              description: `Prepaid ad credits for YardPass campaigns`,
+              name: `${credits.toLocaleString()} Liventix Credits`,
+              description: `Prepaid ad credits for Liventix campaigns`,
             },
             unit_amount: finalAmount,
           },
@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
       
       // Fraud prevention: Add payment intent metadata
       payment_intent_data: {
-        description: `${credits.toLocaleString()} YardPass ad credits`,
+        description: `${credits.toLocaleString()} Liventix ad credits`,
         metadata: {
           user_id: user.id,
           wallet_id: wallet.id,

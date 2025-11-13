@@ -1,6 +1,6 @@
-# YardPass Database Schema Draft (with SQL)
+# Liventix Database Schema Draft (with SQL)
 
-This file contains the **complete Supabase/Postgres schema** (enums, tables, views, helper functions, RLS policies, and safety triggers) for YardPass V1.
+This file contains the **complete Supabase/Postgres schema** (enums, tables, views, helper functions, RLS policies, and safety triggers) for Liventix V1.
 
 ---
 

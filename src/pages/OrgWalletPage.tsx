@@ -12,7 +12,7 @@ const OrgWalletPage = () => {
   return (
     <>
       <Helmet>
-        <title>Organization Wallet - YardPass</title>
+        <title>Organization Wallet - Liventix</title>
         <meta name="description" content="Manage your organization's ad credits" />
       </Helmet>
 

@@ -1,10 +1,10 @@
-# YardPass Architecture Diagram
+# Liventix Architecture Diagram
 
 ## System Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         YardPass App                             │
+│                         Liventix App                             │
 │                                                                   │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │                    App Shell (src/app/)                     │ │
@@ -409,5 +409,5 @@ dashboard.chunk.js       ← 200 KB (lazy loaded)
 ✅ **Team ownership** model ready
 ✅ **67% smaller** initial bundle size
 
-**YardPass is now a scalable, maintainable, feature-first application!** 🚀
+**Liventix is now a scalable, maintainable, feature-first application!** 🚀
 

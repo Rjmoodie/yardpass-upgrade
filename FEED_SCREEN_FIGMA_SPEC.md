@@ -1,4 +1,4 @@
-# 📱 YardPass Feed Screen - Complete Figma Design Specification
+# 📱 Liventix Feed Screen - Complete Figma Design Specification
 
 ## 🎯 Overview
 The feed is a full-screen, vertically-scrolling, snap-scroll experience similar to TikTok/Instagram Reels with event cards and user posts.
@@ -688,7 +688,7 @@ Info:                #3B82F6
 ## 📐 Figma Layer Structure
 
 ```
-YardPass Feed Screen
+Liventix Feed Screen
 ├── 🖼️ Background
 │   ├── Gradient (linear)
 │   └── Radial glow (blur 48px)

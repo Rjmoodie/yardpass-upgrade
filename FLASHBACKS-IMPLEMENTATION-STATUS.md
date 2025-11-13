@@ -291,7 +291,7 @@ const toggleFeaturePost = async (postId: string) => {
 
 1. **Database:**
    ```bash
-   cd yardpass-upgrade
+   cd liventix-upgrade
    supabase db push
    ```
 

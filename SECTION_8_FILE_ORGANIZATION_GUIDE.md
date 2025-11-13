@@ -2,7 +2,7 @@
 
 ## Overview
 
-Section 8 of the YardPass specification calls for a **feature-first file organization** that groups routes, components, hooks, and services by domain (feature) rather than by type. This approach keeps related code co-located and makes the codebase more maintainable as it scales.
+Section 8 of the Liventix specification calls for a **feature-first file organization** that groups routes, components, hooks, and services by domain (feature) rather than by type. This approach keeps related code co-located and makes the codebase more maintainable as it scales.
 
 ---
 
@@ -810,5 +810,5 @@ import { MarketplacePage } from '@/features/marketplace/routes/MarketplacePage';
 ⚠️ File structure still type-first (`src/components/`, `src/pages/`)
 📋 Feature-first migration is next logical step
 
-The feature-first organization makes YardPass more maintainable as it scales from 10 features to 100+ features. 🚀
+The feature-first organization makes Liventix more maintainable as it scales from 10 features to 100+ features. 🚀
 

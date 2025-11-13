@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# YardPass - Deploy All Recent Changes
+# Liventix - Deploy All Recent Changes
 # Run this after: npx supabase login
 
 set -e  # Exit on error
 
-echo "🚀 Starting YardPass Deployment..."
+echo "🚀 Starting Liventix Deployment..."
 echo ""
 
 # Check if logged in
@@ -68,6 +68,7 @@ echo "  ✅ is_attending flags for UI badges"
 echo "  ✅ Post delete functionality (frontend only - no deploy needed)"
 echo ""
 echo "🧪 Next: Test in your app!"
+
 
 
 

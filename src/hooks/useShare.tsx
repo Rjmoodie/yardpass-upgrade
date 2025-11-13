@@ -23,7 +23,7 @@ export const useShare = () => {
       if (error) throw error;
 
       const shareData: ShareData = {
-        title: `${eventTitle} on YardPass`,
+        title: `${eventTitle} on Liventix`,
         text: data.share.text,
         url: data.share.url
       };
@@ -70,7 +70,7 @@ export const useShare = () => {
     try {
       const shareData: ShareData = {
         title: `Check out this post from ${eventTitle}`,
-        text: postText || 'Interesting post on YardPass',
+        text: postText || 'Interesting post on Liventix',
         url: `${window.location.origin}/post/${postId}`
       };
 

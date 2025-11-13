@@ -1,7 +1,7 @@
 # ✨ Design System Overhaul - Complete Implementation
 
 ## 🎯 Overview
-Comprehensive design system improvements implementing professional-grade contrast, accessibility, and visual hierarchy across the entire YardPass application.
+Comprehensive design system improvements implementing professional-grade contrast, accessibility, and visual hierarchy across the entire Liventix application.
 
 ---
 

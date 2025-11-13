@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
  * Uses localStorage to persist across page loads
  */
 function getSessionId(): string {
-  const storageKey = 'yardpass_session_id';
+  const storageKey = 'liventix_session_id';
   let sessionId = localStorage.getItem(storageKey);
   
   if (!sessionId) {

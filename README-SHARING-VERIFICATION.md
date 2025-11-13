@@ -26,9 +26,9 @@
 - ✅ **Error Handling**: Graceful fallbacks with user feedback
 
 ### 5. Deep Link Generation
-- ✅ **Event URLs**: `https://yardpass.com/e/{slug}?utm_source=share&utm_medium=app&utm_campaign=event`
-- ✅ **Org URLs**: `https://yardpass.com/org/{slug}?utm_source=share&utm_medium=app&utm_campaign=org`  
-- ✅ **User URLs**: `https://yardpass.com/u/{handle}?utm_source=share&utm_medium=app&utm_campaign=user`
+- ✅ **Event URLs**: `https://liventix.com/e/{slug}?utm_source=share&utm_medium=app&utm_campaign=event`
+- ✅ **Org URLs**: `https://liventix.com/org/{slug}?utm_source=share&utm_medium=app&utm_campaign=org`  
+- ✅ **User URLs**: `https://liventix.com/u/{handle}?utm_source=share&utm_medium=app&utm_campaign=user`
 - ✅ **UTM Preservation**: Custom UTMs and ref parameters preserved
 - ✅ **URL Encoding**: Proper encoding for special characters
 
@@ -85,7 +85,7 @@ When running in development mode (`npm run dev`), detailed console logs are avai
 [Share] sharePayload entry: {title, text, url}
 [Share] Using Capacitor native share
 [Share] Opening fallback modal for: {payload}
-[ShareLinks] buildShareUrl output: https://yardpass.com/e/...
+[ShareLinks] buildShareUrl output: https://liventix.com/e/...
 [Share] Modal opened with payload: {payload}
 ```
 

@@ -1,4 +1,4 @@
-# YardPass Design Structure Implementation Verification
+# Liventix Design Structure Implementation Verification
 
 ## ✅ Completed Updates
 
@@ -75,7 +75,7 @@ export interface PlatformInfo {
 - ✅ `UpsellDesktop`: Shows on mobile when desktop feature accessed
   - Icon: BarChart3
   - Message: "Available on Desktop"
-  - CTA: "Open on Desktop" → yardpass.tech
+  - CTA: "Open on Desktop" → liventix.tech
   
 - ✅ `UpsellMobile`: Shows on desktop when mobile feature accessed
   - Icon: Smartphone
@@ -99,7 +99,7 @@ export interface PlatformInfo {
   --fg: 240 10% 3.9%;
   
   /* Brand ✅ */
-  --primary: 42 96% 52%;        /* YardPass yellow/orange */
+  --primary: 42 96% 52%;        /* Liventix yellow/orange */
   --accent: 221 83% 53%;         /* Blue */
   
   /* Semantic ✅ */

@@ -1,4 +1,4 @@
--- Create Test Flashback Event for YardPass Official
+-- Create Test Flashback Event for Liventix Official
 -- Organization ID: 9398c599-4cde-4ac5-8d8c-a62d0c057c00
 -- Creator: datmahseh@gmail.com (86289a38-799e-4e76-b3dd-2f9615e56afa)
 -- READY TO RUN - No edits needed!
@@ -29,7 +29,7 @@ INSERT INTO events.events (
   '2024-07-17 23:00:00+00',  -- July 17, 2024 (ended)
   '86289a38-799e-4e76-b3dd-2f9615e56afa',  -- datmahseh@gmail.com (creator)
   'organization',                           -- ✅ Organization-owned
-  '9398c599-4cde-4ac5-8d8c-a62d0c057c00',  -- ✅ YardPass Official
+  '9398c599-4cde-4ac5-8d8c-a62d0c057c00',  -- ✅ Liventix Official
   true,                                     -- is_flashback = true
   'Share your favorite moments from Summer Fest 2024! 📸 Upload your photos and videos to help us build excitement for this year''s event.',
   'public',
@@ -57,7 +57,7 @@ INSERT INTO events.events (
 -- is_flashback: true
 -- flashback_end_date: 2024-10-15 23:00:00+00 (✅ auto-calculated: event_end + 90 days)
 -- owner_context_type: "organization"
--- owner_context_id: "9398c599-4cde-4ac5-8d8c-a62d0c057c00" (YardPass Official)
+-- owner_context_id: "9398c599-4cde-4ac5-8d8c-a62d0c057c00" (Liventix Official)
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -- 🧪 TEST THE FLASHBACK EVENT:
@@ -70,7 +70,7 @@ INSERT INTO events.events (
 -- ✅ Purple flashback banner at the top
 -- ✅ Message: "Share your favorite moments from Summer Fest 2024! 📸"
 -- ✅ Countdown: "Posting closes in -X days" (expired - event was July 2024)
--- ✅ Event owned by: YardPass Official
+-- ✅ Event owned by: Liventix Official
 --
 -- 3. Try posting to the event:
 --    ✅ Without media → Error: "Flashback posts require at least one photo or video"

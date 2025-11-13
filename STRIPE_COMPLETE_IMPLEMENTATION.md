@@ -8,7 +8,7 @@
 
 ## 📊 Executive Summary
 
-We've completed a comprehensive overhaul of the YardPass Stripe integration, addressing **12 critical issues** across correctness, security, resilience, and performance.
+We've completed a comprehensive overhaul of the Liventix Stripe integration, addressing **12 critical issues** across correctness, security, resilience, and performance.
 
 | Phase | Focus | Tasks Completed | Impact |
 |-------|-------|-----------------|--------|

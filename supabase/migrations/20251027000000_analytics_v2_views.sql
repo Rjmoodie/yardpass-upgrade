@@ -1,5 +1,5 @@
 -- ===================================================================
--- ANALYTICS V2 VIEWS - Adapted for YardPass Schema
+-- ANALYTICS V2 VIEWS - Adapted for Liventix Schema
 -- Migration: 20251027000000
 -- ===================================================================
 

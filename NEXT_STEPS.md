@@ -69,8 +69,8 @@ In Xcode (App target → Signing & Capabilities):
 - [ ] Verify **Signing** is configured (Team selected)
 - [ ] Add **Push Notifications** capability
 - [ ] Add **Associated Domains** capability
-  - Add: `applinks:yardpass.app`
-  - Add: `applinks:www.yardpass.app`
+  - Add: `applinks:liventix.app`
+  - Add: `applinks:www.liventix.app`
 
 ### 5. Apple Developer - APNs Setup (15 minutes)
 
@@ -78,7 +78,7 @@ In Xcode (App target → Signing & Capabilities):
 
 1. Go to: https://developer.apple.com/account/resources/authkeys/list
 2. Create new key:
-   - Name: "YardPass APNs"
+   - Name: "Liventix APNs"
    - Enable: Apple Push Notifications service (APNs)
    - Download `.p8` file
    - Save **Key ID** and **Team ID**
@@ -88,7 +88,7 @@ In Xcode (App target → Signing & Capabilities):
    - Upload APNs Auth Key (`.p8`)
    - Enter Key ID
    - Enter Team ID
-   - Enter Bundle ID: `com.yardpass.app`
+   - Enter Bundle ID: `com.liventix.app`
 
 ### 6. Use Location in Feed (10 minutes)
 
@@ -167,7 +167,7 @@ npx cap sync ios
 ### Location not working
 ```bash
 # Must test on real device (not simulator)
-# Check iOS Settings → YardPass → Location
+# Check iOS Settings → Liventix → Location
 ```
 
 ### Push notifications not received
@@ -194,7 +194,7 @@ cd ios/App && pod install && cd ../..
 
 ## 📚 Reference Documents
 
-- **`YARDPASS_ARCHITECTURE.md`** - Complete system architecture
+- **`LIVENTIX_ARCHITECTURE.md`** - Complete system architecture
 - **`URGENT_IOS_CAMERA_FIX.md`** - Detailed camera implementation guide
 - **`IOS_INTEGRATION_COMPLETE.md`** - Summary of what was implemented
 - **`NEXT_STEPS.md`** - This file (what to do next)

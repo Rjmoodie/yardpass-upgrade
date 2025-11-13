@@ -31,7 +31,7 @@ export function AuthScreen({
   onVerifyCode,
   mode = 'guest',
   allowEmail = true,
-  logoSrc = '/yardpass-logo.png',
+  logoSrc = '/liventix-logo.png',
 }: AuthScreenProps) {
   const [method, setMethod] = useState<'phone' | 'email'>(allowEmail ? 'phone' : 'phone');
   const [contact, setContact] = useState('');

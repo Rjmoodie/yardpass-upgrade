@@ -17,7 +17,7 @@ export const useAnalytics = () => {
     });
   };
 
-  // Event tracking functions per YardPass specs
+  // Event tracking functions per Liventix specs
   const trackEventView = (eventId: string, eventTitle: string) => {
     track('event_view', {
       event_id: eventId,

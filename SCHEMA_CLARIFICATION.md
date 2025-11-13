@@ -1,8 +1,8 @@
-# YardPass Follow System Schema Clarification
+# Liventix Follow System Schema Clarification
 
 ## Current Database Schema
 
-The `follows` table in YardPass has a **simplified structure**:
+The `follows` table in Liventix has a **simplified structure**:
 
 ```sql
 CREATE TABLE public.follows (

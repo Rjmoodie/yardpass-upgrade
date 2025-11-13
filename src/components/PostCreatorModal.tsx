@@ -62,8 +62,8 @@ const IMAGE_BUCKET = 'event-media';
 const MAX_FILES = 6;
 const MAX_IMAGE_MB = 8; // hard cap for images
 const MAX_VIDEO_MB = 512; // hard cap for videos (Mux accepts large uploads; tune to your plan)
-const DRAFT_KEY = (uid?: string) => `yardpass-post-draft:${uid || 'anon'}`;
-const LAST_EVENT_KEY = (uid?: string) => `yardpass-last-event:${uid || 'anon'}`;
+const DRAFT_KEY = (uid?: string) => `liventix-post-draft:${uid || 'anon'}`;
+const LAST_EVENT_KEY = (uid?: string) => `liventix-last-event:${uid || 'anon'}`;
 
 // Image preprocessing
 const IMG_MAX_DIM = 1920; // max width/height
@@ -1309,7 +1309,7 @@ export function PostCreatorModal({
           onClose={() => setShowVideoRecorder(false)}
           onSave={(videoBlob) => {
             const fileType = videoBlob.type || 'video/webm';
-            const fileName = `yardpass-recording-${Date.now()}.webm`;
+            const fileName = `liventix-recording-${Date.now()}.webm`;
             const recordedFile = new File([videoBlob], fileName, { type: fileType });
             void addFiles([recordedFile]);
             setShowVideoRecorder(false);

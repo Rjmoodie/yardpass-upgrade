@@ -5,8 +5,8 @@ const WalletPage = () => {
   return (
     <>
       <Helmet>
-        <title>Wallet - YardPass</title>
-        <meta name="description" content="Manage your YardPass ad credits and view transaction history" />
+        <title>Wallet - Liventix</title>
+        <meta name="description" content="Manage your Liventix ad credits and view transaction history" />
       </Helmet>
 
       <div className="container max-w-6xl mx-auto px-4 py-8">

@@ -94,8 +94,8 @@ export default function NotificationsPage() {
       <header className="sticky top-0 z-30 border-b border-white/10 bg-black/80 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF8C00]/20">
-              <Bell className="h-5 w-5 text-[#FF8C00]" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1171c0]/20">
+              <Bell className="h-5 w-5 text-[#1171c0]" />
             </div>
             <div>
               <h1 className="text-xl font-semibold">Notifications</h1>
@@ -112,7 +112,7 @@ export default function NotificationsPage() {
           <button
             onClick={() => setActiveFilter('all')}
             className={`flex-1 rounded-full px-4 py-2 text-sm transition ${
-              activeFilter === 'all' ? 'bg-[#FF8C00] text-white shadow-lg' : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+              activeFilter === 'all' ? 'bg-[#1171c0] text-white shadow-lg' : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
             }`}
           >
             All
@@ -120,7 +120,7 @@ export default function NotificationsPage() {
           <button
             onClick={() => setActiveFilter('unread')}
             className={`flex-1 rounded-full px-4 py-2 text-sm transition ${
-              activeFilter === 'unread' ? 'bg-[#FF8C00] text-white shadow-lg' : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+              activeFilter === 'unread' ? 'bg-[#1171c0] text-white shadow-lg' : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
             }`}
           >
             Unread
@@ -170,7 +170,7 @@ export default function NotificationsPage() {
                   />
                 )}
 
-                {notification.unread && <span className="mt-1 h-3 w-3 rounded-full bg-[#FF8C00]" />}
+                {notification.unread && <span className="mt-1 h-3 w-3 rounded-full bg-[#1171c0]" />}
               </div>
             ))}
           </div>
@@ -189,7 +189,7 @@ function getBadgeClass(type: NotificationItem['type']) {
     case 'follow':
       return 'bg-purple-500/20 text-purple-300';
     case 'ticket':
-      return 'bg-orange-500/20 text-orange-300';
+      return 'bg-brand-500/20 text-brand-300';
     case 'event':
       return 'bg-green-500/20 text-green-300';
     case 'trending':

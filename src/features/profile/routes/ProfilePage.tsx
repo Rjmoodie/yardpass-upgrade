@@ -220,7 +220,7 @@ export default function UserProfilePage() {
   useEffect(() => {
     if (profile && !initialViewSet && isViewingOwnProfile) {
       // Check if user has a stored preference
-      const storedView = localStorage.getItem('yardpass-profile-view-mode');
+      const storedView = localStorage.getItem('liventix-profile-view-mode');
       
       // If no stored preference exists, set a sensible default based on user role
       if (!storedView) {
@@ -1112,46 +1112,54 @@ export default function UserProfilePage() {
             >
               <UserPostCardNewDesign
                 item={selectedPost as Extract<FeedItem, { item_type: 'post' }>}
-                onLike={(postId) => handleLike(postId)}
-                onComment={(postId) => handleComment(postId)}
-                onShare={(postId) => handleSharePost(postId)}
+                onLike={() => handleLike(selectedPost.item_id)}
+                onComment={() => handleComment(selectedPost.item_id)}
+                onShare={() => handleSharePost(selectedPost.item_id)}
                 onEventClick={(eventId) => {
                   setSelectedPost(null);
                   setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
-                  navigate(routes.event(eventId));
+                  navigate(`/e/${eventId}`);
                 }}
-                onAuthorClick={(authorId) => {
+                onAuthorClick={() => {
                   setSelectedPost(null);
                   setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
-                  navigate(`/profile/${authorId}`);
+                  navigate(`/profile/${selectedPost.author_id}`);
                 }}
                 onReport={handleReport}
                 soundEnabled={soundEnabled}
                 isVideoPlaying={!pausedVideos[selectedPost.item_id]}
-                onGetTickets={(eventId) => navigate(routes.event(eventId))}
+                onGetTickets={(eventId) => {
+                  setSelectedPost(null);
+                  navigate(`/e/${eventId}`);
+                }}
+                onVideoToggle={() => handleVideoToggle(selectedPost.item_id)}
               />
             </BottomSheetContent>
           ) : (
             <DialogContent className="h-[90vh] w-full max-w-4xl overflow-hidden bg-black border-border/50 p-0">
               <UserPostCardNewDesign 
                 item={selectedPost as Extract<FeedItem, { item_type: 'post' }>} 
-                onLike={(postId) => handleLike(postId)} 
-                onComment={(postId) => handleComment(postId)} 
-                onShare={(postId) => handleSharePost(postId)} 
+                onLike={() => handleLike(selectedPost.item_id)} 
+                onComment={() => handleComment(selectedPost.item_id)} 
+                onShare={() => handleSharePost(selectedPost.item_id)} 
                 onEventClick={(eventId) => { 
                   setSelectedPost(null); 
                   setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
-                  navigate(routes.event(eventId)); 
+                  navigate(`/e/${eventId}`); 
                 }} 
-                onAuthorClick={(authorId) => { 
+                onAuthorClick={() => { 
                   setSelectedPost(null); 
                   setPausedVideos(prev => ({ ...prev, [selectedPost.item_id]: true }));
-                  navigate(`/profile/${authorId}`); 
+                  navigate(`/profile/${selectedPost.author_id}`); 
                 }} 
                 onReport={handleReport} 
                 soundEnabled={soundEnabled} 
                 isVideoPlaying={!pausedVideos[selectedPost.item_id]}
-                onGetTickets={(eventId) => navigate(routes.event(eventId))} 
+                onGetTickets={(eventId) => {
+                  setSelectedPost(null);
+                  navigate(`/e/${eventId}`);
+                }}
+                onVideoToggle={() => handleVideoToggle(selectedPost.item_id)} 
               />
             </DialogContent>
           )

@@ -50,7 +50,7 @@
 
 ### **Step 1: Apply Database Migrations**
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 supabase db push
 ```
@@ -209,7 +209,7 @@ After these fixes, your console should look like:
 ⚠️ React Router Future Flag Warning... (harmless)
 ✅ [Auth] User authenticated: ...
 ✅ [Capacitor] Initialization complete
-✅ [YardPass] Capacitor initialized: web
+✅ [Liventix] Capacitor initialized: web
 ✅ [Auth] ✅ Profile loaded: attendee
 ✅ [Navigation] Role updated to: attendee
 ✅ 🎫 Loaded 39 tickets

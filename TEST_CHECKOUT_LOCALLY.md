@@ -56,7 +56,7 @@ The webhook secret from Stripe CLI is DIFFERENT from your production webhook sec
 
 ```bash
 # In another terminal
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 # Create/update .env.local
 echo "STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxxxxx" >> .env.local

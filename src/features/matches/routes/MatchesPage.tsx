@@ -255,7 +255,7 @@ export const MatchAlgorithm: React.FC<MatchAlgorithmProps> = ({
               </span>
             </div>
             <div className="flex items-center space-x-2">
-              <TrendingUp className="h-4 w-4 text-orange-600" />
+              <TrendingUp className="h-4 w-4 text-brand-600" />
               <span className="text-sm">
                 Engagement: {Math.round(metrics.engagement_quality * 100)}%
               </span>

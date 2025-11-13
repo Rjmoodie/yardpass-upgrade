@@ -1,7 +1,7 @@
 # Beta Testing Page Specification
 
 ## Purpose
-Provide information and onboarding for users invited to the YardPass beta program.
+Provide information and onboarding for users invited to the Liventix beta program.
 
 ## Page URL
 `/beta` or `/beta-access`
@@ -15,7 +15,7 @@ Provide information and onboarding for users invited to the YardPass beta progra
 ### 1. Hero Section
 
 **Headline:**
-"Welcome to YardPass Beta 🚀"
+"Welcome to Liventix Beta 🚀"
 
 **Subheadline:**
 "You're among the first to experience the future of event management. Thank you for helping us build something amazing."
@@ -26,7 +26,7 @@ Provide information and onboarding for users invited to the YardPass beta progra
 - Confetti or celebration animation (subtle)
 
 **CTA (for invited users):**
-"Download YardPass" → Shows download options
+"Download Liventix" → Shows download options
 
 **CTA (for waitlist users):**
 "Not invited yet? Join the waitlist"
@@ -96,12 +96,12 @@ Show current phase in beta roadmap
 **Perk 5: Early Adopter Badge**
 - Icon: Badge/medal
 - Title: "Founding Member Status"
-- Description: "Special badge on your events showing you're an OG YardPass user."
+- Description: "Special badge on your events showing you're an OG Liventix user."
 
 **Perk 6: Beta Swag** (Optional)
 - Icon: T-shirt
 - Title: "Exclusive Merchandise"
-- Description: "Active beta testers get free YardPass swag (T-shirt, stickers, etc.)"
+- Description: "Active beta testers get free Liventix swag (T-shirt, stickers, etc.)"
 
 ---
 
@@ -171,10 +171,10 @@ Show current phase in beta roadmap
 - Explain your use case (helps us prioritize)
 
 **Privacy & NDA**
-- You're free to share YardPass with others
+- You're free to share Liventix with others
 - Screenshots and demos are okay
 - Please don't share beta builds or TestFlight links publicly
-- Report security issues privately (security@yardpass.com)
+- Report security issues privately (security@liventix.com)
 
 ---
 
@@ -253,7 +253,7 @@ Show progress toward launch goals (if comfortable sharing)
 - Critical Bugs: 2 / < 3 goal ✓
 
 **Explanation:**
-"We'll launch publicly when these metrics show YardPass is truly valuable and stable. Your active use and feedback helps us get there!"
+"We'll launch publicly when these metrics show Liventix is truly valuable and stable. Your active use and feedback helps us get there!"
 
 **CTA:**
 "View Detailed Analytics" (for super users/engaged testers)
@@ -282,7 +282,7 @@ Rank top users by:
 ### 10. FAQ for Beta Testers
 
 **Q: What if I find a bug?**
-A: Use the in-app feedback button or email bugs@yardpass.com. Screenshots help!
+A: Use the in-app feedback button or email bugs@liventix.com. Screenshots help!
 
 **Q: Can I invite my team to beta?**
 A: Yes! Each beta tester gets 3 invite codes. Find them in your account settings.
@@ -293,14 +293,14 @@ A: We estimate 8-12 weeks, but it depends on hitting our success metrics. We won
 **Q: What happens to my data when beta ends?**
 A: Nothing! All your events, tickets, and data carry over seamlessly to the public launch.
 
-**Q: Can I use YardPass for a real event during beta?**
+**Q: Can I use Liventix for a real event during beta?**
 A: Absolutely! That's the best kind of testing. We're stable enough for real events, but have a backup plan just in case.
 
 **Q: What if I need help?**
-A: Email support@yardpass.com or use the in-app chat. Beta testers get priority support.
+A: Email support@liventix.com or use the in-app chat. Beta testers get priority support.
 
 **Q: Will my lifetime discount really last forever?**
-A: Yes! As long as you stay a YardPass customer, you'll keep your beta discount.
+A: Yes! As long as you stay a Liventix customer, you'll keep your beta discount.
 
 ---
 
@@ -317,7 +317,7 @@ A: Yes! As long as you stay a YardPass customer, you'll keep your beta discount.
 - **Week After**: Lifetime discounts applied
 
 **Promise:**
-"Your YardPass account, data, and events will transition smoothly. No downtime. No data loss. Just new features and more users to connect with."
+"Your Liventix account, data, and events will transition smoothly. No downtime. No data loss. Just new features and more users to connect with."
 
 ---
 

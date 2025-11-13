@@ -1,8 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = [
-  "https://app.yardpass.com",
-  "https://staging.yardpass.com",
+  "https://app.liventix.com",
+  "https://staging.liventix.com",
   "http://localhost:5173",
 ];
 
@@ -23,7 +23,7 @@ function withCORS(
     if (opts.allowOrigins?.length) {
       const isAllowed = opts.allowOrigins.some(allowed => {
         if (allowed === origin) return true;
-        // Support wildcard patterns like *.yardpass.com
+        // Support wildcard patterns like *.liventix.com
         if (allowed.includes("*")) {
           const pattern = allowed.replace(/\./g, "\\.").replace(/\*/g, ".*");
           return new RegExp(`^${pattern}$`).test(origin);

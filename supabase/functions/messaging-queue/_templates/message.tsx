@@ -183,10 +183,10 @@ export const MessageEmail = ({
                 <tr>
                   <td align="center">
                     <Img
-                      src={org_logo_url || 'https://yieslxnrfeqchbcmgavz.supabase.co/yardpass-logo.png'}
+                      src={org_logo_url || 'https://yieslxnrfeqchbcmgavz.supabase.co/liventix-logo.png'}
                       width={180}
                       height={60}
-                      alt={org_name || 'YardPass'}
+                      alt={org_name || 'Liventix'}
                       style={logo}
                     />
                   </td>
@@ -250,11 +250,11 @@ export const MessageEmail = ({
           {/* Footer */}
           <Section style={footer} className="content-pad">
             <Text style={footerLinks}>
-              <Link href="https://yardpass.app" style={footerLink}>{org_name || 'YardPass'}</Link>
+              <Link href="https://liventix.app" style={footerLink}>{org_name || 'Liventix'}</Link>
               {' · '}
-              <Link href="https://yardpass.app/help" style={footerLink}>Help Center</Link>
+              <Link href="https://liventix.app/help" style={footerLink}>Help Center</Link>
               {' · '}
-              <Link href="https://yardpass.app/privacy" style={footerLink}>Privacy</Link>
+              <Link href="https://liventix.app/privacy" style={footerLink}>Privacy</Link>
               {unsubscribe_url ? (
                 <>
                   {' · '}
@@ -263,7 +263,7 @@ export const MessageEmail = ({
               ) : null}
             </Text>
             <Text style={footerCopyright}>
-              © {new Date().getFullYear()} {org_name || 'YardPass'}. All rights reserved.
+              © {new Date().getFullYear()} {org_name || 'Liventix'}. All rights reserved.
             </Text>
           </Section>
         </Container>

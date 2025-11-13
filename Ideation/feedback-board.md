@@ -22,7 +22,7 @@ Collect, organize, and prioritize user feedback to guide product development and
 
 ### 1. Landing on Feedback Board
 **Header Section:**
-- Title: "Help Shape YardPass"
+- Title: "Help Shape Liventix"
 - Subtitle: "Your feedback drives our roadmap. Vote on features, report bugs, and share ideas."
 - Search bar: "Search existing feedback..."
 - CTA: "Submit New Feedback" (prominent button)
@@ -162,7 +162,7 @@ Under Review (team reviews)
 - Most active users
 
 ## Design Requirements
-- Match YardPass brand colors and typography
+- Match Liventix brand colors and typography
 - Mobile-responsive (optimized for phone voting)
 - Quick upvote interaction (single click/tap)
 - Clear visual hierarchy
@@ -182,7 +182,7 @@ Under Review (team reviews)
 - Keep tone positive and constructive in responses
 
 ## Launch Checklist
-- [ ] Set up Canny board with YardPass branding
+- [ ] Set up Canny board with Liventix branding
 - [ ] Create initial categories
 - [ ] Configure status workflow
 - [ ] Set up email notifications

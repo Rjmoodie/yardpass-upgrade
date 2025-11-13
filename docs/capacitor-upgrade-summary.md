@@ -99,8 +99,8 @@ Ran `npx cap sync ios` to update the iOS native project with all latest packages
 ## 📋 Configuration Verification
 
 ### App Identity (capacitor.config.ts)
-✅ **appId**: `com.yardpass.app` - Standardized and ready for Apple Developer sync
-✅ **appName**: `YardPass` - Consistent with branding
+✅ **appId**: `com.liventix.app` - Standardized and ready for Apple Developer sync
+✅ **appName**: `Liventix` - Consistent with branding
 
 ### Status Bar & Theme Handling
 ✅ Dynamic light/dark styles applied through `initIOSCapacitor()`
@@ -222,7 +222,7 @@ npx cap open ios
 
 ## 🎉 Summary
 
-All Capacitor packages are now current on v7.x, the missing `@capacitor/keyboard` plugin has been added, and the iOS initialization code has been modernized with proper ES6 imports. The configuration in `capacitor.config.ts` aligns with Apple Developer settings (`com.yardpass.app`), and all native plugins are properly synced.
+All Capacitor packages are now current on v7.x, the missing `@capacitor/keyboard` plugin has been added, and the iOS initialization code has been modernized with proper ES6 imports. The configuration in `capacitor.config.ts` aligns with Apple Developer settings (`com.liventix.app`), and all native plugins are properly synced.
 
 The app maintains its responsive, tactile iOS-native experience through:
 - ✅ Dynamic status bar theming

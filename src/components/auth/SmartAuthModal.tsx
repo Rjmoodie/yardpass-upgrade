@@ -384,7 +384,7 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
           <div className="mx-auto w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4">
             <span className="text-3xl font-bold text-primary">Y</span>
           </div>
-          <h1 className="text-3xl font-bold text-primary mb-2">YardPass</h1>
+          <h1 className="text-3xl font-bold text-primary mb-2">Liventix</h1>
           <p className="text-sm text-muted-foreground">Your gateway to events and culture</p>
         </div>
 
@@ -552,7 +552,7 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
             <div className="p-4 bg-muted/50 rounded-lg text-left space-y-2">
               <p className="text-sm font-semibold">What's next?</p>
               <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                <li>Open the email from YardPass</li>
+                <li>Open the email from Liventix</li>
                 <li>Click the "Sign In" button</li>
                 <li>You'll be instantly signed in!</li>
               </ol>
@@ -578,7 +578,7 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
               <Sparkles className="h-5 w-5 text-primary mt-0.5" />
               <div>
                 <p className="font-semibold">Create your account</p>
-                <p className="text-sm text-muted-foreground">Join YardPass - no password needed!</p>
+                <p className="text-sm text-muted-foreground">Join Liventix - no password needed!</p>
               </div>
             </div>
 

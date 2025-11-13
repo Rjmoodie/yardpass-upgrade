@@ -302,7 +302,7 @@ But navigation now points to new design by default!
 
 ## 🎉 SUCCESS!
 
-**Your YardPass app now features:**
+**Your Liventix app now features:**
 - ✅ Beautiful new design across all screens
 - ✅ 100% real data (0% mock)
 - ✅ Smooth animations and transitions

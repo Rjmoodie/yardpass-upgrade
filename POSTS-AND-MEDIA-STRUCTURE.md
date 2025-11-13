@@ -245,7 +245,7 @@ Render full-screen cards
     video_series: `event:${post.event_id}`,
     viewer_user_id: user?.id,
     custom_1: post.id,
-    player_name: "YardPass Feed"
+    player_name: "Liventix Feed"
   }}
   onPlay={() => trackVideoPlay()}
   onTimeUpdate={(e) => trackProgress(e.detail.currentTime)}

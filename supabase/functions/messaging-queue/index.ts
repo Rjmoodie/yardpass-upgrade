@@ -94,7 +94,7 @@ serve(async (req) => {
         orgInfo = {
           name: org.name,
           logoUrl: org.logo_url,
-          websiteUrl: org.handle ? `https://yardpass.tech/org/${org.handle}` : undefined,
+          websiteUrl: org.handle ? `https://liventix.tech/org/${org.handle}` : undefined,
           supportEmail: org.support_email,
         };
       }
@@ -125,9 +125,9 @@ serve(async (req) => {
         .replace(/{{venue}}/g, event?.venue || 'TBA')
         .replace(/{{city}}/g, event?.city || 'TBA')
         .replace(/{{event_time}}/g, event?.start_at ? new Date(event.start_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'TBA')
-        .replace(/{{support_email}}/g, orgInfo?.supportEmail || 'support@yardpass.tech')
-        .replace(/{{ticket_portal_url}}/g, `${SUPABASE_URL?.replace('/rest/v1', '') || 'https://yardpass.tech'}/events/${eventId}`)
-        .replace(/{{order_lookup_url}}/g, `${SUPABASE_URL?.replace('/rest/v1', '') || 'https://yardpass.tech'}/tickets`);
+        .replace(/{{support_email}}/g, orgInfo?.supportEmail || 'support@liventix.tech')
+        .replace(/{{ticket_portal_url}}/g, `${SUPABASE_URL?.replace('/rest/v1', '') || 'https://liventix.tech'}/events/${eventId}`)
+        .replace(/{{order_lookup_url}}/g, `${SUPABASE_URL?.replace('/rest/v1', '') || 'https://liventix.tech'}/tickets`);
     };
 
     let processed = 0;
@@ -190,11 +190,11 @@ serve(async (req) => {
             body: JSON.stringify({
               from: job.from_email && job.from_name 
                 ? `${job.from_name} <${job.from_email}>` 
-                : job.from_email || "YardPass <noreply@yardpass.tech>",
+                : job.from_email || "Liventix <noreply@liventix.tech>",
               to: [recipientEmail],
               subject,
               html,
-              reply_to: job.reply_to || "support@yardpass.tech",
+              reply_to: job.reply_to || "support@liventix.tech",
             }),
           });
 

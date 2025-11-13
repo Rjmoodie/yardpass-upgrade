@@ -1,5 +1,5 @@
 /**
- * Shared pricing and fee calculation utilities for YardPass checkout flows
+ * Shared pricing and fee calculation utilities for Liventix checkout flows
  * 
  * This module provides canonical fee calculation logic used across all checkout
  * implementations (enhanced-checkout, guest-checkout, etc.).

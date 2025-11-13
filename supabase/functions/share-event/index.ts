@@ -31,18 +31,18 @@ serve(async (req) => {
     }
 
     // Create share URL
-    const baseUrl = req.headers.get('origin') || 'https://yardpass.app';
+    const baseUrl = req.headers.get('origin') || 'https://liventix.app';
     const shareUrl = `${baseUrl}/event/${event.id}`;
     
     // Create share text
-    const shareText = `Check out ${event.title} on YardPass! ${event.description ? event.description.slice(0, 100) + '...' : ''}`;
+    const shareText = `Check out ${event.title} on Liventix! ${event.description ? event.description.slice(0, 100) + '...' : ''}`;
 
     // Platform-specific URLs
     const platformUrls = {
       twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
       whatsapp: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`,
-      email: `mailto:?subject=${encodeURIComponent(`${event.title} on YardPass`)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`,
+      email: `mailto:?subject=${encodeURIComponent(`${event.title} on Liventix`)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`,
       copy: shareUrl
     };
 

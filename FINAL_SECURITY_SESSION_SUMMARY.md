@@ -1,4 +1,4 @@
-# 🔒 YardPass Security Review - Final Summary
+# 🔒 Liventix Security Review - Final Summary
 
 **Date:** November 9, 2025  
 **Session Duration:** ~3 hours  
@@ -8,7 +8,7 @@
 
 ## 🎯 Mission Accomplished
 
-We conducted a **comprehensive security audit** of YardPass authentication and role invite systems, identified **22 security issues**, and **fixed all 5 critical vulnerabilities** in one session.
+We conducted a **comprehensive security audit** of Liventix authentication and role invite systems, identified **22 security issues**, and **fixed all 5 critical vulnerabilities** in one session.
 
 ---
 
@@ -215,7 +215,7 @@ SELECT
 ### **Test 2: Test Invite Authorization**
 
 ```typescript
-// In browser console on YardPass app:
+// In browser console on Liventix app:
 
 // A) Try to send invite for event you DON'T own:
 const { error: unauthorized } = await supabase.functions.invoke('send-role-invite', {
@@ -552,7 +552,7 @@ You've successfully:
 ✅ **Documented** everything comprehensively  
 ✅ **Verified** fixes are working  
 
-**Your YardPass platform is now significantly more secure!** 🔒
+**Your Liventix platform is now significantly more secure!** 🔒
 
 ---
 

@@ -251,7 +251,7 @@ Here's the adapted V2 migration for YOUR schema:
 -- File: supabase/migrations/20251027000000_analytics_v2_views.sql
 
 -- ===================================================================
--- ANALYTICS V2 VIEWS - Adapted for YardPass Schema
+-- ANALYTICS V2 VIEWS - Adapted for Liventix Schema
 -- ===================================================================
 
 -- 1. Calendar spine

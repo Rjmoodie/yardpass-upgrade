@@ -339,7 +339,7 @@ npx supabase db execute --file supabase/migrations/20250131000004_ticket_account
 
 ### **Step 2: Verify Deployment**
 ```sql
--- Should return YardPass with correct counts
+-- Should return Liventix with correct counts
 SELECT * FROM public.ticket_availability
 WHERE event_id = '529d3fcb-bc8d-4f5c-864c-ab82e4f75bf3';
 ```
@@ -363,7 +363,7 @@ SELECT cron.schedule(
 
 ---
 
-## 📊 **Current Status: YardPass Launch**
+## 📊 **Current Status: Liventix Launch**
 
 | Metric | Value |
 |--------|-------|

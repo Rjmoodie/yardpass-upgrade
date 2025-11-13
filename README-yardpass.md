@@ -1,4 +1,4 @@
-# YardPass Figma Design System
+# Liventix Figma Design System
 
 A comprehensive React/TypeScript component library built from Figma designs, featuring Storybook documentation and Figma Code Connect integration.
 
@@ -12,8 +12,8 @@ A comprehensive React/TypeScript component library built from Figma designs, fea
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/yardpass-figma.git
-cd yardpass-figma
+git clone https://github.com/YOUR_USERNAME/liventix-figma.git
+cd liventix-figma
 
 # Install dependencies
 npm install
@@ -49,7 +49,7 @@ This repository is configured for Figma Code Connect, allowing designers to:
 2. In Dev Mode, click **Code Connect** in the right panel
 3. Add this repository as a source:
    ```
-   https://raw.githubusercontent.com/YOUR_USERNAME/yardpass-figma/main/figma.config.json
+   https://raw.githubusercontent.com/YOUR_USERNAME/liventix-figma/main/figma.config.json
    ```
 4. Map your Figma components to code components in the config
 
@@ -62,14 +62,14 @@ Edit `figma.config.json` to:
 
 ## 📖 Documentation
 
-- **[Storybook Documentation](https://YOUR_USERNAME.github.io/yardpass-figma/)** - Interactive component documentation
-- **[Design Guidelines](./yardpass%20figma/Guidelines.md)** - Design system principles
-- **[Attributions](./yardpass%20figma/Attributions.md)** - Third-party licenses
+- **[Storybook Documentation](https://YOUR_USERNAME.github.io/liventix-figma/)** - Interactive component documentation
+- **[Design Guidelines](./liventix%20figma/Guidelines.md)** - Design system principles
+- **[Attributions](./liventix%20figma/Attributions.md)** - Third-party licenses
 
 ## 🏗️ Project Structure
 
 ```
-yardpass-figma/
+liventix-figma/
 ├── src/
 │   ├── components/          # React components
 │   │   ├── figma/          # Figma-specific utilities
@@ -139,7 +139,7 @@ Typography scales are defined in CSS custom properties and applied consistently.
 
 ### Storybook Deployment
 Storybook automatically deploys to GitHub Pages on push to `main`:
-- **URL**: `https://YOUR_USERNAME.github.io/yardpass-figma/`
+- **URL**: `https://YOUR_USERNAME.github.io/liventix-figma/`
 - **Trigger**: Push to main branch
 - **Action**: `.github/workflows/deploy-storybook.yml`
 

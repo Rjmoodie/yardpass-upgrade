@@ -153,7 +153,7 @@ After making a new purchase, check:
 
 2. **Email Inbox:**
    - Check `roderickmoodie@yahoo.com`
-   - Look for email from `YardPass <noreply@yardpass.tech>`
+   - Look for email from `Liventix <noreply@liventix.tech>`
    - Subject: `✅ Ticket Confirmation - [Event Name]`
 
 3. **Resend Dashboard:**

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Security audit script for YardPass
+ * Security audit script for Liventix
  * Runs npm audit and additional security checks
  */
 

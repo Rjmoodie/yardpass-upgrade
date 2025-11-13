@@ -25,10 +25,13 @@ interface UserPostCardNewDesignProps {
   onShare: () => void;
   onAuthorClick: () => void;
   onReport?: () => void;
-  onDelete?: () => void; // ✅ Added delete callback
+  onDelete?: () => void;
+  onEventClick?: (eventId: string) => void; // ✅ Navigate to event
   soundEnabled?: boolean;
   isVideoPlaying?: boolean;
   onGetTickets?: (eventId: string) => void;
+  onVideoToggle?: () => void;
+  onOpenTickets?: (eventId: string) => void;
 }
 
 const UserPostCardNewDesignComponent = ({
@@ -39,9 +42,12 @@ const UserPostCardNewDesignComponent = ({
   onAuthorClick,
   onReport,
   onDelete,
+  onEventClick,
   soundEnabled = false,
   isVideoPlaying = false,
-  onGetTickets
+  onGetTickets,
+  onVideoToggle,
+  onOpenTickets
 }: UserPostCardNewDesignProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -245,7 +251,7 @@ const UserPostCardNewDesignComponent = ({
                         🎖️ ORGANIZER
                       </div>
                     ) : item.author_badge && (
-                      <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
+                      <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-500/20 to-brand-600/20 border border-brand-500/30 px-2 py-0.5 text-[10px] font-bold text-brand-400">
                         <Ticket className="h-3 w-3" />
                         {item.author_badge}
                       </div>
@@ -285,7 +291,9 @@ const UserPostCardNewDesignComponent = ({
                   <div 
                     onClick={(e) => {
                       e.stopPropagation();
-                      item.event_id && navigate(`/e/${item.event_id}`);
+                      if (item.event_id) {
+                        onEventClick?.(item.event_id);
+                      }
                     }}
                     className="mt-1.5 cursor-pointer group/event"
                   >
@@ -406,7 +414,9 @@ const UserPostCardNewDesignComponent = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    item.event_id && navigate(`/e/${item.event_id}`);
+                    if (item.event_id) {
+                      onEventClick?.(item.event_id);
+                    }
                   }}
                   className="mt-4 w-full rounded-full border border-border bg-muted/20 py-2.5 text-sm font-semibold text-foreground transition-all hover:bg-muted/30 active:scale-95"
                 >

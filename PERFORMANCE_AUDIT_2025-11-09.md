@@ -1,4 +1,4 @@
-# 🔍 YardPass Performance Audit
+# 🔍 Liventix Performance Audit
 **Date:** November 9, 2025  
 **Type:** Non-Breaking Analysis  
 **Status:** For Review Only - No Changes Made
@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-Overall, YardPass demonstrates **good performance fundamentals** with sophisticated optimization patterns already in place. The database layer is well-indexed, React patterns show proper memoization, and code splitting is implemented. However, there are **medium-impact optimization opportunities** that could reduce load times by 20-30% and improve user experience.
+Overall, Liventix demonstrates **good performance fundamentals** with sophisticated optimization patterns already in place. The database layer is well-indexed, React patterns show proper memoization, and code splitting is implemented. However, there are **medium-impact optimization opportunities** that could reduce load times by 20-30% and improve user experience.
 
 ### Priority Rating
 - 🔴 **Critical** - Impacts all users significantly
@@ -913,7 +913,7 @@ Based on industry standards and mobile-first design:
 
 **Overall Assessment:** ⭐⭐⭐⭐ (4/5 stars)
 
-YardPass has a **solid performance foundation** with sophisticated optimization patterns already in place:
+Liventix has a **solid performance foundation** with sophisticated optimization patterns already in place:
 - Advanced database indexes and ranking functions
 - Proper code splitting and React optimization patterns
 - Good analytics and monitoring foundations

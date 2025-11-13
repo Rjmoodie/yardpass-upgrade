@@ -321,7 +321,7 @@ EXECUTE FUNCTION events.update_event_tag_counts();
 # From project root
 supabase db push
 # or
-psql -U postgres -d yardpass -f supabase/migrations/20250103_add_event_creator_features.sql
+psql -U postgres -d liventix -f supabase/migrations/20250103_add_event_creator_features.sql
 ```
 
 ### 2. Update TypeScript Types:

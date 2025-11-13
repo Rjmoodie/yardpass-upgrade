@@ -1,6 +1,6 @@
-# YardPass Specification Document
+# Liventix Specification Document
 
-This document outlines the current product policies, flows, and structures for YardPass.  
+This document outlines the current product policies, flows, and structures for Liventix.  
 It is written in Markdown format for portability (can be imported into Notion, GitHub, or any Markdown editor).
 
 ---
@@ -137,4 +137,4 @@ It is written in Markdown format for portability (can be imported into Notion, G
 
 ---
 
-*End of YardPass Spec*
+*End of Liventix Spec*

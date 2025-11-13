@@ -40,7 +40,7 @@ select id, email from auth.users where email = 'your-email@example.com';
 
 You should see 8 test notifications:
 
-1. **🎉 Welcome to YardPass!** (Success) - 2 min ago
+1. **🎉 Welcome to Liventix!** (Success) - 2 min ago
 2. **📅 New Event Posted** (Info) - 5 min ago  
 3. **⚠️ Ticket Sale Ends Soon** (Warning) - 15 min ago
 4. **❤️ Someone liked your post** (Success) - 30 min ago

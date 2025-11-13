@@ -1,7 +1,7 @@
 # Stripe Fraud Prevention Configuration
 
 ## Overview
-This document outlines the fraud prevention measures to implement in your Stripe account and YardPass codebase.
+This document outlines the fraud prevention measures to implement in your Stripe account and Liventix codebase.
 
 ## ⚠️ Critical Security Measures
 

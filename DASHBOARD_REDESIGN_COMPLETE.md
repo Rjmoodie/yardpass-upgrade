@@ -444,12 +444,12 @@ const exitOrganizerMode = useCallback(async () => {
 ```
 Before:
 [Organizer Dashboard] [OrgSwitcher] 
-YardPass Official • 5 events • 53 attendees • $834 revenue
+Liventix Official • 5 events • 53 attendees • $834 revenue
 [App View] [Create Event] [New Org]
 
 After:
 [Organizer Dashboard] [OrgSwitcher] [🛡️ Organizer]
-YardPass Official • 5 events • 53 attendees • $834.96 revenue
+Liventix Official • 5 events • 53 attendees • $834.96 revenue
 [← Exit Organizer] [App View] [Create Event] [New Org]
 ```
 

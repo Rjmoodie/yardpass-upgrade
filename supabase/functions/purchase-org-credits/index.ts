@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
         
         // Fraud prevention: Add payment intent metadata
         payment_intent_data: {
-          description: `${credits.toLocaleString()} YardPass org credits`,
+          description: `${credits.toLocaleString()} Liventix org credits`,
           metadata: {
             user_id: user.id,
             org_id: org_id,

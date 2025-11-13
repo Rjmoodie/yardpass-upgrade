@@ -1,5 +1,5 @@
 -- ============================================================
--- YardPass Database Diagnostic: Check Missing Tables & Schemas
+-- Liventix Database Diagnostic: Check Missing Tables & Schemas
 -- ============================================================
 -- Run this in your Supabase SQL Editor to see what's missing
 -- ============================================================

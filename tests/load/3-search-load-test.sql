@@ -1,5 +1,5 @@
 -- =====================================================
--- YardPass Load Test #3: Search & Discovery System
+-- Liventix Load Test #3: Search & Discovery System
 -- =====================================================
 -- Purpose: Test search performance with complex queries
 -- Run this in Supabase SQL Editor

@@ -1,4 +1,4 @@
-# 🚀 YardPass Database Migration - Quick Checklist
+# 🚀 Liventix Database Migration - Quick Checklist
 
 > **Goal:** Transform 150+ tables in `public` schema into 12 domain-specific schemas
 
@@ -200,7 +200,7 @@ If something goes wrong:
 1. **Stop application writes**
 2. **Restore from backup**
    ```bash
-   pg_restore yardpass_backup.sql
+   pg_restore liventix_backup.sql
    ```
 3. **Drop new schemas**
    ```sql

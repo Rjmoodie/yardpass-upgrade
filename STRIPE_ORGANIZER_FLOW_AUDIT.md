@@ -1,4 +1,4 @@
-# 🏦 Stripe & Organizer Payment Flow Audit (YardPass)
+# 🏦 Stripe & Organizer Payment Flow Audit (Liventix)
 
 **Date:** November 10, 2025  
 **Scope:** End-to-end Stripe integration (organizer onboarding → checkout → payouts)  

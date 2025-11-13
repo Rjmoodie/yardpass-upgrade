@@ -2,7 +2,7 @@
 
 ## Overview
 
-Your YardPass ad platform now includes **industry-standard conversion tracking** with:
+Your Liventix ad platform now includes **industry-standard conversion tracking** with:
 
 - ✅ **7-day last-click attribution** (preferred)
 - ✅ **1-day view-through attribution** (fallback)

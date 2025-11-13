@@ -31,7 +31,7 @@ await supabase
 ### **Step 1: Apply Fixed Migration**
 
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 # Apply the fixed version:
 supabase db push
@@ -111,7 +111,7 @@ console.log(error);
 
 ```bash
 # 1. Apply migration
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 supabase db push
 
 # 2. Check success (should be in output)

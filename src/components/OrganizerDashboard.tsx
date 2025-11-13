@@ -23,6 +23,7 @@ import {
   HandshakeIcon,
   LayoutDashboard,
   Smartphone,
+  RefreshCcw,
   ArrowLeft,
   Shield,
   Loader2,
@@ -112,7 +113,7 @@ interface EnhancedEvent extends Event {
 
 // ─────────────────────────────────────────
 // Navigation Configuration
-const TAB_KEYS = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'wallet', 'payouts', 'sponsorship'] as const;
+const TAB_KEYS = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'wallet', 'payouts', 'refunds', 'sponsorship'] as const;
 type TabKey = typeof TAB_KEYS[number];
 const DEFAULT_TAB: TabKey = 'events';
 
@@ -125,7 +126,7 @@ const MAX_RECENT_POSTS = 10; // Maximum number of recent posts to fetch for even
 const APP_VIEW_TABS: TabKey[] = ['events', 'messaging', 'teams'];
 
 // Full Dashboard tabs (desktop/complete view with all heavy utilities)
-const FULL_DASHBOARD_TABS: TabKey[] = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'wallet', 'payouts', 'sponsorship'];
+const FULL_DASHBOARD_TABS: TabKey[] = ['events', 'analytics', 'campaigns', 'messaging', 'teams', 'wallet', 'payouts', 'refunds', 'sponsorship'];
 
 type ViewMode = 'app' | 'full';
 const VIEW_MODE_KEY = 'organizer.viewMode';
@@ -1234,6 +1235,16 @@ export default function OrganizerDashboard() {
               <TabsTrigger value="payouts" className="flex-col gap-1.5 min-w-[90px] flex-shrink-0">
                 <DollarSign className="h-5 w-5" />
                 <span className="text-xs whitespace-nowrap">Payouts</span>
+              </TabsTrigger>
+            )}
+            {availableTabs.includes('refunds') && (
+              <TabsTrigger 
+                value="refunds" 
+                className="flex-col gap-1.5 min-w-[90px] flex-shrink-0"
+                onClick={() => window.location.href = '/dashboard/refunds'}
+              >
+                <RefreshCcw className="h-5 w-5" />
+                <span className="text-xs whitespace-nowrap">Refunds</span>
               </TabsTrigger>
             )}
             {availableTabs.includes('sponsorship') && (

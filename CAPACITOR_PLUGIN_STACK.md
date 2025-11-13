@@ -1,10 +1,10 @@
-# YardPass Capacitor Plugin Stack
+# Liventix Capacitor Plugin Stack
 
-This document outlines all Capacitor plugins used in the YardPass mobile application, their purpose, priority, and implementation status.
+This document outlines all Capacitor plugins used in the Liventix mobile application, their purpose, priority, and implementation status.
 
 ## Overview
 
-YardPass uses Capacitor 7.x to provide a hybrid mobile experience that bridges web technologies with native iOS and Android capabilities. All plugins are carefully selected to support core features like ticketing, social feed, sponsorships, and real-time engagement.
+Liventix uses Capacitor 7.x to provide a hybrid mobile experience that bridges web technologies with native iOS and Android capabilities. All plugins are carefully selected to support core features like ticketing, social feed, sponsorships, and real-time engagement.
 
 ## Plugin Inventory
 
@@ -98,7 +98,7 @@ Capacitor plugins are initialized at app startup in `src/main.tsx` using the cen
 import { initializeCapacitor } from '@/lib/capacitor-init';
 
 initializeCapacitor().then((state) => {
-  console.log('[YardPass] Capacitor initialized:', state.platform);
+  console.log('[Liventix] Capacitor initialized:', state.platform);
 });
 ```
 
@@ -186,9 +186,9 @@ All plugins are maintained at **Capacitor 7.x** for consistency and compatibilit
 
 **Last Updated**: November 5, 2025  
 **Capacitor Version**: 7.4.3  
-**Maintained By**: YardPass Engineering Team
+**Maintained By**: Liventix Engineering Team
 
 ---
 
-For questions or plugin requests, contact the YardPass development team or create an issue in the repository.
+For questions or plugin requests, contact the Liventix development team or create an issue in the repository.
 

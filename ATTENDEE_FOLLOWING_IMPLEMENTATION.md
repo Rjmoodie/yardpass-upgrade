@@ -1,7 +1,7 @@
 # Attendee Following Implementation
 
 ## Overview
-This implementation adds comprehensive user-to-user following capabilities to YardPass, enabling professional networking at events. Users can now follow other attendees, organizers, and discover new connections to build their network.
+This implementation adds comprehensive user-to-user following capabilities to Liventix, enabling professional networking at events. Users can now follow other attendees, organizers, and discover new connections to build their network.
 
 ## Database Changes
 
@@ -228,6 +228,6 @@ supabase migration apply 20250301000012_attendee_following_features
 
 ## Conclusion
 
-This implementation provides a comprehensive user-to-user following system that enhances YardPass's social networking capabilities. Users can now discover, follow, and connect with other attendees, creating a more engaging and social event experience.
+This implementation provides a comprehensive user-to-user following system that enhances Liventix's social networking capabilities. Users can now discover, follow, and connect with other attendees, creating a more engaging and social event experience.
 
 The system is designed to be secure, performant, and user-friendly, with proper privacy controls and real-time updates. It integrates seamlessly with the existing follow system while adding powerful new social networking features.

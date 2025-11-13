@@ -39,7 +39,7 @@ export function withCORS(
     if (opts.allowOrigins?.length) {
       const isAllowed = opts.allowOrigins.some(allowed => {
         if (allowed === origin) return true;
-        // Support wildcard patterns like *.yardpass.com
+        // Support wildcard patterns like *.liventix.com
         if (allowed.includes("*")) {
           const pattern = allowed.replace(/\./g, "\\.").replace(/\*/g, ".*");
           return new RegExp(`^${pattern}$`).test(origin);

@@ -1,6 +1,6 @@
-# 🎨 YardPass Main Screens - Design Structure & Files
+# 🎨 Liventix Main Screens - Design Structure & Files
 
-Complete reference for all main screens in the YardPass application.
+Complete reference for all main screens in the Liventix application.
 
 ---
 

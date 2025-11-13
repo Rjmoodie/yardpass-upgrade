@@ -46,7 +46,7 @@ export async function registerServiceWorker() {
           posthog?.capture('service_worker_update_available');
           
           // Notify user (you can show a toast/banner here)
-          if (window.confirm('A new version of YardPass is available. Reload to update?')) {
+          if (window.confirm('A new version of Liventix is available. Reload to update?')) {
             newWorker.postMessage({ type: 'SKIP_WAITING' });
             window.location.reload();
           }

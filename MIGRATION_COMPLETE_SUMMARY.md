@@ -11,7 +11,7 @@ You successfully migrated **150+ tables** from a monolithic `public` schema to a
 ## 📊 Final Database Structure
 
 ```
-YardPass Database
+Liventix Database
 ├── ✅ ref (5 tables)           - Reference data
 ├── ✅ users (2 tables)          - 509 profiles
 ├── ✅ organizations (4 tables)  - 4 orgs, 2 members  

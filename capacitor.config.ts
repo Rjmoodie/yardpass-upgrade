@@ -1,8 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.yardpass.app',
-  appName: 'YardPass',
+  appId: 'com.liventix.app',
+  appName: 'Liventix',
   webDir: 'dist',
   plugins: {
     SplashScreen: {
@@ -33,7 +33,7 @@ const config: CapacitorConfig = {
     Preferences: {},
     // In-app browser for OAuth, terms, policies, and sponsor external sites
     Browser: {
-      // Custom toolbar color to match YardPass branding
+      // Custom toolbar color to match Liventix branding
       toolbarColor: '#000000',
       // Show title in toolbar
       showTitle: true,
@@ -43,7 +43,7 @@ const config: CapacitorConfig = {
     // QR code and barcode scanning for ticket validation
     BarcodeScanner: {
       // Camera permission description
-      cameraPermissionDescription: 'YardPass needs camera access to scan ticket QR codes'
+      cameraPermissionDescription: 'Liventix needs camera access to scan ticket QR codes'
     },
     // Clipboard for copying referral codes and event links
     Clipboard: {},
@@ -69,7 +69,7 @@ const config: CapacitorConfig = {
     scrollEnabled: true,
     backgroundColor: '#ffffff',
     // Ensure proper safe area handling
-    scheme: 'YardPass',
+    scheme: 'Liventix',
     // Optimize for iOS deployment
     cordovaSwiftVersion: '5.0',
     // Ensure proper status bar handling

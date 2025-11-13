@@ -8,7 +8,7 @@ Switch between Stripe Hosted and Embedded checkout with a single environment var
 ## 🎯 **What You Get with Embedded Checkout**
 
 ### **User Experience:**
-- ✅ **No redirect** - Stay on YardPass throughout
+- ✅ **No redirect** - Stay on Liventix throughout
 - ✅ **Prominent timer** - Large countdown at top (30:00... 29:59...)
 - ✅ **Color-coded urgency**:
   - 🟢 Green (30-5 min)
@@ -16,12 +16,12 @@ Switch between Stripe Hosted and Embedded checkout with a single environment var
   - 🔴 Red + pulsing (< 1 min)
 - ✅ **Warning alerts** - Pop-up when < 1 minute
 - ✅ **Cancel button** - Easy to abandon
-- ✅ **Seamless flow** - Feels like part of YardPass
+- ✅ **Seamless flow** - Feels like part of Liventix
 
 ### **Visual Preview:**
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ [← Cancel]    YardPass Launch       🕐 29:45           │
+│ [← Cancel]    Liventix Launch       🕐 29:45           │
 │               Complete your purchase                    │
 └─────────────────────────────────────────────────────────┘
 │                                                          │
@@ -89,7 +89,7 @@ npx supabase functions deploy enhanced-checkout
 Ctrl/Cmd + Shift + R
 
 # Try purchasing tickets
-# Should stay on YardPass with embedded form!
+# Should stay on Liventix with embedded form!
 ```
 
 ---
@@ -103,7 +103,7 @@ VITE_USE_EMBEDDED_CHECKOUT=false
 # or just remove the variable
 ```
 
-### **Embedded Checkout** (New - Stays on YardPass):
+### **Embedded Checkout** (New - Stays on Liventix):
 ```bash
 # .env.local
 VITE_USE_EMBEDDED_CHECKOUT=true
@@ -188,12 +188,12 @@ VITE_USE_EMBEDDED_CHECKOUT=true
 
 | Feature | Hosted | Embedded |
 |---------|--------|----------|
-| **Timer Visibility** | Small (Stripe's) | Large (YardPass) |
-| **Stay on YardPass** | ❌ No | ✅ Yes |
+| **Timer Visibility** | Small (Stripe's) | Large (Liventix) |
+| **Stay on Liventix** | ❌ No | ✅ Yes |
 | **Custom Timer UI** | ❌ No | ✅ Yes |
 | **Warning Alerts** | ❌ No | ✅ Yes |
 | **Cancel Button** | ⚠️ Browser back | ✅ Prominent |
-| **Brand Consistency** | ⚠️ Stripe branding | ✅ YardPass branding |
+| **Brand Consistency** | ⚠️ Stripe branding | ✅ Liventix branding |
 | **Setup Complexity** | ✅ Simple | ⚠️ Moderate |
 | **PCI Compliance** | ✅ Yes | ✅ Yes |
 | **Stripe Fees** | Same | Same |
@@ -210,7 +210,7 @@ VITE_USE_EMBEDDED_CHECKOUT=true
 - [ ] Timer should be prominent at top
 - [ ] Enter test card: `4242 4242 4242 4242`
 - [ ] Complete purchase
-- [ ] Should stay on YardPass
+- [ ] Should stay on Liventix
 - [ ] Verify tickets appear
 
 ### **Test Hosted Mode:**
@@ -220,7 +220,7 @@ VITE_USE_EMBEDDED_CHECKOUT=true
 - [ ] Should redirect to stripe.com
 - [ ] See Stripe's page with your branding
 - [ ] Complete purchase
-- [ ] Return to YardPass
+- [ ] Return to Liventix
 
 ---
 
@@ -239,7 +239,7 @@ VITE_USE_EMBEDDED_CHECKOUT=true
 npm run dev
 ```
 
-3. **Test purchase** - Should stay on YardPass!
+3. **Test purchase** - Should stay on Liventix!
 
 ---
 

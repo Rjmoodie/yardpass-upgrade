@@ -21,7 +21,7 @@ Massive improvements to ticket purchasing, sold-out handling, date display, and 
 
 **Visual**:
 ```
-🕐 Tickets on hold for YardPass Launch    14:32  [Complete Purchase] [X]
+🕐 Tickets on hold for Liventix Launch    14:32  [Complete Purchase] [X]
    Complete your purchase before time runs out
 ```
 

@@ -167,7 +167,7 @@ if (authorId) {
 
 ## 📊 **Database Schema Structure:**
 
-Your YardPass database uses **schema-prefixed tables**:
+Your Liventix database uses **schema-prefixed tables**:
 
 | Schema | Key Tables | Used By |
 |--------|-----------|---------|

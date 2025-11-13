@@ -116,7 +116,7 @@
 ## Cross-Platform
 
 ### URL Handling
-- [ ] **iOS universal links**: `yardpass.com` links open app when installed
+- [ ] **iOS universal links**: `liventix.com` links open app when installed
 - [ ] **Android app links**: Deep links handled correctly
 - [ ] **Web fallback**: Links open in browser when app not installed
 

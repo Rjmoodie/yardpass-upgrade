@@ -294,11 +294,11 @@ UserPostCardNewDesign.tsx
 ### **What Happens When User Opens App:**
 
 ```
-0ms     User taps YardPass icon
+0ms     User taps Liventix icon
         ↓
 50ms    iOS launches Safari/WKWebView
         ↓
-100ms   DNS lookup (yardpass.com)
+100ms   DNS lookup (liventix.com)
         ↓ [DNS Prefetch helps here!]
 150ms   TLS handshake
         ↓
@@ -570,7 +570,7 @@ function optimizeImageUrl(url: string, width: number): string {
   return `${url}?width=${width}&quality=80`;
   
   // Or use a CDN like Cloudinary/imgix
-  return `https://res.cloudinary.com/yardpass/image/fetch/w_${width},q_auto,f_auto/${url}`;
+  return `https://res.cloudinary.com/liventix/image/fetch/w_${width},q_auto,f_auto/${url}`;
 }
 
 // Usage

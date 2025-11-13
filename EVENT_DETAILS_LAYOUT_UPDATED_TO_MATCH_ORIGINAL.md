@@ -63,8 +63,8 @@ onClick={() => {
 │                                  │
 │                                  │
 │ [Music] [2847 attending]         │ ← Bottom overlay
-│ YardPass Launch                  │ ← Title in hero
-│ 👤 by YardPass Events Inc.      │ ← Organizer in hero
+│ Liventix Launch                  │ ← Title in hero
+│ 👤 by Liventix Events Inc.      │ ← Organizer in hero
 └──────────────────────────────────┘
 ```
 
@@ -76,8 +76,8 @@ onClick={() => {
 │                                  │
 │                                  │
 │ [Technology] [5 attending]       │ ← Bottom overlay
-│ YardPass Launch                  │ ← Title in hero ✅
-│ 🏢 by YardPass Events Inc.      │ ← Organization ✅
+│ Liventix Launch                  │ ← Title in hero ✅
+│ 🏢 by Liventix Events Inc.      │ ← Organization ✅
 └──────────────────────────────────┘
 ```
 
@@ -173,7 +173,7 @@ Tabs: About | Tickets | Posts | Attendees
 │                      │
 └──────────────────────┘
 ┌──────────────────────┐
-│ YardPass Launch      │ ← Title below image
+│ Liventix Launch      │ ← Title below image
 │ 👤 Roderick Moodie   │ ← Wrong (user, not org)
 │ [Date Card]          │
 │ [Location Card]      │
@@ -185,8 +185,8 @@ Tabs: About | Tickets | Posts | Attendees
 ┌──────────────────────┐
 │   Cover Image        │
 │ [Music] [5 attending]│ ← Badges
-│ YardPass Launch      │ ← Title in hero
-│ 🏢 by YardPass Inc.  │ ← Right (organization!)
+│ Liventix Launch      │ ← Title in hero
+│ 🏢 by Liventix Inc.  │ ← Right (organization!)
 └──────────────────────┘
 ┌──────────────────────┐
 │ About | Tickets ...  │ ← Tabs
@@ -220,7 +220,7 @@ Tabs: About | Tickets | Posts | Attendees
 
 ### **Example 1: Organization Event**
 
-**Event:** YardPass Launch  
+**Event:** Liventix Launch  
 **Database:**
 ```
 owner_context_type: 'organization'
@@ -229,7 +229,7 @@ owner_context_id: 'org-123'
 
 **Displays:**
 ```
-🏢 YardPass Events Inc.  ← Organization logo + name
+🏢 Liventix Events Inc.  ← Organization logo + name
    Event Organizer
 ```
 

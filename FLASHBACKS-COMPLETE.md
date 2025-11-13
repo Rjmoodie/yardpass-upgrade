@@ -134,8 +134,8 @@ Or via UI (Event Creation Wizard - to be added next):
 
 ### **Test Event Created:**
 - Event ID: `427745da-3195-4426-8c31-ad574d82861a`
-- Organization: YardPass Official
-- URL: https://yardpass.tech/e/427745da-3195-4426-8c31-ad574d82861a
+- Organization: Liventix Official
+- URL: https://liventix.tech/e/427745da-3195-4426-8c31-ad574d82861a
 - Window: Extended to Dec 3, 2025 (30 days)
 
 ### **Test Checklist:**

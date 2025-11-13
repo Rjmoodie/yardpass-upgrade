@@ -1,4 +1,4 @@
-# 🎨 New YardPass Feed Design - Implementation Guide
+# 🎨 New Liventix Feed Design - Implementation Guide
 
 ## 🎯 What Was Implemented
 
@@ -55,7 +55,7 @@ A completely redesigned feed experience with:
 8. **`src/index.css`**
    - Added `.hide-scrollbar` utility
    - Added `.feed-title-primary` and `.feed-title-secondary` classes
-   - Custom YardPass feed styles
+   - Custom Liventix feed styles
 
 ---
 

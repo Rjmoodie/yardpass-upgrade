@@ -38,7 +38,7 @@
 - ✅ Client generates unique `requestId` for idempotency
 
 #### 6. **Edge Function** (`ad-events`)
-- ✅ CORS configured for `*.yardpass.com` and `localhost`
+- ✅ CORS configured for `*.liventix.com` and `localhost`
 - ✅ Parses pricing/rate from request body
 - ✅ Calls RPC with proper type casting (`ad_placement`, `UUID`, `INET`)
 - ✅ Comprehensive error handling and logging

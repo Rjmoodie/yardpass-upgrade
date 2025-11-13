@@ -53,7 +53,7 @@ COMMENT ON VIEW public.guest_ticket_sessions IS 'View to access ticketing.guest_
 Run the deployment script:
 
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 ./deploy-all-guest-fixes.sh
 ```
 

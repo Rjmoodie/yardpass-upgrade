@@ -137,7 +137,7 @@ owner_context_id = 'org-456'
 
 **Example:**
 ```
-🏢 YardPass Events Inc.
+🏢 Liventix Events Inc.
    Event Organizer
 ```
 
@@ -214,12 +214,12 @@ Result: ✅ WORKING
 
 ### **Scenario 2: Organization Event**
 ```
-Event: "YardPass Launch"
+Event: "Liventix Launch"
 owner_context_type: 'organization'  
 owner_context_id: 'org-456'
 
 Expected:
-- Shows: "YardPass Events Inc." with org logo
+- Shows: "Liventix Events Inc." with org logo
 - Clicks to: /org/org-456
 
 Result: ✅ WORKING
@@ -233,15 +233,15 @@ Result: ✅ WORKING
 
 **BEFORE:**
 ```
-Event: "YardPass Launch"
+Event: "Liventix Launch"
 Organizer: "Roderick Moodie" ❌ (wrong - he just created it)
 ```
-Users would think Roderick is hosting personally, when actually YardPass organization is hosting.
+Users would think Roderick is hosting personally, when actually Liventix organization is hosting.
 
 **AFTER:**
 ```
-Event: "YardPass Launch"
-Organizer: "YardPass Events Inc." ✅ (correct - the org is hosting)
+Event: "Liventix Launch"
+Organizer: "Liventix Events Inc." ✅ (correct - the org is hosting)
 ```
 Users correctly see the organization as the host.
 
@@ -294,9 +294,9 @@ Users correctly see the organization as the host.
 
 ### **Example:**
 ```
-YardPass Launch event:
+Liventix Launch event:
 👤 Roderick Moodie (creator) ❌ BEFORE
-🏢 YardPass Events Inc. (host) ✅ AFTER
+🏢 Liventix Events Inc. (host) ✅ AFTER
 ```
 
 **User Request:** "still seeing user name as event organizer, rather than the orgatiztion of the event"

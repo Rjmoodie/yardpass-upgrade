@@ -1,4 +1,4 @@
-# YardPass Platform Specification (v2.0)
+# Liventix Platform Specification (v2.0)
 
 ## Core Specification (recap)
 See v1.0 spec for base functionality including:

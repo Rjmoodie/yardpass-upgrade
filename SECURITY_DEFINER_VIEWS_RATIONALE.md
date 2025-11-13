@@ -1,7 +1,7 @@
 # SECURITY DEFINER Views - Intentional Architecture
 
 ## Overview
-Supabase's database linter flags **all** `SECURITY DEFINER` views as `ERROR`-level warnings (rule `0010_security_definer_view`). However, in the YardPass architecture, these views are **intentional design choices**, not security bugs.
+Supabase's database linter flags **all** `SECURITY DEFINER` views as `ERROR`-level warnings (rule `0010_security_definer_view`). However, in the Liventix architecture, these views are **intentional design choices**, not security bugs.
 
 ---
 
@@ -16,7 +16,7 @@ Views that query tables with RLS enabled can cause "infinite recursion detected 
 **Solution**: Use `SECURITY DEFINER` views owned by a limited role (not superuser) to bypass RLS at the view level, while underlying tables still enforce RLS.
 
 ### 2. **Hiding Cross-Schema Complexity**
-YardPass uses multiple schemas (`events`, `payments`, `sponsorship`, `analytics`) to organize domain logic. Client applications should not need to know about schema boundaries.
+Liventix uses multiple schemas (`events`, `payments`, `sponsorship`, `analytics`) to organize domain logic. Client applications should not need to know about schema boundaries.
 
 **Solution**: `SECURITY DEFINER` views in the `public` schema provide a clean API surface, hiding the internal schema organization.
 
@@ -89,7 +89,7 @@ Materialized views and analytics tables need to aggregate data across the entire
 
 ## Security Hardening (Current Standards)
 
-All `SECURITY DEFINER` views in YardPass follow these safety rules:
+All `SECURITY DEFINER` views in Liventix follow these safety rules:
 
 1. **Limited Owner Role**: Views are owned by `app_views` or similar non-superuser role
 2. **Underlying RLS**: Base tables in non-public schemas have their own RLS policies
@@ -160,7 +160,7 @@ This will shrink the linter noise over time, but it's a refactor project, not ur
 
 > **"Why are there so many SECURITY DEFINER views?"**
 >
-> Because YardPass has complex permission logic across multiple schemas. These views are the **API surface** that clients interact with, while the underlying tables enforce strict RLS policies.
+> Because Liventix has complex permission logic across multiple schemas. These views are the **API surface** that clients interact with, while the underlying tables enforce strict RLS policies.
 >
 > The linter can't distinguish between "bad SECURITY DEFINER" and "good SECURITY DEFINER", so it flags everything. This document is our record of which views are intentional.
 

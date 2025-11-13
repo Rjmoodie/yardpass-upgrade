@@ -28,7 +28,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-4xl mx-auto space-y-8 text-sm">
           <p className="font-semibold">
-            YardPass, Inc. ("YardPass," "we," "us," or "our") is committed to protecting your privacy. 
+            Liventix, Inc. ("Liventix," "we," "us," or "our") is committed to protecting your privacy. 
             This Privacy Policy explains how we collect, use, disclose, and safeguard your information 
             when you use our event ticketing and social platform.
           </p>
@@ -101,7 +101,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
             <h3 className="text-base font-semibold mb-2 mt-4">3.5 We Do Not Sell Your Data</h3>
             <p className="text-muted-foreground">
-              YardPass does not sell, rent, or trade your personal information.
+              Liventix does not sell, rent, or trade your personal information.
             </p>
           </section>
 
@@ -123,10 +123,10 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             <h2 className="text-lg font-semibold mb-3">5. Your Rights</h2>
             <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
               <li><strong>Access & Update:</strong> Manage your info via profile settings</li>
-              <li><strong>Deletion:</strong> Request account deletion at support@yardpass.app</li>
+              <li><strong>Deletion:</strong> Request account deletion at support@liventix.app</li>
               <li><strong>Marketing Opt-Out:</strong> Unsubscribe via email links or settings</li>
               <li><strong>Cookie Control:</strong> Manage via browser (may limit functionality)</li>
-              <li><strong>Data Portability:</strong> Request data copy at support@yardpass.app</li>
+              <li><strong>Data Portability:</strong> Request data copy at support@liventix.app</li>
             </ul>
           </section>
 
@@ -144,15 +144,15 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             <h2 className="text-lg font-semibold mb-3">7. Children's Privacy</h2>
             <p className="text-muted-foreground">
               Not intended for users under 13. We don't knowingly collect data from children under 13. 
-              Parents believing their child provided info should contact privacy@yardpass.app.
+              Parents believing their child provided info should contact privacy@liventix.app.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold mb-3">8. International Transfers</h2>
             <p className="text-muted-foreground">
-              YardPass operates in the U.S. Non-U.S. users' data is transferred and stored in the U.S. 
-              By using YardPass, you consent to this transfer.
+              Liventix operates in the U.S. Non-U.S. users' data is transferred and stored in the U.S. 
+              By using Liventix, you consent to this transfer.
             </p>
           </section>
 
@@ -177,7 +177,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
               <li>Non-discrimination for exercising rights</li>
             </ul>
             <p className="text-muted-foreground mt-2">
-              Contact privacy@yardpass.app with "California Privacy Rights" in subject.
+              Contact privacy@liventix.app with "California Privacy Rights" in subject.
             </p>
           </section>
 
@@ -189,7 +189,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
               <li>Withdraw consent anytime</li>
               <li>Lodge complaints with local data protection authority</li>
             </ul>
-            <p className="text-muted-foreground mt-2">Contact privacy@yardpass.app to exercise rights.</p>
+            <p className="text-muted-foreground mt-2">Contact privacy@liventix.app to exercise rights.</p>
           </section>
 
           <section>
@@ -206,17 +206,17 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           <section>
             <h2 className="text-lg font-semibold mb-3">13. Contact Us</h2>
             <div className="bg-muted p-4 rounded-lg space-y-1">
-              <p className="font-semibold">YardPass, Inc.</p>
-              <p className="text-muted-foreground">Email: privacy@yardpass.app</p>
-              <p className="text-muted-foreground">Support: support@yardpass.app</p>
-              <p className="text-muted-foreground">Data Protection: dpo@yardpass.app</p>
+              <p className="font-semibold">Liventix, Inc.</p>
+              <p className="text-muted-foreground">Email: privacy@liventix.app</p>
+              <p className="text-muted-foreground">Support: support@liventix.app</p>
+              <p className="text-muted-foreground">Data Protection: dpo@liventix.app</p>
             </div>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold mb-3">14. Acceptance</h2>
             <p className="text-muted-foreground">
-              By using YardPass, you acknowledge reading and understanding this Privacy Policy and agree to its terms. 
+              By using Liventix, you acknowledge reading and understanding this Privacy Policy and agree to its terms. 
               If you disagree, please don't use our platform.
             </p>
           </section>

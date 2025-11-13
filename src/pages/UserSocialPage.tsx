@@ -36,7 +36,7 @@ export function UserSocialPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-primary">
               <Sparkles className="h-4 w-4" />
-              Yardpass network
+              Liventix network
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">My Network</h1>

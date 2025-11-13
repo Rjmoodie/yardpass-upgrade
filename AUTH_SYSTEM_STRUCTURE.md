@@ -1,4 +1,4 @@
-# YardPass Authentication System - Complete Structure
+# Liventix Authentication System - Complete Structure
 
 ## Core Authentication Files
 
@@ -137,7 +137,7 @@ interface AuthModalProps {
 
 **Features**:
 - Beautiful gradient background
-- YardPass branding
+- Liventix branding
 - Method toggle (Phone ↔ Email)
 - OTP flow for phone auth
 - Redirect after successful auth

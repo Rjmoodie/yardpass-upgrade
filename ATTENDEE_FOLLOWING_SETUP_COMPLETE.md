@@ -2,7 +2,7 @@
 
 ## 🎉 Implementation Complete!
 
-The professional networking system has been successfully implemented and integrated into YardPass. This document provides a complete overview of what was built and how to use it.
+The professional networking system has been successfully implemented and integrated into Liventix. This document provides a complete overview of what was built and how to use it.
 
 ---
 
@@ -371,6 +371,6 @@ If you encounter any issues or have questions:
 
 ---
 
-**Built with ❤️ for YardPass**
+**Built with ❤️ for Liventix**
 *Building professional networks, one connection at a time!*
 

@@ -57,9 +57,9 @@ export default function EventsPage() {
   useEffect(() => {
     if (slug) {
       updateMetaTags({
-        title: `Event: ${slug} on YardPass`,
-        description: `Join this amazing event on YardPass`,
-        url: `https://yardpass.com/events/${slug}`,
+        title: `Event: ${slug} | Liventix - Live Event Tickets`,
+        description: `Get tickets to this event on Liventix. Buy now and secure your spot!`,
+        url: `https://liventix.com/events/${slug}`,
         type: 'article'
       });
     }

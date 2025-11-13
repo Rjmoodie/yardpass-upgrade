@@ -48,8 +48,8 @@
 ## 🚀 **Performance Improvements**
 
 ### **1. Logo Loading**
-- **Primary URL**: `https://yieslxnrfeqchbcmgavz.supabase.co/yardpass-logo.png`
-- **Fallback URL**: `https://yieslxnrfeqchbcmgavz.supabase.co/yardpass-logo-fallback.png`
+- **Primary URL**: `https://yieslxnrfeqchbcmgavz.supabase.co/liventix-logo.png`
+- **Fallback URL**: `https://yieslxnrfeqchbcmgavz.supabase.co/liventix-logo-fallback.png`
 - **Size**: 60px height, 300px max-width
 - **Loading**: Eager loading for immediate display
 
@@ -57,7 +57,7 @@
 ```html
 <img 
   src="primary-logo-url"
-  alt="YardPass"
+  alt="Liventix"
   style="height: 60px; max-width: 300px;"
   loading="eager"
   decoding="sync"

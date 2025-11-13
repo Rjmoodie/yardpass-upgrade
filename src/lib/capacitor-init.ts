@@ -1,7 +1,7 @@
 /**
  * Capacitor Plugin Initialization Service
  * 
- * Centralizes initialization of all Capacitor plugins for YardPass.
+ * Centralizes initialization of all Capacitor plugins for Liventix.
  * Handles platform detection, permission requests, and lifecycle events.
  * 
  * @module lib/capacitor-init

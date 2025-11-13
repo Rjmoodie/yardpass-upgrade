@@ -2,7 +2,7 @@
 
 ## ✅ What Was Deployed
 
-Your YardPass ad platform now has **industry-standard conversion tracking** with multi-touch attribution!
+Your Liventix ad platform now has **industry-standard conversion tracking** with multi-touch attribution!
 
 ### 🗄️ Database Enhancements
 

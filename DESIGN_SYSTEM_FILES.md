@@ -1,4 +1,4 @@
-# 🎨 YardPass Design System - Complete File Map
+# 🎨 Liventix Design System - Complete File Map
 
 ## 📂 Core Design Files
 
@@ -225,9 +225,9 @@ variants: {
 --primary-glow: #FF9B0F
 
 // Yardpass Specific
---yardpass-yellow: #FCD34D
---yardpass-beige: #FDF8F2
---yardpass-orange: #FF8C00
+--liventix-yellow: #FCD34D
+--liventix-beige: #FDF8F2
+--liventix-orange: #FF8C00
 
 // Neutrals
 --neutral-900: #0F172A (Dark text)

@@ -1,7 +1,7 @@
-# YardPass Marketing Website - Master Prompt for Lovable
+# Liventix Marketing Website - Master Prompt for Lovable
 
 ## Project Overview
-Build a beautiful, conversion-driven marketing website for YardPass - an event management platform. The site will capture early signups, showcase product value, and prepare for beta launch.
+Build a beautiful, conversion-driven marketing website for Liventix - an event management platform. The site will capture early signups, showcase product value, and prepare for beta launch.
 
 ## Required Pages
 1. **Landing Page** (`/`) - Main conversion page with hero, features, testimonials, FAQ

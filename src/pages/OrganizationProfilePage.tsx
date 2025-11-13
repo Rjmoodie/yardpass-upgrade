@@ -85,7 +85,7 @@ export default function OrganizationProfilePage() {
     if (!organization) return window.location.href;
     const path = `/org/${organization.handle || organization.id}`;
     try {
-      const base = typeof window !== 'undefined' ? window.location.origin : 'https://yardpass.com';
+      const base = typeof window !== 'undefined' ? window.location.origin : 'https://liventix.com';
       return new URL(path, base).toString();
     } catch {
       return path;
@@ -123,12 +123,12 @@ export default function OrganizationProfilePage() {
   useEffect(() => {
     if (!organization) return;
     updateMetaTags({
-      title: `${organization.name} • YardPass`,
+      title: `${organization.name} • Liventix`,
       description:
         organization.description ||
         (organization.handle
-          ? `@${organization.handle} on YardPass — view events and details.`
-          : `View ${organization.name} on YardPass.`),
+          ? `@${organization.handle} on Liventix — view events and details.`
+          : `View ${organization.name} on Liventix.`),
       url: shareUrl,
       type: 'website',
       image: organization.banner_url || organization.logo_url || undefined,
@@ -227,8 +227,8 @@ export default function OrganizationProfilePage() {
     try {
       const title = organization?.name || 'Organization';
       const text = organization?.handle
-        ? `Check out @${organization.handle} on YardPass`
-        : `Check out ${organization?.name} on YardPass`;
+        ? `Check out @${organization.handle} on Liventix`
+        : `Check out ${organization?.name} on Liventix`;
 
       if ((navigator as any)?.share) {
         await (navigator as any).share({ title, text, url: shareUrl });

@@ -111,7 +111,7 @@ await supabaseService
 
 ---
 
-## 📊 **YardPass Database Schema Structure:**
+## 📊 **Liventix Database Schema Structure:**
 
 Your database uses **schema-prefixed tables**, not the default `public` schema:
 

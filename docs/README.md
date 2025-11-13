@@ -1,6 +1,6 @@
-# YardPass Documentation
+# Liventix Documentation
 
-Welcome to the YardPass documentation hub. This folder contains comprehensive guides for all major features and systems.
+Welcome to the Liventix documentation hub. This folder contains comprehensive guides for all major features and systems.
 
 ## 📚 Documentation Index
 
@@ -31,7 +31,7 @@ curl POST https://your-project.supabase.co/functions/v1/sponsorship-recalc \
 ## 🗂️ Project Structure
 
 ```
-yardpass-upgrade/
+liventix-upgrade/
 ├── docs/                          # Documentation (you are here)
 │   ├── README.md                  # This file
 │   ├── SPONSORSHIP_*.md           # Sponsorship system docs
@@ -279,7 +279,7 @@ ORDER BY idx_scan;
 
 ## 📜 License
 
-Proprietary - YardPass Inc. All rights reserved.
+Proprietary - Liventix Inc. All rights reserved.
 
 ---
 
@@ -287,8 +287,8 @@ Proprietary - YardPass Inc. All rights reserved.
 
 ### Resources
 - **Documentation:** This folder
-- **GitHub Issues:** [yardpass-upgrade/issues](https://github.com/yardpass/yardpass-upgrade/issues)
-- **Email:** dev@yardpass.com
+- **GitHub Issues:** [liventix-upgrade/issues](https://github.com/liventix/liventix-upgrade/issues)
+- **Email:** dev@liventix.com
 - **Slack:** #engineering
 
 ### Office Hours

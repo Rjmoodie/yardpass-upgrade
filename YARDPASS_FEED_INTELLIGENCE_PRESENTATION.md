@@ -1,7 +1,7 @@
-# YardPass Feed Intelligence System
+# Liventix Feed Intelligence System
 ## The Competitive Differentiator
 
-> **Executive Summary:** YardPass employs a proprietary 26-factor AI-powered feed ranking algorithm that optimizes for ticket purchase intent while maintaining social engagement. This dual-optimization approach is unique in the events industry and drives 2-3x higher conversion rates than traditional chronological or engagement-based feeds.
+> **Executive Summary:** Liventix employs a proprietary 26-factor AI-powered feed ranking algorithm that optimizes for ticket purchase intent while maintaining social engagement. This dual-optimization approach is unique in the events industry and drives 2-3x higher conversion rates than traditional chronological or engagement-based feeds.
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## ✨ The YardPass Advantage
+## ✨ The Liventix Advantage
 
 ### Intelligent Dual-Purpose Feed
 
@@ -122,7 +122,7 @@ engagement = (likes + 5) / (views + 15)
 ```
 
 **Example:**
-| Event | Likes | Views | Traditional | YardPass (Bayesian) |
+| Event | Likes | Views | Traditional | Liventix (Bayesian) |
 |-------|-------|-------|-------------|---------------------|
 | **Established** | 100 | 1000 | 10% | 10.5% |
 | **Brand New** | 0 | 0 | 0% (❌ buried) | 33.3% (✅ visible) |
@@ -234,7 +234,7 @@ Not:
 
 **Problem:** Traditional platforms treat all content the same.
 
-**YardPass Solution:** Dynamic boosting based on user's relationship with the event.
+**Liventix Solution:** Dynamic boosting based on user's relationship with the event.
 
 ### Event Cards (Discovery)
 ```
@@ -272,7 +272,7 @@ Result: Highly engaged attendee, lower bounce rate
 | **Eventbrite** | 1.5-2.0% | Chronological + search |
 | **Facebook Events** | 2.0-2.5% | Social graph only |
 | **Meetup** | 2.5-3.0% | Interest-based |
-| **YardPass** | **4.5-5.5%** | **26-factor purchase intent + urgency** |
+| **Liventix** | **4.5-5.5%** | **26-factor purchase intent + urgency** |
 
 **Improvement: +80-120% vs competitors** 🚀
 
@@ -280,7 +280,7 @@ Result: Highly engaged attendee, lower bounce rate
 
 ### Post Engagement Rate
 
-| Metric | Traditional | YardPass | Improvement |
+| Metric | Traditional | Liventix | Improvement |
 |--------|-------------|----------|-------------|
 | **Posts Viewed** | 15% | 45% | +200% |
 | **Posts Liked** | 3% | 12% | +300% |
@@ -382,11 +382,11 @@ Meetup:          400-700ms
 
 ## 🎨 Unified Content Types
 
-### What Makes YardPass Different
+### What Makes Liventix Different
 
 **Competitors:** Separate feeds for discovery vs engagement
 
-**YardPass:** Intelligently mixed feed
+**Liventix:** Intelligently mixed feed
 
 ```
 Feed Item Types:
@@ -430,7 +430,7 @@ Feed Item Types:
 Traditional Platform:
   1000 impressions → 20 clicks → 0.4 tickets ($200 revenue)
   
-YardPass:
+Liventix:
   1000 impressions → 45 clicks → 2.5 tickets ($1,250 revenue)
   
 ROI Improvement: +525% 🚀
@@ -440,7 +440,7 @@ ROI Improvement: +525% 🚀
 ```
 Post-Purchase Engagement:
   Traditional: 15% view event updates
-  YardPass:    68% view event posts (4.5x improvement)
+  Liventix:    68% view event posts (4.5x improvement)
   
 Result: Higher attendance rates, more word-of-mouth
 ```
@@ -471,7 +471,7 @@ NOT Showing:
 
 ---
 
-### For Platform (YardPass)
+### For Platform (Liventix)
 
 **Revenue Multipliers:**
 
@@ -614,9 +614,9 @@ WHERE feature = 'intent.saved';
 
 ## 🆚 Competitive Comparison
 
-### YardPass vs Eventbrite
+### Liventix vs Eventbrite
 
-| Feature | Eventbrite | YardPass |
+| Feature | Eventbrite | Liventix |
 |---------|------------|----------|
 | **Feed Type** | Chronological search | AI-ranked personalized |
 | **Purchase Intent** | ❌ Not tracked | ✅ 14 signals, time-decayed |
@@ -629,9 +629,9 @@ WHERE feature = 'intent.saved';
 
 ---
 
-### YardPass vs Facebook Events
+### Liventix vs Facebook Events
 
-| Feature | Facebook | YardPass |
+| Feature | Facebook | Liventix |
 |---------|----------|----------|
 | **Feed Type** | Social graph | AI-ranked + social |
 | **Discovery** | ❌ Only friends' events | ✅ Personalized beyond network |
@@ -643,9 +643,9 @@ WHERE feature = 'intent.saved';
 
 ---
 
-### YardPass vs Meetup
+### Liventix vs Meetup
 
-| Feature | Meetup | YardPass |
+| Feature | Meetup | Liventix |
 |---------|--------|----------|
 | **Feed Type** | Category + location | AI-ranked multi-signal |
 | **Free Events** | ✅ Common | ✅ RSVP system (no tickets) |
@@ -723,7 +723,7 @@ WHERE feature = 'intent.saved';
 
 **Scenario:** DJ hosting monthly electronic music nights
 
-**YardPass Advantage:**
+**Liventix Advantage:**
 1. **October Event:** User discovers via feed, buys ticket
 2. **Feed Adapts:** Hides October event card, boosts posts
 3. **User Engages:** Sees DJ's posts (lineup announcements, behind-the-scenes)
@@ -739,7 +739,7 @@ WHERE feature = 'intent.saved';
 5. November event → Starts from scratch (no retention signal)
 6. Repeat rate: 15% ❌
 
-**YardPass ROI:** 4.5x higher retention
+**Liventix ROI:** 4.5x higher retention
 
 ---
 
@@ -747,7 +747,7 @@ WHERE feature = 'intent.saved';
 
 **Scenario:** Community yoga class (free)
 
-**YardPass Flow:**
+**Liventix Flow:**
 1. User finds event in feed
 2. Clicks "Get Tickets"
 3. Sees: **"Free Admission × 2"**
@@ -769,7 +769,7 @@ WHERE feature = 'intent.saved';
 5. Confused UX (paying for free event?)
 
 **Conversion Impact:**
-- YardPass: 85% RSVP completion
+- Liventix: 85% RSVP completion
 - Competitors: 45% completion (drop-off from fees/friction)
 
 ---
@@ -807,7 +807,7 @@ WHERE feature = 'intent.saved';
 - 500M+ tickets sold/year
 - 70M+ active event-goers
 
-**YardPass Opportunity:**
+**Liventix Opportunity:**
 - 3-5% platform fee on tickets
 - Current conversion: 4.8% (vs 2% industry avg)
 - **If we capture 1% of market:** $300M in ticket sales = $9-15M revenue
@@ -880,7 +880,7 @@ LTV/CAC Ratio:          6.8x ✅ (healthy: >3x)
 - **Compounds over time**
 
 ### 4. **UX Moat**
-- Users expect intelligent feeds (trained by YardPass)
+- Users expect intelligent feeds (trained by Liventix)
 - Switching to chronological feels broken
 - **Behavioral lock-in**
 
@@ -897,7 +897,7 @@ LTV/CAC Ratio:          6.8x ✅ (healthy: >3x)
 3. User abandons (cold start problem)
 ```
 
-**YardPass:**
+**Liventix:**
 ```
 1. User signs up
 2. Asks: Location + Interests (30 sec onboarding)
@@ -980,7 +980,7 @@ Result: 3 friends buy tickets to organizer's next event
 ### The Magic Formula
 
 ```
-YardPass = 
+Liventix = 
   Eventbrite's Discovery +
   Instagram's Social Feed +
   Netflix's Recommendation Engine +
@@ -994,7 +994,7 @@ YardPass =
 - Facebook: Social ✅ Discovery ❌ AI ❌ Tickets ❌
 - Meetup: Community ✅ Paid events ❌ AI ❌ Modern UX ❌
 
-**YardPass: Excellence in ALL dimensions** ✅✅✅✅
+**Liventix: Excellence in ALL dimensions** ✅✅✅✅
 
 ---
 
@@ -1013,27 +1013,27 @@ YardPass =
 - Facebook: Horizontal card stack (awkward)
 - Meetup: List view (not immersive)
 
-**YardPass:** Native mobile experience → 2x higher mobile conversion
+**Liventix:** Native mobile experience → 2x higher mobile conversion
 
 ---
 
 ## 🌟 Customer Testimonials (Hypothetical)
 
 ### Event Organizer
-> "We listed our music festival on Eventbrite and YardPass simultaneously. YardPass drove 3x more ticket sales with half the impressions. The intelligent feed just works." - *Brooklyn Electronic Music Collective*
+> "We listed our music festival on Eventbrite and Liventix simultaneously. Liventix drove 3x more ticket sales with half the impressions. The intelligent feed just works." - *Brooklyn Electronic Music Collective*
 
 ### Attendee
-> "I used to spend 20 minutes searching for weekend events. YardPass shows me exactly what I want in 30 seconds. It's like they read my mind." - *Sarah M., Power User*
+> "I used to spend 20 minutes searching for weekend events. Liventix shows me exactly what I want in 30 seconds. It's like they read my mind." - *Sarah M., Power User*
 
 ### Investor
-> "The feed intelligence creates a compounding moat. As YardPass gets more data, recommendations get better, driving more users, creating more data. Classic network effect." - *Venture Partner, [Top VC]*
+> "The feed intelligence creates a compounding moat. As Liventix gets more data, recommendations get better, driving more users, creating more data. Classic network effect." - *Venture Partner, [Top VC]*
 
 ---
 
 ## 🎁 Summary: The Pitch
 
 ### One-Liner
-**"YardPass is the only events platform that optimizes for both ticket sales AND social engagement using an AI-powered feed that learns your preferences."**
+**"Liventix is the only events platform that optimizes for both ticket sales AND social engagement using an AI-powered feed that learns your preferences."**
 
 ### Three Key Points
 
@@ -1114,11 +1114,11 @@ YardPass =
 
 ---
 
-**The future of event discovery is intelligent, personalized, and social. That future is YardPass.** 🎉
+**The future of event discovery is intelligent, personalized, and social. That future is Liventix.** 🎉
 
 ---
 
 *Document Version: 1.0*  
 *Last Updated: November 7, 2025*  
-*Prepared by: YardPass Engineering Team*
+*Prepared by: Liventix Engineering Team*
 

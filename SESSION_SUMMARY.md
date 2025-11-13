@@ -2,7 +2,7 @@
 
 ## What Was Accomplished
 
-This session focused on **iOS integration** and **critical bug fixes** for YardPass.
+This session focused on **iOS integration** and **critical bug fixes** for Liventix.
 
 ---
 
@@ -44,7 +44,7 @@ This session focused on **iOS integration** and **critical bug fixes** for YardP
   - ✅ Photo library write (`NSPhotoLibraryAddUsageDescription`)
   - ✅ Location when in use (`NSLocationWhenInUseUsageDescription`)
   - ✅ HTTPS exceptions (Supabase, Stripe, Mapbox)
-  - ✅ Universal Links (`applinks:yardpass.app`)
+  - ✅ Universal Links (`applinks:liventix.app`)
   - ✅ Background modes (push notifications)
 
 ---
@@ -108,7 +108,7 @@ return {
 
 ### Architecture & Integration Guides:
 ```
-📚 YARDPASS_ARCHITECTURE.md (747 lines)
+📚 LIVENTIX_ARCHITECTURE.md (747 lines)
    - Complete tech stack overview
    - Capacitor integration points
    - Database architecture
@@ -207,7 +207,7 @@ return {
 ### Immediate (5 minutes):
 
 ```bash
-cd /Users/rod/Desktop/yard_pass/yardpass/yardpass-upgrade/yardpass-upgrade
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
 
 # 1. Apply security fixes
 supabase db push
@@ -287,7 +287,7 @@ After completing the next steps:
 ## 🔑 **Key Documents by Use Case**
 
 **For iOS Developer:**
-- `YARDPASS_ARCHITECTURE.md` - System overview
+- `LIVENTIX_ARCHITECTURE.md` - System overview
 - `IOS_INTEGRATION_COMPLETE.md` - What was implemented
 - `NEXT_STEPS.md` - What to do next
 
@@ -360,7 +360,7 @@ After completing the next steps:
 ## 🔗 **Quick Links**
 
 - **Start Here:** `NEXT_STEPS.md`
-- **iOS Developer:** `YARDPASS_ARCHITECTURE.md`
+- **iOS Developer:** `LIVENTIX_ARCHITECTURE.md`
 - **Testing:** `IOS_INTEGRATION_COMPLETE.md`
 - **Security:** `SECURITY_WARNINGS_ACTION_PLAN.md`
 

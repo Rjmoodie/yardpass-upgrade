@@ -1,433 +1,280 @@
-# ✅ Sponsorship System Deployment Checklist
+# 🚨 Critical Deployment Checklist - Fix Ticket Generation & Emails
 
-## Pre-Deployment
+**Problem:** Tickets not being generated and emails not being sent after purchase.
 
-### 1. Database Backup
-- [ ] Create full database backup
-- [ ] Verify backup is restorable
-- [ ] Document current schema version
+---
 
-### 2. Review Migrations
-- [ ] Review all migration files for correctness
-- [ ] Check for naming conflicts
-- [ ] Verify foreign key relationships
-- [ ] Confirm index strategies
+## ✅ Step 1: Deploy Fixed `ensure-tickets` Function
 
-## Deployment Order
+**What was fixed:** Changed Stripe import from `stripe@14.23.0?target=deno` to `stripe@14.21.0` to fix Deno runtime crash.
 
-### Phase 1: Foundation (✅ Deployed)
-- [x] `20251021_0000_sponsorship_system_fixed.sql`
-  - Core tables and schema
-  - Basic views and functions
-
-### Phase 2: Scale & Money Flow (✅ Deployed)
-- [x] `20251021_0100_phase2_partitioning.sql`
-- [x] `20251021_0101_phase2_quality_scores.sql` 
-- [x] `20251021_0102_phase2_stripe_connect.sql`
-
-### Phase 3: Intelligence (✅ Deployed)
-- [x] `20251021_0200_phase3_pgvector.sql`
-- [x] `20251021_0201_phase3_advanced_scoring.sql`
-- [x] `20251021_0202_phase3_semantic_marketplace.sql`
-
-### Phase 4: Optimization (✅ Deployed)
-- [x] `20251022_0001_optimized_sponsorship_system.sql`
-  - Optimized views and functions
-  - Performance indexes
-  - Vector search setup
-
-### Phase 5: Cleanup & Constraints (⏳ Ready to Deploy)
-- [ ] `20251022_0002_sponsorship_cleanup_and_constraints.sql`
-  - Currency normalization
-  - Unique constraints
-  - CASCADE deletes
-  - Data validation
-
-### Phase 6: Enterprise Features (⏳ Ready to Deploy)
-- [ ] `20251022_0003_sponsorship_enterprise_features.sql`
-  - Public sponsor profiles
-  - Proposal/negotiation system
-  - Deliverables tracking
-  - ML feature store
-  - SLA management
-
-## Deployment Commands
-
-### Option 1: CLI Deployment (Recommended)
+**Deploy command:**
 ```bash
-# Deploy cleanup and constraints
-npx supabase db push --include-all
-
-# Verify deployment
-npx supabase db diff
+cd /Users/rod/Desktop/yard_pass/liventix/liventix-upgrade/liventix-upgrade
+supabase functions deploy ensure-tickets --no-verify-jwt
 ```
 
-### Option 2: Dashboard Deployment
-1. Open Supabase Dashboard → SQL Editor
-2. Copy contents of `20251022_0002_sponsorship_cleanup_and_constraints.sql`
-3. Execute
-4. Copy contents of `20251022_0003_sponsorship_enterprise_features.sql`
-5. Execute
+**Alternative:** Deploy via Supabase Dashboard:
+1. Go to: https://supabase.com/dashboard/project/yieslxnrfeqchbcmgavz/functions
+2. Click `ensure-tickets`
+3. Click "Deploy new version"
 
-## Post-Deployment Validation
+---
 
-### 1. Schema Validation
+## ✅ Step 2: Set Environment Variables
+
+### Required: `RESEND_API_KEY`
+
+**Where:** Supabase Dashboard → Project Settings → Edge Functions → Secrets
+
+**Get your key:**
+1. Go to: https://resend.com/api-keys
+2. Create a new API key (if you don't have one)
+3. Copy the key (starts with `re_`)
+
+**Add to Supabase:**
+```bash
+supabase secrets set RESEND_API_KEY=re_your_key_here
+```
+
+**Or via Dashboard:**
+1. Go to: https://supabase.com/dashboard/project/yieslxnrfeqchbcmgavz/settings/functions
+2. Click "Add secret"
+3. Name: `RESEND_API_KEY`
+4. Value: Your Resend API key
+
+### Verify Other Required Variables
+
+Check these are set (should already be configured):
+- ✅ `SUPABASE_URL`
+- ✅ `SUPABASE_SERVICE_ROLE_KEY`
+- ✅ `STRIPE_SECRET_KEY`
+
+---
+
+## ✅ Step 3: Verify Email Domain (Resend)
+
+If using a custom domain for emails:
+
+1. Go to: https://resend.com/domains
+2. Add your domain (e.g., `liventix.tech`)
+3. Add DNS records:
+   - **SPF:** `v=spf1 include:amazonses.com ~all`
+   - **DKIM:** (provided by Resend)
+   - **DMARC:** `v=DMARC1; p=none;`
+4. Wait for verification (usually 5-30 minutes)
+
+**Default:** Emails will send from `hello@liventix.tech` (check Resend dashboard for approved domains)
+
+---
+
+## ✅ Step 4: Test the Fix
+
+### A. Test New Purchase
+1. Make a test purchase through the app
+2. Check Supabase Logs for `process-payment` function:
+   - Should see: `✅ Purchase confirmation email sent successfully`
+   - Should NOT see: `Failed to ensure tickets`
+
+### B. Check Database
+Run this query in Supabase SQL Editor to verify tickets were created:
+
 ```sql
--- Check all tables exist
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public' 
-AND table_name LIKE '%sponsor%'
-ORDER BY table_name;
-
--- Expected tables (22+):
--- - sponsors
--- - sponsor_profiles
--- - sponsor_public_profiles
--- - sponsor_members
--- - sponsorship_packages
--- - sponsorship_matches
--- - sponsorship_orders
--- - sponsorship_payouts
--- - sponsorship_slas
--- - event_sponsorships
--- - package_templates
--- - package_variants
--- - proposal_threads
--- - proposal_messages
--- - deliverables
--- - deliverable_proofs
--- - match_features
--- - match_feedback
--- - audience_consents
--- - payout_configurations
--- - payout_queue
--- - fit_recalc_queue
-```
-
-### 2. Views Validation
-```sql
--- Check all views exist
-SELECT viewname 
-FROM pg_views 
-WHERE schemaname = 'public' 
-AND viewname LIKE '%sponsor%'
-ORDER BY viewname;
-
--- Expected views:
--- - v_sponsorship_package_cards
--- - v_sponsor_recommended_packages
--- - v_event_recommended_sponsors
--- - v_event_performance_summary
--- - v_event_quality_score
-```
-
-### 3. Materialized Views
-```sql
--- Check MVs exist
-SELECT matviewname 
-FROM pg_matviews 
-WHERE schemaname = 'public'
-ORDER BY matviewname;
-
--- Expected MVs:
--- - mv_event_quality_scores
--- - mv_event_reach_snapshot
--- - mv_sponsor_event_fit_scores (if exists)
-
--- Refresh MVs
-SELECT refresh_sponsorship_mvs(true);
-```
-
-### 4. Functions Validation
-```sql
--- Check all functions exist
-SELECT routine_name, routine_type
-FROM information_schema.routines 
-WHERE routine_schema = 'public' 
-AND (routine_name LIKE '%sponsor%' OR routine_name LIKE '%match%' OR routine_name LIKE '%payout%')
-ORDER BY routine_name;
-
--- Expected functions:
--- - fn_compute_match_score
--- - fn_upsert_match
--- - process_match_queue
--- - refresh_sponsorship_mvs
--- - calculate_platform_fee
--- - queue_sponsorship_payout
--- - process_payout_queue
--- - validate_sponsorship_data
-```
-
-### 5. Indexes Validation
-```sql
--- Check critical indexes exist
-SELECT indexname 
-FROM pg_indexes 
-WHERE schemaname = 'public' 
-AND (indexname LIKE '%sponsor%' OR indexname LIKE '%match%' OR indexname LIKE '%pkg%')
-ORDER BY indexname;
-
--- Should include vector indexes if pgvector enabled:
--- - idx_events_desc_vec_hnsw
--- - idx_sponsor_objectives_vec_hnsw
-```
-
-### 6. Constraints Validation
-```sql
--- Check constraints
-SELECT 
-  constraint_name, 
-  constraint_type,
-  table_name
-FROM information_schema.table_constraints 
-WHERE table_schema = 'public' 
-AND table_name LIKE '%sponsor%'
-ORDER BY table_name, constraint_type;
-
--- Should include:
--- - UNIQUE constraints (event-sponsor pairs, event-tier packages)
--- - CHECK constraints (scores 0-1, currencies, money >= 0)
--- - FOREIGN KEY constraints with appropriate CASCADE/RESTRICT
-```
-
-### 7. Data Integrity Test
-```sql
--- Run validation function
-SELECT * FROM validate_sponsorship_data();
-
--- All checks should return 'PASS'
-```
-
-### 8. Performance Test
-```sql
--- Test scoring function
-SELECT * FROM fn_compute_match_score(
-  (SELECT id FROM events LIMIT 1),
-  (SELECT id FROM sponsors LIMIT 1)
-);
-
--- Should return: { score: numeric, breakdown: jsonb }
-
--- Test queue processing
-SELECT process_match_queue(10);
-
--- Should return: number of processed items
-```
-
-## Configuration
-
-### 1. Enable pg_cron (if available)
-```sql
--- Check if pg_cron is available
-SELECT * FROM pg_extension WHERE extname = 'pg_cron';
-
--- Schedule jobs (if enabled)
-SELECT cron.schedule(
-  'refresh-sponsorship-mvs',
-  '0 * * * *',  -- Every hour
-  'SELECT refresh_sponsorship_mvs(true);'
-);
-
-SELECT cron.schedule(
-  'process-match-queue',
-  '*/5 * * * *',  -- Every 5 minutes
-  'SELECT process_match_queue(100);'
-);
-
-SELECT cron.schedule(
-  'process-payout-queue',
-  '*/5 * * * *',  -- Every 5 minutes
-  'SELECT process_payout_queue();'
-);
-```
-
-### 2. Set Up Edge Functions
-- [ ] Deploy `sponsorship-recalc` Edge Function
-- [ ] Deploy `sponsorship-score-onchange` Edge Function
-- [ ] Deploy `sponsorship-payouts` Edge Function
-- [ ] Configure cron triggers
-
-### 3. Configure Environment Variables
-```env
-# Add to .env.local or Supabase Dashboard
-STRIPE_SECRET_KEY=sk_...
-STRIPE_CONNECT_CLIENT_ID=ca_...
-OPENAI_API_KEY=sk-...  # For embedding generation
-```
-
-## Data Migration
-
-### 1. Generate Initial Embeddings
-```typescript
-// Run once to generate embeddings for existing data
-import { createClient } from '@supabase/supabase-js'
-import OpenAI from 'openai'
-
-const supabase = createClient(...)
-const openai = new OpenAI(...)
-
-// For events
-const { data: events } = await supabase.from('events').select('id, title, description')
-for (const event of events) {
-  const embedding = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: `${event.title}. ${event.description}`
-  })
-  await supabase
-    .from('events')
-    .update({ description_embedding: embedding.data[0].embedding })
-    .eq('id', event.id)
-}
-
-// For sponsors
-// Similar process for sponsor_profiles.objectives_embedding
-```
-
-### 2. Populate Event Audience Insights
-```sql
--- Create initial insights from existing data
-INSERT INTO event_audience_insights (event_id, attendee_count, engagement_score)
-SELECT 
-  e.id,
-  COUNT(DISTINCT t.owner_user_id),
-  COALESCE(AVG(pi.dwell_ms) / 10000.0, 0.5)
-FROM events e
-LEFT JOIN tickets t ON t.event_id = e.id
-LEFT JOIN post_impressions pi ON pi.post_id IN (
-  SELECT id FROM event_posts WHERE event_id = e.id
+-- Check most recent order
+WITH recent_order AS (
+  SELECT 
+    o.id as order_id,
+    o.created_at,
+    o.status,
+    o.paid_at,
+    o.user_id,
+    o.contact_email,
+    e.title as event_title
+  FROM orders o
+  LEFT JOIN events e ON e.id = o.event_id
+  WHERE o.created_at > now() - interval '1 hour'
+  ORDER BY o.created_at DESC
+  LIMIT 1
 )
-GROUP BY e.id
-ON CONFLICT (event_id) DO NOTHING;
-```
-
-### 3. Run Initial Match Scoring
-```sql
--- Process all event-sponsor pairs
-SELECT process_match_queue(1000);
-
--- Or insert all pairs into queue first
-INSERT INTO fit_recalc_queue (event_id, sponsor_id, reason)
-SELECT e.id, s.id, 'initial_load'
-FROM events e
-CROSS JOIN sponsors s
-WHERE e.sponsorable = true
-ON CONFLICT DO NOTHING;
-```
-
-## Monitoring Setup
-
-### 1. Set Up Alerting
-- [ ] Configure alerts for queue backlog
-- [ ] Set up payout failure notifications
-- [ ] Monitor match score quality distribution
-- [ ] Track API response times
-
-### 2. Dashboard Metrics
-```sql
--- Create monitoring queries
--- Queue health
-SELECT COUNT(*) as pending FROM fit_recalc_queue WHERE processed_at IS NULL;
-
--- Match quality distribution
 SELECT 
-  CASE 
-    WHEN score >= 0.8 THEN 'Excellent'
-    WHEN score >= 0.6 THEN 'Good'
-    WHEN score >= 0.4 THEN 'Fair'
-    ELSE 'Poor'
-  END as quality,
-  COUNT(*) as count
-FROM sponsorship_matches
-GROUP BY quality;
-
--- Revenue metrics
-SELECT 
-  DATE_TRUNC('day', created_at) as day,
-  COUNT(*) as orders,
-  SUM(amount_cents) / 100.0 as revenue
-FROM sponsorship_orders
-WHERE status = 'paid'
-GROUP BY day
-ORDER BY day DESC
-LIMIT 30;
+  ro.order_id,
+  ro.status as order_status,
+  ro.event_title,
+  ro.contact_email,
+  (SELECT COUNT(*) FROM tickets t WHERE t.order_id = ro.order_id) as tickets_created,
+  (SELECT json_agg(json_build_object(
+    'id', t.id,
+    'status', t.status,
+    'qr_code', substring(t.qr_code, 1, 30)
+  )) FROM tickets t WHERE t.order_id = ro.order_id LIMIT 3) as sample_tickets
+FROM recent_order ro;
 ```
 
-## Rollback Plan
-
-### If Issues Arise
-```sql
--- 1. Stop all cron jobs
-SELECT cron.unschedule('refresh-sponsorship-mvs');
-SELECT cron.unschedule('process-match-queue');
-SELECT cron.unschedule('process-payout-queue');
-
--- 2. Restore from backup
--- Use your backup restoration procedure
-
--- 3. Re-deploy previous stable version
-```
-
-## Success Criteria
-
-- [ ] All migrations applied successfully
-- [ ] All validation checks pass
-- [ ] Sample queries return expected results
-- [ ] Edge functions deploy and run
-- [ ] MVs refresh without errors
-- [ ] Queue processing completes
-- [ ] No orphaned data (validation passes)
-- [ ] Performance tests meet targets (<100ms for scoring)
-- [ ] RLS policies working correctly
-
-## Documentation
-
-- [ ] Update API documentation with new endpoints
-- [ ] Create user guides for new features
-- [ ] Document Edge Function deployment
-- [ ] Update TypeScript types
-- [ ] Create runbook for operations team
-
-## Sign-Off
-
-- [ ] Database Admin Review
-- [ ] Backend Lead Review
-- [ ] Product Owner Approval
-- [ ] QA Testing Complete
-- [ ] Production Deployment Scheduled
+**Expected result:**
+- `tickets_created` should be > 0
+- `sample_tickets` should show ticket IDs and QR codes
 
 ---
 
-## Quick Commands Reference
+## ✅ Step 5: Fix Past Failed Orders (Retroactive)
 
+If you have orders that failed to generate tickets, run this to fix them:
+
+```sql
+-- Find orders that are paid but have no tickets
+SELECT 
+  o.id as order_id,
+  o.created_at,
+  o.status,
+  o.user_id,
+  o.contact_email,
+  e.title as event_title,
+  (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) as items_ordered,
+  (SELECT COUNT(*) FROM tickets t WHERE t.order_id = o.id) as tickets_issued
+FROM orders o
+LEFT JOIN events e ON e.id = o.event_id
+WHERE o.status = 'paid'
+  AND o.paid_at > now() - interval '24 hours'
+  AND (SELECT COUNT(*) FROM tickets t WHERE t.order_id = o.id) = 0
+ORDER BY o.created_at DESC;
+```
+
+For each order ID, call the `ensure-tickets` function manually:
+
+**Via Supabase Dashboard → Database → Functions:**
+```sql
+SELECT * FROM public.ensure_tickets_manual('ORDER_ID_HERE');
+```
+
+**Or via API:**
 ```bash
-# Deploy all migrations
-npx supabase db push --include-all
-
-# Check migration status
-npx supabase migration list
-
-# Test connection
-npx supabase db ping
-
-# View schema diff
-npx supabase db diff
-
-# Reset local database (CAREFUL!)
-npx supabase db reset
-
-# Link to project
-npx supabase link --project-ref your-project-id
-
-# Deploy Edge Functions
-npx supabase functions deploy sponsorship-recalc
-npx supabase functions deploy sponsorship-score-onchange
-npx supabase functions deploy sponsorship-payouts
+curl -X POST 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/ensure-tickets' \
+  -H "Authorization: Bearer YOUR_ANON_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"order_id": "ORDER_ID_HERE"}'
 ```
 
 ---
 
-**Date**: _____________  
-**Deployed By**: _____________  
-**Verified By**: _____________  
-**Production URL**: _____________
+## ✅ Step 6: Resend Confirmation Emails
+
+For orders that succeeded but didn't get emails, use the `resend-confirmation` function:
+
+**Via API:**
+```bash
+curl -X POST 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/resend-confirmation' \
+  -H "Authorization: Bearer YOUR_ANON_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"orderId": "ORDER_ID_HERE"}'
+```
+
+**Or create a helper SQL function:**
+```sql
+CREATE OR REPLACE FUNCTION public.resend_order_confirmation(p_order_id UUID)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_result json;
+BEGIN
+  -- This would call the edge function via pg_net extension
+  -- For now, use the API method above
+  RETURN json_build_object('success', true, 'message', 'Use API to resend');
+END;
+$$;
+```
+
+---
+
+## 📊 Monitoring Commands
+
+### Check Edge Function Logs
+```bash
+# Watch logs in real-time
+supabase functions logs ensure-tickets --tail
+
+# Check process-payment logs
+supabase functions logs process-payment --tail
+
+# Check email sending logs
+supabase functions logs send-purchase-confirmation --tail
+```
+
+### Check Recent Orders Status
+```sql
+SELECT 
+  o.id,
+  o.created_at,
+  o.status,
+  o.total_cents / 100.0 as total_usd,
+  (SELECT COUNT(*) FROM tickets t WHERE t.order_id = o.id) as tickets,
+  CASE 
+    WHEN (SELECT COUNT(*) FROM tickets t WHERE t.order_id = o.id) > 0 THEN '✅ Has Tickets'
+    WHEN o.status = 'paid' THEN '❌ MISSING TICKETS'
+    ELSE '⏳ Pending'
+  END as ticket_status
+FROM orders o
+WHERE o.created_at > now() - interval '24 hours'
+ORDER BY o.created_at DESC
+LIMIT 10;
+```
+
+---
+
+## 🎯 Success Criteria
+
+After completing all steps, verify:
+
+- [ ] `ensure-tickets` function deploys without errors
+- [ ] `RESEND_API_KEY` is set in Supabase secrets
+- [ ] Test purchase creates tickets immediately
+- [ ] Test purchase sends confirmation email
+- [ ] Logs show: `✅ Purchase confirmation email sent successfully`
+- [ ] Past failed orders have been fixed (tickets generated)
+- [ ] Confirmation emails resent for past orders
+
+---
+
+## 🆘 Troubleshooting
+
+### Issue: "RESEND_API_KEY not configured"
+**Solution:** Set the environment variable (see Step 2)
+
+### Issue: "Email domain not verified"
+**Solution:** Verify domain in Resend dashboard (see Step 3)
+
+### Issue: Tickets created but no QR codes
+**Solution:** Check that `gen_qr_code()` function exists in database:
+```sql
+SELECT proname FROM pg_proc WHERE proname = 'gen_qr_code';
+```
+
+### Issue: "Failed to ensure tickets" still appearing
+**Solution:** 
+1. Verify you deployed the fixed function (check deployment timestamp)
+2. Check Supabase logs for the actual error message
+3. Verify database has `claim_order_ticketing` RPC function
+
+---
+
+## 📞 Need Help?
+
+If issues persist after following this checklist:
+
+1. **Check Supabase Logs:**
+   - Dashboard → Logs → Edge Functions
+   - Filter by function name
+
+2. **Check Stripe Webhook Logs:**
+   - Stripe Dashboard → Developers → Webhooks
+   - Look for failed webhook deliveries
+
+3. **Database Issues:**
+   - Run the diagnostic queries above
+   - Check for missing foreign keys or RLS policies
+
+---
+
+**Last Updated:** January 11, 2025  
+**Status:** Fix deployed, awaiting verification

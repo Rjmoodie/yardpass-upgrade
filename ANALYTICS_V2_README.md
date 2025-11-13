@@ -1,6 +1,6 @@
 # Analytics V2 System
 
-Complete analytics dashboard for YardPass ad campaigns, built with PostgreSQL views, materialized views, and React/Recharts.
+Complete analytics dashboard for Liventix ad campaigns, built with PostgreSQL views, materialized views, and React/Recharts.
 
 ## 🎯 What's New in V2
 
@@ -339,7 +339,7 @@ If V2 has issues:
 
 ## 📝 Summary
 
-Analytics V2 provides a production-ready, performant analytics dashboard for YardPass campaigns. It follows your existing architecture patterns:
+Analytics V2 provides a production-ready, performant analytics dashboard for Liventix campaigns. It follows your existing architecture patterns:
 - **Views** for read-only aggregations
 - **RPCs** for transactional logic (billing)
 - **Edge Functions** for operational tasks (cron)

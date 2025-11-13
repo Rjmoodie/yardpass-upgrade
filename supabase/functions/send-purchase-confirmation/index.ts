@@ -27,8 +27,8 @@ if (!RESEND_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 // Prefer a pinned list of allowed origins; fall back to "*" if you truly need it.
 const ALLOWED_ORIGINS = new Set([
-  "https://yardpass.tech",
-  "https://www.yardpass.tech",
+  "https://liventix.tech",
+  "https://www.liventix.tech",
   "http://localhost:5173", // dev
 ]);
 
@@ -105,7 +105,7 @@ function baseUrl(): string {
   }
   
   // Fallback to production domain
-  return "https://yardpass.tech";
+  return "https://liventix.tech";
 }
 
 function formatDate(value?: string) {
@@ -189,7 +189,7 @@ async function fetchEmailContext(eventId: string): Promise<{ orgInfo?: OrgInfo; 
         name: org.name,
         logoUrl: org.logo_url ?? undefined,
         websiteUrl: org.handle ? `${baseUrl()}/org/${org.handle}` : undefined,
-        supportEmail: "support@yardpass.tech",
+        supportEmail: "support@liventix.tech",
       };
     }
   }
@@ -224,8 +224,8 @@ function HiddenPreheader({ text }: { text?: string }) {
 }
 
 function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { children: any; orgInfo?: OrgInfo; eventInfo?: EventInfo; preheaderText?: string }) {
-  const logoUrl = orgInfo?.logoUrl || `${baseUrl()}/yardpass-logo.png`;
-  const supportEmail = orgInfo?.supportEmail || "support@yardpass.tech";
+  const logoUrl = orgInfo?.logoUrl || `${baseUrl()}/liventix-logo.png`;
+  const supportEmail = orgInfo?.supportEmail || "support@liventix.tech";
   const currentYear = new Date().getFullYear();
 
   return React.createElement(
@@ -244,7 +244,7 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
         { type: "text/css" },
         `body{margin:0;padding:0;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}table{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt}img{border:0;height:auto;line-height:100%;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}@media only screen and (max-width:640px){.email-container{max-width:100%!important;margin:0!important;border-radius:0!important}.email-padding{padding:20px!important}.email-header-padding{padding:16px 20px!important}.email-footer-padding{padding:20px!important}.responsive-img{max-width:100%!important;height:auto!important}.responsive-text{font-size:14px!important;line-height:1.5!important}.responsive-title{font-size:22px!important}.responsive-button{width:100%!important;display:block!important}.hide-mobile{display:none!important;max-height:0!important;overflow:hidden!important}}@media only screen and (max-width:480px){.responsive-table{width:100%!important}.responsive-title{font-size:20px!important}}`,
       ),
-      React.createElement("title", {}, orgInfo?.name ? `${orgInfo.name} · YardPass` : "YardPass Ticket Confirmation"),
+      React.createElement("title", {}, orgInfo?.name ? `${orgInfo.name} · Liventix` : "Liventix Ticket Confirmation"),
     ),
     React.createElement(
       "body",
@@ -287,16 +287,16 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
             },
             React.createElement("img", {
               src: logoUrl,
-              alt: orgInfo?.name || "YardPass",
+              alt: orgInfo?.name || "Liventix",
               style: { height: "60px", maxWidth: "300px", marginBottom: "12px" },
               loading: "eager",
               decoding: "sync",
-              onerror: `this.src='${baseUrl()}/yardpass-logo-fallback.png'; this.onerror=null;`,
+              onerror: `this.src='${baseUrl()}/liventix-logo-fallback.png'; this.onerror=null;`,
             }),
             React.createElement(
               "div",
               { style: { fontSize: "13px", color: "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase" } },
-              "Powered by YardPass",
+              "Powered by Liventix",
             ),
           ),
           // org card
@@ -359,11 +359,11 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
                 "Questions? Contact us at ",
                 React.createElement(
                   "a",
-                  { href: `mailto:${orgInfo?.supportEmail || "support@yardpass.tech"}`, style: { color: "#6366f1", textDecoration: "none" } },
-                  orgInfo?.supportEmail || "support@yardpass.tech",
+                  { href: `mailto:${orgInfo?.supportEmail || "support@liventix.tech"}`, style: { color: "#6366f1", textDecoration: "none" } },
+                  orgInfo?.supportEmail || "support@liventix.tech",
                 ),
               ),
-              React.createElement("p", { style: { margin: "0 0 16px 0", fontSize: "12px" } }, `© ${currentYear} YardPass. All rights reserved.`),
+              React.createElement("p", { style: { margin: "0 0 16px 0", fontSize: "12px" } }, `© ${currentYear} Liventix. All rights reserved.`),
               React.createElement(
                 "div",
                 { style: { fontSize: "11px", color: "#94a3b8" } },
@@ -384,7 +384,7 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
   const isRsvp = data.isRsvpOnly || false;
   const preheaderText = isRsvp
     ? `Your RSVP for ${title} is confirmed. See you there!`
-    : `Your tickets for ${title} are confirmed. Access them anytime with YardPass.`;
+    : `Your tickets for ${title} are confirmed. Access them anytime with Liventix.`;
   const formattedDate = formatDate(eventInfo?.date || data.eventDate);
   const formattedTotal = formatCurrency(data.totalAmount);
 
@@ -429,7 +429,7 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
               React.createElement(
                 "p",
                 { style: { margin: "0 0 12px 0", color: "#075985", fontSize: "14px", lineHeight: 1.5 } },
-                "Create a free YardPass account to manage your tickets, get event updates, and discover amazing events in your area.",
+                "Create a free Liventix account to manage your tickets, get event updates, and discover amazing events in your area.",
               ),
               React.createElement(
                 "a",
@@ -487,7 +487,7 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
           React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "12px", color: "#075985" } }, "Order ID"), React.createElement("td", { style: { padding: "6px 0", fontSize: "12px", color: "#075985", fontFamily: "monospace", textAlign: "right" } }, data.orderId)),
         ),
       ),
-      !isRsvp ? React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#0369a1", lineHeight: 1.6 } }, "Need to transfer tickets to a guest? Forward this email or share access from your YardPass account.") : null,
+      !isRsvp ? React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#0369a1", lineHeight: 1.6 } }, "Need to transfer tickets to a guest? Forward this email or share access from your Liventix account.") : null,
     ),
     data.qrCodes && data.qrCodes.length > 0
       ? React.createElement(
@@ -626,7 +626,7 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     format: 'a4'
   });
 
-  // YardPass Brand Colors
+  // Liventix Brand Colors
   const primaryAmber = [223, 157, 7];    // #DF9D07 - Primary amber
   const lightAmber = [241, 204, 119];    // #F1CC77 - Light amber (highlights)
   const deepIndigo = [83, 78, 133];      // #534E85 - Deep indigo/purple
@@ -654,7 +654,7 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(28);
     doc.setFont('helvetica', 'bold');
-    doc.text(orgInfo?.name || 'YardPass', 105, 15, { align: 'center' });
+    doc.text(orgInfo?.name || 'Liventix', 105, 15, { align: 'center' });
     
     // Event title
     doc.setFontSize(16);
@@ -784,8 +784,8 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     doc.setFontSize(7);
     doc.setTextColor(...mutedGray);
     const footerText = orgInfo?.name 
-      ? `${orgInfo.name} - ${orgInfo.supportEmail || 'support@yardpass.tech'} - yardpass.tech`
-      : 'YardPass - support@yardpass.tech - yardpass.tech';
+      ? `${orgInfo.name} - ${orgInfo.supportEmail || 'support@liventix.tech'} - liventix.tech`
+      : 'Liventix - support@liventix.tech - liventix.tech';
     doc.text(footerText, 105, 290, { align: 'center' });
   });
 
@@ -917,7 +917,7 @@ async function generateTicketHTML(ticketIds: string[], eventTitle: string, custo
         (ticket.id as string).slice(0, 8)
       }</div></div></div>`;
     })
-    .join("")}<div class="footer"><strong>YardPass</strong><br/>For support, visit yardpass.tech or email support@yardpass.tech<br/>This ticket is valid for entry and cannot be duplicated.</div></div></body></html>`;
+    .join("")}<div class="footer"><strong>Liventix</strong><br/>For support, visit liventix.tech or email support@liventix.tech<br/>This ticket is valid for entry and cannot be duplicated.</div></div></body></html>`;
 
   return {
     content: btoa(unescape(encodeURIComponent(html))),
@@ -1086,17 +1086,17 @@ const handler = async (req: Request): Promise<Response> => {
     const idemKey = req.headers.get("Idempotency-Key") ?? requestId;
 
     const emailPayload: Record<string, unknown> = {
-      from: orgInfo?.name ? `${orgInfo.name} via YardPass <hello@yardpass.tech>` : "YardPass <hello@yardpass.tech>",
+      from: orgInfo?.name ? `${orgInfo.name} via Liventix <hello@liventix.tech>` : "Liventix <hello@liventix.tech>",
       to: [data.customerEmail],
       subject: data.isRsvpOnly 
         ? `✅ RSVP Confirmed - ${eventInfo?.title || data.eventTitle}`
         : `✅ Ticket Confirmation - ${eventInfo?.title || data.eventTitle}`,
       html,
       text,
-      reply_to: orgInfo?.supportEmail || "support@yardpass.tech",
+      reply_to: orgInfo?.supportEmail || "support@liventix.tech",
       headers: {
         "X-Entity-Ref-ID": idemKey, // many ESPs use this for idempotency
-        "List-Unsubscribe": `<mailto:${orgInfo?.supportEmail || "support@yardpass.tech"}>`,
+        "List-Unsubscribe": `<mailto:${orgInfo?.supportEmail || "support@liventix.tech"}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
       tags: [

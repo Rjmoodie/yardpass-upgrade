@@ -184,7 +184,7 @@ import { useMemo } from 'react';
 
 // Get session ID (reuse from tracking hook)
 function getSessionId(): string {
-  const storageKey = 'yardpass_session_id';
+  const storageKey = 'liventix_session_id';
   let sessionId = localStorage.getItem(storageKey);
   
   if (!sessionId) {

@@ -612,7 +612,7 @@ export function TicketPurchaseModal({
       const useEmbedded = import.meta.env.VITE_USE_EMBEDDED_CHECKOUT === 'true';
       
       if (useEmbedded && data.client_secret) {
-        // Use embedded checkout (stay on YardPass)
+        // Use embedded checkout (stay on Liventix)
         console.log('🎨 Using embedded checkout');
         setEmbeddedCheckoutData({
           checkoutSessionId: data.checkout_session_id,
@@ -960,20 +960,20 @@ export function TicketPurchaseModal({
 
           {/* Enhanced Checkout Session Status */}
           {checkoutSessionId && sessionStatus === 'pending' && timeRemaining && (
-            <Card className="border-orange-200 bg-orange-50/50">
+            <Card className="border-brand-200 bg-brand-50/50">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-4 h-4 text-orange-600" />
-                  <h3 className="font-semibold text-orange-800">Tickets Reserved</h3>
+                  <Clock className="w-4 h-4 text-brand-600" />
+                  <h3 className="font-semibold text-brand-800">Tickets Reserved</h3>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-sm text-orange-700">
+                  <p className="text-sm text-brand-700">
                     Your tickets are reserved for{' '}
                     <span className="font-mono font-semibold">
                       {timeRemaining.minutes}:{timeRemaining.seconds.toString().padStart(2, '0')}
                     </span>
                   </p>
-                  <p className="text-xs text-orange-600">
+                  <p className="text-xs text-brand-600">
                     Complete your purchase before time expires to secure your tickets.
                   </p>
                   {canExtendHold && (
@@ -987,7 +987,7 @@ export function TicketPurchaseModal({
                           description: "Your reservation has been extended by 10 minutes.",
                         });
                       }}
-                      className="text-orange-700 border-orange-300 hover:bg-orange-100"
+                      className="text-brand-700 border-brand-300 hover:bg-brand-100"
                     >
                       Extend Hold (+10 min)
                     </Button>

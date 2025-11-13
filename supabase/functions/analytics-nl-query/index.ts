@@ -50,7 +50,7 @@ IMPORTANT: To filter by organization, use one of these patterns:
 2. Filter by org members' events: WHERE events.created_by IN (SELECT user_id FROM org_memberships WHERE org_id = 'org_id')
 `;
 
-    const systemPrompt = `You are a SQL query assistant for YardPass analytics. 
+    const systemPrompt = `You are a SQL query assistant for Liventix analytics. 
     Convert natural language questions into SQL queries that analyze event data.
     
     ${schemaInfo}

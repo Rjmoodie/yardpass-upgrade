@@ -111,8 +111,8 @@ export const WebAnalyticsPage: React.FC = () => {
                   +15.7% from last month
                 </p>
               </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Eye className="h-6 w-6 text-orange-600" />
+              <div className="w-12 h-12 bg-brand-100 rounded-lg flex items-center justify-center">
+                <Eye className="h-6 w-6 text-brand-600" />
               </div>
             </div>
           </CardContent>
@@ -222,7 +222,7 @@ export const WebAnalyticsPage: React.FC = () => {
                   activity.type === 'proposal' ? 'bg-blue-500' :
                   activity.type === 'event' ? 'bg-green-500' :
                   activity.type === 'payment' ? 'bg-purple-500' :
-                  'bg-orange-500'
+                  'bg-brand-500'
                 }`} />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900">{activity.action}</p>

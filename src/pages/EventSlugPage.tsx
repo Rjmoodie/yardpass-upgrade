@@ -188,7 +188,7 @@ export default function EventSlugPage() {
             <div className="grid gap-3 sm:grid-cols-3">
               <InfoCard icon={<Users className="h-5 w-5" />} title="Expected attendees" description={`${attendeesLabel} going`} />
               <InfoCard icon={<Clock className="h-5 w-5" />} title="Gates open" description="5:00 PM • Early entry available" />
-              <InfoCard icon={<Info className="h-5 w-5" />} title="Need help?" description="support@yardpass.com" />
+              <InfoCard icon={<Info className="h-5 w-5" />} title="Need help?" description="support@liventix.com" />
             </div>
           </div>
         )}
@@ -204,7 +204,7 @@ export default function EventSlugPage() {
                   key={tier.id}
                   onClick={() => setSelectedTier(tier.id)}
                   className={`flex w-full flex-col gap-4 rounded-3xl border p-5 text-left transition hover:border-white/20 hover:shadow-xl sm:flex-row sm:items-center sm:justify-between ${
-                    isSelected ? 'border-[#FF8C00] bg-[#FF8C00]/10' : 'border-white/10 bg-white/5'
+                    isSelected ? 'border-[#1171c0] bg-[#1171c0]/10' : 'border-white/10 bg-white/5'
                   }`}
                 >
                   <div>
@@ -222,7 +222,7 @@ export default function EventSlugPage() {
                   </div>
 
                   <div className="h-2 w-full overflow-hidden rounded-full bg-white/10 sm:w-48">
-                    <div className="h-full bg-[#FF8C00]" style={{ width: `${availability}%` }} />
+                    <div className="h-full bg-[#1171c0]" style={{ width: `${availability}%` }} />
                   </div>
 
                   <ul className="space-y-1 text-sm text-white/70 sm:text-right">
@@ -234,7 +234,7 @@ export default function EventSlugPage() {
               );
             })}
 
-            <button className="w-full rounded-full bg-[#FF8C00] py-3 text-sm font-semibold text-white transition hover:bg-[#FF9D1A]">
+            <button className="w-full rounded-full bg-[#1171c0] py-3 text-sm font-semibold text-white transition hover:bg-[#0d5aa1]">
               Continue to Tickets
             </button>
           </div>

@@ -48,7 +48,7 @@ type ContactListSummary = {
   contact_count: number;
 };
 
-// 🧩 Available merge tags in YardPass:
+// 🧩 Available merge tags in Liventix:
 // {{first_name}} {{event_title}} {{event_date}} {{event_time}} {{venue}} {{city}} {{country}}
 // {{org_name}} {{support_email}} {{ticket_portal_url}} {{event_description}} {{cover_image_url}}
 // {{order_lookup_url}} (for ticket access)
@@ -539,7 +539,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
   const [preheader, setPreheader] = useState('');
   const [body, setBody] = useState('');
   const [smsBody, setSmsBody] = useState('');
-  const [replyTo, setReplyTo] = useState('support@yardpass.tech');
+  const [replyTo, setReplyTo] = useState('support@liventix.tech');
   const [segment, setSegment] = useState<'all_attendees' | 'roles' | 'import_list'>('all_attendees');
   const [selectedRoles, setSelectedRoles] = useState<RoleType[]>(['scanner']);
   const [selectedImportList, setSelectedImportList] = useState('');
@@ -625,8 +625,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         .single();
       if (data) {
         const orgId = data.owner_context_type === 'organization' ? data.owner_context_id : null;
-        let orgName = 'YardPass Demo Events'; // Default fallback
-        let orgSupportEmail = 'support@yardpass.tech';
+        let orgName = 'Liventix Demo Events'; // Default fallback
+        let orgSupportEmail = 'support@liventix.tech';
         
         // Fetch organization data if event is owned by an organization
         if (orgId) {
@@ -638,7 +638,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
           
           if (orgData) {
             orgName = orgData.name;
-            orgSupportEmail = orgData.support_email || 'support@yardpass.tech';
+            orgSupportEmail = orgData.support_email || 'support@liventix.tech';
           }
         }
         
@@ -729,7 +729,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
     setPreheader('');
     setBody('');
     setSmsBody('');
-    setReplyTo('support@yardpass.tech');
+    setReplyTo('support@liventix.tech');
     setAiOutput(null);
     setSegment('all_attendees');
     setSelectedRoles(['scanner']);
@@ -775,8 +775,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
       subject,
       body: preheader ? `<!-- preheader: ${preheader} -->\n${body}` : body,
       smsBody,
-      fromName: 'YardPass',
-      fromEmail: 'noreply@yardpass.tech',
+      fromName: 'Liventix',
+      fromEmail: 'noreply@liventix.tech',
       replyTo,
       segment: segmentPayload,
       dryRun,
@@ -828,8 +828,8 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
         subject: channel === 'email' ? (subject || 'Test Message') : undefined,
         body: preheader ? `<!-- preheader: ${preheader} -->\n${body}` : body,
         smsBody,
-        fromName: 'YardPass',
-        fromEmail: 'noreply@yardpass.tech',
+        fromName: 'Liventix',
+        fromEmail: 'noreply@liventix.tech',
         replyTo,
         segment: { type: 'roles', roles: [] },
         dryRun: true,
@@ -1152,7 +1152,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
               <Input 
                 id="reply-to-input" 
                 type="email" 
-                placeholder="support@yardpass.tech" 
+                placeholder="support@liventix.tech" 
                 value={replyTo} 
                 onChange={e => setReplyTo(e.target.value)}
               />
@@ -1275,7 +1275,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                   <CheckCheck className="w-4 h-4 text-amber-600" />
                   AI Insights
                 </div>
-                <div className="p-3 border rounded-lg bg-gradient-to-r from-amber-50/50 to-orange-50/50 border-amber-200/50">
+                <div className="p-3 border rounded-lg bg-gradient-to-r from-amber-50/50 to-brand-50/50 border-amber-200/50">
                   <div className="text-sm text-amber-800 leading-relaxed">{aiOutput.insights}</div>
                 </div>
               </div>
@@ -1372,7 +1372,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                   <strong>To:</strong> Your selected audience ({audienceCount} recipients)
                 </div>
                 <div className="text-xs text-gray-600">
-                  <strong>From:</strong> noreply@yardpass.tech
+                  <strong>From:</strong> noreply@liventix.tech
                 </div>
                 <div className="text-xs text-gray-600">
                   <strong>Subject:</strong> {(subject || '(No subject)')
@@ -1393,12 +1393,12 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                 {/* Email Header */}
                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-8 py-7 text-center">
                   <img 
-                    src="/yardpass-logo.png" 
-                    alt="YardPass" 
+                    src="/liventix-logo.png" 
+                    alt="Liventix" 
                     className="h-16 mx-auto mb-3"
                   />
                   <div className="text-xs text-slate-400 uppercase tracking-wider">
-                    Powered by YardPass
+                    Powered by Liventix
                   </div>
                 </div>
 
@@ -1415,12 +1415,12 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                         .replace(/\{\{city\}\}/g, eventDetails.city || 'your city')
                         .replace(/\{\{country\}\}/g, eventDetails.country || 'your country')
                         .replace(/\{\{event_description\}\}/g, eventDetails.description || 'your event description')
-                        .replace(/\{\{cover_image_url\}\}/g, eventDetails.coverImageUrl || 'https://yardpass.tech/placeholder.jpg')
+                        .replace(/\{\{cover_image_url\}\}/g, eventDetails.coverImageUrl || 'https://liventix.tech/placeholder.jpg')
                         .replace(/\{\{first_name\}\}/g, 'John')
-                        .replace(/\{\{org_name\}\}/g, eventDetails.orgName || 'YardPass Demo Events')
-                        .replace(/\{\{support_email\}\}/g, eventDetails.orgSupportEmail || 'support@yardpass.tech')
-                        .replace(/\{\{ticket_portal_url\}\}/g, 'https://yardpass.tech/tickets')
-                        .replace(/\{\{order_lookup_url\}\}/g, 'https://yardpass.tech/tickets')}
+                        .replace(/\{\{org_name\}\}/g, eventDetails.orgName || 'Liventix Demo Events')
+                        .replace(/\{\{support_email\}\}/g, eventDetails.orgSupportEmail || 'support@liventix.tech')
+                        .replace(/\{\{ticket_portal_url\}\}/g, 'https://liventix.tech/tickets')
+                        .replace(/\{\{order_lookup_url\}\}/g, 'https://liventix.tech/tickets')}
                     </div>
                   </div>
                 </div>
@@ -1428,12 +1428,12 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                 {/* Email Footer */}
                 <div className="bg-gray-50 px-8 py-6 text-center">
                   <p className="text-sm text-gray-600 mb-2">
-                    Powered by YardPass
+                    Powered by Liventix
                   </p>
                   <p className="text-xs text-gray-500">
                     Questions? Contact{' '}
-                    <a href={`mailto:${eventDetails.orgSupportEmail || 'support@yardpass.tech'}`} className="text-blue-600 hover:text-blue-700">
-                      {eventDetails.orgSupportEmail || 'support@yardpass.tech'}
+                    <a href={`mailto:${eventDetails.orgSupportEmail || 'support@liventix.tech'}`} className="text-blue-600 hover:text-blue-700">
+                      {eventDetails.orgSupportEmail || 'support@liventix.tech'}
                     </a>
                   </p>
                 </div>
@@ -1449,7 +1449,7 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                     <strong>To:</strong> Your selected audience ({audienceCount} recipients)
                   </div>
                   <div className="text-xs text-gray-600">
-                    <strong>From:</strong> YardPass SMS
+                    <strong>From:</strong> Liventix SMS
                   </div>
                 </div>
 
@@ -1464,12 +1464,12 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                       .replace(/\{\{city\}\}/g, eventDetails.city || 'your city')
                       .replace(/\{\{country\}\}/g, eventDetails.country || 'your country')
                       .replace(/\{\{event_description\}\}/g, eventDetails.description || 'your event description')
-                      .replace(/\{\{cover_image_url\}\}/g, eventDetails.coverImageUrl || 'https://yardpass.tech/placeholder.jpg')
+                      .replace(/\{\{cover_image_url\}\}/g, eventDetails.coverImageUrl || 'https://liventix.tech/placeholder.jpg')
                       .replace(/\{\{first_name\}\}/g, 'John')
-                      .replace(/\{\{org_name\}\}/g, eventDetails.orgName || 'YardPass Demo Events')
-                      .replace(/\{\{support_email\}\}/g, eventDetails.orgSupportEmail || 'support@yardpass.tech')
-                      .replace(/\{\{ticket_portal_url\}\}/g, 'https://yardpass.tech/tickets')
-                      .replace(/\{\{order_lookup_url\}\}/g, 'https://yardpass.tech/tickets')}
+                      .replace(/\{\{org_name\}\}/g, eventDetails.orgName || 'Liventix Demo Events')
+                      .replace(/\{\{support_email\}\}/g, eventDetails.orgSupportEmail || 'support@liventix.tech')
+                      .replace(/\{\{ticket_portal_url\}\}/g, 'https://liventix.tech/tickets')
+                      .replace(/\{\{order_lookup_url\}\}/g, 'https://liventix.tech/tickets')}
                   </div>
                 </div>
                 

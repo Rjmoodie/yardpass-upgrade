@@ -46,8 +46,8 @@ npx cap open ios
 
 ### capacitor.config.ts
 ```typescript
-appId: 'com.yardpass.app'
-appName: 'YardPass'
+appId: 'com.liventix.app'
+appName: 'Liventix'
 ```
 
 ### iOS Initialization
