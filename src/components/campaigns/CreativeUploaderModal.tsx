@@ -819,7 +819,7 @@ export function CreativeUploaderModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full max-w-[95vw] sm:max-w-[90vw] md:max-w-3xl lg:max-w-4xl p-0 overflow-hidden border-none bg-transparent shadow-none max-h-[90vh] h-[90vh]">
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-[90vw] md:max-w-3xl lg:max-w-4xl p-0 overflow-hidden border-none bg-transparent shadow-none modal-max-h h-[90vh]">
           <div className="flex flex-col rounded-2xl sm:rounded-3xl border border-border/60 bg-background/95 shadow-2xl h-full">
             <div className="relative overflow-hidden flex-shrink-0">
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/20 via-background/60 to-background" />

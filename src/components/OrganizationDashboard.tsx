@@ -545,7 +545,7 @@ export function OrganizationDashboard({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-3 sm:p-4 pb-24 sm:pb-28">
+      <div className="flex-1 overflow-auto p-3 sm:p-4 pb-nav">
         <Tabs defaultValue="overview">
           <div className="sticky top-0 bg-background z-20 pb-2 -mx-3 sm:mx-0 px-3 sm:px-0">
             <div className="overflow-x-auto scrollbar-hide">
@@ -940,7 +940,7 @@ export function OrganizationDashboard({
 
       {/* Edit Organization Modal */}
       <Dialog open={editingOrg} onOpenChange={setEditingOrg}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh]">
+        <DialogContent className="sm:max-w-2xl modal-max-h">
           <DialogHeader>
             <DialogTitle>Edit Organization</DialogTitle>
           </DialogHeader>

@@ -960,7 +960,7 @@ export function PostCreatorModal({
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none" aria-busy={loading}>
-          <div className="flex max-h-[90vh] flex-col rounded-3xl border-2 border-border bg-background shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 dark:border-white/20">
+          <div className="flex modal-max-h flex-col rounded-3xl border-2 border-border bg-background shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 dark:border-white/20">
             <div className="relative overflow-hidden">
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/20 via-background/60 to-background" />
               <DialogHeader className="relative px-6 pt-6 pb-5">
@@ -975,7 +975,7 @@ export function PostCreatorModal({
             </div>
 
             <div 
-              className="flex-1 overflow-y-auto px-6 pb-6" 
+              className="flex-1 overflow-y-auto px-6 pb-nav" 
               style={keyboardPadding}
               onPaste={onPaste}
             >

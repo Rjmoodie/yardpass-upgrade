@@ -121,7 +121,7 @@ export const SponsorshipPage: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-background pb-16 sm:pb-0">
+    <div className="relative min-h-screen bg-background pb-nav sm:pb-0">
       {/* Hero Header */}
       <header className="border-b bg-gradient-to-r from-primary/5 via-background to-secondary/5">
         <div className="container mx-auto px-4 py-10 md:py-14">
@@ -306,7 +306,7 @@ export const SponsorshipPage: React.FC = () => {
         </section>
 
         {/* Main Content */}
-        <section className="container mx-auto px-4 pb-20 pt-4 sm:pb-12">
+        <section className="container mx-auto px-4 pb-nav pt-4 sm:pb-12">
           {activeSection === 'marketplace' ? (
             <div className="space-y-3">
               {/* Onboarding hint */}

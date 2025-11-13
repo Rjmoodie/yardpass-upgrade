@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import AuthPage from '@/pages/AuthPage';
+import { lazy, Suspense } from 'react';
+const AuthPage = lazy(() => import('@/pages/AuthPage'));
 
 /**
  * Lightweight reader for a "guest ticket" session saved by your OTP/magic-link flow.

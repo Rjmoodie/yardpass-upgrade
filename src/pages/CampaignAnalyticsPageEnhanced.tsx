@@ -15,9 +15,7 @@ import { KpiCardEnhanced } from '@/analytics/components/KpiCardEnhanced';
 import { PacingPredictor } from '@/analytics/components/PacingPredictor';
 import { ViewabilityCard } from '@/analytics/components/ViewabilityCard';
 import { MetricsBar } from '@/analytics/components/MetricsBar';
-import { TimeSeriesChart } from '@/analytics/components/TimeSeriesChart';
-import { CreativeBreakdown } from '@/analytics/components/CreativeBreakdown';
-import { AttributionPie } from '@/analytics/components/AttributionPie';
+import { LazyTimeSeriesChart, LazyCreativeBreakdown, LazyAttributionPie } from '@/analytics/components/LazyCharts';
 import { AiSpendOptimizer } from '@/components/ai/AiSpendOptimizer';
 
 export default function CampaignAnalyticsPageEnhanced() {
@@ -195,17 +193,17 @@ export default function CampaignAnalyticsPageEnhanced() {
 
         {/* Time Series Chart */}
         {daily && daily.length > 0 && (
-          <TimeSeriesChart data={daily} />
+          <LazyTimeSeriesChart data={daily} />
         )}
 
         {/* Creative Performance */}
         {creatives && creatives.length > 0 && (
-          <CreativeBreakdown creatives={creatives} />
+          <LazyCreativeBreakdown creatives={creatives} />
         )}
 
         {/* Attribution Mix */}
         {attribution && attribution.length > 0 && totals.conversions > 0 && (
-          <AttributionPie data={attribution} />
+          <LazyAttributionPie data={attribution} />
         )}
 
         {/* Loading State */}

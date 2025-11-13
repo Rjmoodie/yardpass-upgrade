@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { EventFeed } from "@/components/EventFeed";
 import { EventPostsGrid } from "@/components/EventPostsGrid";
-import MapboxEventMap from "@/components/MapboxEventMap";
+import LazyMapboxEventMap from "@/components/maps/LazyMapboxEventMap";
 import EventCheckoutSheet from "@/components/EventCheckoutSheet";
 import CommentModal from "@/components/CommentModal";
 import { SponsorBadges } from "@/components/sponsorship/SponsorBadges";
@@ -388,7 +388,7 @@ export function EventDetailsPageIntegrated() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-nav">
       {/* Hero Image with Title Overlay - MODERNIZED */}
       <div className="relative h-64 overflow-hidden sm:h-80 md:h-96">
         <div className="absolute inset-0">
@@ -583,7 +583,7 @@ export function EventDetailsPageIntegrated() {
                   <div className="p-3">
                     <div className="inline-flex items-center rounded-full bg-muted/50 px-3 py-1.5 text-sm font-medium text-foreground mb-2">{event.venue}</div>
                     <div className="rounded-lg overflow-hidden ring-1 ring-black/5">
-                      <MapboxEventMap 
+                      <LazyMapboxEventMap 
                         lat={event.lat}
                         lng={event.lng}
                         venue={event.venue}

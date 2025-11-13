@@ -55,7 +55,7 @@ export default function SearchPage({ onBack, onEventSelect }: SearchPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-black pb-20 pt-4 sm:pt-6">
+    <div className="min-h-screen bg-black pb-nav pt-4 sm:pt-6">
       <div className="sticky top-0 z-40 bg-black/80 px-3 pb-4 backdrop-blur-xl sm:px-4 md:px-6">
         <div className="mb-4 flex items-center gap-2 sm:gap-3">
           {onBack && (

@@ -218,7 +218,7 @@ export default function TicketsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 pt-4 sm:pt-6">
+    <div className="min-h-screen bg-background pb-nav pt-4 sm:pt-6">
       {/* Header */}
       <div className="mb-6 px-3 sm:px-4 md:px-6">
         <h1 className="mb-2 text-3xl font-bold text-foreground sm:text-4xl">My Tickets</h1>

@@ -268,6 +268,29 @@ html, body { min-height: 100svh; }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  
+  /* Bottom navigation spacing utilities */
+  .pb-nav {
+    padding-bottom: var(--bottom-nav-safe);
+  }
+  
+  .mb-nav {
+    margin-bottom: var(--bottom-nav-safe);
+  }
+  
+  /* For pages/containers with bottom nav - ensures content isn't hidden */
+  .safe-bottom {
+    padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 1rem);
+  }
+  
+  /* Modal max heights that account for bottom nav */
+  .modal-max-h {
+    max-height: calc(90vh - var(--bottom-nav-safe));
+  }
+  
+  .modal-max-h-full {
+    max-height: calc(95vh - var(--bottom-nav-safe));
+  }
 }
 
 /* Force modals above floating actions (z-index: 999999) */

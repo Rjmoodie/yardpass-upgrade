@@ -64,7 +64,7 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black pb-16 text-white">
+    <div className="min-h-screen bg-black pb-nav text-white">
       <div className="relative h-48 sm:h-64">
         <ImageWithFallback
           src={profile.coverImage}

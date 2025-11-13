@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => ({
             if (id.includes('recharts')) return 'charts';
             if (id.includes('@mux/mux-player')) return 'video';
             if (id.includes('@stripe')) return 'stripe';
-            if (id.includes('framer-motion')) return 'motion';
+            if (id.includes('framer-motion') || id.includes('motion-dom')) return 'motion';
             if (id.includes('@radix-ui')) return 'ui';
             if (id.includes('posthog')) return 'analytics';
             
@@ -42,13 +42,29 @@ export default defineConfig(({ mode }) => ({
             if (id.includes('tus-js-client')) return 'upload';
             if (id.includes('@capacitor/')) return 'capacitor';
             
-            // Core framework (keep in vendor for caching)
-            if (id.includes('react/') || id.includes('react-dom/')) return 'vendor';
-            if (id.includes('@supabase/supabase-js')) return 'vendor';
-            if (id.includes('react-router')) return 'vendor';
-            if (id.includes('@tanstack/react-query')) return 'vendor';
+            // 🎯 OPTIMIZATION: Split core framework into separate chunks
+            // This prevents vendor.js from becoming too large
+            if (id.includes('react-dom/')) return 'react-dom';
+            if (id.includes('react/') && !id.includes('react-dom')) return 'react';
+            if (id.includes('@supabase/supabase-js')) return 'supabase';
+            if (id.includes('react-router')) return 'router';
+            if (id.includes('@tanstack/react-query')) return 'react-query';
+            if (id.includes('lucide-react')) return 'icons';
             
-            // Everything else goes to vendor
+            // 🎯 AGGRESSIVE OPTIMIZATION: Split more libraries to reduce vendor
+            if (id.includes('sonner')) return 'toast';
+            if (id.includes('class-variance-authority') || id.includes('clsx') || id.includes('tailwind-merge')) return 'utils';
+            if (id.includes('next-themes')) return 'theme';
+            if (id.includes('react-helmet')) return 'helmet';
+            if (id.includes('cmdk')) return 'command';
+            if (id.includes('vaul')) return 'drawer';
+            if (id.includes('embla-carousel')) return 'carousel';
+            if (id.includes('react-day-picker')) return 'date-picker';
+            if (id.includes('input-otp')) return 'otp';
+            if (id.includes('react-resizable-panels')) return 'panels';
+            if (id.includes('react-virtualized')) return 'virtual';
+            
+            // Small utilities can stay in vendor (should be < 50KB now)
             return 'vendor';
           }
         }

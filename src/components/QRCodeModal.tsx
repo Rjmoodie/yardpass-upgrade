@@ -163,7 +163,7 @@ export function QRCodeModal({
         Tap outside to close
       </div>
 
-      <Card className="w-full max-w-[90vw] sm:max-w-sm relative animate-in zoom-in duration-200 shadow-2xl border-0 bg-white dark:bg-neutral-900 max-h-[75vh] sm:max-h-[90vh] overflow-y-auto mx-auto">
+      <Card className="w-full max-w-[90vw] sm:max-w-sm relative animate-in zoom-in duration-200 shadow-2xl border-0 bg-white dark:bg-neutral-900 max-h-[75vh] sm:modal-max-h overflow-y-auto mx-auto">
         {/* Enhanced Close Button - Mobile optimized */}
         <Button
           variant="ghost"

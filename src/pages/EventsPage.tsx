@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { useAuth } from '@/contexts/AuthContext';
-import MapboxEventMap from '@/components/MapboxEventMap';
+import LazyMapboxEventMap from '@/components/maps/LazyMapboxEventMap';
 
 interface Event {
   id: string;
@@ -370,7 +370,7 @@ export default function EventsPage() {
                 {event.lat && event.lng && (
                   <div>
                     <h3 className="font-semibold mb-2">Location</h3>
-                    <MapboxEventMap 
+                    <LazyMapboxEventMap 
                       lat={event.lat}
                       lng={event.lng}
                       venue={event.venue}

@@ -228,7 +228,7 @@ export function FeedFilter({ onFilterChange, isOpen, onToggle, value }: FeedFilt
           </div>
 
           {/* Search Radius Section */}
-          <div className="p-5 pb-24 bg-background">
+          <div className="p-5 pb-nav bg-background">
             <div className="flex items-center gap-2 mb-4">
               <Search className="w-5 h-5 text-foreground" />
               <h3 className="text-base font-bold text-foreground">Search Radius</h3>

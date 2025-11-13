@@ -90,7 +90,7 @@ export default function NotificationsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-black pb-20 text-white">
+    <div className="min-h-screen bg-black pb-nav text-white">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-black/80 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">

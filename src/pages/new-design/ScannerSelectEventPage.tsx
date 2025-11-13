@@ -90,7 +90,7 @@ export default function ScannerSelectEventPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 pt-4 sm:pt-6">
+    <div className="min-h-screen bg-background pb-nav pt-4 sm:pt-6">
       {/* Header */}
       <div className="mb-6 px-3 sm:px-4 md:px-6">
         <div className="flex items-center gap-3 mb-2">

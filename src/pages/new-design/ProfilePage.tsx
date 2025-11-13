@@ -316,7 +316,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-nav">
       {/* Cover Image */}
       <div className="relative h-32 overflow-hidden sm:h-48 md:h-64">
         <ImageWithFallback

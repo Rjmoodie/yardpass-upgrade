@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Calendar, MapPin, Users, Share2, ArrowLeft } from 'lucide-react';
-import MapboxEventMap from '@/components/MapboxEventMap';
+import LazyMapboxEventMap from '@/components/maps/LazyMapboxEventMap';
 import { format } from 'date-fns';
 
 import { normalizeMapboxFeature } from '@/utils/mapbox/normalize';
@@ -246,7 +246,7 @@ const [displayAddress, setDisplayAddress] = useState<string | null>(null);
                 {/* Add map if coordinates are available */}
                 {event.lat && event.lng && (
                   <div className="mt-4">
-                    <MapboxEventMap
+                    <LazyMapboxEventMap
                       lat={event.lat}
                       lng={event.lng}
                       venue={event.venue || undefined}

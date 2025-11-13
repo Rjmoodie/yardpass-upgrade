@@ -394,7 +394,7 @@ export default function TicketsPage({
   }, [guestToken, toast]);
 
   return (
-    <div className="min-h-screen bg-black pb-20">
+    <div className="min-h-screen bg-black pb-nav">
       {/* Guest Session Banner */}
       {guestSession && (
         <div className="sticky top-0 z-40 border-b border-green-500/20 bg-green-900/20 backdrop-blur-xl">
@@ -511,7 +511,7 @@ export default function TicketsPage({
             )}
           </div>
         ) : (
-          <div key={activeTab} className="space-y-4 pb-16">
+          <div key={activeTab} className="space-y-4 pb-nav">
             {tickets.map((ticket) => (
               <div
                 key={ticket.id}

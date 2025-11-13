@@ -10,7 +10,8 @@ import { initIOSCapacitor, setupKeyboardListeners } from '@/lib/ios-capacitor';
 import Index from '@/pages/Index';
 import NavigationNewDesign from '@/components/NavigationNewDesign';
 import { GlobalErrorHandler } from '@/components/GlobalErrorHandler';
-import { ShareModal } from '@/components/ShareModal';
+// Lazy load ShareModal (only when needed)
+const ShareModal = lazy(() => import('@/components/ShareModal').then(m => ({ default: m.ShareModal })));
 import { SharePayload } from '@/lib/share';
 import { getEventRoute } from '@/lib/eventRouting';
 import { Scan } from 'lucide-react';
@@ -46,13 +47,14 @@ const SearchPage = lazy(() => import('@/components/SearchPage'));
 const EventManagement = lazy(() => import('@/components/EventManagement'));
 const OrganizationCreator = lazy(() => import('@/components/OrganizationCreator'));
 const OrganizationDashboard = lazy(() => import('@/components/OrganizationDashboard'));
-import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+// LoadingSpinner is small, but can be lazy loaded if not used in critical path
+const LoadingSpinner = lazy(() => import('@/components/dashboard/LoadingSpinner'));
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
 const RefundPolicy = lazy(() => import('@/pages/RefundPolicy'));
 const DeploymentReadinessPage = lazy(() => import('@/pages/DeploymentReadinessPage'));
 const OrgInvitePage = lazy(() => import('@/pages/OrgInvitePage'));
-import { TicketsRoute } from '@/components/TicketsRoute';
+const TicketsRoute = lazy(() => import('@/components/TicketsRoute').then(m => ({ default: m.TicketsRoute })));
 const TicketSuccessPage = lazy(() => import('@/components/TicketSuccessPage'));
 const PurchaseSuccessHandler = lazy(() =>
   import('@/components/PurchaseSuccessHandler').then((m) => ({ default: m.PurchaseSuccessHandler })),

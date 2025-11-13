@@ -76,7 +76,7 @@ export default function EventSlugPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24 text-foreground">
+    <div className="min-h-screen bg-background pb-nav text-foreground">
       <div className="relative h-64 overflow-hidden sm:h-80 md:h-96">
         <ImageWithFallback src={event.coverImage} alt={event.title} className="h-full w-full object-cover" />
         {/* Enhanced dark gradient overlay for better text readability */}

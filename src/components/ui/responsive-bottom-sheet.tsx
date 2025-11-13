@@ -81,7 +81,7 @@ export function ResponsiveBottomSheet({
           "h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)]",
           // Tablet and up: centered modal
           "sm:left-1/2 sm:right-auto sm:top-1/2 sm:transform sm:-translate-x-1/2 sm:-translate-y-1/2",
-          "sm:h-auto sm:max-h-[90vh] sm:border sm:border-border sm:rounded-lg",
+          "sm:h-auto sm:modal-max-h sm:border sm:border-border sm:rounded-lg",
           // Desktop: larger modal
           "lg:max-w-2xl",
           className

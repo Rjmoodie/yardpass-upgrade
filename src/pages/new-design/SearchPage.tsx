@@ -176,7 +176,7 @@ export default function SearchPage() {
   }, [performSearch]); // ✅ With cancellation token
 
   return (
-    <div className="min-h-screen bg-background pb-20 pt-4 sm:pt-6">
+    <div className="min-h-screen bg-background pb-nav pt-4 sm:pt-6">
       {/* Search Header */}
       <div className="sticky top-0 z-40 bg-background/80 px-3 pb-4 backdrop-blur-xl sm:px-4 md:px-6">
         {/* Search Bar */}
