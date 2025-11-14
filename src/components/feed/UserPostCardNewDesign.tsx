@@ -291,8 +291,19 @@ const UserPostCardNewDesignComponent = ({
                   <div 
                     onClick={(e) => {
                       e.stopPropagation();
+                      console.log('🎯 Event title clicked (collapsed):', {
+                        eventId: item.event_id,
+                        eventTitle: item.event_title,
+                        hasCallback: !!onEventClick
+                      });
+                      
                       if (item.event_id) {
-                        onEventClick?.(item.event_id);
+                        if (onEventClick) {
+                          onEventClick(item.event_id);
+                        } else {
+                          console.log('📍 Navigating to event:', `/e/${item.event_id}`);
+                          navigate(`/e/${item.event_id}`);
+                        }
                       }
                     }}
                     className="mt-1.5 cursor-pointer group/event"
@@ -414,8 +425,19 @@ const UserPostCardNewDesignComponent = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    console.log('🎯 View Event button clicked (expanded):', {
+                      eventId: item.event_id,
+                      eventTitle: item.event_title,
+                      hasCallback: !!onEventClick
+                    });
+                    
                     if (item.event_id) {
-                      onEventClick?.(item.event_id);
+                      if (onEventClick) {
+                        onEventClick(item.event_id);
+                      } else {
+                        console.log('📍 Navigating to event:', `/e/${item.event_id}`);
+                        navigate(`/e/${item.event_id}`);
+                      }
                     }
                   }}
                   className="mt-4 w-full rounded-full border border-border bg-muted/20 py-2.5 text-sm font-semibold text-foreground transition-all hover:bg-muted/30 active:scale-95"

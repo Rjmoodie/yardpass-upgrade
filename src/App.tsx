@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { initIOSCapacitor, setupKeyboardListeners } from '@/lib/ios-capacitor';
-import Index from '@/pages/Index';
+const Index = lazy(() => import('@/pages/Index'));
 import NavigationNewDesign from '@/components/NavigationNewDesign';
 import { GlobalErrorHandler } from '@/components/GlobalErrorHandler';
 // Lazy load ShareModal (only when needed)

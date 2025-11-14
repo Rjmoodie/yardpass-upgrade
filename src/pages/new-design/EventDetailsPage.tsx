@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { ArrowLeft, Share2, Heart, Calendar, Clock, MapPin, Users, DollarSign, Info, Check, MessageCircle } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { optimizeSupabaseImage, IMAGE_PRESETS } from "@/utils/imageOptimizer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { EventFeed } from "@/components/EventFeed";
 import { EventPostsGrid } from "@/components/EventPostsGrid";
 import LazyMapboxEventMap from "@/components/maps/LazyMapboxEventMap";
@@ -110,6 +113,8 @@ export function EventDetailsPageIntegrated() {
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [postsCount, setPostsCount] = useState<number>(0);
   const [taggedCount, setTaggedCount] = useState<number>(0);
+  const [isGoing, setIsGoing] = useState(false);
+  const [goingCount, setGoingCount] = useState<number>(0);
   
   // Comment modal state
   const [showCommentModal, setShowCommentModal] = useState(false);
@@ -191,50 +196,29 @@ export function EventDetailsPageIntegrated() {
           .eq('event_id', data.id)
           .in('status', ['issued', 'transferred', 'redeemed']);
 
-        // Get posts count - Fetch counts by calling edge function with filters
+        // Get posts count - Use direct Supabase query with count for accuracy
         try {
-          const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-          const { data: { session } } = await supabase.auth.getSession();
+          // Get organizer posts count (posts by event creator or org members)
+          const { count: organizerCount } = await supabase
+            .from('event_posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('event_id', data.id);
           
-          // Build headers - include auth if available, but allow guest access
-          const headers: Record<string, string> = {};
-          if (session?.access_token) {
-            headers['Authorization'] = `Bearer ${session.access_token}`;
-          }
+          setPostsCount(organizerCount || 0);
           
-          // Fetch organizer posts count
-          const organizerUrl = new URL(`${baseUrl}/functions/v1/posts-list`);
-          organizerUrl.searchParams.append('event_id', data.id);
-          organizerUrl.searchParams.append('filter_type', 'organizer_only');
-          organizerUrl.searchParams.append('limit', '1000'); // Get all to count
+          // Get all posts count for tagged (total - organizer = attendee)
+          const { count: totalCount } = await supabase
+            .from('event_posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('event_id', data.id);
           
-          const organizerRes = await fetch(organizerUrl.toString(), {
-            method: 'GET',
-            headers,
-            cache: 'no-store'
+          setTaggedCount(totalCount || 0);
+          
+          console.log('📊 [EventDetailsPage] Post counts:', { 
+            organizer: organizerCount, 
+            total: totalCount,
+            attendee: (totalCount || 0) - (organizerCount || 0)
           });
-          
-          if (organizerRes.ok) {
-            const organizerData = await organizerRes.json();
-            setPostsCount(organizerData.data?.length || 0);
-          }
-          
-          // Fetch attendee posts count
-          const attendeeUrl = new URL(`${baseUrl}/functions/v1/posts-list`);
-          attendeeUrl.searchParams.append('event_id', data.id);
-          attendeeUrl.searchParams.append('filter_type', 'attendee_only');
-          attendeeUrl.searchParams.append('limit', '1000'); // Get all to count
-          
-          const attendeeRes = await fetch(attendeeUrl.toString(), {
-            method: 'GET',
-            headers,
-            cache: 'no-store'
-          });
-          
-          if (attendeeRes.ok) {
-            const attendeeData = await attendeeRes.json();
-            setTaggedCount(attendeeData.data?.length || 0);
-          }
         } catch (error) {
           console.error('[EventDetailsPage] Error fetching post counts:', error);
           setPostsCount(0);
@@ -251,8 +235,39 @@ export function EventDetailsPageIntegrated() {
             .maybeSingle();
           
           setIsSaved(!!savedData);
+          
+          // Check if column exists by trying to query it
+          try {
+            const { data: goingData } = await supabase
+              .from('saved_events')
+              .select('id, is_going')
+              .eq('user_id', user.id)
+              .eq('event_id', data.id)
+              .maybeSingle();
+            
+            if (goingData) {
+              setIsGoing(goingData.is_going || false);
+            }
+          } catch (e) {
+            // Column doesn't exist yet, ignore
+            console.log('is_going column not yet added');
+          }
         } else {
           setIsSaved(false);
+        }
+        
+        // Get count of people going (if column exists)
+        try {
+          const { count: goingCountData } = await supabase
+            .from('saved_events')
+            .select('*', { count: 'exact', head: true })
+            .eq('event_id', data.id)
+            .eq('is_going', true);
+          
+          setGoingCount(goingCountData || 0);
+        } catch (e) {
+          // Column doesn't exist yet
+          setGoingCount(0);
         }
 
         // Determine organizer info based on owner_context_type
@@ -377,6 +392,103 @@ export function EventDetailsPageIntegrated() {
     // Guest checkout is handled in the TicketPurchaseModal
     setTicketModalOpen(true);
   };
+  
+  const handleToggleGoing = async () => {
+    if (!user || !event) {
+      // Prompt to sign in
+      toast({
+        title: 'Sign in required',
+        description: 'Sign in to let others know you\'re going',
+      });
+      navigate('/auth');
+      return;
+    }
+    
+    try {
+      if (isGoing) {
+        // Remove going status
+        const { error } = await supabase
+          .from('saved_events')
+          .update({ is_going: false })
+          .eq('user_id', user.id)
+          .eq('event_id', event.id);
+        
+        if (error) throw error;
+        
+        setIsGoing(false);
+        setGoingCount(prev => Math.max(0, prev - 1));
+        
+        toast({
+          title: 'Removed',
+          description: 'Removed from your going list',
+        });
+      } else {
+        // Mark as going (and save event if not already)
+        // First check if saved_events record exists
+        const { data: existing } = await supabase
+          .from('saved_events')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('event_id', event.id)
+          .maybeSingle();
+        
+        if (existing) {
+          // Update existing record
+          const { error } = await supabase
+            .from('saved_events')
+            .update({ is_going: true })
+            .eq('id', existing.id);
+          
+          if (error) throw error;
+        } else {
+          // Insert new record
+          const { error } = await supabase
+            .from('saved_events')
+            .insert({
+              user_id: user.id,
+              event_id: event.id,
+              is_going: true,
+              saved_at: new Date().toISOString()
+            });
+          
+          if (error) throw error;
+        }
+        
+        setIsGoing(true);
+        setIsSaved(true);
+        setGoingCount(prev => prev + 1);
+        
+        const newCount = goingCount + 1;
+        toast({
+          title: '✓ You\'re going!',
+          description: newCount > 1
+            ? `${newCount} ${newCount === 2 ? 'person' : 'people'} say they're going`
+            : 'You\'ll be the first one there!',
+        });
+        
+        // Upsell tickets if they don't have any
+        setTimeout(() => {
+          toast({
+            title: '🎟️ Get your tickets',
+            description: 'Reserve your spot - tickets selling fast!',
+            action: (
+              <ToastAction altText="Get Tickets" onClick={() => setTicketModalOpen(true)}>
+                Get Tickets
+              </ToastAction>
+            ),
+            duration: 8000
+          });
+        }, 2000);
+      }
+    } catch (error: any) {
+      console.error('[EventDetailsPage] Error toggling going status:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update going status',
+        variant: 'destructive'
+      });
+    }
+  };
 
   // Loading state
   if (loading || !event) {
@@ -387,13 +499,24 @@ export function EventDetailsPageIntegrated() {
     );
   }
 
+  // Optimize hero image for LCP
+  const optimizedHeroImage = optimizeSupabaseImage(event.coverImage, IMAGE_PRESETS.hero);
+
   return (
-    <div className="min-h-screen bg-background pb-nav">
-      {/* Hero Image with Title Overlay - MODERNIZED */}
-      <div className="relative h-64 overflow-hidden sm:h-80 md:h-96">
+    <>
+      {/* Preload LCP image for faster paint */}
+      <Helmet>
+        <link rel="preload" as="image" href={optimizedHeroImage} fetchpriority="high" />
+        <title>{event.title} | YardPass</title>
+        <meta name="description" content={event.description.substring(0, 160)} />
+      </Helmet>
+
+      <div className="min-h-screen bg-background pb-nav">
+        {/* Hero Image with Title Overlay - MODERNIZED */}
+        <div className="relative h-64 overflow-hidden sm:h-80 md:h-96">
         <div className="absolute inset-0">
           <ImageWithFallback
-            src={event.coverImage}
+            src={optimizedHeroImage}
             alt={event.title}
             className="h-full w-full object-cover"
             fetchPriority="high"
@@ -466,7 +589,7 @@ export function EventDetailsPageIntegrated() {
               className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-black/70 backdrop-blur-md ring-1 ring-white/20 transition-all hover:bg-black/80 hover:ring-white/30 w-fit shadow-lg"
             >
               <ImageWithFallback
-                src={event.organizer.avatar}
+                src={optimizeSupabaseImage(event.organizer.avatar, IMAGE_PRESETS.avatar)}
                 alt={event.organizer.name}
                 className="h-6 w-6 rounded-full object-cover ring-1 ring-white/30"
                 disableResponsive={true}
@@ -656,19 +779,40 @@ export function EventDetailsPageIntegrated() {
         )}
       </div>
 
-      {/* Sticky Footer - Get Tickets CTA - Always visible above bottom nav */}
+      {/* Sticky Footer - Actions CTA - Always visible above bottom nav */}
       {event.ticketTiers && event.ticketTiers.length > 0 && (
         <div className="fixed bottom-16 left-0 right-0 z-[110] border-t border-border shadow-lg bg-background/95 backdrop-blur-xl p-3 sm:p-4">
-          <div className="flex items-center gap-3 sm:gap-4 max-w-screen-xl mx-auto">
-            <div className="flex-1">
-              <p className="text-xs text-foreground/70 font-medium sm:text-sm">Starting from</p>
-              <p className="text-lg font-bold text-foreground sm:text-xl">
+          <div className="flex items-center gap-2 sm:gap-3 max-w-screen-xl mx-auto">
+            {/* Going Counter */}
+            <button 
+              onClick={handleToggleGoing}
+              className={`flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 transition-all active:scale-95 min-w-[100px] ${
+                isGoing
+                  ? 'border-primary bg-primary/10 shadow-sm'
+                  : 'border-border bg-background/50 hover:bg-muted'
+              }`}
+            >
+              <span className={`text-xs font-medium ${isGoing ? 'text-primary' : 'text-foreground/60'}`}>
+                {isGoing ? '✓ Going' : 'Interested?'}
+              </span>
+              <span className="text-[10px] text-foreground/50">
+                {goingCount > 0 
+                  ? `${goingCount} ${goingCount === 1 ? 'person says' : 'people say'} they're going`
+                  : 'Be the first'}
+              </span>
+            </button>
+            
+            {/* Price & Tickets */}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-foreground/70 font-medium truncate">Starting from</p>
+              <p className="text-lg font-bold text-foreground truncate sm:text-xl">
                 ${Math.min(...event.ticketTiers.map(t => t.price)).toFixed(2)}
               </p>
             </div>
+            
             <button 
               onClick={handleGetTickets}
-              className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg active:scale-95 sm:px-8 sm:py-3.5 sm:text-base"
+              className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg active:scale-95 sm:px-8 sm:py-3.5 sm:text-base"
             >
               Get Tickets
             </button>
@@ -718,7 +862,8 @@ export function EventDetailsPageIntegrated() {
           }}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

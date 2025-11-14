@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getHlsModule, createHlsInstance } from '@/utils/hlsLoader';
 
 export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
@@ -6,6 +6,30 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
   const hlsRef = useRef<any>(null);
   const lastUrlRef = useRef<string | null>(null);
   const fatalCountRef = useRef(0);
+  const [isIntersecting, setIsIntersecting] = useState(false);
+
+  // IntersectionObserver for better visibility detection
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Consider visible if > 50% is showing
+        setIsIntersecting(entry.intersectionRatio > 0.5);
+      },
+      {
+        threshold: [0, 0.5, 1.0],
+        rootMargin: '50px', // Preload slightly before fully visible
+      }
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
+
+  // Combine prop-based visibility with IO detection
+  const effectiveVisible = visible && isIntersecting;
 
   useEffect(() => {
     let cancelled = false;
@@ -27,7 +51,7 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
       // Native HLS path (Safari)
       const canNative = !!el.canPlayType?.('application/vnd.apple.mpegurl');
       if (canNative) {
-        if (visible) {
+        if (effectiveVisible) {
           if (lastUrlRef.current !== manifestUrl) {
             el.src = manifestUrl;
             el.preload = 'auto';
@@ -49,7 +73,7 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
       }
 
       // hls.js path — only load module/instance if we actually need to show it
-      if (!visible) {
+      if (!effectiveVisible) {
         // Off-screen: pause & stop downloads if we already have an instance
         try { el.pause(); } catch {}
         if (hlsRef.current) {
@@ -120,7 +144,7 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
     })();
 
     return () => { cancelled = true; };
-  }, [manifestUrl, visible]);
+  }, [manifestUrl, effectiveVisible]);
 
   // Cleanup on unmount
   useEffect(() => {

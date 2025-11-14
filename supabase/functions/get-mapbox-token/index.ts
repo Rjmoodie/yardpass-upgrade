@@ -11,7 +11,7 @@ serve(async (req) => {
     // For now, we'll return the token that's already in the client code
     // In production, you'd store this as a Supabase secret
     const mapboxToken = Deno.env.get('MAPBOX_PUBLIC_TOKEN') || 
-      'pk.eyJ1IjoiaG90cm9kMjUiLCJhIjoiY21lZm9sODBoMHdnaDJycHg5dmQyaGV3YSJ9.RoCyY_SXikylZK2sD35oMQ';
+      'pk.eyJ1IjoiaG90cm9kMjUiLCJhIjoiY21oeWJyZTNxMGI3cDJqb3FnOG1ycndzZiJ9.8uHecxA7BYFNHTCYlUSdxg';
 
     if (!mapboxToken) {
       return createErrorResponse('Mapbox token not configured', 500);

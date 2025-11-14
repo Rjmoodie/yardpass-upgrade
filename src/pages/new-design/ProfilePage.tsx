@@ -8,6 +8,7 @@ import { useFollow } from "@/hooks/useFollow";
 import { useTickets } from "@/hooks/useTickets";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { UsernameEditor } from "@/components/profile/UsernameEditor";
@@ -796,13 +797,17 @@ export function ProfilePage() {
             toast({
               title: 'Complete Your Profile',
               description: 'Set your username to comment on posts',
-              action: {
-                label: 'Go to Settings',
-                onClick: () => {
-                  setShowPostModal(false);
-                  navigate('/settings');
-                }
-              },
+              action: (
+                <ToastAction 
+                  altText="Go to Settings" 
+                  onClick={() => {
+                    setShowPostModal(false);
+                    navigate('/settings');
+                  }}
+                >
+                  Go to Settings
+                </ToastAction>
+              ),
               duration: 6000
             });
           }}

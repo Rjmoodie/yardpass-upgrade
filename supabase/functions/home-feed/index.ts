@@ -73,9 +73,13 @@ const CACHE_TTL_GUEST = 30; // seconds
 
 // Public web origins that may call this endpoint
 const ALLOWED_ORIGINS = [
+  "https://www.liventix.tech",
+  "https://liventix.tech",
   "https://app.liventix.com",
   "https://staging.liventix.com",
+  "http://localhost:8080",
   "http://localhost:5173",
+  "http://localhost:4173",
   "http://localhost:8080",
   "http://localhost:8081",
   "http://localhost:8084",
@@ -624,7 +628,15 @@ const handler = withCORS(async (req: Request) => {
     const message = err instanceof Error ? err.message : "Internal error";
     return json(500, { error: message });
   }
-}, { allowOrigins: ALLOWED_ORIGINS });
+}, { 
+  allowOrigins: [
+    'https://www.liventix.tech',
+    'https://liventix.tech',
+    'http://localhost:8080',
+    'http://localhost:4173',
+    '*' // Allow all origins for now
+  ] 
+});
 
 /** ---------------------------
  *   SERVER BOOTSTRAP

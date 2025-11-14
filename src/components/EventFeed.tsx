@@ -426,7 +426,14 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                         <Badge
                           variant="secondary"
                           className="text-xs cursor-pointer hover:bg-secondary/80"
-                          onClick={() => onEventClick?.(post.event_id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onEventClick) {
+                              onEventClick(post.event_id);
+                            } else {
+                              navigate(routes.event(post.event_id));
+                            }
+                          }}
                         >
                           {post.badge_label}
                         </Badge>
@@ -440,8 +447,15 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
                         {new Date(post.created_at).toLocaleString()}
                         {' • '}
                         <button
-                          onClick={() => onEventClick?.(post.event_id)}
-                          className="hover:text-foreground hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onEventClick) {
+                              onEventClick(post.event_id);
+                            } else {
+                              navigate(routes.event(post.event_id));
+                            }
+                          }}
+                          className="hover:text-foreground hover:underline cursor-pointer"
                         >
                           {post.events.title}
                         </button>

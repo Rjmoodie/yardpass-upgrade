@@ -9,6 +9,10 @@ export function getHlsModule() {
 
 export function createHlsInstance(HlsMod: typeof import('hls.js')) {
   const { default: Hls } = HlsMod;
+  
+  // Detect mobile for optimized buffers
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  
   return new Hls({
     // Faster startup
     lowLatencyMode: false, // Disable for better initial loading
@@ -16,10 +20,10 @@ export function createHlsInstance(HlsMod: typeof import('hls.js')) {
     autoStartLoad: true,
     startFragPrefetch: true,
     
-    // Aggressive buffering for smooth playback
-    maxBufferLength: 5,  // Reduced for faster startup
-    maxMaxBufferLength: 15,
-    backBufferLength: 10,
+    // Optimized buffering (smaller on mobile for faster startup + lower memory)
+    maxBufferLength: isMobile ? 3 : 5,
+    maxMaxBufferLength: isMobile ? 8 : 15,
+    backBufferLength: isMobile ? 3 : 10,
     
     // Quality selection for faster loading
     startLevel: -1, // auto
