@@ -136,3 +136,4 @@ HAVING COUNT(*) > 1;  -- Orders with multiple tickets
 
 **Which query results do you want me to analyze for the double counting?** Paste the results from `/tmp/find_double_counting.sql` or let me know what numbers you're seeing (474 vs 476) and where.
 
+

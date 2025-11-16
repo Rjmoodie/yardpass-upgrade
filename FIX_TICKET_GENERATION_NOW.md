@@ -215,3 +215,4 @@ We need to be **explicit** in Edge Functions: `.from("ticketing.tickets")` not `
 **Deploy now and paste the curl results!**
 
 
+

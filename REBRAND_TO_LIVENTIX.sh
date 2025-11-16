@@ -87,3 +87,4 @@ echo ""
 echo "🎨 Your app is now Liventix! 🚀"
 
 
+

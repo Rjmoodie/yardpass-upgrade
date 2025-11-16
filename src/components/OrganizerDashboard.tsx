@@ -162,7 +162,7 @@ export default function OrganizerDashboard() {
   }, []);
 
   // Load orgs
-  const { organizations, loading: orgsLoading } = useOrganizations(user?.id);
+  const { organizations, loading: orgsLoading, resolved: orgsResolved } = useOrganizations(user?.id);
 
   // Determine selected org (URL → last visited → first org)
   const urlOrg = searchParams.get('org');
@@ -917,7 +917,7 @@ export default function OrganizerDashboard() {
   }, [enhancedEvents]);
 
   // Loading / empty states - now after all hooks
-  if (orgsLoading) return <LoadingSpinner />;
+  if (!orgsResolved) return <LoadingSpinner />;
 
   if (!organizations.length) {
     return (

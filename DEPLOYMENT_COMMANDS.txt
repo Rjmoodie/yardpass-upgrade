@@ -68,3 +68,4 @@ Or via Dashboard:
   Settings → Edge Functions → Secrets → Add RESEND_API_KEY
 
 
+

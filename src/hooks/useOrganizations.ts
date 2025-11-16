@@ -11,6 +11,7 @@ type OrgRow = {
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const cache = new Map<string, { data: OrgRow[]; ts: number }>();
+const storage = typeof window !== 'undefined' ? window.localStorage : undefined;
 
 function normalizeOrgs(rows: OrgRow[]): OrgRow[] {
   return (rows || []).map((o) => ({
@@ -25,36 +26,65 @@ function normalizeOrgs(rows: OrgRow[]): OrgRow[] {
 
 export function useOrganizations(userId?: string) {
   const [organizations, setOrganizations] = useState<OrgRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [resolved, setResolved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
 
   const cacheKey = userId ? `orgs-${userId}` : 'orgs-anon';
+  const storageKey = userId ? `liventix:last-org-snapshot:${userId}` : null;
 
   const setSafe = useCallback((rows: OrgRow[]) => {
     if (!mounted.current) return;
     const normalized = normalizeOrgs(rows);
     setOrganizations(normalized);
     cache.set(cacheKey, { data: normalized, ts: Date.now() });
-  }, [cacheKey]);
+    if (storage && storageKey) {
+      try {
+        storage.setItem(storageKey, JSON.stringify(normalized));
+      } catch {
+        // ignore storage failures
+      }
+    }
+    setResolved(true);
+  }, [cacheKey, storageKey]);
+
+  // Hydrate from the previous successful fetch for instant UX
+  useEffect(() => {
+    if (!storage || !storageKey) return;
+    const stored = storage.getItem(storageKey);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as OrgRow[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setOrganizations(normalizeOrgs(parsed));
+        }
+      } catch {
+        storage.removeItem(storageKey);
+      }
+    }
+  }, [storageKey]);
 
   const fetchOrganizations = useCallback(async (opts?: { bypassCache?: boolean }) => {
     if (!userId) {
       setOrganizations([]);
+      setLoading(false);
+      setResolved(true);
       return;
     }
 
     setError(null);
+    setLoading(true);
 
     if (!opts?.bypassCache) {
       const cached = cache.get(cacheKey);
       if (cached && Date.now() - cached.ts < CACHE_TTL) {
         setOrganizations(cached.data);
+        setLoading(false);
+        setResolved(true);
         return;
       }
     }
-
-    setLoading(true);
     try {
       const { data, error: fetchError } = await supabase
         .rpc('get_user_organizations', { user_uuid: userId });
@@ -67,6 +97,7 @@ export function useOrganizations(userId?: string) {
       setOrganizations([]);
     } finally {
       setLoading(false);
+      setResolved(true);
     }
   }, [userId, cacheKey, setSafe]);
 
@@ -105,6 +136,7 @@ export function useOrganizations(userId?: string) {
   return {
     organizations,
     loading,
+    resolved,
     error,
     refresh: () => fetchOrganizations({ bypassCache: true }),
     invalidate,

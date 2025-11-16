@@ -196,29 +196,46 @@ export function EventDetailsPageIntegrated() {
           .eq('event_id', data.id)
           .in('status', ['issued', 'transferred', 'redeemed']);
 
-        // Get posts count - Use direct Supabase query with count for accuracy
+        // Get posts count - membership-aware for accurate tab numbers
         try {
-          // Get organizer posts count (posts by event creator or org members)
-          const { count: organizerCount } = await supabase
-            .from('event_posts')
-            .select('*', { count: 'exact', head: true })
-            .eq('event_id', data.id);
-          
-          setPostsCount(organizerCount || 0);
-          
-          // Get all posts count for tagged (total - organizer = attendee)
-          const { count: totalCount } = await supabase
-            .from('event_posts')
-            .select('*', { count: 'exact', head: true })
-            .eq('event_id', data.id);
-          
-          setTaggedCount(totalCount || 0);
-          
-          console.log('📊 [EventDetailsPage] Post counts:', { 
-            organizer: organizerCount, 
-            total: totalCount,
-            attendee: (totalCount || 0) - (organizerCount || 0)
-          });
+          // 1) Load organizer member user_ids
+          let memberIds: string[] = [];
+          if (data.owner_context_type === 'organization' && data.owner_context_id) {
+            const { data: members } = await supabase
+              .from('org_memberships')
+              .select('user_id')
+              .eq('org_id', data.owner_context_id as string);
+            memberIds = (members ?? []).map((m: any) => m.user_id);
+          }
+
+          // 2) Organizer posts count
+          if (memberIds.length > 0) {
+            const { count: organizerCount } = await supabase
+              .from('event_posts')
+              .select('id', { count: 'exact', head: true })
+              .eq('event_id', data.id)
+              .in('author_user_id', memberIds);
+            setPostsCount(organizerCount || 0);
+          } else {
+            setPostsCount(0);
+          }
+
+          // 3) Tagged (attendee) posts count
+          if (memberIds.length > 0) {
+            const { count: taggedOnlyCount } = await supabase
+              .from('event_posts')
+              .select('id', { count: 'exact', head: true })
+              .eq('event_id', data.id)
+              .not('author_user_id', 'in', memberIds as any);
+            setTaggedCount(taggedOnlyCount || 0);
+          } else {
+            // If no org members, all posts are "tagged"
+            const { count: totalCount } = await supabase
+              .from('event_posts')
+              .select('id', { count: 'exact', head: true })
+              .eq('event_id', data.id);
+            setTaggedCount(totalCount || 0);
+          }
         } catch (error) {
           console.error('[EventDetailsPage] Error fetching post counts:', error);
           setPostsCount(0);
@@ -740,8 +757,7 @@ export function EventDetailsPageIntegrated() {
               <EventPostsGrid 
                 eventId={event.id}
                 userId={user?.id}
-                // ✅ Removed filterType to show ALL posts (organizer + attendee)
-                // The "Official Posts" heading is misleading - should show all event posts
+                filterType="organizer_only"
                 onPostClick={(post) => {
                   setSelectedPostId(post.id);
                   setShowCommentModal(true);

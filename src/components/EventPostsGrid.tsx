@@ -29,6 +29,24 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
     const fetchPosts = async () => {
       setLoading(true);
       try {
+        // Preload org members if we need to split organizer vs attendee
+        let orgMemberIds: Set<string> | null = null;
+        if (filterType) {
+          const { data: ev } = await supabase
+            .from('events')
+            .select('owner_context_type, owner_context_id')
+            .eq('id', eventId)
+            .maybeSingle();
+          const orgId = ev?.owner_context_type === 'organization' ? ev.owner_context_id : null;
+          if (orgId) {
+            const { data: members } = await supabase
+              .from('org_memberships')
+              .select('user_id')
+              .eq('org_id', orgId);
+            orgMemberIds = new Set((members || []).map((m: any) => m.user_id));
+          }
+        }
+
         const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
         const url = new URL(`${baseUrl}/functions/v1/posts-list`);
         url.searchParams.append('event_id', eventId);
@@ -71,7 +89,15 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
         }
 
         const payload = await res.json();
-        const rows: any[] = payload.data ?? [];
+        let rows: any[] = payload.data ?? [];
+
+        // Client-side safety filter, in case edge function doesn't split correctly
+        if (filterType && orgMemberIds) {
+          rows = rows.filter((r: any) => {
+            const isOrgPost = r.author_user_id && orgMemberIds!.has(r.author_user_id);
+            return filterType === 'organizer_only' ? isOrgPost : !isOrgPost;
+          });
+        }
 
         setPosts(rows.map((r: any) => ({
           id: r.id,

@@ -118,3 +118,4 @@ COMMENT ON FUNCTION public.get_event_rsvp_count(uuid) IS 'Get total confirmed RS
 
 
 
+

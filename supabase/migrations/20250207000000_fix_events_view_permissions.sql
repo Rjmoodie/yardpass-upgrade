@@ -16,3 +16,4 @@ COMMENT ON VIEW public.events IS 'View of events.events with full CRUD permissio
 
 
 
+

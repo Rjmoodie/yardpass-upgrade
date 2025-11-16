@@ -56,7 +56,7 @@ export default function FeedPageNewDesign() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { requireAuth, isAuthenticated } = useAuthGuard();
-  const { user, profile } = useAuth();
+  const { user, profile, updateProfileOptimistic } = useAuth();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
@@ -739,20 +739,28 @@ export default function FeedPageNewDesign() {
         onClose={() => setShowProfileCompletion(false)}
         onSuccess={async (username) => {
           setShowProfileCompletion(false);
-          
-          // ✅ Force profile refresh by refetching from database
+
           if (user?.id) {
-            const { data: updatedProfile } = await supabase
+            // Optimistically update auth context so UI re-renders immediately
+            updateProfileOptimistic({ username });
+
+            // Best-effort fetch to ensure consistency (non-blocking)
+            supabase
               .from('user_profiles')
-              .select('*')
+              .select('username')
               .eq('user_id', user.id)
-              .single();
-            
-            // Trigger a re-render by updating a local state or forcing AuthContext to refresh
-            // The easiest way is to reload the page or refetch the feed
-            window.location.reload();
+              .maybeSingle()
+              .then((res) => {
+                if (res.data?.username) {
+                  updateProfileOptimistic({ username: res.data.username });
+                }
+              })
+              .catch((err) => console.warn('[Feed] Failed to refresh profile username', err));
+
+            // Refresh feed data so cached items show updated username
+            refetch();
           }
-          
+
           toast({
             title: 'Profile complete! 🎉',
             description: `Welcome @${username}! You can now like, comment, and post.`,

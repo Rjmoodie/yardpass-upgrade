@@ -163,3 +163,4 @@ GRANT INSERT, UPDATE, DELETE ON public.ticket_tiers TO authenticated, service_ro
 COMMENT ON MIGRATION IS 'Fixed ticketing view grants for service_role to enable Edge Function INSERT/UPDATE operations';
 
 
+

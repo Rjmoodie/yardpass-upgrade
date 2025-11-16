@@ -1270,6 +1270,7 @@ export default function CommentModal({
                   className="w-full h-full object-contain"
                   controls
                   playsInline
+                  muted
                   preload="metadata"
                   poster={posterUrl}
                 >
@@ -1291,6 +1292,7 @@ export default function CommentModal({
                   className="w-full h-full object-contain"
                   controls
                   playsInline
+                  muted
                   preload="metadata"
                   src={raw}
                 >
@@ -1622,7 +1624,7 @@ export default function CommentModal({
           {/* Media + caption column */}
           {hasMedia && (
             <div className="md:w-[45%] lg:w-[50%] flex flex-col border-b md:border-b-0 md:border-r border-border/60 bg-black">
-              <div className="flex-1 flex items-center justify-center min-h-[240px] max-h-[70vh] md:max-h-none">
+              <div className="flex-1 flex items-center justify-center min-h-[200px] max-h-[50vh] md:max-h-none">
                 {activePost?.media_urls?.length ? renderFullMedia(activePost.media_urls) : null}
               </div>
               {postHeader && (

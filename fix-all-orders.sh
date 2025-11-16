@@ -79,3 +79,4 @@ echo "SELECT COUNT(*) FROM ticketing.tickets WHERE created_at > now() - interval
 echo ""
 
 
+

@@ -72,3 +72,4 @@ COMMENT ON FUNCTION public.update_user_tag_preferences_from_tags IS
   'Updates user tag preferences given a set of tags directly (fixed ambiguous column references).';
 
 
+

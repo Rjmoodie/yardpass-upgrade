@@ -178,3 +178,4 @@ GRANT EXECUTE ON FUNCTION ticketing.should_auto_approve_refund TO authenticated,
 -- Auto-approve logic: checks event policy toggle + 5 safety rules
 
 
+

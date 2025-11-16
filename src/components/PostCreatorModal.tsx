@@ -959,8 +959,8 @@ export function PostCreatorModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none" aria-busy={loading}>
-          <div className="flex modal-max-h flex-col rounded-3xl border-2 border-border bg-background shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 dark:border-white/20">
+        <DialogContent className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none max-h-[92dvh]" aria-busy={loading}>
+          <div className="flex h-[92dvh] flex-col rounded-3xl border-2 border-border bg-background shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 dark:border-white/20">
             <div className="relative overflow-hidden">
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/20 via-background/60 to-background" />
               <DialogHeader className="relative px-6 pt-6 pb-5">
@@ -968,6 +968,9 @@ export function PostCreatorModal({
                   <Sparkles className="h-5 w-5 text-primary" />
                   New Post
                 </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Create a new event post by adding media and a caption.
+                </DialogDescription>
                 <p className="text-sm text-foreground/80">
                   Share photos, videos, or updates related to your event
                 </p>
@@ -975,7 +978,7 @@ export function PostCreatorModal({
             </div>
 
             <div 
-              className="flex-1 overflow-y-auto px-6 pb-nav" 
+              className="flex-1 overflow-y-auto px-4 sm:px-6 pb-nav" 
               style={keyboardPadding}
               onPaste={onPaste}
             >
@@ -1063,203 +1066,36 @@ export function PostCreatorModal({
                   </Alert>
                 )}
 
-                {/* Composer */}
-                <div 
-                  className={`rounded-3xl border bg-background/80 p-5 shadow-inner transition-all ${
-                    isDragging ? 'border-primary bg-primary/5' : 'border-border/40'
-                  }`}
-                  onDrop={onDrop}
-                  onDragOver={onDragOver}
-                  onDragLeave={onDragLeave}
-                >
-                  <Textarea
-                    placeholder={isFlashback ? "Share your favorite moment from this event... 📸" : "What's the vibe? Share the story, shout out a set, or drop some highlights…"}
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    className="min-h-[180px] resize-none border-none bg-transparent p-0 text-base leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/60"
-                    maxLength={isFlashback ? 300 : 2000}
-                    enterKeyHint="done"
-                    style={{ fontSize: '16px' }} // Prevent iOS auto-zoom
-                    onKeyDown={onKeyDownComposer}
-                    aria-label="Post content"
-                  />
-
-                  {/* Simple Media Controls */}
-                  <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-4">
-                    <div className="flex items-center gap-2">
-                      {/* Add Files Button */}
-                      <Button 
-                        type="button"
-                        variant="ghost" 
-                        size="sm" 
-                        className={`flex items-center gap-2 h-9 px-3 rounded-full hover:bg-primary/10 transition-colors ${
-                          isFlashback && queue.length === 0 ? 'text-purple-300' : ''
-                        }`}
-                        title={isFlashback ? "Media required for flashback" : "Add photos or videos"}
-                        onClick={() => {
-                          console.log('Upload button clicked, triggering file input');
-                          document.getElementById(imageInputId)?.click();
-                        }}
-                      >
-                        <Upload className="h-4 w-4" />
-                        <span className="text-xs font-medium hidden sm:inline">Media</span>
-                        {isFlashback && queue.length === 0 && (
-                          <span className="flex h-2 w-2 rounded-full bg-purple-400" />
-                        )}
-                      </Button>
-                      <input
-                        id={imageInputId}
-                        type="file"
-                        accept="image/*,video/*"
-                        multiple
-                        onChange={handleFilePick}
-                        className="hidden"
-                      />
-
-                      {/* Camera Button (iOS Native) */}
-                      {Capacitor.isNativePlatform() && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="flex items-center gap-2 h-9 px-3 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-40"
-                          onClick={async () => {
-                            console.log('Camera button clicked');
-                            try {
-                              const file = await capturePhotoAsFile();
-                              if (!file) return;
-                              await addFiles([file]);
-                            } catch (err: any) {
-                              console.error('Camera capture failed:', err);
-                              toast({
-                                title: 'Camera Error',
-                                description: err?.message || 'Unable to capture photo.',
-                                variant: 'destructive',
-                              });
-                            }
-                          }}
-                          title="Take photo or choose from library"
-                        >
-                          <CameraIcon className="h-4 w-4" />
-                          <span className="text-xs font-medium hidden sm:inline">Camera</span>
-                        </Button>
-                      )}
-                      
-                      {/* Record Video Button */}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="flex items-center gap-2 h-9 px-3 rounded-full hover:bg-red-500/10 transition-colors disabled:opacity-40"
-                        onClick={() => {
-                          console.log('Record video button clicked, selectedEventId:', selectedEventId);
-                          if (!selectedEventId) {
-                            toast({
-                              title: 'Select an event first',
-                              description: 'Please choose an event before recording a video.',
-                              variant: 'destructive'
-                            });
-                            return;
-                          }
-                          console.log('Opening video recorder');
-                          setShowVideoRecorder(true);
-                        }}
-                        title={!selectedEventId ? 'Select an event first' : 'Record video'}
-                        disabled={!selectedEventId}
-                      >
-                        <VideoIcon className="h-4 w-4" />
-                        <span className="text-xs font-medium hidden sm:inline">Record</span>
-                      </Button>
-                    </div>
-                    
-                    {/* Character Counter & Upload Status */}
-                    <div className="flex items-center gap-3">
-                      <div className={`text-xs ${
-                        isFlashback && content.trim().length > 300 ? 'text-destructive font-semibold' :
-                        isFlashback && content.trim().length > 250 ? 'text-amber-500' :
-                        'text-muted-foreground'
-                      }`}>
-                        {isFlashback
-                          ? `${content.trim().length} / 300`
-                          : `${content.length} / 2000`}
-                      </div>
+                {/* Composer + Media in responsive layout */}
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
+                  {/* LEFT: Composer + actions */}
+                  <div className="space-y-4 min-h-0">
+                    {/* Composer */}
+                    <div
+                      className={`rounded-3xl border bg-background/80 p-5 shadow-inner transition-all ${
+                        isDragging ? 'border-primary bg-primary/5' : 'border-border/40'
+                      }`}
+                      onDrop={onDrop}
+                      onDragOver={onDragOver}
+                      onDragLeave={onDragLeave}
+                    >
+                      {/* Inline media strip */}
                       {queue.length > 0 && (
-                        <div className="text-xs font-medium text-primary">
-                          {queue.filter(q => q.status === 'done').length > 0 
-                            ? `${queue.filter(q => q.status === 'done').length}/${queue.length} uploaded` 
-                            : `${queue.length} ${queue.length === 1 ? 'file' : 'files'} attached`
-                          }
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Media Queue */}
-                <div className="space-y-4">
-
-                  {queue.length > 0 && (
-                    <div className="space-y-3 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner" aria-label="Attached media">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-sm font-semibold">Attached media</div>
-                        <Button size="sm" variant="ghost" onClick={clearAll} className="rounded-full">
-                          <X className="mr-1 h-4 w-4" /> Clear all
-                        </Button>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {queue.map((q, idx) => (
-                          <div
-                            key={q.name + q.size}
-                            className="flex flex-col rounded-2xl border border-border/60 bg-background/90 p-3 shadow-sm"
-                          >
-                            {/* Thumbnail */}
-                            <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-border/70 bg-muted">
-                                {q.kind === 'image' && q.previewUrl ? (
-                                  <img src={q.previewUrl} className="h-full w-full object-cover" alt="" />
-                                ) : q.kind === 'image' ? (
-                                  <ImageIcon className="absolute inset-0 m-auto h-6 w-6 text-muted-foreground" />
-                                ) : (
-                                  <VideoIcon className="absolute inset-0 m-auto h-6 w-6 text-muted-foreground" />
-                                )}
-                            </div>
-
-                            {/* Info & Controls */}
-                            <div className="flex flex-col gap-2 mt-2">
-                              <div className="flex flex-col gap-1">
-                                <div className="truncate text-xs font-semibold" title={q.name}>
-                                    {q.name}
-                                  </div>
-                                <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
-                                  <Badge variant="neutral" className="rounded-full text-[9px] uppercase tracking-wide px-1.5 py-0">
-                                      {q.kind === 'image'
-                                      ? 'IMG'
-                                        : q.file.type.startsWith('audio')
-                                      ? 'AUD'
-                                      : 'VID'}
-                                    </Badge>
-                                    <span>{bytesToMB(q.size)} MB</span>
-                                    {typeof q.progress === 'number' && (q.status === 'uploading' || q.status === 'processing') && (
-                                    <span className="font-medium">• {q.progress}%</span>
-                                    )}
-                                    {q.errorMsg && <span className="text-destructive">• {q.errorMsg}</span>}
-                                  </div>
+                        <div className="mb-3 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                          {queue.map((q) => (
+                            <div
+                              key={q.name + q.size}
+                              className="relative h-14 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-border/60 bg-muted"
+                            >
+                              {q.kind === 'image' && q.previewUrl ? (
+                                <img src={q.previewUrl} alt={q.name} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                  {q.kind === 'video' ? <VideoIcon className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
                                 </div>
-
-                                  <Button
-                                size="sm"
-                                    variant="ghost"
-                                    onClick={() => removeQueued(q.name)}
-                                    title="Remove"
-                                    disabled={q.status === 'uploading' || q.status === 'processing'}
-                                className="w-full rounded-full text-xs h-7"
-                                  >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Remove
-                                  </Button>
-
+                              )}
                               {(q.status === 'uploading' || q.status === 'processing') && (
-                                <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                                <div className="absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-full bg-black/40">
                                   <div
                                     className="h-full rounded-full bg-primary transition-[width]"
                                     style={{ width: `${Math.max(5, Math.min(100, q.progress || 5))}%` }}
@@ -1267,34 +1103,235 @@ export function PostCreatorModal({
                                 </div>
                               )}
                             </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <Textarea
+                        placeholder={
+                          isFlashback
+                            ? 'Share your favorite moment from this event... 📸'
+                            : "What's the vibe? Share the story, shout out a set, or drop some highlights…"
+                        }
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        className="min-h-[120px] max-h-[200px] sm:min-h-[160px] sm:max-h-[260px] resize-none border-none bg-transparent p-0 text-base leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/60"
+                        maxLength={isFlashback ? 300 : 2000}
+                        enterKeyHint="done"
+                        style={{ fontSize: '16px' }}
+                        onKeyDown={onKeyDownComposer}
+                        aria-label="Post content"
+                      />
+
+                      {/* Composer footer */}
+                      <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2">
+                          {/* Add Files Button */}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className={`flex items-center gap-2 h-9 px-3 rounded-full hover:bg-primary/10 transition-colors ${
+                              isFlashback && queue.length === 0 ? 'text-purple-300' : ''
+                            }`}
+                            title={isFlashback ? 'Media required for flashback' : 'Add photos or videos'}
+                            onClick={() => {
+                              document.getElementById(imageInputId)?.click();
+                            }}
+                          >
+                            <Upload className="h-4 w-4" />
+                            <span className="text-xs font-medium hidden sm:inline">Media</span>
+                            {isFlashback && queue.length === 0 && <span className="flex h-2 w-2 rounded-full bg-purple-400" />}
+                          </Button>
+                          <input
+                            id={imageInputId}
+                            type="file"
+                            accept="image/*,video/*"
+                            multiple
+                            onChange={handleFilePick}
+                            className="hidden"
+                          />
+
+                          {/* Camera Button (iOS Native) */}
+                          {Capacitor.isNativePlatform() && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="flex items-center gap-2 h-9 px-3 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-40"
+                              onClick={async () => {
+                                try {
+                                  const file = await capturePhotoAsFile();
+                                  if (!file) return;
+                                  await addFiles([file]);
+                                } catch (err: any) {
+                                  console.error('Camera capture failed:', err);
+                                  toast({
+                                    title: 'Camera Error',
+                                    description: err?.message || 'Unable to capture photo.',
+                                    variant: 'destructive',
+                                  });
+                                }
+                              }}
+                              title="Take photo or choose from library"
+                            >
+                              <CameraIcon className="h-4 w-4" />
+                              <span className="text-xs font-medium hidden sm:inline">Camera</span>
+                            </Button>
+                          )}
+
+                          {/* Record Video Button */}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="flex items-center gap-2 h-9 px-3 rounded-full hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                            onClick={() => {
+                              if (!selectedEventId) {
+                                toast({
+                                  title: 'Select an event first',
+                                  description: 'Please choose an event before recording a video.',
+                                  variant: 'destructive',
+                                });
+                                return;
+                              }
+                              setShowVideoRecorder(true);
+                            }}
+                            title={!selectedEventId ? 'Select an event first' : 'Record video'}
+                            disabled={!selectedEventId}
+                          >
+                            <VideoIcon className="h-4 w-4" />
+                            <span className="text-xs font-medium hidden sm:inline">Record</span>
+                          </Button>
+                        </div>
+
+                        {/* Character Counter & Upload Status */}
+                        <div className="flex items-center gap-3 justify-between sm:justify-end">
+                          <div
+                            className={`text-xs ${
+                              isFlashback && content.trim().length > 300
+                                ? 'text-destructive font-semibold'
+                                : isFlashback && content.trim().length > 250
+                                ? 'text-amber-500'
+                                : 'text-muted-foreground'
+                            }`}
+                          >
+                            {isFlashback ? `${content.trim().length} / 300` : `${content.length} / 2000`}
                           </div>
-                        ))}
+                          {queue.length > 0 && (
+                            <div className="text-xs font-medium text-primary">
+                              {queue.filter((q) => q.status === 'done').length > 0
+                                ? `${queue.filter((q) => q.status === 'done').length}/${queue.length} uploaded`
+                                : `${queue.length} ${queue.length === 1 ? 'file' : 'files'} attached`}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Action Buttons */}
-                <div className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                    <Button variant="ghost" onClick={onClose} className="rounded-full sm:w-auto text-muted-foreground hover:text-foreground">
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleSubmit} 
-                      disabled={!canPost} 
-                      className="rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl sm:min-w-[160px]"
-                      aria-busy={loading}
-                    >
-                      {loading ? (
-                        <div className="flex items-center gap-2">
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                          Posting…
+                    {/* Action Buttons (stick close to composer) */}
+                    <div className="rounded-3xl border border-border/60 bg-background/80 p-3 sm:p-4 shadow-inner sticky bottom-0 sm:static">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                        <Button
+                          variant="ghost"
+                          onClick={onClose}
+                          className="rounded-full sm:w-auto text-muted-foreground hover:text-foreground"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleSubmit}
+                          disabled={!canPost}
+                          className="rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl sm:min-w-[160px]"
+                          aria-busy={loading}
+                        >
+                          {loading ? (
+                            <div className="flex items-center gap-2">
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                              Posting…
+                            </div>
+                          ) : (
+                            'Post update'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RIGHT: Media Queue / gallery */}
+                  <div className="space-y-4">
+                    {queue.length > 0 && (
+                      <div
+                        className="space-y-3 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner max-h-[240px] sm:max-h-[320px] lg:max-h-[360px] lg:overflow-y-auto"
+                        aria-label="Attached media"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-semibold">Attached media</div>
+                          <Button size="sm" variant="ghost" onClick={clearAll} className="rounded-full text-xs">
+                            <X className="mr-1 h-4 w-4" /> Clear all
+                          </Button>
                         </div>
-                      ) : (
-                        'Post update'
-                      )}
-                    </Button>
+
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                          {queue.map((q) => (
+                            <div
+                              key={q.name + q.size}
+                              className="flex flex-col rounded-2xl border border-border/60 bg-background/90 p-3 shadow-sm"
+                            >
+                              <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-border/70 bg-muted">
+                                {q.kind === 'image' && q.previewUrl ? (
+                                  <img src={q.previewUrl} className="h-full w-full object-cover" alt={q.name} />
+                                ) : q.kind === 'image' ? (
+                                  <ImageIcon className="absolute inset-0 m-auto h-6 w-6 text-muted-foreground" />
+                                ) : (
+                                  <VideoIcon className="absolute inset-0 m-auto h-6 w-6 text-muted-foreground" />
+                                )}
+                              </div>
+
+                              <div className="mt-2 flex flex-col gap-2">
+                                <div className="flex flex-col gap-1">
+                                  <div className="truncate text-xs font-semibold" title={q.name}>
+                                    {q.name}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                                    <Badge variant="neutral" className="rounded-full text-[9px] uppercase tracking-wide px-1.5 py-0">
+                                      {q.kind === 'image' ? 'IMG' : q.file.type.startsWith('audio') ? 'AUD' : 'VID'}
+                                    </Badge>
+                                    <span>{bytesToMB(q.size)} MB</span>
+                                    {typeof q.progress === 'number' &&
+                                      (q.status === 'uploading' || q.status === 'processing') && (
+                                        <span className="font-medium">• {q.progress}%</span>
+                                      )}
+                                    {q.errorMsg && <span className="text-destructive">• {q.errorMsg}</span>}
+                                  </div>
+                                </div>
+
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeQueued(q.name)}
+                                  title="Remove"
+                                  disabled={q.status === 'uploading' || q.status === 'processing'}
+                                  className="w-full rounded-full text-xs h-7"
+                                >
+                                  <Trash2 className="mr-1 h-3 w-3" />
+                                  Remove
+                                </Button>
+
+                                {(q.status === 'uploading' || q.status === 'processing') && (
+                                  <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                                    <div
+                                      className="h-full rounded-full bg-primary transition-[width]"
+                                      style={{ width: `${Math.max(5, Math.min(100, q.progress || 5))}%` }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1323,12 +1360,15 @@ export function PostCreatorModal({
         onClose={() => setShowProfileCompletion(false)}
         onSuccess={(username) => {
           setShowProfileCompletion(false);
+
+          if (user?.id) {
+            updateProfileOptimistic({ username });
+          }
+
           toast({
             title: 'Success!',
             description: `Welcome @${username}! You can now create your post.`,
           });
-          // ✅ Reload to refresh profile with new username
-          window.location.reload();
         }}
         userId={user?.id || ''}
         displayName={profile?.display_name}

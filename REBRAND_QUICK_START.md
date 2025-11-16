@@ -144,3 +144,4 @@ Everywhere: app name, emails, titles, branding ✨
 🎉 **Welcome to Liventix!**
 
 
+
