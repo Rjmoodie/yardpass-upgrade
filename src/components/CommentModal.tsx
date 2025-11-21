@@ -87,6 +87,7 @@ export interface CommentModalProps {
   onCommentCountChange?: (postId: string, newCount: number) => void;
   onPostDelete?: (postId: string) => void;
   onRequestUsername?: () => void;
+  mode?: 'view' | 'comment';
 }
 
 // Helpers outside component to keep stable refs
@@ -346,14 +347,17 @@ export default function CommentModal({
   onCommentCountChange,
   onPostDelete,
   onRequestUsername,
+  mode = 'view',
 }: CommentModalProps) {
   const { user, profile } = useAuth();
+  const isCommentMode = mode === 'comment';
 
   // layout/scroll refs
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const bottomSentinelRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const loadingRef = useRef(false);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   // data state
   const [posts, setPosts] = useState<Post[]>([]);
@@ -460,6 +464,12 @@ export default function CommentModal({
       mounted = false;
     };
   }, [isOpen, user?.id, eventId]);
+
+  useEffect(() => {
+    if (isOpen && isCommentMode) {
+      composerRef.current?.focus();
+    }
+  }, [isOpen, isCommentMode]);
 
   const pinToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -1324,6 +1334,7 @@ export default function CommentModal({
   );
 
   const hasMedia = !!(activePost && activePost.media_urls && activePost.media_urls.length > 0);
+  const shouldShowMedia = !isCommentMode && hasMedia;
 
   // Shared post header card
   const postHeader = activePost ? (
@@ -1469,6 +1480,7 @@ export default function CommentModal({
             )}
 
             <Textarea
+              ref={composerRef}
               value={draft}
               onChange={(e) => {
                 const val = e.target.value;
@@ -1622,7 +1634,7 @@ export default function CommentModal({
         {/* BODY */}
         <div className="flex-1 flex flex-col md:flex-row min-h-0">
           {/* Media + caption column */}
-          {hasMedia && (
+          {shouldShowMedia && (
             <div className="md:w-[45%] lg:w-[50%] flex flex-col border-b md:border-b-0 md:border-r border-border/60 bg-black">
               <div className="flex-1 flex items-center justify-center min-h-[200px] max-h-[50vh] md:max-h-none">
                 {activePost?.media_urls?.length ? renderFullMedia(activePost.media_urls) : null}
@@ -1637,7 +1649,7 @@ export default function CommentModal({
 
           {/* Comment column */}
           <div className="flex-1 flex flex-col min-h-0 bg-background">
-            {!hasMedia && postHeader && (
+            {!shouldShowMedia && postHeader && (
               <div className="bg-background px-4 py-4 border-b border-border/60">
                 <div className="max-w-[680px] mx-auto">{postHeader}</div>
               </div>

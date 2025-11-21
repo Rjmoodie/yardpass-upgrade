@@ -842,6 +842,7 @@ export default function UnifiedFeedList() {
           eventId={commentContext.eventId}
           eventTitle={commentContext.eventTitle}
           postId={commentContext.postId}
+          mode="comment"
           onCommentCountChange={(postId, newCount) => {
             console.log('💬 [UnifiedFeed] Comment count updated:', postId, newCount);
             applyEngagementDelta(postId, { mode: 'absolute', comment_count: newCount });

@@ -698,6 +698,7 @@ export default function FeedPageNewDesign() {
           eventId={commentContext.eventId}
           eventTitle={commentContext.eventTitle}
           postId={commentContext.postId}
+          mode="comment"
           onCommentCountChange={(postId, newCount) => {
             // Comment count will be updated via refetch
             refetch();
