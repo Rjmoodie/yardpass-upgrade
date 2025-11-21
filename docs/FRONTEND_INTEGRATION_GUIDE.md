@@ -35,12 +35,12 @@ export interface Sponsor {
   logo_url: string | null
   website_url: string | null
   contact_email: string | null
-  industry: string | null
-  company_size: string | null
-  brand_values: Record<string, any>
   created_by: string
   created_at: string
-  updated_at?: string
+  industry: string | null
+  company_size: string | null
+  brand_values: Record<string, unknown>
+  preferred_visibility_options: Record<string, unknown>
 }
 
 export interface SponsorProfile {
@@ -49,43 +49,85 @@ export interface SponsorProfile {
   industry: string | null
   company_size: string | null
   annual_budget_cents: number | null
-  brand_objectives: Record<string, any>
-  target_audience: Record<string, any>
+  brand_objectives: Record<string, unknown>
+  target_audience: Record<string, unknown>
   preferred_categories: string[]
   regions: string[]
-  activation_preferences: Record<string, any>
+  activation_preferences: Record<string, unknown>
+  reputation_score: number | null
   verification_status: 'none' | 'pending' | 'verified' | 'revoked'
   public_visibility: 'hidden' | 'limited' | 'full'
-  case_studies: Record<string, any> | null
+  case_studies: Record<string, unknown> | null
   preferred_formats: string[] | null
   objectives_embedding: number[] | null
   created_at: string
   updated_at: string
 }
 
+export interface SponsorPublicProfile {
+  sponsor_id: string
+  slug: string
+  headline: string | null
+  about: string | null
+  brand_values: Record<string, unknown>
+  badges: string[]
+  is_verified: boolean
+  social_links: Record<string, unknown>[]
+  created_at: string
+  updated_at: string
+}
+
+export interface EventSponsorship {
+  event_id: string
+  sponsor_id: string
+  tier: string
+  amount_cents: number
+  benefits: Record<string, unknown>
+  status: string
+  activation_status: string | null
+  activation_state: 'draft' | 'in_progress' | 'complete' | null
+  deliverables_due_date: string | null
+  deliverables_submitted_at: string | null
+  organizer_approved_at: string | null
+  roi_summary: Record<string, unknown>
+}
+
 export interface SponsorshipPackage {
   id: string
   event_id: string
   tier: string
-  price_cents: number
   title: string | null
   description: string | null
-  benefits: Record<string, any>
+  price_cents: number
+  currency: string
   inventory: number
+  benefits: Record<string, unknown>
+  visibility: string
   sold: number
   is_active: boolean
-  visibility: string
+  created_by: string | null
   expected_reach: number | null
   avg_engagement_score: number | null
   package_type: string | null
+  stat_snapshot_id: string | null
   quality_score: number | null
+  quality_updated_at: string | null
   template_id: string | null
   version: number
-  availability: Record<string, any> | null
-  audience_snapshot: Record<string, any> | null
-  constraints: Record<string, any> | null
+  availability: Record<string, unknown> | null
+  audience_snapshot: Record<string, unknown> | null
+  constraints: Record<string, unknown> | null
   created_at: string
-  updated_at: string
+  updated_at: string | null
+}
+
+export interface MatchFeature {
+  id: string
+  event_id: string
+  sponsor_id: string
+  features: Record<string, unknown>
+  version: number
+  computed_at: string
 }
 
 export interface SponsorshipMatch {
@@ -93,13 +135,15 @@ export interface SponsorshipMatch {
   event_id: string
   sponsor_id: string
   score: number
-  overlap_metrics: Record<string, any>
+  overlap_metrics: Record<string, unknown>
   status: 'pending' | 'suggested' | 'accepted' | 'rejected'
-  explanations: Record<string, any> | null
-  reason_codes: string[] | null
   viewed_at: string | null
   contacted_at: string | null
+  declined_reason: string | null
+  notes: string | null
   updated_at: string
+  explanations: Record<string, unknown> | null
+  reason_codes: string[] | null
 }
 
 export interface ProposalThread {
@@ -118,8 +162,8 @@ export interface ProposalMessage {
   sender_type: 'organizer' | 'sponsor'
   sender_user_id: string
   body: string | null
-  offer: Record<string, any>
-  attachments: Record<string, any> | null
+  offer: Record<string, unknown>
+  attachments: Record<string, unknown> | null
   created_at: string
 }
 
@@ -128,31 +172,54 @@ export interface Deliverable {
   event_id: string
   sponsor_id: string
   type: string
-  spec: Record<string, any>
+  spec: Record<string, unknown>
   due_at: string | null
   status: 'pending' | 'submitted' | 'needs_changes' | 'approved' | 'waived'
   evidence_required: boolean
-  order_id: string | null
-  package_id: string | null
   created_at: string
   updated_at: string
 }
 
-// View types
-export interface PackageCard {
+export interface DeliverableProof {
+  id: string
+  deliverable_id: string
+  asset_url: string
+  metrics: Record<string, unknown>
+  submitted_by: string | null
+  submitted_at: string
+  approved_at: string | null
+  rejected_reason: string | null
+}
+
+export interface SponsorshipOrder {
+  id: string
   package_id: string
+  sponsor_id: string
   event_id: string
-  title: string
-  tier: string
-  price_cents: number
-  inventory: number
-  sold: number
-  quality_score: number | null
-  total_views: number
-  tickets_sold: number
-  avg_engagement_score: number | null
-  event_title: string
-  event_start: string
+  amount_cents: number
+  currency: string
+  status: string
+  escrow_state: 'pending' | 'funded' | 'locked' | 'released' | 'refunded' | 'cancelled' | null
+  stripe_payment_intent_id: string | null
+  stripe_charge_id: string | null
+  stripe_transfer_id: string | null
+  application_fee_cents: number
+  created_at: string
+  updated_at: string | null
+  payout_status: string | null
+}
+
+export interface PayoutQueueItem {
+  id: string
+  order_id: string
+  priority: number
+  scheduled_for: string
+  attempts: number
+  max_attempts: number
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
+  error_message: string | null
+  created_at: string
+  processed_at: string | null
 }
 ```
 
