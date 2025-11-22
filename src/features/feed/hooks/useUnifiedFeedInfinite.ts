@@ -54,10 +54,17 @@ async function fetchPage(
   const { data, error } = await supabase.functions.invoke('home-feed', invokeOptions);
 
   if (error) {
-    throw new Error(`home-feed failed: ${error.message}`);
+    console.error('❌ [Feed] home-feed error:', {
+      message: error.message,
+      name: error.name,
+      status: (error as any).status,
+      context: (error as any).context,
+    });
+    throw new Error(`home-feed failed: ${error.message || 'Unknown error'}`);
   }
 
   if (!data || typeof data !== 'object' || !Array.isArray((data as any).items)) {
+    console.error('❌ [Feed] Invalid response format:', { data });
     throw new Error('home-feed returned an unexpected payload');
   }
 
@@ -78,7 +85,21 @@ export function useUnifiedFeedInfinite(options: FeedFilters & { limit?: number }
     queryKey: ['unifiedFeed', { limit, locations, categories, dates, searchRadius }],
     initialPageParam: undefined,
     queryFn: async ({ pageParam }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get session with better error handling for iOS
+      let session;
+      try {
+        const sessionResult = await supabase.auth.getSession();
+        session = sessionResult.data?.session ?? null;
+        
+        if (!session) {
+          logger.warn('⚠️ [Feed] No active session - feed may be limited');
+        }
+      } catch (error: any) {
+        console.error('❌ [Feed] Session error:', error);
+        // Continue without session - some feed items may still load
+        session = null;
+      }
+      
       const cursor = pageParam as FeedCursor | undefined;
       
       logger.debug('🔍 [useUnifiedFeedInfinite] Fetching with filters:', {
@@ -93,25 +114,47 @@ export function useUnifiedFeedInfinite(options: FeedFilters & { limit?: number }
       let userLocation: { lat: number; lng: number } | null = null;
       if (needsLocation) {
         try {
-          userLocation = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
-            if ('geolocation' in navigator) {
-              navigator.geolocation.getCurrentPosition(
-                (position) => {
-                  resolve({
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                  });
-                },
-                (error) => {
-                  logger.warn('Failed to get user location:', error.message);
-                  resolve(null);
-                },
-                { timeout: 1000, maximumAge: 300000 } // 🎯 PERF: 1s timeout (was 5s), 5min cache
-              );
-            } else {
-              resolve(null);
+          // Use Capacitor Geolocation on native platforms (prevents "localhost" in permission dialog)
+          const { Capacitor } = await import('@capacitor/core');
+          const { Geolocation } = await import('@capacitor/geolocation');
+          
+          if (Capacitor.isNativePlatform()) {
+            try {
+              const position = await Geolocation.getCurrentPosition({
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 300000, // 5min cache
+              });
+              userLocation = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+              };
+            } catch (error: any) {
+              logger.warn('Native geolocation failed:', error.message);
+              userLocation = null;
             }
-          });
+          } else {
+            // Fallback to browser API for web
+            userLocation = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
+              if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                  (position) => {
+                    resolve({
+                      lat: position.coords.latitude,
+                      lng: position.coords.longitude,
+                    });
+                  },
+                  (error) => {
+                    logger.warn('Failed to get user location:', error.message);
+                    resolve(null);
+                  },
+                  { timeout: 1000, maximumAge: 300000 }
+                );
+              } else {
+                resolve(null);
+              }
+            });
+          }
         } catch (error) {
           logger.warn('Geolocation error:', error);
           userLocation = null;

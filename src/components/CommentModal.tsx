@@ -400,8 +400,9 @@ export default function CommentModal({
   // reply state
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
 
-  // organizer check for pin feature
+  // organizer check for pin feature (lazy loaded, non-blocking)
   const [isOrganizer, setIsOrganizer] = useState(false);
+  const organizerCheckRef = useRef<Promise<boolean> | null>(null);
 
   // caption expand state
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
@@ -425,6 +426,8 @@ export default function CommentModal({
       setActivePostId(null);
       setPosts([]);
       setReplyingTo(null);
+      setIsOrganizer(false);
+      organizerCheckRef.current = null;
       return;
     }
 
@@ -477,27 +480,43 @@ export default function CommentModal({
     };
   }, [isOpen]);
 
-  // Check if user is organizer (for pin feature)
-  useEffect(() => {
-    if (!isOpen || !user?.id || !eventId) return;
-    let mounted = true;
-    (async () => {
+  // Lazy load organizer check (non-blocking, only when needed for pin feature)
+  const checkOrganizerStatus = useCallback(async (): Promise<boolean> => {
+    if (!user?.id || !eventId) return false;
+    
+    // Return cached promise if already checking
+    if (organizerCheckRef.current) {
+      return organizerCheckRef.current;
+    }
+
+    // Create and cache the check promise
+    const checkPromise = (async () => {
       try {
         const { data, error } = await supabase
           .from('events')
-          .select('created_by, owner_context_type, owner_context_id')
+          .select('created_by')
           .eq('id', eventId)
           .single();
-        if (error) throw error;
-        if (mounted) setIsOrganizer(data?.created_by === user.id);
+        
+        if (error) {
+          console.error('[CommentModal] Organizer check error:', error);
+          return false;
+        }
+        
+        const isOrg = data?.created_by === user.id;
+        setIsOrganizer(isOrg);
+        return isOrg;
       } catch (e) {
-        console.error(e);
+        console.error('[CommentModal] Organizer check exception:', e);
+        return false;
+      } finally {
+        organizerCheckRef.current = null;
       }
     })();
-    return () => {
-      mounted = false;
-    };
-  }, [isOpen, user?.id, eventId]);
+
+    organizerCheckRef.current = checkPromise;
+    return checkPromise;
+  }, [user?.id, eventId]);
 
   useEffect(() => {
     if (isOpen && isCommentMode) {
@@ -710,8 +729,20 @@ export default function CommentModal({
     setIsCaptionExpanded(false);
     setIsVideoCollapsed(false);
     void loadPage(true);
+    
+    // Check organizer status in background (non-blocking, only for pin feature)
+    if (user?.id && eventId) {
+      // Use setTimeout to defer the check so it doesn't block initial render
+      const timeoutId = setTimeout(() => {
+        checkOrganizerStatus().catch(() => {
+          // Silently fail - pin feature is secondary
+        });
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, eventId, activePostId, singleMode]);
+  }, [isOpen, eventId, activePostId, singleMode, user?.id, checkOrganizerStatus]);
 
   // Realtime subscriptions
   useRealtimeComments({
@@ -1229,7 +1260,9 @@ export default function CommentModal({
 
   const togglePinComment = useCallback(
     async (commentId: string, currentlyPinned: boolean) => {
-      if (!isOrganizer) {
+      // Lazy check organizer status if not already checked
+      const organizerStatus = isOrganizer || await checkOrganizerStatus();
+      if (!organizerStatus) {
         toast({
           title: 'Not allowed',
           description: 'Only organizers can pin comments.',
@@ -1277,7 +1310,7 @@ export default function CommentModal({
         });
       }
     },
-    [isOrganizer, posts]
+    [isOrganizer, posts, checkOrganizerStatus]
   );
 
   const startReply = useCallback((comment: Comment) => {

@@ -362,14 +362,22 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
         required
         autoFocus
         maxLength={6}
-        className="h-12 text-base text-center tracking-widest font-mono"
+                  className="h-12 text-[16px] text-center tracking-widest font-mono"
       />
       <p className="text-xs text-muted-foreground">{helper}</p>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 1rem)',
+        paddingBottom: 'env(safe-area-inset-bottom, 1rem)',
+        paddingLeft: 'env(safe-area-inset-left, 1rem)',
+        paddingRight: 'env(safe-area-inset-right, 1rem)',
+      }}
+    >
       <div className="relative w-full max-w-md bg-gradient-to-b from-primary/10 to-background rounded-3xl px-5 py-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Close Button */}
         <button
@@ -437,7 +445,7 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoFocus
-                  className="h-12 text-base"
+                  className="h-12 text-[16px]"
                 />
               </div>
             ) : (
@@ -451,7 +459,7 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
                   onChange={(e) => setPhone(e.target.value)}
                   required
                   autoFocus
-                  className="h-12 text-base"
+                  className="h-12 text-[16px]"
                 />
               </div>
             )}

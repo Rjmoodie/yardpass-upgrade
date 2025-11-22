@@ -541,9 +541,23 @@ export default function FeedPageNewDesign() {
 
   if (status === 'error') {
     return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-background text-foreground">
-        <p className="text-lg font-semibold">We couldn't load your feed.</p>
-        <button onClick={() => refetch()} className="rounded-full bg-primary px-6 py-3 text-primary-foreground font-semibold">
+      <div 
+        className="flex flex-col items-center justify-center gap-4 bg-background text-foreground"
+        style={{
+          height: '100dvh',
+          minHeight: '-webkit-fill-available',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        <div className="space-y-2 text-center px-4">
+          <p className="text-lg font-semibold">We couldn't load your feed.</p>
+          <p className="text-sm text-foreground/60">Please check your connection and try again.</p>
+        </div>
+        <button 
+          onClick={() => refetch()} 
+          className="rounded-full bg-primary px-6 py-3 text-primary-foreground font-semibold active:scale-95 transition-transform"
+        >
           Refresh feed
         </button>
       </div>
@@ -661,7 +675,11 @@ export default function FeedPageNewDesign() {
                 itemRefs.current[idx] = el;
               }}
               data-index={idx}
-              className="snap-start snap-always relative h-screen w-full"
+              className="snap-start snap-always relative w-full"
+              style={{
+                height: '100dvh',
+                minHeight: '-webkit-fill-available',
+              }}
             >
               {item.item_type === 'event' ? (
                 <EventCardNewDesign

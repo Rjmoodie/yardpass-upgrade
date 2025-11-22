@@ -16,6 +16,8 @@ import { SharePayload } from '@/lib/share';
 import { getEventRoute } from '@/lib/eventRouting';
 import { Scan } from 'lucide-react';
 import { PageLoadingSpinner } from '@/components/LoadingSpinner';
+import { FullScreenLoading } from '@/components/layout/FullScreenLoading';
+import { FullScreenSafeArea } from '@/components/layout/FullScreenSafeArea';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Event } from '@/types/events';
 import { PerfPreconnect } from '@/components/Perf/PerfPreconnect';
@@ -113,14 +115,14 @@ function ScannerRouteComponent() {
 
   if (!eventId) {
     return (
-      <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
+      <FullScreenSafeArea className="bg-background items-center justify-center p-4">
         <div className="text-center">
           <Scan className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-xl font-semibold mb-2">Invalid Event ID</h2>
           <p className="text-muted-foreground mb-4">Please access the scanner from a valid event</p>
           <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
         </div>
-      </div>
+      </FullScreenSafeArea>
     );
   }
 
@@ -283,9 +285,10 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5" data-role={routeRole}>
-        <PageLoadingSpinner />
-      </div>
+      <FullScreenLoading 
+        text="Loading..." 
+        className="bg-gradient-to-br from-primary/5 to-secondary/5"
+      />
     );
   }
 

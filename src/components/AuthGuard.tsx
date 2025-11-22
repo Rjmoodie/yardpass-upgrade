@@ -2,7 +2,8 @@ import React, { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { lazy, Suspense } from 'react';
-import { BrandedSpinner } from '@/components/BrandedSpinner';
+import { FullScreenLoading } from '@/components/layout/FullScreenLoading';
+import { FullScreenSafeArea } from '@/components/layout/FullScreenSafeArea';
 const AuthPage = lazy(() => import('@/pages/AuthPage'));
 
 /**
@@ -121,9 +122,10 @@ export function AuthGuard({
   if (loading) {
     return (
       loadingFallback ?? (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20 p-4">
-          <BrandedSpinner size="xl" showLogo text="Loading..." />
-        </div>
+        <FullScreenLoading 
+          text="Loading..." 
+          className="bg-gradient-to-br from-primary/20 to-secondary/20"
+        />
       )
     );
   }
@@ -150,17 +152,15 @@ export function AuthGuard({
       }
       // Render a minimal placeholder to avoid flashing content
       return (
-        <div className="min-h-screen flex items-center justify-center">
-          <BrandedSpinner size="lg" showLogo text="Redirecting..." />
-        </div>
+        <FullScreenLoading text="Redirecting..." />
       );
     }
 
     // Render fallback (AuthPage by default). Keep your background for visual continuity.
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/20 to-secondary/20">
+      <FullScreenSafeArea className="bg-gradient-to-br from-primary/20 to-secondary/20">
         {fallback ?? <AuthPage />}
-      </div>
+      </FullScreenSafeArea>
     );
   }
 

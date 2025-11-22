@@ -617,16 +617,26 @@ export default function UnifiedFeedList() {
 
   if (status === 'error') {
     return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-background text-foreground">
-        <div className="space-y-1 text-center">
+      <div 
+        className="flex flex-col items-center justify-center gap-4 bg-background text-foreground"
+        style={{
+          height: '100dvh',
+          minHeight: '-webkit-fill-available',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        <div className="space-y-2 text-center px-4">
           <p className="text-lg font-semibold">We couldn't load your feed.</p>
           <p className="text-sm text-foreground/60">Refresh to try again or explore featured events.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button onClick={() => refetch()} variant="secondary">
+        <div className="flex items-center gap-3 px-4">
+          <Button onClick={() => refetch()} variant="secondary" className="active:scale-95 transition-transform">
             Refresh feed
           </Button>
-          <Button onClick={() => navigate('/events')}>Browse events</Button>
+          <Button onClick={() => navigate('/events')} className="active:scale-95 transition-transform">
+            Browse events
+          </Button>
         </div>
       </div>
     );

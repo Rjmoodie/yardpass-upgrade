@@ -18,6 +18,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_EVENT_COVER } from '@/lib/constants';
 import { Event } from '@/types/events';
 import { format } from 'date-fns';
+import { FullScreenLoading } from '@/components/layout/FullScreenLoading';
+import { FullScreenSafeArea } from '@/components/layout/FullScreenSafeArea';
 
 interface IndexProps {
   onEventSelect: (event: Event) => void;
@@ -269,7 +271,6 @@ function MediaContainer({ events, currentIndex, scrollRef }: any) {
 
 import { FeedCaption } from "@/components/feed/FeedCaption";
 import { FeedActionRail } from "@/components/feed/FeedActionRail";
-import { Heart, MessageCircle, Share, MoreVertical, Plus } from "lucide-react";
 
 function EventOverlay(props: any) {
   const { event, onLike, onShare, setShowTicketModal, setShowAttendeeModal, setPostCreatorOpen } = props;
@@ -364,25 +365,18 @@ function SwipeArea({ handleScroll }: { handleScroll: (dir: 'up' | 'down') => voi
 }
 
 function LoadingState() {
-  return (
-    <div className="h-screen bg-black flex items-center justify-center">
-      <div className="text-white text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-        <p>Loading events...</p>
-      </div>
-    </div>
-  );
+  return <FullScreenLoading text="Loading events..." className="bg-black" />;
 }
 
 function EmptyState() {
   return (
-    <div className="h-screen bg-gradient-to-br from-purple-900 to-blue-900 flex items-center justify-center text-white text-center p-8">
+    <FullScreenSafeArea className="bg-gradient-to-br from-purple-900 to-blue-900 items-center justify-center text-white text-center p-8">
       <div>
         <div className="text-6xl mb-4">🎪</div>
         <h2 className="text-2xl font-bold mb-2">No Events Yet</h2>
         <p className="text-gray-300 mb-6">Be the first to create an amazing event!</p>
         <Button className="bg-white text-black hover:bg-gray-100">Create Event</Button>
       </div>
-    </div>
+    </FullScreenSafeArea>
   );
 }

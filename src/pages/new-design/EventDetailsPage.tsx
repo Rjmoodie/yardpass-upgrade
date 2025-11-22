@@ -16,7 +16,7 @@ import CommentModal from "@/components/CommentModal";
 import { SponsorBadges } from "@/components/sponsorship/SponsorBadges";
 import { FlashbackBanner } from "@/components/flashbacks/FlashbackBanner";
 import { FlashbackEmptyState } from "@/components/flashbacks/FlashbackEmptyState";
-import { BrandedSpinner } from "@/components/BrandedSpinner";
+import { FullScreenLoading } from "@/components/layout/FullScreenLoading";
 import { updateMetaTags } from "@/utils/meta";
 import { buildEventOgPayload } from "@/types/og";
 
@@ -548,9 +548,7 @@ export function EventDetailsPageIntegrated() {
   // Loading state
   if (loading || !event) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <BrandedSpinner size="xl" showLogo text="Loading event..." />
-      </div>
+      <FullScreenLoading text="Loading event..." />
     );
   }
 
