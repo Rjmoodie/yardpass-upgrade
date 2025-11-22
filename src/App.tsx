@@ -299,13 +299,13 @@ function AppContent() {
       <WarmHlsOnIdle />
       <DeferredImports />
       <AnalyticsWrapper>
-        <div className="app-frame flex min-h-dvh flex-col bg-background relative no-page-bounce" data-role={routeRole}>
+        <FullScreenSafeArea className="app-frame flex flex-col bg-background relative no-page-bounce" data-role={routeRole}>
           <div className="app-mesh pointer-events-none" aria-hidden="true" />
 
           {/* Main Content Area */}
           <main
             id="main-content"
-            className="content-on-nav scroll-container"
+            className="content-on-nav scroll-container flex-1"
             role="main"
             aria-label="Main content"
           >
@@ -690,7 +690,7 @@ function AppContent() {
 
         {/* Share Modal (single instance) */}
         <ShareModal isOpen={!!sharePayload} onClose={() => setSharePayload(null)} payload={sharePayload} />
-        </div>
+        </FullScreenSafeArea>
       </AnalyticsWrapper>
     </>
   );

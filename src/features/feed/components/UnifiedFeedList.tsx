@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { SlidersHorizontal, MapPin, Compass } from 'lucide-react';
 import { BrandedSpinner } from '@/components/BrandedSpinner';
+import { FullScreenError } from '@/components/layout/FullScreenError';
 import { useUnifiedFeedInfinite } from '@/hooks/useUnifiedFeedInfinite';
 import { useCampaignBoosts, type CampaignBoostRow } from '@/hooks/useCampaignBoosts';
 import { useAuth } from '@/contexts/AuthContext';
@@ -164,7 +165,15 @@ function normalizeBoost(row: CampaignBoostRow): FeedItem {
 
 function renderLoadingState() {
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-neutral-950">
+    <div 
+      className="relative w-full overflow-hidden bg-neutral-950"
+      style={{
+        height: '100dvh',
+        minHeight: '-webkit-fill-available',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
+    >
       <div className="absolute inset-0 bg-gradient-to-b from-neutral-900 via-neutral-950 to-black" />
       <div className="relative z-10 flex h-full flex-col gap-6 px-6 pt-20">
         <div className="space-y-3">
@@ -611,39 +620,31 @@ export default function UnifiedFeedList() {
   const locationHeading = normalizedLocation ? `Near ${normalizedLocation}` : 'Near you';
   const activeDate = filters.dates[0] ?? 'Anytime';
 
-  if (status === 'pending') {
+  if (status === 'pending' || status === 'loading') {
     return renderLoadingState();
   }
 
   if (status === 'error') {
     return (
-      <div 
-        className="flex flex-col items-center justify-center gap-4 bg-background text-foreground"
-        style={{
-          height: '100dvh',
-          minHeight: '-webkit-fill-available',
-          paddingTop: 'env(safe-area-inset-top, 0px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      >
-        <div className="space-y-2 text-center px-4">
-          <p className="text-lg font-semibold">We couldn't load your feed.</p>
-          <p className="text-sm text-foreground/60">Refresh to try again or explore featured events.</p>
-        </div>
-        <div className="flex items-center gap-3 px-4">
-          <Button onClick={() => refetch()} variant="secondary" className="active:scale-95 transition-transform">
-            Refresh feed
-          </Button>
-          <Button onClick={() => navigate('/events')} className="active:scale-95 transition-transform">
-            Browse events
-          </Button>
-        </div>
-      </div>
+      <FullScreenError
+        title="We couldn't load your feed"
+        message="Refresh to try again or explore featured events"
+        onRetry={() => refetch()}
+        retryLabel="Refresh feed"
+      />
     );
   }
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-background text-foreground">
+    <div 
+      className="relative w-full overflow-hidden bg-background text-foreground"
+      style={{
+        height: '100dvh',
+        minHeight: '-webkit-fill-available',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
+    >
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-950 via-black to-black" aria-hidden />
       <div
         className="pointer-events-none absolute left-1/2 top-[-30%] h-[520px] w-[125%] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(circle_at_center,_rgba(120,119,198,0.35)_0%,_rgba(32,31,60,0.05)_55%,_transparent_75%)] blur-3xl"
@@ -714,7 +715,11 @@ export default function UnifiedFeedList() {
                 itemRefs.current[idx] = el;
               }}
               data-index={idx}
-              className="snap-start snap-always h-dvh flex items-center px-3 sm:px-6"
+              className="snap-start snap-always flex items-center px-3 sm:px-6"
+              style={{
+                height: '100dvh',
+                minHeight: '-webkit-fill-available',
+              }}
             >
               <div className="mx-auto flex h-[calc(100dvh-5rem)] w-full max-w-5xl items-stretch">
                 <div className="relative isolate flex h-full w-full overflow-hidden rounded-[32px] border border-white/12 bg-white/5 shadow-[0_40px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">

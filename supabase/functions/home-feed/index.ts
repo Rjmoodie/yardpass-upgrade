@@ -84,6 +84,12 @@ const ALLOWED_ORIGINS = [
   "http://localhost:8081",
   "http://localhost:8084",
   "http://localhost:8085",
+  // iOS Capacitor origins
+  "capacitor://localhost",
+  "ionic://localhost",
+  "http://localhost",
+  // Allow all origins for mobile apps (Capacitor uses various schemes)
+  "*", // Fallback to allow all for mobile apps
 ];
 
 // Optional internal test override (only if both origin + header match)
@@ -234,7 +240,18 @@ function detectConnectionSpeed(req: Request): 'slow' | 'medium' | 'fast' {
 
 // Origin matching with wildcards in ALLOWED_ORIGINS
 function computeAllowedOrigin(origin: string) {
+  // Allow requests with no origin (mobile apps, Postman, etc.)
+  if (!origin || origin === "null" || origin === "") {
+    // Check if "*" is in allowed origins (for mobile apps)
+    if (ALLOWED_ORIGINS.includes("*")) {
+      return "*";
+    }
+    // For mobile apps without origin, allow if we have wildcard
+    return "*";
+  }
+  
   const match = ALLOWED_ORIGINS.some((allowed) => {
+    if (allowed === "*") return true; // Wildcard allows all
     if (allowed === origin) return true;
     if (allowed.includes("*")) {
       const pattern = allowed.replace(/\./g, "\\.").replace(/\*/g, ".*");
@@ -242,7 +259,7 @@ function computeAllowedOrigin(origin: string) {
     }
     return false;
   });
-  return match ? origin : null;
+  return match ? origin : (ALLOWED_ORIGINS.includes("*") ? "*" : null);
 }
 
 const isTrustedOrigin = (o: string) =>
@@ -643,15 +660,28 @@ const handler = withCORS(async (req: Request) => {
  * ---------------------------- */
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin") || "";
-  const allowOrigin = computeAllowedOrigin(origin);
+  
+  // Detect mobile app origins (Capacitor, Ionic, etc.)
+  const isMobileApp = !origin || origin === "null" || origin === "" || 
+                     origin.startsWith("capacitor://") || 
+                     origin.startsWith("ionic://") ||
+                     origin.startsWith("http://localhost");
+  
+  const allowOrigin = computeAllowedOrigin(origin) || (isMobileApp ? "*" : null);
 
-  // OPTIONS preflight
+  // OPTIONS preflight - Always allow for mobile apps
   if (req.method === "OPTIONS") {
-    if (!allowOrigin) return new Response(null, { status: 403 });
+    // For mobile apps, always allow OPTIONS
+    const finalAllowOrigin = allowOrigin || (isMobileApp ? "*" : null);
+    
+    if (!finalAllowOrigin) {
+      return new Response(null, { status: 403 });
+    }
+    
     return new Response(null, {
       status: 204,
       headers: {
-        "Access-Control-Allow-Origin": allowOrigin,
+        "Access-Control-Allow-Origin": finalAllowOrigin,
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
         "Access-Control-Allow-Headers":
           "authorization, x-client-info, apikey, content-type, if-none-match, " + INTERNAL_OVERRIDE_HEADER,
@@ -660,14 +690,14 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Reject disallowed origins early
-  if (!allowOrigin) {
+  // Reject disallowed origins early (but allow mobile apps)
+  if (!allowOrigin && !isMobileApp) {
     return json(403, { error: "Origin not allowed" });
   }
 
   const res = await handler(req);
   const headers = new Headers(res.headers);
-  headers.set("Access-Control-Allow-Origin", allowOrigin);
+  headers.set("Access-Control-Allow-Origin", allowOrigin || "*");
   headers.set("Vary", "Origin");
   return new Response(res.body, { status: res.status, headers });
 });

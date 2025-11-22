@@ -19,6 +19,8 @@ import { TopFilters } from '@/components/feed/TopFilters';
 import { FloatingActions } from '@/components/feed/FloatingActions';
 import { ProfileCompletionModal } from '@/components/auth/ProfileCompletionModal';
 import { BrandedSpinner } from '@/components/BrandedSpinner';
+import { FullScreenLoading } from '@/components/layout/FullScreenLoading';
+import { FullScreenError } from '@/components/layout/FullScreenError';
 import { isVideoUrl } from '@/utils/mux';
 import { logger } from '@/utils/logger';
 import { startTracking, endTracking } from '@/utils/performanceTracking';
@@ -532,40 +534,30 @@ export default function FeedPageNewDesign() {
   }, []);
 
   if (status === 'loading') {
-    return (
-      <div className="flex h-dvh items-center justify-center bg-background">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-border border-t-primary" />
-      </div>
-    );
+    return <FullScreenLoading text="Loading feed..." />;
   }
 
   if (status === 'error') {
     return (
-      <div 
-        className="flex flex-col items-center justify-center gap-4 bg-background text-foreground"
-        style={{
-          height: '100dvh',
-          minHeight: '-webkit-fill-available',
-          paddingTop: 'env(safe-area-inset-top, 0px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      >
-        <div className="space-y-2 text-center px-4">
-          <p className="text-lg font-semibold">We couldn't load your feed.</p>
-          <p className="text-sm text-foreground/60">Please check your connection and try again.</p>
-        </div>
-        <button 
-          onClick={() => refetch()} 
-          className="rounded-full bg-primary px-6 py-3 text-primary-foreground font-semibold active:scale-95 transition-transform"
-        >
-          Refresh feed
-        </button>
-      </div>
+      <FullScreenError
+        title="We couldn't load your feed"
+        message="Please check your connection and try again"
+        onRetry={() => refetch()}
+        retryLabel="Refresh feed"
+      />
     );
   }
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-background text-foreground">
+    <div 
+      className="relative w-full overflow-hidden bg-background text-foreground"
+      style={{
+        height: '100dvh',
+        minHeight: '-webkit-fill-available',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
+    >
       {/* Background gradient */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-950 via-black to-black" />
       <div className="pointer-events-none absolute left-1/2 top-[-30%] h-[520px] w-[125%] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(circle_at_center,_rgba(120,119,198,0.35)_0%,_rgba(32,31,60,0.05)_55%,_transparent_75%)] blur-3xl" />
