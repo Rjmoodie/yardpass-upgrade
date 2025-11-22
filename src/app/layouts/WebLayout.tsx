@@ -68,9 +68,13 @@ export const WebLayout: React.FC<WebLayoutProps> = ({ children, userRole = 'orga
             <div className="flex items-center space-x-8">
               {/* Liventix Logo */}
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">Y</span>
-                </div>
+                <img 
+                  src="/liventix-icon-60.png" 
+                  alt="Liventix" 
+                  className="w-8 h-8 object-contain"
+                  loading="eager"
+                  decoding="sync"
+                />
                 <span className="text-xl font-bold text-gray-900">Liventix</span>
                 <span className="text-xs text-gray-500 bg-yellow-50 px-2 py-1 rounded-full">
                   Now in Beta

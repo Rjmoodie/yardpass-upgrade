@@ -20,7 +20,10 @@ const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/images/liventix-logo-full.png',
+  '/favicon.png',
+  '/liventix-icon-60.png',
+  '/liventix-logo-mobile.png',
+  '/liventix-logo-desktop.png',
 ];
 
 // Cache size limits
