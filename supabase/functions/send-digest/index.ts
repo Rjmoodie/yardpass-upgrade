@@ -80,7 +80,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: "Liventix <updates@liventix.app>",
+        from: "Liventix <hello@liventix.tech>",
         to: [userRow.email],
         subject: reason === "ticket_intent" ? "Still thinking about these?" : "Your weekly picks",
         html,

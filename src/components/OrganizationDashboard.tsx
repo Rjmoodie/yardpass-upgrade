@@ -33,6 +33,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SocialLinkManager } from './SocialLinkManager';
 import { SocialLinkDisplay } from './SocialLinkDisplay';
+import { BrandedSpinner } from '@/components/BrandedSpinner';
 import { LocationAutocomplete } from './LocationAutocomplete';
 import { OrgContactExportPanel } from './OrgContactExportPanel';
 import { OrgContactImportPanel } from './OrgContactImportPanel';
@@ -470,11 +471,7 @@ export function OrganizationDashboard({
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="space-y-3 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-muted mx-auto animate-pulse" />
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="text-sm text-muted-foreground">Loading organization…</p>
-        </div>
+        <BrandedSpinner size="xl" showLogo text="Loading organization…" />
       </div>
     );
   }

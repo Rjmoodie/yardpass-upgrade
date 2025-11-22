@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react';
+import { BrandedSpinner } from '@/components/BrandedSpinner';
 import { cn } from '@/lib/utils';
 
 interface LoadingSpinnerProps {
@@ -21,8 +21,7 @@ export default function LoadingSpinner({
         role="status"
         aria-live="polite"
       >
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        <span>{message}</span>
+        <BrandedSpinner size="sm" showLogo={false} text={message} />
         <span className="sr-only">Loading</span>
       </div>
     );
@@ -35,8 +34,7 @@ export default function LoadingSpinner({
         role="status"
         aria-live="polite"
       >
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
-        <p className="text-sm text-muted-foreground">{message}</p>
+        <BrandedSpinner size="md" showLogo text={message} />
         <span className="sr-only">Loading</span>
       </div>
     );
@@ -51,13 +49,10 @@ export default function LoadingSpinner({
       role="status"
       aria-live="polite"
     >
-      <div className="inline-flex items-center justify-center rounded-full bg-primary/10 p-3 text-primary">
-        <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
-      </div>
-      <div>
-        <p className="text-sm font-medium text-foreground">{message}</p>
+      <BrandedSpinner size="lg" showLogo text={message} />
+      {submessage && (
         <p className="text-xs text-muted-foreground">{submessage}</p>
-      </div>
+      )}
       <span className="sr-only">Loading dashboard data</span>
     </div>
   );

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, X, Trash2, ExternalLink, Link as LinkIcon, ChevronDown, Pin, Reply, MoreVertical, Flag } from 'lucide-react';
+import { Heart, X, Trash2, ExternalLink, Link as LinkIcon, ChevronDown, Pin, Reply, MoreVertical, Flag, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -196,8 +196,12 @@ const CommentItem = memo(function CommentItem({
   onTogglePin,
   isOrganizer,
 }: CommentItemProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isLongComment = c.text.length > 200;
+  const displayText = isLongComment && !isExpanded ? c.text.slice(0, 200) + '...' : c.text;
+  
   return (
-    <div className={depth > 0 ? 'ml-8 mt-2' : ''}>
+    <div className={depth > 0 ? 'ml-6 sm:ml-8 mt-3' : 'mb-4'}>
       <div
         className={`group flex items-start gap-2 sm:gap-3 ${mine ? 'flex-row-reverse text-right' : ''} ${
           c.pending ? 'opacity-70' : ''
@@ -206,28 +210,28 @@ const CommentItem = memo(function CommentItem({
         <button
           type="button"
           onClick={() => window.open(routes.user(c.author_user_id), '_blank', 'noopener,noreferrer')}
-          className={`mt-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-primary ${mine ? 'order-last' : ''}`}
+          className={`mt-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-primary shrink-0 ${mine ? 'order-last' : ''}`}
           aria-label={`Open ${c.author_name || 'user'} profile in new tab`}
         >
-          <Avatar className="w-7 h-7">
+          <Avatar className="w-8 h-8 sm:w-9 sm:h-9">
             <AvatarImage src={c.author_avatar || undefined} />
-            <AvatarFallback className="text-xs">{c.author_name?.charAt(0) || 'A'}</AvatarFallback>
+            <AvatarFallback className="text-xs sm:text-sm">{c.author_name?.charAt(0) || 'A'}</AvatarFallback>
           </Avatar>
         </button>
 
         <div className="flex-1 min-w-0">
           <div
-            className={`rounded-2xl px-3 py-2 text-xs sm:text-sm leading-relaxed break-words shadow-sm ${
+            className={`rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm leading-relaxed break-words shadow-sm ${
               mine ? 'bg-primary/10 text-foreground' : 'bg-muted/60 text-foreground'
             } ${c.pending ? 'opacity-70' : ''} ${c.is_pinned ? 'ring-2 ring-primary/40' : ''}`}
             title={c.pending ? 'Sending…' : undefined}
           >
-            <div className="mb-1 flex items-center justify-between gap-2 flex-wrap">
+            <div className="mb-1.5 flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={() => window.open(routes.user(c.author_user_id), '_blank', 'noopener,noreferrer')}
-                  className="font-medium text-[11px] sm:text-xs hover:text-primary transition-colors"
+                  className="font-semibold text-[11px] sm:text-xs hover:text-primary transition-colors"
                   title="View profile (new tab)"
                 >
                   {c.author_name}
@@ -243,7 +247,16 @@ const CommentItem = memo(function CommentItem({
                 {c.pending ? ' • sending…' : ''}
               </span>
             </div>
-            <div className="whitespace-pre-wrap">{parseRichText(c.text)}</div>
+            <div className="whitespace-pre-wrap">{parseRichText(displayText)}</div>
+            {isLongComment && (
+              <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="mt-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+              >
+                {isExpanded ? 'Show less' : 'Read more'}
+              </button>
+            )}
           </div>
 
           <div
@@ -1564,11 +1577,12 @@ export default function CommentModal({
 
   return (
     <Dialog key={dialogKey} open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[min(100vw,1200px)] max-h-[90vh] p-0 gap-0 overflow-hidden bg-background border-2 border-border dark:border-white/20 shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 rounded-2xl flex flex-col">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[1200px] h-[90vh] max-h-[90vh] p-0 gap-0 overflow-hidden bg-background border-2 border-border dark:border-white/20 shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 rounded-2xl flex flex-col">
         {/* Header */}
-        <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-3 sm:px-4 py-2">
-          <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="text-sm sm:text-base font-semibold flex items-center gap-1.5 min-w-0 flex-1">
+        <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2 min-w-0 flex-1">
+              <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
               <span className="shrink-0">Comments</span>
               {activePost && (
                 <>
@@ -1583,20 +1597,25 @@ export default function CommentModal({
 
             <div className="flex items-center gap-1 shrink-0">
               {!singleMode && posts.length > 1 && (
-                <div className="relative">
-                  <select
-                    className="text-xs bg-muted/40 border rounded-md px-2 py-1 pr-5"
-                    value={activePost?.id ?? ''}
-                    onChange={(e) => setActivePostId(e.target.value)}
-                    aria-label="Choose a post"
-                  >
-                    {posts.map((p) => (
-                      <option key={p.id} value={p.id} title={p.text}>
-                        {p.text?.slice(0, 20) || 'Post'} {p.text && p.text.length > 20 ? '…' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/75" />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground hidden sm:inline">
+                    {posts.indexOf(activePost!) + 1} / {posts.length}
+                  </span>
+                  <div className="relative">
+                    <select
+                      className="text-xs sm:text-sm bg-muted/40 hover:bg-muted/60 border border-border rounded-lg px-3 py-1.5 pr-7 cursor-pointer transition-colors"
+                      value={activePost?.id ?? ''}
+                      onChange={(e) => setActivePostId(e.target.value)}
+                      aria-label="Choose a post"
+                    >
+                      {posts.map((p, idx) => (
+                        <option key={p.id} value={p.id} title={p.text}>
+                          Post {idx + 1}: {p.text?.slice(0, 30) || 'View'}{p.text && p.text.length > 30 ? '…' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/75" />
+                  </div>
                 </div>
               )}
 
@@ -1632,16 +1651,16 @@ export default function CommentModal({
         </DialogHeader>
 
         {/* BODY */}
-        <div className="flex-1 flex flex-col md:flex-row min-h-0">
+        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
           {/* Media + caption column */}
           {shouldShowMedia && (
-            <div className="md:w-[45%] lg:w-[50%] flex flex-col border-b md:border-b-0 md:border-r border-border/60 bg-black">
-              <div className="flex-1 flex items-center justify-center min-h-[200px] max-h-[50vh] md:max-h-none">
+            <div className="lg:w-[52%] xl:w-[55%] flex flex-col border-b lg:border-b-0 lg:border-r border-border/60 bg-black shrink-0">
+              <div className="flex items-center justify-center h-[180px] lg:flex-1 lg:h-auto lg:max-h-none">
                 {activePost?.media_urls?.length ? renderFullMedia(activePost.media_urls) : null}
               </div>
               {postHeader && (
-                <div className="bg-background px-4 py-4 border-t border-border/60">
-                  <div className="max-w-[520px] mx-auto">{postHeader}</div>
+                <div className="bg-background px-3 sm:px-6 py-2 sm:py-3 border-t border-border/60 shrink-0">
+                  {postHeader}
                 </div>
               )}
             </div>
@@ -1650,13 +1669,13 @@ export default function CommentModal({
           {/* Comment column */}
           <div className="flex-1 flex flex-col min-h-0 bg-background">
             {!shouldShowMedia && postHeader && (
-              <div className="bg-background px-4 py-4 border-b border-border/60">
-                <div className="max-w-[680px] mx-auto">{postHeader}</div>
+              <div className="bg-background px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border/60">
+                {postHeader}
               </div>
             )}
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 min-h-0">
-              <div className="space-y-4 max-w-[680px] mx-auto">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-6 min-h-0">
+              <div className="space-y-5 max-w-[680px] mx-auto">
                 {(!activePost || loading) && posts.length === 0 ? (
                   <div className="space-y-3" aria-live="polite">
                     {[...Array(3)].map((_, i) => (
@@ -1719,7 +1738,7 @@ export default function CommentModal({
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-card/95 backdrop-blur-xl border-t border-border safe-bottom px-4 py-4">
+            <div className="sticky bottom-0 bg-card/95 backdrop-blur-xl border-t border-border safe-bottom px-4 sm:px-6 py-4 sm:py-5">
               <div className="max-w-[680px] mx-auto">{composer}</div>
             </div>
           </div>

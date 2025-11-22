@@ -49,8 +49,21 @@ serve(async (req) => {
       return createErrorResponse("Invalid auth token", 401);
     }
 
+    // 🔒 Create user-scoped client for permission checks
+    const userSupabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      }
+    );
+
     // 🔒 SECURITY FIX: Check if user is authorized to send invites for this event
-    const { data: isManager, error: authCheckError } = await supabase
+    const { data: isManager, error: authCheckError } = await userSupabase
       .rpc('is_event_manager', { p_event_id: event_id });
 
     if (authCheckError) {
@@ -144,7 +157,7 @@ serve(async (req) => {
         })
       : "TBA";
     
-    const link = `${req.headers.get("origin") || "https://app.liventix.app"}/roles/accept?token=${token}`;
+    const link = `${req.headers.get("origin") || "https://liventix.tech"}/roles/accept?token=${token}`;
 
     // Send email if provided and Resend is configured
     if (email && RESEND_API_KEY) {

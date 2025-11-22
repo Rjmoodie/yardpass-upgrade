@@ -139,7 +139,7 @@ if (!isPaid) {
     const tierIds = Array.from(new Set(normalized.map(i => i.tier_id)));
     const { data: tiers, error: tErr } = await admin
       .from("ticket_tiers")
-      .select("id, event_id, name, price_cents")
+      .select("id, event_id, name, price_cents, is_rsvp_only")
       .in("id", tierIds.length ? tierIds : ["00000000-0000-0000-0000-000000000000"]);
     if (tErr) return err(`Load tiers failed: ${tErr.message}`, 500);
 
@@ -158,10 +158,10 @@ if (!isPaid) {
     for (const it of normalized) {
       const tt = tierMap.get(it.tier_id)!;
       
-      // ✅ Skip ticket creation for free tiers (price_cents = 0 means RSVP-only)
-      const isFree = (tt.price_cents === 0 || tt.price_cents === null);
-      if (isFree) {
-        console.log(`[ENSURE-TICKETS] Free tier detected - RSVP only (no tickets): ${tt.name} (${it.quantity} attendees, $${tt.price_cents / 100})`);
+      // ✅ Skip ticket creation for RSVP-only tiers (explicitly marked or free with flag)
+      const isRsvpOnly = tt.is_rsvp_only === true || (tt.price_cents === 0 && tt.is_rsvp_only !== false);
+      if (isRsvpOnly) {
+        console.log(`[ENSURE-TICKETS] RSVP-only tier detected (no tickets): ${tt.name} (${it.quantity} attendees, $${(tt.price_cents || 0) / 100})`);
         rsvpCount += it.quantity;
         continue;
       }

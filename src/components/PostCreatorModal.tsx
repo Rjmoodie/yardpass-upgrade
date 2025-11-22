@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -225,7 +225,7 @@ export function PostCreatorModal({
   onSuccess,
   preselectedEventId,
 }: PostCreatorModalProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, updateProfileOptimistic } = useAuth();
   const { activeView } = useProfileView();
   // const { track } = useAnalytics?.() ?? { track: () => {} };
 

@@ -119,9 +119,6 @@ const BaseEmailLayout: React.FC<BaseEmailLayoutProps> = ({ children, orgInfo, pr
             loading="eager"
             decoding="sync"
           />
-          <div style={{ fontSize: 13, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Powered by Liventix
-          </div>
         </div>
 
         {/* Organization Info (if provided) */}

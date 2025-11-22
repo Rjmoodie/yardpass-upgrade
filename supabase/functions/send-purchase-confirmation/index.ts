@@ -224,7 +224,7 @@ function HiddenPreheader({ text }: { text?: string }) {
 }
 
 function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { children: any; orgInfo?: OrgInfo; eventInfo?: EventInfo; preheaderText?: string }) {
-  const logoUrl = orgInfo?.logoUrl || `${baseUrl()}/liventix-logo.png`;
+  const logoUrl = `${baseUrl()}/liventix-logo.png`;
   const supportEmail = orgInfo?.supportEmail || "support@liventix.tech";
   const currentYear = new Date().getFullYear();
 
@@ -293,11 +293,6 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
               decoding: "sync",
               onerror: `this.src='${baseUrl()}/liventix-logo-fallback.png'; this.onerror=null;`,
             }),
-            React.createElement(
-              "div",
-              { style: { fontSize: "13px", color: "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase" } },
-              "Powered by Liventix",
-            ),
           ),
           // org card
           orgInfo
@@ -393,7 +388,7 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
     { orgInfo, eventInfo, preheaderText },
     React.createElement(
       "div",
-      { style: { background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", color: "#ffffff", padding: "24px", borderRadius: "14px", marginBottom: "28px", textAlign: "center" } },
+      { style: { background: "linear-gradient(135deg, #03A9F4 0%, #0288D1 100%)", color: "#ffffff", padding: "24px", borderRadius: "14px", marginBottom: "28px", textAlign: "center" } },
       React.createElement("div", { style: { fontSize: "32px", marginBottom: "8px" } }, isRsvp ? "✅" : "🎉"),
       React.createElement("h1", { style: { margin: 0, fontSize: "26px", fontWeight: 700 } }, isRsvp ? "RSVP Confirmed!" : "Purchase Confirmed!"),
       React.createElement("p", { style: { margin: "10px 0 0 0", fontSize: "15px", opacity: 0.95 } }, isRsvp ? "You're all set! No ticket required." : "Your tickets are ready to scan at the door."),
@@ -502,7 +497,7 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
                 "div",
                 { key: idx, style: { textAlign: "center" } },
                 React.createElement("div", { style: { fontSize: "12px", color: "#64748b", marginBottom: "8px", fontWeight: 600 } }, qr.ticketType),
-                React.createElement("img", { src: qr.qrCodeUrl, alt: `QR Code ${idx + 1}`, style: { maxWidth: "180px", width: "100%", height: "auto", display: "block", margin: "0 auto", border: "3px solid #10b981", borderRadius: "12px", padding: "10px", backgroundColor: "#ffffff" } }),
+                React.createElement("img", { src: qr.qrCodeUrl, alt: `QR Code ${idx + 1}`, style: { maxWidth: "180px", width: "100%", height: "auto", display: "block", margin: "0 auto", border: "3px solid #03A9F4", borderRadius: "12px", padding: "10px", backgroundColor: "#ffffff" } }),
                 React.createElement("div", { style: { fontFamily: "'Courier New', monospace", fontSize: "14px", color: "#0f172a", fontWeight: 700, marginTop: "8px", letterSpacing: "2px" } }, qr.qrText),
               )
             )
@@ -626,12 +621,12 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     format: 'a4'
   });
 
-  // Liventix Brand Colors
-  const primaryAmber = [223, 157, 7];    // #DF9D07 - Primary amber
-  const lightAmber = [241, 204, 119];    // #F1CC77 - Light amber (highlights)
-  const deepIndigo = [83, 78, 133];      // #534E85 - Deep indigo/purple
-  const mutedGray = [151, 148, 165];     // #9794A5 - Muted indigo-gray
-  const lightNeutral = [230, 225, 216];  // #E6E1D8 - Light neutral background
+  // Liventix Brand Colors - Blue Theme Only
+  const primaryBlue = [3, 169, 244];     // #03A9F4 - Liventix Blue
+  const lightBlue = [129, 212, 250];     // #81D4FA - Light blue (highlights)
+  const darkBlue = [2, 136, 209];        // #0288D1 - Dark blue (accents)
+  const mutedGray = [151, 148, 165];     // #9794A5 - Muted gray
+  const lightNeutral = [230, 237, 242];  // #E6EDF2 - Light neutral background
   const textColor = [15, 23, 42];        // Dark text
 
   ticketsWithQR.forEach((ticket: any, index: number) => {
@@ -642,12 +637,12 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     const venue = ticket.events?.venue || "TBA";
     const address = ticket.events?.address || "";
 
-    // Header with gradient effect (amber)
-    doc.setFillColor(...primaryAmber);
+    // Header with gradient effect (blue)
+    doc.setFillColor(...primaryBlue);
     doc.rect(0, 0, 210, 40, 'F');
     
-    // Indigo accent stripe
-    doc.setFillColor(...deepIndigo);
+    // Dark blue accent stripe
+    doc.setFillColor(...darkBlue);
     doc.rect(0, 40, 210, 3, 'F');
     
     // Organization/Platform name
@@ -714,10 +709,10 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
       doc.text(venueLines, 20, 98);
     }
 
-    // QR Code section with amber border (adjusted position)
+    // QR Code section with blue border (adjusted position)
     doc.setFillColor(255, 255, 255);
     doc.roundedRect(40, 115, 130, 100, 3, 3, 'F');
-    doc.setDrawColor(...primaryAmber);
+    doc.setDrawColor(...primaryBlue);
     doc.setLineWidth(2.5);
     doc.roundedRect(40, 115, 130, 100, 3, 3, 'S');
     
@@ -754,13 +749,13 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     // QR code text below
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...deepIndigo);
+    doc.setTextColor(...darkBlue);
     doc.text('Scan at Entry', 105, 220, { align: 'center' });
     
-    // Backup code in amber
+    // Backup code in blue
     doc.setFontSize(16);
     doc.setFont('courier', 'bold');
-    doc.setTextColor(...primaryAmber);
+    doc.setTextColor(...primaryBlue);
     doc.text(ticket.qr_code, 105, 230, { align: 'center' });
 
     // Instructions with muted color
@@ -776,8 +771,8 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     doc.text(`Ticket ID: ${ticket.id.slice(0, 13)}...`, 105, 275, { align: 'center' });
     doc.text(`Serial: #${ticket.serial_no || 'N/A'}`, 105, 280, { align: 'center' });
     
-    // Bottom border with amber accent
-    doc.setDrawColor(...primaryAmber);
+    // Bottom border with blue accent
+    doc.setDrawColor(...primaryBlue);
     doc.setLineWidth(1);
     doc.line(15, 285, 195, 285);
     
@@ -904,7 +899,7 @@ async function generateTicketHTML(ticketIds: string[], eventTitle: string, custo
     }))
   );
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>${eventTitle} - Your Tickets</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f3f4f6;padding:20px;line-height:1.6}.container{max-width:800px;margin:0 auto}.header{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:30px;text-align:center;border-radius:16px 16px 0 0}.header h1{font-size:28px;margin-bottom:8px}.header p{opacity:.9;font-size:16px}.ticket{background:#fff;border:3px solid #10b981;border-radius:16px;margin:20px 0;overflow:hidden;page-break-inside:avoid;box-shadow:0 4px 6px rgba(0,0,0,.1)}.ticket-header{background:#10b981;color:#fff;padding:20px;text-align:center}.ticket-header h2{font-size:22px;margin-bottom:5px}.ticket-body{padding:25px}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin:20px 0}.info-item{padding:12px;background:#f9fafb;border-radius:8px}.info-label{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.info-value{font-size:16px;font-weight:600;color:#111827}.qr-section{text-align:center;padding:30px;background:#f9fafb;border-radius:12px;margin:20px 0}.qr-image{max-width:250px;width:100%;height:auto;border:4px solid #10b981;border-radius:12px;background:#fff;padding:15px;margin:15px 0}.qr-code-text{display:inline-block;background:#fff;padding:12px 20px;border:2px solid #e5e7eb;border-radius:8px;font-family:'Courier New',monospace;font-size:20px;font-weight:700;letter-spacing:3px;color:#111827;margin:10px 0}.qr-instructions{font-size:14px;color:#6b7280;margin-top:15px}.footer{text-align:center;padding:20px;color:#6b7280;font-size:13px;border-top:2px dashed #e5e7eb;margin-top:20px}@media print{body{background:#fff;padding:0}.ticket{page-break-inside:avoid;margin:0 0 40px 0}}</style></head><body><div class="container"><div class="header"><h1>🎟️ ${eventTitle}</h1><p>Tickets for ${customerName}</p></div>${ticketsWithQR
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>${eventTitle} - Your Tickets</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f3f4f6;padding:20px;line-height:1.6}.container{max-width:800px;margin:0 auto}.header{background:linear-gradient(135deg,#03A9F4 0%,#0288D1 100%);color:#fff;padding:30px;text-align:center;border-radius:16px 16px 0 0}.header h1{font-size:28px;margin-bottom:8px}.header p{opacity:.9;font-size:16px}.ticket{background:#fff;border:3px solid #03A9F4;border-radius:16px;margin:20px 0;overflow:hidden;page-break-inside:avoid;box-shadow:0 4px 6px rgba(0,0,0,.1)}.ticket-header{background:#03A9F4;color:#fff;padding:20px;text-align:center}.ticket-header h2{font-size:22px;margin-bottom:5px}.ticket-body{padding:25px}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin:20px 0}.info-item{padding:12px;background:#f9fafb;border-radius:8px}.info-label{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.info-value{font-size:16px;font-weight:600;color:#111827}.qr-section{text-align:center;padding:30px;background:#f9fafb;border-radius:12px;margin:20px 0}.qr-image{max-width:250px;width:100%;height:auto;border:4px solid #03A9F4;border-radius:12px;background:#fff;padding:15px;margin:15px 0}.qr-code-text{display:inline-block;background:#fff;padding:12px 20px;border:2px solid #e5e7eb;border-radius:8px;font-family:'Courier New',monospace;font-size:20px;font-weight:700;letter-spacing:3px;color:#111827;margin:10px 0}.qr-instructions{font-size:14px;color:#6b7280;margin-top:15px}.footer{text-align:center;padding:20px;color:#6b7280;font-size:13px;border-top:2px dashed #e5e7eb;margin-top:20px}@media print{body{background:#fff;padding:0}.ticket{page-break-inside:avoid;margin:0 0 40px 0}}</style></head><body><div class="container"><div class="header"><h1>🎟️ ${eventTitle}</h1><p>Tickets for ${customerName}</p></div>${ticketsWithQR
     .map((ticket: any, index: number) => {
       const eventDate = new Date(ticket.events?.start_at || Date.now());
       return `<div class="ticket"><div class="ticket-header"><h2>Ticket #${index + 1} of ${ticketsWithQR.length}</h2><p>${ticket.ticket_tiers?.name || "General Admission"}</p></div><div class="ticket-body"><div class="info-grid"><div class="info-item"><div class="info-label">Ticket Holder</div><div class="info-value">${customerName}</div></div><div class="info-item"><div class="info-label">Ticket Type</div><div class="info-value">${ticket.ticket_tiers?.name || "General Admission"}</div></div><div class="info-item"><div class="info-label">Event Date</div><div class="info-value">${eventDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</div></div><div class="info-item"><div class="info-label">Event Time</div><div class="info-value">${eventDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</div></div></div>${
@@ -1086,7 +1081,7 @@ const handler = async (req: Request): Promise<Response> => {
     const idemKey = req.headers.get("Idempotency-Key") ?? requestId;
 
     const emailPayload: Record<string, unknown> = {
-      from: orgInfo?.name ? `${orgInfo.name} via Liventix <hello@liventix.tech>` : "Liventix <hello@liventix.tech>",
+      from: "Liventix <hello@liventix.tech>",
       to: [data.customerEmail],
       subject: data.isRsvpOnly 
         ? `✅ RSVP Confirmed - ${eventInfo?.title || data.eventTitle}`

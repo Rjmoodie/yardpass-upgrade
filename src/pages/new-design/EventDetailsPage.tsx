@@ -16,6 +16,7 @@ import CommentModal from "@/components/CommentModal";
 import { SponsorBadges } from "@/components/sponsorship/SponsorBadges";
 import { FlashbackBanner } from "@/components/flashbacks/FlashbackBanner";
 import { FlashbackEmptyState } from "@/components/flashbacks/FlashbackEmptyState";
+import { BrandedSpinner } from "@/components/BrandedSpinner";
 
 // Sponsor Section Component - Only renders if sponsors exist
 function SponsorSection({ eventId }: { eventId: string }) {
@@ -201,40 +202,70 @@ export function EventDetailsPageIntegrated() {
           // 1) Load organizer member user_ids
           let memberIds: string[] = [];
           if (data.owner_context_type === 'organization' && data.owner_context_id) {
-            const { data: members } = await supabase
+            const { data: members, error: membersError } = await supabase
               .from('org_memberships')
               .select('user_id')
               .eq('org_id', data.owner_context_id as string);
-            memberIds = (members ?? []).map((m: any) => m.user_id);
+            
+            if (membersError) {
+              console.error('[EventDetailsPage] Error fetching org members:', membersError);
+            } else {
+              memberIds = (members ?? []).map((m: any) => m.user_id);
+            }
+          } else if (data.owner_context_type === 'individual' && data.created_by) {
+            // For individual events, creator is the organizer
+            memberIds = [data.created_by];
           }
 
           // 2) Organizer posts count
           if (memberIds.length > 0) {
-            const { count: organizerCount } = await supabase
+            const { count: organizerCount, error: organizerError } = await supabase
               .from('event_posts')
               .select('id', { count: 'exact', head: true })
               .eq('event_id', data.id)
               .in('author_user_id', memberIds);
-            setPostsCount(organizerCount || 0);
+            
+            if (organizerError) {
+              console.error('[EventDetailsPage] Error fetching organizer posts:', organizerError);
+              setPostsCount(0);
+            } else {
+              setPostsCount(organizerCount || 0);
+            }
           } else {
             setPostsCount(0);
           }
 
-          // 3) Tagged (attendee) posts count
+          // 3) Tagged (attendee) posts count - posts NOT by organizers
           if (memberIds.length > 0) {
-            const { count: taggedOnlyCount } = await supabase
+            // Get all posts first, then filter out organizer posts
+            const { data: allPosts, error: allPostsError } = await supabase
               .from('event_posts')
-              .select('id', { count: 'exact', head: true })
-              .eq('event_id', data.id)
-              .not('author_user_id', 'in', memberIds as any);
-            setTaggedCount(taggedOnlyCount || 0);
+              .select('author_user_id')
+              .eq('event_id', data.id);
+            
+            if (allPostsError) {
+              console.error('[EventDetailsPage] Error fetching all posts:', allPostsError);
+              setTaggedCount(0);
+            } else {
+              // Filter out organizer posts
+              const taggedPosts = (allPosts || []).filter(
+                post => !memberIds.includes(post.author_user_id)
+              );
+              setTaggedCount(taggedPosts.length);
+            }
           } else {
             // If no org members, all posts are "tagged"
-            const { count: totalCount } = await supabase
+            const { count: totalCount, error: totalError } = await supabase
               .from('event_posts')
               .select('id', { count: 'exact', head: true })
               .eq('event_id', data.id);
-            setTaggedCount(totalCount || 0);
+            
+            if (totalError) {
+              console.error('[EventDetailsPage] Error fetching total posts:', totalError);
+              setTaggedCount(0);
+            } else {
+              setTaggedCount(totalCount || 0);
+            }
           }
         } catch (error) {
           console.error('[EventDetailsPage] Error fetching post counts:', error);
@@ -511,7 +542,7 @@ export function EventDetailsPageIntegrated() {
   if (loading || !event) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-border/10 border-t-primary" />
+        <BrandedSpinner size="xl" showLogo text="Loading event..." />
       </div>
     );
   }
@@ -648,7 +679,7 @@ export function EventDetailsPageIntegrated() {
               {tab === 'posts' && postsCount > 0 && (
                 <span className="ml-1.5 text-xs opacity-70">({postsCount})</span>
               )}
-              {tab === 'tagged' && taggedCount > 0 && (
+              {tab === 'tagged' && (
                 <span className="ml-1.5 text-xs opacity-70">({taggedCount})</span>
               )}
               </span>

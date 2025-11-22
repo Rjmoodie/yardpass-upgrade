@@ -32,6 +32,7 @@ import { useGuestManagement } from '@/hooks/useGuestManagement';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { BrandedSpinner } from '@/components/BrandedSpinner';
 
 interface GuestManagementProps {
   eventId: string;
@@ -250,17 +251,8 @@ export function GuestManagement({ eventId, canManage = true }: GuestManagementPr
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="space-y-3" aria-busy>
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg border">
-                      <div className="w-10 h-10 bg-muted animate-pulse rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-muted animate-pulse rounded w-32" />
-                        <div className="h-3 bg-muted animate-pulse rounded w-48" />
-                      </div>
-                      <div className="w-20 h-6 bg-muted animate-pulse rounded" />
-                    </div>
-                  ))}
+                <div className="flex items-center justify-center py-12" aria-busy>
+                  <BrandedSpinner size="lg" showLogo text="Loading guests..." />
                 </div>
               ) : filteredGuests.length === 0 ? (
                 <div className="text-center py-12">
@@ -380,10 +372,8 @@ export function GuestManagement({ eventId, canManage = true }: GuestManagementPr
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="space-y-4" aria-busy>
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
-                  ))}
+                <div className="flex items-center justify-center py-12" aria-busy>
+                  <BrandedSpinner size="lg" showLogo text="Loading guest codes..." />
                 </div>
               ) : guestCodes.length === 0 ? (
                 <div className="text-center py-12">

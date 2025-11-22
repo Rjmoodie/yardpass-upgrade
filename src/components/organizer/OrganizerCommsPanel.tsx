@@ -1397,9 +1397,6 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
                     alt="Liventix" 
                     className="h-16 mx-auto mb-3"
                   />
-                  <div className="text-xs text-slate-400 uppercase tracking-wider">
-                    Powered by Liventix
-                  </div>
                 </div>
 
                 {/* Email Content */}
@@ -1427,9 +1424,6 @@ export function OrganizerCommsPanel({ eventId }: OrganizerCommsPanelProps) {
 
                 {/* Email Footer */}
                 <div className="bg-gray-50 px-8 py-6 text-center">
-                  <p className="text-sm text-gray-600 mb-2">
-                    Powered by Liventix
-                  </p>
                   <p className="text-xs text-gray-500">
                     Questions? Contact{' '}
                     <a href={`mailto:${eventDetails.orgSupportEmail || 'support@liventix.tech'}`} className="text-blue-600 hover:text-blue-700">

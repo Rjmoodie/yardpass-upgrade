@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
+import { BrandedSpinner } from '@/components/BrandedSpinner';
 
 // Icons
 import {
@@ -372,7 +373,13 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
     downloadFile(`videos_${new Date().toISOString()}.csv`, toCSV(rows), 'text/csv');
   };
 
-  if (loading) return <div className="text-center py-8">Loading video analytics...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <BrandedSpinner size="lg" showLogo text="Loading video analytics..." />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -1088,7 +1095,13 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
       'text/csv'
     );
 
-  if (loading) return <div className="text-center py-8">Loading event analytics...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <BrandedSpinner size="lg" showLogo text="Loading event analytics..." />
+      </div>
+    );
+  }
 
   if (!eventData || eventData.length === 0) {
     return (
@@ -1556,25 +1569,20 @@ const AnalyticsHub: React.FC<{ initialOrgId?: string | null }> = ({ initialOrgId
           trackEvent('analytics_tab_change', { from_tab: activeTab, to_tab: newTab, organization_id: selectedOrg, date_range: dateRange });
         }} className="w-full space-y-8">
           <div className="relative z-20">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-10 sm:h-12 p-1 bg-muted/50 rounded-xl">
-              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="overview">Overview</TabsTrigger>
-              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="events">Events</TabsTrigger>
-              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="videos">Videos</TabsTrigger>
-              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all" value="audience">Audience</TabsTrigger>
-              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all col-span-2 sm:col-span-1" value="ai-assistant">AI Assistant</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-10 sm:h-12 p-1 bg-muted/80 border border-border/50 rounded-xl">
+              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg bg-background/50 text-foreground/70 hover:text-foreground hover:bg-background/80 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all" value="overview">Overview</TabsTrigger>
+              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg bg-background/50 text-foreground/70 hover:text-foreground hover:bg-background/80 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all" value="events">Events</TabsTrigger>
+              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg bg-background/50 text-foreground/70 hover:text-foreground hover:bg-background/80 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all" value="videos">Videos</TabsTrigger>
+              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg bg-background/50 text-foreground/70 hover:text-foreground hover:bg-background/80 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all" value="audience">Audience</TabsTrigger>
+              <TabsTrigger className="font-medium text-xs sm:text-sm px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg bg-background/50 text-foreground/70 hover:text-foreground hover:bg-background/80 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all col-span-2 sm:col-span-1" value="ai-assistant">AI Assistant</TabsTrigger>
             </TabsList>
           </div>
 
           {/* OVERVIEW */}
           <TabsContent value="overview" className="space-y-6">
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[...Array(8)].map((_, i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardHeader className="pb-2"><div className="h-4 bg-muted rounded w-3/4" /></CardHeader>
-                    <CardContent><div className="h-8 bg-muted rounded w-1/2 mb-2" /><div className="h-3 bg-muted rounded w-full" /></CardContent>
-                  </Card>
-                ))}
+              <div className="flex items-center justify-center py-12">
+                <BrandedSpinner size="lg" showLogo text="Loading analytics..." />
               </div>
             ) : analytics ? (
               <>

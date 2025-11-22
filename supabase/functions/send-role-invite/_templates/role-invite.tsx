@@ -42,7 +42,7 @@ export const RoleInviteEmail = ({
           {/* Logo/Header */}
           <Section style={header}>
             <Img
-              src="https://yieslxnrfeqchbcmgavz.supabase.co/liventix-logo.png"
+              src="https://liventix.tech/liventix-logo-full.png"
               width="180"
               height="60"
               alt="Liventix"
@@ -65,8 +65,6 @@ export const RoleInviteEmail = ({
 
             <Text style={text}>
               Roles: check-in, ushers, scanners
-              <br />
-              Shifts: 1–2 hours
             </Text>
 
             {/* CTA Button */}
@@ -102,15 +100,15 @@ export const RoleInviteEmail = ({
               © {new Date().getFullYear()} Liventix. All rights reserved.
             </Text>
             <Text style={footerLinks}>
-              <Link href="https://liventix.app" style={footerLink}>
+              <Link href="https://liventix.tech" style={footerLink}>
                 Liventix
               </Link>
               {' · '}
-              <Link href="https://liventix.app/help" style={footerLink}>
+              <Link href="https://liventix.tech/help" style={footerLink}>
                 Help Center
               </Link>
               {' · '}
-              <Link href="https://liventix.app/privacy" style={footerLink}>
+              <Link href="https://liventix.tech/privacy" style={footerLink}>
                 Privacy
               </Link>
             </Text>
@@ -171,9 +169,9 @@ const buttonContainer = {
 }
 
 const button = {
-  backgroundColor: '#f59e0b',
+  backgroundColor: '#03A9F4',
   borderRadius: '8px',
-  color: '#000000',
+  color: '#ffffff',
   fontSize: '16px',
   fontWeight: '700',
   textDecoration: 'none',

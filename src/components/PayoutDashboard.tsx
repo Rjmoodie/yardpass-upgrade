@@ -22,6 +22,7 @@ import { toast } from '@/hooks/use-toast';
 import { useStripeConnect } from '@/hooks/useStripeConnect';
 import { StripeConnectOnboarding } from './StripeConnectOnboarding';
 import { PayoutManager } from './PayoutManager';
+import { BrandedSpinner } from './BrandedSpinner';
 
 type PayoutStatus = 'pending' | 'processing' | 'completed' | 'failed';
 type PayoutMethod = 'bank_transfer' | 'paypal' | 'stripe';
@@ -180,7 +181,7 @@ export function PayoutDashboard({ contextType = 'individual', contextId }: Payou
         );
       case 'processing':
         return (
-          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+          <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
             <Clock className="w-3 h-3 mr-1" />
             Processing
           </Badge>
@@ -218,43 +219,8 @@ export function PayoutDashboard({ contextType = 'individual', contextId }: Payou
 
   if (loading) {
     return (
-      <div className="space-y-4" aria-busy="true" aria-live="polite">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-muted rounded w-1/3 mb-2" />
-                  <div className="h-8 bg-muted rounded w-1/2" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <Card>
-          <CardContent className="p-4">
-            <div className="animate-pulse h-3 bg-muted rounded w-full" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <div className="h-5 bg-muted rounded w-32" />
-          </CardHeader>
-          <CardContent>
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex items-center justify-between p-4 border rounded-lg mb-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-9 h-9 rounded-full bg-muted" />
-                  <div className="space-y-2">
-                    <div className="h-4 bg-muted rounded w-32" />
-                    <div className="h-3 bg-muted rounded w-24" />
-                  </div>
-                </div>
-                <div className="h-5 bg-muted rounded w-20" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center py-12" aria-busy="true" aria-live="polite">
+        <BrandedSpinner size="lg" showLogo text="Loading payouts..." />
       </div>
     );
   }

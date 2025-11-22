@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { BrandedSpinner } from '@/components/BrandedSpinner';
 import { 
   RefreshCcw, 
   Search, 
@@ -360,8 +361,8 @@ export function OrganizerRefundsPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
+                <div className="flex items-center justify-center py-12">
+                  <BrandedSpinner size="lg" showLogo text="Loading refund requests..." />
                 </div>
               ) : refundRequests.length === 0 ? (
                 <div className="text-center py-12">
@@ -465,8 +466,8 @@ export function OrganizerRefundsPage() {
 
               {/* Orders Table */}
               {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
+                <div className="flex items-center justify-center py-12">
+                  <BrandedSpinner size="lg" showLogo text="Loading orders..." />
                 </div>
               ) : orders.length === 0 ? (
                 <div className="text-center py-12">
@@ -554,8 +555,8 @@ export function OrganizerRefundsPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
+                <div className="flex items-center justify-center py-12">
+                  <BrandedSpinner size="lg" showLogo text="Loading refund history..." />
                 </div>
               ) : refundHistory.length === 0 ? (
                 <div className="text-center py-12">

@@ -58,7 +58,7 @@ export default {
           800: "#08366b",
           700: "#0b4686",
           600: "#0d5aa1",
-          500: "#1171c0",
+          500: "#03A9F4",  // Liventix Blue (Primary)
           400: "#3d8dce",
           300: "#69a9dc",
           200: "#a7cceb",
@@ -66,6 +66,22 @@ export default {
           50:  "#e9f2fa",
           // high-contrast foreground on brand backgrounds
           foreground: "#ffffff",
+        },
+        purple: {
+          950: "#4A0E4E",
+          900: "#5B1060",
+          800: "#6B1472",
+          700: "#7B1FA2",  // Liventix Purple (Organizer)
+          600: "#8E24AA",
+          500: "#9C27B0",
+          400: "#AB47BC",
+          300: "#BA68C8",
+          200: "#CE93D8",
+          100: "#E1BEE7",
+          50:  "#F3E5F5",
+        },
+        accent: {
+          pink: "#FF4081",  // Electric Pink (CTAs)
         },
         success: "#16A34A",
         warning: "#F59E0B",

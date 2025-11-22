@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext'; // Removed AuthProvider import (already in main.tsx)
 import { ProfileViewProvider, useProfileView } from '@/contexts/ProfileViewContext';
@@ -271,15 +271,20 @@ function AppContent() {
     }
   };
 
+  // Determine role for data-role attribute, defaulting to 'organizer' for dashboard routes
+  const routeRole = useMemo(() => {
+    if (profile?.role) return profile.role;
+    // Default to 'organizer' for dashboard/organizer routes while loading
+    if (location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/organization-dashboard')) {
+      return 'organizer';
+    }
+    return 'attendee';
+  }, [profile?.role, location.pathname]);
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-xl">🎪</span>
-          </div>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5" data-role={routeRole}>
+        <PageLoadingSpinner />
       </div>
     );
   }
@@ -291,7 +296,7 @@ function AppContent() {
       <WarmHlsOnIdle />
       <DeferredImports />
       <AnalyticsWrapper>
-        <div className="app-frame flex min-h-dvh flex-col bg-background relative no-page-bounce">
+        <div className="app-frame flex min-h-dvh flex-col bg-background relative no-page-bounce" data-role={routeRole}>
           <div className="app-mesh pointer-events-none" aria-hidden="true" />
 
           {/* Main Content Area */}
@@ -387,7 +392,7 @@ function AppContent() {
                 path="/dashboard"
                 element={
                   <AuthGuard>
-                    <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                    <Suspense fallback={<PageLoadingSpinner />}>
                       <OrganizerDashboard />
                     </Suspense>
                   </AuthGuard>
@@ -397,7 +402,7 @@ function AppContent() {
                 path="/dashboard/refunds"
                 element={
                   <AuthGuard>
-                    <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                    <Suspense fallback={<PageLoadingSpinner />}>
                       <OrganizerRefundsPage />
                     </Suspense>
                   </AuthGuard>
@@ -529,7 +534,7 @@ function AppContent() {
                 path="/organization-dashboard/:id"
                 element={
                   <AuthGuard>
-                    <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                    <Suspense fallback={<PageLoadingSpinner />}>
                       <OrganizationDashboardRouteComponent selectedOrganizationFallback={selectedOrganizationId} />
                     </Suspense>
                   </AuthGuard>
@@ -580,7 +585,7 @@ function AppContent() {
               <Route
                 path="/sponsorship"
                 element={
-                  <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                  <Suspense fallback={<PageLoadingSpinner />}>
                     <SponsorshipPage />
                   </Suspense>
                 }
@@ -589,7 +594,7 @@ function AppContent() {
                 path="/sponsorship/event/:eventId"
                 element={
                   <AuthGuard>
-                    <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                    <Suspense fallback={<PageLoadingSpinner />}>
                       <SponsorshipPage />
                     </Suspense>
                   </AuthGuard>
@@ -600,7 +605,7 @@ function AppContent() {
                 element={
                   <AuthGuard>
                     <SponsorGuard>
-                      <Suspense fallback={<div className="p-6"><LoadingSpinner /></div>}>
+                      <Suspense fallback={<PageLoadingSpinner />}>
                         <SponsorshipPage />
                       </Suspense>
                     </SponsorGuard>

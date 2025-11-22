@@ -125,51 +125,154 @@ const handler = withCORS(async (req) => {
         token,
         expires_at,
         invited_by: user.id,
-        status: 'pending'
+        status: 'pending',
+        email_status: 'pending', // Track email delivery status
+        metadata: {
+          invited_at: new Date().toISOString(),
+          inviter_email: user.email,
+          expires_in_hours
+        }
       })
       .select("id, token")
       .single();
 
     if (insertError) {
-      console.error("Insert error:", insertError);
+      console.error("[INVITE-ERROR] Failed to create invite:", {
+        org_id,
+        email,
+        role,
+        error: insertError.message,
+        code: insertError.code
+      });
       return new Response(JSON.stringify({ error: insertError.message }), { status: 400 });
     }
 
+    console.log("[INVITE-CREATED]", {
+      invite_id: invite.id,
+      org_id,
+      email,
+      role,
+      expires_at,
+      invited_by: user.id
+    });
+
     // Send email invitation
+    let emailSent = false;
+    let emailError = null;
+    let emailId = null;
+
     if (RESEND_API_KEY) {
-      const inviteLink = `${req.headers.get("origin") || "https://app.liventix.app"}/invite/org?token=${token}`;
+      const inviteLink = `${req.headers.get("origin") || "https://liventix.tech"}/invite/org?token=${token}`;
       
+      console.log("[INVITE-EMAIL] Preparing to send:", {
+        invite_id: invite.id,
+        to: email,
+        org_name: organization.name,
+        invite_link: inviteLink
+      });
+
       const emailHtml = `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Invitation to join ${organization.name}</title>
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #6366f1; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
-            .button { display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 14px; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+              line-height: 1.6; 
+              color: #333; 
+              margin: 0;
+              padding: 0;
+              background: #f5f5f5;
+            }
+            .container { 
+              max-width: 600px; 
+              margin: 0 auto; 
+              background: white;
+            }
+            .logo-section {
+              text-align: center;
+              padding: 30px 20px 20px;
+              background: white;
+            }
+            .logo-section img {
+              height: 48px;
+              width: auto;
+            }
+            .header { 
+              background: linear-gradient(135deg, #03A9F4 0%, #0288D1 100%);
+              color: white; 
+              padding: 30px 20px; 
+              text-align: center;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 24px;
+              font-weight: 600;
+            }
+            .content { 
+              background: white; 
+              padding: 40px 30px;
+            }
+            .content p {
+              margin: 0 0 16px 0;
+              color: #333;
+            }
+            .button { 
+              display: inline-block; 
+              background: linear-gradient(135deg, #03A9F4 0%, #0288D1 100%);
+              color: white !important; 
+              padding: 14px 32px; 
+              text-decoration: none; 
+              border-radius: 8px; 
+              margin: 24px 0;
+              font-weight: 600;
+              box-shadow: 0 4px 12px rgba(3, 169, 244, 0.3);
+            }
+            .button:hover {
+              background: linear-gradient(135deg, #0288D1 0%, #0277BD 100%);
+            }
+            .info-text {
+              color: #64748b;
+              font-size: 14px;
+              margin-top: 20px;
+            }
+            .footer { 
+              text-align: center; 
+              padding: 30px 20px;
+              background: #f8fafc;
+              color: #64748b; 
+              font-size: 14px;
+              border-top: 1px solid #e2e8f0;
+            }
+            .footer p {
+              margin: 0;
+            }
           </style>
         </head>
         <body>
           <div class="container">
+            <div class="logo-section">
+              <img src="https://liventix.tech/liventix-logo-full.png" alt="Liventix" />
+            </div>
             <div class="header">
               <h1>You're invited to join ${organization.name}</h1>
             </div>
             <div class="content">
               <p>Hello!</p>
               <p>You've been invited to join <strong>${organization.name}</strong> on Liventix as a <strong>${role}</strong>.</p>
-              ${organization.description ? `<p>${organization.description}</p>` : ''}
+              ${organization.description ? `<p style="color: #64748b; font-style: italic;">${organization.description}</p>` : ''}
               <p>Click the button below to accept your invitation:</p>
-              <a href="${inviteLink}" class="button">Accept Invitation</a>
-              <p>This invitation will expire in ${expires_in_hours} hours.</p>
-              <p>If you didn't expect this invitation, you can safely ignore this email.</p>
+              <div style="text-align: center;">
+                <a href="${inviteLink}" class="button">Accept Invitation</a>
+              </div>
+              <p class="info-text">This invitation will expire in ${expires_in_hours} hours.</p>
+              <p class="info-text">If you didn't expect this invitation, you can safely ignore this email.</p>
             </div>
             <div class="footer">
-              <p>Liventix - Connecting communities through events</p>
+              <p><strong>Liventix</strong> - Live Event Tickets</p>
             </div>
           </div>
         </body>
@@ -184,25 +287,135 @@ const handler = withCORS(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: "Liventix <invites@liventix.app>",
+            from: "Liventix <hello@liventix.tech>",
             to: [email],
             subject: `You're invited to join ${organization.name} on Liventix`,
             html: emailHtml,
+            tags: [
+              { name: 'type', value: 'org_invite' },
+              { name: 'org_id', value: org_id },
+              { name: 'invite_id', value: invite.id }
+            ]
           }),
         });
 
-        if (!emailResponse.ok) {
-          console.error("Email sending failed:", await emailResponse.text());
+        const emailData = await emailResponse.json();
+
+        if (emailResponse.ok) {
+          emailSent = true;
+          emailId = emailData.id;
+          
+          console.log("[INVITE-EMAIL-SUCCESS]", {
+            invite_id: invite.id,
+            email_id: emailId,
+            to: email,
+            org_name: organization.name
+          });
+
+          // Update invite with email success status
+          await supabaseAdmin
+            .from("org_invitations")
+            .update({
+              email_status: 'sent',
+              email_sent_at: new Date().toISOString(),
+              metadata: {
+                invited_at: new Date().toISOString(),
+                inviter_email: user.email,
+                expires_in_hours,
+                email_id: emailId,
+                email_provider: 'resend'
+              }
+            })
+            .eq("id", invite.id);
+
+        } else {
+          emailError = emailData.message || JSON.stringify(emailData);
+          
+          console.error("[INVITE-EMAIL-FAILED]", {
+            invite_id: invite.id,
+            to: email,
+            status_code: emailResponse.status,
+            error: emailError,
+            response: emailData
+          });
+
+          // Update invite with email failure status
+          await supabaseAdmin
+            .from("org_invitations")
+            .update({
+              email_status: 'failed',
+              metadata: {
+                invited_at: new Date().toISOString(),
+                inviter_email: user.email,
+                expires_in_hours,
+                email_error: emailError,
+                email_failed_at: new Date().toISOString()
+              }
+            })
+            .eq("id", invite.id);
         }
-      } catch (emailError) {
-        console.error("Email sending error:", emailError);
+      } catch (err) {
+        emailError = err.message || String(err);
+        
+        console.error("[INVITE-EMAIL-ERROR]", {
+          invite_id: invite.id,
+          to: email,
+          error: emailError,
+          stack: err.stack
+        });
+
+        // Update invite with email error status
+        await supabaseAdmin
+          .from("org_invitations")
+          .update({
+            email_status: 'error',
+            metadata: {
+              invited_at: new Date().toISOString(),
+              inviter_email: user.email,
+              expires_in_hours,
+              email_error: emailError,
+              email_error_at: new Date().toISOString()
+            }
+          })
+          .eq("id", invite.id);
       }
+    } else {
+      console.warn("[INVITE-EMAIL-SKIPPED] No RESEND_API_KEY configured", {
+        invite_id: invite.id,
+        to: email
+      });
+
+      // Update invite to indicate email was not sent (no API key)
+      await supabaseAdmin
+        .from("org_invitations")
+        .update({
+          email_status: 'no_config',
+          metadata: {
+            invited_at: new Date().toISOString(),
+            inviter_email: user.email,
+            expires_in_hours,
+            email_skipped_reason: 'no_resend_api_key'
+          }
+        })
+        .eq("id", invite.id);
     }
+
+    console.log("[INVITE-COMPLETE]", {
+      invite_id: invite.id,
+      email_sent: emailSent,
+      email_id: emailId,
+      has_error: !!emailError
+    });
 
     return new Response(JSON.stringify({
       success: true,
       invite_id: invite.id,
-      message: "Invitation sent successfully"
+      email_sent: emailSent,
+      email_id: emailId,
+      email_error: emailError,
+      message: emailSent 
+        ? "Invitation sent successfully" 
+        : `Invitation created but email ${emailError ? 'failed: ' + emailError : 'was not sent'}`
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

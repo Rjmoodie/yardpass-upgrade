@@ -20,6 +20,7 @@ import { VideoMedia } from '@/components/feed/VideoMedia';
 import { useHlsPrefetch } from '@/hooks/useHlsPrefetch';
 import { PreloadCriticalAssets } from '@/components/Perf/PreloadCriticalAssets';
 import CommentModal from '@/components/CommentModal';
+import { BrandedSpinner } from '@/components/BrandedSpinner';
 
 /** Shape returned by posts-list Edge Function after mapping */
 interface FeedPost {
@@ -349,26 +350,8 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-4">
-              <div className="animate-pulse space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-muted rounded-full" />
-                  <div className="space-y-1">
-                    <div className="w-24 h-4 bg-muted rounded" />
-                    <div className="w-16 h-3 bg-muted rounded" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="w-full h-4 bg-muted rounded" />
-                  <div className="w-3/4 h-4 bg-muted rounded" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="flex items-center justify-center py-12">
+        <BrandedSpinner size="lg" showLogo text="Loading feed..." />
       </div>
     );
   }

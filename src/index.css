@@ -75,10 +75,11 @@ button, a, [role="button"] {
   --destructive: 359 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  /* Brand */
-  --primary: 207 86% 41%;
+  /* Brand - Liventix Blue (Attendee Mode) */
+  --primary: 199 98% 48%;  /* #03A9F4 - Liventix Blue */
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 207 86% 82%;
+  --primary-glow: 199 98% 82%;
+  --ring: 199 98% 52%;
 
   /* System tokens */
   --border: 214 32% 88%;
@@ -147,9 +148,9 @@ button, a, [role="button"] {
   --destructive: 359 72% 62%;
   --destructive-foreground: 0 0% 100%;
 
-  --primary: 207 86% 56%;
+  --primary: 199 98% 56%;  /* Brighter Liventix Blue for dark mode */
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 207 86% 70%;
+  --primary-glow: 199 98% 70%;
 
   --border: 217 25% 24%;
   --input: 217 25% 24%;
@@ -171,6 +172,23 @@ button, a, [role="button"] {
 
   --text-shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.7), 0 1px 3px rgba(0, 0, 0, 0.5);
   --text-shadow-strong: 0 4px 16px rgba(0, 0, 0, 0.9), 0 2px 8px rgba(0, 0, 0, 0.7), 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* 🟣 Organizer Mode - Purple Color Override */
+[data-role="organizer"] {
+  /* Light mode - Switch to Liventix Purple */
+  --primary: 291 68% 41%;  /* #7B1FA2 - Liventix Purple */
+  --primary-foreground: 0 0% 100%;
+  --primary-glow: 291 68% 82%;
+  --ring: 291 68% 52%;
+}
+
+[data-role="organizer"].dark {
+  /* Dark mode - Brighter purple for visibility */
+  --primary: 291 68% 56%;
+  --primary-foreground: 0 0% 100%;
+  --primary-glow: 291 68% 70%;
+  --ring: 291 68% 56%;
 }
 
 /* On-image content legibility */

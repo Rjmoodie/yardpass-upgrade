@@ -4,8 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Users, UserPlus, Trash2, RefreshCw, Mail, Search } from 'lucide-react';
+import { Users, UserPlus, Trash2, RefreshCw, Mail, Search, Clock, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 type OrgRole = 'owner' | 'admin' | 'editor' | 'viewer';
@@ -20,6 +21,25 @@ interface OrgMember {
     display_name?: string | null;
     phone?: string | null;
   };
+}
+
+interface PendingInvite {
+  invite_id: string;
+  org_id: string;
+  organization_name: string;
+  invitee_email: string;
+  invited_role: string;
+  invite_status: string;
+  email_status: string;
+  email_sent_at: string | null;
+  invite_created_at: string;
+  invite_expires_at: string;
+  is_expired: boolean;
+  inviter_name: string | null;
+  inviter_email: string | null;
+  email_provider_id: string | null;
+  email_error_message: string | null;
+  display_status: string;
 }
 
 interface OrganizationTeamPanelProps {
@@ -42,6 +62,7 @@ const ROLE_DESCRIPTIONS: Record<OrgRole, string> = {
 
 export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelProps) {
   const [members, setMembers] = useState<OrgMember[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [newMemberEmail, setNewMemberEmail] = useState('');
@@ -85,6 +106,9 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
         profile: profiles[m.user_id] ?? { display_name: null, phone: null },
       }));
       if (mountedRef.current) setMembers(mapped);
+
+      // 3) Fetch pending invites
+      await fetchPendingInvites();
     } catch (error: any) {
       console.error(error);
       toast({
@@ -94,6 +118,26 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
       });
     } finally {
       if (mountedRef.current) setRefreshing(false);
+    }
+  };
+
+  const fetchPendingInvites = async () => {
+    if (!organizationId) return;
+    try {
+      const { data: invites, error } = await supabase
+        .from('org_invite_status_log')
+        .select('*')
+        .eq('org_id', organizationId)
+        .in('invite_status', ['pending'])
+        .order('invite_created_at', { ascending: false });
+      
+      if (error) throw error;
+      if (mountedRef.current && invites) {
+        setPendingInvites(invites);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch pending invites:', error);
+      // Don't show error toast for invites - it's supplementary info
     }
   };
 
@@ -109,9 +153,18 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
       .on('postgres_changes', { event: '*', schema: 'public', table: 'org_memberships', filter: `org_id=eq.${organizationId}` }, () => fetchMembers())
       .subscribe();
 
+    // Realtime on invitations
+    const inviteCh = supabase
+      .channel(`org-invites-${organizationId}`)
+      .on('postgres_changes', { event: '*', schema: 'organizations', table: 'org_invitations', filter: `org_id=eq.${organizationId}` }, () => fetchPendingInvites())
+      .subscribe();
+
     return () => {
       mountedRef.current = false;
-      try { supabase.removeChannel(membCh); } catch {}
+      try { 
+        supabase.removeChannel(membCh);
+        supabase.removeChannel(inviteCh);
+      } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId]);
@@ -136,12 +189,20 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
 
       if (error) throw error;
 
+      const result = data as { email_sent?: boolean; email_error?: string };
+      
       toast({ 
-        title: 'Invitation sent successfully', 
-        description: `Invitation sent to ${newMemberEmail} with ${newMemberRole} role.` 
+        title: result.email_sent ? 'Invitation sent successfully' : 'Invitation created', 
+        description: result.email_sent 
+          ? `Invitation sent to ${newMemberEmail} with ${newMemberRole} role.`
+          : `Invitation created for ${newMemberEmail}, but email ${result.email_error ? 'failed: ' + result.email_error : 'was not sent'}.`,
+        variant: result.email_sent ? 'default' : 'destructive'
       });
       setNewMemberEmail('');
       setNewMemberRole('viewer');
+      
+      // Refresh invites list
+      await fetchPendingInvites();
     } catch (error: any) {
       console.error(error);
       toast({
@@ -270,6 +331,84 @@ export function OrganizationTeamPanel({ organizationId }: OrganizationTeamPanelP
           </div>
         </CardContent>
       </Card>
+
+      {/* Pending Invites */}
+      {pendingInvites.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Pending Invites ({pendingInvites.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {pendingInvites.map((invite) => {
+                const isExpired = invite.is_expired;
+                const emailSent = invite.email_status === 'sent';
+                const emailFailed = invite.email_status === 'failed' || invite.email_status === 'error';
+                
+                return (
+                  <div key={invite.invite_id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center">
+                        <Mail className="h-4 w-4 text-amber-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">{invite.invitee_email}</div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span className="capitalize">{invite.invited_role}</span>
+                          <span>•</span>
+                          <span>Invited {new Date(invite.invite_created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}</span>
+                          {invite.inviter_name && (
+                            <>
+                              <span>•</span>
+                              <span>by {invite.inviter_name}</span>
+                            </>
+                          )}
+                        </div>
+                        {invite.email_error_message && (
+                          <div className="text-xs text-destructive mt-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            {invite.email_error_message}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isExpired ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <XCircle className="h-3 w-3" />
+                          Expired
+                        </Badge>
+                      ) : emailFailed ? (
+                        <Badge variant="destructive" className="gap-1">
+                          <XCircle className="h-3 w-3" />
+                          Email Failed
+                        </Badge>
+                      ) : emailSent ? (
+                        <Badge variant="default" className="gap-1 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Sent
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1">
+                          <Info className="h-3 w-3" />
+                          {invite.display_status}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Members */}
       <Card>

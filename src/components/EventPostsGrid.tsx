@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Play, Heart, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { BrandedSpinner } from '@/components/BrandedSpinner';
 
 interface EventPostsGridProps {
   eventId: string;
@@ -137,10 +138,8 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
 
   if (loading) {
     return (
-      <div className="grid grid-cols-3 gap-1">
-        {[...Array(9)].map((_, i) => (
-          <div key={i} className="aspect-square animate-pulse bg-white/5 rounded" />
-        ))}
+      <div className="flex items-center justify-center py-12">
+        <BrandedSpinner size="lg" showLogo text="Loading posts..." />
       </div>
     );
   }

@@ -96,7 +96,7 @@ async function fetchEmailContext(eventId: string) {
 // Import email template components (inline for edge function)
 function BaseEmailLayout({ children, orgInfo }: { children: any; orgInfo?: OrgInfo }) {
   const baseUrl = SUPABASE_URL?.replace('/rest/v1', '') || 'https://liventix.tech';
-  const logoUrl = orgInfo?.logoUrl || `${baseUrl}/liventix-logo.png`;
+  const logoUrl = `${baseUrl}/liventix-logo.png`;
   
   return React.createElement('html', {},
     React.createElement('head', {},
@@ -113,9 +113,9 @@ function BaseEmailLayout({ children, orgInfo }: { children: any; orgInfo?: OrgIn
         React.createElement('div', { style: { padding: '32px 24px' } }, children),
         // Footer
         React.createElement('div', { style: { backgroundColor: '#f9fafb', padding: '24px', textAlign: 'center', fontSize: '14px', color: '#6b7280' } },
-          React.createElement('p', { style: { margin: '0 0 8px 0' } }, 
-            `Powered by Liventix ${orgInfo?.name ? `· Organized by ${orgInfo.name}` : ''}`
-          ),
+          orgInfo?.name ? React.createElement('p', { style: { margin: '0 0 8px 0' } }, 
+            `Organized by ${orgInfo.name}`
+          ) : null,
           React.createElement('p', { style: { margin: '0' } },
             `Questions? Contact `,
             React.createElement('a', { href: `mailto:${orgInfo?.supportEmail || 'support@liventix.tech'}`, style: { color: '#3b82f6' } },
@@ -219,7 +219,7 @@ const handler = async (req: Request): Promise<Response> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: orgInfo?.name ? `${orgInfo.name} via Liventix <hello@liventix.tech>` : "Liventix <hello@liventix.tech>",
+        from: "Liventix <hello@liventix.tech>",
         to: [data.customerEmail],
         subject: `⏰ Reminder: ${eventInfo?.title || data.eventTitle} is coming up!`,
         html,

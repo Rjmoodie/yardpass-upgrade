@@ -370,15 +370,11 @@ export function ProfilePage() {
                   });
                 }
               }}
-              className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition-all sm:h-10 sm:w-10 ${
-                profile?.role === 'organizer'
-                  ? 'border-primary/50 bg-primary/20 hover:bg-primary/30'
-                  : 'border-border/20 bg-background/40 hover:bg-background/60'
-              }`}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/50 bg-primary/20 hover:bg-primary/30 backdrop-blur-md transition-all sm:h-10 sm:w-10"
               title={profile?.role === 'organizer' ? 'Currently: Organizer Mode - Click to switch to Attendee' : 'Currently: Attendee Mode - Click to switch to Organizer'}
               aria-label={profile?.role === 'organizer' ? 'Switch to Attendee Mode' : 'Switch to Organizer Mode'}
             >
-              <Shield className={`h-4 w-4 sm:h-5 sm:w-5 ${profile?.role === 'organizer' ? 'text-primary' : 'text-foreground'}`} />
+              <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             </button>
           )}
           
@@ -487,7 +483,7 @@ export function ProfilePage() {
               
               {/* Current Mode Indicator */}
               <div className="mt-1 inline-flex items-center gap-2 rounded-full border border-border/20 bg-white/5 px-3 py-1.5 backdrop-blur-sm">
-                <Shield className={`h-3.5 w-3.5 ${profile?.role === 'organizer' ? 'text-primary' : 'text-foreground/60'}`} />
+                <Shield className="h-3.5 w-3.5 text-primary" />
                 <span className="text-xs font-medium text-foreground/80">
                   {profile?.role === 'organizer' ? 'Organizer Mode' : 'Attendee Mode'}
                 </span>

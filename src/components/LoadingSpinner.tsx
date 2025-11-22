@@ -1,9 +1,17 @@
-import { Loader2 } from 'lucide-react';
+import { BrandedSpinner } from './BrandedSpinner';
 
 export function LoadingSpinner({ size = 'md', className = '' }: { size?: string; className?: string }) {
+  const sizeMap: Record<string, 'sm' | 'md' | 'lg' | 'xl'> = {
+    xs: 'sm',
+    sm: 'sm',
+    md: 'md',
+    lg: 'lg',
+    xl: 'xl'
+  };
+  
   return (
     <div className={`flex items-center justify-center p-4 ${className}`}>
-      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <BrandedSpinner size={sizeMap[size as string] || 'md'} showLogo />
     </div>
   );
 }
@@ -11,10 +19,7 @@ export function LoadingSpinner({ size = 'md', className = '' }: { size?: string;
 export function PageLoadingSpinner() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
-      <div className="text-center space-y-6">
-        <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
-        <p className="text-sm text-muted-foreground">Loading...</p>
-      </div>
+      <BrandedSpinner size="xl" showLogo text="Loading..." />
     </div>
   );
 }
@@ -26,9 +31,17 @@ export function LiventixSpinner({ size = 'md', className = '', showGlow = false,
   showGlow?: boolean; 
   showLogo?: boolean; 
 }) {
+  const sizeMap: Record<string, 'sm' | 'md' | 'lg' | 'xl'> = {
+    xs: 'sm',
+    sm: 'sm',
+    md: 'md',
+    lg: 'lg',
+    xl: 'xl'
+  };
+  
   return (
-    <div className={`flex items-center justify-center ${className}`}>
-      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+    <div className={className}>
+      <BrandedSpinner size={sizeMap[size as string] || 'md'} showLogo={showLogo} />
     </div>
   );
 }

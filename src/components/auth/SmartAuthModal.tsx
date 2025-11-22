@@ -369,53 +369,59 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-md bg-gradient-to-b from-primary/10 to-background rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl modal-max-h overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-md bg-gradient-to-b from-primary/10 to-background rounded-3xl px-5 py-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 p-2 rounded-full hover:bg-muted transition"
+          className="absolute right-3 top-3 sm:right-4 sm:top-4 p-2 rounded-full hover:bg-muted transition z-10"
+          aria-label="Close"
         >
-          <X className="h-5 w-5" />
+          <X className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>
 
         {/* Logo & Title */}
-        <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4">
-            <span className="text-3xl font-bold text-primary">Y</span>
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="mx-auto w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center mb-3 sm:mb-4">
+            <img 
+              src="/liventix-logo-mobile.png" 
+              alt="Liventix" 
+              className="w-full h-full object-contain"
+              loading="eager"
+              decoding="sync"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-primary mb-2">Liventix</h1>
-          <p className="text-sm text-muted-foreground">Your gateway to events and culture</p>
+          <p className="text-sm sm:text-base text-muted-foreground font-medium">Live Event Tickets</p>
         </div>
 
         {/* STEP: Email / Phone Entry */}
         {step === 'email-entry' && (
-          <form onSubmit={handleContinue} className="space-y-6">
-            <div className="flex gap-2 p-1 bg-muted rounded-full">
+          <form onSubmit={handleContinue} className="space-y-4 sm:space-y-6">
+            <div className="flex gap-2 p-1 bg-muted rounded-full mb-5">
               <button
                 type="button"
                 onClick={() => setMethod('phone')}
                 className={cn(
-                  'flex-1 py-3 px-4 rounded-full font-semibold transition flex items-center justify-center gap-2',
+                  'flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-full font-semibold transition flex items-center justify-center gap-2 text-sm sm:text-base',
                   method === 'phone'
                     ? 'bg-primary text-white shadow-md'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                <Phone className="h-4 w-4" />
+                <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
                 Phone
               </button>
               <button
                 type="button"
                 onClick={() => setMethod('email')}
                 className={cn(
-                  'flex-1 py-3 px-4 rounded-full font-semibold transition flex items-center justify-center gap-2',
+                  'flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-full font-semibold transition flex items-center justify-center gap-2 text-sm sm:text-base',
                   method === 'email'
                     ? 'bg-primary text-white shadow-md'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                <Mail className="h-4 w-4" />
+                <Mail className="h-4 w-4 sm:h-5 sm:w-5" />
                 Email
               </button>
             </div>
@@ -453,17 +459,17 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
             <Button
               type="submit"
               disabled={loading || (method === 'email' ? !email : !phone)}
-              className="w-full h-12 text-base font-semibold"
+              className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold mt-2"
             >
               {loading ? 'Please wait...' : (
                 <>
                   Continue
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
                 </>
               )}
             </Button>
 
-            <p className="text-xs text-center text-muted-foreground">
+            <p className="text-xs sm:text-sm text-center text-muted-foreground pt-2">
               {method === 'email'
                 ? "We'll detect your account type and send you the right sign-in method"
                 : "We'll send you a verification code via SMS"}

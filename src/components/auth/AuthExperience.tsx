@@ -36,7 +36,7 @@ interface AuthExperienceProps {
 
 type GuestStep = 'collect' | 'otp';
 
-const DEFAULT_LOGO = '/liventix-logo.png';
+const DEFAULT_LOGO = '/liventix-logo-mobile.png';
 
 export function AuthExperience({
   isOpen = true,

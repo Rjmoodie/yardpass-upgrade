@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+import { BrandedSpinner } from '@/components/BrandedSpinner';
 
 interface EventTicketTier {
   id: string;
@@ -59,7 +60,7 @@ export default function EventSlugPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center text-foreground">
-        <p>Loading event...</p>
+        <BrandedSpinner size="xl" showLogo text="Loading event..." />
       </div>
     );
   }

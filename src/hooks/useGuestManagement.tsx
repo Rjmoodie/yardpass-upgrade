@@ -164,6 +164,23 @@ export function useGuestManagement(eventId: string) {
         let userId = profile?.user_id;
 
         if (!userId) {
+          // Check if invite already exists
+          const { data: existingInvite } = await supabase
+            .from('event_invites')
+            .select('email')
+            .eq('event_id', eventId)
+            .eq('email', guestData.email)
+            .maybeSingle();
+
+          if (existingInvite) {
+            toast({
+              title: "Guest already invited",
+              description: `${guestData.email} is already invited to this event`,
+              variant: "default",
+            });
+            return;
+          }
+
           // If user doesn't exist, create an invite record instead
           const { error: inviteError } = await supabase
             .from('event_invites')
