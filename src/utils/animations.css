@@ -85,15 +85,32 @@
   animation-delay: 200ms;
 }
 
+@keyframes pulseOnce {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+    background-color: hsl(var(--primary) / 0.1);
+  }
+}
+
+.animate-pulse-once {
+  animation: pulseOnce 0.5s ease-in-out 1;
+  transition: background-color 0.2s ease-in-out;
+}
+
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
   .animate-slide-up,
   .animate-slide-down,
-  .animate-scale-in {
+  .animate-scale-in,
+  .animate-pulse-once {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+    background-color: transparent !important;
   }
 }
 

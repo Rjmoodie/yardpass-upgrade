@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 20;
 const MAX_LEN = 1000;
 
 // Types mirrored from original component
@@ -183,6 +183,8 @@ type CommentItemProps = {
   onDelete: (id: string) => void;
   onTogglePin: (id: string, pinned: boolean) => void;
   isOrganizer: boolean;
+  highlightedCommentId?: string | null;
+  onAnimationEnd?: () => void;
 };
 
 const CommentItem = memo(function CommentItem({
@@ -195,13 +197,21 @@ const CommentItem = memo(function CommentItem({
   onDelete,
   onTogglePin,
   isOrganizer,
+  highlightedCommentId,
+  onAnimationEnd,
 }: CommentItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isLongComment = c.text.length > 200;
   const displayText = isLongComment && !isExpanded ? c.text.slice(0, 200) + '...' : c.text;
   
   return (
-    <div className={depth > 0 ? 'ml-6 sm:ml-8 mt-3' : 'mb-4'}>
+    <div 
+      id={`comment-${c.id}`}
+      className={`${depth > 0 ? 'ml-4 sm:ml-6 mt-3' : 'mb-0 pb-4 border-b border-border/40'} ${
+        highlightedCommentId === c.id ? 'animate-pulse-once' : ''
+      }`}
+      onAnimationEnd={highlightedCommentId === c.id ? onAnimationEnd : undefined}
+    >
       <div
         className={`group flex items-start gap-2 sm:gap-3 ${mine ? 'flex-row-reverse text-right' : ''} ${
           c.pending ? 'opacity-70' : ''
@@ -213,7 +223,7 @@ const CommentItem = memo(function CommentItem({
           className={`mt-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-primary shrink-0 ${mine ? 'order-last' : ''}`}
           aria-label={`Open ${c.author_name || 'user'} profile in new tab`}
         >
-          <Avatar className="w-8 h-8 sm:w-9 sm:h-9">
+          <Avatar className="w-7 h-7 sm:w-9 sm:h-9">
             <AvatarImage src={c.author_avatar || undefined} />
             <AvatarFallback className="text-xs sm:text-sm">{c.author_name?.charAt(0) || 'A'}</AvatarFallback>
           </Avatar>
@@ -221,17 +231,17 @@ const CommentItem = memo(function CommentItem({
 
         <div className="flex-1 min-w-0">
           <div
-            className={`rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm leading-relaxed break-words shadow-sm ${
+            className={`rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm leading-relaxed break-words shadow-sm ${
               mine ? 'bg-primary/10 text-foreground' : 'bg-muted/60 text-foreground'
             } ${c.pending ? 'opacity-70' : ''} ${c.is_pinned ? 'ring-2 ring-primary/40' : ''}`}
             title={c.pending ? 'Sending…' : undefined}
           >
-            <div className="mb-1.5 flex items-center justify-between gap-2 flex-wrap">
+            <div className="mb-1 flex items-center justify-between gap-2 flex-wrap leading-tight">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={() => window.open(routes.user(c.author_user_id), '_blank', 'noopener,noreferrer')}
-                  className="font-semibold text-[11px] sm:text-xs hover:text-primary transition-colors"
+                  className="font-semibold text-[11px] sm:text-xs hover:text-primary transition-colors leading-tight"
                   title="View profile (new tab)"
                 >
                   {c.author_name}
@@ -242,12 +252,12 @@ const CommentItem = memo(function CommentItem({
                   </Badge>
                 )}
               </div>
-              <span className="shrink-0 text-[10px] text-muted-foreground">
+              <span className="shrink-0 text-[10px] text-muted-foreground leading-tight">
                 {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
                 {c.pending ? ' • sending…' : ''}
               </span>
             </div>
-            <div className="whitespace-pre-wrap">{parseRichText(displayText)}</div>
+            <div className="whitespace-pre-wrap leading-relaxed">{parseRichText(displayText)}</div>
             {isLongComment && (
               <button
                 type="button"
@@ -260,9 +270,9 @@ const CommentItem = memo(function CommentItem({
           </div>
 
           <div
-            className={`mt-1 flex items-center ${
+            className={`mt-1.5 flex items-center ${
               mine ? 'justify-end' : 'justify-start'
-            } gap-3 text-[11px] text-muted-foreground flex-wrap`}
+            } gap-2.5 text-[11px] text-muted-foreground flex-wrap`}
           >
             <button
               type="button"
@@ -325,7 +335,7 @@ const CommentItem = memo(function CommentItem({
 
           {/* Replies */}
           {c.replies && c.replies.length > 0 && (
-            <div className="mt-2 space-y-2 border-l-2 border-border/50 pl-2">
+            <div className="mt-2.5 space-y-3 pl-3 sm:pl-4 border-l-2 border-primary/20 bg-primary/5 rounded-r-md py-1.5">
               {c.replies.map((r) => (
                 <CommentItem
                   key={r.id}
@@ -338,6 +348,8 @@ const CommentItem = memo(function CommentItem({
                   onDelete={onDelete}
                   onTogglePin={onTogglePin}
                   isOrganizer={isOrganizer}
+                  highlightedCommentId={highlightedCommentId}
+                  onAnimationEnd={onAnimationEnd}
                 />
               ))}
             </div>
@@ -390,6 +402,15 @@ export default function CommentModal({
 
   // organizer check for pin feature
   const [isOrganizer, setIsOrganizer] = useState(false);
+
+  // caption expand state
+  const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
+
+  // video collapse state (mobile)
+  const [isVideoCollapsed, setIsVideoCollapsed] = useState(false);
+
+  // highlighted comment ID for scroll-to
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
 
   // single vs multi mode
   const singleMode = !!postId || !!mediaPlaybackId;
@@ -686,6 +707,8 @@ export default function CommentModal({
     setHasMore(false);
     setDraft('');
     setReplyingTo(null);
+    setIsCaptionExpanded(false);
+    setIsVideoCollapsed(false);
     void loadPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId, activePostId, singleMode]);
@@ -1259,10 +1282,30 @@ export default function CommentModal({
 
   const startReply = useCallback((comment: Comment) => {
     setReplyingTo(comment);
-    const textarea = document.querySelector(
-      'textarea[placeholder*="comment"], textarea[placeholder*="Reply"]'
-    ) as HTMLTextAreaElement | undefined;
-    textarea?.focus();
+    
+    // Scroll to parent comment if it's a reply
+    if (comment.parent_comment_id) {
+      const parentElement = document.getElementById(`comment-${comment.parent_comment_id}`);
+      if (parentElement) {
+        parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedCommentId(comment.parent_comment_id);
+      }
+    } else {
+      // Scroll to the comment itself
+      const commentElement = document.getElementById(`comment-${comment.id}`);
+      if (commentElement) {
+        commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedCommentId(comment.id);
+      }
+    }
+    
+    // Focus textarea after a short delay to ensure scroll completes
+    setTimeout(() => {
+      const textarea = document.querySelector(
+        'textarea[placeholder*="comment"], textarea[placeholder*="Reply"]'
+      ) as HTMLTextAreaElement | undefined;
+      textarea?.focus();
+    }, 300);
   }, []);
 
   const cancelReply = useCallback(() => setReplyingTo(null), []);
@@ -1398,11 +1441,37 @@ export default function CommentModal({
             </span>
           </div>
 
-          {activePost.text && (
-            <p className="mt-1 text-sm leading-relaxed text-foreground/95 whitespace-pre-wrap">
-              {activePost.text}
-            </p>
-          )}
+          {activePost.text && (() => {
+            const isLongCaption = activePost.text.length > 200;
+            const displayText = isLongCaption && !isCaptionExpanded 
+              ? activePost.text.slice(0, 200) + '...' 
+              : activePost.text;
+            
+            return (
+              <div 
+                className={`mt-1 ${isLongCaption ? 'cursor-pointer' : ''}`}
+                onClick={isLongCaption ? () => setIsCaptionExpanded(!isCaptionExpanded) : undefined}
+                role={isLongCaption ? 'button' : undefined}
+                tabIndex={isLongCaption ? 0 : undefined}
+                onKeyDown={isLongCaption ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setIsCaptionExpanded(!isCaptionExpanded);
+                  }
+                } : undefined}
+                aria-label={isLongCaption ? (isCaptionExpanded ? 'Collapse caption' : 'Expand caption') : undefined}
+              >
+                <p className="text-sm leading-relaxed text-foreground/95 whitespace-pre-wrap break-words">
+                  {displayText}
+                </p>
+                {isLongCaption && (
+                  <span className="mt-1.5 inline-block text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                    {isCaptionExpanded ? 'Show less' : 'Read more'}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {user && activePost.author_user_id === user.id && (
@@ -1495,9 +1564,17 @@ export default function CommentModal({
             <Textarea
               ref={composerRef}
               value={draft}
+              rows={1}
               onChange={(e) => {
                 const val = e.target.value;
-                if (val.length <= MAX_LEN + 200) setDraft(val);
+                if (val.length <= MAX_LEN + 200) {
+                  setDraft(val);
+                  // Auto-expand textarea
+                  const textarea = e.target;
+                  textarea.style.height = 'auto';
+                  const newHeight = Math.min(textarea.scrollHeight, 120);
+                  textarea.style.height = `${newHeight}px`;
+                }
               }}
               onClick={() => {
                 if (user && !profile?.username) {
@@ -1514,7 +1591,7 @@ export default function CommentModal({
                   : 'Select a post to comment'
               }
               disabled={!activePost || !profile?.username}
-              className={`w-full min-h-[52px] max-h-[120px] resize-none text-base rounded-2xl px-4 py-3 ${
+              className={`w-full min-h-[44px] max-h-[120px] resize-none text-base rounded-2xl px-4 py-2.5 ${
                 overLimit ? 'border-destructive focus-visible:ring-destructive' : ''
               } ${!profile?.username ? 'cursor-pointer' : ''}`}
               onKeyDown={(e) => {
@@ -1525,11 +1602,11 @@ export default function CommentModal({
               }}
               aria-label="Write your comment"
             />
-            <div className="mt-3 flex items-center justify-between">
-              <span className={`text-xs ${overLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+            <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+              <span className={`text-xs ${overLimit ? 'text-destructive' : 'text-muted-foreground'} shrink-0`}>
                 {draft.length}/{MAX_LEN} {overLimit ? '— too long' : ''}
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {activePost?.id && (
                   <Button
                     type="button"
@@ -1655,9 +1732,32 @@ export default function CommentModal({
           {/* Media + caption column */}
           {shouldShowMedia && (
             <div className="lg:w-[52%] xl:w-[55%] flex flex-col border-b lg:border-b-0 lg:border-r border-border/60 bg-black shrink-0">
-              <div className="flex items-center justify-center h-[180px] lg:flex-1 lg:h-auto lg:max-h-none">
-                {activePost?.media_urls?.length ? renderFullMedia(activePost.media_urls) : null}
+              <div className="lg:hidden flex items-center justify-between px-3 py-2 bg-black/80 border-b border-border/60">
+                <span className="text-xs text-white/90 font-medium">Video</span>
+                <button
+                  type="button"
+                  onClick={() => setIsVideoCollapsed(!isVideoCollapsed)}
+                  className="text-xs text-white/80 hover:text-white transition-colors flex items-center gap-1"
+                  aria-label={isVideoCollapsed ? 'Show video' : 'Hide video'}
+                >
+                  {isVideoCollapsed ? (
+                    <>
+                      <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+                      Show
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                      Hide
+                    </>
+                  )}
+                </button>
               </div>
+              {!isVideoCollapsed && (
+                <div className="flex items-center justify-center h-[160px] sm:h-[200px] lg:flex-1 lg:h-auto lg:max-h-none">
+                  {activePost?.media_urls?.length ? renderFullMedia(activePost.media_urls) : null}
+                </div>
+              )}
               {postHeader && (
                 <div className="bg-background px-3 sm:px-6 py-2 sm:py-3 border-t border-border/60 shrink-0">
                   {postHeader}
@@ -1675,7 +1775,7 @@ export default function CommentModal({
             )}
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-6 min-h-0">
-              <div className="space-y-5 max-w-[680px] mx-auto">
+              <div className="max-w-[680px] mx-auto">
                 {(!activePost || loading) && posts.length === 0 ? (
                   <div className="space-y-3" aria-live="polite">
                     {[...Array(3)].map((_, i) => (
@@ -1693,7 +1793,7 @@ export default function CommentModal({
                   </div>
                 ) : activePost ? (
                   <>
-                    <div className="space-y-3" aria-live="polite">
+                    <div aria-live="polite">
                       {topLevelComments.map((comment) => (
                         <CommentItem
                           key={comment.id}
@@ -1706,6 +1806,8 @@ export default function CommentModal({
                           onDelete={deleteComment}
                           onTogglePin={togglePinComment}
                           isOrganizer={isOrganizer}
+                          highlightedCommentId={highlightedCommentId}
+                          onAnimationEnd={() => setHighlightedCommentId(null)}
                         />
                       ))}
                       {topLevelComments.length === 0 && (
@@ -1738,7 +1840,7 @@ export default function CommentModal({
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-card/95 backdrop-blur-xl border-t border-border safe-bottom px-4 sm:px-6 py-4 sm:py-5">
+            <div className="sticky bottom-0 bg-card/95 backdrop-blur-xl border-t border-border safe-bottom px-4 sm:px-6 py-3 sm:py-4">
               <div className="max-w-[680px] mx-auto">{composer}</div>
             </div>
           </div>
