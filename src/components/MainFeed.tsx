@@ -131,11 +131,15 @@ const Index = ({ onEventSelect, onCreatePost }: IndexProps) => {
 
   return (
     <div 
-      className="h-dvh relative overflow-hidden bg-black"
+      className="relative overflow-hidden bg-black"
       style={{ 
+        height: '100dvh',
+        minHeight: '-webkit-fill-available', // iOS Safari fallback
         scrollSnapType: 'y mandatory',
         overscrollBehavior: 'none',
-        WebkitOverflowScrolling: 'touch'
+        WebkitOverflowScrolling: 'touch',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
       <Header onCreatePost={() => setPostCreatorOpen(true)} />
@@ -208,7 +212,15 @@ export default Index;
 function Header({ onCreatePost }: { onCreatePost: () => void }) {
   const { requireAuth } = useAuthGuard();
   return (
-    <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/50 to-transparent p-4">
+    <div 
+      className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/50 to-transparent"
+      style={{
+        paddingTop: 'max(1rem, env(safe-area-inset-top, 0px) + 1rem)',
+        paddingLeft: 'max(1rem, env(safe-area-inset-left, 0px) + 1rem)',
+        paddingRight: 'max(1rem, env(safe-area-inset-right, 0px) + 1rem)',
+        paddingBottom: '1rem'
+      }}
+    >
       <div className="flex items-center justify-between text-white">
         <div className="flex items-center gap-2">
           <span className="text-lg">🎪</span>
@@ -288,6 +300,7 @@ function EventOverlay(props: any) {
         event={event}
         onOpenTickets={() => setShowTicketModal(true)}
         onOpenAttendees={() => setShowAttendeeModal(true)}
+        isExpandable={Boolean(event.ticketTiers?.length && event.ticketTiers.length > 0)}
       />
     </div>
   );

@@ -216,27 +216,70 @@ export default function FeedPageNewDesign() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Track which item is currently in view to control video playback
-  // ✅ OPTIMIZED: More aggressive intersection threshold for faster video activation
+  // ✅ FIX: Handle both scroll up and scroll down by processing ALL entries
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        // ✅ OPTIMIZATION: Process entries in order for faster response
-        const intersectingEntries = entries.filter(e => e.isIntersecting);
-        
-        intersectingEntries.forEach((entry) => {
-          const index = Number(entry.target.getAttribute('data-index'));
+        // ✅ FIX: Process ALL entries (both intersecting and non-intersecting) to handle scroll up
+        // Find the entry with the highest intersection ratio
+        let bestEntry: IntersectionObserverEntry | null = null;
+        let bestRatio = 0;
+
+        entries.forEach((entry) => {
+          const ratio = entry.intersectionRatio;
+          // Only consider entries that are at least 25% visible
+          if (ratio >= 0.25 && ratio > bestRatio) {
+            bestRatio = ratio;
+            bestEntry = entry;
+          }
+        });
+
+        // If we found a good entry, update activeIndex
+        if (bestEntry) {
+          const index = Number(bestEntry.target.getAttribute('data-index'));
           if (!isNaN(index)) {
             // ✅ OPTIMIZATION: Use requestAnimationFrame for smoother state updates
             requestAnimationFrame(() => {
               setActiveIndex(index);
             });
           }
-        });
+        } else {
+          // ✅ FIX: If no entry is visible enough, find the closest one to center
+          // This handles cases when scrolling quickly up/down
+          const container = scrollRef.current;
+          if (container) {
+            const containerRect = container.getBoundingClientRect();
+            const viewportCenter = containerRect.top + containerRect.height / 2;
+            
+            let closestIndex = -1;
+            let closestDistance = Infinity;
+
+            entries.forEach((entry) => {
+              const rect = entry.boundingClientRect;
+              const itemCenter = rect.top + rect.height / 2;
+              const distance = Math.abs(itemCenter - viewportCenter);
+              
+              if (distance < closestDistance) {
+                closestDistance = distance;
+                const index = Number(entry.target.getAttribute('data-index'));
+                if (!isNaN(index)) {
+                  closestIndex = index;
+                }
+              }
+            });
+
+            if (closestIndex >= 0) {
+              requestAnimationFrame(() => {
+                setActiveIndex(closestIndex);
+              });
+            }
+          }
+        }
       },
       { 
         root: scrollRef.current,
-        threshold: 0.25, // ✅ OPTIMIZED: Start loading at 25% visible (was 50%)
-        rootMargin: '200px 0px', // ✅ OPTIMIZED: Preload videos 200px before they enter viewport
+        threshold: [0, 0.25, 0.5, 0.75, 1.0], // ✅ FIX: Multiple thresholds for better detection
+        rootMargin: '0px', // ✅ FIX: Remove margin to ensure accurate detection when scrolling up
       }
     );
 

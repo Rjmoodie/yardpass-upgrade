@@ -17,6 +17,8 @@ import { SponsorBadges } from "@/components/sponsorship/SponsorBadges";
 import { FlashbackBanner } from "@/components/flashbacks/FlashbackBanner";
 import { FlashbackEmptyState } from "@/components/flashbacks/FlashbackEmptyState";
 import { BrandedSpinner } from "@/components/BrandedSpinner";
+import { updateMetaTags } from "@/utils/meta";
+import { buildEventOgPayload } from "@/types/og";
 
 // Sponsor Section Component - Only renders if sponsors exist
 function SponsorSection({ eventId }: { eventId: string }) {
@@ -376,6 +378,11 @@ export function EventDetailsPageIntegrated() {
 
         setEvent(transformed);
         console.log('[EventDetailsPage] Event loaded successfully:', transformed.title);
+
+        // Update meta tags for rich share previews using shared builder
+        // This ensures consistency with server-side OG rendering
+        const ogPayload = buildEventOgPayload(data);
+        updateMetaTags(ogPayload);
       } catch (error) {
         console.error('[EventDetailsPage] Error loading event:', error);
         toast({

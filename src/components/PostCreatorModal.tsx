@@ -80,7 +80,8 @@ type QueuedFile = {
   errorMsg?: string;
   name: string;
   size: number;
-  previewUrl?: string; // object URL for local preview
+  previewUrl?: string; // thumbnail image URL for local preview
+  videoPreviewUrl?: string; // direct video URL for Safari compatibility (playable preview)
   controller?: AbortController; // can cancel uploads
   progress?: number; // 0-100 (upload only; processing not included)
 };
@@ -487,7 +488,10 @@ export function PostCreatorModal({
   useEffect(() => {
     return () => {
       unmountedRef.current = true;
-      queue.forEach((q) => q.previewUrl && URL.revokeObjectURL(q.previewUrl));
+      queue.forEach((q) => {
+        if (q.previewUrl) URL.revokeObjectURL(q.previewUrl);
+        if (q.videoPreviewUrl) URL.revokeObjectURL(q.videoPreviewUrl);
+      });
     };
   }, [queue]);
 
@@ -570,30 +574,53 @@ export function PostCreatorModal({
         if (queue.some((q) => q.name === f.name && q.size === f.size)) continue;
 
         // Quick poster for videos (best-effort, no decode = icon fallback)
+        // For Safari mobile, also create direct video URL for playback preview
         let previewUrl: string | undefined = undefined;
+        let videoPreviewUrl: string | undefined = undefined; // Direct video URL for Safari compatibility
         if (kind === 'image') {
           previewUrl = URL.createObjectURL(f);
         } else if (kind === 'video') {
+          // Create direct video URL for Safari mobile compatibility
+          videoPreviewUrl = URL.createObjectURL(f);
+          
+          // Try to generate thumbnail preview (may fail on Safari)
           try {
             const v = document.createElement('video');
             v.preload = 'metadata';
-            v.src = URL.createObjectURL(f);
-            await new Promise<void>((res, rej) => {
-              v.onloadeddata = () => res();
-              v.onerror = () => rej(new Error('video preview failed'));
-            });
+            v.crossOrigin = 'anonymous'; // Help with Safari CORS
+            v.src = videoPreviewUrl;
+            
+            // Set a timeout for Safari mobile which can be slow to load metadata
+            const timeout = new Promise<void>((_, rej) => 
+              setTimeout(() => rej(new Error('timeout')), 3000)
+            );
+            
+            await Promise.race([
+              new Promise<void>((res, rej) => {
+                v.onloadeddata = () => {
+                  // Seek to first frame for better thumbnail
+                  v.currentTime = 0.1;
+                  res();
+                };
+                v.onerror = () => rej(new Error('video preview failed'));
+                v.onseeked = () => res();
+              }),
+              timeout
+            ]);
+            
             const canvas = document.createElement('canvas');
             canvas.width = 320;
             canvas.height = Math.round((v.videoHeight / v.videoWidth) * 320) || 180;
             const ctx = canvas.getContext('2d');
-            if (ctx) {
+            if (ctx && v.videoWidth > 0 && v.videoHeight > 0) {
               ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
               const blob: Blob | null = await new Promise((r) => canvas.toBlob((b) => r(b), 'image/jpeg', 0.7));
               if (blob) previewUrl = URL.createObjectURL(blob);
             }
-            // revoke raw video preview if created
-            URL.revokeObjectURL(v.src);
-          } catch {}
+          } catch (err) {
+            console.debug('Video thumbnail generation failed (this is OK on Safari):', err);
+            // On Safari, we'll use the direct video URL as fallback
+          }
         }
 
         next.push({
@@ -603,6 +630,7 @@ export function PostCreatorModal({
           name: f.name,
           size: f.size,
           previewUrl,
+          videoPreviewUrl, // Store direct video URL for Safari preview
           progress: 0,
         });
       }
@@ -671,6 +699,7 @@ export function PostCreatorModal({
     setQueue((q) => {
       const target = q.find((f) => f.name === name);
       if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      if (target?.videoPreviewUrl) URL.revokeObjectURL(target.videoPreviewUrl);
       return q.filter((f) => f.name !== name);
     });
   };
@@ -710,7 +739,10 @@ export function PostCreatorModal({
 
   const clearAll = () => {
     setQueue((q) => {
-      q.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
+      q.forEach((f) => {
+        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+        if (f.videoPreviewUrl) URL.revokeObjectURL(f.videoPreviewUrl);
+      });
       return [];
     });
   };
@@ -1067,9 +1099,11 @@ export function PostCreatorModal({
                 )}
 
                 {/* Composer + Media in responsive layout */}
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
+                {/* On mobile: Stack vertically, preview on top. On desktop: Side-by-side */}
+                <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
+                  {/* Mobile: Preview FIRST, then composer. Desktop: Composer LEFT */}
                   {/* LEFT: Composer + actions */}
-                  <div className="space-y-4 min-h-0">
+                  <div className="space-y-4 min-h-0 order-last lg:order-first">
                     {/* Composer */}
                     <div
                       className={`rounded-3xl border bg-background/80 p-5 shadow-inner transition-all ${
@@ -1079,16 +1113,37 @@ export function PostCreatorModal({
                       onDragOver={onDragOver}
                       onDragLeave={onDragLeave}
                     >
-                      {/* Inline media strip */}
+                      {/* Inline media strip - More visible on mobile */}
                       {queue.length > 0 && (
-                        <div className="mb-3 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                        <div className="mb-3 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
                           {queue.map((q) => (
                             <div
                               key={q.name + q.size}
-                              className="relative h-14 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-border/60 bg-muted"
+                              className="relative h-16 w-24 sm:h-14 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-border/60 bg-muted"
                             >
                               {q.kind === 'image' && q.previewUrl ? (
                                 <img src={q.previewUrl} alt={q.name} className="h-full w-full object-cover" />
+                              ) : q.kind === 'video' && (q.previewUrl || q.videoPreviewUrl) ? (
+                                <>
+                                  {q.previewUrl ? (
+                                    <img 
+                                      src={q.previewUrl} 
+                                      alt={`${q.name} preview`} 
+                                      className="h-full w-full object-cover" 
+                                    />
+                                  ) : (
+                                    <video
+                                      src={q.videoPreviewUrl}
+                                      className="h-full w-full object-cover"
+                                      muted
+                                      playsInline
+                                      preload="metadata"
+                                    />
+                                  )}
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                    <VideoIcon className="h-3 w-3 text-white drop-shadow-lg" />
+                                  </div>
+                                </>
                               ) : (
                                 <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                                   {q.kind === 'video' ? <VideoIcon className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
@@ -1258,15 +1313,15 @@ export function PostCreatorModal({
                     </div>
                   </div>
 
-                  {/* RIGHT: Media Queue / gallery */}
-                  <div className="space-y-4">
-                    {queue.length > 0 && (
+                  {/* RIGHT/DESKTOP: Preview panel - shown FIRST on mobile for better visibility */}
+                  {queue.length > 0 && (
+                    <div className="space-y-4 order-first lg:order-last">
                       <div
-                        className="space-y-3 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner max-h-[240px] sm:max-h-[320px] lg:max-h-[360px] lg:overflow-y-auto"
-                        aria-label="Attached media"
+                        className="space-y-3 rounded-3xl border border-border/60 bg-background/80 p-3 sm:p-4 shadow-inner max-h-[320px] sm:max-h-[360px] lg:max-h-[400px] lg:sticky lg:top-4 overflow-y-auto"
+                        aria-label="Preview uploaded media"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-sm font-semibold">Attached media</div>
+                          <div className="text-sm font-semibold">Preview</div>
                           <Button size="sm" variant="ghost" onClick={clearAll} className="rounded-full text-xs">
                             <X className="mr-1 h-4 w-4" /> Clear all
                           </Button>
@@ -1278,13 +1333,65 @@ export function PostCreatorModal({
                               key={q.name + q.size}
                               className="flex flex-col rounded-2xl border border-border/60 bg-background/90 p-3 shadow-sm"
                             >
-                              <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-border/70 bg-muted">
+                              <div className="relative aspect-video w-full overflow-hidden rounded-xl border-2 border-border/70 bg-black cursor-pointer group">
                                 {q.kind === 'image' && q.previewUrl ? (
                                   <img src={q.previewUrl} className="h-full w-full object-cover" alt={q.name} />
                                 ) : q.kind === 'image' ? (
-                                  <ImageIcon className="absolute inset-0 m-auto h-6 w-6 text-muted-foreground" />
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                  </div>
+                                ) : q.kind === 'video' && q.videoPreviewUrl ? (
+                                  // ✅ VIDEO PREVIEW: Always show playable video for Safari compatibility
+                                  <video
+                                    src={q.videoPreviewUrl}
+                                    className="h-full w-full object-cover"
+                                    muted
+                                    playsInline
+                                    preload="metadata"
+                                    controls={false}
+                                    onLoadedMetadata={(e) => {
+                                      // Set video to first frame for preview thumbnail
+                                      const video = e.currentTarget;
+                                      video.currentTime = 0.1;
+                                    }}
+                                    onClick={(e) => {
+                                      // Allow clicking to play/pause on mobile Safari
+                                      const video = e.currentTarget;
+                                      if (video.paused) {
+                                        video.play().catch(() => {});
+                                      } else {
+                                        video.pause();
+                                      }
+                                    }}
+                                  />
+                                ) : q.kind === 'video' && q.previewUrl ? (
+                                  // Fallback to thumbnail if video URL not available
+                                  <img 
+                                    src={q.previewUrl} 
+                                    className="h-full w-full object-cover" 
+                                    alt={`${q.name} preview`}
+                                  />
                                 ) : (
-                                  <VideoIcon className="absolute inset-0 m-auto h-6 w-6 text-muted-foreground" />
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted">
+                                    <VideoIcon className="h-8 w-8 text-muted-foreground/50" />
+                                    <span className="text-xs text-muted-foreground/70">Loading video...</span>
+                                  </div>
+                                )}
+                                {/* Video play indicator - more visible */}
+                                {q.kind === 'video' && q.videoPreviewUrl && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors pointer-events-none">
+                                    <div className="rounded-full bg-black/70 p-3 shadow-lg">
+                                      <VideoIcon className="h-5 w-5 text-white" />
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Video filename overlay on hover - helpful for confirmation */}
+                                {q.kind === 'video' && (
+                                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 pointer-events-none">
+                                    <p className="text-xs font-medium text-white truncate" title={q.name}>
+                                      {q.name}
+                                    </p>
+                                  </div>
                                 )}
                               </div>
 
@@ -1331,8 +1438,8 @@ export function PostCreatorModal({
                           ))}
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

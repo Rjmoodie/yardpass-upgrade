@@ -84,6 +84,7 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
   const [comments, setComments] = useState<Record<string, any[]>>({});
 
   // Setup intersection observer for visibility tracking
+  // ✅ FIX: Properly handle both scroll up and scroll down
   useEffect(() => {
     ioRef.current = new IntersectionObserver(
       entries => {
@@ -91,12 +92,19 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
           const next = { ...prev };
           for (const e of entries) {
             const id = e.target.getAttribute('data-post-id');
-            if (id) next[id] = e.isIntersecting && e.intersectionRatio >= 0.5;
+            if (id) {
+              // ✅ Pause when scrolling up OR down - only play when truly visible
+              // intersectionRatio >= 0.5 ensures at least 50% of video is in viewport
+              next[id] = e.isIntersecting && e.intersectionRatio >= 0.5;
+            }
           }
           return next;
         });
       },
-      { threshold: [0.25, 0.5, 0.75], rootMargin: '150px 0px 150px 0px' }
+      { 
+        threshold: [0, 0.25, 0.5, 0.75, 1.0], // More granular thresholds for better detection
+        rootMargin: '0px' // Remove margin to ensure accurate detection when scrolling up
+      }
     );
     return () => ioRef.current?.disconnect();
   }, []);

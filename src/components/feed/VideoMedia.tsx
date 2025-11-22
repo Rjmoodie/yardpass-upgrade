@@ -136,14 +136,20 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
       // Try to play immediately, don't wait for isReady
       attemptPlay();
     } else {
-      el.pause();
-      el.currentTime = 0;
-      setIsPlaying(false);
-      setProgress(0);
-      setIsBuffering(false);
-      viewTrackedRef.current = false;
-      playTrackedRef.current = false;
-      completeTrackedRef.current = false;
+      // ✅ FIX: Pause video when scrolling up OR down (when not visible)
+      // Use requestAnimationFrame to ensure pause happens immediately
+      requestAnimationFrame(() => {
+        if (el && !visible) {
+          el.pause();
+          el.currentTime = 0;
+          setIsPlaying(false);
+          setProgress(0);
+          setIsBuffering(false);
+          viewTrackedRef.current = false;
+          playTrackedRef.current = false;
+          completeTrackedRef.current = false;
+        }
+      });
     }
   }, [visible, muted]);
 

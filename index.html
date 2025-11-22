@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     
     <!-- Security Headers (Vite-compatible for production) -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://stream.mux.com https://api.mapbox.com https://js.stripe.com https://app.posthog.com https://us-assets.i.posthog.com https://cdn.gpteng.co https://www.gstatic.com; worker-src 'self' blob: data:; style-src 'self' 'unsafe-inline' https://api.mapbox.com; img-src 'self' data: blob: https:; media-src 'self' blob: data: https://stream.mux.com https://*.mux.com; connect-src 'self' https://yieslxnrfeqchbcmgavz.supabase.co https://api.mapbox.com https://events.mapbox.com https://api.stripe.com https://app.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com https://stream.mux.com https://*.mux.com https://*.litix.io wss://yieslxnrfeqchbcmgavz.supabase.co; font-src 'self' data:; frame-src https://js.stripe.com https://m.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self';" />
+    <!-- ✅ FIX: Added http://www.gstatic.com for Chrome Cast framework (Chrome extension requires HTTP) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://stream.mux.com https://api.mapbox.com https://js.stripe.com https://app.posthog.com https://us-assets.i.posthog.com https://cdn.gpteng.co https://www.gstatic.com http://www.gstatic.com; worker-src 'self' blob: data:; style-src 'self' 'unsafe-inline' https://api.mapbox.com; img-src 'self' data: blob: https:; media-src 'self' blob: data: https://stream.mux.com https://*.mux.com; connect-src 'self' https://yieslxnrfeqchbcmgavz.supabase.co https://api.mapbox.com https://events.mapbox.com https://api.stripe.com https://app.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com https://stream.mux.com https://*.mux.com https://*.litix.io wss://yieslxnrfeqchbcmgavz.supabase.co; font-src 'self' data:; frame-src https://js.stripe.com https://m.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self';" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <!-- Removed X-Frame-Options and frame-ancestors meta (must be set via HTTP headers) -->
     <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
@@ -61,12 +62,15 @@
     <link rel="modulepreload" href="/src/main.tsx">
     <link rel="modulepreload" href="/src/App.tsx">
 
-    <!-- Open Graph Meta Tags -->
+    <!-- Open Graph Meta Tags (Default - overridden dynamically by pages) -->
     <meta property="og:title" content="Liventix - Live Event Tickets" />
     <meta property="og:description" content="Buy tickets to live events, concerts, parties, and experiences. Discover, attend, and share unforgettable moments." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://liventix.com" />
-    <meta property="og:image" content="https://liventix.com/liventix-logo.png" />
+    <meta property="og:url" content="https://liventix.tech" />
+    <meta property="og:image" content="https://liventix.tech/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:site_name" content="Liventix" />
     <meta property="og:locale" content="en_US" />
 
@@ -74,7 +78,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Liventix - Live Event Tickets" />
     <meta name="twitter:description" content="Buy tickets to live events, concerts, parties, and experiences. Discover, attend, and share unforgettable moments." />
-    <meta name="twitter:image" content="https://liventix.com/liventix-logo.png" />
+    <meta name="twitter:image" content="https://liventix.tech/og-image.jpg" />
     <meta name="twitter:site" content="@liventix" />
     <meta name="twitter:creator" content="@liventix" />
   </head>

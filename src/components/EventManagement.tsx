@@ -36,6 +36,11 @@ import {
   UserPlus,
   MapPin,
   Upload,
+  Plus,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Save,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GuestManagement } from '@/components/GuestManagement';
@@ -176,6 +181,34 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
   const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Ticket tier management state
+  interface EditableTicketTier {
+    id: string; // Use existing tier ID or generate temp ID for new tiers
+    name: string;
+    price_cents: number;
+    badge_label: string;
+    quantity: number;
+    total_quantity: number;
+    max_per_order?: number;
+    fee_bearer: 'customer' | 'organizer';
+    tier_visibility: 'visible' | 'hidden' | 'secret';
+    status: 'active' | 'sold_out' | 'paused';
+    sales_start?: string | null;
+    sales_end?: string | null;
+    requires_tier_id?: string | null;
+    is_rsvp_only: boolean;
+    reserved_quantity: number;
+    issued_quantity: number;
+    sort_index: number;
+    isNew?: boolean; // Flag for new tiers not yet saved
+    isEditing?: boolean; // Flag for tiers being edited
+  }
+
+  const [editableTiers, setEditableTiers] = useState<EditableTicketTier[]>([]);
+  const [expandedTiers, setExpandedTiers] = useState<Record<string, boolean>>({});
+  const [isLoadingTiers, setIsLoadingTiers] = useState(false);
+  const [isSavingTiers, setIsSavingTiers] = useState(false);
+
   useEffect(() => {
     setEventDetails(event ?? null);
   }, [event]);
@@ -202,6 +235,60 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
   const eventId = eventDetails.id;
 
   const ticketTiers = useMemo(() => eventDetails?.ticketTiers ?? [], [eventDetails]);
+
+  // Fetch ticket tiers from database
+  const fetchTicketTiers = useCallback(async () => {
+    if (!eventId) return;
+    setIsLoadingTiers(true);
+    try {
+      const { data, error } = await supabase
+        .from('ticket_tiers')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('sort_index', { ascending: true });
+
+      if (error) throw error;
+
+      const tiers: EditableTicketTier[] = (data || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        price_cents: t.price_cents,
+        badge_label: t.badge_label || '',
+        quantity: t.quantity || 0,
+        total_quantity: t.total_quantity || t.quantity || 0,
+        max_per_order: t.max_per_order,
+        fee_bearer: t.fee_bearer || 'organizer',
+        tier_visibility: t.tier_visibility || 'visible',
+        status: t.status || 'active',
+        sales_start: t.sales_start,
+        sales_end: t.sales_end,
+        requires_tier_id: t.requires_tier_id,
+        is_rsvp_only: t.is_rsvp_only || false,
+        reserved_quantity: t.reserved_quantity || 0,
+        issued_quantity: t.issued_quantity || 0,
+        sort_index: t.sort_index || 0,
+        isEditing: false,
+      }));
+
+      setEditableTiers(tiers);
+    } catch (error) {
+      console.error('Error fetching ticket tiers:', error);
+      toast({
+        title: 'Failed to load ticket tiers',
+        description: 'Could not fetch ticket tiers. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingTiers(false);
+    }
+  }, [eventId, toast]);
+
+  // Load tiers when component mounts or event changes
+  useEffect(() => {
+    if (eventId && activeTab === 'overview') {
+      fetchTicketTiers();
+    }
+  }, [eventId, activeTab, fetchTicketTiers]);
 
   // Fetch functions - defined before they're used in useEffect
   const fetchRealAttendees = useCallback(async () => {
@@ -1130,34 +1217,462 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
               </CardContent>
             </Card>
 
-            {/* Ticket Tiers Performance */}
+            {/* Ticket Tiers Management */}
             <Card>
               <CardHeader>
-                <CardTitle>Ticket Tiers</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Ticket Tiers</CardTitle>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={fetchTicketTiers}
+                      disabled={isLoadingTiers}
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-1 ${isLoadingTiers ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const newTier: EditableTicketTier = {
+                          id: `temp-${Date.now()}`,
+                          name: '',
+                          price_cents: 0,
+                          badge_label: '',
+                          quantity: 0,
+                          total_quantity: 0,
+                          max_per_order: 10,
+                          fee_bearer: 'organizer',
+                          tier_visibility: 'visible',
+                          status: 'active',
+                          sales_start: null,
+                          sales_end: null,
+                          requires_tier_id: null,
+                          is_rsvp_only: false,
+                          reserved_quantity: 0,
+                          issued_quantity: 0,
+                          sort_index: editableTiers.length,
+                          isNew: true,
+                          isEditing: true,
+                        };
+                        setEditableTiers([...editableTiers, newTier]);
+                        setExpandedTiers({ ...expandedTiers, [newTier.id]: true });
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Tier
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {ticketTiers.map((tier) => {
-                  const sold = tier.total - tier.available;
-                  const percentage = Math.round((sold / tier.total) * 100);
-                  
-                  return (
-                    <div key={tier.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline">{tier.badge}</Badge>
-                        <div>
-                          <div className="font-medium">{tier.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            ${tier.price} • {sold}/{tier.total} sold ({percentage}%)
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-medium">${(tier.price * sold).toLocaleString()}</div>
-                        <div className="text-sm text-muted-foreground">Revenue</div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {isLoadingTiers ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading ticket tiers...</div>
+                ) : editableTiers.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="mb-2">No ticket tiers yet.</p>
+                    <p className="text-sm">Click "Add Tier" to create your first ticket tier.</p>
+                  </div>
+                ) : (
+                  editableTiers.map((tier, index) => {
+                    const sold = tier.issued_quantity;
+                    const available = tier.quantity - tier.reserved_quantity - tier.issued_quantity;
+                    const percentage = tier.quantity > 0 ? Math.round((sold / tier.quantity) * 100) : 0;
+                    const isExpanded = expandedTiers[tier.id] || tier.isEditing;
+
+                    return (
+                      <Card key={tier.id} className="border-muted">
+                        <CardContent className="p-4">
+                          {tier.isEditing ? (
+                            // Edit Mode
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between mb-4">
+                                <h4 className="text-sm font-medium">
+                                  {tier.isNew ? 'New Tier' : `Edit Tier ${index + 1}`}
+                                </h4>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      if (tier.isNew) {
+                                        setEditableTiers(editableTiers.filter(t => t.id !== tier.id));
+                                      } else {
+                                        setEditableTiers(editableTiers.map(t =>
+                                          t.id === tier.id ? { ...t, isEditing: false } : t
+                                        ));
+                                      }
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={async () => {
+                                      // Validate
+                                      if (!tier.name.trim()) {
+                                        toast({
+                                          title: 'Validation Error',
+                                          description: 'Tier name is required',
+                                          variant: 'destructive',
+                                        });
+                                        return;
+                                      }
+                                      if (!tier.badge_label.trim()) {
+                                        toast({
+                                          title: 'Validation Error',
+                                          description: 'Badge label is required',
+                                          variant: 'destructive',
+                                        });
+                                        return;
+                                      }
+                                      if (tier.quantity <= 0) {
+                                        toast({
+                                          title: 'Validation Error',
+                                          description: 'Quantity must be greater than 0',
+                                          variant: 'destructive',
+                                        });
+                                        return;
+                                      }
+
+                                      setIsSavingTiers(true);
+                                      try {
+                                        if (tier.isNew) {
+                                          // Create new tier
+                                          const { error } = await supabase
+                                            .from('ticket_tiers')
+                                            .insert({
+                                              event_id: eventId,
+                                              name: tier.name,
+                                              price_cents: tier.price_cents,
+                                              badge_label: tier.badge_label,
+                                              quantity: tier.quantity,
+                                              total_quantity: tier.quantity,
+                                              max_per_order: tier.max_per_order || 10,
+                                              fee_bearer: tier.fee_bearer,
+                                              tier_visibility: tier.tier_visibility,
+                                              status: tier.status,
+                                              sales_start: tier.sales_start,
+                                              sales_end: tier.sales_end,
+                                              requires_tier_id: tier.requires_tier_id,
+                                              is_rsvp_only: tier.is_rsvp_only,
+                                              sort_index: tier.sort_index,
+                                            });
+
+                                          if (error) throw error;
+                                        } else {
+                                          // Update existing tier
+                                          const { error } = await supabase
+                                            .from('ticket_tiers')
+                                            .update({
+                                              name: tier.name,
+                                              price_cents: tier.price_cents,
+                                              badge_label: tier.badge_label,
+                                              quantity: tier.quantity,
+                                              total_quantity: tier.quantity,
+                                              max_per_order: tier.max_per_order,
+                                              fee_bearer: tier.fee_bearer,
+                                              tier_visibility: tier.tier_visibility,
+                                              status: tier.status,
+                                              sales_start: tier.sales_start,
+                                              sales_end: tier.sales_end,
+                                              requires_tier_id: tier.requires_tier_id,
+                                              is_rsvp_only: tier.is_rsvp_only,
+                                              sort_index: tier.sort_index,
+                                            })
+                                            .eq('id', tier.id);
+
+                                          if (error) throw error;
+                                        }
+
+                                        toast({
+                                          title: tier.isNew ? 'Tier created' : 'Tier updated',
+                                          description: 'Your changes have been saved.',
+                                        });
+
+                                        // Refresh tiers
+                                        await fetchTicketTiers();
+                                      } catch (error: any) {
+                                        console.error('Error saving tier:', error);
+                                        toast({
+                                          title: 'Save failed',
+                                          description: error.message || 'Could not save tier',
+                                          variant: 'destructive',
+                                        });
+                                      } finally {
+                                        setIsSavingTiers(false);
+                                      }
+                                    }}
+                                    disabled={isSavingTiers}
+                                  >
+                                    <Save className="w-4 h-4 mr-1" />
+                                    {isSavingTiers ? 'Saving...' : 'Save'}
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Tier Name *</label>
+                                  <Input
+                                    value={tier.name}
+                                    onChange={(e) =>
+                                      setEditableTiers(editableTiers.map(t =>
+                                        t.id === tier.id ? { ...t, name: e.target.value } : t
+                                      ))
+                                    }
+                                    placeholder="e.g., General Admission"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Badge Label *</label>
+                                  <Input
+                                    value={tier.badge_label}
+                                    onChange={(e) =>
+                                      setEditableTiers(editableTiers.map(t =>
+                                        t.id === tier.id ? { ...t, badge_label: e.target.value } : t
+                                      ))
+                                    }
+                                    placeholder="e.g., GA"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">
+                                    Price ($) * <span className="text-xs text-muted-foreground">(0 for free)</span>
+                                  </label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={tier.price_cents / 100}
+                                    onChange={(e) =>
+                                      setEditableTiers(editableTiers.map(t =>
+                                        t.id === tier.id
+                                          ? { ...t, price_cents: Math.round(parseFloat(e.target.value) * 100) || 0 }
+                                          : t
+                                      ))
+                                    }
+                                  />
+                                  {tier.price_cents === 0 && (
+                                    <div className="flex items-center gap-2 mt-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={tier.is_rsvp_only}
+                                        onChange={(e) =>
+                                          setEditableTiers(editableTiers.map(t =>
+                                            t.id === tier.id ? { ...t, is_rsvp_only: e.target.checked } : t
+                                          ))
+                                        }
+                                        className="rounded"
+                                      />
+                                      <label className="text-xs text-muted-foreground cursor-pointer">
+                                        RSVP only (no tickets issued)
+                                      </label>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Quantity *</label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={tier.quantity}
+                                    onChange={(e) =>
+                                      setEditableTiers(editableTiers.map(t =>
+                                        t.id === tier.id
+                                          ? { ...t, quantity: parseInt(e.target.value) || 0, total_quantity: parseInt(e.target.value) || 0 }
+                                          : t
+                                      ))
+                                    }
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Fee Bearer</label>
+                                  <Select
+                                    value={tier.fee_bearer}
+                                    onValueChange={(v: 'customer' | 'organizer') =>
+                                      setEditableTiers(editableTiers.map(t =>
+                                        t.id === tier.id ? { ...t, fee_bearer: v } : t
+                                      ))
+                                    }
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="customer">Customer pays fees</SelectItem>
+                                      <SelectItem value="organizer">Organizer pays fees</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Visibility</label>
+                                  <Select
+                                    value={tier.tier_visibility}
+                                    onValueChange={(v: 'visible' | 'hidden' | 'secret') =>
+                                      setEditableTiers(editableTiers.map(t =>
+                                        t.id === tier.id ? { ...t, tier_visibility: v } : t
+                                      ))
+                                    }
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="visible">Visible</SelectItem>
+                                      <SelectItem value="hidden">Hidden</SelectItem>
+                                      <SelectItem value="secret">Secret</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full"
+                                onClick={() =>
+                                  setExpandedTiers({
+                                    ...expandedTiers,
+                                    [tier.id]: !expandedTiers[tier.id],
+                                  })
+                                }
+                              >
+                                {expandedTiers[tier.id] ? (
+                                  <ChevronUp className="w-4 h-4 mr-1" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 mr-1" />
+                                )}
+                                Advanced Settings
+                              </Button>
+
+                              {expandedTiers[tier.id] && (
+                                <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                      <label className="text-sm font-medium">Sales Start (optional)</label>
+                                      <Input
+                                        type="datetime-local"
+                                        value={tier.sales_start ? new Date(tier.sales_start).toISOString().slice(0, 16) : ''}
+                                        onChange={(e) =>
+                                          setEditableTiers(editableTiers.map(t =>
+                                            t.id === tier.id
+                                              ? { ...t, sales_start: e.target.value ? new Date(e.target.value).toISOString() : null }
+                                              : t
+                                          ))
+                                        }
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <label className="text-sm font-medium">Sales End (optional)</label>
+                                      <Input
+                                        type="datetime-local"
+                                        value={tier.sales_end ? new Date(tier.sales_end).toISOString().slice(0, 16) : ''}
+                                        onChange={(e) =>
+                                          setEditableTiers(editableTiers.map(t =>
+                                            t.id === tier.id
+                                              ? { ...t, sales_end: e.target.value ? new Date(e.target.value).toISOString() : null }
+                                              : t
+                                          ))
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-medium">Max Per Order</label>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      value={tier.max_per_order || 10}
+                                      onChange={(e) =>
+                                        setEditableTiers(editableTiers.map(t =>
+                                          t.id === tier.id ? { ...t, max_per_order: parseInt(e.target.value) || 10 } : t
+                                        ))
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            // View Mode
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <Badge variant="outline">{tier.badge_label}</Badge>
+                                  <div>
+                                    <div className="font-medium">{tier.name}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      ${(tier.price_cents / 100).toFixed(2)} • {sold}/{tier.quantity} sold ({percentage}%) • {available} available
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="text-right">
+                                    <div className="font-medium">${((tier.price_cents / 100) * sold).toLocaleString()}</div>
+                                    <div className="text-xs text-muted-foreground">Revenue</div>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() =>
+                                        setEditableTiers(editableTiers.map(t =>
+                                          t.id === tier.id ? { ...t, isEditing: true } : t
+                                        ))
+                                      }
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={async () => {
+                                        if (!confirm(`Delete "${tier.name}"? This cannot be undone.`)) return;
+
+                                        try {
+                                          const { error } = await supabase
+                                            .from('ticket_tiers')
+                                            .delete()
+                                            .eq('id', tier.id);
+
+                                          if (error) throw error;
+
+                                          toast({
+                                            title: 'Tier deleted',
+                                            description: 'The ticket tier has been removed.',
+                                          });
+
+                                          await fetchTicketTiers();
+                                        } catch (error: any) {
+                                          console.error('Error deleting tier:', error);
+                                          toast({
+                                            title: 'Delete failed',
+                                            description: error.message || 'Could not delete tier',
+                                            variant: 'destructive',
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="w-4 h-4 text-destructive" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
               </CardContent>
             </Card>
           </TabsContent>

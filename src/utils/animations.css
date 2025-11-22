@@ -100,13 +100,27 @@
   transition: background-color 0.2s ease-in-out;
 }
 
+@keyframes bounceSlow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounceSlow 2s ease-in-out infinite;
+}
+
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
   .animate-slide-up,
   .animate-slide-down,
   .animate-scale-in,
-  .animate-pulse-once {
+  .animate-pulse-once,
+  .animate-bounce-slow {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;

@@ -613,39 +613,159 @@ export function EventCreator({ onBack, onCreate, organizationId }: EventCreatorP
       const endAt = combineDateTime(formData.endDate, formData.endTime)!;
       const linkToken = formData.visibility === 'unlisted' && 'randomUUID' in crypto ? crypto.randomUUID() : null;
 
-      const { data: event, error: eventError} = await supabase
-        .from('events')
-        .insert({
-          title: formData.title,
-          description: formData.description,
-          category: formData.category,
-          tags: formData.tags,
-          start_at: startAt.toISOString(),
-          end_at: endAt.toISOString(),
-          timezone: formData.timezone,
-          venue: formData.venue,
-          address: location.address,
-          city: location.city,
-          country: location.country,
-          lat: location.lat,
-          lng: location.lng,
-          cover_image_url: formData.coverImageUrl,
-          owner_context_type: 'organization',
-          owner_context_id: organizationId,
-          created_by: user.id,
-          visibility: formData.visibility,
-          slug,
-          link_token: linkToken,
-          is_flashback: formData.isFlashback || false,
-          flashback_explainer: formData.isFlashback && formData.flashbackExplainer ? formData.flashbackExplainer : null,
-          linked_event_id: formData.isFlashback && formData.linkedEventId ? formData.linkedEventId : null,
-          scheduled_publish_at: formData.scheduledPublishAt ? new Date(formData.scheduledPublishAt).toISOString() : null,
-          settings: eventSettings,
-        })
-        .select('id')
-        .single();
+      // Idempotency: Check if event with this idempotency key already exists
+      let eventId: string | null = null;
+      if (sessionId) {
+        const { data: existingEvent } = await supabase
+          .from('events')
+          .select('id')
+          .eq('idempotency_key', sessionId)
+          .maybeSingle();
+        
+        if (existingEvent) {
+          // Event already exists with this idempotency key - idempotent retry
+          eventId = existingEvent.id;
+          console.log('[EventCreator] Idempotent: Found existing event with idempotency key:', sessionId);
+        }
+      }
 
-      if (eventError) throw eventError;
+      // Only create event if it doesn't exist
+      if (!eventId) {
+        const { data: event, error: eventError} = await supabase
+          .from('events')
+          .insert({
+            idempotency_key: sessionId, // Include idempotency key
+            title: formData.title,
+            description: formData.description,
+            category: formData.category,
+            tags: formData.tags,
+            start_at: startAt.toISOString(),
+            end_at: endAt.toISOString(),
+            timezone: formData.timezone,
+            venue: formData.venue,
+            address: location.address,
+            city: location.city,
+            country: location.country,
+            lat: location.lat,
+            lng: location.lng,
+            cover_image_url: formData.coverImageUrl,
+            owner_context_type: 'organization',
+            owner_context_id: organizationId,
+            created_by: user.id,
+            visibility: formData.visibility,
+            slug,
+            link_token: linkToken,
+            is_flashback: formData.isFlashback || false,
+            flashback_explainer: formData.isFlashback && formData.flashbackExplainer ? formData.flashbackExplainer : null,
+            linked_event_id: formData.isFlashback && formData.linkedEventId ? formData.linkedEventId : null,
+            scheduled_publish_at: formData.scheduledPublishAt ? new Date(formData.scheduledPublishAt).toISOString() : null,
+            settings: eventSettings,
+          })
+          .select('id')
+          .single();
+
+        if (eventError) {
+          // Handle unique constraint violation (idempotency key or slug conflict)
+          if (eventError.code === '23505') { // Unique violation
+            // Check if it's an idempotency key conflict (event was created between check and insert)
+            if (sessionId) {
+              const { data: existingEvent } = await supabase
+                .from('events')
+                .select('id')
+                .eq('idempotency_key', sessionId)
+                .maybeSingle();
+              
+              if (existingEvent) {
+                // Event was created by concurrent request - idempotent
+                eventId = existingEvent.id;
+                console.log('[EventCreator] Idempotent: Event created concurrently with idempotency key:', sessionId);
+              } else {
+                // Slug conflict - retry with new unique slug
+                console.warn('[EventCreator] Slug conflict detected, generating new slug and retrying...');
+                const newSlug = await ensureUniqueSlug(formData.title);
+                
+                // Retry once with new slug
+                const { data: retryEvent, error: retryError } = await supabase
+                  .from('events')
+                  .insert({
+                    idempotency_key: sessionId,
+                    title: formData.title,
+                    description: formData.description,
+                    category: formData.category,
+                    tags: formData.tags,
+                    start_at: startAt.toISOString(),
+                    end_at: endAt.toISOString(),
+                    timezone: formData.timezone,
+                    venue: formData.venue,
+                    address: location.address,
+                    city: location.city,
+                    country: location.country,
+                    lat: location.lat,
+                    lng: location.lng,
+                    cover_image_url: formData.coverImageUrl,
+                    owner_context_type: 'organization',
+                    owner_context_id: organizationId,
+                    created_by: user.id,
+                    visibility: formData.visibility,
+                    slug: newSlug,
+                    link_token: linkToken,
+                    is_flashback: formData.isFlashback || false,
+                    flashback_explainer: formData.isFlashback && formData.flashbackExplainer ? formData.flashbackExplainer : null,
+                    linked_event_id: formData.isFlashback && formData.linkedEventId ? formData.linkedEventId : null,
+                    scheduled_publish_at: formData.scheduledPublishAt ? new Date(formData.scheduledPublishAt).toISOString() : null,
+                    settings: eventSettings,
+                  })
+                  .select('id')
+                  .single();
+                
+                if (retryError) {
+                  // If retry also fails, check again for idempotency key (race condition)
+                  if (retryError.code === '23505' && sessionId) {
+                    const { data: existingEventRetry } = await supabase
+                      .from('events')
+                      .select('id')
+                      .eq('idempotency_key', sessionId)
+                      .maybeSingle();
+                    
+                    if (existingEventRetry) {
+                      eventId = existingEventRetry.id;
+                      console.log('[EventCreator] Idempotent: Event created during retry with idempotency key:', sessionId);
+                    } else {
+                      throw new Error(`Unable to create event due to slug conflict. Please try again.`);
+                    }
+                  } else {
+                    throw new Error(`Unable to create event: ${retryError.message || 'Please try again'}`);
+                  }
+                } else {
+                  eventId = retryEvent.id;
+                }
+              }
+            } else {
+              // No idempotency key - could be slug conflict
+              const errorMsg = eventError.message || 'Unknown error';
+              if (errorMsg.includes('slug') || errorMsg.includes('events_slug_unique')) {
+                throw new Error(`Event slug conflict. Please try again with a different title.`);
+              }
+              throw new Error(`Unable to create event: ${errorMsg}`);
+            }
+          } else if (eventError.code === '42501') {
+            // Permission denied (RLS)
+            throw new Error('Permission denied. You may not have permission to create events for this organization.');
+          } else if (eventError.code === 'PGRST116') {
+            // Missing required field
+            throw new Error(`Missing required field: ${eventError.message || 'Please check all required fields'}`);
+          } else {
+            // Other errors - provide more context
+            const errorMsg = eventError.message || 'Unknown error occurred';
+            throw new Error(`Unable to create event: ${errorMsg}`);
+          }
+        } else {
+          eventId = event.id;
+        }
+      }
+
+      // Use eventId for subsequent operations
+      const event = { id: eventId! };
 
       if (ticketTiers.length && !formData.isFlashback) {
         const tiersPayload = ticketTiers.map((t) => ({

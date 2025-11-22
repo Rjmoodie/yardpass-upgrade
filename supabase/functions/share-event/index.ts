@@ -30,9 +30,8 @@ serve(async (req) => {
       return createErrorResponse('Event not found', 404);
     }
 
-    // Create share URL
-    const baseUrl = req.headers.get('origin') || 'https://liventix.app';
-    const shareUrl = `${baseUrl}/event/${event.id}`;
+    // Create share URL - always use liventix.tech for consistency
+    const shareUrl = `https://liventix.tech/e/${event.id}`;
     
     // Create share text
     const shareText = `Check out ${event.title} on Liventix! ${event.description ? event.description.slice(0, 100) + '...' : ''}`;
