@@ -19,7 +19,7 @@ import { validateTicket } from '@/lib/ticketApi';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { BarcodeScanner } from '@capacitor/barcode-scanner';
+import { CapacitorBarcodeScanner, CapacitorBarcodeScannerTypeHint } from '@capacitor/barcode-scanner';
 import { LiventixSpinner } from '@/components/LoadingSpinner';
 
 interface ScannerViewProps {
@@ -91,14 +91,9 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
     // Clear scan loop reference
     scanLoopRef.current = null;
     
-    if (isNative) {
-      try {
-        await BarcodeScanner.stopScan();
-        await BarcodeScanner.hideBackground();
-      } catch (err) {
-        console.warn('Error stopping Capacitor scanner:', err);
-      }
-    } else {
+    // Note: @capacitor/barcode-scanner v2.2.0 doesn't have stopScan/hideBackground
+    // The scanner UI is managed by the native plugin and closes automatically
+    if (!isNative) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = undefined;
       streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -109,15 +104,9 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   }, [isNative]);
 
   const toggleTorch = useCallback(async () => {
-    if (isNative) {
-      try {
-        await BarcodeScanner.toggleTorch();
-        setTorchOn((prev) => !prev);
-      } catch (err) {
-        console.error('Torch toggle failed', err);
-        toast({ title: 'Torch unavailable', description: 'Unable to toggle flashlight on this device.' });
-      }
-    } else {
+    // Note: @capacitor/barcode-scanner v2.2.0 doesn't have toggleTorch
+    // Torch control is handled by the native scanner UI
+    if (!isNative) {
       const track = streamRef.current?.getVideoTracks()?.[0];
       if (!track) return;
       const capabilities = (track.getCapabilities?.() as MediaTrackCapabilities | undefined) ?? {};
@@ -162,44 +151,26 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
     try {
       // Use Capacitor BarcodeScanner on native platforms
       if (isNative) {
-        // Check if scanner is available
-        const { supported } = await BarcodeScanner.checkPermission({ force: false });
-        if (!supported) {
-          setCameraError('Barcode scanning is not supported on this device. Switch to manual entry.');
-          setMode('manual');
-          return;
-        }
-
-        // Request permission if needed
-        const { granted } = await BarcodeScanner.checkPermission({ force: true });
-        if (!granted) {
-          setCameraError('Camera permission denied. Please enable camera access in settings.');
-          setMode('manual');
-          return;
-        }
-
-        // Hide background and prepare for scanning
-        await BarcodeScanner.prepare();
-        
-        // Start continuous scanning loop
+        // Continuous scanning loop using the new API
+        // Note: scanBarcode is one-shot, so we call it repeatedly
         const scanLoop = async () => {
           // Check if we should continue scanning
           if (mode !== 'camera' || scanLocked) {
-            try {
-              await BarcodeScanner.stopScan();
-              await BarcodeScanner.hideBackground();
-            } catch (e) {
-              // Ignore errors when stopping
-            }
             return;
           }
 
           try {
-            // Start scan - this shows native scanner UI and waits for result
-            const scanResult = await BarcodeScanner.startScan();
-            
-            if (scanResult.hasContent && scanResult.content && !scanLocked) {
-              await handlePayload(scanResult.content.trim());
+            // Use the new API: scanBarcode opens native scanner UI
+            const result = await CapacitorBarcodeScanner.scanBarcode({
+              hint: CapacitorBarcodeScannerTypeHint.QR_CODE,
+              scanInstructions: 'Position the QR code within the frame',
+              scanButton: true,
+              scanText: 'Scan QR Code',
+              cameraDirection: 1, // BACK camera
+            });
+
+            if (result?.ScanResult && !scanLocked) {
+              await handlePayload(result.ScanResult.trim());
               // After processing, restart scan loop (with cooldown)
               setTimeout(() => {
                 if (mode === 'camera' && !scanLocked) {
@@ -207,7 +178,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
                 }
               }, SCAN_COOLDOWN_MS);
             } else {
-              // No content or scan cancelled, restart loop immediately
+              // No result, restart immediately
               if (mode === 'camera' && !scanLocked) {
                 scanLoopRef.current?.();
               }
@@ -216,13 +187,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
             // User cancelled or error occurred
             const errMsg = err?.message?.toLowerCase() || '';
             if (errMsg.includes('cancel') || errMsg.includes('dismiss') || errMsg.includes('user')) {
-              // User cancelled, stop scanning
-              try {
-                await BarcodeScanner.stopScan();
-                await BarcodeScanner.hideBackground();
-              } catch (e) {
-                // Ignore cleanup errors
-              }
+              // User cancelled, switch to manual mode
               setMode('manual');
             } else {
               console.error('Scan error:', err);
@@ -238,20 +203,14 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
           }
         };
 
-        // Store scan loop reference for cleanup
+        // Store scan loop reference
         scanLoopRef.current = scanLoop;
 
         // Start the scan loop
         void scanLoop();
 
-        // Check if torch is supported
-        try {
-          const { isTorchAvailable } = await BarcodeScanner.isTorchAvailable();
-          setTorchSupported(isTorchAvailable);
-        } catch {
-          // Torch not available, continue without it
-          setTorchSupported(false);
-        }
+        // Torch is handled by native scanner UI, so we don't need to check
+        setTorchSupported(false); // Not available via API in v2.2.0
       } else {
         // Web fallback: use getUserMedia
         const stream = await navigator.mediaDevices.getUserMedia({
