@@ -98,7 +98,12 @@ export function NavigationNewDesign() {
   const currentScreen = getCurrentScreen();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t border-border/60 bg-background/85 backdrop-blur-xl shadow-[var(--shadow-sm)]">
+    <nav 
+      className="fixed bottom-0 left-0 right-0 z-[100] border-t border-border/60 bg-background/85 backdrop-blur-xl shadow-[var(--shadow-sm)]"
+      style={{
+        paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))',
+      }}
+    >
       <div className="mx-auto flex max-w-5xl items-center justify-around px-2 py-2 sm:px-4">
         {navItems.map((item) => {
           const Icon = item.icon;

@@ -5,11 +5,12 @@ export type ShareTarget =
   | { type: 'user';  handle: string; name: string };
 
 export function buildShareUrl(t: ShareTarget) {
+  // Use liventix.tech as the base domain (matches app deployment)
   const base =
-    t.type === 'event' ? `https://liventix.com/e/${t.slug}` :
-    t.type === 'post'  ? `https://liventix.com/p/${t.id}`    :
-    t.type === 'org'   ? `https://liventix.com/org/${t.slug}` :
-                         `https://liventix.com/u/${t.handle}`;
+    t.type === 'event' ? `https://liventix.tech/e/${t.slug}` :
+    t.type === 'post'  ? `https://liventix.tech/p/${t.id}`    :
+    t.type === 'org'   ? `https://liventix.tech/org/${t.slug}` :
+                         `https://liventix.tech/u/${t.handle}`;
   const qs = new URLSearchParams({
     utm_source: 'share', utm_medium: 'app', utm_campaign: t.type
   });

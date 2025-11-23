@@ -647,7 +647,11 @@ export default function FeedPageNewDesign() {
       <div 
         ref={scrollRef}
         className="hide-scrollbar relative h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
-        style={{ WebkitOverflowScrolling: 'touch', scrollSnapStop: 'always' }}
+        style={{ 
+          WebkitOverflowScrolling: 'touch', 
+          scrollSnapStop: 'always',
+          scrollPaddingBottom: 'var(--bottom-nav-safe)',
+        }}
       >
         {allFeedItems.map((item, idx) => {
           const isPost = item.item_type === 'post';

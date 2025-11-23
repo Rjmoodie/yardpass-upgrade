@@ -92,8 +92,24 @@ const initStatusBar = async (): Promise<PluginStatus> => {
   }
 
   try {
+    // ✅ CRITICAL: Set overlay to true so status bar overlays webview (prevents white strip)
+    if (Capacitor.isNativePlatform()) {
+      await StatusBar.setOverlaysWebView({ overlay: true });
+    }
+    
     // Set initial style (will be updated by theme system)
-    await StatusBar.setStyle({ style: Style.Dark });
+    // Use Light style for dark backgrounds (white icons on dark)
+    await StatusBar.setStyle({ style: Style.Light });
+    
+    // Set background color to match app background (uses CSS variable)
+    if (Capacitor.isNativePlatform()) {
+      // Get computed background color from root element
+      const rootElement = document.documentElement;
+      const computedBg = getComputedStyle(rootElement).getPropertyValue('--background').trim();
+      // Convert HSL to hex if needed, or use a sensible dark default
+      const bgColor = computedBg ? `hsl(${computedBg})` : '#050816';
+      await StatusBar.setBackgroundColor({ color: bgColor });
+    }
     
     // Show status bar
     await StatusBar.show();
@@ -282,7 +298,11 @@ const initApp = async (): Promise<void> => {
     // Listen for deep links (for ticket/event sharing)
     await App.addListener('appUrlOpen', (event) => {
       console.log('[Capacitor] Deep link opened:', event.url);
-      // Deep link handling will be done in the router
+      // Emit a custom event that the app can listen to for navigation
+      // The App component will handle the actual navigation
+      window.dispatchEvent(new CustomEvent('deepLinkOpen', { 
+        detail: { url: event.url } 
+      }));
     });
 
     // Handle back button (Android)

@@ -102,8 +102,8 @@ serve(async (req) => {
           <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px; background-color:#ffffff; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden;">
             <!-- Header -->
             <tr>
-              <td align="center" style="background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding:32px;">
-                <h1 style="margin:0; color:#ffffff; font-size:24px; font-weight:700; letter-spacing:-0.5px;">Liventix</h1>
+              <td align="center" style="background:#fafafa; border:1px solid #e2e8f0; padding:32px;">
+                <h1 style="margin:0; color:#0f172a; font-size:24px; font-weight:700; letter-spacing:-0.5px;">Liventix</h1>
                 <p style="margin:8px 0 0 0; color:rgba(255,255,255,0.9); font-size:15px;">
                   Your gateway to events and culture
                 </p>
@@ -124,13 +124,13 @@ serve(async (req) => {
                 <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
                   <tr>
                     <td align="center">
-                      <table cellpadding="0" cellspacing="0" style="background:#6366f1; border-radius:14px;">
+                      <table cellpadding="0" cellspacing="0" style="background-color:#fafafa; border:1px solid #e2e8f0; border-radius:14px;">
                         <tr>
                           <td style="padding:24px; text-align:center;">
-                            <div style="font-size:32px; font-weight:800; color:#ffffff; letter-spacing:8px; font-family:'Courier New',monospace;">
+                            <div style="font-size:32px; font-weight:800; color:#0f172a; letter-spacing:8px; font-family:'Courier New',monospace;">
                               ${otp}
                             </div>
-                            <div style="margin-top:12px; font-size:13px; color:rgba(255,255,255,0.85);">
+                            <div style="margin-top:12px; font-size:13px; color:#64748b;">
                               Expires in 5 minutes
                             </div>
                           </td>

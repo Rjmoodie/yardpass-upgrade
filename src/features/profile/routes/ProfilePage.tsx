@@ -39,6 +39,7 @@ import { FollowStats } from '@/components/follow/FollowStats';
 import { FollowButton } from '@/components/follow/FollowButton';
 import { MessageButton } from '@/components/messaging/MessageButton';
 import EventPostsGrid from '@/components/EventPostsGrid';
+import { FullScreenSafeArea } from '@/components/layout/FullScreenSafeArea';
 
 interface SocialLink {
   platform: string;
@@ -612,7 +613,7 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/40">
+    <FullScreenSafeArea className="bg-gradient-to-b from-background via-background to-muted/40">
       {/* Notification Bell - Only on Profile Page */}
       <div className="absolute z-40 notification-bell-container" style={{ 
         right: 'max(2rem, env(safe-area-inset-right) + 1.5rem)',
@@ -1189,6 +1190,6 @@ export default function UserProfilePage() {
           }}
         />
       )}
-    </div>
+    </FullScreenSafeArea>
   );
 }

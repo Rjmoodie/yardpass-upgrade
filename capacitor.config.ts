@@ -4,6 +4,11 @@ const config: CapacitorConfig = {
   appId: 'com.liventix.app',
   appName: 'Liventix',
   webDir: 'dist',
+  server: {
+    hostname: 'liventix.tech',
+    iosScheme: 'liventix',
+    androidScheme: 'https'
+  },
   plugins: {
     SplashScreen: {
       // Let the native storyboard show, then hide ASAP when your web app is ready

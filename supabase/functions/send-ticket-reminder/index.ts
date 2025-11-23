@@ -132,9 +132,9 @@ function TicketReminderTemplate({ data, orgInfo, eventInfo }: { data: TicketRemi
   const baseUrl = SUPABASE_URL?.replace('/rest/v1', '') || 'https://liventix.tech';
   
   return React.createElement(BaseEmailLayout, { orgInfo },
-    React.createElement('div', { style: { backgroundColor: '#f59e0b', color: 'white', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center' } },
-      React.createElement('h1', { style: { margin: '0 0 8px 0', fontSize: '24px' } }, '⏰ Event Reminder'),
-      React.createElement('p', { style: { margin: 0, fontSize: '16px' } }, 'Your event is coming up soon!')
+    React.createElement('div', { style: { backgroundColor: '#fafafa', border: '1px solid #e2e8f0', color: '#0f172a', padding: '16px', borderRadius: '14px', marginBottom: '24px', textAlign: 'center' } },
+      React.createElement('h1', { style: { margin: '0 0 8px 0', fontSize: '24px', fontWeight: 600 } }, '⏰ Event Reminder'),
+      React.createElement('p', { style: { margin: 0, fontSize: '16px', color: '#475569' } }, 'Your event is coming up soon!')
     ),
     React.createElement('h2', { style: { fontSize: '20px', marginBottom: '16px' } }, `Hi ${data.customerName},`),
     React.createElement('p', { style: { lineHeight: '1.6', color: '#374151' } },
@@ -145,8 +145,8 @@ function TicketReminderTemplate({ data, orgInfo, eventInfo }: { data: TicketRemi
       alt: eventInfo.title,
       style: { width: '100%', borderRadius: '8px', marginTop: '16px', marginBottom: '16px' }
     }),
-    React.createElement('div', { style: { backgroundColor: '#f3f4f6', padding: '16px', borderRadius: '8px', marginTop: '24px' } },
-      React.createElement('h3', { style: { margin: '0 0 12px 0', fontSize: '18px' } }, 'Event Details'),
+    React.createElement('div', { style: { backgroundColor: '#fafafa', border: '1px solid #e2e8f0', padding: '20px', borderRadius: '14px', marginTop: '24px' } },
+      React.createElement('h3', { style: { margin: '0 0 12px 0', fontSize: '17px', fontWeight: 600, color: '#0f172a' } }, '📅 Event Details'),
       React.createElement('p', { style: { margin: '4px 0', fontSize: '14px' } }, `📅 ${eventInfo?.date || data.eventDate}`),
       React.createElement('p', { style: { margin: '4px 0', fontSize: '14px' } }, `📍 ${eventInfo?.location || data.eventLocation}`),
       eventInfo?.venue && React.createElement('p', { style: { margin: '4px 0', fontSize: '14px' } }, `🏛️ ${eventInfo.venue}`),
@@ -156,8 +156,8 @@ function TicketReminderTemplate({ data, orgInfo, eventInfo }: { data: TicketRemi
       React.createElement('img', { src: data.qrCodeUrl, alt: 'QR Code', style: { width: '200px', height: '200px' } }),
       React.createElement('p', { style: { fontSize: '14px', color: '#6b7280', marginTop: '8px' } }, 'Your entry QR code')
     ),
-    React.createElement('div', { style: { backgroundColor: '#fef3c7', padding: '16px', borderRadius: '8px', marginTop: '24px' } },
-      React.createElement('h3', { style: { margin: '0 0 12px 0', fontSize: '18px' } }, '✅ Event Checklist'),
+    React.createElement('div', { style: { backgroundColor: '#fafafa', border: '1px solid #e2e8f0', padding: '20px', borderRadius: '14px', marginTop: '24px' } },
+      React.createElement('h3', { style: { margin: '0 0 12px 0', fontSize: '17px', fontWeight: 600, color: '#0f172a' } }, '✅ Event Checklist'),
       React.createElement('ul', { style: { margin: '0', paddingLeft: '20px', lineHeight: '1.8' } },
         React.createElement('li', {}, 'Arrive 15-30 minutes early'),
         React.createElement('li', {}, 'Bring a valid ID'),
@@ -170,7 +170,7 @@ function TicketReminderTemplate({ data, orgInfo, eventInfo }: { data: TicketRemi
         href: `${baseUrl}/tickets`,
         style: { 
           display: 'inline-block',
-          backgroundColor: '#3b82f6',
+          backgroundColor: '#0f172a',
           color: 'white',
           padding: '12px 32px',
           borderRadius: '8px',

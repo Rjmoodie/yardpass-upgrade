@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { FullScreenSafeArea } from "@/components/layout/FullScreenSafeArea";
 
 interface UserProfile {
   user_id: string;
@@ -310,14 +311,14 @@ export function ProfilePage() {
   // Loading state
   if (loading || !profile) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <FullScreenSafeArea className="items-center justify-center bg-background">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-border/20 border-t-primary" />
-      </div>
+      </FullScreenSafeArea>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-nav">
+    <FullScreenSafeArea className="bg-background pb-nav">
       {/* Cover Image */}
       <div className="relative h-32 overflow-hidden sm:h-48 md:h-64">
         <ImageWithFallback
@@ -868,7 +869,7 @@ export function ProfilePage() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </FullScreenSafeArea>
   );
 }
 

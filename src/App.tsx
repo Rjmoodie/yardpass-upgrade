@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { initIOSCapacitor, setupKeyboardListeners } from '@/lib/ios-capacitor';
+import { Capacitor } from '@capacitor/core';
 const Index = lazy(() => import('@/pages/Index'));
 import NavigationNewDesign from '@/components/NavigationNewDesign';
 import { GlobalErrorHandler } from '@/components/GlobalErrorHandler';
@@ -193,6 +194,55 @@ function AppContent() {
     setupKeyboardListeners();
   }, []);
 
+  // Handle deep links from shared URLs
+  useEffect(() => {
+    const handleDeepLinkEvent = async (event: CustomEvent<{ url: string }>) => {
+      try {
+        const { handleDeepLink } = await import('@/utils/deepLinkHandler');
+        const route = handleDeepLink(event.detail.url);
+        
+        if (route) {
+          console.log('[App] Navigating to deep link route:', route);
+          navigate(route, { replace: false });
+        } else {
+          console.warn('[App] Could not parse deep link:', event.detail.url);
+          toast({
+            title: "Invalid link",
+            description: "This link could not be opened in the app.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('[App] Error handling deep link:', error);
+        toast({
+          title: "Something went wrong",
+          description: "Please try again",
+          variant: "destructive",
+        });
+      }
+    };
+
+    // Listen for deep link events from Capacitor
+    window.addEventListener('deepLinkOpen', handleDeepLinkEvent as EventListener);
+    
+    // Also check if app was opened with a URL (initial launch)
+    if (Capacitor.isNativePlatform()) {
+      import('@capacitor/app').then(({ App }) => {
+        App.getLaunchUrl().then((result) => {
+          if (result?.url) {
+            handleDeepLinkEvent(new CustomEvent('deepLinkOpen', { detail: { url: result.url } }));
+          }
+        }).catch(() => {
+          // No launch URL, that's fine
+        });
+      });
+    }
+
+    return () => {
+      window.removeEventListener('deepLinkOpen', handleDeepLinkEvent as EventListener);
+    };
+  }, [navigate, toast]);
+
   // Redirect component for legacy profile routes
   function RedirectToUserProfile() {
     const { id, username, userId } = useParams<{ id?: string; username?: string; userId?: string }>();
@@ -305,9 +355,12 @@ function AppContent() {
           {/* Main Content Area */}
           <main
             id="main-content"
-            className="content-on-nav scroll-container flex-1"
+            className="content-on-nav scroll-container flex-1 pb-nav"
             role="main"
             aria-label="Main content"
+            style={{
+              scrollPaddingBottom: 'var(--bottom-nav-safe)',
+            }}
           >
             <div className="app-shell">
               <div className="app-surface">

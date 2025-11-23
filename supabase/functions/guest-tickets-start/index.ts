@@ -107,12 +107,12 @@ serve(async (req) => {
                             <h1 style="margin:0; font-size:24px; color:#0f172a;">Access Your Tickets</h1>
                             <p style="margin:8px 0 0 0; color:#475569; font-size:15px;">Use the one-time code below to verify your email and unlock your tickets.</p>
                           </div>
-                          <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#ffffff; border-radius:16px; padding:24px; text-align:center; margin-bottom:24px;">
+                          <div style="background-color:#fafafa; border:1px solid #e2e8f0; color:#0f172a; border-radius:14px; padding:24px; text-align:center; margin-bottom:24px;">
                             <div style="font-size:14px; letter-spacing:0.12em; text-transform:uppercase; opacity:0.9;">Your secure code</div>
                             <div style="margin-top:12px; font-size:42px; font-weight:700; letter-spacing:12px;">${otp}</div>
                             <div style="margin-top:12px; font-size:13px; opacity:0.85;">Expires in 5 minutes</div>
                           </div>
-                          <div style="background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:18px; margin-bottom:24px;">
+                          <div style="background-color:#fafafa; border:1px solid #e2e8f0; border-radius:14px; padding:18px; margin-bottom:24px;">
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px; color:#475569;">
                               <tr>
                                 <td style="padding-bottom:8px;">1. Enter the code in the Liventix guest portal.</td>
@@ -126,7 +126,7 @@ serve(async (req) => {
                             </table>
                           </div>
                           <div style="text-align:center; margin-bottom:16px;">
-                            <a href="https://liventix.tech/tickets" style="display:inline-block; background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color:#ffffff; padding:14px 32px; border-radius:12px; text-decoration:none; font-size:15px; font-weight:600; box-shadow:0 12px 24px rgba(79,70,229,0.25);">Open Liventix</a>
+                            <a href="https://liventix.tech/tickets" style="display:inline-block; background:#0f172a; color:#ffffff; padding:14px 32px; border-radius:12px; text-decoration:none; font-size:15px; font-weight:600;">Open Liventix</a>
                           </div>
                           <p style="margin:0; color:#64748b; font-size:13px; line-height:1.6;">If you didn’t request this code, you can safely ignore this email. For security, never share this code with anyone.</p>
                         </div>

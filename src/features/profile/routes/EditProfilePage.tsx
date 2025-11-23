@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProfilePictureUpload } from '@/components/ProfilePictureUpload';
+import { ProfileBannerUpload } from '@/components/ProfileBannerUpload';
 import { SocialLinkManager, SocialLink } from '@/components/SocialLinkManager';
 import { SponsorModeSettings } from '@/components/sponsor/SponsorModeSettings';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,12 +19,14 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
 
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.display_name || '');
       setPhotoUrl(profile.photo_url || '');
+      setBannerUrl((profile as any).cover_photo_url || null);
       // Parse social_links from JSON
       try {
         const profileWithSocial = profile as any;
@@ -55,6 +58,7 @@ export default function EditProfilePage() {
         .update({ 
           display_name: displayName.trim(),
           photo_url: photoUrl || null,
+          cover_photo_url: bannerUrl || null,
           social_links: JSON.parse(JSON.stringify(socialLinks)) // Ensure it's proper JSON
         })
         .eq('user_id', user.id);
@@ -116,6 +120,19 @@ export default function EditProfilePage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Profile Banner Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Profile Banner</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProfileBannerUpload
+              currentBannerUrl={bannerUrl}
+              onBannerUpdate={setBannerUrl}
+            />
+          </CardContent>
+        </Card>
+
         {/* Profile Picture Section */}
         <Card>
           <CardHeader>

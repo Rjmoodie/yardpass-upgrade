@@ -109,6 +109,9 @@
 	<!-- Universal Links (Deep Linking) -->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
+		<string>applinks:liventix.tech</string>
+		<string>applinks:www.liventix.tech</string>
+		<!-- Legacy domains for backwards compatibility -->
 		<string>applinks:liventix.app</string>
 		<string>applinks:www.liventix.app</string>
 	</array>

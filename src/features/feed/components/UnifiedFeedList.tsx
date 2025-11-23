@@ -654,7 +654,11 @@ export default function UnifiedFeedList() {
       <div
         ref={scrollRef}
         className="relative h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
-        style={{ WebkitOverflowScrolling: 'touch', scrollSnapStop: 'always' }}
+        style={{ 
+          WebkitOverflowScrolling: 'touch', 
+          scrollSnapStop: 'always',
+          scrollPaddingBottom: 'var(--bottom-nav-safe)',
+        }}
         {...containerProps}
       >
         {/* Title Section */}

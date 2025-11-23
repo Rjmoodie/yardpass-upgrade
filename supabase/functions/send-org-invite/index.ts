@@ -202,10 +202,12 @@ const handler = withCORS(async (req) => {
               width: auto;
             }
             .header { 
-              background: linear-gradient(135deg, #03A9F4 0%, #0288D1 100%);
-              color: white; 
+              background: #fafafa;
+              border: 1px solid #e2e8f0;
+              color: #0f172a; 
               padding: 30px 20px; 
               text-align: center;
+              border-radius: 14px 14px 0 0;
             }
             .header h1 {
               margin: 0;
@@ -222,17 +224,16 @@ const handler = withCORS(async (req) => {
             }
             .button { 
               display: inline-block; 
-              background: linear-gradient(135deg, #03A9F4 0%, #0288D1 100%);
+              background: #0f172a;
               color: white !important; 
               padding: 14px 32px; 
               text-decoration: none; 
               border-radius: 8px; 
               margin: 24px 0;
               font-weight: 600;
-              box-shadow: 0 4px 12px rgba(3, 169, 244, 0.3);
             }
             .button:hover {
-              background: linear-gradient(135deg, #0288D1 0%, #0277BD 100%);
+              background: #1e293b;
             }
             .info-text {
               color: #64748b;

@@ -471,7 +471,15 @@ export function EventDetailsPageIntegrated() {
         if (error) throw error;
         
         setIsGoing(false);
-        setGoingCount(prev => Math.max(0, prev - 1));
+        
+        // Refetch actual count from database
+        const { count: newCount } = await supabase
+          .from('saved_events')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_id', event.id)
+          .eq('is_going', true);
+        
+        setGoingCount(newCount || 0);
         
         toast({
           title: 'Removed',
@@ -479,44 +487,35 @@ export function EventDetailsPageIntegrated() {
         });
       } else {
         // Mark as going (and save event if not already)
-        // First check if saved_events record exists
-        const { data: existing } = await supabase
+        // Use upsert to prevent duplicates - if record exists, update; if not, insert
+        const { error: upsertError } = await supabase
           .from('saved_events')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('event_id', event.id)
-          .maybeSingle();
+          .upsert({
+            user_id: user.id,
+            event_id: event.id,
+            is_going: true,
+            saved_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id,event_id'
+          });
         
-        if (existing) {
-          // Update existing record
-          const { error } = await supabase
-            .from('saved_events')
-            .update({ is_going: true })
-            .eq('id', existing.id);
-          
-          if (error) throw error;
-        } else {
-          // Insert new record
-          const { error } = await supabase
-            .from('saved_events')
-            .insert({
-              user_id: user.id,
-              event_id: event.id,
-              is_going: true,
-              saved_at: new Date().toISOString()
-            });
-          
-          if (error) throw error;
-        }
+        if (upsertError) throw upsertError;
         
         setIsGoing(true);
         setIsSaved(true);
-        setGoingCount(prev => prev + 1);
         
-        const newCount = goingCount + 1;
+        // Refetch actual count from database to ensure accuracy
+        const { count: newCount } = await supabase
+          .from('saved_events')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_id', event.id)
+          .eq('is_going', true);
+        
+        setGoingCount(newCount || 0);
+        
         toast({
           title: '✓ You\'re going!',
-          description: newCount > 1
+          description: (newCount || 0) > 1
             ? `${newCount} ${newCount === 2 ? 'person' : 'people'} say they're going`
             : 'You\'ll be the first one there!',
         });
@@ -560,7 +559,7 @@ export function EventDetailsPageIntegrated() {
       {/* Preload LCP image for faster paint */}
       <Helmet>
         <link rel="preload" as="image" href={optimizedHeroImage} fetchpriority="high" />
-        <title>{event.title} | YardPass</title>
+        <title>{event.title} | Liventix</title>
         <meta name="description" content={event.description.substring(0, 160)} />
       </Helmet>
 

@@ -19,6 +19,7 @@ import { validateTicket } from '@/lib/ticketApi';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { BarcodeScanner } from '@capacitor/barcode-scanner';
 import { LiventixSpinner } from '@/components/LoadingSpinner';
 
 interface ScannerViewProps {
@@ -80,30 +81,56 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanLocked, setScanLocked] = useState(false);
 
-  const detectorSupported = useMemo(() => typeof window !== 'undefined' && 'BarcodeDetector' in window, []);
+  const isNative = Capacitor.isNativePlatform();
+  const detectorSupported = useMemo(() => {
+    if (isNative) return true; // Capacitor BarcodeScanner works on native
+    return typeof window !== 'undefined' && 'BarcodeDetector' in window;
+  }, [isNative]);
 
-  const stopCamera = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = undefined;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
+  const stopCamera = useCallback(async () => {
+    // Clear scan loop reference
+    scanLoopRef.current = null;
+    
+    if (isNative) {
+      try {
+        await BarcodeScanner.stopScan();
+        await BarcodeScanner.hideBackground();
+      } catch (err) {
+        console.warn('Error stopping Capacitor scanner:', err);
+      }
+    } else {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = undefined;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
     setTorchOn(false);
     setTorchSupported(false);
-  }, []);
+  }, [isNative]);
 
   const toggleTorch = useCallback(async () => {
-    const track = streamRef.current?.getVideoTracks()?.[0];
-    if (!track) return;
-    const capabilities = (track.getCapabilities?.() as MediaTrackCapabilities | undefined) ?? {};
-    if (!capabilities.torch) return;
-    try {
-      await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
-      setTorchOn((prev) => !prev);
-    } catch (err) {
-      console.error('Torch toggle failed', err);
-      toast({ title: 'Torch unavailable', description: 'Unable to toggle flashlight on this device.' });
+    if (isNative) {
+      try {
+        await BarcodeScanner.toggleTorch();
+        setTorchOn((prev) => !prev);
+      } catch (err) {
+        console.error('Torch toggle failed', err);
+        toast({ title: 'Torch unavailable', description: 'Unable to toggle flashlight on this device.' });
+      }
+    } else {
+      const track = streamRef.current?.getVideoTracks()?.[0];
+      if (!track) return;
+      const capabilities = (track.getCapabilities?.() as MediaTrackCapabilities | undefined) ?? {};
+      if (!capabilities.torch) return;
+      try {
+        await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
+        setTorchOn((prev) => !prev);
+      } catch (err) {
+        console.error('Torch toggle failed', err);
+        toast({ title: 'Torch unavailable', description: 'Unable to toggle flashlight on this device.' });
+      }
     }
-  }, [torchOn, toast]);
+  }, [torchOn, toast, isNative]);
 
   const analyseFrame = useCallback(async () => {
     if (scanLocked || !detectorSupported || !videoRef.current || videoRef.current.readyState < 2) {
@@ -133,29 +160,125 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
     setInitializing(true);
     setCameraError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment',
-        },
-        audio: false,
-      });
-      streamRef.current = stream;
-      const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        await video.play();
+      // Use Capacitor BarcodeScanner on native platforms
+      if (isNative) {
+        // Check if scanner is available
+        const { supported } = await BarcodeScanner.checkPermission({ force: false });
+        if (!supported) {
+          setCameraError('Barcode scanning is not supported on this device. Switch to manual entry.');
+          setMode('manual');
+          return;
+        }
+
+        // Request permission if needed
+        const { granted } = await BarcodeScanner.checkPermission({ force: true });
+        if (!granted) {
+          setCameraError('Camera permission denied. Please enable camera access in settings.');
+          setMode('manual');
+          return;
+        }
+
+        // Hide background and prepare for scanning
+        await BarcodeScanner.prepare();
+        
+        // Start continuous scanning loop
+        const scanLoop = async () => {
+          // Check if we should continue scanning
+          if (mode !== 'camera' || scanLocked) {
+            try {
+              await BarcodeScanner.stopScan();
+              await BarcodeScanner.hideBackground();
+            } catch (e) {
+              // Ignore errors when stopping
+            }
+            return;
+          }
+
+          try {
+            // Start scan - this shows native scanner UI and waits for result
+            const scanResult = await BarcodeScanner.startScan();
+            
+            if (scanResult.hasContent && scanResult.content && !scanLocked) {
+              await handlePayload(scanResult.content.trim());
+              // After processing, restart scan loop (with cooldown)
+              setTimeout(() => {
+                if (mode === 'camera' && !scanLocked) {
+                  scanLoopRef.current?.();
+                }
+              }, SCAN_COOLDOWN_MS);
+            } else {
+              // No content or scan cancelled, restart loop immediately
+              if (mode === 'camera' && !scanLocked) {
+                scanLoopRef.current?.();
+              }
+            }
+          } catch (err: any) {
+            // User cancelled or error occurred
+            const errMsg = err?.message?.toLowerCase() || '';
+            if (errMsg.includes('cancel') || errMsg.includes('dismiss') || errMsg.includes('user')) {
+              // User cancelled, stop scanning
+              try {
+                await BarcodeScanner.stopScan();
+                await BarcodeScanner.hideBackground();
+              } catch (e) {
+                // Ignore cleanup errors
+              }
+              setMode('manual');
+            } else {
+              console.error('Scan error:', err);
+              // Retry after error (only if still in camera mode)
+              if (mode === 'camera' && !scanLocked) {
+                setTimeout(() => {
+                  if (mode === 'camera') {
+                    scanLoopRef.current?.();
+                  }
+                }, 1000);
+              }
+            }
+          }
+        };
+
+        // Store scan loop reference for cleanup
+        scanLoopRef.current = scanLoop;
+
+        // Start the scan loop
+        void scanLoop();
+
+        // Check if torch is supported
+        try {
+          const { isTorchAvailable } = await BarcodeScanner.isTorchAvailable();
+          setTorchSupported(isTorchAvailable);
+        } catch {
+          // Torch not available, continue without it
+          setTorchSupported(false);
+        }
+      } else {
+        // Web fallback: use getUserMedia
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+          },
+          audio: false,
+        });
+        streamRef.current = stream;
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          await video.play();
+        }
+        const track = stream.getVideoTracks()[0];
+        const capabilities = (track.getCapabilities?.() as MediaTrackCapabilities | undefined) ?? {};
+        setTorchSupported(Boolean(capabilities.torch));
+        rafRef.current = requestAnimationFrame(analyseFrame);
       }
-      const track = stream.getVideoTracks()[0];
-      const capabilities = (track.getCapabilities?.() as MediaTrackCapabilities | undefined) ?? {};
-      setTorchSupported(Boolean(capabilities.torch));
-      rafRef.current = requestAnimationFrame(analyseFrame);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Camera start failed', err);
-      setCameraError('We could not access the camera. Check permissions or use manual entry.');
+      setCameraError(err.message || 'We could not access the camera. Check permissions or use manual entry.');
+      setMode('manual');
     } finally {
       setInitializing(false);
     }
-  }, [analyseFrame, detectorSupported]);
+  }, [detectorSupported, isNative, mode, scanLocked, handlePayload]);
 
   useEffect(() => {
     if (mode === 'camera') {

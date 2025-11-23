@@ -224,7 +224,7 @@ function HiddenPreheader({ text }: { text?: string }) {
 }
 
 function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { children: any; orgInfo?: OrgInfo; eventInfo?: EventInfo; preheaderText?: string }) {
-  const logoUrl = `${baseUrl()}/liventix-logo.png`;
+  const logoUrl = orgInfo?.logoUrl || `https://liventix.tech/liventix-logo-full.png`;
   const supportEmail = orgInfo?.supportEmail || "support@liventix.tech";
   const currentYear = new Date().getFullYear();
 
@@ -280,9 +280,11 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
             {
               className: "email-header-padding",
               style: {
-                background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                backgroundColor: "#fafafa",
+                border: "1px solid #e2e8f0",
                 padding: "28px 32px",
                 textAlign: "center",
+                borderRadius: "20px 20px 0 0",
               },
             },
             React.createElement("img", {
@@ -419,11 +421,11 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
             ),
             React.createElement(
               "div",
-              { style: { backgroundColor: "#f0f9ff", border: "1px solid #0ea5e9", borderRadius: "12px", padding: "16px", marginBottom: "16px" } },
-              React.createElement("h3", { style: { margin: "0 0 8px 0", color: "#0c4a6e", fontSize: "16px", fontWeight: 600 } }, "🚀 Get the Best Experience"),
+              { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "16px", marginBottom: "16px" } },
+              React.createElement("h3", { style: { margin: "0 0 8px 0", color: "#0f172a", fontSize: "16px", fontWeight: 600 } }, "🚀 Get the Best Experience"),
               React.createElement(
                 "p",
-                { style: { margin: "0 0 12px 0", color: "#075985", fontSize: "14px", lineHeight: 1.5 } },
+                { style: { margin: "0 0 12px 0", color: "#475569", fontSize: "14px", lineHeight: 1.5 } },
                 "Create a free Liventix account to manage your tickets, get event updates, and discover amazing events in your area.",
               ),
               React.createElement(
@@ -468,26 +470,26 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
     ),
     React.createElement(
       "div",
-      { style: { backgroundColor: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: "14px", padding: "20px", marginBottom: "20px" } },
-      React.createElement("h3", { style: { margin: "0 0 16px 0", color: "#0c4a6e", fontSize: "17px", fontWeight: 600 } }, isRsvp ? "✅ Your RSVP" : "🎟️ Your Tickets"),
+      { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px", marginBottom: "20px" } },
+      React.createElement("h3", { style: { margin: "0 0 16px 0", color: "#0f172a", fontSize: "17px", fontWeight: 600 } }, isRsvp ? "✅ Your RSVP" : "🎟️ Your Tickets"),
       React.createElement(
         "table",
         { width: "100%", cellPadding: 0, cellSpacing: 0, role: "presentation" },
         React.createElement(
           "tbody",
           {},
-          !isRsvp ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#075985" } }, "Ticket Type"), React.createElement("td", { style: { padding: "6px 0", fontSize: "15px", color: "#0c4a6e", fontWeight: 600, textAlign: "right" } }, data.ticketType)) : null,
-          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#075985" } }, isRsvp ? "Guests" : "Quantity"), React.createElement("td", { style: { padding: "6px 0", fontSize: "18px", color: "#0c4a6e", fontWeight: 700, textAlign: "right" } }, `×${data.rsvpCount || data.quantity}`)),
-          !isRsvp && formattedTotal ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "12px 0 6px 0", fontSize: "15px", color: "#0c4a6e", fontWeight: 500 } }, "Total Paid"), React.createElement("td", { style: { padding: "12px 0 6px 0", fontSize: "20px", color: "#0c4a6e", fontWeight: 700, textAlign: "right" } }, formattedTotal)) : null,
-          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "12px", color: "#075985" } }, "Order ID"), React.createElement("td", { style: { padding: "6px 0", fontSize: "12px", color: "#075985", fontFamily: "monospace", textAlign: "right" } }, data.orderId)),
+          !isRsvp ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#64748b" } }, "Ticket Type"), React.createElement("td", { style: { padding: "6px 0", fontSize: "15px", color: "#0f172a", fontWeight: 600, textAlign: "right" } }, data.ticketType)) : null,
+          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#64748b" } }, isRsvp ? "Guests" : "Quantity"), React.createElement("td", { style: { padding: "6px 0", fontSize: "18px", color: "#0f172a", fontWeight: 700, textAlign: "right" } }, `×${data.rsvpCount || data.quantity}`)),
+          !isRsvp && formattedTotal ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "12px 0 6px 0", fontSize: "15px", color: "#64748b", fontWeight: 500 } }, "Total Paid"), React.createElement("td", { style: { padding: "12px 0 6px 0", fontSize: "20px", color: "#0f172a", fontWeight: 700, textAlign: "right" } }, formattedTotal)) : null,
+          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "12px", color: "#64748b" } }, "Order ID"), React.createElement("td", { style: { padding: "6px 0", fontSize: "12px", color: "#64748b", fontFamily: "monospace", textAlign: "right" } }, data.orderId)),
         ),
       ),
-      !isRsvp ? React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#0369a1", lineHeight: 1.6 } }, "Need to transfer tickets to a guest? Forward this email or share access from your Liventix account.") : null,
+      !isRsvp ? React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#475569", lineHeight: 1.6 } }, "Need to transfer tickets to a guest? Forward this email or share access from your Liventix account.") : null,
     ),
     data.qrCodes && data.qrCodes.length > 0
       ? React.createElement(
           "div",
-          { style: { backgroundColor: "#ffffff", border: "2px dashed #cbd5e1", borderRadius: "14px", padding: "24px", marginBottom: "28px" } },
+          { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "24px", marginBottom: "28px" } },
           React.createElement("div", { style: { fontSize: "15px", color: "#0f172a", fontWeight: 600, marginBottom: "16px", textAlign: "center" } }, data.qrCodes.length === 1 ? "Your Entry Pass" : `Your Entry Passes (${data.qrCodes.length})`),
           React.createElement(
             "div",
@@ -497,7 +499,7 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
                 "div",
                 { key: idx, style: { textAlign: "center" } },
                 React.createElement("div", { style: { fontSize: "12px", color: "#64748b", marginBottom: "8px", fontWeight: 600 } }, qr.ticketType),
-                React.createElement("img", { src: qr.qrCodeUrl, alt: `QR Code ${idx + 1}`, style: { maxWidth: "180px", width: "100%", height: "auto", display: "block", margin: "0 auto", border: "3px solid #03A9F4", borderRadius: "12px", padding: "10px", backgroundColor: "#ffffff" } }),
+                React.createElement("img", { src: qr.qrCodeUrl, alt: `QR Code ${idx + 1}`, style: { maxWidth: "180px", width: "100%", height: "auto", display: "block", margin: "0 auto", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "10px", backgroundColor: "#ffffff" } }),
                 React.createElement("div", { style: { fontFamily: "'Courier New', monospace", fontSize: "14px", color: "#0f172a", fontWeight: 700, marginTop: "8px", letterSpacing: "2px" } }, qr.qrText),
               )
             )
@@ -509,10 +511,10 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
     // ✅ Only show attachment notice for paid tickets (skip for RSVP)
     !isRsvp ? React.createElement(
       "div",
-      { style: { backgroundColor: "#eff6ff", border: "1px solid #93c5fd", borderRadius: "14px", padding: "20px", marginBottom: "28px", textAlign: "center" } },
+      { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px", marginBottom: "28px", textAlign: "center" } },
       React.createElement("div", { style: { fontSize: "24px", marginBottom: "8px" } }, "📎"),
-      React.createElement("h3", { style: { margin: "0 0 8px 0", color: "#1e40af", fontSize: "16px", fontWeight: 600 } }, "Your Ticket PDF is Attached"),
-      React.createElement("p", { style: { margin: "0", color: "#1e3a8a", fontSize: "14px", lineHeight: 1.6 } }, "Download and save the attached PDF file. Present the QR code from the PDF at check-in for quick entry."),
+      React.createElement("h3", { style: { margin: "0 0 8px 0", color: "#0f172a", fontSize: "16px", fontWeight: 600 } }, "Your Ticket PDF is Attached"),
+      React.createElement("p", { style: { margin: "0", color: "#475569", fontSize: "14px", lineHeight: 1.6 } }, "Download and save the attached PDF file. Present the QR code from the PDF at check-in for quick entry."),
     ) : null,
     // Add to Wallet buttons
     data.walletLinks && data.walletLinks.length > 0 && (data.walletLinks[0].appleWallet || data.walletLinks[0].googleWallet)
@@ -543,11 +545,11 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: Purc
       : null,
     React.createElement(
       "div",
-      { style: { backgroundColor: "#fefce8", border: "1px solid #fde047", borderRadius: "14px", padding: "20px" } },
-      React.createElement("h3", { style: { margin: "0 0 12px 0", color: "#713f12", fontSize: "16px", fontWeight: 600 } }, "✨ Helpful Tips"),
+      { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px" } },
+      React.createElement("h3", { style: { margin: "0 0 12px 0", color: "#0f172a", fontSize: "16px", fontWeight: 600 } }, "✨ Helpful Tips"),
       React.createElement(
         "ul",
-        { style: { margin: 0, paddingLeft: "20px", color: "#854d0e", fontSize: "14px", lineHeight: 1.8 } },
+        { style: { margin: 0, paddingLeft: "20px", color: "#475569", fontSize: "14px", lineHeight: 1.8 } },
         React.createElement("li", {}, "Add this event to your calendar and plan your arrival."),
         !isRsvp ? React.createElement("li", {}, "Bring a valid ID and have your QR code ready for scanning.") : React.createElement("li", {}, "Just show up - no ticket required for free entry!"),
         React.createElement("li", {}, isRsvp ? "Save this email for your RSVP confirmation." : "Save this email for easy access to your tickets and order details."),

@@ -248,6 +248,9 @@ html, body {
   padding: 0;
   min-height: 100dvh;
   min-height: -webkit-fill-available;
+  /* ✅ CRITICAL: Set dark background to prevent white strip at top/bottom */
+  background-color: hsl(var(--background));
+  overscroll-behavior-y: contain; /* Prevent Safari rubber-banding */
 }
 
 #root {
@@ -255,6 +258,8 @@ html, body {
   width: 100%;
   min-height: 100dvh;
   min-height: -webkit-fill-available;
+  /* ✅ CRITICAL: Match app background to prevent white showing through */
+  background-color: hsl(var(--background));
 }
 
 /* Smooth scrolling container; prevent global rubber-banding where appropriate */
@@ -262,6 +267,9 @@ html, body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  /* ✅ Scroll indicator stops at bottom nav */
+  scroll-padding-bottom: var(--bottom-nav-safe);
+  padding-bottom: var(--bottom-nav-safe);
 }
 
 /* Selection & scrollbar (subtle) */
@@ -311,6 +319,33 @@ html, body {
   /* For pages/containers with bottom nav - ensures content isn't hidden */
   .safe-bottom {
     padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 1rem);
+  }
+
+  /* ✅ CRITICAL: Scroll indicator stops at bottom nav */
+  /* Makes scroll indicators respect bottom navigation bar */
+  /* Applied to all scrollable containers */
+  .scroll-container,
+  .content-on-nav {
+    scroll-padding-bottom: var(--bottom-nav-safe) !important;
+  }
+
+  /* Ensure main scroll containers have proper bottom padding */
+  .scroll-container {
+    padding-bottom: var(--bottom-nav-safe);
+  }
+
+  /* Global rule for any element with overflow-y-auto or overflow-y-scroll */
+  /* This ensures scroll indicators stop at bottom nav across the entire app */
+  [class*="overflow-y-auto"],
+  [class*="overflow-y-scroll"],
+  [class*="overflow-auto"] {
+    scroll-padding-bottom: var(--bottom-nav-safe);
+  }
+
+  /* Special handling for full-screen feeds (they use snap scrolling) */
+  /* Feed containers should still respect bottom nav for scroll indicators */
+  .hide-scrollbar[class*="overflow-y"] {
+    scroll-padding-bottom: var(--bottom-nav-safe);
   }
   
   /* Modal max heights that account for bottom nav */
