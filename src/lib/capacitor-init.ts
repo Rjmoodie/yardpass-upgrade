@@ -231,11 +231,20 @@ export function initHapticsOnFirstTap() {
   
   const handler = async () => {
     try {
-      await Haptics.impact({ style: ImpactStyle.Light });
-      hapticsInitialized = true;
-      console.log('[Capacitor] Haptics initialized on user interaction');
+      // Only try to initialize on native platforms or if user has interacted
+      if (Capacitor.isNativePlatform()) {
+        await Haptics.impact({ style: ImpactStyle.Light });
+        hapticsInitialized = true;
+        console.log('[Capacitor] Haptics initialized on user interaction');
+      } else {
+        // On web, just mark as initialized (vibration will work when user actually interacts)
+        hapticsInitialized = true;
+        console.log('[Capacitor] Haptics ready (web - will work on next interaction)');
+      }
     } catch (error) {
-      console.debug('[Capacitor] Haptics not available:', error);
+      // Silently handle errors - vibration might not be available or might require more interaction
+      hapticsInitialized = true; // Mark as initialized anyway to prevent retries
+      console.debug('[Capacitor] Haptics initialization skipped:', error);
     }
   };
   

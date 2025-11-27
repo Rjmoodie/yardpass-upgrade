@@ -487,11 +487,41 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") ||
       "http://localhost:5173";
 
-    // Idempotency key: use stable domain identifiers, not timestamps
+    // Phase 2.2.4: Enhanced idempotency key generation
+    // Format: operation_type:stable_id:UUID
     const idempotencyKey = generateIdempotencyKey(
-      ['checkout', checkoutSessionId, userId],
+      'checkout:create',
+      checkoutSessionId, // Stable ID from orders table
       req
     );
+
+    // Phase 2.2.4: Check if operation already completed (idempotent retry)
+    const { data: existingOp, error: checkError } = await supabaseService
+      .rpc('check_stripe_idempotency', {
+        p_operation_type: 'checkout:create',
+        p_operation_id: checkoutSessionId
+      });
+
+    if (checkError) {
+      console.warn('[guest-checkout] Idempotency check failed (continuing):', checkError.message);
+    } else if (existingOp?.is_completed && existingOp?.stripe_resource_id) {
+      // Operation already completed, return existing session
+      console.log('[guest-checkout] Idempotent request - returning existing session', {
+        checkoutSessionId,
+        stripeSessionId: existingOp.stripe_resource_id
+      });
+      return new Response(
+        JSON.stringify({
+          session_id: existingOp.stripe_resource_id,
+          session_url: null, // Embedded checkout doesn't use URL
+          idempotent: true
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     console.log("[guest-checkout] Creating Stripe checkout session...", {
       customerId,
@@ -505,13 +535,13 @@ serve(async (req) => {
       () => stripe.checkout.sessions.create(
         {
           ui_mode: "embedded", // Enable embedded checkout
-        customer: customerId,
-        customer_email: customerId ? undefined : normalizedEmail,
-        line_items: lineItems,
-        mode: "payment",
-        return_url: `${siteUrl}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
-        allow_promotion_codes: true,
-        billing_address_collection: "required",
+          customer: customerId,
+          customer_email: customerId ? undefined : normalizedEmail,
+          line_items: lineItems,
+          mode: "payment",
+          return_url: `${siteUrl}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
+          allow_promotion_codes: true,
+          billing_address_collection: "required",
         expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutes from now
         metadata: {
           event_id: eventId,
@@ -536,6 +566,29 @@ serve(async (req) => {
       { idempotencyKey }),
       { operationName: 'checkout.sessions.create' }
     );
+
+    // Phase 2.2.4: Record successful idempotency operation
+    try {
+      const { error: recordError } = await supabaseService.rpc('record_stripe_idempotency', {
+        p_operation_type: 'checkout:create',
+        p_operation_id: checkoutSessionId,
+        p_stripe_idempotency_key: idempotencyKey,
+        p_stripe_resource_id: session.id,
+        p_user_id: userId || null,
+        p_metadata: {
+          event_id: eventId,
+          guest_checkout: isNewUser
+        }
+      });
+      
+      if (recordError) {
+        // Non-critical - log but don't fail
+        console.warn('[guest-checkout] Failed to record idempotency (non-critical):', recordError.message);
+      }
+    } catch (recordErr) {
+      // Non-critical - log but don't fail
+      console.warn('[guest-checkout] Failed to record idempotency (non-critical):', recordErr);
+    }
 
     console.log("[guest-checkout] ✅ Stripe session created:", session.id);
 

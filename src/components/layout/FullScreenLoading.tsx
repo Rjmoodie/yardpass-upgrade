@@ -22,6 +22,8 @@ export function FullScreenLoading({
   return (
     <FullScreenSafeArea 
       className={`items-center justify-center bg-background ${className}`}
+      scroll={false}
+      includeBottomNav={false}
     >
       <div role="status" aria-live="polite" aria-label={text}>
         <BrandedSpinner

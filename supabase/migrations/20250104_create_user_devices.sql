@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.user_devices (
   device_model TEXT,
   os_version TEXT,
   app_version TEXT,
+  active BOOLEAN DEFAULT true,
   last_seen_at TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS public.user_devices (
 CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON public.user_devices(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_devices_push_token ON public.user_devices(push_token);
 CREATE INDEX IF NOT EXISTS idx_user_devices_platform ON public.user_devices(platform);
+CREATE INDEX IF NOT EXISTS idx_user_devices_active ON public.user_devices(user_id, platform, active) WHERE active = true;
 
 -- Enable RLS
 ALTER TABLE public.user_devices ENABLE ROW LEVEL SECURITY;
@@ -66,10 +68,11 @@ CREATE TRIGGER trg_user_devices_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_user_devices_updated_at();
 
--- Comment
+-- Comments
 COMMENT ON TABLE public.user_devices IS 'Stores device tokens for push notifications (iOS/Android)';
 COMMENT ON COLUMN public.user_devices.push_token IS 'APNs or FCM device token';
 COMMENT ON COLUMN public.user_devices.platform IS 'Device platform: ios, android, or web';
+COMMENT ON COLUMN public.user_devices.active IS 'Whether this device token is currently active (false if invalidated by APNs)';
 
 
 

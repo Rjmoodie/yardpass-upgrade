@@ -350,11 +350,51 @@ serve(async (req) => {
       }
     }
 
-    // Idempotency key: use stable domain identifiers, not timestamps
+    // Phase 2.2.4: Enhanced idempotency key generation
+    // Format: operation_type:stable_id:UUID
     const idempotencyKey = generateIdempotencyKey(
-      ['checkout', checkoutSessionId, orderData.user_id],
+      'checkout:create',
+      checkoutSessionId, // Stable ID from orders table
       req
     );
+
+    // Phase 2.2.4: Check if operation already completed (idempotent retry)
+    // Wrap in try-catch to make it truly non-blocking
+    try {
+      const { data: existingOp, error: checkError } = await supabaseService
+        .rpc('check_stripe_idempotency', {
+          p_operation_type: 'checkout:create',
+          p_operation_id: checkoutSessionId
+        });
+
+      if (!checkError && existingOp) {
+        // Parse JSONB response (might be string or object)
+        const result = typeof existingOp === 'string' ? JSON.parse(existingOp) : existingOp;
+        
+        if (result?.is_completed && result?.stripe_resource_id) {
+          // Operation already completed, return existing session
+          console.log('[enhanced-checkout] Idempotent request - returning existing session', {
+            checkoutSessionId,
+            stripeSessionId: result.stripe_resource_id
+          });
+          return new Response(
+            JSON.stringify({
+              session_id: result.stripe_resource_id,
+              idempotent: true
+            }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+      } else if (checkError) {
+        console.warn('[enhanced-checkout] Idempotency check failed (continuing):', checkError.message);
+      }
+    } catch (idempotencyError) {
+      // Non-critical error - log and continue with checkout
+      console.warn('[enhanced-checkout] Idempotency check error (non-blocking):', idempotencyError);
+    }
 
     // Create session with retry logic and circuit breaker
     const session = await stripeCallWithResilience(
@@ -362,6 +402,29 @@ serve(async (req) => {
       () => stripe.checkout.sessions.create(sessionConfig, { idempotencyKey }),
       { operationName: 'checkout.sessions.create' }
     );
+
+    // Phase 2.2.4: Record successful idempotency operation
+    try {
+      const { error: recordError } = await supabaseService.rpc('record_stripe_idempotency', {
+        p_operation_type: 'checkout:create',
+        p_operation_id: checkoutSessionId,
+        p_stripe_idempotency_key: idempotencyKey,
+        p_stripe_resource_id: session.id,
+        p_user_id: orderData.user_id,
+        p_metadata: {
+          event_id: orderData.event_id,
+          order_id: orderData.id || null
+        }
+      });
+      
+      if (recordError) {
+        // Non-critical - log but don't fail
+        console.warn('[enhanced-checkout] Failed to record idempotency (non-critical):', recordError.message);
+      }
+    } catch (recordErr) {
+      // Non-critical - log but don't fail
+      console.warn('[enhanced-checkout] Failed to record idempotency (non-critical):', recordErr);
+    }
     
     console.log("[enhanced-checkout] Stripe session created:", {
       id: session.id,

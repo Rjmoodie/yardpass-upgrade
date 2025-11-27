@@ -11,6 +11,7 @@ import { usePostViewCount } from "@/hooks/usePostViewCount";
 import { useProfileVisitTracking } from "@/hooks/usePurchaseIntentTracking";
 import { isVideoUrl } from "@/utils/mux";
 import { FlashbackBadge } from "@/components/flashbacks/FlashbackBadge";
+import { logger } from "@/utils/logger";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,8 @@ interface UserPostCardNewDesignProps {
   onLike: () => void;
   onComment: () => void;
   onShare: () => void;
+  onSave?: () => void; // ✅ Save post handler
+  isSaved?: boolean; // ✅ Current saved state
   onAuthorClick: () => void;
   onReport?: () => void;
   onDelete?: () => void;
@@ -39,6 +42,8 @@ const UserPostCardNewDesignComponent = ({
   onLike,
   onComment,
   onShare,
+  onSave,
+  isSaved: isSavedProp = false,
   onAuthorClick,
   onReport,
   onDelete,
@@ -55,9 +60,14 @@ const UserPostCardNewDesignComponent = ({
   const [liked, setLiked] = useState(item.metrics?.hasLiked || false);
   const [likeCount, setLikeCount] = useState(item.metrics?.likes || 0);
   const [showFullCaption, setShowFullCaption] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(isSavedProp); // ✅ Use prop as initial state
   const [isExpanded, setIsExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  
+  // ✅ Sync with prop changes (when saved state changes from parent)
+  React.useEffect(() => {
+    setSaved(isSavedProp);
+  }, [isSavedProp]);
   
   const isOwnPost = user?.id === item.author_id;
   const isOrganizer = item.author_id && item.event_created_by && item.author_id === item.event_created_by;
@@ -102,7 +112,7 @@ const UserPostCardNewDesignComponent = ({
       onDelete?.();
       
     } catch (error: any) {
-      console.error('Error deleting post:', error);
+      logger.error('Error deleting post:', error);
       toast({ 
         title: 'Error', 
         description: error.message || 'Failed to delete post',
@@ -199,7 +209,7 @@ const UserPostCardNewDesignComponent = ({
                   // 🎯 Track profile visit (moderate purchase intent signal)
                   if (item.author_id) {
                     trackProfileVisit(item.author_id);
-                    console.log('[Purchase Intent] 👤 Tracked profile visit for:', item.author_id);
+                    logger.debug('[Purchase Intent] 👤 Tracked profile visit for:', item.author_id);
                   }
                   onAuthorClick();
                 }}
@@ -228,7 +238,7 @@ const UserPostCardNewDesignComponent = ({
                     // 🎯 Track profile visit (moderate purchase intent signal)
                     if (item.author_id) {
                       trackProfileVisit(item.author_id);
-                      console.log('[Purchase Intent] 👤 Tracked profile visit for:', item.author_id);
+                      logger.debug('[Purchase Intent] 👤 Tracked profile visit for:', item.author_id);
                     }
                     onAuthorClick();
                   }}
@@ -291,7 +301,7 @@ const UserPostCardNewDesignComponent = ({
                   <div 
                     onClick={(e) => {
                       e.stopPropagation();
-                      console.log('🎯 Event title clicked (collapsed):', {
+                      logger.debug('🎯 Event title clicked (collapsed):', {
                         eventId: item.event_id,
                         eventTitle: item.event_title,
                         hasCallback: !!onEventClick
@@ -301,7 +311,7 @@ const UserPostCardNewDesignComponent = ({
                         if (onEventClick) {
                           onEventClick(item.event_id);
                         } else {
-                          console.log('📍 Navigating to event:', `/e/${item.event_id}`);
+                          logger.debug('📍 Navigating to event:', `/e/${item.event_id}`);
                           navigate(`/e/${item.event_id}`);
                         }
                       }
@@ -339,13 +349,29 @@ const UserPostCardNewDesignComponent = ({
                   {!isOwnPost && (
                     <>
                       <DropdownMenuItem 
-                        onClick={() => {
-                          setSaved(!saved);
-                          toast({ title: saved ? 'Removed from saved' : 'Saved!', description: saved ? 'Post removed from saved items' : 'Post saved to your collection' });
+                        onSelect={(e) => {
+                          // ✅ Prevent default dropdown close behavior
+                          e.preventDefault();
+                          // ✅ Call the actual save handler if provided
+                          if (onSave) {
+                            onSave();
+                          } else {
+                            // Fallback: just update local state (for backwards compatibility)
+                            setSaved(!saved);
+                            toast({ title: saved ? 'Removed from saved' : 'Saved!', description: saved ? 'Post removed from saved items' : 'Post saved to your collection' });
+                          }
                         }}
-                        className="text-foreground hover:bg-muted/20 cursor-pointer"
+                        onClick={(e) => {
+                          // ✅ iOS compatibility: Ensure click also triggers save
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (onSave) {
+                            onSave();
+                          }
+                        }}
+                        className="text-foreground hover:bg-muted/20 cursor-pointer touch-manipulation"
                       >
-                        <Bookmark className="h-4 w-4 mr-2" />
+                        <Bookmark className={`h-4 w-4 mr-2 ${saved ? 'fill-current' : ''}`} />
                         {saved ? 'Unsave' : 'Save Post'}
                       </DropdownMenuItem>
                       <DropdownMenuItem 
@@ -425,7 +451,7 @@ const UserPostCardNewDesignComponent = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    console.log('🎯 View Event button clicked (expanded):', {
+                    logger.debug('🎯 View Event button clicked (expanded):', {
                       eventId: item.event_id,
                       eventTitle: item.event_title,
                       hasCallback: !!onEventClick
@@ -435,7 +461,7 @@ const UserPostCardNewDesignComponent = ({
                       if (onEventClick) {
                         onEventClick(item.event_id);
                       } else {
-                        console.log('📍 Navigating to event:', `/e/${item.event_id}`);
+                        logger.debug('📍 Navigating to event:', `/e/${item.event_id}`);
                         navigate(`/e/${item.event_id}`);
                       }
                     }
@@ -459,8 +485,12 @@ export const UserPostCardNewDesign = React.memo(UserPostCardNewDesignComponent, 
   return (
     prev.item.item_id === next.item.item_id &&
     prev.item.content === next.item.content &&
+    prev.item.media_urls?.length === next.item.media_urls?.length &&
     prev.item.metrics?.likes === next.item.metrics?.likes &&
     prev.item.metrics?.comments === next.item.metrics?.comments &&
+    prev.item.metrics?.viewer_has_liked === next.item.metrics?.viewer_has_liked &&
+    prev.item.metrics?.viewer_has_saved === next.item.metrics?.viewer_has_saved &&
+    prev.isSaved === next.isSaved &&
     prev.isVideoPlaying === next.isVideoPlaying &&
     prev.soundEnabled === next.soundEnabled
   );

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useFollowCounts } from '@/hooks/useFollowGraph';
+import { useFollowCountsCached } from '@/hooks/useFollowCountsCached';
 import { FollowListModal } from './FollowListModal';
 
 interface FollowStatsProps {
@@ -9,7 +9,7 @@ interface FollowStatsProps {
 }
 
 export function FollowStats({ targetType, targetId, enablePendingReview = false }: FollowStatsProps) {
-  const { counts } = useFollowCounts(targetType, targetId);
+  const { counts } = useFollowCountsCached({ targetType, targetId });
   const [modal, setModal] = useState<'followers' | 'following' | null>(null);
 
   const items = useMemo(() => {

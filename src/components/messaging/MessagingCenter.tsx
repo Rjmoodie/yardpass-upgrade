@@ -107,8 +107,14 @@ export function MessagingCenter() {
   const [activeIdentity, setActiveIdentity] = useState<IdentityOption | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showUserSearch, setShowUserSearch] = useState(false);
+  // Unread counts per conversation (conversation_id -> count)
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  // Pagination state: cursor for loading older messages
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
   // ✅ FEATURE FLAG CHECK
   if (!featureFlags.messaging.enabled) {
@@ -240,6 +246,42 @@ export function MessagingCenter() {
         });
       });
 
+      // Calculate unread counts: messages where created_at > last_read_at (single source of truth)
+      const unreadCountsMap: Record<string, number> = {};
+      
+      // Batch query unread counts for all conversations
+      const conversationIds = filtered.map(row => row.id);
+      if (conversationIds.length > 0) {
+        // For each conversation, find user's last_read_at and count unread messages
+        await Promise.all(
+          filtered.map(async (row) => {
+            const conversationId = row.id;
+            // Find current user's participant record (single source of truth)
+            const userParticipant = (row.conversation_participants || []).find((p: any) => 
+              p.participant_type === 'user' && p.participant_user_id === user.id
+            );
+            
+            const lastReadAt = userParticipant?.last_read_at 
+              ? userParticipant.last_read_at
+              : null;
+            
+            // Query unread messages: created_at > last_read_at AND not sent by current user
+            const { count, error: countError } = await supabase
+              .from('direct_messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('conversation_id', conversationId)
+              .gt('created_at', lastReadAt || '1970-01-01')
+              .neq('sender_user_id', user.id); // Don't count own messages
+            
+            if (!countError && count !== null) {
+              unreadCountsMap[conversationId] = count;
+            }
+          })
+        );
+      }
+      
+      setUnreadCounts(unreadCountsMap);
+
       const mapped = filtered.map<ConversationListItem>((row) => ({
         id: row.id,
         subject: row.subject,
@@ -299,25 +341,57 @@ export function MessagingCenter() {
     }
   }, [organizations, selectedId, toast, user]);
 
+  // Cursor-based pagination: load messages (newest first, load older on scroll)
   const loadMessages = useCallback(
-    async (conversationId: string) => {
+    async (conversationId: string, cursor?: string, append = false) => {
       try {
-        const { data, error } = await supabase
+        setLoadingMoreMessages(true);
+        
+        // Cursor-based query: if cursor provided, load messages older than cursor
+        let query = supabase
           .from('direct_messages')
           .select('id,body,created_at,sender_type,sender_user_id,sender_org_id,status')
           .eq('conversation_id', conversationId)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: false }) // Newest first
+          .limit(50); // Load 50 messages per page
+        
+        // If cursor provided, load older messages (created_at < cursor)
+        if (cursor) {
+          query = query.lt('created_at', cursor);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           if (error.message?.includes('does not exist')) {
             console.log('Messaging system not available');
             setMessages([]);
+            setHasMoreMessages(false);
             return;
           }
           throw error;
         }
 
-        setMessages((data ?? []) as DirectMessageRow[]);
+        const newMessages = (data ?? []) as DirectMessageRow[];
+        
+        // Reverse to show oldest first in UI (newest at bottom)
+        const sortedMessages = [...newMessages].reverse();
+        
+        if (append) {
+          // Append older messages to beginning of list
+          setMessages(prev => [...sortedMessages, ...prev]);
+        } else {
+          // Initial load: replace all messages
+          setMessages(sortedMessages);
+        }
+        
+        // Check if there are more messages to load
+        setHasMoreMessages(newMessages.length === 50);
+        
+        // Update last_read_at when conversation is opened (mark as read)
+        if (!cursor && !append) {
+          await updateLastReadAt(conversationId);
+        }
       } catch (err: any) {
         console.error('Failed to load messages', err);
 
@@ -331,11 +405,65 @@ export function MessagingCenter() {
           description: message,
           variant: 'destructive',
         });
-        setMessages([]);
+        if (!append) {
+          setMessages([]);
+        }
+        setHasMoreMessages(false);
+      } finally {
+        setLoadingMoreMessages(false);
       }
     },
     [toast],
   );
+
+  // Update last_read_at when conversation is opened or scrolled to bottom (read receipts)
+  const updateLastReadAt = useCallback(async (conversationId: string) => {
+    if (!user) return;
+    
+    try {
+      // Find user's participant record
+      const { data: participant, error: findError } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id, participant_type, participant_user_id')
+        .eq('conversation_id', conversationId)
+        .eq('participant_type', 'user')
+        .eq('participant_user_id', user.id)
+        .single();
+      
+      if (findError || !participant) {
+        console.warn('Could not find participant record for read receipt');
+        return;
+      }
+      
+      // Update last_read_at to now() (single source of truth for read receipts)
+      const { error: updateError } = await supabase
+        .from('conversation_participants')
+        .update({ last_read_at: new Date().toISOString() })
+        .eq('conversation_id', conversationId)
+        .eq('participant_type', 'user')
+        .eq('participant_user_id', user.id);
+      
+      if (updateError) {
+        console.error('Failed to update last_read_at:', updateError);
+      } else {
+        // Update unread count for this conversation (should be 0 now)
+        setUnreadCounts(prev => ({ ...prev, [conversationId]: 0 }));
+      }
+    } catch (err) {
+      console.error('Error updating last_read_at:', err);
+    }
+  }, [user]);
+
+  // Load older messages when scrolling up (cursor-based pagination)
+  const loadOlderMessages = useCallback(async () => {
+    if (!selectedId || !hasMoreMessages || loadingMoreMessages) return;
+    
+    // Get oldest currently loaded message as cursor
+    const oldestMessage = messages[0];
+    if (!oldestMessage) return;
+    
+    await loadMessages(selectedId, oldestMessage.created_at, true);
+  }, [selectedId, hasMoreMessages, loadingMoreMessages, messages, loadMessages]);
 
   // Initial conversations load
   useEffect(() => {
@@ -365,29 +493,46 @@ export function MessagingCenter() {
     })();
   }, [selectedId, loadMessages, toast]);
 
-  // Realtime subscription for new messages
+  // Scoped real-time subscription for new messages (per conversation, with cleanup)
   useEffect(() => {
     if (!selectedId) return;
+    
+    // Create scoped channel for this conversation only
     const channel = supabase
-      .channel(`messages-${selectedId}`)
+      .channel(`conversation:${selectedId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'direct_messages',
-          filter: `conversation_id=eq.${selectedId}`,
+          filter: `conversation_id=eq.${selectedId}`, // Scoped to this conversation
         },
-        () => {
-          void loadMessages(selectedId);
+        (payload) => {
+          // Add new message to list
+          const newMessage = payload.new as DirectMessageRow;
+          setMessages(prev => [...prev, newMessage]);
+          
+          // Auto-mark as read if conversation is active
+          updateLastReadAt(selectedId).catch(err => {
+            console.error('Failed to update last_read_at on new message:', err);
+          });
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[Messaging] Subscribed to conversation:${selectedId}`);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(`[Messaging] Subscription error for conversation:${selectedId}`);
+        }
+      });
 
+    // Cleanup: unsubscribe when conversation changes or component unmounts
     return () => {
+      console.log(`[Messaging] Cleaning up subscription for conversation:${selectedId}`);
       supabase.removeChannel(channel);
     };
-  }, [selectedId, loadMessages]);
+  }, [selectedId, updateLastReadAt]);
 
   // Listen for external "open conversation" events
   useEffect(() => {
@@ -483,8 +628,16 @@ export function MessagingCenter() {
 
       const { error } = await supabase.from('direct_messages').insert(payload);
       if (error) {
+        // Log failed message send for monitoring
+        console.error('[Messaging] Failed to send message:', {
+          conversationId: selectedId,
+          error: error.message,
+          code: error.code,
+          details: error.details,
+        });
+        
         if (error.message?.includes('does not exist')) {
-          console.log('Messaging system not available');
+          console.log('[Messaging] Messaging system not available');
           toast({
             title: 'Messaging not available',
             description: 'The messaging system is not set up yet.',
@@ -497,7 +650,13 @@ export function MessagingCenter() {
       setDraft('');
       await loadMessages(selectedId);
     } catch (err: any) {
-      console.error('Failed to send message', err);
+      // Enhanced error logging for monitoring
+      console.error('[Messaging] Failed to send message:', {
+        conversationId: selectedId,
+        error: err?.message,
+        code: err?.code,
+        stack: err?.stack,
+      });
 
       const { message } = handleUserFriendlyError(err, {
         feature: 'messaging',
@@ -694,7 +853,9 @@ export function MessagingCenter() {
 
               const primaryParticipant = otherParticipants[0];
               const isActive = selectedId === conversation.id;
-              const hasUnread = false; // TODO: Implement unread logic
+              // Use last_read_at as single source of truth for unread counts
+              const unreadCount = unreadCounts[conversation.id] || 0;
+              const hasUnread = unreadCount > 0;
 
               return (
                 <button
@@ -715,8 +876,10 @@ export function MessagingCenter() {
                       </AvatarFallback>
                     </Avatar>
                     {hasUnread && (
-                      <div className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full flex items-center justify-center">
-                        <span className="text-xs text-primary-foreground font-medium">1</span>
+                      <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-primary rounded-full flex items-center justify-center px-1">
+                        <span className="text-[10px] text-primary-foreground font-medium">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -911,7 +1074,29 @@ export function MessagingCenter() {
           </div>
         )}
 
-        <ScrollArea className="flex-1 px-4 py-6 sm:px-6">
+        <ScrollArea 
+          className="flex-1 px-4 py-6 sm:px-6"
+          ref={messagesContainerRef}
+          onScrollCapture={(e) => {
+            // Load older messages when scrolling near top
+            const target = e.currentTarget;
+            if (target.scrollTop < 100 && hasMoreMessages && !loadingMoreMessages) {
+              loadOlderMessages();
+            }
+          }}
+        >
+          {hasMoreMessages && (
+            <div className="flex justify-center py-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadOlderMessages}
+                disabled={loadingMoreMessages}
+              >
+                {loadingMoreMessages ? 'Loading...' : 'Load older messages'}
+              </Button>
+            </div>
+          )}
           <div className="space-y-6">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16">
@@ -1018,12 +1203,22 @@ export function MessagingCenter() {
                               addSuffix: true,
                             })}
                           </span>
-                          {isSelf && (
-                            <div className="flex items-center gap-1">
-                              <Check className="h-3 w-3" />
-                              <CheckCheck className="h-3 w-3" />
-                            </div>
-                          )}
+                          {/* Read receipt: show CheckCheck if read, Check if delivered */}
+                          {isSelf && (() => {
+                            // Check if message is read: recipient's last_read_at >= message.created_at
+                            const recipientParticipant = selectedConversation.participants.find(
+                              p => p.participant_type === 'user' && p.participant_user_id !== user?.id
+                            );
+                            const isRead = recipientParticipant?.last_read_at 
+                              ? new Date(recipientParticipant.last_read_at) >= new Date(message.created_at)
+                              : false;
+                            
+                            return isRead ? (
+                              <CheckCheck className="h-3 w-3 text-primary-foreground/80" title="Read" />
+                            ) : (
+                              <Check className="h-3 w-3 text-primary-foreground/60" title="Delivered" />
+                            );
+                          })()}
                         </div>
                       </div>
 

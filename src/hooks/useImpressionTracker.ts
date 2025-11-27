@@ -26,12 +26,56 @@ type PendingImpression =
   | { kind: 'event'; event_id: string; dwell_ms: number; completed: boolean; startedAt: number; promotion?: PromotionMeta }
   | { kind: 'post';  event_id: string; post_id: string; dwell_ms: number; completed: boolean; startedAt: number; promotion?: PromotionMeta };
 
-const TICK_MS = 250;                 // high-resolution dwell tracking without busy looping
-const EVENT_COMPLETE_MS = 2000;      // "viewed" rule of thumb for event cards (2s)
-const IMAGE_POST_COMPLETE_MS = 3000; // images/text need slightly longer (3s)
-const VIDEO_COMPLETE_FRAC = 0.9;     // 90% watched
+/** Tick interval for dwell tracking (250ms = high-resolution without busy loops) */
+const TICK_MS = 250;
+/** Minimum dwell time for event card to be considered "viewed" (2 seconds) */
+const EVENT_COMPLETE_MS = 2000;
+/** Minimum dwell time for image/text posts to be considered "viewed" (3 seconds) */
+const IMAGE_POST_COMPLETE_MS = 3000;
+/** Video completion threshold (90% watched) */
+const VIDEO_COMPLETE_FRAC = 0.9;
+/** Minimum dwell time for ad impressions to be tracked (500ms) */
 const MIN_AD_DWELL_MS = 500;
 
+/**
+ * Hook for tracking feed item impressions and dwell time.
+ * 
+ * Tracks view time for events and posts, determines completion status,
+ * and batches impression data for efficient database insertion. Supports
+ * both regular impressions and promoted/ad impressions with separate tracking.
+ * 
+ * **Tracking Behavior:**
+ * - Events: Complete after 2 seconds of dwell
+ * - Image/Text Posts: Complete after 3 seconds of dwell
+ * - Videos: Complete after watching 90% of the video
+ * - Ad Impressions: Tracked separately if dwell >= 500ms
+ * 
+ * **Performance:**
+ * - Batches impressions for bulk insert (reduces DB calls)
+ * - Flushes every 5 seconds or when batch is full
+ * - Automatically flushes on tab hide/unload
+ * - Pauses tracking when modal is open (isSuspended)
+ * 
+ * **Completion Detection:**
+ * - For events/images: Uses timer-based dwell tracking
+ * - For videos: Monitors video element `currentTime` vs `duration`
+ * - Updates completion status in real-time as thresholds are met
+ * 
+ * @param items - Array of feed items to track
+ * @param currentIndex - Currently visible item index
+ * @param userId - Optional user ID for user-specific tracking
+ * @param isSuspended - If true, pauses dwell accrual (e.g., when modal is open)
+ * 
+ * @example
+ * ```typescript
+ * useImpressionTracker({
+ *   items: feedItems,
+ *   currentIndex: activeIndex,
+ *   userId: user?.id,
+ *   isSuspended: isModalOpen
+ * });
+ * ```
+ */
 export function useImpressionTracker({ items, currentIndex, userId, isSuspended }: Args) {
   const sessionIdRef = useRef<string>(getOrCreateSessionId());
   const rafRef = useRef<number | null>(null);
@@ -205,6 +249,8 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
   }, [enqueueFlush, userId]);
 
   // switch current item => finalize previous, start new
+  // Use stable item ID instead of full items array for comparison
+  const currentItemId = items[currentIndex]?.item_id;
   useEffect(() => {
     // finalize previous
     finalizeCurrent();
@@ -289,7 +335,7 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
 
     // start ticking for the new item
     startTimer();
-  }, [items, currentIndex, startTimer, stopTimer, finalizeCurrent, updateCompletion]);
+  }, [currentItemId, currentIndex, startTimer, stopTimer, finalizeCurrent, updateCompletion, items]); // items needed for actual item access, but currentItemId provides stable comparison
 
   // periodically flush batch
   useEffect(() => {

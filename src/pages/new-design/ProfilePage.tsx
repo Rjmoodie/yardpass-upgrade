@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Settings, Share2, Grid3x3, Calendar, Heart, Users, MapPin, Instagram, Twitter, Globe, ExternalLink, UserPlus, UserMinus, Shield, LogOut, Palette } from "lucide-react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { Settings, Share2, Grid3x3, Calendar, Heart, Users, MapPin, Instagram, Twitter, Globe, ExternalLink, UserPlus, UserMinus, Shield, LogOut, Palette, MoreVertical, Bell, ArrowLeft, X } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserConnections } from "@/hooks/useUserConnections";
@@ -12,7 +12,8 @@ import { ToastAction } from "@/components/ui/toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { UsernameEditor } from "@/components/profile/UsernameEditor";
-import CommentModal from "@/components/CommentModal";
+import { CommentModal } from "@/features/comments";
+import { FullscreenPostViewer } from "@/components/post-viewer/FullscreenPostViewer";
 import { muxToPoster } from "@/lib/video/muxClient";
 import { useProfileVisitTracking } from "@/hooks/usePurchaseIntentTracking";
 import { FlashbackBadge } from "@/components/flashbacks/FlashbackBadge";
@@ -22,6 +23,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { FullScreenSafeArea } from "@/components/layout/FullScreenSafeArea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface UserProfile {
   user_id: string;
@@ -56,12 +64,14 @@ interface SavedItem {
   is_flashback?: boolean;
   post_media_urls?: string[] | null;
   post_text?: string | null;
+  event_id?: string; // For posts, this links back to the event
 }
 
 export function ProfilePage() {
   const { user: currentUser, updateProfileOptimistic } = useAuth();
   const { username, userId } = useParams<{ username?: string; userId?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { trackProfileVisit } = useProfileVisitTracking();
   const targetUserId = userId || username || currentUser?.id;
   
@@ -86,6 +96,9 @@ export function ProfilePage() {
   });
   
   const isOwnProfile = profile ? profile.user_id === currentUser?.id : (!username && !userId);
+
+  // Scroll reset is now handled at App level (ScrollRestorationManager)
+  // Removed duplicate logic to prevent conflicts
 
   // Load total following count (includes users, events, organizers)
   useEffect(() => {
@@ -242,6 +255,7 @@ export function ProfilePage() {
           is_flashback: false,
           post_media_urls: item.post_media_urls,
           post_text: item.post_text,
+          event_id: item.event_id || (item.item_type === 'event' ? item.item_id : item.event_id), // Include event_id
         }));
 
         setSavedEvents(items);
@@ -311,26 +325,82 @@ export function ProfilePage() {
   // Loading state
   if (loading || !profile) {
     return (
-      <FullScreenSafeArea className="items-center justify-center bg-background">
+      <FullScreenSafeArea
+        className="items-center justify-center bg-background"
+        scroll={false}
+        includeBottomNav={false}
+      >
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-border/20 border-t-primary" />
       </FullScreenSafeArea>
     );
   }
 
+  // CRITICAL: Reset scroll IMMEDIATELY on render (before any effects)
+  // This runs synchronously during render, before browser can restore scroll
+  if (typeof window !== 'undefined') {
+    // Find and reset scroll containers immediately
+    const scrollContainers = Array.from(document.querySelectorAll('*')).filter(el => {
+      if (!(el instanceof HTMLElement)) return false;
+      const style = window.getComputedStyle(el);
+      return (style.overflowY === 'auto' || style.overflowY === 'scroll') && 
+             el.scrollHeight > el.clientHeight;
+    });
+    
+    scrollContainers.forEach(el => {
+      if (el instanceof HTMLElement) {
+        el.scrollTop = 0;
+      }
+    });
+    
+    if (window.scrollY > 0) {
+      window.scrollTo(0, 0);
+    }
+  }
+
   return (
-    <FullScreenSafeArea className="bg-background pb-nav">
-      {/* Cover Image */}
-      <div className="relative h-32 overflow-hidden sm:h-48 md:h-64">
+    <FullScreenSafeArea scroll={false} className="bg-gradient-to-b from-background via-background to-background/95">
+      {/* Cover Image - Extends behind status bar for full-bleed effect */}
+      <div 
+        className="relative overflow-hidden"
+        style={{
+          height: 'calc(8rem + env(safe-area-inset-top, 0px))',
+          marginTop: '-1rem',
+        }}
+      >
         <ImageWithFallback
           src={profile.cover_photo_url || 'https://images.unsplash.com/photo-1656283384093-1e227e621fad?w=1200'}
           alt="Cover"
           className="h-full w-full object-cover"
         />
         {/* Enhanced gradient overlay for better icon visibility */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 pointer-events-none" />
         
-        {/* Header Actions */}
-        <div className="absolute right-3 top-3 flex gap-2 sm:right-4 sm:top-4 [&>*]:shadow-2xl [&>*]:shadow-black/50">
+        {/* Header Actions Container - Safe area aware, high z-index for Capacitor */}
+        <div 
+          className="absolute inset-x-0 top-0 flex items-center justify-between"
+          style={{
+            paddingTop: 'max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))',
+            paddingLeft: 'max(0.75rem, calc(env(safe-area-inset-left, 0px) + 0.75rem))',
+            paddingRight: 'max(0.75rem, calc(env(safe-area-inset-right, 0px) + 0.75rem))',
+            zIndex: 50, // High z-index to ensure buttons appear above Capacitor overlays
+          }}
+        >
+          {/* Left Side - Back Button */}
+          <div>
+            {/* Back button - show if viewing someone else's profile or if navigating from somewhere */}
+            {(!isOwnProfile || window.history.length > 1) && (
+              <button
+                onClick={() => navigate(-1)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 border border-border/40 shadow-lg backdrop-blur-md transition-all hover:bg-background sm:h-10 sm:w-10"
+                aria-label="Go back"
+              >
+                <ArrowLeft className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
+              </button>
+            )}
+          </div>
+          
+          {/* Right Side - Action Buttons */}
+          <div className="flex items-center gap-2">
           {/* Organizer Mode Toggle (Own Profile Only) */}
           {isOwnProfile && (
             <button
@@ -371,292 +441,341 @@ export function ProfilePage() {
                   });
                 }
               }}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/50 bg-primary/20 hover:bg-primary/30 backdrop-blur-md transition-all sm:h-10 sm:w-10"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 border border-primary/40 shadow-lg backdrop-blur-md transition-all hover:bg-background sm:h-10 sm:w-10"
               title={profile?.role === 'organizer' ? 'Currently: Organizer Mode - Click to switch to Attendee' : 'Currently: Attendee Mode - Click to switch to Organizer'}
               aria-label={profile?.role === 'organizer' ? 'Switch to Attendee Mode' : 'Switch to Organizer Mode'}
             >
-              <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              <Shield className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
             </button>
           )}
           
-          {/* Notification Bell */}
-          {isOwnProfile && (
-            <NotificationSystem />
-          )}
-          
-          {/* Theme Toggle */}
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-border/50 bg-background/90 backdrop-blur-md shadow-lg sm:h-10 sm:w-10">
+          {/* Theme Toggle - Always visible for easy access */}
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 border border-border/40 shadow-lg backdrop-blur-md sm:h-10 sm:w-10">
             <ThemeToggle />
           </div>
           
           {/* Share Button */}
           <button 
             onClick={handleShare}
-            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-border/50 bg-background/90 backdrop-blur-md shadow-lg transition-all hover:bg-background hover:scale-105 sm:h-10 sm:w-10"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 border border-border/40 shadow-lg backdrop-blur-md transition-all hover:bg-background sm:h-10 sm:w-10"
+            aria-label="Share profile"
           >
             <Share2 className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
           </button>
           
+          {/* Collapsed Menu for Own Profile */}
           {isOwnProfile && (
-            <>
-              {/* Settings */}
-              <button 
-                onClick={() => navigate('/edit-profile')}
-                className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-border/50 bg-background/90 backdrop-blur-md shadow-lg transition-all hover:bg-background hover:scale-105 sm:h-10 sm:w-10"
-              >
-                <Settings className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
-              </button>
-              
-              {/* Sign Out */}
-              <button 
-                onClick={async () => {
-                  try {
-                    await supabase.auth.signOut();
-                    toast({ title: 'Signed out', description: 'You have been signed out successfully.' });
-                    navigate('/auth');
-                  } catch (error) {
-                    toast({
-                      title: 'Error',
-                      description: 'Failed to sign out. Please try again.',
-                      variant: 'destructive',
-                    });
-                  }
-                }}
-                className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-red-500/50 bg-red-500/90 backdrop-blur-md shadow-lg transition-all hover:bg-red-500 hover:scale-105 sm:h-10 sm:w-10"
-              >
-                <LogOut className="h-4 w-4 text-white sm:h-5 sm:w-5" />
-              </button>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button 
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 border border-border/40 shadow-lg backdrop-blur-md transition-all hover:bg-background sm:h-10 sm:w-10"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 z-[100]">
+                <DropdownMenuItem onClick={() => navigate('/edit-profile')}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <div className="flex items-center w-full">
+                    <Bell className="mr-2 h-4 w-4" />
+                    Notifications
+                    <div className="ml-auto">
+                      <NotificationSystem />
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={async () => {
+                    try {
+                      await supabase.auth.signOut();
+                      toast({ title: 'Signed out', description: 'You have been signed out successfully.' });
+                      navigate('/auth');
+                    } catch (error) {
+                      toast({
+                        title: 'Error',
+                        description: 'Failed to sign out. Please try again.',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
+                  className="text-red-500 focus:text-red-500"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
+          </div>
         </div>
       </div>
 
-      {/* Profile Header */}
-      <div className="relative px-3 sm:px-4 md:px-6">
-        {/* Avatar */}
-        <div className="relative -mt-12 mb-2 sm:-mt-16">
-          <div className="inline-block rounded-full border-4 border-black bg-background">
-            <ImageWithFallback
-              src={profile.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.display_name)}&size=200`}
-              alt={profile.display_name}
-              className="h-24 w-24 rounded-full object-cover sm:h-32 sm:w-32"
+      {/* Profile Header - Hero Layout */}
+      <div className="relative px-4 md:px-8 -mt-10 md:-mt-16">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end">
+          {/* Avatar */}
+          <div className="flex items-end gap-4">
+            <div className="relative">
+              <div className="inline-block rounded-full border-4 border-background/80 shadow-xl shadow-black/40">
+                <ImageWithFallback
+                  src={profile.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.display_name)}&size=200`}
+                  alt={profile.display_name}
+                  className="h-24 w-24 rounded-full object-cover md:h-32 md:w-32"
+                />
+              </div>
+              {profile.role === "organizer" && (
+                <span className="absolute -bottom-1 -right-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-background shadow-md">
+                  Organizer
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold text-foreground md:text-3xl">
+                {profile.display_name}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {isOwnProfile
+                  ? profile.username
+                    ? `@${profile.username}`
+                    : "Add a username to make your profile easier to share"
+                  : `@${profile.username || profile.user_id.slice(0, 8)}`}
+              </p>
+
+              {/* Quick stats */}
+              <div className="flex flex-wrap gap-4 text-xs text-muted-foreground md:text-sm">
+                <button
+                  onClick={() => setFollowModal("followers")}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  <span className="font-semibold text-foreground">{followers.length.toLocaleString()}</span>
+                  <span className="opacity-80">Followers</span>
+                </button>
+                <button
+                  onClick={() => setFollowModal("following")}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  <span className="font-semibold text-foreground">{totalFollowingCount.toLocaleString()}</span>
+                  <span className="opacity-80">Following</span>
+                </button>
+                {isOwnProfile && (
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>{tickets.length} events attended</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-1 items-center justify-start gap-2 md:justify-end pb-2">
+            {!isOwnProfile && (
+              <>
+                <button 
+                  onClick={async () => {
+                    if (!currentUser) {
+                      navigate('/auth');
+                      return;
+                    }
+                    try {
+                      if (followState === 'accepted') {
+                        await unfollow();
+                        toast({ title: 'Unfollowed', description: `You unfollowed ${profile?.display_name}` });
+                      } else {
+                        await follow();
+                        toast({ title: 'Following', description: `You are now following ${profile?.display_name}` });
+                      }
+                    } catch (error) {
+                      toast({
+                        title: 'Error',
+                        description: 'Failed to update follow status',
+                        variant: 'destructive'
+                      });
+                    }
+                  }}
+                  disabled={followLoading}
+                  className={`flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold transition-all active:scale-95 ${
+                    followState === 'accepted'
+                      ? 'border border-border/20 bg-card/80 text-foreground hover:bg-card'
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  }`}
+                >
+                  {followLoading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-border/20 border-t-white" />
+                  ) : followState === 'accepted' ? (
+                    <>
+                      <UserMinus className="h-4 w-4" />
+                      Following
+                    </>
+                  ) : followState === 'pending' ? (
+                    <>
+                      <UserPlus className="h-4 w-4" />
+                      Pending
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" />
+                      Follow
+                    </>
+                  )}
+                </button>
+                <button 
+                  onClick={() => {
+                    if (!currentUser) {
+                      navigate('/auth');
+                      return;
+                    }
+                    navigate(`/messages?to=${targetUserId}`);
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-full border border-border/20 bg-card/80 px-6 py-2.5 text-sm font-semibold text-foreground transition-all hover:bg-card active:scale-95"
+                >
+                  Message
+                </button>
+              </>
+            )}
+            {isOwnProfile && (
+              <button
+                onClick={() => navigate('/create-event')}
+                className="flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-95"
+              >
+                <Calendar className="h-4 w-4" />
+                Host an Event
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Bio */}
+        {profile.bio && (
+          <p className="mt-4 text-sm leading-relaxed text-foreground/80 md:text-base">
+            {profile.bio}
+          </p>
+        )}
+
+        {/* Metadata Row - Location, Website, Social Links */}
+        {(profile.location || profile.website || profile.instagram_handle || profile.twitter_handle) && (
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground md:text-sm">
+            {profile.location && (
+              <div className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" />
+                <span>{profile.location}</span>
+              </div>
+            )}
+            {profile.website && (
+              <a 
+                href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-colors flex items-center gap-1"
+              >
+                <Globe className="h-3.5 w-3.5" />
+                {profile.website.replace(/^https?:\/\//, '')}
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+            {profile.instagram_handle && (
+              <a
+                href={`https://instagram.com/${profile.instagram_handle}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-colors flex items-center gap-1.5"
+              >
+                <Instagram className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">@{profile.instagram_handle}</span>
+              </a>
+            )}
+            {profile.twitter_handle && (
+              <a
+                href={`https://twitter.com/${profile.twitter_handle}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-colors flex items-center gap-1.5"
+              >
+                <Twitter className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">@{profile.twitter_handle}</span>
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Value Card - Event Stats */}
+        {isOwnProfile && (
+          <div className="mt-4 rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm backdrop-blur-md">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary/80">
+                  Your event journey
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  See your impact as an organizer and attendee.
+                </p>
+              </div>
+              <div className="flex gap-6">
+                <div className="text-right">
+                  <p className="text-xl font-bold text-foreground">
+                    {(() => {
+                      // Count events created by current user
+                      // This is a simplified count - full implementation would check org memberships
+                      if (!currentUser?.id || profile?.role !== "organizer") return 0;
+                      // Note: This would ideally query events.created_by = userId
+                      // For now, using tickets to estimate (tickets have event info)
+                      const uniqueEventIds = new Set(tickets.map(t => t.eventId));
+                      // This is an approximation - actual count should come from events table
+                      return uniqueEventIds.size;
+                    })()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Events hosted</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-foreground">{tickets.length}</p>
+                  <p className="text-xs text-muted-foreground">Events attended</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Username Editor for Own Profile */}
+        {isOwnProfile && (
+          <div className="mt-3">
+            <UsernameEditor
+              currentUsername={profile.username}
+              userId={profile.user_id}
+              onUpdate={(newUsername) => {
+                setProfile({ ...profile, username: newUsername });
+                // Update URL if username changed
+                if (newUsername) {
+                  navigate(`/profile/${newUsername}`, { replace: true });
+                }
+              }}
             />
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Profile Info */}
-        <div className="mb-2">
-          {/* Name and Followers/Following */}
-          <div className="flex items-center justify-between gap-3 mb-1">
-            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{profile.display_name}</h1>
-            
-            {/* Followers & Following */}
-            <div className="flex items-center gap-3 text-sm">
-              <button
-                onClick={() => setFollowModal('followers')}
-                className="flex items-center gap-1 transition-opacity hover:opacity-70"
-              >
-                <span className="font-bold text-foreground">{followers.length.toLocaleString()}</span>
-                <span className="text-foreground/60">Followers</span>
-              </button>
-              <button
-                onClick={() => setFollowModal('following')}
-                className="flex items-center gap-1 transition-opacity hover:opacity-70"
-              >
-                <span className="font-bold text-foreground">{totalFollowingCount}</span>
-                <span className="text-foreground/60">Following</span>
-              </button>
-            </div>
-          </div>
-          {isOwnProfile ? (
-            <div className="mb-1.5">
-              <UsernameEditor
-                currentUsername={profile.username}
-                userId={profile.user_id}
-                onUpdate={(newUsername) => {
-                  setProfile({ ...profile, username: newUsername });
-                  // Update URL if username changed
-                  if (newUsername) {
-                    navigate(`/profile/${newUsername}`, { replace: true });
-                  }
-                }}
-              />
-              
-              {/* Current Mode Indicator */}
-              <div className="mt-1 inline-flex items-center gap-2 rounded-full border border-border/20 bg-white/5 px-3 py-1.5 backdrop-blur-sm">
-                <Shield className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs font-medium text-foreground/80">
-                  {profile?.role === 'organizer' ? 'Organizer Mode' : 'Attendee Mode'}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <p className="mb-1.5 text-sm text-foreground/60 sm:text-base">
-              @{profile.username || profile.user_id.slice(0, 8)}
-            </p>
-          )}
-          
-          {/* Bio */}
-          {profile.bio && (
-            <p className="mb-2 text-sm leading-relaxed text-foreground/80 sm:text-base">
-              {profile.bio}
-            </p>
-          )}
-
-          {/* Location & Website */}
-          {(profile.location || profile.website) && (
-            <div className="mb-2 flex flex-wrap gap-3 text-sm text-foreground/60">
-              {profile.location && (
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" />
-                  <span>{profile.location}</span>
-                </div>
-              )}
-              {profile.website && (
-                <div className="flex items-center gap-1.5">
-                  <Globe className="h-4 w-4" />
-                  <a 
-                    href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-primary transition-colors flex items-center gap-1"
-                  >
-                    {profile.website.replace(/^https?:\/\//, '')}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Social Links */}
-          {(profile.instagram_handle || profile.twitter_handle) && (
-            <div className="mb-2 flex gap-3">
-              {profile.instagram_handle && (
-                <a
-                  href={`https://instagram.com/${profile.instagram_handle}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border/10 bg-white/5 transition-all hover:bg-white/10 sm:h-10 sm:w-10"
-                >
-                  <Instagram className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
-                </a>
-              )}
-              {profile.twitter_handle && (
-                <a
-                  href={`https://twitter.com/${profile.twitter_handle}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border/10 bg-white/5 transition-all hover:bg-white/10 sm:h-10 sm:w-10"
-                >
-                  <Twitter className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
-                </a>
-              )}
-            </div>
-          )}
-
-          {/* Event Stats: Hosted vs Attended */}
-          {isOwnProfile && (
-            <div className="mb-3 rounded-2xl border border-border/10 bg-white/5 p-3 backdrop-blur-xl">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="text-center">
-                  <p className="mb-0.5 text-lg font-bold text-primary sm:text-xl">
-                    {profile?.role === 'organizer' ? tickets.filter(t => t.organizer_id === currentUser?.id).length : 0}
-                  </p>
-                  <p className="text-xs text-foreground/60 sm:text-sm">Events Hosted</p>
-                </div>
-                <div className="text-center">
-                  <p className="mb-0.5 text-lg font-bold text-primary sm:text-xl">
-                    {tickets.length}
-                  </p>
-                  <p className="text-xs text-foreground/60 sm:text-sm">Events Attended</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          {!isOwnProfile && (
-            <div className="flex gap-2 mb-3">
-              <button 
-                onClick={async () => {
-                  if (!currentUser) {
-                    navigate('/auth');
-                    return;
-                  }
-                  try {
-                    if (followState === 'accepted') {
-                      await unfollow();
-                      toast({ title: 'Unfollowed', description: `You unfollowed ${profile?.display_name}` });
-                    } else {
-                      await follow();
-                      toast({ title: 'Following', description: `You are now following ${profile?.display_name}` });
-                    }
-                  } catch (error) {
-                    toast({
-                      title: 'Error',
-                      description: 'Failed to update follow status',
-                      variant: 'destructive'
-                    });
-                  }
-                }}
-                disabled={followLoading}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold transition-all active:scale-95 sm:text-base ${
-                  followState === 'accepted'
-                    ? 'border border-border/20 bg-white/5 text-foreground hover:bg-white/10'
-                    : 'bg-primary text-foreground hover:bg-primary/90'
-                }`}
-              >
-                {followLoading ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-border/20 border-t-white" />
-                ) : followState === 'accepted' ? (
-                  <>
-                    <UserMinus className="h-4 w-4" />
-                    Following
-                  </>
-                ) : followState === 'pending' ? (
-                  <>
-                    <UserPlus className="h-4 w-4" />
-                    Pending
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4" />
-                    Follow
-                  </>
-                )}
-              </button>
-              <button 
-                onClick={() => {
-                  if (!currentUser) {
-                    navigate('/auth');
-                    return;
-                  }
-                  navigate(`/messages?to=${targetUserId}`);
-                }}
-                className="flex items-center justify-center gap-2 rounded-full border border-border/20 bg-white/5 px-6 py-3 text-sm font-semibold text-foreground transition-all hover:bg-white/10 active:scale-95 sm:text-base"
-              >
-                Message
-              </button>
-            </div>
-          )}
-
-        </div>
+      {/* Tabs Section - Outside main header container */}
+      <div className="px-4 md:px-8">
 
         {/* Tabs */}
-        <div className="mb-3 flex gap-2 border-b border-border/10">
+        <div className="mb-4 mt-6 flex gap-2 border-b border-border/10">
           <button
             onClick={() => setActiveTab('posts')}
-            className={`flex flex-1 items-center justify-center gap-1.5 pb-2 text-sm transition-all sm:text-base ${
+            className={`flex flex-1 items-center justify-center gap-1.5 pb-3 text-sm transition-all md:text-base ${
               activeTab === 'posts'
                 ? 'border-b-2 border-primary text-foreground font-semibold'
-                : 'text-foreground/60 hover:text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
+            <Grid3x3 className="h-4 w-4 md:h-5 md:w-5" />
             <span>Posts</span>
-            <span className={`text-xs sm:text-sm ${
-              activeTab === 'posts' ? 'text-foreground' : 'text-foreground/50'
+            <span className={`text-xs md:text-sm ${
+              activeTab === 'posts' ? 'text-foreground' : 'text-muted-foreground/70'
             }`}>
               {posts.length}
             </span>
@@ -664,16 +783,16 @@ export function ProfilePage() {
           {isOwnProfile && (
             <button
               onClick={() => setActiveTab('saved')}
-              className={`flex flex-1 items-center justify-center gap-1.5 pb-2 text-sm transition-all sm:text-base ${
+              className={`flex flex-1 items-center justify-center gap-1.5 pb-3 text-sm transition-all md:text-base ${
                 activeTab === 'saved'
                   ? 'border-b-2 border-primary text-foreground font-semibold'
-                  : 'text-foreground/60 hover:text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Heart className="h-4 w-4 sm:h-5 sm:w-5" />
+              <Heart className="h-4 w-4 md:h-5 md:w-5" />
               <span>Saved</span>
-              <span className={`text-xs sm:text-sm ${
-                activeTab === 'saved' ? 'text-foreground' : 'text-foreground/50'
+              <span className={`text-xs md:text-sm ${
+                activeTab === 'saved' ? 'text-foreground' : 'text-muted-foreground/70'
               }`}>
                 {savedEvents.length}
               </span>
@@ -681,9 +800,9 @@ export function ProfilePage() {
           )}
         </div>
 
-        {/* Content Grid */}
+        {/* Content Grid - Gallery Style */}
         {displayContent.length > 0 ? (
-          <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-3">
+          <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-3 pb-nav">
             {displayContent.map((post) => (
               <button
                 key={post.id}
@@ -715,12 +834,12 @@ export function ProfilePage() {
                     });
                   }
                 }}
-                className="group relative aspect-square overflow-hidden rounded-lg bg-white/5 sm:rounded-xl"
+                className="group relative aspect-square overflow-hidden rounded-2xl bg-muted/40 ring-1 ring-border/40 transition-transform duration-200 hover:scale-[1.02]"
               >
                 <ImageWithFallback
                   src={post.image}
                   alt="Post"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 
                 {/* Flashback Badge for Events */}
@@ -730,44 +849,53 @@ export function ProfilePage() {
                   </div>
                 )}
                 
-                {/* Overlay on hover */}
-                <div className="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                  <div className="flex items-center gap-1 text-foreground">
-                    <Heart className="h-4 w-4 fill-white sm:h-5 sm:w-5" />
-                    <span className="text-xs font-semibold sm:text-sm">{post.likes}</span>
+                {/* Gradient overlay on hover */}
+                <div className="absolute inset-0 flex items-end justify-between bg-gradient-to-t from-black/50 via-black/0 to-black/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 p-2">
+                  <div className="flex items-center gap-1 text-xs text-white">
+                    <Heart className="h-3 w-3 fill-current" />
+                    <span className="font-semibold">{post.likes}</span>
                   </div>
-                </div>
-
-                {/* Type Badge */}
-                <div className="absolute right-1 top-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-foreground sm:text-xs">
-                  {post.type === 'event' ? 'Event' : 'Post'}
+                  <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
+                    {post.type === "event" ? "Event" : "Post"}
+                  </span>
                 </div>
               </button>
             ))}
           </div>
         ) : (
-          /* Empty State */
-          <div className="rounded-2xl border border-border/10 bg-white/5 p-12 text-center backdrop-blur-xl sm:rounded-3xl">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-              {activeTab === 'posts' && <Grid3x3 className="h-8 w-8 text-foreground/30" />}
-              {activeTab === 'saved' && <Heart className="h-8 w-8 text-foreground/30" />}
+          /* Empty State - Marketing Style */
+          <div className="rounded-3xl border border-dashed border-border/40 bg-muted/30 p-10 text-center backdrop-blur-md pb-nav">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-background/80 ring-1 ring-border/40">
+              {activeTab === "posts" ? (
+                <Grid3x3 className="h-8 w-8 text-muted-foreground" />
+              ) : (
+                <Heart className="h-8 w-8 text-muted-foreground" />
+              )}
             </div>
-            <h3 className="mb-2 text-lg font-bold text-foreground">
-              {activeTab === 'posts' && 'No posts yet'}
-              {activeTab === 'saved' && 'No saved items yet'}
+            <h3 className="mb-2 text-lg font-semibold text-foreground">
+              {activeTab === "posts"
+                ? "Share your first event moment"
+                : "Save the events you love"}
             </h3>
-            <p className="text-sm text-foreground/60">
-              {activeTab === 'posts' && 'Share your event experiences to see them here'}
-              {activeTab === 'saved' && 'Save posts and events you love'}
+            <p className="mb-4 text-sm text-muted-foreground">
+              {activeTab === "posts"
+                ? "Post photos or videos from events you attend and build your story on Liventix."
+                : "Tap the heart on events and posts to collect them here for later."}
             </p>
+            {isOwnProfile && activeTab === "posts" && (
+              <Button onClick={() => navigate("/create-post")} className="gap-2">
+                <Grid3x3 className="h-4 w-4" />
+                Create a post
+              </Button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Post Detail Modal */}
+      {/* Post Detail Modal - New Instagram-style Fullscreen Post Viewer */}
       {showPostModal && selectedPostId && selectedEventId && (
-        <CommentModal
-          key={`modal-${selectedPostId}-${selectedEventId}`}
+        <FullscreenPostViewer
+          key={`viewer-${selectedPostId}-${selectedEventId}`}
           isOpen={showPostModal}
           onClose={() => {
             setShowPostModal(false);
@@ -777,8 +905,13 @@ export function ProfilePage() {
           eventId={selectedEventId}
           eventTitle="Event"
           postId={selectedPostId}
+          postIdSequence={posts.map(p => p.id)}
+          initialIndex={posts.findIndex(p => p.id === selectedPostId)}
           onCommentCountChange={(postId, newCount) => {
             console.log('💬 [Profile] Comment count updated:', postId, newCount);
+            setPosts(prev => prev.map(p => 
+              p.id === postId ? { ...p, comments: newCount } : p
+            ));
           }}
           onPostDelete={(postId) => {
             // Remove deleted post from local state

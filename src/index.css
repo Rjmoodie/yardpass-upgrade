@@ -1,9 +1,26 @@
+/* Import CSS-based animations (replaces framer-motion) - must come before all other rules */
+@import './utils/animations.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Import CSS-based animations (replaces framer-motion) */
-@import './utils/animations.css';
+/* Prevent scroll restoration flash - lock scroll during route transitions */
+html.scroll-locked,
+html.scroll-locked body {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none !important;
+}
+
+/* Prevent scroll on main content during initial load */
+#main-content.scroll-resetting {
+  overflow-y: hidden !important;
+  pointer-events: none !important;
+  position: relative !important;
+}
 
 /* 🎯 PERF-004: Font Declaration with font-display: swap */
 /* DISABLED: Using system fonts until Inter font file is fixed */
@@ -53,6 +70,50 @@ button, a, [role="button"] {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Responsive video controls styling */
+video {
+  /* Ensure controls are visible and properly sized */
+  width: 100%;
+  height: auto;
+}
+
+video::-webkit-media-controls-panel {
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+}
+
+video::-webkit-media-controls-play-button,
+video::-webkit-media-controls-timeline,
+video::-webkit-media-controls-current-time-display,
+video::-webkit-media-controls-time-remaining-display,
+video::-webkit-media-controls-mute-button,
+video::-webkit-media-controls-volume-slider,
+video::-webkit-media-controls-fullscreen-button {
+  /* Make controls more visible on mobile */
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Mobile-specific video control improvements */
+@media (max-width: 640px) {
+  video::-webkit-media-controls-panel {
+    padding: 8px;
+  }
+  
+  video::-webkit-media-controls-play-button,
+  video::-webkit-media-controls-mute-button,
+  video::-webkit-media-controls-fullscreen-button {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}
+
+/* Ensure video controls are accessible on touch devices */
+video::-webkit-media-controls-enclosure {
+  max-width: 100%;
+  overflow: visible;
 }
 
 /* --- Visibility & Feel Enhancements --- */
@@ -248,9 +309,12 @@ html, body {
   padding: 0;
   min-height: 100dvh;
   min-height: -webkit-fill-available;
-  /* ✅ CRITICAL: Set dark background to prevent white strip at top/bottom */
+  /* ✅ CRITICAL: Theme-aware background that adapts to dark/light mode */
   background-color: hsl(var(--background));
   overscroll-behavior-y: contain; /* Prevent Safari rubber-banding */
+  box-sizing: border-box;
+  /* ✅ Transition background color smoothly when theme changes */
+  transition: background-color 0.2s ease-in-out;
 }
 
 #root {
@@ -258,8 +322,11 @@ html, body {
   width: 100%;
   min-height: 100dvh;
   min-height: -webkit-fill-available;
-  /* ✅ CRITICAL: Match app background to prevent white showing through */
+  /* ✅ CRITICAL: Theme-aware background to prevent white showing through */
   background-color: hsl(var(--background));
+  /* ✅ Ensure root respects safe areas */
+  position: relative;
+  overflow: hidden; /* Prevent root from scrolling - let children handle it */
 }
 
 /* Smooth scrolling container; prevent global rubber-banding where appropriate */
@@ -340,6 +407,40 @@ html, body {
   [class*="overflow-y-scroll"],
   [class*="overflow-auto"] {
     scroll-padding-bottom: var(--bottom-nav-safe);
+    scroll-padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* ✅ Fixed safe area zones - prevent scrolling into safe areas */
+  /* These are invisible spacers that match the theme background */
+  .safe-area-top-fixed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0px);
+    background-color: hsl(var(--background));
+    z-index: 9999;
+    pointer-events: none;
+    transition: background-color 0.2s ease-in-out; /* Theme transition */
+  }
+
+  .safe-area-bottom-fixed {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-bottom, 0px);
+    background-color: hsl(var(--background));
+    z-index: 9999;
+    pointer-events: none;
+    transition: background-color 0.2s ease-in-out; /* Theme transition */
+  }
+
+  /* ✅ Prevent content from scrolling into safe areas */
+  .scroll-with-safe-areas {
+    scroll-padding-top: env(safe-area-inset-top, 0px);
+    scroll-padding-bottom: calc(var(--bottom-nav-safe) + env(safe-area-inset-bottom, 0px));
+    overscroll-behavior-y: contain;
   }
 
   /* Special handling for full-screen feeds (they use snap scrolling) */

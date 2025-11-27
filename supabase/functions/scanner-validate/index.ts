@@ -1,5 +1,6 @@
 // /functions/scanner-validate/index.ts
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0'
+import { checkRateLimit, RateLimitResult } from '../_shared/rate-limiter.ts'
 
 type Outcome =
   | 'valid'
@@ -39,6 +40,13 @@ const ok = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s,
 const QR_RE = /^[A-HJ-NP-Z2-9]{8}$/ // your DB check constraint
 const SIGNED_QR_RE = /^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
 const TOKEN_CLOCK_SKEW_SECONDS = 5
+const TOKEN_OLD_THRESHOLD_SECONDS = 300 // 5 minutes - soft anomaly signal
+const TOKEN_VERY_OLD_THRESHOLD_SECONDS = 7200 // 2 hours - hard reject threshold
+const TOKEN_FUTURE_THRESHOLD_SECONDS = 300 // 5 minutes - clock skew protection
+
+// Rate limiting configuration (configurable via env vars)
+const SCANNER_RATE_LIMIT_PER_MINUTE = parseInt(Deno.env.get('SCANNER_RATE_LIMIT_PER_MINUTE') || '10', 10)
+const SCANNER_RATE_LIMIT_EVENT_PER_MINUTE = parseInt(Deno.env.get('SCANNER_RATE_LIMIT_EVENT_PER_MINUTE') || '200', 10)
 
 const encoder = new TextEncoder()
 
@@ -199,6 +207,45 @@ Deno.serve(async (req) => {
 
       tokenPayload = verification.payload
       qr_token = tokenPayload.code ? tokenPayload.code.toUpperCase() : ''
+
+      // --- Timestamp Replay Detection (Step 2) ---
+      const nowSeconds = Math.floor(Date.now() / 1000)
+      const iatAgeSeconds = nowSeconds - tokenPayload.iat
+      const eventEndTime = await admin.from('events').select('end_at').eq('id', event_id).maybeSingle()
+
+      // Hard reject: Future tokens (clock skew) or very old tokens after event end
+      if (tokenPayload.iat > nowSeconds + TOKEN_FUTURE_THRESHOLD_SECONDS) {
+        await admin.from('scan_logs').insert({
+          event_id,
+          scanner_user_id: user.id,
+          result: 'invalid',
+          details: {
+            qr_token: 'signed',
+            reason: 'future_token',
+            iat_age_seconds: iatAgeSeconds,
+            iat: tokenPayload.iat,
+            now: nowSeconds,
+          },
+        })
+        return ok(<ValidateResponse>{ success: false, result: 'invalid', message: 'Invalid code' })
+      }
+
+      // Hard reject: Very old tokens (>2 hours) AND event has ended
+      const eventEnded = eventEndTime?.data?.end_at && new Date(eventEndTime.data.end_at).getTime() < Date.now()
+      if (iatAgeSeconds > TOKEN_VERY_OLD_THRESHOLD_SECONDS && eventEnded) {
+        await admin.from('scan_logs').insert({
+          event_id,
+          scanner_user_id: user.id,
+          result: 'expired',
+          details: {
+            qr_token: 'signed',
+            reason: 'very_old_token_after_event_end',
+            iat_age_seconds: iatAgeSeconds,
+          },
+        })
+        return ok(<ValidateResponse>{ success: false, result: 'expired', message: 'QR code has expired' })
+      }
+      // Note: Soft anomaly logging happens later after ticket lookup
     } else {
       qr_token = qr_token.toUpperCase()
       if (!QR_RE.test(qr_token)) {
@@ -226,6 +273,63 @@ Deno.serve(async (req) => {
     }
     if (!allowed) {
       return ok(<ValidateResponse>{ success: false, result: 'invalid', message: 'Not authorized for this event' })
+    }
+
+    // --- Step 3: Rate Limiting ---
+    // Check per-scanner rate limit
+    const scannerRateLimitKey = `scanner:${event_id}:${user.id}`
+    const scannerRateLimit = await checkRateLimit(
+      admin,
+      scannerRateLimitKey,
+      SCANNER_RATE_LIMIT_PER_MINUTE,
+      60 // 1 minute window
+    )
+
+    if (!scannerRateLimit.allowed) {
+      await admin.from('scan_logs').insert({
+        event_id,
+        scanner_user_id: user.id,
+        result: 'invalid',
+        details: {
+          reason: 'rate_limit_exceeded',
+          rate_limit_type: 'per_scanner',
+          limit: scannerRateLimit.limit,
+          reset_at: scannerRateLimit.resetAt.toISOString(),
+        },
+      })
+      return ok(<ValidateResponse>{
+        success: false,
+        result: 'invalid',
+        message: `Rate limit exceeded. Maximum ${scannerRateLimit.limit} scans per minute. Try again in ${Math.ceil((scannerRateLimit.resetAt.getTime() - Date.now()) / 1000)} seconds.`,
+      })
+    }
+
+    // Check per-event global rate limit
+    const eventRateLimitKey = `scanner:event:${event_id}`
+    const eventRateLimit = await checkRateLimit(
+      admin,
+      eventRateLimitKey,
+      SCANNER_RATE_LIMIT_EVENT_PER_MINUTE,
+      60 // 1 minute window
+    )
+
+    if (!eventRateLimit.allowed) {
+      await admin.from('scan_logs').insert({
+        event_id,
+        scanner_user_id: user.id,
+        result: 'invalid',
+        details: {
+          reason: 'rate_limit_exceeded',
+          rate_limit_type: 'per_event',
+          limit: eventRateLimit.limit,
+          reset_at: eventRateLimit.resetAt.toISOString(),
+        },
+      })
+      return ok(<ValidateResponse>{
+        success: false,
+        result: 'invalid',
+        message: `Event scan rate limit exceeded. Maximum ${eventRateLimit.limit} scans per minute for this event.`,
+      })
     }
 
     // --- Lookup ticket by code ---
@@ -291,7 +395,7 @@ Deno.serve(async (req) => {
       return ok(<ValidateResponse>{ success: false, result: 'void', message: 'Ticket is void' })
     }
 
-    // Event ended?
+    // Event ended? (Redundant check - redeem_ticket_atomic will also check, but good to fail fast)
     const { data: evt, error: evtErr } = await admin.from('events').select('end_at').eq('id', event_id).single()
     if (!evtErr && evt?.end_at && new Date(evt.end_at).getTime() < Date.now()) {
       await admin.from('scan_logs').insert({
@@ -301,23 +405,28 @@ Deno.serve(async (req) => {
       return ok(<ValidateResponse>{ success: false, result: 'expired', message: 'Event has ended' })
     }
 
-    // --- Atomic redemption (prevents double-scan races) ---
-    // Only redeem if not already redeemed.
+    // --- Step 2: Use Atomic Redemption Function (with SELECT FOR UPDATE) ---
     const now = new Date().toISOString()
-    const { data: redeemedRow, error: updErr } = await admin
-      .from('tickets')
-      .update({ redeemed_at: now, status: 'redeemed' })
-      .eq('id', ticket.id)
-      .is('redeemed_at', null)               // <-- atomic guard
-      .select('id, redeemed_at')
-      .maybeSingle()
+    const nowSeconds = Math.floor(Date.now() / 1000)
+    
+    // Calculate iat age for anomaly detection
+    const iatAgeSeconds = tokenPayload ? nowSeconds - tokenPayload.iat : null
 
-    if (updErr) {
-      console.error('[scanner-validate] update error:', updErr)
-      return ok(<ValidateResponse>{ success: false, result: 'invalid', message: 'Could not update ticket' })
+    // Call atomic redemption function (replaces optimistic locking)
+    const { data: redemptionResult, error: redemptionErr } = await admin.rpc('redeem_ticket_atomic', {
+      p_ticket_id: ticket.id,
+      p_scanner_user_id: user.id,
+      p_event_id: event_id,
+    })
+
+    if (redemptionErr) {
+      console.error('[scanner-validate] redemption RPC error:', redemptionErr)
+      return ok(<ValidateResponse>{ success: false, result: 'invalid', message: 'Could not validate ticket' })
     }
 
-    // Fetch presentation data (safe to do after)
+    const redemption = redemptionResult as any
+
+    // Fetch presentation data
     const [{ data: tier }, { data: profile }] = await Promise.all([
       admin.from('ticket_tiers').select('name, badge_label').eq('id', ticket.tier_id).maybeSingle(),
       ticket.owner_user_id
@@ -332,33 +441,79 @@ Deno.serve(async (req) => {
       badge_label: tier?.badge_label ?? undefined,
     }
 
-    if (!redeemedRow) {
-      // Someone else redeemed first → treat as duplicate; get current redeemed_at
-      const { data: fresh } = await admin
-        .from('tickets')
-        .select('redeemed_at')
-        .eq('id', ticket.id)
-        .single()
-
-      const ts = fresh?.redeemed_at ?? ticket.redeemed_at ?? now
+    // Handle redemption result based on status
+    if (redemption.status === 'ALREADY_REDEEMED') {
       await admin.from('scan_logs').insert({
         event_id, ticket_id: ticket.id, scanner_user_id: user.id, result: 'duplicate',
-        details: { qr_token, original_redeemed_at: ts }
+        details: {
+          qr_token,
+          original_redeemed_at: redemption.timestamp,
+          iat_age_seconds: iatAgeSeconds,
+        }
       })
-
       return ok(<ValidateResponse>{
         success: false,
         result: 'duplicate',
-        message: `Already scanned at ${new Date(ts).toLocaleString()}`,
-        timestamp: ts,
+        message: redemption.message || `Already scanned at ${new Date(redemption.timestamp).toLocaleString()}`,
+        timestamp: redemption.timestamp,
         ticket: ticketInfo,
       })
     }
 
-    // Success
+    if (redemption.status === 'WRONG_EVENT' || redemption.status === 'NOT_FOUND' || redemption.status === 'INVALID_STATE') {
+      const result = redemption.status === 'WRONG_EVENT' ? 'wrong_event' :
+                     redemption.status === 'INVALID_STATE' ? (ticket.status === 'refunded' ? 'refunded' : 'void') : 'invalid'
+      
+      await admin.from('scan_logs').insert({
+        event_id, ticket_id: ticket.id, scanner_user_id: user.id, result,
+        details: { qr_token, reason: redemption.status, iat_age_seconds: iatAgeSeconds }
+      })
+      
+      return ok(<ValidateResponse>{
+        success: false,
+        result: result as Outcome,
+        message: redemption.message || 'Invalid ticket',
+        ticket: ticketInfo,
+      })
+    }
+
+    // --- Step 4: Anomaly Detection ---
+    let anomalyFlags: string[] = []
+    let anomalyDetails: any = {}
+
+    // Soft signal: Old token (but still allow scan)
+    if (iatAgeSeconds !== null && iatAgeSeconds > TOKEN_OLD_THRESHOLD_SECONDS) {
+      anomalyFlags.push('old_iat')
+      anomalyDetails.iat_age_seconds = iatAgeSeconds
+    }
+
+    // Call anomaly detection function
+    if (redemption.status === 'REDEEMED') {
+      const { data: anomalyResult } = await admin.rpc('detect_scan_anomaly', {
+        p_ticket_id: ticket.id,
+        p_token_age_seconds: iatAgeSeconds,
+        p_last_scan_seconds_ago: null, // Could enhance to pass last scan time
+      })
+
+      if (anomalyResult?.is_anomaly) {
+        anomalyFlags = [...anomalyFlags, ...(anomalyResult.anomaly_flags || [])]
+        anomalyDetails = { ...anomalyDetails, ...anomalyResult }
+      }
+    }
+
+    // Success - log with anomaly flags if any
     await admin.from('scan_logs').insert({
-      event_id, ticket_id: ticket.id, scanner_user_id: user.id, result: 'valid',
-      details: { qr_token, redeemed_at: now }
+      event_id,
+      ticket_id: ticket.id,
+      scanner_user_id: user.id,
+      result: 'valid',
+      details: {
+        qr_token,
+        redeemed_at: redemption.timestamp || now,
+        iat_age_seconds: iatAgeSeconds,
+        anomaly_flags: anomalyFlags.length > 0 ? anomalyFlags : undefined,
+        ...anomalyDetails,
+      }
     })
 
     return ok(<ValidateResponse>{
@@ -366,7 +521,7 @@ Deno.serve(async (req) => {
       result: 'valid',
       message: 'Ticket validated',
       ticket: ticketInfo,
-      timestamp: now,
+      timestamp: redemption.timestamp || now,
     })
   } catch (e: any) {
     console.error('[scanner-validate] fatal error:', e?.message || e)

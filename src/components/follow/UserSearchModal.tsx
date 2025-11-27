@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { FollowButton } from './FollowButton';
 import { handleUserFriendlyError } from '@/utils/errorMessages';
+import { useFollowBatch } from '@/hooks/useFollowBatch';
 
 interface UserSearchResult {
   user_id: string;
@@ -38,6 +39,18 @@ export function UserSearchModal({ open, onOpenChange, eventId, onSelectUser }: U
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+
+  // 🚀 PERF: Batch fetch follow states for all search results to avoid N+1 queries
+  const searchResultUserIds = useMemo(
+    () => searchResults.map(user => user.user_id),
+    [searchResults]
+  );
+
+  const { followMap } = useFollowBatch({
+    targetType: 'user',
+    targetIds: searchResultUserIds,
+    enabled: searchResults.length > 0 && open, // Only fetch when modal is open and has results
+  });
 
   const searchUsers = useCallback(async (query: string) => {
     if (!query.trim() || !user) return;
@@ -198,7 +211,10 @@ export function UserSearchModal({ open, onOpenChange, eventId, onSelectUser }: U
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            {eventId ? 'Find People at This Event' : 'Find People to Follow'}
+            {onSelectUser 
+              ? (eventId ? 'Find People at This Event' : 'Find People to Message')
+              : (eventId ? 'Find People at This Event' : 'Find People to Follow')
+            }
           </DialogTitle>
           <DialogDescription className="sr-only">
             Search for users by name to follow or message
@@ -295,41 +311,72 @@ export function UserSearchModal({ open, onOpenChange, eventId, onSelectUser }: U
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      {/* Follow Button */}
-                      {user.current_user_follow_status === 'none' && (
-                        <FollowButton
-                          targetType="user"
-                          targetId={user.user_id}
-                          size="sm"
-                          onFollowUpdate={(status) => handleFollowUpdate(user.user_id, status)}
-                        />
-                      )}
-                      
-                      {user.current_user_follow_status === 'pending' && (
-                        <span className="text-xs text-muted-foreground font-medium px-3 py-1.5 bg-muted/50 rounded-full">
-                          Requested
-                        </span>
-                      )}
-                      
-                      {user.current_user_follow_status === 'accepted' && (
+                      {/* If onSelectUser is provided (messaging context), show Message button */}
+                      {onSelectUser ? (
                         <Button
-                          variant="ghost"
+                          variant="default"
                           size="sm"
-                          className="h-8 text-xs px-3 rounded-full"
+                          className="h-8 text-xs px-3 rounded-full gap-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Could add unfollow logic here
+                            handleStartMessage(user.user_id);
                           }}
                         >
-                          <UserCheck className="h-3 w-3 mr-1" />
-                          Following
+                          <MessageCircle className="h-3 w-3" />
+                          Message
                         </Button>
-                      )}
-                      
-                      {user.current_user_follow_status === 'declined' && (
-                        <span className="text-xs text-muted-foreground font-medium">
-                          Declined
-                        </span>
+                      ) : (
+                        /* Otherwise, show Follow Button - Use batch-loaded status or fallback to search result status */
+                        (() => {
+                          // Use batch-loaded follow state if available, otherwise use search result status
+                          const followState = followMap[user.user_id] ?? user.current_user_follow_status;
+                          
+                          if (followState === 'none') {
+                            return (
+                              <FollowButton
+                                targetType="user"
+                                targetId={user.user_id}
+                                size="sm"
+                                onFollowUpdate={(status) => handleFollowUpdate(user.user_id, status)}
+                              />
+                            );
+                          }
+                          
+                          if (followState === 'pending') {
+                            return (
+                              <span className="text-xs text-muted-foreground font-medium px-3 py-1.5 bg-muted/50 rounded-full">
+                                Requested
+                              </span>
+                            );
+                          }
+                          
+                          if (followState === 'accepted') {
+                            return (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-xs px-3 rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Could add unfollow logic here
+                                }}
+                              >
+                                <UserCheck className="h-3 w-3 mr-1" />
+                                Following
+                              </Button>
+                            );
+                          }
+                          
+                          if (followState === 'declined') {
+                            return (
+                              <span className="text-xs text-muted-foreground font-medium">
+                                Declined
+                              </span>
+                            );
+                          }
+                          
+                          return null;
+                        })()
                       )}
                     </div>
               </div>

@@ -4,7 +4,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useCallback, useMemo, useState, type ReactNode, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AuthModal from './AuthModal';
-import { PostCreatorModal } from './PostCreatorModal';
+import { PostCreatorModal } from '@/features/posts';
 import { PurchaseGateModal } from './PurchaseGateModal';
 import { OrganizerMenu } from './OrganizerMenu';
 import { toast } from '@/hooks/use-toast';

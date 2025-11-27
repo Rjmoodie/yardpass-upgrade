@@ -1057,86 +1057,86 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
 
           <TabsContent value="overview" className="space-y-4">
             {/* Enhanced Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-              <Card className="border-border hover:shadow-md transition-all">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Calendar className="w-5 h-5 text-primary" />
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+              <Card className="border-border/50 bg-gradient-to-br from-background to-primary/5 hover:shadow-lg hover:border-primary/20 transition-all duration-300 group">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col items-center text-center gap-2.5 sm:gap-3">
+                    <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary/20 transition-colors shadow-sm">
+                      <Ticket className="w-6 h-6 text-primary" />
                     </div>
-                    <div>
-                      <div className="text-2xl font-bold">{soldTickets}</div>
-                      <div className="text-sm text-muted-foreground">Tickets Sold</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border hover:shadow-md transition-all">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center">
-                      <Users className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold">{totalAttendees}</div>
-                      <div className="text-sm text-muted-foreground">Total Attendees</div>
+                    <div className="w-full">
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">{soldTickets}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground font-medium">Tickets Sold</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-border hover:shadow-md transition-all">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center">
-                      <DollarSign className="w-5 h-5 text-blue-600" />
+              <Card className="border-border/50 bg-gradient-to-br from-background to-green-500/5 hover:shadow-lg hover:border-green-500/20 transition-all duration-300 group">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col items-center text-center gap-2.5 sm:gap-3">
+                    <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center group-hover:bg-green-500/20 transition-colors shadow-sm">
+                      <Users className="w-6 h-6 text-green-600" />
                     </div>
-                    <div>
-                      <div className="text-2xl font-bold">${ticketStats.totalRevenue.toLocaleString()}</div>
-                      <div className="text-sm text-muted-foreground">Net Revenue</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border hover:shadow-md transition-all">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-500/10 rounded-full flex items-center justify-center">
-                      <Scan className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold">{checkedInCount}</div>
-                      <div className="text-sm text-muted-foreground">Checked In</div>
+                    <div className="w-full">
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">{totalAttendees}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground font-medium">Total Attendees</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-border hover:shadow-md transition-all">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-brand-500/10 rounded-full flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-brand-600" />
+              <Card className="border-border/50 bg-gradient-to-br from-background to-blue-500/5 hover:shadow-lg hover:border-blue-500/20 transition-all duration-300 group">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col items-center text-center gap-2.5 sm:gap-3">
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center group-hover:bg-blue-500/20 transition-colors shadow-sm">
+                      <DollarSign className="w-6 h-6 text-blue-600" />
                     </div>
-                    <div>
-                      <div className="text-2xl font-bold">${ticketStats.averagePrice.toFixed(0)}</div>
-                      <div className="text-sm text-muted-foreground">Avg Price</div>
+                    <div className="w-full">
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">${ticketStats.totalRevenue.toLocaleString()}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground font-medium">Net Revenue</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-border hover:shadow-md transition-all">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center">
-                      <BarChart3 className="w-5 h-5 text-red-600" />
+              <Card className="border-border/50 bg-gradient-to-br from-background to-purple-500/5 hover:shadow-lg hover:border-purple-500/20 transition-all duration-300 group">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col items-center text-center gap-2.5 sm:gap-3">
+                    <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500/20 transition-colors shadow-sm">
+                      <Scan className="w-6 h-6 text-purple-600" />
                     </div>
-                    <div>
-                      <div className="text-2xl font-bold">{ticketStats.refundRate.toFixed(1)}%</div>
-                      <div className="text-sm text-muted-foreground">Refund Rate</div>
+                    <div className="w-full">
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">{checkedInCount}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground font-medium">Checked In</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/50 bg-gradient-to-br from-background to-amber-500/5 hover:shadow-lg hover:border-amber-500/20 transition-all duration-300 group">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col items-center text-center gap-2.5 sm:gap-3">
+                    <div className="w-12 h-12 bg-amber-500/10 rounded-xl flex items-center justify-center group-hover:bg-amber-500/20 transition-colors shadow-sm">
+                      <TrendingUp className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <div className="w-full">
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">${ticketStats.averagePrice.toFixed(0)}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground font-medium">Avg Price</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/50 bg-gradient-to-br from-background to-red-500/5 hover:shadow-lg hover:border-red-500/20 transition-all duration-300 group">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col items-center text-center gap-2.5 sm:gap-3">
+                    <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center group-hover:bg-red-500/20 transition-colors shadow-sm">
+                      <BarChart3 className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div className="w-full">
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">{ticketStats.refundRate.toFixed(1)}%</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground font-medium">Refund Rate</div>
                     </div>
                   </div>
                 </CardContent>
@@ -1149,20 +1149,20 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                 <CardTitle className="text-accent">Live Activity</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 border border-accent rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{realTimeStats.validScans}</div>
-                    <div className="text-sm text-accent-muted">Valid Scans</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="text-center p-4 sm:p-5 border border-accent rounded-lg">
+                    <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-1">{realTimeStats.validScans}</div>
+                    <div className="text-xs sm:text-sm text-accent-muted font-medium">Valid Scans</div>
                   </div>
-                  <div className="text-center p-4 border border-accent rounded-lg">
-                    <div className="text-2xl font-bold text-red-600">{realTimeStats.duplicateScans}</div>
-                    <div className="text-sm text-accent-muted">Duplicate Scans</div>
+                  <div className="text-center p-4 sm:p-5 border border-accent rounded-lg">
+                    <div className="text-2xl sm:text-3xl font-bold text-red-600 mb-1">{realTimeStats.duplicateScans}</div>
+                    <div className="text-xs sm:text-sm text-accent-muted font-medium">Duplicate Scans</div>
                   </div>
-                  <div className="text-center p-4 border border-accent rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">
+                  <div className="text-center p-4 sm:p-5 border border-accent rounded-lg">
+                    <div className="text-2xl sm:text-3xl font-bold text-blue-600 mb-1">
                       {realTimeStats.lastScanTime ? 'Live' : 'Offline'}
                     </div>
-                    <div className="text-sm text-accent-muted">Scanner Status</div>
+                    <div className="text-xs sm:text-sm text-accent-muted font-medium">Scanner Status</div>
                   </div>
                 </div>
               </CardContent>
@@ -1171,66 +1171,67 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
             {/* Quick Actions */}
             <Card className="border-none shadow-none bg-transparent">
               <CardHeader className="px-0">
-                <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+                <CardTitle className="text-base sm:text-lg font-semibold">Quick Actions</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3 px-0">
+              <CardContent className="grid grid-cols-2 gap-3 sm:gap-4 px-0">
                 <Button 
                   variant="ghost" 
-                  className="h-auto flex-col gap-3 p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
+                  className="h-auto flex-col items-center justify-center gap-2.5 sm:gap-3 p-4 sm:p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
                   onClick={() => setActiveTab('scanner')}
                 >
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                     <Scan className="w-6 h-6 text-primary" />
                   </div>
-                  <span className="text-sm font-medium">Check-in Scanner</span>
+                  <span className="text-xs sm:text-sm font-medium text-center">Check-in Scanner</span>
                 </Button>
                 <Button 
                   variant="ghost" 
-                  className="h-auto flex-col gap-3 p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
+                  className="h-auto flex-col items-center justify-center gap-2.5 sm:gap-3 p-4 sm:p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
                   onClick={handleExportAttendees}
                 >
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                     <Download className="w-6 h-6 text-primary" />
                   </div>
-                  <span className="text-sm font-medium">Export Guest List</span>
+                  <span className="text-xs sm:text-sm font-medium text-center">Export Guest List</span>
                 </Button>
                 <Button 
                   variant="ghost" 
-                  className="h-auto flex-col gap-3 p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
+                  className="h-auto flex-col items-center justify-center gap-2.5 sm:gap-3 p-4 sm:p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
                   onClick={() => setActiveTab('attendees')}
                 >
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                     <Users className="w-6 h-6 text-primary" />
                   </div>
-                  <span className="text-sm font-medium">View Attendees</span>
+                  <span className="text-xs sm:text-sm font-medium text-center">View Attendees</span>
                 </Button>
                 <Button 
                   variant="ghost" 
-                  className="h-auto flex-col gap-3 p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
+                  className="h-auto flex-col items-center justify-center gap-2.5 sm:gap-3 p-4 sm:p-6 bg-card hover:bg-accent/5 border border-border rounded-xl transition-all hover:shadow-md group"
                   onClick={() => setActiveTab('settings')}
                 >
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                     <Settings className="w-6 h-6 text-primary" />
                   </div>
-                  <span className="text-sm font-medium">Event Settings</span>
+                  <span className="text-xs sm:text-sm font-medium text-center">Event Settings</span>
                 </Button>
               </CardContent>
             </Card>
 
             {/* Ticket Tiers Management */}
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Ticket Tiers</CardTitle>
-                  <div className="flex gap-2">
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="text-lg sm:text-xl">Ticket Tiers</CardTitle>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={fetchTicketTiers}
                       disabled={isLoadingTiers}
+                      className="flex-1 sm:flex-initial min-w-[100px] sm:min-w-0"
                     >
-                      <RefreshCw className={`w-4 h-4 mr-1 ${isLoadingTiers ? 'animate-spin' : ''}`} />
-                      Refresh
+                      <RefreshCw className={`w-4 h-4 sm:mr-1.5 ${isLoadingTiers ? 'animate-spin' : ''}`} />
+                      <span className="hidden xs:inline">Refresh</span>
                     </Button>
                     <Button
                       size="sm"
@@ -1259,14 +1260,15 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                         setEditableTiers([...editableTiers, newTier]);
                         setExpandedTiers({ ...expandedTiers, [newTier.id]: true });
                       }}
+                      className="flex-1 sm:flex-initial min-w-[100px] sm:min-w-0"
                     >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Add Tier
+                      <Plus className="w-4 h-4 sm:mr-1.5" />
+                      <span>Add Tier</span>
                     </Button>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6">
                 {isLoadingTiers ? (
                   <div className="text-center py-8 text-muted-foreground">Loading ticket tiers...</div>
                 ) : editableTiers.length === 0 ? (
@@ -1283,15 +1285,15 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
 
                     return (
                       <Card key={tier.id} className="border-muted">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3 sm:p-4 md:p-5">
                           {tier.isEditing ? (
                             // Edit Mode
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between mb-4">
-                                <h4 className="text-sm font-medium">
+                            <div className="space-y-3 sm:space-y-4">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <h4 className="text-sm sm:text-base font-medium">
                                   {tier.isNew ? 'New Tier' : `Edit Tier ${index + 1}`}
                                 </h4>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2 sm:gap-3">
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -1304,6 +1306,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                                         ));
                                       }
                                     }}
+                                    className="flex-1 sm:flex-initial min-w-[80px]"
                                   >
                                     Cancel
                                   </Button>
@@ -1405,14 +1408,15 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                                       }
                                     }}
                                     disabled={isSavingTiers}
+                                    className="flex-1 sm:flex-initial min-w-[80px]"
                                   >
-                                    <Save className="w-4 h-4 mr-1" />
-                                    {isSavingTiers ? 'Saving...' : 'Save'}
+                                    <Save className="w-4 h-4 sm:mr-1.5" />
+                                    <span>{isSavingTiers ? 'Saving...' : 'Save'}</span>
                                   </Button>
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div className="space-y-2">
                                   <label className="text-sm font-medium">Tier Name *</label>
                                   <Input
@@ -1604,22 +1608,22 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                           ) : (
                             // View Mode
                             <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <Badge variant="outline">{tier.badge_label}</Badge>
-                                  <div>
-                                    <div className="font-medium">{tier.name}</div>
-                                    <div className="text-sm text-muted-foreground">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                  <Badge variant="outline" className="shrink-0">{tier.badge_label}</Badge>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-medium text-sm sm:text-base truncate">{tier.name}</div>
+                                    <div className="text-xs sm:text-sm text-muted-foreground break-words">
                                       ${(tier.price_cents / 100).toFixed(2)} • {sold}/{tier.quantity} sold ({percentage}%) • {available} available
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <div className="text-right">
-                                    <div className="font-medium">${((tier.price_cents / 100) * sold).toLocaleString()}</div>
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                  <div className="text-right shrink-0">
+                                    <div className="font-medium text-sm sm:text-base">${((tier.price_cents / 100) * sold).toLocaleString()}</div>
                                     <div className="text-xs text-muted-foreground">Revenue</div>
                                   </div>
-                                  <div className="flex gap-1">
+                                  <div className="flex gap-1 sm:gap-2 shrink-0">
                                     <Button
                                       size="sm"
                                       variant="ghost"
@@ -1628,6 +1632,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                                           t.id === tier.id ? { ...t, isEditing: true } : t
                                         ))
                                       }
+                                      className="h-8 w-8 sm:h-9 sm:w-9 p-0"
                                     >
                                       <Edit className="w-4 h-4" />
                                     </Button>

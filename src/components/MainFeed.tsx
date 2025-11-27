@@ -9,7 +9,7 @@ import { AttendeeListModal } from '@/components/AttendeeListModal';
 import { Heart, MessageCircle, Share, MoreVertical, MapPin, Calendar, Crown, Users, Plus } from 'lucide-react';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { toast } from '@/hooks/use-toast';
-import { PostCreatorModal } from '@/components/PostCreatorModal';
+import { PostCreatorModal } from '@/features/posts';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '@/lib/routes';
 import { capture } from '@/lib/analytics';

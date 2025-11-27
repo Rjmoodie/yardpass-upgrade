@@ -21,6 +21,7 @@ import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { CapacitorBarcodeScanner, CapacitorBarcodeScannerTypeHint } from '@capacitor/barcode-scanner';
 import { LiventixSpinner } from '@/components/LoadingSpinner';
+import { getCapacitorState } from '@/lib/capacitor-init';
 
 interface ScannerViewProps {
   eventId: string;
@@ -70,6 +71,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   const detectorRef = useRef<any>();
   const cooldownRef = useRef<number>(0);
   const duplicateCache = useRef<Map<string, number>>(new Map());
+  const scanLoopRef = useRef<(() => Promise<void>) | null>(null);
 
   const [mode, setMode] = useState<'camera' | 'manual'>('camera');
   const [manualCode, setManualCode] = useState('');
@@ -80,12 +82,77 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   const [initializing, setInitializing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanLocked, setScanLocked] = useState(false);
+  const [availability, setAvailability] = useState<'checking' | 'available' | 'unavailable'>('checking');
 
   const isNative = Capacitor.isNativePlatform();
   const detectorSupported = useMemo(() => {
     if (isNative) return true; // Capacitor BarcodeScanner works on native
     return typeof window !== 'undefined' && 'BarcodeDetector' in window;
   }, [isNative]);
+
+  // User-friendly error messages
+  const ERROR_MESSAGES: Record<string, string> = {
+    capacitor_missing: 'Camera scanner is not available. Please use manual code entry.',
+    plugin_unavailable: 'QR scanner needs to be enabled. Try again or use manual entry.',
+    permission_denied: 'Camera permission is required. Please enable it in your device Settings.',
+    default: 'Unable to start camera scanner. Please use manual code entry.',
+  };
+
+  const getUserFriendlyError = (reason?: string): string => {
+    return ERROR_MESSAGES[reason || 'default'] || ERROR_MESSAGES.default;
+  };
+
+  // Check if Capacitor scanner is ready to use (Step 5.1)
+  const checkCapacitorScannerReady = useCallback(async (): Promise<{
+    ready: boolean;
+    reason?: 'capacitor_missing' | 'plugin_unavailable' | 'not_native' | 'permission_denied';
+    error?: string;
+  }> => {
+    // Check 1: Capacitor runtime
+    if (typeof Capacitor === 'undefined') {
+      return {
+        ready: false,
+        reason: 'capacitor_missing',
+        error: 'Capacitor runtime not loaded',
+      };
+    }
+
+    // Check 2: Platform detection
+    const isNativePlatform = Capacitor.isNativePlatform();
+    if (!isNativePlatform) {
+      // Web platform is fine, will use BarcodeDetector API
+      return { ready: true };
+    }
+
+    // Check 3: Plugin availability
+    if (!Capacitor.isPluginAvailable('BarcodeScanner')) {
+      return {
+        ready: false,
+        reason: 'plugin_unavailable',
+        error: 'BarcodeScanner plugin not registered',
+      };
+    }
+
+    // Check 4: Plugin initialization (optional, via capacitor-init state)
+    try {
+      const state = getCapacitorState();
+      const scannerStatus = state?.plugins?.barcodeScanner;
+      
+      if (scannerStatus && !scannerStatus.available) {
+        return {
+          ready: false,
+          reason: 'plugin_unavailable',
+          error: 'BarcodeScanner plugin not initialized',
+        };
+      }
+    } catch (err) {
+      // capacitor-init not available, continue anyway (plugin might still work)
+      console.warn('[Scanner] Could not check capacitor-init state:', err);
+    }
+
+    // All checks passed
+    return { ready: true };
+  }, []);
 
   const stopCamera = useCallback(async () => {
     // Clear scan loop reference
@@ -144,11 +211,33 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
     if (!detectorSupported) {
       setCameraError('Camera scanning is not supported on this device. Switch to manual entry.');
       setMode('manual');
+      setAvailability('unavailable');
       return;
     }
+    
     setInitializing(true);
     setCameraError(null);
+    setAvailability('checking');
+    
     try {
+      // Step 5.2: Pre-flight availability check for native platforms
+      if (isNative) {
+        const availabilityCheck = await checkCapacitorScannerReady();
+        
+        if (!availabilityCheck.ready) {
+          const friendlyError = getUserFriendlyError(availabilityCheck.reason);
+          setCameraError(friendlyError);
+          setAvailability('unavailable');
+          setMode('manual');
+          setInitializing(false);
+          return;
+        }
+        
+        setAvailability('available');
+      } else {
+        setAvailability('available');
+      }
+      
       // Use Capacitor BarcodeScanner on native platforms
       if (isNative) {
         // Continuous scanning loop using the new API
@@ -232,12 +321,44 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
       }
     } catch (err: any) {
       console.error('Camera start failed', err);
-      setCameraError(err.message || 'We could not access the camera. Check permissions or use manual entry.');
+      
+      // Step 5.3: User-friendly error messages
+      const errMsg = err?.message?.toLowerCase() || '';
+      let errorReason: string | undefined;
+      
+      if (errMsg.includes('permission') || errMsg.includes('denied')) {
+        errorReason = 'permission_denied';
+      } else if (errMsg.includes('capacitor') || errMsg.includes('plugin')) {
+        errorReason = 'plugin_unavailable';
+      }
+      
+      setCameraError(getUserFriendlyError(errorReason));
+      setAvailability('unavailable');
       setMode('manual');
     } finally {
       setInitializing(false);
+      if (availability === 'checking') {
+        setAvailability('available');
+      }
     }
-  }, [detectorSupported, isNative, mode, scanLocked, handlePayload]);
+  }, [detectorSupported, isNative, mode, scanLocked, handlePayload, checkCapacitorScannerReady, getUserFriendlyError, availability]);
+
+  // Step 5.4: Check availability on mount (progressive enhancement)
+  useEffect(() => {
+    const checkAvailability = async () => {
+      if (!isNative) {
+        // Web - check BarcodeDetector
+        setAvailability('BarcodeDetector' in window ? 'available' : 'unavailable');
+        return;
+      }
+      
+      // Native - check Capacitor scanner
+      const check = await checkCapacitorScannerReady();
+      setAvailability(check.ready ? 'available' : 'unavailable');
+    };
+    
+    void checkAvailability();
+  }, [isNative, checkCapacitorScannerReady]);
 
   useEffect(() => {
     if (mode === 'camera') {
@@ -361,12 +482,26 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 border-primary/30 bg-primary/10 text-white hover:bg-primary/20"
+            className="gap-2 border-primary/30 bg-primary/10 text-white hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={() => setMode((prev) => (prev === 'camera' ? 'manual' : 'camera'))}
+            disabled={availability === 'checking' || (mode === 'camera' && availability === 'unavailable')}
             aria-label="Toggle scanning mode"
           >
-            {mode === 'camera' ? <QrCode className="h-4 w-4" aria-hidden /> : <Camera className="h-4 w-4" aria-hidden />}
-            {mode === 'camera' ? 'Manual' : 'Camera'}
+            {mode === 'camera' ? (
+              <>
+                <QrCode className="h-4 w-4" aria-hidden />
+                Manual
+              </>
+            ) : (
+              <>
+                {availability === 'checking' ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Camera className="h-4 w-4" aria-hidden />
+                )}
+                Camera
+              </>
+            )}
           </Button>
         </div>
       </header>

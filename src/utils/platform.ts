@@ -90,3 +90,29 @@ export const openMap = (address: string): void => {
     window.open(googleMapsUrl, '_blank');
   }
 };
+
+// Phone call utilities
+export const callPhoneNumber = (phoneNumber: string): void => {
+  try {
+    // Clean the phone number (remove spaces, dashes, etc.)
+    const cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    const telUrl = `tel:${cleaned}`;
+    
+    // Create a link and click it to initiate the call
+    const link = document.createElement('a');
+    link.href = telUrl;
+    link.click();
+  } catch (error) {
+    console.error('Failed to initiate phone call:', error);
+  }
+};
+
+// Email utilities
+export const sendEmail = (email: string, subject?: string, body?: string): void => {
+  try {
+    const mailtoUrl = `mailto:${email}${subject ? `?subject=${encodeURIComponent(subject)}` : ''}${body ? `${subject ? '&' : '?'}body=${encodeURIComponent(body)}` : ''}`;
+    window.open(mailtoUrl, '_blank');
+  } catch (error) {
+    console.error('Failed to open email client:', error);
+  }
+};

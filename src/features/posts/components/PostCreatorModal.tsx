@@ -20,7 +20,7 @@ import {
   History,
   Camera as CameraIcon,
 } from 'lucide-react';
-import { VideoRecorder } from './VideoRecorder';
+import { VideoRecorder } from '@/components/VideoRecorder';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileView } from '@/contexts/ProfileViewContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,7 +28,10 @@ import { toast } from '@/hooks/use-toast';
 import { capturePhotoAsFile } from '@/lib/camera';
 import { Capacitor } from '@capacitor/core';
 import { useKeyboardPadding } from '@/hooks/useKeyboard';
-import { ProfileCompletionModal } from './auth/ProfileCompletionModal';
+import { ProfileCompletionModal } from '@/components/auth/ProfileCompletionModal';
+import { usePostCreation } from '@/features/posts/hooks/usePostCreation';
+import { logger } from '@/utils/logger';
+import type { QueuedFile } from '@/features/posts/hooks/usePostCreation';
 
 // Optional: if you have analytics
 // import { useAnalytics } from '@/hooks/useAnalytics';
@@ -233,7 +236,6 @@ export function PostCreatorModal({
   const [content, setContent] = useState('');
   const [selectedEventId, setSelectedEventId] = useState(preselectedEventId || '');
   const [userTickets, setUserTickets] = useState<UserTicket[]>([]);
-  const [loading, setLoading] = useState(false);
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
@@ -247,6 +249,20 @@ export function PostCreatorModal({
   const submittingRef = useRef(false);
   const imageInputId = useId();
   const videoInputId = useId();
+
+  // Use post creation hook
+  const { createPost: createPostWithMedia, isSubmitting } = usePostCreation({
+    userId: user?.id || '',
+    onProgress: (fileIndex, patch) => {
+      setQueue((prev) => {
+        const copy = [...prev];
+        if (copy[fileIndex]) {
+          copy[fileIndex] = { ...copy[fileIndex], ...patch };
+        }
+        return copy;
+      });
+    },
+  });
 
   // iOS keyboard handling - add 80px buffer for footer buttons
   const keyboardPadding = useKeyboardPadding(80);
@@ -618,7 +634,7 @@ export function PostCreatorModal({
               if (blob) previewUrl = URL.createObjectURL(blob);
             }
           } catch (err) {
-            console.debug('Video thumbnail generation failed (this is OK on Safari):', err);
+            logger.debug('Video thumbnail generation failed (this is OK on Safari):', err);
             // On Safari, we'll use the direct video URL as fallback
           }
         }
@@ -853,7 +869,7 @@ export function PostCreatorModal({
   };
 
   /** -------------- Submit -------------- */
-  const canPost = !!selectedEventId && content.trim().length > 0 && !loading;
+  const canPost = !!selectedEventId && content.trim().length > 0 && !isSubmitting;
 
   const handleSubmit = async () => {
     if (submittingRef.current) return;
@@ -916,57 +932,49 @@ export function PostCreatorModal({
     }
 
     submittingRef.current = true;
-    setLoading(true);
     try {
       // Remember user's last used event
       try {
         localStorage.setItem(LAST_EVENT_KEY(user?.id), selectedEventId);
       } catch {}
 
-      const media_urls = await uploadQueue();
-
       const userTicket = userTickets.find((t) => t.event_id === selectedEventId);
 
-      const { data: result, error } = await supabase.functions.invoke('posts-create', {
-        body: {
+      // Use hook to create post
+      const result = await createPostWithMedia(
+        {
           event_id: selectedEventId,
-          text: content,
-          media_urls,
+          text: content.trim(),
           ticket_tier_id: userTicket?.tier_id,
         },
-      });
-      if (error) throw error;
-
-      // track?.('post_created', { event_id: selectedEventId, media_count: media_urls.length });
-
-      toast({
-        title: 'Posted Successfully!',
-        description: `Your post has been shared to ${result?.data?.event_title || 'the event'}`,
-      });
-
-      window.dispatchEvent(
-        new CustomEvent('postCreated', {
-          detail: {
-            eventId: selectedEventId,
-            postId: result?.data?.id,
-            eventTitle: result?.data?.event_title,
-            timestamp: new Date().toISOString(),
-          },
-        })
+        queue
       );
 
-      // reset
-      setContent('');
-      clearAll();
-      if (!preselectedEventId) setSelectedEventId('');
+      if (result.success) {
+        toast({
+          title: 'Posted Successfully!',
+          description: `Your post has been shared!`,
+        });
 
-      // clear draft
-      try {
-        localStorage.removeItem(DRAFT_KEY(user?.id));
-      } catch {}
+        // reset
+        setContent('');
+        clearAll();
+        if (!preselectedEventId) setSelectedEventId('');
 
-      onSuccess?.();
-      onClose();
+        // clear draft
+        try {
+          localStorage.removeItem(DRAFT_KEY(user?.id));
+        } catch {}
+
+        onSuccess?.();
+        onClose();
+      } else {
+        toast({
+          title: 'Post Failed',
+          description: result.error || 'Unable to create post. Please try again.',
+          variant: 'destructive',
+        });
+      }
     } catch (err: any) {
       console.error('Post creation failed:', err);
       toast({
@@ -975,7 +983,6 @@ export function PostCreatorModal({
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
       submittingRef.current = false;
     }
   };
@@ -991,7 +998,7 @@ export function PostCreatorModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none max-h-[92dvh]" aria-busy={loading}>
+        <DialogContent className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none max-h-[92dvh]" aria-busy={isSubmitting}>
           <div className="flex h-[92dvh] flex-col rounded-3xl border-2 border-border bg-background shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 dark:border-white/20">
             <div className="relative overflow-hidden">
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/20 via-background/60 to-background" />
@@ -1298,9 +1305,9 @@ export function PostCreatorModal({
                           onClick={handleSubmit}
                           disabled={!canPost}
                           className="rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl sm:min-w-[160px]"
-                          aria-busy={loading}
+                          aria-busy={isSubmitting}
                         >
-                          {loading ? (
+                          {isSubmitting ? (
                             <div className="flex items-center gap-2">
                               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
                               Posting…

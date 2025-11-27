@@ -413,11 +413,17 @@ const handler = withCORS(async (req: Request) => {
   
   try {
     const origin = req.headers.get("Origin") || "";
-    const allowOrigin = computeAllowedOrigin(origin);
-
-    if (!allowOrigin) {
-      return json(403, { error: "Origin not allowed" });
+    
+    // ✅ FIXED: Only enforce origin check for browser requests
+    // Native iOS/Android apps may not send Origin header or send non-HTTP origins (e.g. capacitor://)
+    // CORS restrictions don't apply the same way for native apps
+    if (origin) {
+      const allowOrigin = computeAllowedOrigin(origin);
+      if (!allowOrigin) {
+        return json(403, { error: "Origin not allowed" });
+      }
     }
+    // If no origin (native app), skip origin check and trust auth header
 
     const isGet = req.method === "GET";
     const payload = isGet
@@ -658,49 +664,10 @@ const handler = withCORS(async (req: Request) => {
 /** ---------------------------
  *   SERVER BOOTSTRAP
  * ---------------------------- */
-Deno.serve(async (req: Request) => {
-  const origin = req.headers.get("Origin") || "";
-  
-  // Detect mobile app origins (Capacitor, Ionic, etc.)
-  const isMobileApp = !origin || origin === "null" || origin === "" || 
-                     origin.startsWith("capacitor://") || 
-                     origin.startsWith("ionic://") ||
-                     origin.startsWith("http://localhost");
-  
-  const allowOrigin = computeAllowedOrigin(origin) || (isMobileApp ? "*" : null);
-
-  // OPTIONS preflight - Always allow for mobile apps
-  if (req.method === "OPTIONS") {
-    // For mobile apps, always allow OPTIONS
-    const finalAllowOrigin = allowOrigin || (isMobileApp ? "*" : null);
-    
-    if (!finalAllowOrigin) {
-      return new Response(null, { status: 403 });
-    }
-    
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": finalAllowOrigin,
-        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-        "Access-Control-Allow-Headers":
-          "authorization, x-client-info, apikey, content-type, if-none-match, " + INTERNAL_OVERRIDE_HEADER,
-        "Access-Control-Max-Age": "86400",
-      },
-    });
-  }
-
-  // Reject disallowed origins early (but allow mobile apps)
-  if (!allowOrigin && !isMobileApp) {
-    return json(403, { error: "Origin not allowed" });
-  }
-
-  const res = await handler(req);
-  const headers = new Headers(res.headers);
-  headers.set("Access-Control-Allow-Origin", allowOrigin || "*");
-  headers.set("Vary", "Origin");
-  return new Response(res.body, { status: res.status, headers });
-});
+// ✅ FIXED: Remove redundant CORS logic - withCORS wrapper already handles it
+// The outer Deno.serve was blocking iOS requests with 403 before withCORS could handle them
+// withCORS already handles OPTIONS preflight and sets CORS headers correctly with allowOrigins: ['*']
+Deno.serve((req) => handler(req));
 
 /** ---------------------------
  *   EXPANSION (PARALLELIZED)
@@ -773,7 +740,27 @@ async function expandRows({
 
   const [{ data: events, error: eventsError }, postsRes, sponsorsRes, likesRes, ticketsRes] =
     await Promise.all([eventsQ, postsQ, sponsorsQ, likesQ, ticketsQ]);
-  if (eventsError) throw eventsError;
+  
+  // Log for debugging guest feed issues
+  if (!viewerId) {
+    console.log('[home-feed] Guest feed expansion:', {
+      eventIds_requested: eventIds.length,
+      events_fetched: events?.length ?? 0,
+      postIds_requested: postIds.length,
+      posts_fetched: postsRes?.data?.length ?? 0,
+      eventsError: eventsError ? eventsError.message : null,
+      item_types_in_rows: {
+        events: rows.filter((r: any) => r.item_type === 'event').length,
+        posts: rows.filter((r: any) => r.item_type === 'post').length,
+      }
+    });
+  }
+  
+  if (eventsError) {
+    console.error('[home-feed] Events query error:', eventsError);
+    // Don't throw - allow posts to still be returned even if events fail
+    // This prevents guest feed from completely breaking if there's an RLS issue
+  }
 
   // Performance: Phase 1 queries completed
   monitor.mark('phase1_queries_completed');
@@ -835,7 +822,23 @@ async function expandRows({
   const expandedRows = rows
     .map((row) => {
       const ev = eMap.get(row.event_id);
-      if (!ev) return null;
+      
+      // For events, if we can't find the event data, skip it (RLS might have blocked it)
+      // For posts, we still need the event data for context, so handle gracefully
+      if (row.item_type === 'event' && !ev) {
+        if (!viewerId) {
+          console.warn(`[home-feed] Guest: Event ${row.event_id} not found in eMap (RLS may have blocked it)`);
+        }
+        return null;
+      }
+      
+      // For posts, if event is missing, we can still show the post but log it
+      if (row.item_type === 'post' && !ev) {
+        console.warn(`[home-feed] Post ${row.item_id} references event ${row.event_id} that was not found (RLS may have blocked it)`);
+        // Continue to post rendering - it will use fallback values
+      }
+      
+      if (!ev && row.item_type === 'event') return null;
 
       const sponsorEntry = sponsorMap.get(row.event_id);
       const primarySponsor = sponsorEntry?.primary ?? null;

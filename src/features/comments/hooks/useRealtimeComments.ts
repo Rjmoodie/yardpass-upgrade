@@ -1,29 +1,83 @@
-// src/hooks/useRealtimeComments.ts
-import { useEffect, useRef, useState } from 'react';
+// src/features/comments/hooks/useRealtimeComments.ts
+import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Comment } from '@/domain/posts';
 
-export interface Comment {
-  id: string;
-  text: string;
-  author_name?: string;
-  created_at: string;
-  post_id: string;
-  author_user_id: string;
-  client_id?: string;
-}
+/**
+ * Realtime comment data - may have partial data compared to full Comment type
+ * Extends domain Comment type with required fields for real-time updates
+ */
+export type RealtimeComment = Partial<Comment> & Pick<Comment, 'id' | 'text' | 'created_at' | 'post_id' | 'author_user_id'>;
 
+/**
+ * Props for useRealtimeComments hook
+ */
 interface UseRealtimeCommentsProps {
-  /** Subscribe by event OR explicit postIds (prefer postIds when you can) */
+  /** Subscribe to comments for all posts in this event (alternative to postIds) */
   eventId?: string;
+  /** Explicit list of post IDs to subscribe to (preferred when available) */
   postIds?: string[];
-  onCommentAdded: (comment: Comment) => void;
-  onCommentDeleted: (comment: Comment) => void;
+  /** Callback fired when a new comment is added */
+  onCommentAdded: (comment: RealtimeComment) => void;
+  /** Callback fired when a comment is deleted */
+  onCommentDeleted: (comment: RealtimeComment) => void;
 }
 
-/** Quote each UUID for PostgREST `in.(...)` filter */
+/**
+ * Quotes each UUID for use in PostgREST `in.(...)` filter syntax
+ * 
+ * PostgREST requires UUIDs in `in.(...)` filters to be quoted strings
+ * @param ids - Array of UUID strings
+ * @returns Comma-separated quoted UUID string
+ * 
+ * @example
+ * quoteCSV(['uuid1', 'uuid2']) // Returns: '"uuid1","uuid2"'
+ */
 const quoteCSV = (ids: string[]) =>
   ids.map((id) => `"${id}"`).join(',');
 
+/**
+ * Hook for real-time comment synchronization using Supabase Realtime.
+ * 
+ * Subscribes to comment INSERT/DELETE events for posts, either by event ID
+ * or explicit post IDs. Automatically fetches and enriches author names.
+ * 
+ * **Performance Optimizations:**
+ * - Uses refs for callbacks to prevent subscription churn
+ * - Chunks post IDs (80 per subscription) to avoid query limits
+ * - Caches author names locally to reduce database queries
+ * - Automatically subscribes to new posts added to the event
+ * 
+ * **Subscription Pattern:**
+ * - If `eventId` is provided: Subscribes to all posts in that event
+ * - If `postIds` is provided: Subscribes only to those specific posts
+ * - Post IDs are chunked into groups of 80 for efficient filtering
+ * 
+ * @param props - Configuration for comment subscriptions
+ * 
+ * @example
+ * ```typescript
+ * // Subscribe to all comments in an event
+ * useRealtimeComments({
+ *   eventId: 'event-uuid',
+ *   onCommentAdded: (comment) => {
+ *     console.log('New comment:', comment);
+ *     // Update UI
+ *   },
+ *   onCommentDeleted: (comment) => {
+ *     console.log('Deleted comment:', comment.id);
+ *     // Remove from UI
+ *   }
+ * });
+ * 
+ * // Subscribe to specific posts
+ * useRealtimeComments({
+ *   postIds: ['post-1', 'post-2'],
+ *   onCommentAdded: handleNewComment,
+ *   onCommentDeleted: handleDeletedComment
+ * });
+ * ```
+ */
 export const useRealtimeComments = ({
   eventId,
   postIds: explicitPostIds,
@@ -34,15 +88,17 @@ export const useRealtimeComments = ({
   const authorCacheRef = useRef<Map<string, { display_name?: string }>>(new Map());
 
   // 🎯 PERF-003: Keep latest callbacks in refs (prevent subscription churn)
+  // Use useLayoutEffect to update refs synchronously before effects run
   const addedRef = useRef(onCommentAdded);
   const deletedRef = useRef(onCommentDeleted);
-  useEffect(() => { 
-    // Removed verbose logging - refs update silently
-    addedRef.current = onCommentAdded; 
-  }, [onCommentAdded]);
-  useEffect(() => { 
-    deletedRef.current = onCommentDeleted; 
-  }, [onCommentDeleted]);
+  
+  React.useLayoutEffect(() => {
+    addedRef.current = onCommentAdded;
+  });
+  
+  React.useLayoutEffect(() => {
+    deletedRef.current = onCommentDeleted;
+  });
 
   // If caller supplies postIds, use them directly
   useEffect(() => {
@@ -125,7 +181,7 @@ export const useRealtimeComments = ({
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'event_comments', filter },
           async (payload) => {
-            const newComment = payload.new as Comment;
+            const newComment = payload.new as RealtimeComment;
 
             // Enrich author name (simple local cache)
             if (!newComment.author_name && newComment.author_user_id) {
@@ -153,7 +209,7 @@ export const useRealtimeComments = ({
           'postgres_changes',
           { event: 'DELETE', schema: 'public', table: 'event_comments', filter },
           (payload) => {
-            const deletedComment = payload.old as Comment;
+            const deletedComment = payload.old as RealtimeComment;
             deletedRef.current(deletedComment);
           }
         )

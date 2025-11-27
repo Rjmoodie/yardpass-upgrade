@@ -56,6 +56,8 @@ import {
 // If you already have this component, keep it. Otherwise, you can remove the tab below.
 // It's passed orgId/dateRange for context + starter questions.
 import { NaturalLanguageQuery } from '@/components/ai/NaturalLanguageQuery';
+import { useVideoAnalyticsSummary } from '@/hooks/useVideoErrorMetrics';
+import { AlertCircle, Clock, Zap } from 'lucide-react';
 
 /* ---------------------------- Types ---------------------------- */
 
@@ -479,7 +481,135 @@ const VideoAnalytics: React.FC<{ selectedOrg: string; dateRange: string }> = ({ 
           </div>
         </CardContent>
       </Card>
+
+      {/* Video Error Rates & Performance Metrics */}
+      <VideoErrorMetricsSection selectedOrg={selectedOrg} />
     </>
+  );
+};
+
+/* ----------------------- Video Error Metrics Section ------------------------- */
+
+const VideoErrorMetricsSection: React.FC<{ selectedOrg: string }> = ({ selectedOrg }) => {
+  const { data: summary, isLoading, error } = useVideoAnalyticsSummary({ orgId: selectedOrg, days: 30 });
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <div className="flex items-center justify-center">
+            <BrandedSpinner size="sm" text="Loading error metrics..." />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error || !summary) {
+    return null; // Silently fail - this is supplementary data
+  }
+
+  const formatMs = (ms: number) => {
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Error Rates */}
+      {summary.error_summary && summary.error_summary.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Video Error Rates (Last 30 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {summary.error_summary.map((error) => (
+                <div key={error.error_type} className="flex items-center justify-between p-3 rounded-lg border">
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{error.error_type.replace(/_/g, ' ')}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {error.affected_playbacks} playbacks • {error.affected_posts} posts
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-lg">{error.error_count.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">errors</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {summary.total_errors > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground">
+                  Total errors: <span className="font-medium">{summary.total_errors.toLocaleString()}</span>
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Performance Metrics */}
+      {summary.performance_summary && summary.performance_summary.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              Video Performance Metrics (Last 30 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {summary.performance_summary.map((metric) => (
+                <div key={metric.metric} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-sm">{metric.metric.replace(/_/g, ' ')}</p>
+                    <p className="text-xs text-muted-foreground">{metric.sample_count.toLocaleString()} samples</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Average</p>
+                      <p className="font-medium">{formatMs(metric.avg_value_ms)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Median</p>
+                      <p className="font-medium">{formatMs(metric.median_value_ms)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">P95</p>
+                      <p className="font-medium">{formatMs(metric.p95_value_ms)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {summary.total_metrics > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground">
+                  Total metrics: <span className="font-medium">{summary.total_metrics.toLocaleString()}</span>
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {(!summary.error_summary || summary.error_summary.length === 0) &&
+        (!summary.performance_summary || summary.performance_summary.length === 0) && (
+          <Card>
+            <CardContent className="py-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                No video error or performance data available yet. Data will appear as videos are played.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+    </div>
   );
 };
 

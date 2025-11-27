@@ -8,6 +8,7 @@ import { BarChart3, Calendar as CalendarIcon, Eye, MousePointerClick, TrendingUp
 import { addDays, format } from "date-fns";
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import type { AnalyticsPoint, AnalyticsTotals } from "@/types/campaigns";
+import { safePercentage, safeRate, safeDivide } from '@/analytics/utils/calculationValidation';
 
 // Lazy load chart component
 const CampaignChart = lazy(() => import('./charts/CampaignChart'));
@@ -88,10 +89,11 @@ export default function CampaignAnalytics({
     );
   }
 
-  // Calculate CTR and other metrics
-  const ctr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
-  const cpc = totals.clicks > 0 ? totals.spend_credits / totals.clicks : 0;
-  const cpm = totals.impressions > 0 ? (totals.spend_credits / totals.impressions) * 1000 : 0;
+  // Calculate CTR and other metrics with validation (Phase 2.2.2: Calculation Validation)
+  const ctr = safePercentage(totals.clicks, totals.impressions);
+  const conversionRate = safePercentage(totals.conversions, totals.clicks);
+  const cpc = safeDivide(totals.spend_credits, totals.clicks, 0);
+  const cpm = safeRate(totals.spend_credits, totals.impressions, 1000);
   
   return (
     <div className="space-y-6">
@@ -118,7 +120,7 @@ export default function CampaignAnalytics({
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{totals.clicks.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              CTR: {ctr.toFixed(2)}%
+              CTR: {Number.isFinite(ctr) ? `${ctr.toFixed(2)}%` : 'N/A'}
             </p>
           </CardContent>
         </Card>
@@ -131,7 +133,7 @@ export default function CampaignAnalytics({
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{totals.conversions.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              {totals.clicks > 0 ? ((totals.conversions / totals.clicks) * 100).toFixed(2) : 0}% conversion rate
+              {Number.isFinite(conversionRate) ? `${conversionRate.toFixed(2)}%` : 'N/A'} conversion rate
             </p>
           </CardContent>
         </Card>
@@ -144,7 +146,7 @@ export default function CampaignAnalytics({
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{totals.spend_credits.toLocaleString()} credits</div>
             <p className="text-xs text-muted-foreground">
-              CPM: {cpm.toFixed(2)} credits
+              CPM: {Number.isFinite(cpm) ? `${cpm.toFixed(2)}` : 'N/A'} credits
             </p>
           </CardContent>
         </Card>

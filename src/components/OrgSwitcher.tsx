@@ -74,7 +74,7 @@ export function OrgSwitcher({
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" className={className || "w-[240px] bg-white border-ink-200 shadow-card"}>
+      <DropdownMenuContent align="start" className={className || "w-[240px] bg-white border-ink-200 shadow-card touch-manipulation"}>
         <div className="px-2 pt-2 pb-1">
           <div className="relative">
             <Search className="absolute left-2 top-[9px] h-4 w-4 text-muted-foreground" />
@@ -82,7 +82,15 @@ export function OrgSwitcher({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search organizations…"
-              className="pl-8 h-8 border-ink-200 focus:border-brand-600 focus:ring-brand-600"
+              className="pl-8 h-8 border-ink-200 focus:border-brand-600 focus:ring-brand-600 touch-manipulation"
+              autoFocus={false}
+              onFocus={(e) => {
+                // ✅ iOS: Prevent keyboard from interfering with dropdown
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                  e.target.blur();
+                  setTimeout(() => e.target.focus(), 100);
+                }
+              }}
             />
           </div>
         </div>
@@ -91,7 +99,18 @@ export function OrgSwitcher({
           <>
             <DropdownMenuLabel>Recent</DropdownMenuLabel>
             {recentItems.map(org => (
-              <DropdownMenuItem key={`recent-${org.id}`} onSelect={() => commit(org.id)}>
+              <DropdownMenuItem 
+                key={`recent-${org.id}`} 
+                onSelect={(e) => {
+                  e.preventDefault();
+                  commit(org.id);
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  commit(org.id);
+                }}
+              >
                 <Building2 className="mr-2 h-4 w-4" />
                 <span className="truncate">{org.name}</span>
                 {org.is_verified && (
@@ -109,7 +128,18 @@ export function OrgSwitcher({
           <>
             <DropdownMenuLabel>All Organizations</DropdownMenuLabel>
             {allFiltered.map(org => (
-              <DropdownMenuItem key={org.id} onSelect={() => commit(org.id)}>
+              <DropdownMenuItem 
+                key={org.id} 
+                onSelect={(e) => {
+                  e.preventDefault();
+                  commit(org.id);
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  commit(org.id);
+                }}
+              >
                 <Building2 className="mr-2 h-4 w-4" />
                 <span className="truncate">{org.name}</span>
                 {org.is_verified && (
@@ -125,7 +155,17 @@ export function OrgSwitcher({
         )}
 
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => (window.location.href = onCreateOrgPath)}>
+        <DropdownMenuItem 
+          onSelect={(e) => {
+            e.preventDefault();
+            window.location.href = onCreateOrgPath;
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.location.href = onCreateOrgPath;
+          }}
+        >
           <Building2 className="mr-2 h-4 w-4" />
           <span>Create new organization</span>
         </DropdownMenuItem>

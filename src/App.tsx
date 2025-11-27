@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, useLayoutEffect, lazy, Suspense, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext'; // Removed AuthProvider import (already in main.tsx)
 import { ProfileViewProvider, useProfileView } from '@/contexts/ProfileViewContext';
@@ -20,13 +20,272 @@ import { PageLoadingSpinner } from '@/components/LoadingSpinner';
 import { FullScreenLoading } from '@/components/layout/FullScreenLoading';
 import { FullScreenSafeArea } from '@/components/layout/FullScreenSafeArea';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { Event } from '@/types/events';
+import type { Event } from '@/types/events';
 import { PerfPreconnect } from '@/components/Perf/PerfPreconnect';
 import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
 import { DeferredImports } from '@/components/Perf/DeferredImports';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { usePlatform } from '@/hooks/usePlatform';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+
+function ScrollRestorationManager() {
+  const location = useLocation();
+  const savedScrollRef = useRef<number>(0);
+  const isLockedRef = useRef(false);
+
+  // NUCLEAR OPTION: Lock scrolling entirely during route transitions
+  useLayoutEffect(() => {
+    isLockedRef.current = true;
+    
+    // Save current scroll position BEFORE route change
+    const mainEl = document.getElementById('main-content');
+    savedScrollRef.current = mainEl?.scrollTop || window.scrollY || 0;
+    
+    // Disable browser scroll restoration
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    // STEP 1: Immediately lock all scrolling via CSS
+    const lockScroll = () => {
+      const main = document.getElementById('main-content');
+      const html = document.documentElement;
+      const body = document.body;
+      
+      // Add CSS class to lock scrolling
+      html.classList.add('scroll-locked');
+      if (main) {
+        main.classList.add('scroll-resetting');
+        // Save current scroll and force to 0
+        main.style.overflow = 'hidden';
+        main.style.position = 'relative';
+        main.style.top = `-${savedScrollRef.current}px`;
+        main.scrollTop = 0;
+      }
+      
+      // Lock window scroll
+      body.style.overflow = 'hidden';
+      body.style.position = 'fixed';
+      body.style.width = '100%';
+      body.style.top = `-${savedScrollRef.current}px`;
+    };
+
+    // Lock immediately (synchronous, before paint)
+    lockScroll();
+
+    const resetScroll = () => {
+      const main = document.getElementById('main-content');
+      
+      // Reset main scroll container
+      if (main) {
+        main.scrollTop = 0;
+        main.scrollLeft = 0;
+        main.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      }
+      
+      // Reset window scroll
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      
+      // Reset document element scroll
+      document.documentElement.scrollTop = 0;
+      document.documentElement.scrollLeft = 0;
+      document.body.scrollTop = 0;
+      document.body.scrollLeft = 0;
+    };
+
+    // Immediate reset (synchronous, before paint)
+    resetScroll();
+
+    // Intercept scroll events and prevent them during reset period
+    const preventScroll = (e: UIEvent) => {
+      if (isLockedRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        resetScroll();
+      }
+    };
+
+    // Multiple resets with different timings to catch delayed restoration
+    const timeouts: number[] = [];
+    const rafs: number[] = [];
+
+    // RequestAnimationFrame resets (catches after layout but before paint)
+    rafs.push(requestAnimationFrame(() => {
+      resetScroll();
+      rafs.push(requestAnimationFrame(() => {
+        resetScroll();
+        rafs.push(requestAnimationFrame(() => {
+          resetScroll();
+        }));
+      }));
+    }));
+
+    // Timeout resets at various intervals (more aggressive)
+    [0, 1, 5, 10, 25, 50, 100, 200, 300, 500].forEach(delay => {
+      timeouts.push(window.setTimeout(() => {
+        resetScroll();
+      }, delay));
+    });
+
+    // MutationObserver to catch any DOM changes that might trigger scroll
+    const observer = new MutationObserver((mutations) => {
+      // Only reset if scroll position changed
+      const main = document.getElementById('main-content');
+      if (main && (main.scrollTop > 0 || window.scrollY > 0)) {
+        resetScroll();
+      }
+    });
+
+    // Observe the main content area and body for any changes
+    const main = document.getElementById('main-content');
+    if (main) {
+      observer.observe(main, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+      });
+    }
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
+
+    // Watch for scroll events and reset if scroll position changes
+    const handleScroll = () => {
+      if (!isLockedRef.current) return;
+      
+      const main = document.getElementById('main-content');
+      const hasScrolled = 
+        (main && main.scrollTop > 0) || 
+        window.scrollY > 0 || 
+        document.documentElement.scrollTop > 0;
+      
+      if (hasScrolled) {
+        resetScroll();
+      }
+    };
+
+    // Listen for scroll events with capture phase (catches all scroll events)
+    // Use passive: false so we can prevent default if needed
+    const handleScrollListener = handleScroll as EventListener;
+    const preventScrollListener = preventScroll as EventListener;
+    
+    window.addEventListener('scroll', handleScrollListener, { capture: true, passive: false });
+    window.addEventListener('scroll', preventScrollListener, { capture: true, passive: false });
+    if (main) {
+      main.addEventListener('scroll', handleScrollListener, { capture: true, passive: false });
+      main.addEventListener('scroll', preventScrollListener, { capture: true, passive: false });
+    }
+
+    // Unlock scrolling after content has loaded (allow some time for layout)
+    const unlockScroll = () => {
+      const main = document.getElementById('main-content');
+      const html = document.documentElement;
+      const body = document.body;
+      
+      // Remove CSS locks
+      html.classList.remove('scroll-locked');
+      if (main) {
+        main.classList.remove('scroll-resetting');
+        main.style.overflow = '';
+        main.style.position = '';
+        main.style.top = '';
+        // Ensure scroll is still at 0
+        main.scrollTop = 0;
+      }
+      
+      // Unlock window scroll
+      body.style.overflow = '';
+      body.style.position = '';
+      body.style.width = '';
+      body.style.top = '';
+      
+      // Final reset to ensure we're at top
+      resetScroll();
+      isLockedRef.current = false;
+    };
+
+    // Unlock after a delay (allows content to load)
+    // Use longer delay to ensure all async content has loaded
+    const unlockTimer = setTimeout(() => {
+      unlockScroll();
+    }, 800); // Longer delay to let all content render
+    
+    // Also unlock when content is actually ready (check for images loaded)
+    const checkContentReady = setInterval(() => {
+      const main = document.getElementById('main-content');
+      if (main) {
+        // Check if main content has rendered (has children)
+        const hasContent = main.children.length > 0;
+        // Check if images are loaded (rough heuristic)
+        const images = main.querySelectorAll('img');
+        const imagesLoaded = images.length === 0 || Array.from(images).every(img => (img as HTMLImageElement).complete);
+        
+        if (hasContent && imagesLoaded) {
+          clearInterval(checkContentReady);
+          unlockScroll();
+        }
+      }
+    }, 100);
+    
+    // Force unlock after 2 seconds max (safety net)
+    const forceUnlock = setTimeout(() => {
+      clearInterval(checkContentReady);
+      unlockScroll();
+    }, 2000);
+
+    return () => {
+      // Cleanup all timeouts
+      timeouts.forEach(clearTimeout);
+      clearTimeout(unlockTimer);
+      clearTimeout(forceUnlock);
+      clearInterval(checkContentReady);
+      rafs.forEach(cancelAnimationFrame);
+      observer.disconnect();
+      window.removeEventListener('scroll', handleScrollListener, { capture: true });
+      window.removeEventListener('scroll', preventScrollListener, { capture: true });
+      if (main) {
+        main.removeEventListener('scroll', handleScrollListener, { capture: true });
+        main.removeEventListener('scroll', preventScrollListener, { capture: true });
+      }
+      
+      // Cleanup scroll locks
+      unlockScroll();
+    };
+  }, [location.pathname, location.search]);
+
+  // Additional useEffect with delayed resets as backup
+  useEffect(() => {
+    const resetScroll = () => {
+      const main = document.getElementById('main-content');
+      if (main) {
+        main.scrollTop = 0;
+        main.scrollLeft = 0;
+        main.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    // Delayed resets as fallback (longer intervals)
+    const timeout1 = setTimeout(resetScroll, 100);
+    const timeout2 = setTimeout(resetScroll, 300);
+    const timeout3 = setTimeout(resetScroll, 500);
+    const timeout4 = setTimeout(resetScroll, 1000);
+
+    return () => {
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+      clearTimeout(timeout3);
+      clearTimeout(timeout4);
+    };
+  }, [location.pathname, location.search]);
+
+  return null;
+}
 
 // Lazy load heavy components
 const EventSlugPage = lazy(() => import('@/pages/EventSlugPage'));
@@ -56,6 +315,7 @@ const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
 const RefundPolicy = lazy(() => import('@/pages/RefundPolicy'));
 const DeploymentReadinessPage = lazy(() => import('@/pages/DeploymentReadinessPage'));
+const VideoLabPage = lazy(() => import('@/pages/dev/VideoLabPage'));
 const OrgInvitePage = lazy(() => import('@/pages/OrgInvitePage'));
 const TicketsRoute = lazy(() => import('@/components/TicketsRoute').then(m => ({ default: m.TicketsRoute })));
 const TicketSuccessPage = lazy(() => import('@/components/TicketSuccessPage'));
@@ -184,14 +444,73 @@ function AppContent() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const mainContentRef = useRef<HTMLElement | null>(null);
 
   useAccessibility();
   usePushNotifications(); // Setup push notifications for iOS
 
-  // Initialize iOS Capacitor settings on app load
+  // Reset scroll on route change - fixes "flash then revert" issue
+  // MUST run BEFORE React Router's scroll restoration
   useEffect(() => {
-    initIOSCapacitor();
+    const resetScroll = () => {
+      // Reset main content scroll position
+      if (mainContentRef.current) {
+        mainContentRef.current.scrollTop = 0;
+        mainContentRef.current.scrollTo({ top: 0, behavior: 'instant' });
+      }
+      
+      // Reset window scroll as fallback
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      
+      // Find and reset ALL scroll containers
+      const allScrollContainers = document.querySelectorAll(
+        '.scroll-container, [class*="overflow-y-auto"], .overflow-y-auto, main[role="main"]'
+      );
+      allScrollContainers.forEach(container => {
+        if (container instanceof HTMLElement) {
+          container.scrollTop = 0;
+          container.scrollTo({ top: 0, behavior: 'instant' });
+        }
+      });
+    };
+    
+    // Immediate reset
+    resetScroll();
+    
+    // Multiple reset attempts to override browser/router restoration
+    const raf1 = requestAnimationFrame(() => {
+      resetScroll();
+      const raf2 = requestAnimationFrame(() => {
+        resetScroll();
+      });
+      setTimeout(() => cancelAnimationFrame(raf2), 100);
+    });
+    
+    // Delayed resets to catch late restoration
+    const timeout1 = setTimeout(resetScroll, 0);
+    const timeout2 = setTimeout(resetScroll, 50);
+    const timeout3 = setTimeout(resetScroll, 100);
+    
+    return () => {
+      cancelAnimationFrame(raf1);
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+      clearTimeout(timeout3);
+    };
+  }, [location.pathname]);
+
+  // Setup keyboard listeners on app load
+  // Note: iOS Capacitor StatusBar is initialized in main.tsx before render to ensure safe areas work immediately
+  useEffect(() => {
     setupKeyboardListeners();
+    
+    // If iOS Capacitor wasn't initialized in main.tsx (shouldn't happen), initialize it here as fallback
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
+      initIOSCapacitor().then(() => {
+        // Force safe area recalculation after StatusBar is configured
+        window.dispatchEvent(new Event('resize'));
+      }).catch(console.warn);
+    }
   }, []);
 
   // Handle deep links from shared URLs
@@ -344,18 +663,21 @@ function AppContent() {
 
   return (
     <>
+      <ScrollRestorationManager />
       <GlobalErrorHandler />
       <PerfPreconnect />
       <WarmHlsOnIdle />
       <DeferredImports />
       <AnalyticsWrapper>
-        <FullScreenSafeArea className="app-frame flex flex-col bg-background relative no-page-bounce" data-role={routeRole}>
+        <FullScreenSafeArea scroll={false} className="app-frame flex flex-col bg-background relative no-page-bounce" data-role={routeRole}>
           <div className="app-mesh pointer-events-none" aria-hidden="true" />
 
           {/* Main Content Area */}
+          {/* Note: main element is the scroll container (has overflow-y-auto) */}
           <main
             id="main-content"
-            className="content-on-nav scroll-container flex-1 pb-nav"
+            ref={mainContentRef}
+            className="content-on-nav scroll-container flex-1 overflow-y-auto pb-nav"
             role="main"
             aria-label="Main content"
             style={{
@@ -373,7 +695,7 @@ function AppContent() {
                   }`}
                 >
                   <Suspense fallback={<PageLoadingSpinner />}>
-                    <Routes>
+                    <Routes key={location.pathname}>
               {/* Public Routes */}
               <Route path="/" element={<Index />} />
               <Route
@@ -407,6 +729,18 @@ function AppContent() {
               <Route path="/terms-of-service" element={<TermsOfService onBack={() => navigate('/')} />} />
               <Route path="/refund-policy" element={<RefundPolicy onBack={() => navigate('/')} />} />
               <Route path="/deployment-readiness" element={<DeploymentReadinessPage onBack={() => navigate('/')} />} />
+              
+              {/* Dev Routes - Only in development */}
+              {import.meta.env.DEV && (
+                <Route
+                  path="/dev/video-lab"
+                  element={
+                    <Suspense fallback={<PageLoadingSpinner />}>
+                      <VideoLabPage />
+                    </Suspense>
+                  }
+                />
+              )}
 
               {/* Protected Routes */}
               <Route

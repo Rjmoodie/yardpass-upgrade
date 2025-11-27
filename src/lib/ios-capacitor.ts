@@ -29,6 +29,7 @@ export async function initIOSCapacitor() {
     await Keyboard.setResizeMode({ mode: 'native' });
 
     // 4. Listen for theme changes and update StatusBar accordingly
+    // This listens to system theme changes
     const mediaQuery = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (mediaQuery?.addEventListener) {
       mediaQuery.addEventListener('change', async (e) => {
@@ -37,6 +38,27 @@ export async function initIOSCapacitor() {
         });
       });
     }
+
+    // 5. Listen to app theme changes (next-themes class changes)
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          const html = document.documentElement;
+          const isDark = html.classList.contains('dark');
+          updateStatusBarForTheme(isDark);
+        }
+      });
+    });
+
+    // Observe html element for class changes
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    // Initial theme check
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    await updateStatusBarForTheme(isDarkMode);
 
     console.log('✅ iOS Capacitor configuration initialized');
   } catch (error) {

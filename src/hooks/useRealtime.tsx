@@ -254,8 +254,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
       });
       setIsConnected(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, userId, JSON.stringify(eventIds || [])]);
+  }, [user?.id, userId, eventIds?.join(',')]); // Use join instead of JSON.stringify for stable comparison
 
   const clearEvents = useCallback(() => {
     setEvents([]);

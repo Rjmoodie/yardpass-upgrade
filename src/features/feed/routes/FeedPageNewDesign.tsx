@@ -10,8 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 import { supabase } from '@/integrations/supabase/client';
 import { FeedFilter } from '@/components/FeedFilter';
-import CommentModal from '@/components/CommentModal';
-import { PostCreatorModal } from '@/components/PostCreatorModal';
+import { CommentModal } from '@/features/comments';
+import { PostCreatorModal } from '@/features/posts';
 import EventCheckoutSheet from '@/components/EventCheckoutSheet';
 import { EventCardNewDesign } from '@/components/feed/EventCardNewDesign';
 import { UserPostCardNewDesign } from '@/components/feed/UserPostCardNewDesign';
@@ -525,6 +525,42 @@ export default function FeedPageNewDesign() {
     });
   }, [toast]);
 
+  // ✅ Create memoized callbacks map for each item to prevent unnecessary re-renders
+  const itemCallbacksMap = useMemo(() => {
+    const map = new Map<string, {
+      onLike: () => void;
+      onComment: () => void;
+      onShare: () => void;
+      onSave: () => void;
+      onAuthorClick: () => void;
+      onDelete?: () => void;
+      onGetTickets?: () => void;
+    }>();
+
+    allFeedItems.forEach((item) => {
+      if (item.item_type === 'post') {
+        map.set(item.item_id, {
+          onLike: () => handleLike(item),
+          onComment: () => handleComment(item),
+          onShare: () => handleSharePost(item),
+          onSave: () => handleSave(item),
+          onAuthorClick: () => {
+            if (item.author_id) {
+              navigate(`/profile/${item.author_id}`);
+            }
+          },
+          onDelete: item.author_id === user?.id ? () => {
+            // Handle delete if user is author
+            toast({ title: 'Post deleted', description: 'Your post has been removed.' });
+          } : undefined,
+          onGetTickets: item.event_id ? () => handleOpenTickets(item.event_id || '', item) : undefined,
+        });
+      }
+    });
+
+    return map;
+  }, [allFeedItems, handleLike, handleComment, handleSharePost, handleSave, handleOpenTickets, navigate, user?.id, toast]);
+
   useEffect(() => {
     return () => {
       if (soundToastTimeoutRef.current) {
@@ -687,19 +723,17 @@ export default function FeedPageNewDesign() {
               ) : (
                 <UserPostCardNewDesign
                   item={item}
-                  onLike={() => handleLike(item)}
-                  onComment={() => handleComment(item)}
-                  onShare={() => handleSharePost(item)}
-                  onAuthorClick={() => {
-                    // Prefer username over user_id for cleaner URLs
-                    const identifier = item.author_username || item.author_id;
-                    if (identifier) navigate(`/profile/${identifier}`);
-                  }}
+                  onLike={itemCallbacksMap.get(item.item_id)?.onLike}
+                  onComment={itemCallbacksMap.get(item.item_id)?.onComment}
+                  onShare={itemCallbacksMap.get(item.item_id)?.onShare}
+                  onSave={itemCallbacksMap.get(item.item_id)?.onSave}
+                  isSaved={savedPostIds.has(item.item_id)}
+                  onAuthorClick={itemCallbacksMap.get(item.item_id)?.onAuthorClick}
                   onReport={handleReport}
-                  onDelete={() => refetch()} // ✅ Refresh feed when post deleted
+                  onDelete={itemCallbacksMap.get(item.item_id)?.onDelete}
                   soundEnabled={globalSoundEnabled}
                   isVideoPlaying={isVideoActive}
-                  onGetTickets={(eventId) => handleOpenTickets(eventId, item)}
+                  onGetTickets={itemCallbacksMap.get(item.item_id)?.onGetTickets}
                 />
               )}
             </section>

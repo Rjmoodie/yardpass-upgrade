@@ -1,21 +1,22 @@
-import useSWR from 'swr';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { FollowCounts } from './useFollowGraph';
 
 /**
- * Cached version of useFollowCounts using SWR.
+ * Cached version of useFollowCounts using React Query.
  * 
  * Benefits:
  * - 60s cache TTL (reduces DB load by ~80%)
  * - Background revalidation
  * - Automatic deduplication (multiple components = 1 query)
- * - Manual invalidation via mutate()
+ * - Manual invalidation via queryClient.invalidateQueries()
  * 
  * @example
- * const { counts, isLoading, mutate } = useFollowCountsCached('user', userId);
+ * const { counts, isLoading } = useFollowCountsCached({ targetType: 'user', targetId: userId });
  * 
  * // After follow/unfollow:
- * await mutate(); // Force refresh
+ * const queryClient = useQueryClient();
+ * queryClient.invalidateQueries({ queryKey: ['follow-counts', 'user', userId] });
  */
 
 interface UseFollowCountsCachedOptions {
@@ -29,68 +30,71 @@ export function useFollowCountsCached({
   targetId,
   enabled = true,
 }: UseFollowCountsCachedOptions) {
-  const cacheKey = enabled && targetId ? ['follow-counts', targetType, targetId] : null;
+  const queryKey = enabled && targetId ? ['follow-counts', targetType, targetId] : ['follow-counts', 'disabled'];
 
-  const fetcher = async ([_key, type, id]: [string, 'user' | 'organizer', string]): Promise<FollowCounts> => {
-    // Count followers (people following this target)
-    const { count: followerCount, error: followerError } = await supabase
-      .from('follows')
-      .select('*', { count: 'exact', head: true })
-      .eq('target_type', type)
-      .eq('target_id', id)
-      .eq('status', 'accepted');
+  const { data, error, isLoading, refetch } = useQuery<FollowCounts>({
+    queryKey,
+    queryFn: async (): Promise<FollowCounts> => {
+      if (!targetId || !enabled) {
+        return { followerCount: 0, followingCount: 0, pendingCount: 0 };
+      }
 
-    if (followerError) throw followerError;
-
-    // Count pending follow requests (only for user targets)
-    let pendingCount = 0;
-    if (type === 'user') {
-      const { count, error: pendingError } = await supabase
+      // Count followers (people following this target)
+      const { count: followerCount, error: followerError } = await supabase
         .from('follows')
         .select('*', { count: 'exact', head: true })
-        .eq('target_type', 'user')
-        .eq('target_id', id)
-        .eq('status', 'pending');
-      
-      if (pendingError) throw pendingError;
-      pendingCount = count ?? 0;
-    }
-
-    // Count following (people this target is following - only for user targets)
-    let followingCount = 0;
-    if (type === 'user') {
-      const { count, error: followingError } = await supabase
-        .from('follows')
-        .select('*', { count: 'exact', head: true })
-        .eq('follower_user_id', id)
+        .eq('target_type', targetType)
+        .eq('target_id', targetId)
         .eq('status', 'accepted');
-      
-      if (followingError) throw followingError;
-      followingCount = count ?? 0;
-    }
 
-    return {
-      followerCount: followerCount ?? 0,
-      followingCount,
-      pendingCount,
-    };
-  };
+      if (followerError) throw followerError;
 
-  const { data, error, isLoading, mutate } = useSWR(cacheKey, fetcher, {
-    revalidateOnFocus: false, // Don't refetch on window focus (counts don't change that often)
-    revalidateOnReconnect: true, // Do refetch when coming back online
-    dedupingInterval: 5000, // Dedupe requests within 5s
-    refreshInterval: 0, // No automatic polling (use mutate() after actions)
-    // Note: SWR has built-in cache, default ~30s stale time is fine
-    // We rely on explicit mutate() after follow/unfollow actions
+      // Count pending follow requests (only for user targets)
+      let pendingCount = 0;
+      if (targetType === 'user') {
+        const { count, error: pendingError } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('target_type', 'user')
+          .eq('target_id', targetId)
+          .eq('status', 'pending');
+        
+        if (pendingError) throw pendingError;
+        pendingCount = count ?? 0;
+      }
+
+      // Count following (people this target is following - only for user targets)
+      let followingCount = 0;
+      if (targetType === 'user') {
+        const { count, error: followingError } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_user_id', targetId)
+          .eq('status', 'accepted');
+        
+        if (followingError) throw followingError;
+        followingCount = count ?? 0;
+      }
+
+      return {
+        followerCount: followerCount ?? 0,
+        followingCount,
+        pendingCount,
+      };
+    },
+    enabled: enabled && !!targetId,
+    staleTime: 60 * 1000, // 60 seconds - reduce DB load by ~80%
+    gcTime: 5 * 60 * 1000, // 5 minutes cache time
+    refetchOnWindowFocus: false, // Don't refetch on window focus (counts don't change that often)
+    refetchOnReconnect: true, // Do refetch when coming back online
   });
 
   return {
     counts: data ?? { followerCount: 0, followingCount: 0, pendingCount: 0 },
     isLoading,
     error: error?.message ?? null,
-    refresh: mutate, // Alias for consistency with useFollowCounts API
-    mutate, // Expose raw mutate for advanced usage
+    refresh: refetch, // Alias for consistency with useFollowCounts API
+    mutate: refetch, // Alias for SWR compatibility
   };
 }
 
@@ -99,33 +103,31 @@ export function useFollowCountsCached({
  * Useful after follow/unfollow actions that affect multiple targets.
  * 
  * @example
- * import { mutate } from 'swr';
+ * import { useQueryClient } from '@tanstack/react-query';
  * import { invalidateFollowCounts } from './useFollowCountsCached';
  * 
+ * const queryClient = useQueryClient();
  * // After unfollowing user 'abc':
- * invalidateFollowCounts({ targetType: 'user', targetId: 'abc' });
+ * invalidateFollowCounts(queryClient, { targetType: 'user', targetId: 'abc' });
  */
-export function invalidateFollowCounts({
-  targetType,
-  targetId,
-}: {
-  targetType: 'user' | 'organizer';
-  targetId: string;
-}) {
-  const { mutate } = require('swr');
-  return mutate(['follow-counts', targetType, targetId]);
+export function invalidateFollowCounts(
+  queryClient: ReturnType<typeof useQueryClient>,
+  {
+    targetType,
+    targetId,
+  }: {
+    targetType: 'user' | 'organizer';
+    targetId: string;
+  }
+) {
+  return queryClient.invalidateQueries({ queryKey: ['follow-counts', targetType, targetId] });
 }
 
 /**
  * Invalidate all follow counts in cache.
  * Nuclear option for when you want to force refresh everything.
  */
-export function invalidateAllFollowCounts() {
-  const { mutate } = require('swr');
-  return mutate(
-    (key) => Array.isArray(key) && key[0] === 'follow-counts',
-    undefined,
-    { revalidate: true }
-  );
+export function invalidateAllFollowCounts(queryClient: ReturnType<typeof useQueryClient>) {
+  return queryClient.invalidateQueries({ queryKey: ['follow-counts'] });
 }
 

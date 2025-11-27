@@ -3,6 +3,8 @@ import { BrandedSpinner } from '../BrandedSpinner';
 import { extractMuxPlaybackId, posterUrl } from "@/lib/video/muxClient";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { logVideoError, logVideoMetric, createVideoContext } from "@/utils/videoLogger";
+import { logger } from "@/utils/logger";
 
 // 🎯 Lazy-load Mux Player (saves ~78 KB from initial bundle)
 const MuxPlayer = lazy(() => import("@mux/mux-player-react").then(m => ({ default: m.default })));
@@ -36,18 +38,50 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
   const playTrackedRef = useRef(false);
   const completeTrackedRef = useRef(false);
   const previousGlobalSound = useRef<boolean | undefined>(globalSoundEnabled);
+  
+  // Performance tracking
+  const loadStartTimeRef = useRef<number | null>(null);
+  const firstFrameTimeRef = useRef<number | null>(null);
+  const playStartTimeRef = useRef<number | null>(null);
 
   const playbackId = useMemo(() => extractMuxPlaybackId(url), [url]);
   const muxEnvKey = import.meta.env.VITE_MUX_DATA_ENV_KEY ?? "5i41hf91q117pfu1fgli0glfs";
   const muxBeaconDomain = import.meta.env.VITE_MUX_BEACON_DOMAIN;
 
-  // ✅ OPTIMIZATION: Mark as visible immediately (no lazy loading delay for videos)
-  // Videos need to preload to play instantly on scroll
+  // ✅ OPTIMIZATION: Use IntersectionObserver for accurate visibility detection
+  // This ensures videos only preload when actually near the viewport
+  const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!hasBeenVisible) {
-      setHasBeenVisible(true);
+    // If explicitly marked as visible, preload immediately
+    if (visible) {
+      if (!hasBeenVisible) {
+        setHasBeenVisible(true);
+      }
+      return;
     }
-  }, [hasBeenVisible]);
+
+    // Otherwise, use IntersectionObserver to detect when near viewport
+    if (!containerRef.current) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Preload when within 200px of viewport (for smooth scrolling)
+        const isNearViewport = entry.isIntersecting || entry.intersectionRatio > 0;
+        if (isNearViewport && !hasBeenVisible) {
+          setHasBeenVisible(true);
+        }
+      },
+      {
+        rootMargin: '200px', // Preload when 200px away (good balance for feed scrolling)
+        threshold: [0, 0.1], // Trigger at 0% and 10% visibility
+      }
+    );
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [visible, hasBeenVisible]);
 
   const sendMuxEngagement = useCallback(
     async (eventType: string, detail: Record<string, any> | undefined) => {
@@ -66,7 +100,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           },
         });
       } catch (error) {
-        console.debug("📉 Failed to send Mux engagement", error);
+        logger.debug("📉 Failed to send Mux engagement", error);
       }
     },
     [playbackId, post?.event_id, post?.id]
@@ -128,7 +162,40 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           setIsPlaying(true);
           setIsReady(true);
         } catch (err) {
-          console.debug("▶️ Autoplay blocked or play() rejected:", err);
+          const error = err instanceof Error ? err : new Error(String(err));
+          
+          // Skip AbortError - these are expected when play() is interrupted by new load requests
+          // This happens when user scrolls, video unmounts, or new video loads
+          if (error.name === 'AbortError' || error.message.includes('interrupted by a new load request')) {
+            // Silently handle - this is expected browser behavior
+            setIsPlaying(false);
+            return;
+          }
+          
+          const isAutoplayBlocked = error.message.includes('play') || error.name === 'NotAllowedError';
+          
+          if (isAutoplayBlocked) {
+            logVideoError({
+              type: 'autoplay_blocked',
+              playbackId,
+              url,
+              error,
+              context: {
+                ...createVideoContext(el as unknown as HTMLVideoElement, playbackId, post?.id, post?.event_id),
+              },
+            });
+          } else {
+            logVideoError({
+              type: 'playback_error',
+              playbackId,
+              url,
+              error,
+              context: {
+                ...createVideoContext(el as unknown as HTMLVideoElement, playbackId, post?.id, post?.event_id),
+              },
+            });
+          }
+          
           setIsPlaying(false);
         }
       };
@@ -224,7 +291,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
   const poster = posterUrl({ playbackId }, { time: 1, width: 720, fitMode: "preserve" });
 
   return (
-    <div
+    <div ref={containerRef}
       className={cn(
         "relative w-full overflow-hidden rounded-3xl bg-background aspect-[9/16] max-h-[82vh] shadow-xl",
         "group"
@@ -250,7 +317,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           preload="auto"
           crossOrigin="anonymous"
           poster={poster}
-          preferCmcd
+          preferCmcd={true as any}
           envKey={muxEnvKey}
           beaconCollectionDomain={muxBeaconDomain}
           metadata={{
@@ -275,15 +342,52 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
         onLoadStart={() => {
           setIsReady(false);
           setIsBuffering(true);
+          loadStartTimeRef.current = performance.now();
         }}
         onLoadedMetadata={() => {
           setIsReady(true);
           setIsBuffering(false);
+          
+          // Track time to first frame (metadata loaded)
+          if (loadStartTimeRef.current) {
+            const timeToMetadata = performance.now() - loadStartTimeRef.current;
+            if (!firstFrameTimeRef.current) {
+              firstFrameTimeRef.current = performance.now();
+              logVideoMetric({
+                metric: 'time_to_first_frame',
+                playbackId,
+                url,
+                value: timeToMetadata,
+                context: {
+                  postId: post?.id,
+                  eventId: post?.event_id,
+                },
+              });
+            }
+          }
         }}
         onPlay={() => {
           setIsPlaying(true);
           setIsReady(true);
           setIsBuffering(false);
+          
+          // Track time to play
+          if (loadStartTimeRef.current) {
+            const timeToPlay = performance.now() - loadStartTimeRef.current;
+            if (!playStartTimeRef.current) {
+              playStartTimeRef.current = performance.now();
+              logVideoMetric({
+                metric: 'time_to_play',
+                playbackId,
+                url,
+                value: timeToPlay,
+                context: {
+                  postId: post?.id,
+                  eventId: post?.event_id,
+                },
+              });
+            }
+          }
         }}
         onPause={() => setIsPlaying(false)}
         onPlaying={() => {
@@ -300,7 +404,18 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           const el = playerRef.current;
           if (el) setMuted(el.muted);
         }}
-        onError={(e) => console.error("❌ Mux player error:", playbackId, e)}
+        onError={(e) => {
+          const videoElement = playerRef.current as unknown as HTMLVideoElement | null;
+          logVideoError({
+            type: 'playback_error',
+            playbackId,
+            url,
+            error: e instanceof Error ? e : new Error(String(e)),
+            context: {
+              ...createVideoContext(videoElement, playbackId, post?.id, post?.event_id),
+            },
+          });
+        }}
       />
       </Suspense>
 

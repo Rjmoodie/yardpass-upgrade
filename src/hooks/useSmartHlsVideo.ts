@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getHlsModule, createHlsInstance } from '@/utils/hlsLoader';
+import { logVideoError, createVideoContext } from '@/utils/videoLogger';
 
 export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -102,6 +103,29 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
             if (import.meta.env.DEV) console.error('❌ HLS Error:', data);
             if (!data?.fatal) return;
 
+            const playbackId = manifestUrl.match(/mux\.com\/([^/]+)/)?.[1];
+            const errorType = data.type === HlsMod.default.ErrorTypes.NETWORK_ERROR
+              ? 'hls_network_error'
+              : data.type === HlsMod.default.ErrorTypes.MEDIA_ERROR
+              ? 'hls_media_error'
+              : 'hls_fatal_error';
+
+            logVideoError({
+              type: errorType as any,
+              playbackId,
+              url: manifestUrl,
+              error: new Error(`HLS fatal error: ${data.type}`),
+              context: {
+                ...createVideoContext(el, playbackId),
+                hlsErrorType: data.type,
+                hlsErrorDetails: {
+                  details: data.details,
+                  fatal: data.fatal,
+                  reason: data.reason,
+                },
+              },
+            });
+
             if (data.type === HlsMod.default.ErrorTypes.NETWORK_ERROR) {
               // network fatals generally require a destroy/recreate
               try { hlsRef.current?.destroy(); } catch {}
@@ -139,6 +163,19 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
 
         return () => el.removeEventListener('canplay', onCanPlay);
       } catch (error) {
+        const playbackId = manifestUrl.match(/mux\.com\/([^/]+)/)?.[1];
+        const err = error instanceof Error ? error : new Error(String(error));
+        
+        logVideoError({
+          type: 'hls_init_error',
+          playbackId,
+          url: manifestUrl,
+          error: err,
+          context: {
+            ...createVideoContext(el, playbackId),
+          },
+        });
+        
         if (import.meta.env.DEV) console.error('💥 Failed to set up HLS:', error);
       }
     })();
@@ -146,14 +183,68 @@ export function useSmartHlsVideo(manifestUrl: string, visible: boolean) {
     return () => { cancelled = true; };
   }, [manifestUrl, effectiveVisible]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount - robust cleanup to prevent memory leaks
   useEffect(() => {
     return () => {
-      try { videoRef.current?.pause(); } catch {}
-      if (hlsRef.current) {
-        try { hlsRef.current.destroy(); } catch {}
-        hlsRef.current = null;
+      const v = videoRef.current;
+      
+      // Cleanup video element
+      if (v) {
+        try {
+          v.pause();
+          v.currentTime = 0;
+          v.removeAttribute('src');
+          v.src = '';
+          v.srcObject = null;
+          v.oncanplay = null;
+          v.load();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
       }
+      
+      // Cleanup HLS instance
+      if (hlsRef.current) {
+        try {
+          const hls = hlsRef.current;
+          
+          // Detach from media first
+          if (v) {
+            try {
+              hls.detachMedia();
+            } catch (e) {
+              // Ignore
+            }
+          }
+          
+          // Stop loading
+          try {
+            hls.stopLoad();
+          } catch (e) {
+            // Ignore
+          }
+          
+          // Remove event listeners if possible
+          try {
+            const HlsEvents = (hls as any).constructor?.Events;
+            if (HlsEvents) {
+              hls.off(HlsEvents.ERROR);
+              hls.off(HlsEvents.MANIFEST_PARSED);
+            }
+          } catch (e) {
+            // Ignore
+          }
+          
+          // Destroy instance
+          hls.destroy();
+          hlsRef.current = null;
+        } catch (e) {
+          // Force null even if destroy fails
+          hlsRef.current = null;
+        }
+      }
+      
+      // Reset refs
       lastUrlRef.current = null;
       fatalCountRef.current = 0;
     };

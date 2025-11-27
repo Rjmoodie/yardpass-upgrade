@@ -12,7 +12,8 @@ import { EventFeed } from "@/components/EventFeed";
 import { EventPostsGrid } from "@/components/EventPostsGrid";
 import LazyMapboxEventMap from "@/components/maps/LazyMapboxEventMap";
 import EventCheckoutSheet from "@/components/EventCheckoutSheet";
-import CommentModal from "@/components/CommentModal";
+import { CommentModal } from "@/features/comments";
+import { FullscreenPostViewer } from "@/components/post-viewer/FullscreenPostViewer";
 import { SponsorBadges } from "@/components/sponsorship/SponsorBadges";
 import { FlashbackBanner } from "@/components/flashbacks/FlashbackBanner";
 import { FlashbackEmptyState } from "@/components/flashbacks/FlashbackEmptyState";
@@ -122,6 +123,10 @@ export function EventDetailsPageIntegrated() {
   // Comment modal state
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  
+  // Posts state for sequential browsing (organized by tab)
+  const [organizerPosts, setOrganizerPosts] = useState<Array<{ id: string; comment_count: number }>>([]);
+  const [taggedPosts, setTaggedPosts] = useState<Array<{ id: string; comment_count: number }>>([]);
 
   // Load event details
   useEffect(() => {
@@ -399,6 +404,145 @@ export function EventDetailsPageIntegrated() {
 
     loadEvent();
   }, [eventId, user]);
+
+  // Fetch organizer posts for sequential browsing
+  useEffect(() => {
+    const fetchOrganizerPosts = async () => {
+      if (!event?.id) return;
+
+      try {
+        // Get organizer member IDs
+        let memberIds: string[] = [];
+        if (event.ownerContextType === 'organization') {
+          const { data: members } = await supabase
+            .from('org_memberships')
+            .select('user_id')
+            .eq('org_id', event.ownerContextId);
+          memberIds = (members || []).map((m: any) => m.user_id);
+        } else if (event.ownerContextType === 'individual' && event.organizer.id) {
+          memberIds = [event.organizer.id];
+        }
+
+        if (memberIds.length === 0) {
+          setOrganizerPosts([]);
+          return;
+        }
+
+        // Fetch posts using the same edge function as EventPostsGrid
+        const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+        const url = new URL(`${baseUrl}/functions/v1/posts-list`);
+        url.searchParams.append('event_id', event.id);
+        url.searchParams.append('limit', '100');
+        url.searchParams.append('filter_type', 'organizer_only');
+
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
+        const res = await fetch(url.toString(), {
+          method: 'GET',
+          headers,
+          cache: 'no-store'
+        });
+
+        if (!res.ok) {
+          console.error('❌ Failed to fetch organizer posts:', res.status);
+          setOrganizerPosts([]);
+          return;
+        }
+
+        const payload = await res.json();
+        let rows: any[] = payload.data ?? [];
+
+        // Client-side filter
+        const orgMemberIdsSet = new Set(memberIds);
+        rows = rows.filter((r: any) => {
+          const isOrgPost = r.author_user_id && orgMemberIdsSet.has(r.author_user_id);
+          return isOrgPost;
+        });
+
+        setOrganizerPosts(rows.map((r: any) => ({
+          id: r.id,
+          comment_count: r.comment_count ?? 0,
+        })));
+      } catch (error) {
+        console.error('Error fetching organizer posts:', error);
+        setOrganizerPosts([]);
+      }
+    };
+
+    fetchOrganizerPosts();
+  }, [event?.id, event?.ownerContextType, event?.ownerContextId, event?.organizer.id]);
+
+  // Fetch tagged posts for sequential browsing
+  useEffect(() => {
+    const fetchTaggedPosts = async () => {
+      if (!event?.id) return;
+
+      try {
+        // Get organizer member IDs to exclude
+        let memberIds: string[] = [];
+        if (event.ownerContextType === 'organization') {
+          const { data: members } = await supabase
+            .from('org_memberships')
+            .select('user_id')
+            .eq('org_id', event.ownerContextId);
+          memberIds = (members || []).map((m: any) => m.user_id);
+        } else if (event.ownerContextType === 'individual' && event.organizer.id) {
+          memberIds = [event.organizer.id];
+        }
+
+        // Fetch posts using the same edge function as EventPostsGrid
+        const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+        const url = new URL(`${baseUrl}/functions/v1/posts-list`);
+        url.searchParams.append('event_id', event.id);
+        url.searchParams.append('limit', '100');
+        url.searchParams.append('filter_type', 'attendee_only');
+
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
+        const res = await fetch(url.toString(), {
+          method: 'GET',
+          headers,
+          cache: 'no-store'
+        });
+
+        if (!res.ok) {
+          console.error('❌ Failed to fetch tagged posts:', res.status);
+          setTaggedPosts([]);
+          return;
+        }
+
+        const payload = await res.json();
+        let rows: any[] = payload.data ?? [];
+
+        // Client-side filter - exclude organizer posts
+        if (memberIds.length > 0) {
+          const orgMemberIdsSet = new Set(memberIds);
+          rows = rows.filter((r: any) => {
+            const isOrgPost = r.author_user_id && orgMemberIdsSet.has(r.author_user_id);
+            return !isOrgPost;
+          });
+        }
+
+        setTaggedPosts(rows.map((r: any) => ({
+          id: r.id,
+          comment_count: r.comment_count ?? 0,
+        })));
+      } catch (error) {
+        console.error('Error fetching tagged posts:', error);
+        setTaggedPosts([]);
+      }
+    };
+
+    fetchTaggedPosts();
+  }, [event?.id, event?.ownerContextType, event?.ownerContextId, event?.organizer.id]);
 
   const toggleSave = async () => {
     if (!user || !event) {
@@ -895,24 +1039,56 @@ export function EventDetailsPageIntegrated() {
         />
       )}
 
-      {/* Comment Modal */}
-      {showCommentModal && selectedPostId && event && (
-        <CommentModal
-          key={`modal-${selectedPostId}-${event.id}`}
-          isOpen={showCommentModal}
-          onClose={() => {
-            setShowCommentModal(false);
-            setSelectedPostId(null);
-          }}
-          eventId={event.id}
-          eventTitle={event.title}
-          postId={selectedPostId}
-          onCommentCountChange={(postId, newCount) => {
-            console.log('💬 [EventDetails] Comment count updated:', postId, newCount);
-            // Optional: refresh counts
-          }}
-        />
-      )}
+      {/* Comment Modal - New Instagram-style Fullscreen Post Viewer */}
+      {showCommentModal && selectedPostId && event && (() => {
+        // Determine which posts array to use based on active tab
+        const currentPosts = activeTab === 'posts' ? organizerPosts : taggedPosts;
+        const postIdSequence = currentPosts.map(p => p.id);
+        const initialIndex = currentPosts.findIndex(p => p.id === selectedPostId);
+
+        return (
+          <FullscreenPostViewer
+            key={`viewer-${selectedPostId}-${event.id}-${activeTab}`}
+            isOpen={showCommentModal}
+            onClose={() => {
+              setShowCommentModal(false);
+              setSelectedPostId(null);
+            }}
+            eventId={event.id}
+            eventTitle={event.title}
+            postId={selectedPostId}
+            postIdSequence={postIdSequence}
+            initialIndex={initialIndex >= 0 ? initialIndex : 0}
+            onCommentCountChange={(postId, newCount) => {
+              console.log('💬 [EventDetails] Comment count updated:', postId, newCount);
+              // Update the corresponding posts array
+              if (activeTab === 'posts') {
+                setOrganizerPosts(prev => prev.map(p => 
+                  p.id === postId ? { ...p, comment_count: newCount } : p
+                ));
+              } else {
+                setTaggedPosts(prev => prev.map(p => 
+                  p.id === postId ? { ...p, comment_count: newCount } : p
+                ));
+              }
+            }}
+            onPostDelete={(postId) => {
+              // Remove deleted post from the corresponding array
+              if (activeTab === 'posts') {
+                setOrganizerPosts(prev => prev.filter(p => p.id !== postId));
+                setPostsCount(prev => Math.max(0, prev - 1));
+              } else {
+                setTaggedPosts(prev => prev.filter(p => p.id !== postId));
+                setTaggedCount(prev => Math.max(0, prev - 1));
+              }
+              // Close modal
+              setShowCommentModal(false);
+              setSelectedPostId(null);
+              console.log('🗑️ [EventDetails] Post deleted:', postId);
+            }}
+          />
+        );
+      })()}
       </div>
     </>
   );

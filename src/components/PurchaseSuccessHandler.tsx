@@ -113,14 +113,18 @@ export function PurchaseSuccessHandler() {
         <Card className="w-full max-w-md shadow-xl border-0 bg-white/95 backdrop-blur-sm">
           <CardContent className="p-8 text-center">
             <div className="space-y-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mx-auto shadow-lg animate-pulse">
-                <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
+              <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+                <img 
+                  src="/liventix-icon-60.png" 
+                  alt="Liventix" 
+                  className="w-16 h-16 object-contain"
+                  loading="eager"
+                  decoding="sync"
+                />
               </div>
               
               <div className="space-y-3">
-                <h2 className="text-xl font-semibold text-gray-900">
+                <h2 className="text-base font-semibold text-gray-900">
                   {ensureStatus === 'pending' ? 'Processing Payment' : 'Finalizing Tickets'}
                 </h2>
                 <p className="text-muted-foreground">

@@ -103,11 +103,45 @@ export function PostHero({
     video.playsInline = true;
 
     return () => {
+      // Robust cleanup to prevent memory leaks
       if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
+        try {
+          const hls = hlsRef.current;
+          // Detach from media first
+          if (video) {
+            try {
+              hls.detachMedia();
+            } catch (e) {
+              // Ignore
+            }
+          }
+          // Stop loading and destroy
+          try {
+            hls.stopLoad();
+          } catch (e) {
+            // Ignore
+          }
+          hls.destroy();
+          hlsRef.current = null;
+        } catch (e) {
+          // Force null even if destroy fails
+          hlsRef.current = null;
+        }
       }
-      video.pause();
+      
+      // Cleanup video element
+      if (video) {
+        try {
+          video.pause();
+          video.currentTime = 0;
+          video.removeAttribute('src');
+          video.src = '';
+          video.onloadedmetadata = null;
+          video.onerror = null;
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
     };
   }, [isVideo, mediaSrc]);
 

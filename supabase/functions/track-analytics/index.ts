@@ -13,6 +13,26 @@ serve(async (req) => {
   }
 
   try {
+    // Create service role client for inserting analytics data (bypasses RLS)
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!serviceRoleKey) {
+      console.error('SUPABASE_SERVICE_ROLE_KEY is not set');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const supabaseService = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      serviceRoleKey,
+      { auth: { persistSession: false } }
+    );
+
+    // Create anon client for user authentication (if needed)
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -20,17 +40,23 @@ serve(async (req) => {
 
     // Get the authorization header to identify the user
     const authHeader = req.headers.get('Authorization');
+    let userId: string | null = null;
     if (authHeader) {
-      supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
+      const { data: userData } = await supabaseClient.auth.getUser(
+        authHeader.replace('Bearer ', '')
+      );
+      userId = userData?.user?.id ?? null;
     }
 
     const { type, data } = await req.json();
 
     // Handle multiple IPs in x-forwarded-for header (take the first one)
     const forwardedFor = req.headers.get('x-forwarded-for');
-    const clientIP = forwardedFor 
+    const rawIP = forwardedFor 
       ? forwardedFor.split(',')[0].trim() 
-      : req.headers.get('x-real-ip') || 'unknown';
+      : req.headers.get('x-real-ip');
+    // Convert to INET-compatible format (null if invalid, otherwise pass as string)
+    const clientIP = rawIP && rawIP !== 'unknown' ? rawIP : null;
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
     if (type === 'view') {
@@ -149,6 +175,141 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error inserting feed performance:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+    } else if (type === 'video_error') {
+      // Track video playback errors
+      
+      // Validate error_type (strict enum values)
+      const validErrorTypes = [
+        'load_error',
+        'playback_error',
+        'hls_fatal_error',
+        'hls_network_error',
+        'hls_media_error',
+        'hls_init_error',
+        'autoplay_blocked',
+        'timeout',
+        'unknown'
+      ];
+      
+      const errorType = data.error_type || 'unknown';
+      if (!validErrorTypes.includes(errorType)) {
+        return new Response(
+          JSON.stringify({ error: `Invalid error_type: ${errorType}` }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      const { data: insertData, error } = await supabaseService
+        .rpc('insert_video_error', {
+          p_error_type: errorType,
+          p_playback_id: data.playback_id || null,
+          p_url: data.url || null,
+          p_error_message: (data.error_message || 'Unknown error').substring(0, 1000),
+          p_post_id: data.context?.postId || null,
+          p_event_id: data.context?.eventId || null,
+          p_user_id: userId || data.context?.user_id || null,
+          p_session_id: data.context?.session_id || null,
+          p_context: {
+            user_agent: data.context?.userAgent || userAgent,
+            network_type: data.context?.networkType || null,
+            ready_state: data.context?.readyState || null,
+            network_state: data.context?.networkState || null,
+            hls_error_type: data.context?.hlsErrorType || null,
+            hls_error_details: data.context?.hlsErrorDetails || null,
+          },
+          p_ip_address: clientIP,
+          p_user_agent: userAgent,
+        });
+
+      if (error) {
+        console.error('Error inserting video error:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+    } else if (type === 'video_metric') {
+      // Track video performance metrics
+      
+      // Validate metric type (strict enum values)
+      const validMetrics = [
+        'time_to_first_frame',
+        'time_to_play',
+        'buffering_duration',
+        'playback_start_failed'
+      ];
+      
+      const metric = data.metric;
+      if (!metric || !validMetrics.includes(metric)) {
+        console.warn('Invalid or missing video metric:', metric);
+        return new Response(
+          JSON.stringify({ error: `Invalid metric: ${metric || 'missing'}` }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      // Validate and clamp value (milliseconds, reasonable bounds)
+      // Handle both number and string inputs, round to integer
+      let value: number;
+      if (typeof data.value === 'number') {
+        value = Math.round(data.value); // Round to nearest integer
+      } else if (typeof data.value === 'string') {
+        const parsed = parseFloat(data.value);
+        value = isNaN(parsed) ? 0 : Math.round(parsed);
+      } else {
+        console.warn('Invalid video metric value type:', typeof data.value, data.value);
+        value = 0;
+      }
+      
+      if (isNaN(value) || value < 0) {
+        value = 0;
+      }
+      // Cap at 5 minutes (300000ms) - anything larger is likely bad data
+      if (value > 300000) {
+        value = 300000;
+      }
+      
+      const { data: insertData, error } = await supabaseService
+        .rpc('insert_video_metric', {
+          p_metric: metric,
+          p_playback_id: data.playback_id || null,
+          p_url: data.url || null,
+          p_value: value,
+          p_post_id: data.context?.postId || null,
+          p_event_id: data.context?.eventId || null,
+          p_user_id: userId || data.context?.user_id || null,
+          p_session_id: data.context?.session_id || null,
+          p_context: {
+            user_agent: data.context?.userAgent || userAgent,
+            network_type: data.context?.networkType || null,
+            device_type: data.context?.device_type || null,
+          },
+          p_ip_address: clientIP,
+          p_user_agent: userAgent,
+        });
+
+      if (error) {
+        console.error('Error inserting video metric:', error);
+        console.error('Metric data:', { metric, value, playback_id: data.playback_id });
         return new Response(
           JSON.stringify({ error: error.message }),
           { 

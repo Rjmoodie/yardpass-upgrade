@@ -23,7 +23,8 @@ import { UserPostCardNewDesign } from '@/components/feed/UserPostCardNewDesign';
 import { Dialog, DialogContent, BottomSheetContent } from '@/components/ui/dialog';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { useIsMobile } from '@/hooks/use-mobile';
-import CommentModal from '@/components/CommentModal';
+import { CommentModal } from '@/features/comments';
+import { FullscreenPostViewer } from '@/components/post-viewer/FullscreenPostViewer';
 import { useAuth } from '@/contexts/AuthContext';
 import { isVideoUrl, muxToPoster } from '@/utils/mux';
 import { useProfileView } from '@/contexts/ProfileViewContext';
@@ -1167,26 +1168,34 @@ export default function UserProfilePage() {
         ) : null}
       </Dialog>
 
-      {/* Comment Modal */}
+      {/* Comment Modal - New Instagram-style Fullscreen Post Viewer */}
       {commentContext && (
-        <CommentModal
+        <FullscreenPostViewer
+          key={`viewer-${commentContext.postId}-${commentContext.eventId}`}
           isOpen={showCommentModal}
           onClose={() => {
             setShowCommentModal(false);
             setCommentContext(null);
           }}
-          postId={commentContext.postId}
           eventId={commentContext.eventId}
           eventTitle={commentContext.eventTitle}
-          onCommentCountChange={(count) => {
+          postId={commentContext.postId}
+          postIdSequence={posts.map(p => p.id)}
+          initialIndex={posts.findIndex(p => p.id === commentContext.postId)}
+          onCommentCountChange={(postId, newCount) => {
             // Update local state to reflect new comment count
             setPosts((prevPosts) =>
               prevPosts.map((post) =>
-                post.id === commentContext.postId
-                  ? { ...post, comment_count: Number(count) }
+                post.id === postId
+                  ? { ...post, comment_count: newCount }
                   : post
               )
             );
+          }}
+          onPostDelete={(postId) => {
+            setPosts((prevPosts) => prevPosts.filter(p => p.id !== postId));
+            setShowCommentModal(false);
+            setCommentContext(null);
           }}
         />
       )}

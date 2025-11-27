@@ -157,13 +157,42 @@ export function resolveUnitPriceCents(item: any, tier: any | undefined): number 
 /**
  * Generate a stable idempotency key for Stripe API calls
  * 
- * @param parts - Array of domain identifiers (e.g., ['checkout', sessionId, userId])
+ * Phase 2.2.4: Enhanced idempotency key generation
+ * Format: operation_type:stable_id:UUID
+ * 
+ * @param operationType - Type of operation (e.g., 'checkout:create', 'payout:create')
+ * @param stableId - Stable internal ID (order_id, payout_id, etc.)
  * @param req - HTTP request (checks for x-idempotency-key header)
  * @returns Idempotency key string
  */
-export function generateIdempotencyKey(parts: string[], req?: Request): string {
+export function generateIdempotencyKey(
+  operationType: string,
+  stableId: string,
+  req?: Request
+): string {
+  // Allow client-provided key (takes precedence)
   const clientKey = req?.headers.get("x-idempotency-key");
   if (clientKey) return clientKey;
+  
+  // Generate key with format: operation_type:stable_id:UUID
+  // UUID ensures global uniqueness even if operation_type + stable_id collide
+  const uuid = crypto.randomUUID();
+  return `${operationType}:${stableId}:${uuid}`;
+}
+
+/**
+ * Legacy function for backwards compatibility
+ * @deprecated Use generateIdempotencyKey(operationType, stableId, req) instead
+ */
+export function generateIdempotencyKeyLegacy(parts: string[], req?: Request): string {
+  const clientKey = req?.headers.get("x-idempotency-key");
+  if (clientKey) return clientKey;
+  
+  // If parts follow new format (operation_type:stable_id), add UUID
+  if (parts.length >= 2 && parts[0].includes(':')) {
+    const uuid = crypto.randomUUID();
+    return parts.filter(Boolean).join(':') + ':' + uuid;
+  }
   
   return parts.filter(Boolean).join(':');
 }

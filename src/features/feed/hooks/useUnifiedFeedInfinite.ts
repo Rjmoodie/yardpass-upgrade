@@ -54,13 +54,33 @@ async function fetchPage(
   const { data, error } = await supabase.functions.invoke('home-feed', invokeOptions);
 
   if (error) {
-    console.error('❌ [Feed] home-feed error:', {
+    // Enhanced error logging for iOS debugging
+    const errorDetails = {
       message: error.message,
       name: error.name,
       status: (error as any).status,
       context: (error as any).context,
-    });
-    throw new Error(`home-feed failed: ${error.message || 'Unknown error'}`);
+      stack: error instanceof Error ? error.stack : undefined,
+    };
+    
+    console.error('❌ [Feed] home-feed error:', errorDetails);
+    
+    // Log to console for iOS debugging
+    if (typeof window !== 'undefined' && (window as any).Capacitor) {
+      console.error('[iOS Debug] Feed error details:', JSON.stringify(errorDetails, null, 2));
+    }
+    
+    // Provide more helpful error message
+    const errorMessage = error.message || 'Unknown error';
+    const statusCode = (error as any).status;
+    
+    if (statusCode === 403) {
+      throw new Error('Access denied. Please check your connection and try again.');
+    } else if (statusCode === 500) {
+      throw new Error('Server error. Please try again in a moment.');
+    } else {
+      throw new Error(`Failed to load feed: ${errorMessage}`);
+    }
   }
 
   if (!data || typeof data !== 'object' || !Array.isArray((data as any).items)) {

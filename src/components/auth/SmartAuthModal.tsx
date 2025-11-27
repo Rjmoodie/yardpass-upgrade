@@ -477,11 +477,6 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
               )}
             </Button>
 
-            <p className="text-xs sm:text-sm text-center text-muted-foreground pt-2">
-              {method === 'email'
-                ? "We'll detect your account type and send you the right sign-in method"
-                : "We'll send you a verification code via SMS"}
-            </p>
           </form>
         )}
 

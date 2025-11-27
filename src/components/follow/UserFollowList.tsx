@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { FollowButton } from './FollowButton';
 import { UserSearchModal } from './UserSearchModal';
+import { useFollowBatch } from '@/hooks/useFollowBatch';
 
 interface UserConnection {
   user_id: string;
@@ -45,6 +46,22 @@ export function UserFollowList({
   const [searchOpen, setSearchOpen] = useState(false);
 
   const targetUserId = userId || user?.id;
+
+  // Get all user IDs from all lists for batch follow query
+  const allUserIds = useMemo(() => {
+    const ids = new Set<string>();
+    following.forEach(u => ids.add(u.user_id));
+    followers.forEach(u => ids.add(u.user_id));
+    requests.forEach(u => ids.add(u.user_id));
+    return Array.from(ids);
+  }, [following, followers, requests]);
+
+  // Batch query follow states for all users in the lists
+  const { followMap, isLoading: followBatchLoading } = useFollowBatch({
+    targetType: 'user',
+    targetIds: allUserIds,
+    enabled: allUserIds.length > 0
+  });
 
   const loadConnections = useCallback(async () => {
     if (!targetUserId) return;
@@ -193,14 +210,64 @@ export function UserFollowList({
 
           {showActions && (
             <div className="flex items-center gap-2">
-              {user.current_user_follow_status === 'none' && (
-                <FollowButton
-                  targetType="user"
-                  targetId={user.user_id}
-                  size="sm"
-                  onFollowUpdate={(status) => handleFollowUpdate(user.user_id, status)}
-                />
-              )}
+              {(() => {
+                // Use batch-loaded follow state if available, otherwise use current_user_follow_status
+                const followState = followMap[user.user_id] ?? user.current_user_follow_status;
+                
+                if (followState === 'none') {
+                  return (
+                    <FollowButton
+                      targetType="user"
+                      targetId={user.user_id}
+                      size="sm"
+                      followState={followState}
+                      isLoading={followBatchLoading}
+                      onFollowUpdate={(status) => handleFollowUpdate(user.user_id, status)}
+                    />
+                  );
+                }
+                
+                // If already following or pending, show appropriate UI
+                if (followState === 'pending') {
+                  return (
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFollowRequestDecision(user.user_id, 'accepted')}
+                      >
+                        <UserCheck className="h-3 w-3 mr-1" />
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFollowRequestDecision(user.user_id, 'declined')}
+                      >
+                        <UserX className="h-3 w-3 mr-1" />
+                        Decline
+                      </Button>
+                    </div>
+                  );
+                }
+                
+                if (followState === 'accepted') {
+                  return (
+                    <div className="flex gap-1">
+                      <Badge variant="default" className="text-xs">
+                        <UserCheck className="h-3 w-3 mr-1" />
+                        Following
+                      </Badge>
+                      <Button size="sm" variant="outline">
+                        <MessageCircle className="h-3 w-3 mr-1" />
+                        Message
+                      </Button>
+                    </div>
+                  );
+                }
+                
+                return null;
+              })()}
               
               {user.current_user_follow_status === 'pending' && (
                 <div className="flex gap-1">

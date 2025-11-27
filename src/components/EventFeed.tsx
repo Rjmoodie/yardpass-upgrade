@@ -13,13 +13,13 @@ import { capture } from '@/lib/analytics';
 import { useVideoAnalytics } from '@/hooks/useVideoAnalytics';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useRealtimeEngagement } from '@/hooks/useRealtimeEngagement';
-import { useRealtimeComments } from '@/hooks/useRealtimeComments';
+import { useRealtimeComments } from '@/features/comments';
 import { isVideoUrl, muxToPoster } from '@/utils/mux';
 import { isLikelyVideo } from '@/utils/media';
 import { VideoMedia } from '@/components/feed/VideoMedia';
 import { useHlsPrefetch } from '@/hooks/useHlsPrefetch';
 import { PreloadCriticalAssets } from '@/components/Perf/PreloadCriticalAssets';
-import CommentModal from '@/components/CommentModal';
+import { CommentModal } from '@/features/comments';
 import { BrandedSpinner } from '@/components/BrandedSpinner';
 
 /** Shape returned by posts-list Edge Function after mapping */

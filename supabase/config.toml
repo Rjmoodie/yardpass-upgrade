@@ -116,6 +116,9 @@ verify_jwt = false
 [functions.inventory-monitor]
 verify_jwt = false
 
+[functions.send-push-notification]
+verify_jwt = false  # Auth handled manually (supports SERVICE_ROLE and user JWT)
+
 [functions.get-wallet]
 verify_jwt = true
 
